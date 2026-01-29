@@ -1,0 +1,11 @@
+# This file has been deleted
+
+**Original file**: PostViewController.swift  
+**Reason**: Example/documentation file causing duplicate class declarations  
+**Date**: January 24, 2026
+
+This was an example file showing how to use RealtimeDatabaseManager. 
+It has been deleted to prevent conflicts with your actual implementation.
+
+If you need the example code, you can find it in the Git history or 
+refer to IOS-INTEGRATION-GUIDE.md for similar examples.

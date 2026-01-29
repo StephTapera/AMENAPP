@@ -1,0 +1,87 @@
+rules_version = '2';
+
+// Firebase Storage Security Rules for AMENAPP
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function to check if user owns the resource
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Helper function to validate image file
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+    
+    // Helper function to check file size (max 10MB)
+    function isValidSize() {
+      return request.resource.size <= 10 * 1024 * 1024;
+    }
+    
+    // Profile Images - /profile_images/{userId}/{fileName}
+    // Users can only upload/update/delete their own profile images
+    // Anyone can read profile images (they're public)
+    match /profile_images/{userId}/{fileName} {
+      // Anyone can read (profile images are public)
+      allow read: if true;
+      
+      // Only the user can write to their own profile image folder
+      allow write: if isOwner(userId) && isImage() && isValidSize();
+    }
+    
+    // Alternative simpler profile image path - /profile_images/{userId}.jpg
+    match /profile_images/{userId} {
+      allow read: if true;
+      allow write: if isOwner(userId) && isImage() && isValidSize();
+    }
+    
+    // Post Images - /post_images/{postId}/{fileName}
+    // Any authenticated user can upload post images
+    match /post_images/{postId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && isImage() && isValidSize();
+    }
+    
+    // Testimony Images - /testimony_images/{testimonyId}/{fileName}
+    match /testimony_images/{testimonyId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && isImage() && isValidSize();
+    }
+    
+    // Prayer Images - /prayer_images/{prayerId}/{fileName}
+    match /prayer_images/{prayerId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && isImage() && isValidSize();
+    }
+    
+    // Message Images - /message_images/{conversationId}/{fileName}
+    // Only authenticated users can access message images
+    match /message_images/{conversationId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && isImage() && isValidSize();
+    }
+    
+    // Community Images - /community_images/{communityId}/{fileName}
+    match /community_images/{communityId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && isImage() && isValidSize();
+    }
+    
+    // Temporary Uploads - /temp/{userId}/{fileName}
+    // Users can upload temporary files to their own temp folder
+    match /temp/{userId}/{fileName} {
+      allow read, write: if isOwner(userId) && isValidSize();
+    }
+    
+    // Default rule - deny all other access
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

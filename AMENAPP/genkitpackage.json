@@ -1,0 +1,27 @@
+{
+  "name": "berean-genkit-backend",
+  "version": "1.0.0",
+  "description": "Genkit AI backend for Berean Bible Study",
+  "type": "module",
+  "main": "berean-flows.ts",
+  "scripts": {
+    "start": "genkit start",
+    "dev": "genkit start --watch",
+    "deploy": "genkit deploy",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@genkit-ai/core": "^0.9.0",
+    "@genkit-ai/googleai": "^0.9.0",
+    "@genkit-ai/firebase": "^0.9.0",
+    "genkit": "^0.9.0",
+    "zod": "^3.22.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

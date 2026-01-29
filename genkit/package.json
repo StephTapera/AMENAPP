@@ -1,0 +1,14 @@
+{
+  "name": "berean-genkit-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.21.0",
+    "express": "^4.18.2",
+    "dotenv": "^16.3.1"
+  }
+}
