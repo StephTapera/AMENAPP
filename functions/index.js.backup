@@ -1,0 +1,672 @@
+/**
+ * Cloud Functions for AMEN App - v2 Syntax
+ */
+
+const {onDocumentWritten, onDocumentCreated} = require("firebase-functions/v2/firestore");
+const {onSchedule} = require("firebase-functions/v2/scheduler");
+const {onCall, HttpsError} = require("firebase-functions/v2/https");
+const {initializeApp} = require("firebase-admin/app");
+const {getFirestore, FieldValue, Timestamp} = require("firebase-admin/firestore");
+const {getMessaging} = require("firebase-admin/messaging");
+
+initializeApp();
+
+const db = getFirestore();
+const messaging = getMessaging();
+
+// =============================================================================
+// 1. AUTO-UPDATE USER SEARCH FIELDS
+// =============================================================================
+
+exports.updateUserSearchFields = onDocumentWritten("users/{userId}", async (event) => {
+  if (!event.data.after.exists) {
+    return null;
+  }
+
+  const newData = event.data.after.data();
+  const oldData = event.data.before.exists ? event.data.before.data() : {};
+
+  const usernameChanged = newData.username !== oldData.username;
+  const displayNameChanged = newData.displayName !== oldData.displayName;
+
+  if (!usernameChanged && !displayNameChanged) {
+    return null;
+  }
+
+  const updates = {};
+
+  if (usernameChanged && newData.username) {
+    updates.usernameLowercase = newData.username.toLowerCase();
+  }
+
+  if (displayNameChanged && newData.displayName) {
+    updates.displayNameLowercase = newData.displayName.toLowerCase();
+  }
+
+  if (Object.keys(updates).length === 0) {
+    return null;
+  }
+
+  updates.searchUpdatedAt = FieldValue.serverTimestamp();
+
+  console.log(`📝 Updating search fields for user ${event.params.userId}:`, updates);
+
+  return event.data.after.ref.update(updates);
+});
+
+// =============================================================================
+// 2. UPDATE FOLLOWER/FOLLOWING COUNTS
+// =============================================================================
+
+exports.updateFollowerCount = onDocumentWritten("follows/{followId}", async (event) => {
+  const followData = event.data.after.exists ? event.data.after.data() : event.data.before.data();
+  
+  if (!followData) return null;
+
+  const followingUserId = followData.followingId;
+  const followerUserId = followData.followerId;
+
+  const isCreated = event.data.after.exists && !event.data.before.exists;
+  const isDeleted = !event.data.after.exists && event.data.before.exists;
+
+  if (!isCreated && !isDeleted) {
+    return null;
+  }
+
+  const increment = isCreated ? 1 : -1;
+
+  const batch = db.batch();
+
+  const followingUserRef = db.collection('users').doc(followingUserId);
+  batch.update(followingUserRef, {
+    followersCount: FieldValue.increment(increment)
+  });
+
+  const followerUserRef = db.collection('users').doc(followerUserId);
+  batch.update(followerUserRef, {
+    followingCount: FieldValue.increment(increment)
+  });
+
+  console.log(`👥 ${isCreated ? 'Added' : 'Removed'} follow: ${followerUserId} -> ${followingUserId}`);
+
+  await batch.commit();
+
+  if (isCreated) {
+    await sendFollowNotification(followerUserId, followingUserId);
+  }
+
+  return null;
+});
+
+// =============================================================================
+// 3. UPDATE POST ENGAGEMENT COUNTS
+// =============================================================================
+
+exports.updateAmenCount = onDocumentWritten("posts/{postId}/amens/{amenId}", async (event) => {
+  const postId = event.params.postId;
+  const isCreated = event.data.after.exists && !event.data.before.exists;
+  const isDeleted = !event.data.after.exists && event.data.before.exists;
+
+  if (!isCreated && !isDeleted) return null;
+
+  const increment = isCreated ? 1 : -1;
+  const postRef = db.collection('posts').doc(postId);
+
+  await postRef.update({
+    amenCount: FieldValue.increment(increment)
+  });
+
+  console.log(`🙏 ${isCreated ? 'Added' : 'Removed'} amen for post ${postId}`);
+
+  if (isCreated) {
+    const amenData = event.data.after.data();
+    const post = await postRef.get();
+    if (post.exists) {
+      const postData = post.data();
+      await sendAmenNotification(amenData.userId, postData.authorId, postId);
+    }
+  }
+
+  return null;
+});
+
+exports.updateCommentCount = onDocumentWritten("posts/{postId}/comments/{commentId}", async (event) => {
+  const postId = event.params.postId;
+  const isCreated = event.data.after.exists && !event.data.before.exists;
+  const isDeleted = !event.data.after.exists && event.data.before.exists;
+
+  if (!isCreated && !isDeleted) return null;
+
+  const increment = isCreated ? 1 : -1;
+  const postRef = db.collection('posts').doc(postId);
+
+  await postRef.update({
+    commentCount: FieldValue.increment(increment)
+  });
+
+  console.log(`💬 ${isCreated ? 'Added' : 'Removed'} comment for post ${postId}`);
+
+  if (isCreated) {
+    const commentData = event.data.after.data();
+    const post = await postRef.get();
+    if (post.exists) {
+      const postData = post.data();
+      await sendCommentNotification(commentData.authorId, postData.authorId, postId, commentData.content);
+    }
+  }
+
+  return null;
+});
+
+exports.updateRepostCount = onDocumentWritten("reposts/{repostId}", async (event) => {
+  const repostData = event.data.after.exists ? event.data.after.data() : event.data.before.data();
+  
+  if (!repostData || !repostData.originalPostId) return null;
+
+  const isCreated = event.data.after.exists && !event.data.before.exists;
+  const isDeleted = !event.data.after.exists && event.data.before.exists;
+
+  if (!isCreated && !isDeleted) return null;
+
+  const increment = isCreated ? 1 : -1;
+  const postRef = db.collection('posts').doc(repostData.originalPostId);
+
+  await postRef.update({
+    repostCount: FieldValue.increment(increment)
+  });
+
+  console.log(`🔄 ${isCreated ? 'Added' : 'Removed'} repost for post ${repostData.originalPostId}`);
+
+  return null;
+});
+
+// =============================================================================
+// 4. PUSH NOTIFICATIONS
+// =============================================================================
+
+async function sendFollowNotification(followerUserId, followingUserId) {
+  try {
+    if (followerUserId === followingUserId) return;
+
+    const followerDoc = await db.collection('users').doc(followerUserId).get();
+    if (!followerDoc.exists) return;
+    const follower = followerDoc.data();
+
+    const followingDoc = await db.collection('users').doc(followingUserId).get();
+    if (!followingDoc.exists) return;
+    const following = followingDoc.data();
+
+    const notifSettings = following.notificationSettings || {};
+    if (notifSettings.follows === false) {
+      console.log('🔕 User has disabled follow notifications');
+      return;
+    }
+
+    const fcmToken = following.fcmToken;
+    if (!fcmToken) {
+      console.log('⚠️ No FCM token found for user');
+      return;
+    }
+
+    const message = {
+      token: fcmToken,
+      notification: {
+        title: 'New Follower',
+        body: `${follower.displayName} started following you`,
+      },
+      data: {
+        type: 'follow',
+        followerId: followerUserId,
+        timestamp: Date.now().toString()
+      },
+      apns: {
+        payload: {
+          aps: {
+            sound: 'default',
+            badge: 1
+          }
+        }
+      }
+    };
+
+    await messaging.send(message);
+    console.log(`✅ Follow notification sent to ${followingUserId}`);
+
+    await db.collection('notifications').add({
+      userId: followingUserId,
+      type: 'follow',
+      actorId: followerUserId,
+      actorName: follower.displayName,
+      actorUsername: follower.username,
+      createdAt: FieldValue.serverTimestamp(),
+      read: false
+    });
+
+  } catch (error) {
+    console.error('❌ Error sending follow notification:', error);
+  }
+}
+
+async function sendAmenNotification(amenUserId, postAuthorId, postId) {
+  try {
+    if (amenUserId === postAuthorId) return;
+
+    const amenUserDoc = await db.collection('users').doc(amenUserId).get();
+    if (!amenUserDoc.exists) return;
+    const amenUser = amenUserDoc.data();
+
+    const authorDoc = await db.collection('users').doc(postAuthorId).get();
+    if (!authorDoc.exists) return;
+    const author = authorDoc.data();
+
+    const notifSettings = author.notificationSettings || {};
+    if (notifSettings.amens === false) return;
+
+    const fcmToken = author.fcmToken;
+    if (!fcmToken) return;
+
+    const message = {
+      token: fcmToken,
+      notification: {
+        title: '🙏 New Amen',
+        body: `${amenUser.displayName} said Amen to your post`,
+      },
+      data: {
+        type: 'amen',
+        postId: postId,
+        userId: amenUserId,
+        timestamp: Date.now().toString()
+      },
+      apns: {
+        payload: {
+          aps: {
+            sound: 'default',
+            badge: 1
+          }
+        }
+      }
+    };
+
+    await messaging.send(message);
+    console.log(`✅ Amen notification sent to ${postAuthorId}`);
+
+    await db.collection('notifications').add({
+      userId: postAuthorId,
+      type: 'amen',
+      actorId: amenUserId,
+      actorName: amenUser.displayName,
+      actorUsername: amenUser.username,
+      postId: postId,
+      createdAt: FieldValue.serverTimestamp(),
+      read: false
+    });
+
+  } catch (error) {
+    console.error('❌ Error sending amen notification:', error);
+  }
+}
+
+async function sendCommentNotification(commenterId, postAuthorId, postId, commentText) {
+  try {
+    if (commenterId === postAuthorId) return;
+
+    const commenterDoc = await db.collection('users').doc(commenterId).get();
+    if (!commenterDoc.exists) return;
+    const commenter = commenterDoc.data();
+
+    const authorDoc = await db.collection('users').doc(postAuthorId).get();
+    if (!authorDoc.exists) return;
+    const author = authorDoc.data();
+
+    const notifSettings = author.notificationSettings || {};
+    if (notifSettings.comments === false) return;
+
+    const fcmToken = author.fcmToken;
+    if (!fcmToken) return;
+
+    const truncatedComment = commentText.length > 50 
+      ? commentText.substring(0, 50) + '...' 
+      : commentText;
+
+    const message = {
+      token: fcmToken,
+      notification: {
+        title: '💬 New Comment',
+        body: `${commenter.displayName}: ${truncatedComment}`,
+      },
+      data: {
+        type: 'comment',
+        postId: postId,
+        commenterId: commenterId,
+        timestamp: Date.now().toString()
+      },
+      apns: {
+        payload: {
+          aps: {
+            sound: 'default',
+            badge: 1
+          }
+        }
+      }
+    };
+
+    await messaging.send(message);
+    console.log(`✅ Comment notification sent to ${postAuthorId}`);
+
+    await db.collection('notifications').add({
+      userId: postAuthorId,
+      type: 'comment',
+      actorId: commenterId,
+      actorName: commenter.displayName,
+      actorUsername: commenter.username,
+      postId: postId,
+      commentText: truncatedComment,
+      createdAt: FieldValue.serverTimestamp(),
+      read: false
+    });
+
+  } catch (error) {
+    console.error('❌ Error sending comment notification:', error);
+  }
+}
+
+// =============================================================================
+// 5. CONTENT MODERATION
+// =============================================================================
+
+exports.moderatePost = onDocumentCreated("posts/{postId}", async (event) => {
+  const post = event.data.data();
+  const content = (post.content || '').toLowerCase();
+
+  const inappropriateWords = ['spam', 'scam', 'hack', 'cheat'];
+
+  const containsInappropriate = inappropriateWords.some(word => 
+    content.includes(word)
+  );
+
+  if (containsInappropriate) {
+    console.log(`⚠️ Post ${event.params.postId} flagged for moderation`);
+    
+    await event.data.ref.update({
+      flaggedForReview: true,
+      flaggedAt: FieldValue.serverTimestamp(),
+      flaggedReason: 'automatic_keyword_detection'
+    });
+
+    await db.collection('moderationQueue').add({
+      postId: event.params.postId,
+      authorId: post.authorId,
+      content: post.content,
+      reason: 'automatic_keyword_detection',
+      createdAt: FieldValue.serverTimestamp(),
+      reviewed: false
+    });
+  }
+
+  return null;
+});
+
+exports.detectSpam = onDocumentCreated("posts/{postId}", async (event) => {
+  const post = event.data.data();
+  const userId = post.authorId;
+
+  const oneMinuteAgo = Timestamp.fromDate(new Date(Date.now() - 60000));
+
+  const recentPosts = await db.collection('posts')
+    .where('authorId', '==', userId)
+    .where('createdAt', '>', oneMinuteAgo)
+    .get();
+
+  if (recentPosts.size > 5) {
+    console.log(`🚫 User ${userId} detected as potential spammer`);
+
+    await event.data.ref.update({
+      flaggedForReview: true,
+      flaggedReason: 'spam_detection'
+    });
+
+    await db.collection('users').doc(userId).update({
+      postingRestricted: true,
+      restrictionExpires: Timestamp.fromDate(new Date(Date.now() + 3600000)),
+      restrictionReason: 'spam_detection'
+    });
+  }
+
+  return null;
+});
+
+// =============================================================================
+// 6. SCHEDULED FUNCTIONS
+// =============================================================================
+
+exports.sendPrayerReminders = onSchedule("0 9 * * *", async (event) => {
+  console.log('📅 Running daily prayer reminders...');
+
+  const prayerRequests = await db.collection('prayers')
+    .where('status', '==', 'active')
+    .where('type', '==', 'request')
+    .get();
+
+  let remindersSent = 0;
+
+  for (const prayerDoc of prayerRequests.docs) {
+    const prayer = prayerDoc.data();
+    const commitments = await prayerDoc.ref.collection('commitments').get();
+
+    for (const commitment of commitments.docs) {
+      const commitmentData = commitment.data();
+      
+      if (!commitmentData.wantsReminders) continue;
+
+      await sendPrayerReminderNotification(
+        commitmentData.userId,
+        prayerDoc.id,
+        prayer.title || 'Prayer Request'
+      );
+
+      remindersSent++;
+    }
+  }
+
+  console.log(`✅ Sent ${remindersSent} prayer reminders`);
+  return null;
+});
+
+async function sendPrayerReminderNotification(userId, prayerId, prayerTitle) {
+  try {
+    const userDoc = await db.collection('users').doc(userId).get();
+    if (!userDoc.exists) return;
+    
+    const user = userDoc.data();
+    const fcmToken = user.fcmToken;
+    
+    if (!fcmToken) return;
+
+    const notifSettings = user.notificationSettings || {};
+    if (notifSettings.prayerRequests === false) return;
+
+    const message = {
+      token: fcmToken,
+      notification: {
+        title: '🙏 Prayer Reminder',
+        body: `Remember to pray for: ${prayerTitle}`,
+      },
+      data: {
+        type: 'prayer_reminder',
+        prayerId: prayerId,
+        timestamp: Date.now().toString()
+      },
+      apns: {
+        payload: {
+          aps: {
+            sound: 'default'
+          }
+        }
+      }
+    };
+
+    await messaging.send(message);
+    console.log(`✅ Prayer reminder sent to ${userId}`);
+
+  } catch (error) {
+    console.error('❌ Error sending prayer reminder:', error);
+  }
+}
+
+exports.generateWeeklyStats = onSchedule("0 9 * * 1", async (event) => {
+  console.log('📊 Generating weekly stats...');
+
+  const now = new Date();
+  const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+  const postsSnapshot = await db.collection('posts')
+    .where('createdAt', '>', Timestamp.fromDate(weekAgo))
+    .get();
+
+  const prayersSnapshot = await db.collection('prayers')
+    .where('createdAt', '>', Timestamp.fromDate(weekAgo))
+    .get();
+
+  const answeredPrayers = prayersSnapshot.docs.filter(doc => 
+    doc.data().status === 'answered'
+  ).length;
+
+  const stats = {
+    week: `${weekAgo.toISOString().split('T')[0]} to ${now.toISOString().split('T')[0]}`,
+    totalPosts: postsSnapshot.size,
+    totalPrayers: prayersSnapshot.size,
+    answeredPrayers: answeredPrayers,
+    generatedAt: FieldValue.serverTimestamp()
+  };
+
+  await db.collection('weeklyStats').add(stats);
+
+  console.log('✅ Weekly stats generated:', stats);
+  return null;
+});
+
+// =============================================================================
+// 7. CALLABLE FUNCTIONS
+// =============================================================================
+
+exports.generateFeed = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'User must be authenticated');
+  }
+
+  const userId = request.auth.uid;
+  const limit = request.data.limit || 20;
+
+  try {
+    const followsSnapshot = await db.collection('follows')
+      .where('followerId', '==', userId)
+      .get();
+
+    const followingIds = followsSnapshot.docs.map(doc => doc.data().followingId);
+
+    if (followingIds.length === 0) {
+      const postsSnapshot = await db.collection('posts')
+        .orderBy('amenCount', 'desc')
+        .limit(limit)
+        .get();
+
+      return {
+        posts: postsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }))
+      };
+    }
+
+    const allPosts = [];
+    
+    for (let i = 0; i < followingIds.length; i += 10) {
+      const batch = followingIds.slice(i, i + 10);
+      const postsSnapshot = await db.collection('posts')
+        .where('authorId', 'in', batch)
+        .orderBy('createdAt', 'desc')
+        .limit(limit)
+        .get();
+
+      allPosts.push(...postsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })));
+    }
+
+    allPosts.sort((a, b) => b.createdAt - a.createdAt);
+
+    return {
+      posts: allPosts.slice(0, limit)
+    };
+
+  } catch (error) {
+    console.error('Error generating feed:', error);
+    throw new HttpsError('internal', 'Failed to generate feed');
+  }
+});
+
+exports.reportContent = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'User must be authenticated');
+  }
+
+  const { contentType, contentId, reason, details } = request.data;
+
+  if (!contentType || !contentId || !reason) {
+    throw new HttpsError('invalid-argument', 'Missing required fields');
+  }
+
+  try {
+    await db.collection('reports').add({
+      contentType,
+      contentId,
+      reason,
+      details: details || '',
+      reportedBy: request.auth.uid,
+      createdAt: FieldValue.serverTimestamp(),
+      status: 'pending'
+    });
+
+    console.log(`🚩 Content reported: ${contentType}/${contentId} by ${request.auth.uid}`);
+
+    return { success: true };
+
+  } catch (error) {
+    console.error('Error creating report:', error);
+    throw new HttpsError('internal', 'Failed to create report');
+  }
+});
+
+exports.onMessageCreated = functions.firestore
+  .document('conversations/{conversationId}/messages/{messageId}')
+  .onCreate(async (snap, context) => {
+    const message = snap.data();
+    const conversationId = context.params.conversationId;
+    
+    // Get conversation to find recipients
+    const conversation = await db.collection('conversations').doc(conversationId).get();
+    const participants = conversation.data().participantIds;
+    
+    // Send notification to all participants except sender
+    for (const recipientId of participants) {
+      if (recipientId === message.senderId) continue;
+      
+      const recipient = await db.collection('users').doc(recipientId).get();
+      const fcmToken = recipient.data()?.fcmToken;
+      
+      if (fcmToken) {
+        await messaging.send({
+          token: fcmToken,
+          notification: {
+            title: `💬 ${message.senderName}`,
+            body: message.text
+          },
+          data: {
+            type: 'message',
+            conversationId: conversationId
+          }
+        });
+      }
+    }
+  });

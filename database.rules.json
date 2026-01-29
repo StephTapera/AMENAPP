@@ -1,0 +1,101 @@
+{
+  "rules": {
+    "postInteractions": {
+      "$postId": {
+        ".read": true,
+        "lightbulbs": {
+          "$userId": {
+            ".write": "$userId === auth.uid"
+          }
+        },
+        "amens": {
+          "$userId": {
+            ".write": "$userId === auth.uid"
+          }
+        },
+        "comments": {
+          "$commentId": {
+            ".read": true,
+            ".write": "auth != null",
+            ".validate": "newData.child('authorId').val() === auth.uid"
+          }
+        },
+        "reposts": {
+          "$userId": {
+            ".write": "$userId === auth.uid"
+          }
+        },
+        "lightbulbCount": {
+          ".read": true,
+          ".write": "auth != null"
+        },
+        "amenCount": {
+          ".read": true,
+          ".write": "auth != null"
+        },
+        "commentCount": {
+          ".read": true,
+          ".write": "auth != null"
+        },
+        "repostCount": {
+          ".read": true,
+          ".write": "auth != null"
+        }
+      }
+    },
+    "userInteractions": {
+      "$userId": {
+        ".read": "$userId === auth.uid",
+        ".write": "$userId === auth.uid"
+      }
+    },
+    "conversations": {
+      "$conversationId": {
+        "metadata": {
+          ".read": "auth != null",
+          ".write": "auth != null"
+        },
+        "messages": {
+          ".read": "auth != null",
+          "$messageId": {
+            ".write": "auth != null"
+          }
+        },
+        "typing": {
+          ".read": "auth != null",
+          "$userId": {
+            ".write": "$userId === auth.uid"
+          }
+        }
+      }
+    },
+    "userConversations": {
+      "$userId": {
+        ".read": "$userId === auth.uid",
+        ".write": "$userId === auth.uid"
+      }
+    },
+    "presence": {
+      ".read": true,
+      "$userId": {
+        ".write": "$userId === auth.uid"
+      }
+    },
+    "posts": {
+      "recent": {
+        ".read": true,
+        "$postId": {
+          ".write": "auth != null"
+        }
+      },
+      "byCategory": {
+        "$category": {
+          ".read": true,
+          "$postId": {
+            ".write": "auth != null"
+          }
+        }
+      }
+    }
+  }
+}

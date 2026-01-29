@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- ========================================== -->
+    <!-- REQUIRED: Photo & Camera Permissions -->
+    <!-- ========================================== -->
+    
+    <!-- Photo Library Permission -->
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>AMENAPP needs access to your photos to set your profile picture.</string>
+    
+    <!-- Camera Permission -->
+    <key>NSCameraUsageDescription</key>
+    <string>AMENAPP needs access to your camera to take profile pictures.</string>
+    
+    <!-- ========================================== -->
+    <!-- OPTIONAL: Additional Permissions -->
+    <!-- ========================================== -->
+    
+    <!-- Location Permission (if you're finding churches) -->
+    <!-- Uncomment if needed:
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>AMENAPP uses your location to find churches near you.</string>
+    -->
+    
+    <!-- Notifications Permission (for reminders) -->
+    <!-- Uncomment if needed:
+    <key>NSUserNotificationsUsageDescription</key>
+    <string>AMENAPP sends you reminders for church services and prayer times.</string>
+    -->
+    
+    <!-- Apple Music Permission (if you're using MusicKit) -->
+    <!-- Uncomment if needed:
+    <key>NSAppleMusicUsageDescription</key>
+    <string>AMENAPP uses Apple Music to provide worship songs and hymns for your spiritual journey.</string>
+    -->
+    
+    <!-- ========================================== -->
+    <!-- App Configuration -->
+    <!-- ========================================== -->
+    
+    <!-- App Display Name -->
+    <key>CFBundleDisplayName</key>
+    <string>AMEN</string>
+    
+    <!-- App Name -->
+    <key>CFBundleName</key>
+    <string>$(PRODUCT_NAME)</string>
+    
+    <!-- Bundle Identifier -->
+    <key>CFBundleIdentifier</key>
+    <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+    
+    <!-- Version -->
+    <key>CFBundleShortVersionString</key>
+    <string>1.0</string>
+    
+    <!-- Build Number -->
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    
+    <!-- Package Type -->
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    
+    <!-- Executable File -->
+    <key>CFBundleExecutable</key>
+    <string>$(EXECUTABLE_NAME)</string>
+    
+    <!-- ========================================== -->
+    <!-- UI Configuration -->
+    <!-- ========================================== -->
+    
+    <!-- Launch Screen -->
+    <key>UILaunchScreen</key>
+    <dict/>
+    
+    <!-- Application Scene Manifest -->
+    <key>UIApplicationSceneManifest</key>
+    <dict>
+        <key>UIApplicationSupportsMultipleScenes</key>
+        <false/>
+        <key>UISceneConfigurations</key>
+        <dict>
+            <key>UIWindowSceneSessionRoleApplication</key>
+            <array>
+                <dict>
+                    <key>UISceneConfigurationName</key>
+                    <string>Default Configuration</string>
+                    <key>UISceneDelegateClassName</key>
+                    <string>$(PRODUCT_MODULE_NAME).SceneDelegate</string>
+                </dict>
+            </array>
+        </dict>
+    </dict>
+    
+    <!-- Supported Interface Orientations (iPhone) -->
+    <key>UISupportedInterfaceOrientations</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+        <string>UIInterfaceOrientationLandscapeLeft</string>
+        <string>UIInterfaceOrientationLandscapeRight</string>
+    </array>
+    
+    <!-- Supported Interface Orientations (iPad) -->
+    <key>UISupportedInterfaceOrientations~ipad</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+        <string>UIInterfaceOrientationPortraitUpsideDown</string>
+        <string>UIInterfaceOrientationLandscapeLeft</string>
+        <string>UIInterfaceOrientationLandscapeRight</string>
+    </array>
+    
+    <!-- Requires Full Screen -->
+    <key>UIRequiresFullScreen</key>
+    <true/>
+    
+    <!-- Status Bar Style -->
+    <key>UIStatusBarStyle</key>
+    <string>UIStatusBarStyleDefault</string>
+    
+    <!-- Launch Storyboard Name -->
+    <key>UILaunchStoryboardName</key>
+    <string>LaunchScreen</string>
+    
+</dict>
+</plist>

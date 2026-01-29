@@ -1,0 +1,106 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+    
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+    
+    function isValidImageSize() {
+      return request.resource.size < 10 * 1024 * 1024; // 10MB limit
+    }
+    
+    function isValidVideoSize() {
+      return request.resource.size < 100 * 1024 * 1024; // 100MB limit
+    }
+    
+    // Profile Images
+    match /users/{userId}/profile/{imageName} {
+      // Anyone can read profile images
+      allow read: if true;
+      
+      // Only owner can upload/update their profile image
+      allow write: if isOwner(userId) 
+        && isImage() 
+        && isValidImageSize();
+      
+      // Only owner can delete their profile image
+      allow delete: if isOwner(userId);
+    }
+    
+    // Post Images
+    match /posts/{postId}/images/{imageName} {
+      // Anyone authenticated can read post images
+      allow read: if isSignedIn();
+      
+      // Only authenticated users can upload post images
+      allow create: if isSignedIn() 
+        && isImage() 
+        && isValidImageSize();
+      
+      // Post author can update/delete images
+      // Note: We can't easily verify post ownership here without calling Firestore
+      // Consider using Cloud Functions for more complex validation
+      allow update, delete: if isSignedIn();
+    }
+    
+    // Community/Group Images
+    match /communities/{communityId}/images/{imageName} {
+      allow read: if isSignedIn();
+      
+      allow write: if isSignedIn() 
+        && isImage() 
+        && isValidImageSize();
+      
+      allow delete: if isSignedIn();
+    }
+    
+    // Message Images
+    match /messages/{conversationId}/images/{imageName} {
+      // Only authenticated users can access message images
+      allow read: if isSignedIn();
+      
+      allow create: if isSignedIn() 
+        && isImage() 
+        && isValidImageSize();
+      
+      allow delete: if isSignedIn();
+    }
+    
+    // Testimony Images
+    match /testimonies/{testimonyId}/images/{imageName} {
+      allow read: if isSignedIn();
+      
+      allow create: if isSignedIn() 
+        && isImage() 
+        && isValidImageSize();
+      
+      allow update, delete: if isSignedIn();
+    }
+    
+    // Prayer Images (if you allow images with prayers)
+    match /prayers/{prayerId}/images/{imageName} {
+      allow read: if isSignedIn();
+      
+      allow create: if isSignedIn() 
+        && isImage() 
+        && isValidImageSize();
+      
+      allow update, delete: if isSignedIn();
+    }
+    
+    // Deny all other access
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

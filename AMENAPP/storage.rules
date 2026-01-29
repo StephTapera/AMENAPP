@@ -1,0 +1,161 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function to check file size (in MB)
+    function isValidSize(maxSizeMB) {
+      return request.resource.size < maxSizeMB * 1024 * 1024;
+    }
+    
+    // Helper function to check if file is an image
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+    
+    // Helper function to check if file is video
+    function isVideo() {
+      return request.resource.contentType.matches('video/.*');
+    }
+    
+    // ========================================
+    // PROFILE IMAGES
+    // ========================================
+    match /profile_images/{userId}/{fileName} {
+      // Anyone can read profile images (public)
+      allow read;
+      
+      // Users can only upload to their own folder
+      // Max 5MB, must be an image
+      allow write: if isAuthenticated() 
+        && request.auth.uid == userId
+        && isValidSize(5)
+        && isImage();
+      
+      // Users can delete their own profile images
+      allow delete: if isAuthenticated() 
+        && request.auth.uid == userId;
+    }
+    
+    // ========================================
+    // USER PHOTOS (Gallery, additional photos)
+    // ========================================
+    match /user_photos/{userId}/{albumName}/{fileName} {
+      // Anyone can read user photos (public)
+      allow read;
+      
+      // Users can only upload to their own folder
+      // Max 10MB, must be an image or video
+      allow write: if isAuthenticated() 
+        && request.auth.uid == userId
+        && isValidSize(10)
+        && (isImage() || isVideo());
+      
+      // Users can delete their own photos
+      allow delete: if isAuthenticated() 
+        && request.auth.uid == userId;
+    }
+    
+    // ========================================
+    // POST MEDIA (Photos/videos in posts)
+    // ========================================
+    match /post_media/{postId}/{fileName} {
+      // Anyone authenticated can read post media
+      allow read: if isAuthenticated();
+      
+      // Users can upload media for their posts
+      // Max 20MB (for videos)
+      allow write: if isAuthenticated()
+        && isValidSize(20)
+        && (isImage() || isVideo());
+      
+      // Users can delete their own post media
+      allow delete: if isAuthenticated();
+    }
+    
+    // ========================================
+    // TESTIMONY MEDIA
+    // ========================================
+    match /testimony_media/{testimonyId}/{fileName} {
+      // Anyone authenticated can read testimonies
+      allow read: if isAuthenticated();
+      
+      // Users can upload testimony media
+      allow write: if isAuthenticated()
+        && isValidSize(15)
+        && (isImage() || isVideo());
+      
+      // Users can delete their testimony media
+      allow delete: if isAuthenticated();
+    }
+    
+    // ========================================
+    // DATING PROFILE PHOTOS
+    // ========================================
+    match /dating_photos/{userId}/{fileName} {
+      // Anyone authenticated can read dating photos
+      allow read: if isAuthenticated();
+      
+      // Users can only upload to their own folder
+      // Max 8MB, must be an image
+      allow write: if isAuthenticated() 
+        && request.auth.uid == userId
+        && isValidSize(8)
+        && isImage();
+      
+      // Users can delete their own dating photos
+      allow delete: if isAuthenticated() 
+        && request.auth.uid == userId;
+    }
+    
+    // ========================================
+    // MESSAGE ATTACHMENTS
+    // ========================================
+    match /message_attachments/{senderId}/{fileName} {
+      // Only sender and receiver can read message attachments
+      allow read: if isAuthenticated();
+      
+      // Users can upload attachments
+      // Max 10MB
+      allow write: if isAuthenticated() 
+        && request.auth.uid == senderId
+        && isValidSize(10);
+      
+      // Users can delete their own attachments
+      allow delete: if isAuthenticated() 
+        && request.auth.uid == senderId;
+    }
+    
+    // ========================================
+    // CHURCH VERIFICATION DOCUMENTS
+    // ========================================
+    match /verification_docs/{userId}/{fileName} {
+      // Only the user and admins can read verification docs
+      allow read: if isAuthenticated() 
+        && request.auth.uid == userId;
+      
+      // Users can upload verification documents
+      // Max 5MB, must be image or PDF
+      allow write: if isAuthenticated() 
+        && request.auth.uid == userId
+        && isValidSize(5)
+        && (isImage() || request.resource.contentType == 'application/pdf');
+      
+      // Users can delete their verification docs
+      allow delete: if isAuthenticated() 
+        && request.auth.uid == userId;
+    }
+    
+    // ========================================
+    // DEFAULT - DENY ALL
+    // ========================================
+    // Anything not explicitly allowed above is denied
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
