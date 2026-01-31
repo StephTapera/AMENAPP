@@ -28,8 +28,18 @@ class RealtimePostService: ObservableObject {
     
     private init() {
         // Initialize Realtime Database with correct URL
-        self.database = Database.database(url: "https://amen-5e359-default-rtdb.firebaseio.com").reference()
-        print("🔥 RealtimePostService initialized")
+        print("🔥 Initializing RealtimePostService...")
+        
+        do {
+            self.database = Database.database(url: "https://amen-5e359-default-rtdb.firebaseio.com").reference()
+            print("✅ RealtimePostService initialized successfully")
+            print("   Database URL: https://amen-5e359-default-rtdb.firebaseio.com")
+        } catch {
+            print("❌ CRITICAL: Failed to initialize Realtime Database!")
+            print("   Error: \(error)")
+            // Fallback to default database (will likely fail but won't crash immediately)
+            self.database = Database.database().reference()
+        }
     }
     
     deinit {
@@ -137,45 +147,72 @@ class RealtimePostService: ObservableObject {
         let postId = UUID().uuidString
         let timestamp = Date().timeIntervalSince1970
         
-        // Create post data
-        let postData: [String: Any] = [
+        // Create post data - only include non-empty optional fields
+        var postData: [String: Any] = [
             "authorId": userId,
             "authorName": displayName,
             "authorUsername": username,
             "authorInitials": initials,
-            "authorProfileImageURL": profileImageURL ?? "",
             "content": content,
             "category": category.rawValue,
-            "topicTag": topicTag ?? "",
             "visibility": visibility.rawValue,
             "allowComments": allowComments,
-            "imageURLs": imageURLs ?? [],
-            "linkURL": linkURL ?? "",
             "createdAt": timestamp,
             "updatedAt": timestamp,
-            "isRepost": false,
-            "originalPostId": "",
-            "originalAuthorName": ""
+            "isRepost": false
         ]
+        
+        // Add optional fields only if they have values
+        if let profileImageURL = profileImageURL, !profileImageURL.isEmpty {
+            postData["authorProfileImageURL"] = profileImageURL
+        }
+        
+        if let topicTag = topicTag, !topicTag.isEmpty {
+            postData["topicTag"] = topicTag
+        }
+        
+        if let imageURLs = imageURLs, !imageURLs.isEmpty {
+            postData["imageURLs"] = imageURLs
+        }
+        
+        if let linkURL = linkURL, !linkURL.isEmpty {
+            postData["linkURL"] = linkURL
+        }
         
         print("📝 Creating post in Realtime Database...")
         print("   Post ID: \(postId)")
         print("   Category: \(category.rawValue)")
+        print("   Post data keys: \(postData.keys.sorted())")
         
-        // Use multi-path update for atomic write
-        let updates: [String: Any] = [
-            "/posts/\(postId)": postData,
-            "/user_posts/\(userId)/\(postId)": timestamp,
-            "/category_posts/\(category.rawValue)/\(postId)": timestamp,
-            "/post_stats/\(postId)": [
+        // Write to each location separately for better Firebase compatibility
+        // This avoids validation issues with nested dictionaries in multi-path updates
+        
+        do {
+            // 1. Write the post data
+            print("   Writing post data...")
+            try await database.child("posts").child(postId).setValue(postData)
+            
+            // 2. Add to user's posts index
+            print("   Writing user_posts index...")
+            try await database.child("user_posts").child(userId).child(postId).setValue(timestamp)
+            
+            // 3. Add to category index
+            print("   Writing category_posts index...")
+            try await database.child("category_posts").child(category.rawValue).child(postId).setValue(timestamp)
+            
+            // 4. Initialize post stats
+            print("   Writing post_stats...")
+            try await database.child("post_stats").child(postId).setValue([
                 "amenCount": 0,
                 "lightbulbCount": 0,
                 "commentCount": 0,
                 "repostCount": 0
-            ]
-        ]
-        
-        try await database.updateChildValues(updates)
+            ])
+        } catch {
+            print("❌ Firebase write error: \(error)")
+            print("   Error details: \(error.localizedDescription)")
+            throw error
+        }
         
         print("✅ Post created successfully in Realtime Database")
         
@@ -343,8 +380,8 @@ class RealtimePostService: ObservableObject {
         print("✏️ Updating post: \(postId)")
         
         let updates: [String: Any] = [
-            "/posts/\(postId)/content": content,
-            "/posts/\(postId)/updatedAt": Date().timeIntervalSince1970
+            "posts/\(postId)/content": content,
+            "posts/\(postId)/updatedAt": Date().timeIntervalSince1970
         ]
         
         try await database.updateChildValues(updates)
@@ -367,12 +404,12 @@ class RealtimePostService: ObservableObject {
         
         // Multi-path delete
         let updates: [String: Any?] = [
-            "/posts/\(postId)": nil,
-            "/user_posts/\(userId)/\(postId)": nil,
-            "/category_posts/\(post.category.rawValue)/\(postId)": nil,
-            "/post_stats/\(postId)": nil,
-            "/post_interactions/\(postId)": nil,
-            "/comments/\(postId)": nil
+            "posts/\(postId)": nil,
+            "user_posts/\(userId)/\(postId)": nil,
+            "category_posts/\(post.category.rawValue)/\(postId)": nil,
+            "post_stats/\(postId)": nil,
+            "post_interactions/\(postId)": nil,
+            "comments/\(postId)": nil
         ]
         
         try await database.updateChildValues(updates as [AnyHashable: Any])

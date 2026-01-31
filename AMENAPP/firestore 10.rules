@@ -1,0 +1,628 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ========================================
+    // HELPER FUNCTIONS
+    // ========================================
+    
+    // Check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Check if user owns the document
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Check if user is a participant in a conversation
+    function isParticipant(participantIds) {
+      return isAuthenticated() && request.auth.uid in participantIds;
+    }
+    
+    // Check if request has valid authorId
+    function hasValidAuthorId() {
+      return isAuthenticated() && request.resource.data.authorId == request.auth.uid;
+    }
+    
+    // Check if request has valid userId
+    function hasValidUserId() {
+      return isAuthenticated() && request.resource.data.userId == request.auth.uid;
+    }
+    
+    // Check if user is blocked (optimized to avoid extra reads when possible)
+    function isBlocked(targetUserId) {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid)/blockedUsers/$(targetUserId));
+    }
+    
+    // Check if user has blocked me
+    function hasBlockedMe(targetUserId) {
+      return exists(/databases/$(database)/documents/users/$(targetUserId)/blockedUsers/$(request.auth.uid));
+    }
+    
+    // Check if user can access another user's content
+    function canAccessUser(targetUserId) {
+      return isAuthenticated() && !isBlocked(targetUserId) && !hasBlockedMe(targetUserId);
+    }
+    
+    // ========================================
+    // USERS COLLECTION
+    // ========================================
+    
+    match /users/{userId} {
+      // Anyone authenticated can read public user profiles
+      allow read: if isAuthenticated();
+      
+      // Only the user can create/update their own profile
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
+      
+      // Only the user can delete their own profile
+      allow delete: if isOwner(userId);
+      
+      // User posts subcollection
+      match /posts/{postId} {
+        allow read: if isAuthenticated();
+        allow write: if isOwner(userId);
+      }
+      
+      // Saved posts
+      match /savedPosts/{savedPostId} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      // Bookmarks
+      match /bookmarks/{bookmarkId} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      // Drafts
+      match /drafts/{draftId} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      // Following
+      match /following/{followingId} {
+        allow read: if isAuthenticated();
+        allow create, delete, update: if isOwner(userId);
+      }
+      
+      // Followers
+      match /followers/{followerId} {
+        allow read: if isAuthenticated();
+        allow create, update: if isAuthenticated() && request.auth.uid == followerId;
+        allow delete: if isAuthenticated() && (request.auth.uid == followerId || isOwner(userId));
+      }
+      
+      // Blocked users
+      match /blockedUsers/{blockedUserId} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      // Muted users
+      match /mutedUsers/{mutedUserId} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      // Private user data
+      match /private/{document=**} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+    
+    // ========================================
+    // POSTS COLLECTION (Main Feed)
+    // ========================================
+    
+    match /posts/{postId} {
+      // Anyone authenticated can read posts
+      allow read: if isAuthenticated();
+      
+      // Only authenticated users can create posts with their own authorId
+      allow create: if isAuthenticated() 
+                    && request.resource.data.authorId == request.auth.uid;
+      
+      // Only the post author can update their posts
+      allow update: if isAuthenticated() 
+                    && resource.data.authorId == request.auth.uid;
+      
+      // Only the post author can delete their posts
+      allow delete: if isAuthenticated() 
+                    && resource.data.authorId == request.auth.uid;
+      
+      // Post likes
+      match /likes/{userId} {
+        allow read: if isAuthenticated();
+        allow create, delete: if isOwner(userId);
+        allow update: if isOwner(userId);
+      }
+      
+      // Post comments
+      match /comments/{commentId} {
+        allow read: if isAuthenticated();
+        allow create: if hasValidAuthorId();
+        allow update, delete: if isAuthenticated() 
+                              && resource.data.authorId == request.auth.uid;
+        
+        // Comment replies
+        match /replies/{replyId} {
+          allow read: if isAuthenticated();
+          allow create: if hasValidAuthorId();
+          allow update, delete: if isAuthenticated() 
+                                && resource.data.authorId == request.auth.uid;
+        }
+      }
+    }
+    
+    // ========================================
+    // POST INTERACTIONS (CRITICAL FIX)
+    // ========================================
+    
+    match /postInteractions/{postId} {
+      // Anyone authenticated can read interaction counts
+      allow read: if isAuthenticated();
+      
+      // Anyone authenticated can update interaction counts
+      allow write: if isAuthenticated();
+      
+      // Likes subcollection
+      match /likes/{likeId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+        allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+        allow update: if isAuthenticated();
+      }
+      
+      // Reposts subcollection
+      match /reposts/{repostId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+        allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+        allow update: if isAuthenticated();
+      }
+      
+      // Views subcollection
+      match /views/{viewId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated();
+        allow update: if isAuthenticated();
+      }
+      
+      // Shares subcollection
+      match /shares/{shareId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+        allow update: if isAuthenticated();
+      }
+    }
+    
+    // ========================================
+    // USER STATS (CRITICAL FIX)
+    // ========================================
+    
+    match /userStats/{userId} {
+      // Anyone authenticated can read user stats
+      allow read: if isAuthenticated();
+      
+      // Only the user and system can update stats
+      allow write: if isOwner(userId);
+    }
+    
+    // ========================================
+    // TESTIMONIES COLLECTION
+    // ========================================
+    
+    match /testimonies/{testimonyId} {
+      allow read: if isAuthenticated();
+      allow create: if hasValidAuthorId();
+      allow update, delete: if isAuthenticated() 
+                            && resource.data.authorId == request.auth.uid;
+      
+      // Testimony likes
+      match /likes/{userId} {
+        allow read: if isAuthenticated();
+        allow create, delete: if isOwner(userId);
+      }
+      
+      // Testimony comments
+      match /comments/{commentId} {
+        allow read: if isAuthenticated();
+        allow create: if hasValidAuthorId();
+        allow update, delete: if isAuthenticated() 
+                              && resource.data.authorId == request.auth.uid;
+      }
+    }
+    
+    // ========================================
+    // PRAYERS COLLECTION
+    // ========================================
+    
+    match /prayers/{prayerId} {
+      allow read: if isAuthenticated();
+      allow create: if hasValidAuthorId();
+      allow update, delete: if isAuthenticated() 
+                            && resource.data.authorId == request.auth.uid;
+      
+      // Prayer supporters
+      match /supporters/{userId} {
+        allow read: if isAuthenticated();
+        allow create, delete: if isOwner(userId);
+      }
+      
+      // Prayer comments
+      match /comments/{commentId} {
+        allow read: if isAuthenticated();
+        allow create: if hasValidAuthorId();
+        allow update, delete: if isAuthenticated() 
+                              && resource.data.authorId == request.auth.uid;
+      }
+    }
+    
+    // ========================================
+    // COMMENTS COLLECTION (Top-level)
+    // ========================================
+    
+    match /comments/{commentId} {
+      // Anyone authenticated can read comments
+      allow read: if isAuthenticated();
+      
+      // Only authenticated users can create comments with their authorId
+      allow create: if hasValidAuthorId();
+      
+      // Only comment author can update/delete
+      allow update, delete: if isAuthenticated() 
+                            && resource.data.authorId == request.auth.uid;
+      
+      // Comment likes
+      match /likes/{userId} {
+        allow read: if isAuthenticated();
+        allow create, delete: if isOwner(userId);
+      }
+      
+      // Nested replies under comments
+      match /replies/{replyId} {
+        allow read: if isAuthenticated();
+        allow create: if hasValidAuthorId();
+        allow update, delete: if isAuthenticated() 
+                              && resource.data.authorId == request.auth.uid;
+      }
+    }
+    
+    // ========================================
+    // FOLLOWS COLLECTION
+    // ========================================
+    
+    match /follows/{followId} {
+      // Anyone authenticated can read follows
+      allow read: if isAuthenticated();
+      
+      // Users can create follows where they are the follower
+      allow create: if isAuthenticated() 
+                    && request.resource.data.followerId == request.auth.uid;
+      
+      // Users can update follows (for mutual follow status)
+      allow update: if isAuthenticated()
+                    && (resource.data.followerId == request.auth.uid
+                        || resource.data.followingId == request.auth.uid);
+      
+      // Users can delete follows where they are the follower or being followed
+      allow delete: if isAuthenticated() 
+                    && (resource.data.followerId == request.auth.uid
+                        || resource.data.followingId == request.auth.uid);
+    }
+    
+    // ========================================
+    // FOLLOW REQUESTS (Collection Group)
+    // ========================================
+    
+    match /{path=**}/followRequests/{requestId} {
+      // Users can read requests sent to them or requests they sent
+      allow read: if isAuthenticated() 
+                  && (resource.data.toUserId == request.auth.uid 
+                      || resource.data.fromUserId == request.auth.uid);
+      
+      // Users can create follow requests to others
+      allow create: if isAuthenticated() 
+                    && request.resource.data.fromUserId == request.auth.uid;
+      
+      // Recipients can update requests (accept/reject)
+      allow update: if isAuthenticated() 
+                    && resource.data.toUserId == request.auth.uid;
+      
+      // Users can delete requests they sent or received
+      allow delete: if isAuthenticated() 
+                    && (resource.data.fromUserId == request.auth.uid 
+                        || resource.data.toUserId == request.auth.uid);
+    }
+    
+    // ========================================
+    // CONVERSATIONS
+    // ========================================
+    
+    match /conversations/{conversationId} {
+      // Helper functions
+      function isConversationParticipant() {
+        return request.auth.uid in resource.data.participantIds;
+      }
+      
+      function isNewConversationParticipant() {
+        return request.auth.uid in request.resource.data.participantIds;
+      }
+      
+      // Participants can read conversations
+      allow read: if isAuthenticated() 
+                  && (resource == null || isConversationParticipant());
+      
+      // Authenticated users can list conversations (filtered by query)
+      allow list: if isAuthenticated();
+      
+      // Users can create conversations if they're a participant
+      allow create: if isAuthenticated() 
+                    && isNewConversationParticipant()
+                    && request.resource.data.participantIds is list
+                    && request.resource.data.participantIds.size() >= 2;
+      
+      // Participants can update conversations
+      allow update: if isAuthenticated() 
+                    && (resource == null || isConversationParticipant());
+      
+      // Participants can delete conversations
+      allow delete: if isAuthenticated() 
+                    && isConversationParticipant();
+      
+      // ========================================
+      // MESSAGES SUBCOLLECTION
+      // ========================================
+      
+      match /messages/{messageId} {
+        // Helper to check parent conversation access
+        function canAccessConversation() {
+          let conversation = get(/databases/$(database)/documents/conversations/$(conversationId));
+          return request.auth.uid in conversation.data.participantIds;
+        }
+        
+        // Participants can read messages
+        allow read: if isAuthenticated() && canAccessConversation();
+        
+        // Participants can send messages
+        allow create: if isAuthenticated() 
+                      && canAccessConversation()
+                      && request.resource.data.senderId == request.auth.uid;
+        
+        // Participants can update messages (read receipts, edits)
+        allow update: if isAuthenticated() && canAccessConversation();
+        
+        // Only sender can delete their message
+        allow delete: if isAuthenticated() 
+                      && canAccessConversation()
+                      && resource.data.senderId == request.auth.uid;
+      }
+    }
+    
+    // ========================================
+    // MESSAGE REQUESTS
+    // ========================================
+    
+    match /messageRequests/{requestId} {
+      // Users can read requests sent to them
+      allow read: if isAuthenticated() 
+                  && resource.data.toUserId == request.auth.uid;
+      
+      // Users can create requests to others
+      allow create: if isAuthenticated() 
+                    && request.resource.data.fromUserId == request.auth.uid;
+      
+      // Users can update requests (accept/reject)
+      allow update: if isAuthenticated() 
+                    && (resource.data.fromUserId == request.auth.uid 
+                        || resource.data.toUserId == request.auth.uid);
+      
+      // Users can delete requests
+      allow delete: if isAuthenticated() 
+                    && (resource.data.fromUserId == request.auth.uid 
+                        || resource.data.toUserId == request.auth.uid);
+    }
+    
+    // ========================================
+    // NOTIFICATIONS
+    // ========================================
+    
+    match /notifications/{notificationId} {
+      // Users can only read their own notifications
+      allow read: if isAuthenticated() 
+                  && resource.data.userId == request.auth.uid;
+      
+      // System can create notifications
+      allow create: if isAuthenticated();
+      
+      // Users can update their own notifications (mark as read)
+      allow update: if isAuthenticated() 
+                    && resource.data.userId == request.auth.uid;
+      
+      // Users can delete their own notifications
+      allow delete: if isAuthenticated() 
+                    && resource.data.userId == request.auth.uid;
+    }
+    
+    // ========================================
+    // SAVED POSTS
+    // ========================================
+    
+    match /savedPosts/{userId}/posts/{postId} {
+      allow read, write: if isOwner(userId);
+    }
+    
+    // ========================================
+    // REPOSTS TRACKING
+    // ========================================
+    
+    match /reposts/{repostId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() 
+                    && request.resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated() 
+                    && resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated();
+    }
+    
+    // ========================================
+    // COMMUNITIES
+    // ========================================
+    
+    match /communities/{communityId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() 
+                    && request.resource.data.creatorId == request.auth.uid;
+      allow update: if isAuthenticated() 
+                    && (resource.data.creatorId == request.auth.uid 
+                        || request.auth.uid in resource.data.adminIds);
+      allow delete: if isAuthenticated() 
+                    && resource.data.creatorId == request.auth.uid;
+      
+      match /members/{memberId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated();
+        allow delete: if isAuthenticated() 
+                      && (memberId == request.auth.uid 
+                          || request.auth.uid in get(/databases/$(database)/documents/communities/$(communityId)).data.adminIds);
+      }
+      
+      match /posts/{postId} {
+        allow read: if isAuthenticated();
+        allow create: if hasValidAuthorId();
+        allow update, delete: if isAuthenticated() 
+                              && resource.data.authorId == request.auth.uid;
+      }
+    }
+    
+    // ========================================
+    // MODERATION
+    // ========================================
+    
+    // Top-level blocked collection
+    match /blocked/{blockedId} {
+      allow read: if isAuthenticated() 
+                  && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() 
+                    && request.resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated() 
+                    && resource.data.userId == request.auth.uid;
+    }
+    
+    // Top-level muted collection
+    match /muted/{mutedId} {
+      allow read: if isAuthenticated() 
+                  && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() 
+                    && request.resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated() 
+                    && resource.data.userId == request.auth.uid;
+    }
+    
+    // ========================================
+    // REPORTS
+    // ========================================
+    
+    match /reports/{reportId} {
+      // Users can submit reports
+      allow create: if isAuthenticated() 
+                    && request.resource.data.reporterId == request.auth.uid;
+      
+      // Users can read their own reports
+      allow read: if isAuthenticated() 
+                  && resource.data.reporterId == request.auth.uid;
+      
+      // Nobody can update/delete reports
+      allow update, delete: if false;
+    }
+    
+    // ========================================
+    // RESOURCES
+    // ========================================
+    
+    match /resources/{resourceId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated() 
+                            && resource.data.authorId == request.auth.uid;
+    }
+    
+    // ========================================
+    // USER SEARCH INDEX
+    // ========================================
+    
+    match /userSearch/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId);
+    }
+    
+    // ========================================
+    // SAVED SEARCHES
+    // ========================================
+    
+    match /savedSearches/{searchId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow write: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+    }
+    
+    // ========================================
+    // FCM TOKENS (Push Notifications)
+    // ========================================
+    
+    match /fcmTokens/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId);
+    }
+    
+    // ========================================
+    // ANALYTICS & ACTIVITY
+    // ========================================
+    
+    match /analytics/{document=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+    
+    match /activity/{activityId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if false;
+    }
+    
+    // ========================================
+    // SEARCH INDEXES
+    // ========================================
+    
+    match /searchIndexes/{indexId} {
+      allow read: if isAuthenticated();
+      allow write: if false; // Only via Cloud Functions
+    }
+    
+    // ========================================
+    // APP METADATA
+    // ========================================
+    
+    match /metadata/{document=**} {
+      allow read: if isAuthenticated();
+      allow write: if false; // Only admins via Firebase Console
+    }
+    
+    // ========================================
+    // ADMIN COLLECTIONS
+    // ========================================
+    
+    match /admin/{document=**} {
+      allow read, write: if false; // Only server-side or Firebase Console
+    }
+    
+    // ========================================
+    // DEFAULT DENY ALL (Security Best Practice)
+    // ========================================
+    
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

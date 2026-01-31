@@ -19,8 +19,8 @@ struct NotificationUsageExamples {
     // MARK: - Example 1: New Message Notification
     
     func sendNewMessageNotification(
-        from sender: User,
-        to recipient: User,
+        from sender: MockUser,
+        to recipient: MockUser,
         messageText: String
     ) async {
         do {
@@ -55,8 +55,8 @@ struct NotificationUsageExamples {
     // MARK: - Example 2: New Match Notification
     
     func sendNewMatchNotification(
-        matchedUser: User,
-        currentUser: User
+        matchedUser: MockUser,
+        currentUser: MockUser
     ) async {
         do {
             let matchProfile = NotificationUserProfile(
@@ -100,9 +100,9 @@ struct NotificationUsageExamples {
     // MARK: - Example 3: Prayer Request Notification
     
     func sendPrayerRequestNotification(
-        requester: User,
+        requester: MockUser,
         prayerRequest: String,
-        prayerCircleMembers: [User],
+        prayerCircleMembers: [MockUser],
         isUrgent: Bool = false
     ) async {
         
@@ -148,7 +148,7 @@ struct NotificationUsageExamples {
     
     func sendEventReminderNotification(
         event: Event,
-        attendees: [User],
+        attendees: [MockUser],
         minutesUntilStart: Int
     ) async {
         
@@ -443,8 +443,8 @@ struct NotificationTestView: View {
     
     // MARK: - Mock Data
     
-    func createMockUser(id: String = UUID().uuidString, name: String, interests: [String]) -> User {
-        User(
+    func createMockUser(id: String = UUID().uuidString, name: String, interests: [String]) -> MockUser {
+        MockUser(
             id: id,
             name: name,
             interests: interests,
@@ -489,7 +489,7 @@ struct NotificationTestRow: View {
 
 // MARK: - Mock Models
 
-struct User {
+struct MockUser {
     let id: String
     let name: String
     let interests: [String]?

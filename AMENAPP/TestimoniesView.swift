@@ -690,12 +690,9 @@ struct TestimonyPostCard: View {
     
     private var amenButton: some View {
         Button {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
-                hasAmened.toggle()
-                amenCount += hasAmened ? 1 : -1
+            Task {
+                await toggleAmen()
             }
-            let haptic = UIImpactFeedbackGenerator(style: hasAmened ? .medium : .light)
-            haptic.impactOccurred()
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: hasAmened ? "hands.clap.fill" : "hands.clap")
@@ -716,6 +713,38 @@ struct TestimonyPostCard: View {
                 Capsule()
                     .stroke(hasAmened ? Color.black.opacity(0.2) : Color.black.opacity(0.1), lineWidth: hasAmened ? 1.5 : 1)
             )
+        }
+    }
+    
+    private func toggleAmen() async {
+        // OPTIMISTIC UPDATE: Update UI immediately for instant feedback
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+            hasAmened.toggle()
+            amenCount = hasAmened ? amenCount + 1 : amenCount - 1
+        }
+        
+        let haptic = UIImpactFeedbackGenerator(style: hasAmened ? .medium : .light)
+        haptic.impactOccurred()
+        
+        // Background sync to Firebase
+        let postId = post.id.uuidString
+        let currentAmenState = hasAmened
+        
+        Task.detached(priority: .userInitiated) {
+            do {
+                let interactionsService = await PostInteractionsService.shared
+                try await interactionsService.toggleAmen(postId: postId)
+            } catch {
+                print("❌ Failed to toggle amen: \(error)")
+                
+                // On error, revert the optimistic update
+                await MainActor.run {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                        hasAmened = !currentAmenState
+                        amenCount += currentAmenState ? -1 : 1
+                    }
+                }
+            }
         }
     }
     
@@ -750,13 +779,9 @@ struct TestimonyPostCard: View {
     
     private var repostButton: some View {
         Button {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
-                hasReposted.toggle()
-                repostCount += hasReposted ? 1 : -1
+            Task {
+                await toggleRepost()
             }
-            onRepost()
-            let haptic = UIImpactFeedbackGenerator(style: .medium)
-            haptic.impactOccurred()
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: hasReposted ? "arrow.2.squarepath.circle.fill" : "arrow.2.squarepath")
@@ -776,6 +801,41 @@ struct TestimonyPostCard: View {
                 Capsule()
                     .stroke(hasReposted ? Color.green.opacity(0.3) : Color.black.opacity(0.1), lineWidth: 1)
             )
+        }
+    }
+    
+    private func toggleRepost() async {
+        // OPTIMISTIC UPDATE: Update UI immediately
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+            hasReposted.toggle()
+            repostCount += hasReposted ? 1 : -1
+        }
+        
+        let haptic = UIImpactFeedbackGenerator(style: .medium)
+        haptic.impactOccurred()
+        
+        // Also call the onRepost closure
+        onRepost()
+        
+        // Background sync to Firebase
+        let postId = post.id.uuidString
+        let currentRepostState = hasReposted
+        
+        Task.detached(priority: .userInitiated) {
+            do {
+                let interactionsService = await PostInteractionsService.shared
+                _ = try await interactionsService.toggleRepost(postId: postId)
+            } catch {
+                print("❌ Failed to toggle repost: \(error)")
+                
+                // On error, revert the optimistic update
+                await MainActor.run {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                        hasReposted = !currentRepostState
+                        repostCount += currentRepostState ? -1 : 1
+                    }
+                }
+            }
         }
     }
     
@@ -855,9 +915,31 @@ struct TestimonyPostCard: View {
         .sheet(isPresented: $showReportSheet) {
             ReportPostSheet(post: post, postAuthor: post.authorName, category: .testimonies)
         }
+        .task {
+            // Load interaction states when view appears
+            await loadInteractionStates()
+        }
     }
     
     // MARK: - Helper Functions
+    
+    /// Load interaction states from Firebase
+    private func loadInteractionStates() async {
+        let postId = post.id.uuidString
+        let interactionsService = PostInteractionsService.shared
+        
+        // Check if user has amened
+        hasAmened = await interactionsService.hasAmened(postId: postId)
+        
+        // Check if user has reposted
+        hasReposted = await interactionsService.hasReposted(postId: postId)
+        
+        // Update counts from backend (only if different from initial values)
+        let counts = await interactionsService.getInteractionCounts(postId: postId)
+        amenCount = counts.amenCount
+        commentCount = counts.commentCount
+        repostCount = counts.repostCount
+    }
     
     private func sharePost() {
         showShareSheet = true

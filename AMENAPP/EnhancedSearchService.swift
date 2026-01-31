@@ -14,7 +14,7 @@ import SwiftUI
 
 // MARK: - AI Search Models
 
-struct SearchSuggestion: Identifiable {
+struct AISearchSuggestion: Identifiable {
     let id = UUID()
     let text: String
     let type: SuggestionType
@@ -48,7 +48,7 @@ class EnhancedSearchService: ObservableObject {
     
     @Published var isSearching = false
     @Published var searchResults: [AppSearchResult] = []
-    @Published var aiSuggestions: [SearchSuggestion] = []
+    @Published var aiSuggestions: [AISearchSuggestion] = []
     @Published var filterRecommendations: [SearchFilterRecommendation] = []
     @Published var recentSearches: [String] = []
     @Published var error: String?
@@ -140,13 +140,13 @@ class EnhancedSearchService: ObservableObject {
                 
                 await MainActor.run {
                     self.aiSuggestions = result.suggestions.map { text in
-                        SearchSuggestion(
+                        AISearchSuggestion(
                             text: text,
                             type: .query,
                             icon: "magnifyingglass"
                         )
                     } + result.relatedTopics.map { topic in
-                        SearchSuggestion(
+                        AISearchSuggestion(
                             text: topic,
                             type: .topic,
                             icon: "lightbulb.fill"

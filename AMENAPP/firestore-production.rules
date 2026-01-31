@@ -1,0 +1,290 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ========================================
+    // HELPER FUNCTIONS
+    // ========================================
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    function isAdmin() {
+      return isSignedIn() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') == 'admin';
+    }
+    
+    function isValidContent(text) {
+      return text is string && text.size() > 0 && text.size() <= 10000;
+    }
+    
+    // ========================================
+    // USERS COLLECTION - PRODUCTION READY
+    // ========================================
+    
+    match /users/{userId} {
+      // ✅ ANYONE CAN READ USER PROFILES (required for follows, profiles, etc.)
+      allow read: if true;
+      
+      // ✅ Users can create their own profile during signup
+      allow create: if isSignedIn() && 
+                       request.auth.uid == userId &&
+                       request.resource.data.keys().hasAll(['username', 'email']);
+      
+      // ✅ Users can update ONLY their own profile
+      allow update: if isSignedIn() && 
+                       request.auth.uid == userId;
+      
+      // ✅ Only admins can delete users
+      allow delete: if isAdmin();
+    }
+    
+    // ========================================
+    // FOLLOWS COLLECTION - PRODUCTION READY
+    // ========================================
+    
+    match /follows/{followId} {
+      // ✅ ANYONE CAN READ FOLLOWS (required to show follower/following lists)
+      allow read: if true;
+      
+      // ✅ SIMPLIFIED: Any authenticated user can create a follow
+      // Backend validation ensures correct followerId via Cloud Functions
+      allow create: if isSignedIn() &&
+                       request.resource.data.keys().hasAll(['followerId', 'followingId', 'createdAt']) &&
+                       request.resource.data.followerId is string &&
+                       request.resource.data.followingId is string &&
+                       request.resource.data.followerId != request.resource.data.followingId;
+      
+      // ✅ Users can delete (unfollow) any follow where they are the follower
+      allow delete: if isSignedIn() &&
+                       resource.data.followerId == request.auth.uid;
+      
+      // ✅ No updates (delete and recreate instead)
+      allow update: if false;
+    }
+    
+    // ========================================
+    // CONVERSATIONS COLLECTION
+    // ========================================
+    
+    match /conversations/{conversationId} {
+      allow read: if isSignedIn() && 
+                     request.auth.uid in resource.data.participantIds;
+      
+      allow create: if isSignedIn() && 
+                       request.auth.uid in request.resource.data.participantIds;
+      
+      allow update: if isSignedIn() && 
+                       request.auth.uid in resource.data.participantIds;
+      
+      allow delete: if isSignedIn() && 
+                       request.auth.uid in resource.data.participantIds;
+      
+      match /messages/{messageId} {
+        allow read: if isSignedIn() && 
+                       request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+        
+        allow create: if isSignedIn() && 
+                         request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds &&
+                         request.resource.data.senderId == request.auth.uid;
+        
+        allow update: if false;
+        allow delete: if false;
+      }
+    }
+    
+    // ========================================
+    // PRAYER REQUESTS COLLECTION
+    // ========================================
+    
+    match /prayerRequests/{requestId} {
+      allow read: if true;
+      
+      allow create: if isSignedIn() && 
+                       request.resource.data.userId == request.auth.uid;
+      
+      allow update: if isSignedIn() && 
+                       (resource.data.userId == request.auth.uid || isAdmin());
+      
+      allow delete: if isSignedIn() && 
+                       (resource.data.userId == request.auth.uid || isAdmin());
+      
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create: if isSignedIn() && 
+                         request.resource.data.userId == request.auth.uid;
+        allow update, delete: if isSignedIn() && 
+                                 (resource.data.userId == request.auth.uid || isAdmin());
+      }
+      
+      match /reactions/{reactionId} {
+        allow read: if true;
+        allow create: if isSignedIn() && 
+                         request.resource.data.userId == request.auth.uid;
+        allow delete: if isSignedIn() && 
+                         resource.data.userId == request.auth.uid;
+        allow update: if false;
+      }
+    }
+    
+    // ========================================
+    // TESTIMONIES COLLECTION
+    // ========================================
+    
+    match /testimonies/{testimonyId} {
+      allow read: if true;
+      
+      allow create: if isSignedIn() && 
+                       request.resource.data.userId == request.auth.uid;
+      
+      allow update: if isSignedIn() && 
+                       (resource.data.userId == request.auth.uid || isAdmin());
+      
+      allow delete: if isSignedIn() && 
+                       (resource.data.userId == request.auth.uid || isAdmin());
+      
+      match /reactions/{reactionId} {
+        allow read: if true;
+        allow create: if isSignedIn() && 
+                         request.resource.data.userId == request.auth.uid;
+        allow delete: if isSignedIn() && 
+                         resource.data.userId == request.auth.uid;
+        allow update: if false;
+      }
+      
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create: if isSignedIn() && 
+                         request.resource.data.userId == request.auth.uid;
+        allow update, delete: if isSignedIn() && 
+                                 (resource.data.userId == request.auth.uid || isAdmin());
+      }
+    }
+    
+    // ========================================
+    // OPENTABLE POSTS COLLECTION
+    // ========================================
+    
+    match /openTablePosts/{postId} {
+      allow read: if true;
+      
+      allow create: if isSignedIn() && 
+                       request.resource.data.userId == request.auth.uid;
+      
+      allow update: if isSignedIn() && 
+                       (resource.data.userId == request.auth.uid || isAdmin());
+      
+      allow delete: if isSignedIn() && 
+                       (resource.data.userId == request.auth.uid || isAdmin());
+      
+      match /reactions/{reactionId} {
+        allow read: if true;
+        allow create: if isSignedIn() && 
+                         request.resource.data.userId == request.auth.uid;
+        allow delete: if isSignedIn() && 
+                         resource.data.userId == request.auth.uid;
+        allow update: if false;
+      }
+      
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create: if isSignedIn() && 
+                         request.resource.data.userId == request.auth.uid;
+        allow update, delete: if isSignedIn() && 
+                                 (resource.data.userId == request.auth.uid || isAdmin());
+      }
+    }
+    
+    // ========================================
+    // NOTIFICATIONS COLLECTION
+    // ========================================
+    
+    match /notifications/{notificationId} {
+      // Users can read their own notifications OR all notifications (for feed)
+      allow read: if isSignedIn();
+      
+      // Anyone signed in can create notifications (Cloud Functions + app)
+      allow create: if isSignedIn();
+      
+      // Users can update their own notifications
+      allow update: if isSignedIn() && 
+                       resource.data.userId == request.auth.uid;
+      
+      // Users can delete their own notifications
+      allow delete: if isSignedIn() && 
+                       resource.data.userId == request.auth.uid;
+    }
+    
+    // ========================================
+    // SAVED SEARCHES COLLECTION
+    // ========================================
+    
+    match /savedSearches/{searchId} {
+      allow read: if isSignedIn() && 
+                     resource.data.userId == request.auth.uid;
+      
+      allow create: if isSignedIn() && 
+                       request.resource.data.userId == request.auth.uid;
+      
+      allow update: if isSignedIn() && 
+                       resource.data.userId == request.auth.uid;
+      
+      allow delete: if isSignedIn() && 
+                       resource.data.userId == request.auth.uid;
+    }
+    
+    // ========================================
+    // COMMUNITIES COLLECTION
+    // ========================================
+    
+    match /communities/{communityId} {
+      allow read: if true;
+      
+      allow create: if isSignedIn() && 
+                       request.resource.data.creatorId == request.auth.uid;
+      
+      allow update: if isSignedIn() && 
+                       (resource.data.creatorId == request.auth.uid || 
+                        request.auth.uid in resource.data.get('adminIds', []));
+      
+      allow delete: if isSignedIn() && 
+                       resource.data.creatorId == request.auth.uid;
+    }
+    
+    // ========================================
+    // REPORTS COLLECTION
+    // ========================================
+    
+    match /reports/{reportId} {
+      allow read: if isAdmin();
+      
+      allow create: if isSignedIn() && 
+                       request.resource.data.reporterId == request.auth.uid;
+      
+      allow update, delete: if isAdmin();
+    }
+    
+    // ========================================
+    // ANALYTICS COLLECTION
+    // ========================================
+    
+    match /analytics/{docId} {
+      allow read, write: if false;
+    }
+    
+    // ========================================
+    // DEFAULT DENY
+    // ========================================
+    
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

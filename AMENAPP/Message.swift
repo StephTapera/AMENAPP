@@ -35,7 +35,7 @@ class AppMessage: Identifiable, Equatable, Hashable {
     var isDelivered: Bool = false
     var isSendFailed: Bool = false
     var disappearAfter: TimeInterval? = nil // Disappearing message duration
-    var linkPreviews: [LinkPreview] = []
+    var linkPreviews: [MessageLinkPreview] = []
     var mentionedUserIds: [String] = []
     
     init(
@@ -60,7 +60,7 @@ class AppMessage: Identifiable, Equatable, Hashable {
         isDelivered: Bool = false,
         isSendFailed: Bool = false,
         disappearAfter: TimeInterval? = nil,
-        linkPreviews: [LinkPreview] = [],
+        linkPreviews: [MessageLinkPreview] = [],
         mentionedUserIds: [String] = []
     ) {
         self.id = id
@@ -181,3 +181,39 @@ struct MessageReaction: Identifiable, Equatable, Hashable {
         hasher.combine(id)
     }
 }
+
+// MARK: - Link Preview
+
+struct MessageLinkPreview: Identifiable, Equatable, Hashable {
+    let id: UUID
+    let url: URL
+    let title: String?
+    let description: String?
+    let imageUrl: String?
+    let favicon: String?
+    
+    init(
+        url: URL,
+        title: String? = nil,
+        description: String? = nil,
+        imageUrl: String? = nil,
+        favicon: String? = nil
+    ) {
+        self.id = UUID()
+        self.url = url
+        self.title = title
+        self.description = description
+        self.imageUrl = imageUrl
+        self.favicon = favicon
+    }
+    
+    static func == (lhs: MessageLinkPreview, rhs: MessageLinkPreview) -> Bool {
+        lhs.id == rhs.id
+    }
+    
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+}
+
+

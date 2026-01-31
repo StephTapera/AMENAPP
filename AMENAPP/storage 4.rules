@@ -1,0 +1,276 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // ============================================
+    // HELPER FUNCTIONS
+    // ============================================
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+    
+    function isVideo() {
+      return request.resource.contentType.matches('video/.*');
+    }
+    
+    function isAudio() {
+      return request.resource.contentType.matches('audio/.*');
+    }
+    
+    function isUnderSize(sizeMB) {
+      return request.resource.size < sizeMB * 1024 * 1024;
+    }
+    
+    // ============================================
+    // PROFILE IMAGES
+    // ============================================
+    
+    // Match flat structure: profile_images/userId.jpg
+    match /profile_images/{filename} {
+      // Anyone can read profile images (they're public)
+      allow read: if true;
+      
+      // Extract userId from filename (assumes format: userId.jpg or userId.extension)
+      // Only you can upload/update/delete your profile images
+      // Max 10MB, must be image
+      allow write: if isSignedIn() &&
+                      isImage() &&
+                      isUnderSize(10);
+    }
+    
+    // Match nested structure: profile_images/userId/photo.jpg
+    match /profile_images/{userId}/{allPaths=**} {
+      // Anyone can read profile images (they're public)
+      allow read: if true;
+      
+      // Only you can upload/update/delete your profile images
+      // Max 10MB, must be image
+      allow write: if isSignedIn() &&
+                      isOwner(userId) &&
+                      isImage() &&
+                      isUnderSize(10);
+    }
+    
+    // Match flat structure for avatars
+    match /avatars/{filename} {
+      // Anyone can read avatars
+      allow read: if true;
+      
+      // Any authenticated user can upload avatar
+      allow write: if isSignedIn() &&
+                      isImage() &&
+                      isUnderSize(10);
+    }
+    
+    // Match nested structure for avatars
+    match /avatars/{userId}/{allPaths=**} {
+      // Anyone can read avatars
+      allow read: if true;
+      
+      // Only you can upload your avatar
+      allow write: if isSignedIn() &&
+                      isOwner(userId) &&
+                      isImage() &&
+                      isUnderSize(10);
+    }
+    
+    // ============================================
+    // COVER IMAGES
+    // ============================================
+    
+    match /covers/{userId}/{allPaths=**} {
+      // Anyone can read cover images
+      allow read: if true;
+      
+      // Only you can upload your cover
+      allow write: if isSignedIn() &&
+                      isOwner(userId) &&
+                      isImage() &&
+                      isUnderSize(10);
+    }
+    
+    // ============================================
+    // POST MEDIA (OpenTable)
+    // ============================================
+    
+    match /post_images/{userId}/{allPaths=**} {
+      // Anyone authenticated can read post images
+      allow read: if isSignedIn();
+      
+      // Only you can upload to your folder
+      // Max 10MB, must be image or video
+      allow write: if isSignedIn() &&
+                      isOwner(userId) &&
+                      (isImage() || isVideo()) &&
+                      isUnderSize(10);
+    }
+    
+    match /opentable/{userId}/{allPaths=**} {
+      // Anyone authenticated can read
+      allow read: if isSignedIn();
+      
+      // Only you can upload to your folder
+      allow write: if isSignedIn() &&
+                      isOwner(userId) &&
+                      (isImage() || isVideo()) &&
+                      isUnderSize(10);
+    }
+    
+    // ============================================
+    // PRAYER MEDIA
+    // ============================================
+    
+    match /prayer_images/{userId}/{allPaths=**} {
+      // Anyone authenticated can read
+      allow read: if isSignedIn();
+      
+      // Only you can upload to your folder
+      allow write: if isSignedIn() &&
+                      isOwner(userId) &&
+                      isImage() &&
+                      isUnderSize(10);
+    }
+    
+    match /prayers/{userId}/{allPaths=**} {
+      // Anyone authenticated can read
+      allow read: if isSignedIn();
+      
+      // Only you can upload to your folder
+      allow write: if isSignedIn() &&
+                      isOwner(userId) &&
+                      isImage() &&
+                      isUnderSize(10);
+    }
+    
+    // ============================================
+    // TESTIMONY MEDIA
+    // ============================================
+    
+    match /testimony_images/{userId}/{allPaths=**} {
+      // Anyone authenticated can read
+      allow read: if isSignedIn();
+      
+      // Only you can upload to your folder
+      allow write: if isSignedIn() &&
+                      isOwner(userId) &&
+                      (isImage() || isVideo()) &&
+                      isUnderSize(10);
+    }
+    
+    match /testimonies/{userId}/{allPaths=**} {
+      // Anyone authenticated can read
+      allow read: if isSignedIn();
+      
+      // Only you can upload to your folder
+      allow write: if isSignedIn() &&
+                      isOwner(userId) &&
+                      (isImage() || isVideo()) &&
+                      isUnderSize(10);
+    }
+    
+    // ============================================
+    // MESSAGE MEDIA
+    // ============================================
+    
+    match /message_photos/{userId}/{allPaths=**} {
+      // Only authenticated users can read message photos
+      allow read: if isSignedIn();
+      
+      // Only you can upload to your folder
+      // Max 10MB, must be image
+      allow write: if isSignedIn() &&
+                      isOwner(userId) &&
+                      isImage() &&
+                      isUnderSize(10);
+    }
+    
+    match /message-photos/{userId}/{allPaths=**} {
+      // Only authenticated users can read
+      allow read: if isSignedIn();
+      
+      // Only you can upload to your folder
+      allow write: if isSignedIn() &&
+                      isOwner(userId) &&
+                      isImage() &&
+                      isUnderSize(10);
+    }
+    
+    // ============================================
+    // VOICE MESSAGES
+    // ============================================
+    
+    match /voice_messages/{userId}/{allPaths=**} {
+      // Only authenticated users can read
+      allow read: if isSignedIn();
+      
+      // Only you can upload to your folder
+      // Max 10MB, must be audio
+      allow write: if isSignedIn() &&
+                      isOwner(userId) &&
+                      isAudio() &&
+                      isUnderSize(10);
+    }
+    
+    match /voice-messages/{userId}/{allPaths=**} {
+      // Only authenticated users can read
+      allow read: if isSignedIn();
+      
+      // Only you can upload to your folder
+      allow write: if isSignedIn() &&
+                      isOwner(userId) &&
+                      isAudio() &&
+                      isUnderSize(10);
+    }
+    
+    // ============================================
+    // GROUP CHAT MEDIA
+    // ============================================
+    
+    match /group_avatars/{groupId}/{allPaths=**} {
+      // Anyone can read group avatars
+      allow read: if isSignedIn();
+      
+      // Any authenticated user can upload (validated in Firestore rules)
+      allow write: if isSignedIn() &&
+                      isImage() &&
+                      isUnderSize(5);
+    }
+    
+    // ============================================
+    // COMMUNITY MEDIA
+    // ============================================
+    
+    match /community_images/{communityId}/{allPaths=**} {
+      // Anyone can read community images
+      allow read: if isSignedIn();
+      
+      // Any authenticated user can upload (validated in Firestore rules)
+      allow write: if isSignedIn() &&
+                      isImage() &&
+                      isUnderSize(10);
+    }
+    
+    // ============================================
+    // TEMPORARY UPLOADS
+    // ============================================
+    
+    match /temp/{userId}/{allPaths=**} {
+      // Only you can read your temp files
+      allow read: if isSignedIn() && isOwner(userId);
+      
+      // Only you can upload to your temp folder
+      allow write: if isSignedIn() &&
+                      isOwner(userId) &&
+                      isUnderSize(20);
+    }
+  }
+}

@@ -29,7 +29,13 @@ class BereanGenkitService: ObservableObject {
         if let endpoint = Bundle.main.object(forInfoDictionaryKey: "GENKIT_ENDPOINT") as? String {
             self.genkitEndpoint = endpoint
         } else {
+            #if targetEnvironment(simulator)
+            // iOS Simulator: use localhost
             self.genkitEndpoint = "http://localhost:3400"
+            #else
+            // Real device: use your Mac's IP address
+            self.genkitEndpoint = "http://192.168.1.XXX:3400"  // Replace with your Mac's IP
+            #endif
             print("⚠️ Using default Genkit endpoint: \(self.genkitEndpoint)")
         }
         
@@ -295,6 +301,7 @@ class BereanGenkitService: ObservableObject {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 30  // 30 second timeout
         
         // Add API key if available
         if let apiKey = apiKey {
@@ -306,31 +313,45 @@ class BereanGenkitService: ObservableObject {
         request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
         
         print("📤 Calling Genkit flow: \(flowName)")
+        print("   URL: \(urlString)")
         
         // Make the request
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw GenkitError.invalidResponse
-        }
-        
-        guard httpResponse.statusCode == 200 else {
-            print("❌ HTTP Error: \(httpResponse.statusCode)")
-            if let errorText = String(data: data, encoding: .utf8) {
-                print("❌ Error response: \(errorText)")
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw GenkitError.invalidResponse
             }
-            throw GenkitError.httpError(statusCode: httpResponse.statusCode)
+            
+            guard httpResponse.statusCode == 200 else {
+                print("❌ HTTP Error: \(httpResponse.statusCode)")
+                if let errorText = String(data: data, encoding: .utf8) {
+                    print("❌ Error response: \(errorText)")
+                }
+                throw GenkitError.httpError(statusCode: httpResponse.statusCode)
+            }
+            
+            // Parse JSON response
+            guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let result = json["result"] as? [String: Any] else {
+                throw GenkitError.invalidResponse
+            }
+            
+            print("✅ Genkit flow completed: \(flowName)")
+            
+            return result
+        } catch let error as URLError {
+            print("❌ Network error: \(error.localizedDescription)")
+            print("   Error code: \(error.code.rawValue)")
+            if error.code == .cannotConnectToHost || error.code == .timedOut {
+                throw GenkitError.networkError(NSError(
+                    domain: "BereanGenkitService",
+                    code: -1,
+                    userInfo: [NSLocalizedDescriptionKey: "Could not connect to the server."]
+                ))
+            }
+            throw error
         }
-        
-        // Parse JSON response
-        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let result = json["result"] as? [String: Any] else {
-            throw GenkitError.invalidResponse
-        }
-        
-        print("✅ Genkit flow completed: \(flowName)")
-        
-        return result
     }
     
     // MARK: - Fun Bible Fact

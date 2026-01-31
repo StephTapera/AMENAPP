@@ -14,7 +14,10 @@ struct ContentView: View {
     @StateObject private var viewModel: ContentViewModel
     @StateObject private var authViewModel: AuthenticationViewModel
     @StateObject private var messagingCoordinator: AMENAPP.MessagingCoordinator
+    @StateObject private var appUsageTracker = AppUsageTracker.shared
+    @StateObject private var notificationManager = NotificationManager.shared
     @State private var showCreatePost: Bool
+    @Environment(\.scenePhase) private var scenePhase
     
     init() {
         // Initialize property wrappers - default to HomeView (tab 0) to show OpenTable
@@ -50,6 +53,19 @@ struct ContentView: View {
                         print("🔍 ContentView: Showing SignInView")
                         print("   - isAuthenticated: \(authViewModel.isAuthenticated)")
                         print("   - needsOnboarding: \(authViewModel.needsOnboarding)")
+                    }
+            } else if authViewModel.needsUsernameSelection {
+                // Show username selection for social sign-in users (before onboarding)
+                UsernameSelectionView()
+                    .environmentObject(authViewModel)
+                    .onAppear {
+                        print("🔍 ContentView: Showing UsernameSelectionView")
+                        print("   - isAuthenticated: \(authViewModel.isAuthenticated)")
+                        print("   - needsUsernameSelection: \(authViewModel.needsUsernameSelection)")
+                    }
+                    .onDisappear {
+                        // Mark username selection as complete when dismissed
+                        authViewModel.completeUsernameSelection()
                     }
             } else if authViewModel.needsOnboarding {
                 // Show onboarding for new users
@@ -92,11 +108,17 @@ struct ContentView: View {
         .onChange(of: authViewModel.needsOnboarding) { oldValue, newValue in
             print("🔔 ContentView: needsOnboarding changed from \(oldValue) to \(newValue)")
         }
+        .onChange(of: authViewModel.needsUsernameSelection) { oldValue, newValue in
+            print("🔔 ContentView: needsUsernameSelection changed from \(oldValue) to \(newValue)")
+        }
         .onChange(of: messagingCoordinator.shouldOpenMessagesTab) { oldValue, newValue in
             if newValue {
                 print("💬 Opening Messages tab from notification")
                 viewModel.selectedTab = 1  // Switch to Messages tab
             }
+        }
+        .onChange(of: scenePhase) { oldPhase, newPhase in
+            handleScenePhaseChange(from: oldPhase, to: newPhase)
         }
     }
     
@@ -143,23 +165,38 @@ struct ContentView: View {
                 CompactTabBar(selectedTab: $viewModel.selectedTab, showCreatePost: $showCreatePost)
                     .padding(.bottom, 8)
             }
+            
+            // Daily limit reached dialog
+            if appUsageTracker.showLimitReachedDialog {
+                DailyLimitReachedDialog()
+                    .environmentObject(appUsageTracker)
+                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                    .zIndex(999)
+            }
         }
         .sheet(isPresented: $showCreatePost) {
             CreatePostView()
         }
+        .environmentObject(appUsageTracker)
+        .environmentObject(notificationManager)
         .onAppear {
             // Ensure we start on Home tab (OpenTable view)
             viewModel.selectedTab = 0
-            viewModel.checkAuthenticationStatus()
+            
+            // Start tracking app usage
+            appUsageTracker.startSession()
             
             // Setup push notifications
             Task {
                 await setupPushNotifications()
             }
+            
+            // Setup saved search notification observer
+            setupSavedSearchObserver()
         }
-        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
-            // Handle app becoming active
-            authViewModel.checkAuthenticationStatus()
+        .onDisappear {
+            // Stop tracking when view disappears
+            appUsageTracker.endSession()
         }
     }
     
@@ -172,11 +209,15 @@ struct ContentView: View {
         let alreadyGranted = await pushManager.checkNotificationPermissions()
         
         if alreadyGranted {
-            // Setup FCM token
+            // Setup FCM token (with error handling)
             await MainActor.run {
-                pushManager.setupFCMToken()
+                do {
+                    pushManager.setupFCMToken()
+                    print("✅ Push notifications already enabled")
+                } catch {
+                    print("⚠️ FCM token setup failed (this is normal in simulator): \(error.localizedDescription)")
+                }
             }
-            print("✅ Push notifications already enabled")
         } else {
             // Request permission after a short delay (don't overwhelm user on launch)
             try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
@@ -185,17 +226,48 @@ struct ContentView: View {
             
             if granted {
                 await MainActor.run {
-                    pushManager.setupFCMToken()
+                    do {
+                        pushManager.setupFCMToken()
+                        print("✅ Push notifications enabled")
+                    } catch {
+                        print("⚠️ FCM token setup failed (this is normal in simulator): \(error.localizedDescription)")
+                    }
                 }
-                print("✅ Push notifications enabled")
             } else {
                 print("⚠️ Push notifications denied")
             }
         }
         
-        // Start listening to notifications
+        // Start listening to notifications (with error handling)
         await MainActor.run {
-            NotificationService.shared.startListening()
+            do {
+                NotificationService.shared.startListening()
+            } catch {
+                print("⚠️ Notification listener setup failed: \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    // MARK: - Saved Search Notification Observer
+    
+    private func setupSavedSearchObserver() {
+        NotificationCenter.default.addObserver(
+            forName: Notification.Name("openSavedSearch"),
+            object: nil,
+            queue: .main
+        ) { [self] notification in
+            guard let userInfo = notification.userInfo,
+                  let searchId = userInfo["savedSearchId"] as? String,
+                  let query = userInfo["query"] as? String else { return }
+            
+            print("📍 Opening saved search: \(query) (ID: \(searchId))")
+            
+            // Navigate to search tab
+            viewModel.selectedTab = 1
+            
+            // Haptic feedback
+            let haptic = UIImpactFeedbackGenerator(style: .medium)
+            haptic.impactOccurred()
         }
     }
     
@@ -239,24 +311,45 @@ struct ContentView: View {
             print("   Search will use fallback mechanism")
         }
     }
+    
+    // MARK: - Scene Phase Handler
+    
+    /// Handle app lifecycle changes for usage tracking
+    private func handleScenePhaseChange(from oldPhase: ScenePhase, to newPhase: ScenePhase) {
+        switch newPhase {
+        case .active:
+            print("🟢 App became active")
+            appUsageTracker.startSession()
+            
+        case .inactive:
+            print("🟡 App became inactive")
+            // Don't end session yet, might be temporary
+            
+        case .background:
+            print("🔴 App went to background")
+            appUsageTracker.endSession()
+            
+        @unknown default:
+            break
+        }
+    }
 }
 
-// MARK: - Compact Tab Bar (Minimal Frosted Glass Design with Center Create Button)
+// MARK: - Compact Tab Bar with Neomorphic Glass Design
 struct CompactTabBar: View {
     @Binding var selectedTab: Int
     @Binding var showCreatePost: Bool
     @StateObject private var messagingService = FirebaseMessagingService.shared
     @State private var previousUnreadCount: Int = 0
     @State private var badgePulse: Bool = false
+    @Namespace private var tabNamespace
     
-    let leftTabs: [(icon: String, tag: Int)] = [
-        ("house.fill", 0),
-        ("message.fill", 1)
-    ]
-    
-    let rightTabs: [(icon: String, tag: Int)] = [
-        ("books.vertical.fill", 3),
-        ("person.fill", 4)
+    // All tabs in order: Home, Messages, Create (center), Resources, Profile
+    let allTabs: [(icon: String, tag: Int)] = [
+        ("house.fill", 0),           // Home
+        ("message.fill", 1),          // Messages
+        ("books.vertical.fill", 3),   // Resources
+        ("person.fill", 4)            // Profile
     ]
     
     // Computed property for total unread count
@@ -266,150 +359,144 @@ struct CompactTabBar: View {
     
     var body: some View {
         ZStack {
-            // Main Tab Bar Container - Minimal Frosted Glass
-            HStack(spacing: 0) {
-                // Left tabs
-                ForEach(leftTabs, id: \.tag) { tab in
-                    Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                            selectedTab = tab.tag
-                        }
-                        let haptic = UIImpactFeedbackGenerator(style: .light)
-                        haptic.impactOccurred()
-                    } label: {
-                        ZStack(alignment: .topTrailing) {
-                            Image(systemName: tab.icon)
-                                .font(.system(size: 20, weight: .medium))
-                                .foregroundStyle(selectedTab == tab.tag ? .primary : .secondary)
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 32)
-                                .scaleEffect(selectedTab == tab.tag ? 1.05 : 1.0)
-                            
-                            // 🔴 Unread dot for Messages tab
-                            if tab.tag == 1 && totalUnreadCount > 0 {
-                                UnreadDot(pulse: badgePulse)
-                                    .offset(x: 10, y: 2)
-                            }
-                        }
+            // Background container - more compact spacing
+            HStack(spacing: 4) {
+                // Home button
+                tabButton(for: allTabs[0])
+                
+                // Messages button with unread indicator
+                ZStack(alignment: .topTrailing) {
+                    tabButton(for: allTabs[1])
+                    
+                    // 🔴 Unread dot for Messages tab
+                    if totalUnreadCount > 0 {
+                        UnreadDot(pulse: badgePulse)
+                            .offset(x: 4, y: -1)
                     }
-                    .buttonStyle(PlainButtonStyle())
                 }
                 
-                // Spacer for center button
-                Spacer()
-                    .frame(width: 64)
-                
-                // Right tabs
-                ForEach(rightTabs, id: \.tag) { tab in
-                    Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                            selectedTab = tab.tag
-                        }
-                        let haptic = UIImpactFeedbackGenerator(style: .light)
-                        haptic.impactOccurred()
-                    } label: {
-                        Image(systemName: tab.icon)
-                            .font(.system(size: 20, weight: .medium))
-                            .foregroundStyle(selectedTab == tab.tag ? .primary : .secondary)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 32)
-                            .scaleEffect(selectedTab == tab.tag ? 1.05 : 1.0)
+                // Center Create Button - smaller with glass effect
+                Button {
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
+                        showCreatePost = true
                     }
-                    .buttonStyle(PlainButtonStyle())
-                }
-            }
-            .frame(height: 44)
-            .background(
-                ZStack {
-                    // Frosted glass effect
-                    Capsule()
-                        .fill(.ultraThinMaterial)
-                    
-                    // Subtle inner shadow for depth
-                    Capsule()
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    Color.white.opacity(0.25),
-                                    Color.white.opacity(0.05)
-                                ],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
-                    
-                    // Clean border
-                    Capsule()
-                        .strokeBorder(
-                            LinearGradient(
-                                colors: [
-                                    Color.white.opacity(0.3),
-                                    Color.white.opacity(0.1)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 0.5
-                        )
-                }
-            )
-            .shadow(color: .black.opacity(0.08), radius: 12, y: 4)
-            .shadow(color: .black.opacity(0.04), radius: 4, y: 2)
-            .padding(.horizontal, 40)
-            
-            // Center Create Button - Minimal Frosted Circle
-            Button {
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
-                    showCreatePost = true
-                }
-                let haptic = UIImpactFeedbackGenerator(style: .medium)
-                haptic.impactOccurred()
-            } label: {
-                ZStack {
-                    // Frosted glass circle
-                    Circle()
-                        .fill(.ultraThinMaterial)
-                        .frame(width: 48, height: 48)
-                    
-                    // Subtle gradient overlay
-                    Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    Color.white.opacity(0.3),
-                                    Color.white.opacity(0.05)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(width: 48, height: 48)
-                    
-                    // Clean border
-                    Circle()
-                        .strokeBorder(
-                            LinearGradient(
-                                colors: [
-                                    Color.white.opacity(0.5),
-                                    Color.white.opacity(0.15)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 0.5
-                        )
-                        .frame(width: 48, height: 48)
-                    
-                    // Plus icon
+                    let haptic = UIImpactFeedbackGenerator(style: .medium)
+                    haptic.impactOccurred()
+                } label: {
                     Image(systemName: "plus")
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundStyle(.primary)
-                        .symbolRenderingMode(.hierarchical)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 28, height: 28)
+                        .background(
+                            Circle()
+                                .fill(
+                                    LinearGradient(
+                                        colors: [
+                                            Color.black,
+                                            Color.black.opacity(0.85)
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                                .shadow(color: .black.opacity(0.25), radius: 6, y: 2)
+                        )
+                }
+                .buttonStyle(PlainButtonStyle())
+                .padding(.horizontal, 2)
+                
+                // Resources button
+                tabButton(for: allTabs[2])
+                
+                // Profile button
+                tabButton(for: allTabs[3])
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            
+            // Morphing pill indicator that slides between tabs
+            HStack(spacing: 4) {
+                if selectedTab == 0 {
+                    pillIndicator
+                        .matchedGeometryEffect(id: "TAB_PILL", in: tabNamespace)
+                } else {
+                    Color.clear.frame(width: 38, height: 38)
+                }
+                
+                if selectedTab == 1 {
+                    pillIndicator
+                        .matchedGeometryEffect(id: "TAB_PILL", in: tabNamespace)
+                } else {
+                    Color.clear.frame(width: 38, height: 38)
+                }
+                
+                // Center button spacer - smaller
+                Color.clear.frame(width: 28, height: 28)
+                    .padding(.horizontal, 2)
+                
+                if selectedTab == 3 {
+                    pillIndicator
+                        .matchedGeometryEffect(id: "TAB_PILL", in: tabNamespace)
+                } else {
+                    Color.clear.frame(width: 38, height: 38)
+                }
+                
+                if selectedTab == 4 {
+                    pillIndicator
+                        .matchedGeometryEffect(id: "TAB_PILL", in: tabNamespace)
+                } else {
+                    Color.clear.frame(width: 38, height: 38)
                 }
             }
-            .buttonStyle(PlainButtonStyle())
-            .shadow(color: .black.opacity(0.1), radius: 8, y: 3)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 2.5)
+            .allowsHitTesting(false)
         }
+        .background(
+            ZStack {
+                // Glassmorphic background - frosted glass effect
+                Capsule()
+                    .fill(.ultraThinMaterial)
+                
+                // Subtle white gradient overlay for depth
+                Capsule()
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.25),
+                                Color.white.opacity(0.05)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                
+                // Premium border with gradient
+                Capsule()
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.5),
+                                Color.white.opacity(0.2),
+                                Color.gray.opacity(0.2)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1.5
+                    )
+                
+                // Inner glow for depth
+                Capsule()
+                    .stroke(Color.white.opacity(0.6), lineWidth: 1)
+                    .blur(radius: 1)
+                    .offset(x: 0, y: -1)
+            }
+        )
+        .frame(height: 44)
+        .shadow(color: .black.opacity(0.12), radius: 16, x: 0, y: 8)
+        .shadow(color: .black.opacity(0.06), radius: 8, x: 0, y: 4)
+        .padding(.horizontal, 28)
         .onChange(of: totalUnreadCount) { oldValue, newValue in
             // Trigger pulse animation when unread count increases
             if newValue > oldValue {
@@ -433,6 +520,76 @@ struct CompactTabBar: View {
         .onAppear {
             previousUnreadCount = totalUnreadCount
         }
+    }
+    
+    // MARK: - Inset Glass Pill Indicator (Subtle Transparent)
+    
+    private var pillIndicator: some View {
+        ZStack {
+            // Very subtle recessed base - barely visible
+            Capsule()
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color.black.opacity(0.04),
+                            Color.black.opacity(0.02)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+            
+            // Inner shadow for depth
+            Capsule()
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [
+                            Color.black.opacity(0.08),
+                            Color.clear
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 0.5
+                )
+                .blur(radius: 0.5)
+            
+            // Subtle light edge
+            Capsule()
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [
+                            Color.clear,
+                            Color.white.opacity(0.2)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 0.5
+                )
+        }
+        .frame(width: 38, height: 38)
+        .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
+    }
+    
+    // MARK: - Tab Button Helper
+    
+    @ViewBuilder
+    private func tabButton(for tab: (icon: String, tag: Int)) -> some View {
+        Button {
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+                selectedTab = tab.tag
+            }
+            let haptic = UIImpactFeedbackGenerator(style: .light)
+            haptic.impactOccurred()
+        } label: {
+            Image(systemName: tab.icon)
+                .font(.system(size: 16, weight: selectedTab == tab.tag ? .semibold : .medium))
+                .foregroundStyle(selectedTab == tab.tag ? .black : .black.opacity(0.35))
+                .frame(width: 38, height: 38)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(PlainButtonStyle())
     }
 }
 
@@ -471,6 +628,7 @@ struct UnreadDot: View {
 struct HomeView: View {
     @StateObject private var viewModel = HomeViewModel()
     @ObservedObject private var notificationService = NotificationService.shared
+    @StateObject private var postsManager = PostsManager.shared  // ✅ For post navigation
     @State private var isCategoriesExpanded = false
     @State private var showNotifications = false
     @State private var showSearch = false
@@ -491,58 +649,10 @@ struct HomeView: View {
     
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
-                    // Expandable Category Pills - perfectly centered and aligned
-                    if isCategoriesExpanded {
-                        HStack {
-                            Spacer()
-                            HStack(spacing: 12) {
-                                ForEach(viewModel.categories, id: \.self) { category in
-                                    CategoryPill(
-                                        title: category,
-                                        isSelected: viewModel.selectedCategory == category
-                                    ) {
-                                        viewModel.selectCategory(category)
-                                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                                            isCategoriesExpanded = false
-                                        }
-                                    }
-                                }
-                            }
-                            Spacer()
-                        }
-                        .padding(.vertical, 8)
-                        .transition(.asymmetric(
-                            insertion: .move(edge: .top).combined(with: .opacity),
-                            removal: .move(edge: .top).combined(with: .opacity)
-                        ))
-                    }
-                    
-                    // Dynamic Content Based on Selected Category
-                    Group {
-                        switch viewModel.selectedCategory {
-                        case "#OPENTABLE":
-                            OpenTableView()
-                                .transition(.opacity.combined(with: .scale(scale: 0.95)))
-                        case "Testimonies":
-                            TestimoniesView()
-                                .transition(.opacity.combined(with: .scale(scale: 0.95)))
-                        case "Prayer":
-                            PrayerView()
-                                .transition(.opacity.combined(with: .scale(scale: 0.95)))
-                        default:
-                            OpenTableView()
-                                .transition(.opacity.combined(with: .scale(scale: 0.95)))
-                        }
-                    }
-                    .animation(.easeInOut(duration: 0.3), value: viewModel.selectedCategory)
-                }
-                .padding(.vertical)
-            }
-            .navigationTitle("AMEN")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
+            mainScrollContent
+                .navigationTitle("AMEN")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     // Berean AI Assistant Button
                     BereanAssistantButton {
@@ -647,6 +757,68 @@ struct HomeView: View {
                 notificationService.startListening()
             }
         }
+    }
+    
+    // MARK: - Computed Properties to help type checker
+    
+    private var mainScrollContent: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                // Expandable Category Pills - perfectly centered and aligned
+                if isCategoriesExpanded {
+                    categoryPillsView
+                }
+                
+                // Dynamic Content Based on Selected Category
+                selectedCategoryView
+            }
+            .padding(.vertical)
+        }
+    }
+    
+    private var categoryPillsView: some View {
+        HStack {
+            Spacer()
+            HStack(spacing: 12) {
+                ForEach(viewModel.categories, id: \.self) { category in
+                    CategoryPill(
+                        title: category,
+                        isSelected: viewModel.selectedCategory == category
+                    ) {
+                        viewModel.selectCategory(category)
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                            isCategoriesExpanded = false
+                        }
+                    }
+                }
+            }
+            Spacer()
+        }
+        .padding(.vertical, 8)
+        .transition(.asymmetric(
+            insertion: .move(edge: .top).combined(with: .opacity),
+            removal: .move(edge: .top).combined(with: .opacity)
+        ))
+    }
+    
+    private var selectedCategoryView: some View {
+        Group {
+            switch viewModel.selectedCategory {
+            case "#OPENTABLE":
+                OpenTableView()
+                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
+            case "Testimonies":
+                TestimoniesView()
+                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
+            case "Prayer":
+                PrayerView()
+                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
+            default:
+                OpenTableView()
+                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
+            }
+        }
+        .animation(.easeInOut(duration: 0.3), value: viewModel.selectedCategory)
     }
 }
 
@@ -845,7 +1017,7 @@ struct CommunityCard: View {
     }
 }
 
-// MARK: - Smart Community Card (Enhanced with better colors and animations)
+// MARK: - Smart Community Card (Compact Liquid Glass Design)
 
 struct SmartCommunityCard: View {
     let icon: String
@@ -864,53 +1036,75 @@ struct SmartCommunityCard: View {
             haptic.impactOccurred()
             action()
         }) {
-            VStack(alignment: .leading, spacing: 8) {
-                // Icon with smart glow
+            HStack(spacing: 10) {
+                // Compact icon
                 ZStack {
                     Circle()
                         .fill(iconColor.opacity(0.15))
-                        .frame(width: 34, height: 34)
-                        .blur(radius: 5)
-                    
-                    Circle()
-                        .fill(iconColor.opacity(0.12))
-                        .frame(width: 34, height: 34)
-                        .overlay(
-                            Circle()
-                                .stroke(iconColor.opacity(0.3), lineWidth: 1.5)
-                        )
+                        .frame(width: 32, height: 32)
                     
                     Image(systemName: icon)
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(iconColor)
                         .symbolEffect(.bounce, value: isPressed)
                 }
                 
-                Spacer()
-                
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
                         .font(.custom("OpenSans-Bold", size: 13))
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.primary)
                     
                     Text(subtitle)
                         .font(.custom("OpenSans-Regular", size: 10))
-                        .foregroundStyle(.black.opacity(0.6))
+                        .foregroundStyle(.secondary)
                 }
+                
+                Spacer()
+                
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.secondary.opacity(0.5))
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .frame(height: 90)
-            .padding(14)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
             .background(
-                RoundedRectangle(cornerRadius: 14)
-                    .fill(backgroundColor)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14)
-                            .stroke(accentColor.opacity(0.25), lineWidth: 1.5)
-                    )
-                    .shadow(color: accentColor.opacity(0.15), radius: 8, y: 3)
+                ZStack {
+                    // Liquid Glass effect
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(.ultraThinMaterial)
+                    
+                    // Subtle tint overlay
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    iconColor.opacity(0.08),
+                                    iconColor.opacity(0.03)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                    
+                    // Border
+                    RoundedRectangle(cornerRadius: 16)
+                        .strokeBorder(
+                            LinearGradient(
+                                colors: [
+                                    Color.white.opacity(0.4),
+                                    Color.white.opacity(0.1)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1
+                        )
+                }
             )
-            .scaleEffect(isPressed ? 0.96 : 1.0)
+            .shadow(color: iconColor.opacity(0.1), radius: 8, y: 2)
+            .shadow(color: .black.opacity(0.05), radius: 4, y: 1)
+            .scaleEffect(isPressed ? 0.98 : 1.0)
         }
         .buttonStyle(PlainButtonStyle())
         .onLongPressGesture(minimumDuration: .infinity, maximumDistance: .infinity, pressing: { pressing in
@@ -2234,29 +2428,10 @@ struct FollowButton: View {
                 haptic.impactOccurred()
             }
         } label: {
-            HStack(spacing: 4) {
-                if !isFollowing {
-                    Image(systemName: "plus")
-                        .font(.system(size: 10, weight: .bold))
-                }
-                Text(isFollowing ? "Following" : "Follow")
-                    .font(.custom("OpenSans-Bold", size: 12))
-            }
-            .foregroundStyle(isFollowing ? Color.secondary : Color.white)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(
-                Capsule()
-                    .fill(isFollowing ? Color.clear : Color.black)
-                    .overlay(
-                        Capsule()
-                            .stroke(isFollowing ? Color.secondary.opacity(0.3) : Color.clear, lineWidth: 1)
-                    )
-            )
-            .scaleEffect(isPressed ? 0.92 : 1.0)
+            buttonContent
+                .scaleEffect(isPressed ? 0.92 : 1.0)
         }
         .buttonStyle(PlainButtonStyle())
-        .glassEffect(.regular.interactive())
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in
@@ -2273,12 +2448,36 @@ struct FollowButton: View {
                 }
         )
     }
+    
+    private var buttonContent: some View {
+        HStack(spacing: 4) {
+            if !isFollowing {
+                Image(systemName: "plus")
+                    .font(.system(size: 10, weight: .bold))
+            }
+            Text(isFollowing ? "Following" : "Follow")
+                .font(.custom("OpenSans-Bold", size: 12))
+        }
+        .foregroundStyle(isFollowing ? Color.secondary : Color.white)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(buttonBackground)
+    }
+    
+    private var buttonBackground: some View {
+        Capsule()
+            .fill(isFollowing ? Color.clear : Color.black)
+            .overlay(
+                Capsule()
+                    .stroke(isFollowing ? Color.secondary.opacity(0.3) : Color.clear, lineWidth: 1)
+            )
+    }
 }
 
 // MARK: - Category Views
 
 struct OpenTableView: View {
-    @StateObject private var postsManager = PostsManager.shared
+    @ObservedObject private var postsManager = PostsManager.shared
     @State private var showTopIdeas = false
     @State private var showSpotlight = false
     @State private var isRefreshing = false
@@ -3034,7 +3233,7 @@ struct TopIdeaCard: View {
                 .lineSpacing(4)
             
             // Interactive Reactions
-            GlassEffectContainer(spacing: 12) {
+            GlassEffectContainer {
                 HStack(spacing: 12) {
                     // Lightbulb Reaction with Animation
                     Button {
@@ -3107,7 +3306,6 @@ struct TopIdeaCard: View {
                             }
                         )
                     }
-                    .glassEffectID("lightbulb", in: glassNamespace)
                     
                     // Comment Button
                     ReactionButton(
@@ -3121,7 +3319,6 @@ struct TopIdeaCard: View {
                             showComments.toggle()
                         }
                     }
-                    .glassEffectID("comment", in: glassNamespace)
                     
                     Spacer()
                     
@@ -3175,7 +3372,7 @@ struct NotificationBadge: View {
                         endPoint: .bottomTrailing
                     )
                 )
-                .frame(width: count > 9 ? 18 : 14, height: 14)
+                .frame(width: max(14, count > 9 ? 18 : 14), height: max(14, 14))
                 .shadow(color: .red.opacity(0.5), radius: 4, x: 0, y: 2)
             
             if count <= 99 {
@@ -3196,6 +3393,19 @@ struct NotificationBadge: View {
     }
 }
 
+// MARK: - Safe Frame Extension
+extension View {
+    /// Ensures frame dimensions are never negative or non-finite
+    func safeFrame(width: CGFloat? = nil, height: CGFloat? = nil, alignment: Alignment = .center) -> some View {
+        self.frame(
+            width: width.map { max(0, $0.isFinite ? $0 : 0) },
+            height: height.map { max(0, $0.isFinite ? $0 : 0) },
+            alignment: alignment
+        )
+    }
+}
+
 #Preview {
     ContentView()
 }
+

@@ -1,0 +1,116 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    
+    "postInteractions": {
+      "$postId": {
+        ".read": true,
+        ".write": "auth != null",
+        ".indexOn": ["timestamp"],
+        
+        "lightbulbs": {
+          "$userId": {
+            ".write": "auth.uid == $userId"
+          }
+        },
+        
+        "amens": {
+          "$userId": {
+            ".write": "auth.uid == $userId"
+          }
+        },
+        
+        "comments": {
+          ".indexOn": ["timestamp"],
+          "$commentId": {
+            ".read": true,
+            ".write": "auth != null",
+            
+            "replies": {
+              ".indexOn": ["timestamp"]
+            }
+          }
+        }
+      }
+    },
+    
+    "conversations": {
+      "$conversationId": {
+        ".read": "auth != null && data.child('participantIds').child(auth.uid).exists()",
+        ".write": "auth != null && data.child('participantIds').child(auth.uid).exists()",
+        
+        "messages": {
+          ".indexOn": ["timestamp"]
+        }
+      }
+    },
+    
+    "activityFeed": {
+      "global": {
+        ".read": true,
+        ".write": "auth != null",
+        ".indexOn": ["timestamp"]
+      }
+    },
+    
+    "communityActivity": {
+      "$communityId": {
+        ".read": true,
+        ".write": "auth != null",
+        ".indexOn": ["timestamp"]
+      }
+    },
+    
+    "prayerActivity": {
+      "$postId": {
+        ".read": true,
+        
+        "prayingUsers": {
+          "$userId": {
+            ".write": "auth.uid == $userId"
+          }
+        },
+        
+        "count": {
+          ".write": "auth != null"
+        }
+      }
+    },
+    
+    "users": {
+      "$userId": {
+        ".read": "auth != null",
+        ".write": "auth.uid == $userId"
+      }
+    },
+    
+    "followers": {
+      "$userId": {
+        ".read": true,
+        "$followerId": {
+          ".write": "auth.uid == $followerId"
+        }
+      }
+    },
+    
+    "following": {
+      "$userId": {
+        ".read": "auth != null",
+        "$followingId": {
+          ".write": "auth.uid == $userId"
+        }
+      }
+    },
+    
+    "user_saved_posts": {
+      "$userId": {
+        ".read": "auth != null && auth.uid == $userId",
+        ".write": "auth != null && auth.uid == $userId",
+        "$postId": {
+          ".validate": "newData.isNumber()"
+        }
+      }
+    }
+  }
+}

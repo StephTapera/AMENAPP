@@ -7,6 +7,20 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		EF03BC952F2B31ED0026395A /* DEBUG_CHAT_NOT_OPENING.md in Resources */ = {isa = PBXBuildFile; fileRef = EF03BC942F2B31ED0026395A /* DEBUG_CHAT_NOT_OPENING.md */; };
+		EF03BCA32F2B36EC0026395A /* FIX_TYPING_INDICATORS.md in Resources */ = {isa = PBXBuildFile; fileRef = EF03BCA22F2B36EC0026395A /* FIX_TYPING_INDICATORS.md */; };
+		EF03BCA52F2B37000026395A /* QUICK_FIX.md in Resources */ = {isa = PBXBuildFile; fileRef = EF03BCA42F2B37000026395A /* QUICK_FIX.md */; };
+		EF03BCA72F2B374F0026395A /* FixRealtimeDBError.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF03BCA62F2B374F0026395A /* FixRealtimeDBError.swift */; };
+		EF03BCAB2F2B37B00026395A /* FirebaseMessagingService+TypingIndicators.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF03BCAA2F2B37B00026395A /* FirebaseMessagingService+TypingIndicators.swift */; };
+		EF03BCAD2F2B37E80026395A /* PRODUCTION_READY_IMPLEMENTATION.md in Resources */ = {isa = PBXBuildFile; fileRef = EF03BCAC2F2B37E80026395A /* PRODUCTION_READY_IMPLEMENTATION.md */; };
+		EF03BCDB2F2BEF440026395A /* CHAT_IMPLEMENTATION_STATUS.md in Resources */ = {isa = PBXBuildFile; fileRef = EF03BCDA2F2BEF440026395A /* CHAT_IMPLEMENTATION_STATUS.md */; };
+		EF03BCDD2F2BF0FE0026395A /* ChatView_NEW_PRODUCTION.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF03BCDC2F2BF0FE0026395A /* ChatView_NEW_PRODUCTION.swift */; };
+		EF03BCDF2F2BF1520026395A /* MESSAGING_PRODUCTION_AUDIT.md in Resources */ = {isa = PBXBuildFile; fileRef = EF03BCDE2F2BF1520026395A /* MESSAGING_PRODUCTION_AUDIT.md */; };
+		EF03BCE12F2BF17E0026395A /* CHATVIEW_MIGRATION_GUIDE.md in Resources */ = {isa = PBXBuildFile; fileRef = EF03BCE02F2BF17E0026395A /* CHATVIEW_MIGRATION_GUIDE.md */; };
+		EF03BCE32F2BF1BA0026395A /* PRODUCTION_DEPLOYMENT_SUMMARY.md in Resources */ = {isa = PBXBuildFile; fileRef = EF03BCE22F2BF1BA0026395A /* PRODUCTION_DEPLOYMENT_SUMMARY.md */; };
+		EF38A1212F2D114F004E694A /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = EF38A1202F2D114F004E694A /* GoogleSignIn */; };
+		EF38A1232F2D114F004E694A /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = EF38A1222F2D114F004E694A /* GoogleSignInSwift */; };
+		EF38A13B2F2D3772004E694A /* MESSAGING_PRODUCTION_READY.md in Resources */ = {isa = PBXBuildFile; fileRef = EF38A13A2F2D3772004E694A /* MESSAGING_PRODUCTION_READY.md */; };
 		EF4BA9DA2F29FDD3000B930F /* Abtesting in Frameworks */ = {isa = PBXBuildFile; productRef = EF4BA9D92F29FDD3000B930F /* Abtesting */; };
 		EF4BA9DC2F29FDD3000B930F /* AbtestingV3 in Frameworks */ = {isa = PBXBuildFile; productRef = EF4BA9DB2F29FDD3000B930F /* AbtestingV3 */; };
 		EF4BA9DE2F29FDD3000B930F /* Analytics in Frameworks */ = {isa = PBXBuildFile; productRef = EF4BA9DD2F29FDD3000B930F /* Analytics */; };
@@ -43,6 +57,7 @@
 		EF4E20822F1F421D0066C5C2 /* FirebaseRemoteConfig in Frameworks */ = {isa = PBXBuildFile; productRef = EF4E20812F1F421D0066C5C2 /* FirebaseRemoteConfig */; };
 		EF4E20842F1F421D0066C5C2 /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = EF4E20832F1F421D0066C5C2 /* FirebaseStorage */; };
 		EF4E20862F1F421D0066C5C2 /* FirebaseStorageCombine-Community in Frameworks */ = {isa = PBXBuildFile; productRef = EF4E20852F1F421D0066C5C2 /* FirebaseStorageCombine-Community */; };
+		EF7475D92F2C85CD00A4434F /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EF7475D82F2C85CD00A4434F /* XCTest.framework */; platformFilter = ios; };
 		EF7F3CA52F23D2400016C6EE /* EditPostSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF7F3CA42F23D2400016C6EE /* EditPostSheet.swift */; };
 		EF92D0152F257C7300CC9601 /* FIREBASE_PERSISTENCE_FIX.md in Resources */ = {isa = PBXBuildFile; fileRef = EF92D0142F257C7300CC9601 /* FIREBASE_PERSISTENCE_FIX.md */; };
 		EF92D0172F257D7C00CC9601 /* FIREBASE_PERSISTENCE_TROUBLESHOOTING.md in Resources */ = {isa = PBXBuildFile; fileRef = EF92D0162F257D7C00CC9601 /* FIREBASE_PERSISTENCE_TROUBLESHOOTING.md */; };
@@ -59,7 +74,20 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		EF03BC942F2B31ED0026395A /* DEBUG_CHAT_NOT_OPENING.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = DEBUG_CHAT_NOT_OPENING.md; sourceTree = "<group>"; };
+		EF03BCA22F2B36EC0026395A /* FIX_TYPING_INDICATORS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = FIX_TYPING_INDICATORS.md; sourceTree = "<group>"; };
+		EF03BCA42F2B37000026395A /* QUICK_FIX.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = QUICK_FIX.md; sourceTree = "<group>"; };
+		EF03BCA62F2B374F0026395A /* FixRealtimeDBError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FixRealtimeDBError.swift; sourceTree = "<group>"; };
+		EF03BCAA2F2B37B00026395A /* FirebaseMessagingService+TypingIndicators.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FirebaseMessagingService+TypingIndicators.swift"; sourceTree = "<group>"; };
+		EF03BCAC2F2B37E80026395A /* PRODUCTION_READY_IMPLEMENTATION.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = PRODUCTION_READY_IMPLEMENTATION.md; sourceTree = "<group>"; };
+		EF03BCDA2F2BEF440026395A /* CHAT_IMPLEMENTATION_STATUS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CHAT_IMPLEMENTATION_STATUS.md; sourceTree = "<group>"; };
+		EF03BCDC2F2BF0FE0026395A /* ChatView_NEW_PRODUCTION.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView_NEW_PRODUCTION.swift; sourceTree = "<group>"; };
+		EF03BCDE2F2BF1520026395A /* MESSAGING_PRODUCTION_AUDIT.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = MESSAGING_PRODUCTION_AUDIT.md; sourceTree = "<group>"; };
+		EF03BCE02F2BF17E0026395A /* CHATVIEW_MIGRATION_GUIDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CHATVIEW_MIGRATION_GUIDE.md; sourceTree = "<group>"; };
+		EF03BCE22F2BF1BA0026395A /* PRODUCTION_DEPLOYMENT_SUMMARY.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = PRODUCTION_DEPLOYMENT_SUMMARY.md; sourceTree = "<group>"; };
+		EF38A13A2F2D3772004E694A /* MESSAGING_PRODUCTION_READY.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = MESSAGING_PRODUCTION_READY.md; sourceTree = "<group>"; };
 		EF56F7412F2881A30019B94A /* AMENAPPTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AMENAPPTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		EF7475D82F2C85CD00A4434F /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = Platforms/iPhoneOS.platform/Developer/Library/Frameworks/XCTest.framework; sourceTree = DEVELOPER_DIR; };
 		EF7F3CA42F23D2400016C6EE /* EditPostSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditPostSheet.swift; sourceTree = "<group>"; };
 		EF81519B2F184E97008912E3 /* AMENAPP.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AMENAPP.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		EF92D0142F257C7300CC9601 /* FIREBASE_PERSISTENCE_FIX.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = FIREBASE_PERSISTENCE_FIX.md; sourceTree = "<group>"; };
@@ -67,10 +95,19 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		EF7475DB2F2C873700A4434F /* Exceptions for "AMENAPP" folder in "AMENAPPTests" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				SavedPostsTests.swift,
+			);
+			target = EF56F7402F2881A30019B94A /* AMENAPPTests */;
+		};
 		EF7F3C6A2F2352350016C6EE /* Exceptions for "AMENAPP" folder in "AMENAPP" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				.swift,
+				Info.plist,
+				SavedPostsTests.swift,
 			);
 			target = EF81519A2F184E97008912E3 /* AMENAPP */;
 		};
@@ -97,6 +134,7 @@
 			exceptions = (
 				EF7F3C6A2F2352350016C6EE /* Exceptions for "AMENAPP" folder in "AMENAPP" target */,
 				EF7F3C6B2F2352350016C6EE /* Exceptions for "AMENAPP" folder in "Compile Sources" phase from "AMENAPP" target */,
+				EF7475DB2F2C873700A4434F /* Exceptions for "AMENAPP" folder in "AMENAPPTests" target */,
 			);
 			path = AMENAPP;
 			sourceTree = "<group>";
@@ -108,6 +146,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EF7475D92F2C85CD00A4434F /* XCTest.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -134,6 +173,7 @@
 				EF4E206E2F1F421D0066C5C2 /* FirebaseDatabase in Frameworks */,
 				EF4BA9E82F29FDD3000B930F /* Monitoring in Frameworks */,
 				EF4E20842F1F421D0066C5C2 /* FirebaseStorage in Frameworks */,
+				EF38A1232F2D114F004E694A /* GoogleSignInSwift in Frameworks */,
 				EF4BA9E02F29FDD3000B930F /* Composition in Frameworks */,
 				EF4E20822F1F421D0066C5C2 /* FirebaseRemoteConfig in Frameworks */,
 				EF4E205C2F1F421D0066C5C2 /* FirebaseAnalytics in Frameworks */,
@@ -141,6 +181,7 @@
 				EF4E207C2F1F421D0066C5C2 /* FirebaseMLModelDownloader in Frameworks */,
 				EF4BA9E42F29FDD3000B930F /* Ingestion in Frameworks */,
 				EF4E20802F1F421D0066C5C2 /* FirebasePerformance in Frameworks */,
+				EF38A1212F2D114F004E694A /* GoogleSignIn in Frameworks */,
 				EF4E206A2F1F421D0066C5C2 /* FirebaseCore in Frameworks */,
 				EF4E20622F1F421D0066C5C2 /* FirebaseAppCheck in Frameworks */,
 				EF4BA9EE2F29FDD3000B930F /* Recommend in Frameworks */,
@@ -167,6 +208,18 @@
 				EFBDED3F2F251CD1001E650E /* Frameworks */,
 				EF92D0142F257C7300CC9601 /* FIREBASE_PERSISTENCE_FIX.md */,
 				EF92D0162F257D7C00CC9601 /* FIREBASE_PERSISTENCE_TROUBLESHOOTING.md */,
+				EF03BC942F2B31ED0026395A /* DEBUG_CHAT_NOT_OPENING.md */,
+				EF03BCA22F2B36EC0026395A /* FIX_TYPING_INDICATORS.md */,
+				EF03BCA42F2B37000026395A /* QUICK_FIX.md */,
+				EF03BCA62F2B374F0026395A /* FixRealtimeDBError.swift */,
+				EF03BCAA2F2B37B00026395A /* FirebaseMessagingService+TypingIndicators.swift */,
+				EF03BCAC2F2B37E80026395A /* PRODUCTION_READY_IMPLEMENTATION.md */,
+				EF03BCDA2F2BEF440026395A /* CHAT_IMPLEMENTATION_STATUS.md */,
+				EF03BCDC2F2BF0FE0026395A /* ChatView_NEW_PRODUCTION.swift */,
+				EF03BCDE2F2BF1520026395A /* MESSAGING_PRODUCTION_AUDIT.md */,
+				EF03BCE02F2BF17E0026395A /* CHATVIEW_MIGRATION_GUIDE.md */,
+				EF03BCE22F2BF1BA0026395A /* PRODUCTION_DEPLOYMENT_SUMMARY.md */,
+				EF38A13A2F2D3772004E694A /* MESSAGING_PRODUCTION_READY.md */,
 			);
 			sourceTree = "<group>";
 		};
@@ -182,6 +235,7 @@
 		EFBDED3F2F251CD1001E650E /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				EF7475D82F2C85CD00A4434F /* XCTest.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -265,6 +319,8 @@
 				EF4BA9EB2F29FDD3000B930F /* QuerySuggestions */,
 				EF4BA9ED2F29FDD3000B930F /* Recommend */,
 				EF4BA9EF2F29FDD3000B930F /* Search */,
+				EF38A1202F2D114F004E694A /* GoogleSignIn */,
+				EF38A1222F2D114F004E694A /* GoogleSignInSwift */,
 			);
 			productName = AMENAPP;
 			productReference = EF81519B2F184E97008912E3 /* AMENAPP.app */;
@@ -301,6 +357,7 @@
 			packageReferences = (
 				EF4E20562F1F421D0066C5C2 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 				EF4BA9D82F29FDD3000B930F /* XCRemoteSwiftPackageReference "algoliasearch-client-swift" */,
+				EF38A11F2F2D114F004E694A /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = EF81519C2F184E97008912E3 /* Products */;
@@ -325,6 +382,15 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EF03BCA52F2B37000026395A /* QUICK_FIX.md in Resources */,
+				EF38A13B2F2D3772004E694A /* MESSAGING_PRODUCTION_READY.md in Resources */,
+				EF03BCAD2F2B37E80026395A /* PRODUCTION_READY_IMPLEMENTATION.md in Resources */,
+				EF03BCDB2F2BEF440026395A /* CHAT_IMPLEMENTATION_STATUS.md in Resources */,
+				EF03BC952F2B31ED0026395A /* DEBUG_CHAT_NOT_OPENING.md in Resources */,
+				EF03BCA32F2B36EC0026395A /* FIX_TYPING_INDICATORS.md in Resources */,
+				EF03BCDF2F2BF1520026395A /* MESSAGING_PRODUCTION_AUDIT.md in Resources */,
+				EF03BCE12F2BF17E0026395A /* CHATVIEW_MIGRATION_GUIDE.md in Resources */,
+				EF03BCE32F2BF1BA0026395A /* PRODUCTION_DEPLOYMENT_SUMMARY.md in Resources */,
 				EF92D0172F257D7C00CC9601 /* FIREBASE_PERSISTENCE_TROUBLESHOOTING.md in Resources */,
 				EF92D0152F257C7300CC9601 /* FIREBASE_PERSISTENCE_FIX.md in Resources */,
 			);
@@ -344,6 +410,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EF03BCAB2F2B37B00026395A /* FirebaseMessagingService+TypingIndicators.swift in Sources */,
+				EF03BCA72F2B374F0026395A /* FixRealtimeDBError.swift in Sources */,
+				EF03BCDD2F2BF0FE0026395A /* ChatView_NEW_PRODUCTION.swift in Sources */,
 				EF7F3CA52F23D2400016C6EE /* EditPostSheet.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -527,14 +596,18 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = AMENAPP/AMENAPP.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = FGLL559H83;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = AMENAPP/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = AMEN;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.social-networking";
+				INFOPLIST_KEY_NSAppleMusicUsageDescription = "AMENAPP uses Apple Music to provide worship songs and hymns for your spiritual journey.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "AMENAPP needs access to your camera to take profile pictures.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "AMENAPP uses your location to help you find churches near you.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "AMENAPP needs access to your photos to set your profile picture.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "AMENAPP needs access to your photos to set your profile picture.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -564,14 +637,18 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = AMENAPP/AMENAPP.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = FGLL559H83;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = AMENAPP/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = AMEN;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.social-networking";
+				INFOPLIST_KEY_NSAppleMusicUsageDescription = "AMENAPP uses Apple Music to provide worship songs and hymns for your spiritual journey.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "AMENAPP needs access to your camera to take profile pictures.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "AMENAPP uses your location to help you find churches near you.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "AMENAPP needs access to your photos to set your profile picture.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "AMENAPP needs access to your photos to set your profile picture.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -629,6 +706,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		EF38A11F2F2D114F004E694A /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/google/GoogleSignIn-iOS";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 9.1.0;
+			};
+		};
 		EF4BA9D82F29FDD3000B930F /* XCRemoteSwiftPackageReference "algoliasearch-client-swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/algolia/algoliasearch-client-swift";
@@ -648,6 +733,16 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		EF38A1202F2D114F004E694A /* GoogleSignIn */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = EF38A11F2F2D114F004E694A /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignIn;
+		};
+		EF38A1222F2D114F004E694A /* GoogleSignInSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = EF38A11F2F2D114F004E694A /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignInSwift;
+		};
 		EF4BA9D92F29FDD3000B930F /* Abtesting */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = EF4BA9D82F29FDD3000B930F /* XCRemoteSwiftPackageReference "algoliasearch-client-swift" */;

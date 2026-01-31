@@ -1,0 +1,180 @@
+{
+  "rules": {
+    "test": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    
+    "user_posts": {
+      "$userId": {
+        ".read": "auth != null",
+        ".write": "auth != null && auth.uid == $userId",
+        ".validate": "newData.hasChildren(['postId', 'timestamp']) && newData.child('authorId').val() == $userId"
+      }
+    },
+    
+    "user_profiles": {
+      "$userId": {
+        ".read": "auth != null",
+        ".write": "auth != null && auth.uid == $userId",
+        ".validate": "newData.hasChildren(['displayName', 'username'])"
+      }
+    },
+    
+    "postInteractions": {
+      "$postId": {
+        ".read": "auth != null",
+        "lightbulbs": {
+          "$userId": {
+            ".read": "auth != null",
+            ".write": "auth != null && auth.uid == $userId",
+            ".validate": "newData.isBoolean() || newData.isNumber()"
+          }
+        },
+        "amens": {
+          "$userId": {
+            ".read": "auth != null",
+            ".write": "auth != null && auth.uid == $userId",
+            ".validate": "newData.isBoolean() || newData.isNumber()"
+          }
+        },
+        "lightbulbCount": {
+          ".read": "auth != null",
+          ".write": "auth != null",
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+        "amenCount": {
+          ".read": "auth != null",
+          ".write": "auth != null",
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+        "commentCount": {
+          ".read": "auth != null",
+          ".write": "auth != null",
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+        "repostCount": {
+          ".read": "auth != null",
+          ".write": "auth != null",
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        }
+      }
+    },
+    
+    "online_status": {
+      "$userId": {
+        ".read": "auth != null",
+        ".write": "auth != null && auth.uid == $userId",
+        ".validate": "newData.hasChildren(['isOnline', 'lastSeen'])"
+      }
+    },
+    
+    "typing": {
+      "$conversationId": {
+        "$userId": {
+          ".read": "auth != null",
+          ".write": "auth != null && auth.uid == $userId",
+          ".validate": "newData.isBoolean()"
+        }
+      }
+    },
+    
+    "notification_tokens": {
+      "$userId": {
+        "$tokenId": {
+          ".read": "auth != null && auth.uid == $userId",
+          ".write": "auth != null && auth.uid == $userId",
+          ".validate": "newData.hasChildren(['token', 'platform', 'createdAt'])"
+        }
+      }
+    },
+    
+    "last_read": {
+      "$conversationId": {
+        "$userId": {
+          ".read": "auth != null && auth.uid == $userId",
+          ".write": "auth != null && auth.uid == $userId",
+          ".validate": "newData.isNumber()"
+        }
+      }
+    },
+    
+    "live_reactions": {
+      "$postId": {
+        "$userId": {
+          ".read": "auth != null",
+          ".write": "auth != null && auth.uid == $userId",
+          ".validate": "newData.isString() && newData.val().length < 10"
+        }
+      }
+    },
+    
+    "counters": {
+      "$userId": {
+        ".read": "auth != null && auth.uid == $userId",
+        ".write": "auth != null && auth.uid == $userId",
+        "unreadMessages": {
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+        "unreadNotifications": {
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+        "followerCount": {
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+        "followingCount": {
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        }
+      }
+    },
+    
+    "connections": {
+      "$userId": {
+        "followers": {
+          "$followerId": {
+            ".read": "auth != null",
+            ".write": "auth != null && auth.uid == $followerId",
+            ".validate": "newData.isNumber()"
+          }
+        },
+        "following": {
+          "$followingId": {
+            ".read": "auth != null",
+            ".write": "auth != null && auth.uid == $userId",
+            ".validate": "newData.isNumber()"
+          }
+        }
+      }
+    },
+    
+    "devices": {
+      "$userId": {
+        "$deviceId": {
+          ".read": "auth != null && auth.uid == $userId",
+          ".write": "auth != null && auth.uid == $userId",
+          ".validate": "newData.hasChildren(['deviceType', 'lastActive'])"
+        }
+      }
+    },
+    
+    "sessions": {
+      "$userId": {
+        "$sessionId": {
+          ".read": "auth != null && auth.uid == $userId",
+          ".write": "auth != null && auth.uid == $userId",
+          ".validate": "newData.hasChildren(['startTime', 'deviceType'])"
+        }
+      }
+    },
+    
+    "user_saved_posts": {
+      "$userId": {
+        ".read": "auth != null && auth.uid == $userId",
+        ".write": "auth != null && auth.uid == $userId",
+        "$postId": {
+          ".validate": "newData.isNumber() || newData.isBoolean()"
+        }
+      }
+    }
+  }
+}

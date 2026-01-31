@@ -1,0 +1,217 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    // ===== USERS COLLECTION =====
+    match /users/{userId} {
+      // Allow read for username lookup (needed for login)
+      allow read: if true;
+      
+      // Allow users to create their own profile
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      
+      // Allow users to update their own profile
+      // ✅ IMPORTANT: Allow updating counts (needed for follow/unfollow)
+      allow update: if isSignedIn() && (
+        // User updating their own profile
+        isOwner(userId) ||
+        // Allow updating counts for follow/unfollow operations
+        (request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['followersCount', 'followingCount', 'updatedAt']))
+      );
+      
+      // Only allow users to delete their own profile
+      allow delete: if isSignedIn() && isOwner(userId);
+    }
+    
+    // ===== POSTS COLLECTION =====
+    match /posts/{postId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() 
+                   && request.auth.uid == request.resource.data.authorId;
+      allow update: if isSignedIn() 
+                   && request.auth.uid == resource.data.authorId;
+      allow delete: if isSignedIn() 
+                   && request.auth.uid == resource.data.authorId;
+    }
+    
+    // ===== TESTIMONIES COLLECTION =====
+    match /testimonies/{testimonyId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() 
+                   && request.auth.uid == request.resource.data.authorId;
+      allow update: if isSignedIn() 
+                   && request.auth.uid == resource.data.authorId;
+      allow delete: if isSignedIn() 
+                   && request.auth.uid == resource.data.authorId;
+    }
+    
+    // ===== PRAYERS COLLECTION =====
+    match /prayers/{prayerId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() 
+                   && request.auth.uid == request.resource.data.authorId;
+      allow update: if isSignedIn() 
+                   && request.auth.uid == resource.data.authorId;
+      allow delete: if isSignedIn() 
+                   && request.auth.uid == resource.data.authorId;
+    }
+    
+    // ===== COMMENTS COLLECTION =====
+    match /comments/{commentId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() 
+                   && request.auth.uid == resource.data.authorId;
+      allow delete: if isSignedIn() 
+                   && request.auth.uid == resource.data.authorId;
+    }
+    
+    // ===== FOLLOWS COLLECTION =====
+    match /follows/{followId} {
+      // ✅ Anyone authenticated can read follows (to check follow status)
+      allow read: if isSignedIn();
+      
+      // ✅ Any authenticated user can create a follow relationship
+      allow create: if isSignedIn() 
+                   && request.auth.uid == request.resource.data.followerId;
+      
+      // ✅ Only the follower can delete the follow (unfollow)
+      allow delete: if isSignedIn() 
+                   && request.auth.uid == resource.data.followerId;
+    }
+    
+    // ===== FOLLOWING SUBCOLLECTION =====
+    match /following/{userId}/user_following/{followingId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && isOwner(userId);
+    }
+    
+    match /following/{userId}/user_followers/{followerId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+    
+    // ===== CONVERSATIONS COLLECTION =====
+    match /conversations/{conversationId} {
+      function isParticipant() {
+        return request.auth.uid in resource.data.participantIds;
+      }
+      
+      function willBeParticipant() {
+        return request.auth.uid in request.resource.data.participantIds;
+      }
+      
+      // Allow read if user is a participant
+      allow read: if isSignedIn() && isParticipant();
+      
+      // Allow create if user is in the participant list
+      allow create: if isSignedIn() && willBeParticipant();
+      
+      // Allow update if user is a participant (for marking as read, archiving, etc.)
+      allow update: if isSignedIn() && isParticipant();
+      
+      // Allow delete if user is a participant
+      allow delete: if isSignedIn() && isParticipant();
+      
+      // Messages subcollection
+      match /messages/{messageId} {
+        // Allow read only if user is a participant in the parent conversation
+        allow read: if isSignedIn() && 
+                       request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+        
+        // Allow create only if user is a participant
+        allow create: if isSignedIn() && 
+                         request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+        
+        // Allow update/delete only if user is the sender
+        allow update, delete: if isSignedIn() && 
+                                 request.auth.uid == resource.data.senderId;
+      }
+      
+      // Typing indicators
+      match /typing/{userId} {
+        allow read: if isSignedIn();
+        allow write: if isSignedIn() && isOwner(userId);
+      }
+    }
+    
+    // ===== MESSAGE REQUESTS =====
+    match /messageRequests/{requestId} {
+      // Allow read if user is the recipient
+      allow read: if isSignedIn() && 
+                     request.auth.uid == resource.data.toUserId;
+      
+      // Allow create for any authenticated user
+      allow create: if isSignedIn();
+      
+      // Allow update if user is the recipient (for marking as read)
+      allow update: if isSignedIn() && 
+                       request.auth.uid == resource.data.toUserId;
+      
+      // Allow delete if user is sender or recipient
+      allow delete: if isSignedIn() && 
+                       (request.auth.uid == resource.data.fromUserId || 
+                        request.auth.uid == resource.data.toUserId);
+    }
+    
+    // ===== BLOCKED USERS =====
+    match /blockedUsers/{userId}/blocked/{blockedUserId} {
+      // Only user can read/write their own blocked list
+      allow read, write: if isSignedIn() && isOwner(userId);
+    }
+    
+    // ===== SAVED POSTS =====
+    match /savedPosts/{userId} {
+      allow read, write: if isSignedIn() && isOwner(userId);
+    }
+    
+    // ===== NOTIFICATIONS =====
+    match /notifications/{notificationId} {
+      // ✅ Users can read their own notifications
+      allow read: if isSignedIn() 
+                 && request.auth.uid == resource.data.userId;
+      
+      // ✅ Anyone can create notifications (for follow, amen, comment, etc.)
+      allow create: if isSignedIn();
+      
+      // ✅ Users can update/delete their own notifications
+      allow update, delete: if isSignedIn() 
+                           && request.auth.uid == resource.data.userId;
+    }
+    
+    // ===== COMMUNITIES =====
+    match /communities/{communityId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn();
+    }
+    
+    // ===== REPOSTS =====
+    match /reposts/{repostId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow delete: if isSignedIn() 
+                   && request.auth.uid == resource.data.userId;
+    }
+    
+    // ===== POST INTERACTIONS =====
+    match /postInteractions/{interactionId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() 
+                   && request.auth.uid == resource.data.userId;
+      allow delete: if isSignedIn() 
+                   && request.auth.uid == resource.data.userId;
+    }
+  }
+}

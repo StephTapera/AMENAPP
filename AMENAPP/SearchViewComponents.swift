@@ -97,6 +97,27 @@ struct SoftSearchFilterChip: View {
     }
 }
 
+// MARK: - Production-Ready Button Styles
+
+/// Custom button style for discover buttons with scale animation
+struct DiscoverButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
+            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: configuration.isPressed)
+    }
+}
+
+/// Custom button style with press animation
+struct PressableButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
+            .opacity(configuration.isPressed ? 0.9 : 1.0)
+            .animation(.spring(response: 0.2, dampingFraction: 0.7), value: configuration.isPressed)
+    }
+}
+
 // MARK: - Discover People Section (Liquid Glass Design)
 struct DiscoverPeopleSection: View {
     @StateObject private var userSearchService = UserSearchService.shared
@@ -128,11 +149,13 @@ struct DiscoverPeopleSection: View {
             }
             .padding(.horizontal, 20)
             
-            // Horizontal scrolling people cards with liquid glass
+            // Horizontal scrolling people cards with liquid glass (Production-Ready)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 16) {
                     // Add new connection button
                     AddConnectionCard {
+                        let haptic = UIImpactFeedbackGenerator(style: .medium)
+                        haptic.impactOccurred()
                         showAllPeople = true
                     }
                     
@@ -143,17 +166,25 @@ struct DiscoverPeopleSection: View {
                     } else {
                         ForEach(suggestedUsers.prefix(8)) { user in
                             LiquidGlassPersonCard(user: user)
+                                .id(user.id)
                         }
                     }
                 }
                 .padding(.horizontal, 20)
+                .padding(.vertical, 8)
             }
+            .frame(height: 180)
             
-            // View all button
+            // View all button (Production-Ready with Haptics & Animation)
             Button {
-                showAllPeople = true
+                let haptic = UIImpactFeedbackGenerator(style: .medium)
+                haptic.impactOccurred()
+                
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                    showAllPeople = true
+                }
             } label: {
-                HStack {
+                HStack(spacing: 8) {
                     Text("Discover More Believers")
                         .font(.custom("OpenSans-Bold", size: 15))
                     
@@ -168,10 +199,11 @@ struct DiscoverPeopleSection: View {
                         .fill(Color.blue.opacity(0.1))
                         .overlay(
                             RoundedRectangle(cornerRadius: 16)
-                                .stroke(Color.blue.opacity(0.3), lineWidth: 1)
+                                .stroke(Color.blue.opacity(0.3), lineWidth: 1.5)
                         )
                 )
             }
+            .buttonStyle(DiscoverButtonStyle())
             .padding(.horizontal, 20)
         }
         .sheet(isPresented: $showAllPeople) {
@@ -868,7 +900,7 @@ struct FeatureInfoSheet: View {
 
 
 
-// MARK: - Neumorphic Smart Search Bar Component
+// MARK: - Neumorphic Smart Search Bar Component with Suggestions
 struct NeumorphicSearchBar: View {
     @Binding var text: String
     @FocusState.Binding var isFocused: Bool
@@ -1250,11 +1282,11 @@ struct SoftSearchResultCard: View {
     }
 }
 
-// MARK: - Recent Searches Section (Updated with soft design)
+// MARK: - Recent Searches Section (Production-Ready with Swipe & Icons)
 struct RecentSearchesSection: View {
     @Binding var searches: [String]
     let onSelect: (String) -> Void
-    let onClear: () -> Void  // NEW: Callback to properly clear searches
+    let onClear: () -> Void
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -1270,67 +1302,226 @@ struct RecentSearchesSection: View {
                 Spacer()
                 
                 Button {
-                    withAnimation {
-                        onClear()  // FIXED: Call the proper clear method
+                    let haptic = UIImpactFeedbackGenerator(style: .light)
+                    haptic.impactOccurred()
+                    
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                        onClear()
                     }
                 } label: {
-                    Text("Clear")
+                    Text("Clear All")
                         .font(.custom("OpenSans-SemiBold", size: 14))
                         .foregroundStyle(.blue)
                 }
             }
-            .padding(.horizontal)
+            .padding(.horizontal, 20)
             
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
+                HStack(spacing: 12) {
                     ForEach(searches, id: \.self) { search in
-                        SoftRecentSearchChip(search: search) {
-                            onSelect(search)
-                        } onRemove: {
-                            withAnimation {
-                                searches.removeAll { $0 == search }
+                        EnhancedSearchHistoryChip(
+                            search: search,
+                            onTap: {
+                                let haptic = UIImpactFeedbackGenerator(style: .light)
+                                haptic.impactOccurred()
+                                onSelect(search)
+                            },
+                            onRemove: {
+                                let haptic = UINotificationFeedbackGenerator()
+                                haptic.notificationOccurred(.success)
+                                
+                                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                                    searches.removeAll { $0 == search }
+                                }
                             }
-                        }
+                        )
                     }
                 }
-                .padding(.horizontal)
+                .padding(.horizontal, 20)
             }
         }
     }
 }
 
-struct SoftRecentSearchChip: View {
+// MARK: - Enhanced Search History Chip (Production-Ready with Swipe-to-Delete)
+struct EnhancedSearchHistoryChip: View {
     let search: String
     let onTap: () -> Void
     let onRemove: () -> Void
     
-    var body: some View {
-        HStack(spacing: 8) {
-            Button(action: onTap) {
-                HStack(spacing: 8) {
-                    Image(systemName: search.hasPrefix("#") ? "number" : "magnifyingglass")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.secondary)
-                    
-                    Text(search)
-                        .font(.custom("OpenSans-SemiBold", size: 14))
-                        .foregroundStyle(.primary)
-                }
-            }
-            
-            Button(action: onRemove) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(.secondary)
+    @State private var offset: CGFloat = 0
+    @State private var isPressed = false
+    @State private var showDeleteButton = false
+    
+    // Detect search category for smart icons
+    private var searchCategory: SearchCategory {
+        if search.hasPrefix("#") {
+            return .hashtag
+        } else if search.hasPrefix("@") {
+            return .user
+        } else if search.contains("prayer") || search.contains("pray") {
+            return .prayer
+        } else if search.contains("bible") || search.contains("scripture") {
+            return .bible
+        } else if search.contains("testimony") {
+            return .testimony
+        } else if search.contains("group") {
+            return .group
+        } else {
+            return .general
+        }
+    }
+    
+    private enum SearchCategory {
+        case hashtag, user, prayer, bible, testimony, group, general
+        
+        var icon: String {
+            switch self {
+            case .hashtag: return "number"
+            case .user: return "person.circle.fill"
+            case .prayer: return "hands.sparkles.fill"
+            case .bible: return "book.closed.fill"
+            case .testimony: return "star.fill"
+            case .group: return "person.3.fill"
+            case .general: return "magnifyingglass"
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .background(
-            Capsule()
-                .fill(Color.white)
-                .shadow(color: .black.opacity(0.06), radius: 6, x: 0, y: 3)
-        )
+        
+        var color: Color {
+            switch self {
+            case .hashtag: return .blue
+            case .user: return .purple
+            case .prayer: return .orange
+            case .bible: return .green
+            case .testimony: return .yellow
+            case .group: return .pink
+            case .general: return .gray
+            }
+        }
+    }
+    
+    var body: some View {
+        ZStack(alignment: .trailing) {
+            // Delete button background (revealed on swipe)
+            if offset < -10 {
+                deleteButtonBackground
+            }
+            
+            // Main chip content
+            mainChipContent
+                .offset(x: offset)
+                .gesture(swipeGesture)
+        }
+        .frame(height: 44)
+    }
+    
+    // MARK: - Delete Button Background
+    
+    private var deleteButtonBackground: some View {
+        HStack {
+            Spacer()
+            
+            Button {
+                onRemove()
+            } label: {
+                Image(systemName: "trash.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 50, height: 44)
+                    .background(Color.red)
+                    .clipShape(Capsule())
+            }
+            .buttonStyle(PlainButtonStyle())
+        }
+        .frame(maxWidth: .infinity)
+    }
+    
+    // MARK: - Main Chip Content
+    
+    private var mainChipContent: some View {
+        Button(action: onTap) {
+            HStack(spacing: 10) {
+                // Smart icon based on search type
+                ZStack {
+                    Circle()
+                        .fill(searchCategory.color.opacity(0.15))
+                        .frame(width: 28, height: 28)
+                    
+                    Image(systemName: searchCategory.icon)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(searchCategory.color)
+                }
+                
+                // Search text
+                Text(search)
+                    .font(.custom("OpenSans-SemiBold", size: 14))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                
+                // Remove button (always visible)
+                Button {
+                    onRemove()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 20, height: 20)
+                        .background(
+                            Circle()
+                                .fill(Color(.systemGray5))
+                        )
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(chipBackground)
+        }
+        .buttonStyle(PlainButtonStyle())
+        .scaleEffect(isPressed ? 0.96 : 1.0)
+    }
+    
+    private var chipBackground: some View {
+        Capsule()
+            .fill(Color(.systemBackground))
+            .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 4)
+            .overlay(
+                Capsule()
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                searchCategory.color.opacity(0.3),
+                                searchCategory.color.opacity(0.1)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1.5
+                    )
+            )
+    }
+    
+    // MARK: - Swipe Gesture
+    
+    private var swipeGesture: some Gesture {
+        DragGesture()
+            .onChanged { value in
+                // Only allow left swipe
+                if value.translation.width < 0 {
+                    offset = max(value.translation.width, -80)
+                }
+            }
+            .onEnded { value in
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                    if value.translation.width < -50 {
+                        // Swipe threshold reached - delete
+                        onRemove()
+                    } else {
+                        // Reset position
+                        offset = 0
+                    }
+                }
+            }
     }
 }
 
@@ -2821,10 +3012,11 @@ struct SearchView: View {
         VStack(spacing: 0) {
             NeumorphicSearchBar(
                 text: $searchText,
-                isFocused: $isSearchFieldFocused
-            ) {
-                searchText = ""
-            }
+                isFocused: $isSearchFieldFocused,
+                onClear: {
+                    searchText = ""
+                }
+            )
             .padding(.horizontal, 20)
             .padding(.vertical, 16)
         }

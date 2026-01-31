@@ -446,7 +446,7 @@ class ChristianDatingService: ObservableObject {
     
     func reportProfile(
         profileId: String,
-        reason: ReportReason,
+        reason: DatingReportReason,
         description: String?
     ) async throws {
         isLoading = true

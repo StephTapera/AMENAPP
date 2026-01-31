@@ -30,7 +30,7 @@ enum ProfileTab: String, CaseIterable {
 
 /// Profile View - Threads-inspired with Black & White Design
 struct ProfileView: View {
-    @StateObject private var userService = UserService()
+    // Remove ambiguous UserService reference - not needed since we fetch directly from Firebase
     @EnvironmentObject var authViewModel: AuthenticationViewModel
     
     @State private var showSettings = false
@@ -56,7 +56,7 @@ struct ProfileView: View {
     
     // Real backend data - no more fake posts!
     @State private var userPosts: [Post] = []
-    @State private var userReplies: [Comment] = []
+    @State private var userReplies: [AMENAPP.Comment] = []
     @State private var savedPosts: [Post] = []
     @State private var reposts: [Post] = []
     
@@ -75,12 +75,25 @@ struct ProfileView: View {
     
     @Namespace private var tabNamespace
     
+    // Scroll offset tracking for header animation
+    @State private var scrollOffset: CGFloat = 0
+    @State private var showCompactHeader = false
+    
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 0) {
                     // Profile Header with Liquid Glass
                     profileHeaderView
+                        .background(
+                            GeometryReader { geometry in
+                                Color.clear
+                                    .preference(
+                                        key: ScrollOffsetPreferenceKey.self,
+                                        value: geometry.frame(in: .named("scroll")).minY
+                                    )
+                            }
+                        )
                     
                     // Tab Selector with Liquid Glass (flush underneath)
                     tabSelectorView
@@ -104,25 +117,52 @@ struct ProfileView: View {
                     }
                 }
             }
+            .coordinateSpace(name: "scroll")
+            .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
+                scrollOffset = value
+                // Show compact header when scrolled past 200 points
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    showCompactHeader = value < -200
+                }
+            }
             .refreshable {
                 await refreshProfile()
             }
-            .background(
-                // Liquid Glass background
-                LinearGradient(
-                    colors: [
-                        Color.blue.opacity(0.08),
-                        Color.purple.opacity(0.05),
-                        Color.pink.opacity(0.03)
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .ignoresSafeArea()
-            )
+            .background(Color.white.ignoresSafeArea())
             .navigationTitle("Profile")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                // TOP LEFT: Compact Profile Header (shows when scrolled)
+                ToolbarItem(placement: .topBarLeading) {
+                    if showCompactHeader {
+                        HStack(spacing: 12) {
+                            // Compact Avatar
+                            Circle()
+                                .fill(Color.black)
+                                .frame(width: 32, height: 32)
+                                .overlay(
+                                    Text(profileData.initials)
+                                        .font(.custom("OpenSans-Bold", size: 12))
+                                        .foregroundStyle(.white)
+                                )
+                            
+                            // Name & Username
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(profileData.name)
+                                    .font(.custom("OpenSans-Bold", size: 14))
+                                    .foregroundStyle(.black)
+                                    .lineLimit(1)
+                                
+                                Text("@\(profileData.username)")
+                                    .font(.custom("OpenSans-Regular", size: 11))
+                                    .foregroundStyle(.black.opacity(0.5))
+                                    .lineLimit(1)
+                            }
+                        }
+                        .transition(.move(edge: .leading).combined(with: .opacity))
+                    }
+                }
+                
                 ToolbarItem(placement: .topBarTrailing) {
                     HStack(spacing: 10) {
                         Button {
@@ -176,9 +216,21 @@ struct ProfileView: View {
             }
             .sheet(isPresented: $showFollowersList) {
                 SocialFollowersListView(userId: Auth.auth().currentUser?.uid ?? "", listType: .followers)
+                    .onAppear {
+                        print("📱 Followers list sheet opened")
+                    }
+                    .onDisappear {
+                        print("📱 Followers list sheet closed")
+                    }
             }
             .sheet(isPresented: $showFollowingList) {
                 SocialFollowersListView(userId: Auth.auth().currentUser?.uid ?? "", listType: .following)
+                    .onAppear {
+                        print("📱 Following list sheet opened")
+                    }
+                    .onDisappear {
+                        print("📱 Following list sheet closed")
+                    }
             }
             .onAppear {
                 // Load real user data when view appears
@@ -187,7 +239,12 @@ struct ProfileView: View {
                 print("   Listeners active: \(listenersActive)")
                 
                 // Start follow service listeners for real-time counts
-                followService.startListening()
+                Task {
+                    await followService.startListening()
+                    print("✅ FollowService listeners started")
+                    print("   Followers: \(followService.currentUserFollowersCount)")
+                    print("   Following: \(followService.currentUserFollowingCount)")
+                }
                 
                 // Only load if we don't have data yet
                 if userPosts.isEmpty && !listenersActive {
@@ -364,19 +421,19 @@ struct ProfileView: View {
             print("   ✅ Posts refreshed: \(refreshedPosts.count)")
             
             // 2. Refresh saved posts
-            let savedPostsService = RealtimeSavedPostsService.shared
+            let savedPostsService: RealtimeSavedPostsService = .shared
             let refreshedSavedPosts = try await savedPostsService.fetchSavedPosts()
             savedPosts = refreshedSavedPosts
             print("   ✅ Saved posts refreshed: \(refreshedSavedPosts.count)")
             
             // 3. Refresh replies
-            let commentsService = RealtimeCommentsService.shared
+            let commentsService = AMENAPP.RealtimeCommentsService.shared
             let refreshedReplies = try await commentsService.fetchUserComments(userId: userId)
             userReplies = refreshedReplies
             print("   ✅ Replies refreshed: \(refreshedReplies.count)")
             
             // 4. Refresh reposts
-            let repostsService = RealtimeRepostsService.shared
+            let repostsService: RealtimeRepostsService = .shared
             let refreshedReposts = try await repostsService.fetchUserReposts(userId: userId)
             reposts = refreshedReposts
             print("   ✅ Reposts refreshed: \(refreshedReposts.count)")
@@ -494,17 +551,17 @@ struct ProfileView: View {
                 userPosts = fetchedPosts
                 
                 // 2. Fetch saved posts from Realtime Database
-                let savedPostsService = RealtimeSavedPostsService.shared
+                let savedPostsService: RealtimeSavedPostsService = .shared
                 let fetchedSavedPosts = try await savedPostsService.fetchSavedPosts()
                 savedPosts = fetchedSavedPosts
                 
                 // 3. Fetch user's comments/replies from Realtime Database
-                let commentsService = RealtimeCommentsService.shared
+                let commentsService = AMENAPP.RealtimeCommentsService.shared
                 let fetchedReplies = try await commentsService.fetchUserComments(userId: userId)
                 userReplies = fetchedReplies
                 
                 // 4. Fetch user's reposts from Realtime Database
-                let repostsService = RealtimeRepostsService.shared
+                let repostsService: RealtimeRepostsService = .shared
                 let fetchedReposts = try await repostsService.fetchUserReposts(userId: userId)
                 reposts = fetchedReposts
                 
@@ -527,11 +584,11 @@ struct ProfileView: View {
                 let fetchedPosts = try await postService.fetchUserPosts(userId: userId)
                 userPosts = fetchedPosts
                 
-                let savedPostsService = RealtimeSavedPostsService.shared
+                let savedPostsService: RealtimeSavedPostsService = .shared
                 let fetchedSavedPosts = try await savedPostsService.fetchSavedPosts()
                 savedPosts = fetchedSavedPosts
                 
-                let commentsService = RealtimeCommentsService.shared
+                let commentsService = AMENAPP.RealtimeCommentsService.shared
                 let fetchedReplies = try await commentsService.fetchUserComments(userId: userId)
                 userReplies = fetchedReplies
                 
@@ -764,175 +821,192 @@ struct ProfileView: View {
     }
     
     private var profileHeaderView: some View {
-        VStack(spacing: 0) {
-            VStack(spacing: 20) {
-                // Top Section: Avatar and Name
-                HStack(alignment: .top, spacing: 16) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        // Name
-                        Text(profileData.name)
-                            .font(.custom("OpenSans-Bold", size: 28))
-                            .foregroundStyle(.black)
-                        
-                        // Username
-                        Text("@\(profileData.username)")
-                            .font(.custom("OpenSans-Regular", size: 16))
-                            .foregroundStyle(.black.opacity(0.5))
+        VStack(spacing: 20) {
+            // Top Section: Avatar and Name
+            HStack(alignment: .top, spacing: 16) {
+                VStack(alignment: .leading, spacing: 8) {
+                    // Name
+                    Text(profileData.name)
+                        .font(.custom("OpenSans-Bold", size: 28))
+                        .foregroundStyle(.black)
+                    
+                    // Username
+                    Text("@\(profileData.username)")
+                        .font(.custom("OpenSans-Regular", size: 16))
+                        .foregroundStyle(.black.opacity(0.5))
+                }
+                
+                Spacer()
+                
+                // Avatar with bounce animation
+                Button {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                        avatarPressed = true
                     }
-                    
-                    Spacer()
-                    
-                    // Avatar with bounce animation
-                    Button {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
-                            avatarPressed = true
-                        }
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
-                                avatarPressed = false
-                            }
-                        }
-                        // Show full screen avatar after animation
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                            showFullScreenAvatar = true
-                        }
-                    } label: {
-                        profileAvatarView
-                            .scaleEffect(avatarPressed ? 0.9 : 1.0)
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                }
-                
-                // Bio
-                Text(profileData.bio)
-                    .font(.custom("OpenSans-Regular", size: 15))
-                    .foregroundStyle(.black)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .lineSpacing(4)
-                
-                // Interests
-                if !profileData.interests.isEmpty {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            ForEach(profileData.interests, id: \.self) { interest in
-                                Text(interest)
-                                    .font(.custom("OpenSans-SemiBold", size: 13))
-                                    .foregroundStyle(.black)
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 6)
-                                    .background(
-                                        Capsule()
-                                            .fill(Color.black.opacity(0.08))
-                                    )
-                            }
+                            avatarPressed = false
                         }
                     }
-                }
-                
-                // Social Links - Clickable
-                if !profileData.socialLinks.isEmpty {
-                    VStack(alignment: .leading, spacing: 8) {
-                        ForEach(profileData.socialLinks) { link in
-                            Button {
-                                openSocialLink(link)
-                            } label: {
-                                HStack(spacing: 8) {
-                                    Image(systemName: link.platform.icon)
-                                        .font(.system(size: 14))
-                                        .foregroundStyle(link.platform.color)
-                                    
-                                    Text(link.username)
-                                        .font(.custom("OpenSans-Regular", size: 14))
-                                        .foregroundStyle(.black.opacity(0.7))
-                                    
-                                    Spacer()
-                                    
-                                    Image(systemName: "arrow.up.right")
-                                        .font(.system(size: 10))
-                                        .foregroundStyle(.black.opacity(0.3))
-                                }
-                            }
-                            .buttonStyle(PlainButtonStyle())
-                        }
+                    // Show full screen avatar after animation
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        showFullScreenAvatar = true
                     }
+                } label: {
+                    profileAvatarView
+                        .scaleEffect(avatarPressed ? 0.9 : 1.0)
                 }
-                
-                // Follower/Following Stats - Tappable (Left Aligned)
-                HStack(spacing: 24) {
-                    Button {
-                        showFollowersList = true
-                    } label: {
-                        HStack(spacing: 4) {
-                            Text("\(followService.currentUserFollowersCount)")
-                                .font(.custom("OpenSans-Bold", size: 16))
+                .buttonStyle(PlainButtonStyle())
+            }
+            
+            // Bio
+            Text(profileData.bio)
+                .font(.custom("OpenSans-Regular", size: 15))
+                .foregroundStyle(.black)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .lineSpacing(4)
+            
+            // Interests
+            if !profileData.interests.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(profileData.interests, id: \.self) { interest in
+                            Text(interest)
+                                .font(.custom("OpenSans-SemiBold", size: 13))
                                 .foregroundStyle(.black)
-                            Text("followers")
-                                .font(.custom("OpenSans-Regular", size: 16))
-                                .foregroundStyle(.black.opacity(0.6))
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(
+                                    Capsule()
+                                        .fill(Color.black.opacity(0.08))
+                                )
                         }
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                    
-                    Button {
-                        showFollowingList = true
-                    } label: {
-                        HStack(spacing: 4) {
-                            Text("\(followService.currentUserFollowingCount)")
-                                .font(.custom("OpenSans-Bold", size: 16))
-                                .foregroundStyle(.black)
-                            Text("following")
-                                .font(.custom("OpenSans-Regular", size: 16))
-                                .foregroundStyle(.black.opacity(0.6))
-                        }
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                    
-                    Spacer()
-                }
-                .padding(.vertical, 8)
-                
-                // Action Buttons (Full Width - Expanded)
-                HStack(spacing: 8) {
-                    Button {
-                        showEditProfile = true
-                    } label: {
-                        Text("Edit profile")
-                            .font(.custom("OpenSans-Bold", size: 14))
-                            .foregroundStyle(.black)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 10)
-                            .background(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color(white: 0.93))
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .stroke(Color.white.opacity(0.5), lineWidth: 1)
-                                    )
-                            )
-                    }
-                    
-                    Button {
-                        shareProfile()
-                    } label: {
-                        Text("Share profile")
-                            .font(.custom("OpenSans-Bold", size: 14))
-                            .foregroundStyle(.black)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 10)
-                            .background(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color(white: 0.93))
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .stroke(Color.white.opacity(0.5), lineWidth: 1)
-                                    )
-                            )
                     }
                 }
             }
-            .padding(20)
-            .background(Color.white)
+            
+            // Social Links - Clickable
+            if !profileData.socialLinks.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(profileData.socialLinks) { link in
+                        Button {
+                            openSocialLink(link)
+                        } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: link.platform.icon)
+                                    .font(.system(size: 14))
+                                    .foregroundStyle(link.platform.color)
+                                
+                                Text(link.username)
+                                    .font(.custom("OpenSans-Regular", size: 14))
+                                    .foregroundStyle(.black.opacity(0.7))
+                                
+                                Spacer()
+                                
+                                Image(systemName: "arrow.up.right")
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(.black.opacity(0.3))
+                            }
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                    }
+                }
+            }
+            
+            // Follower/Following Stats - Tappable (Left Aligned)
+            HStack(spacing: 24) {
+                Button {
+                    print("👥 Opening followers list...")
+                    print("   Current followers count: \(followService.currentUserFollowersCount)")
+                    showFollowersList = true
+                    
+                    // Haptic feedback
+                    let haptic = UIImpactFeedbackGenerator(style: .light)
+                    haptic.impactOccurred()
+                } label: {
+                    HStack(spacing: 4) {
+                        Text("\(followService.currentUserFollowersCount)")
+                            .font(.custom("OpenSans-Bold", size: 16))
+                            .foregroundStyle(.black)
+                        Text("followers")
+                            .font(.custom("OpenSans-Regular", size: 16))
+                            .foregroundStyle(.black.opacity(0.6))
+                    }
+                }
+                .buttonStyle(PlainButtonStyle())
+                
+                Button {
+                    print("👥 Opening following list...")
+                    print("   Current following count: \(followService.currentUserFollowingCount)")
+                    showFollowingList = true
+                    
+                    // Haptic feedback
+                    let haptic = UIImpactFeedbackGenerator(style: .light)
+                    haptic.impactOccurred()
+                } label: {
+                    HStack(spacing: 4) {
+                        Text("\(followService.currentUserFollowingCount)")
+                            .font(.custom("OpenSans-Bold", size: 16))
+                            .foregroundStyle(.black)
+                        Text("following")
+                            .font(.custom("OpenSans-Regular", size: 16))
+                            .foregroundStyle(.black.opacity(0.6))
+                    }
+                }
+                .buttonStyle(PlainButtonStyle())
+                
+                Spacer()
+            }
+            .padding(.vertical, 8)
+            
+            // Action Buttons (Full Width - Expanded)
+            HStack(spacing: 8) {
+                Button {
+                    showEditProfile = true
+                } label: {
+                    Text("Edit profile")
+                        .font(.custom("OpenSans-Bold", size: 14))
+                        .foregroundStyle(.black)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color(white: 0.93))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(Color.white.opacity(0.5), lineWidth: 1)
+                                )
+                        )
+                }
+                
+                Button {
+                    shareProfile()
+                } label: {
+                    Text("Share profile")
+                        .font(.custom("OpenSans-Bold", size: 14))
+                        .foregroundStyle(.black)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color(white: 0.93))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(Color.white.opacity(0.5), lineWidth: 1)
+                                )
+                        )
+                }
+            }
         }
+        .padding(20)
+        .background(Color.white)
+        .overlay(
+            Rectangle()
+                .fill(Color.black.opacity(0.05))
+                .frame(height: 1)
+                .padding(.horizontal, 20), 
+            alignment: .bottom
+        )
     }
     
     // MARK: - Tab Selector (Floating Pill Design)
@@ -990,6 +1064,12 @@ struct ProfileView: View {
         .padding(.horizontal, 20)
         .padding(.vertical, 10)
         .background(Color.white)
+        .overlay(
+            Rectangle()
+                .fill(Color.black.opacity(0.05))
+                .frame(height: 1), 
+            alignment: .bottom
+        )
     }
     
     // MARK: - Content View
@@ -1186,93 +1266,12 @@ struct ProfilePostCard: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // Header: Time and Menu
-            HStack(alignment: .center) {
-                Text(post.timeAgo)
-                    .font(.custom("OpenSans-SemiBold", size: 13))
-                    .foregroundStyle(.secondary)
-                
-                Spacer()
-                
-                Menu {
-                    menuContent
-                } label: {
-                    Image(systemName: "ellipsis")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 28, height: 28)
-                }
-            }
-            
-            // Content
-            Text(post.content)
-                .font(.custom("OpenSans-Regular", size: 15))
-                .foregroundStyle(.primary)
-                .lineSpacing(5)
-                .multilineTextAlignment(.leading)
-            
-            // Interaction Bar (Pill Shape)
-            HStack(spacing: 0) {
-                // Lightbulb/Amen button
-                if post.category == .openTable {
-                    interactionButton(
-                        icon: hasLitLightbulb ? "lightbulb.fill" : "lightbulb",
-                        count: lightbulbCount,
-                        isActive: hasLitLightbulb
-                    ) {
-                        toggleLightbulb()
-                    }
-                } else {
-                    interactionButton(
-                        icon: hasSaidAmen ? "hands.clap.fill" : "hands.clap",
-                        count: amenCount,
-                        isActive: hasSaidAmen
-                    ) {
-                        toggleAmen()
-                    }
-                }
-                
-                Divider()
-                    .frame(height: 20)
-                    .padding(.horizontal, 8)
-                
-                // Comment button
-                interactionButton(
-                    icon: "bubble.left",
-                    count: commentCount,
-                    isActive: false
-                ) {
-                    showCommentsSheet = true
-                }
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-            .background(
-                Capsule()
-                    .fill(Color(.systemBackground))
-                    .overlay(
-                        Capsule()
-                            .strokeBorder(
-                                Color.black.opacity(0.15),
-                                lineWidth: 1.5
-                            )
-                    )
-                    .shadow(color: .black.opacity(0.08), radius: 6, y: 2)
-            )
+            headerView
+            contentView
+            interactionBar
         }
         .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(Color(.systemBackground))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 24, style: .continuous)
-                        .strokeBorder(
-                            Color.black.opacity(0.12),
-                            lineWidth: 1.5
-                        )
-                )
-                .shadow(color: .black.opacity(0.06), radius: 12, y: 4)
-        )
+        .background(cardBackground)
         .sheet(isPresented: $showingEditSheet) {
             EditPostSheet(post: post)
         }
@@ -1290,6 +1289,100 @@ struct ProfilePostCard: View {
         .task {
             await loadInteractions()
         }
+    }
+    
+    // MARK: - View Components
+    
+    private var headerView: some View {
+        HStack(alignment: .center) {
+            Text(post.timeAgo)
+                .font(.custom("OpenSans-SemiBold", size: 13))
+                .foregroundStyle(.secondary)
+            
+            Spacer()
+            
+            Menu {
+                menuContent
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 28, height: 28)
+            }
+        }
+    }
+    
+    private var contentView: some View {
+        Text(post.content)
+            .font(.custom("OpenSans-Regular", size: 15))
+            .foregroundStyle(.primary)
+            .lineSpacing(5)
+            .multilineTextAlignment(.leading)
+    }
+    
+    private var interactionBar: some View {
+        HStack(spacing: 0) {
+            // Lightbulb/Amen button
+            if post.category == .openTable {
+                interactionButton(
+                    icon: hasLitLightbulb ? "lightbulb.fill" : "lightbulb",
+                    count: lightbulbCount,
+                    isActive: hasLitLightbulb
+                ) {
+                    toggleLightbulb()
+                }
+            } else {
+                interactionButton(
+                    icon: hasSaidAmen ? "hands.clap.fill" : "hands.clap",
+                    count: amenCount,
+                    isActive: hasSaidAmen
+                ) {
+                    toggleAmen()
+                }
+            }
+            
+            Divider()
+                .frame(height: 20)
+                .padding(.horizontal, 8)
+            
+            // Comment button
+            interactionButton(
+                icon: "bubble.left",
+                count: commentCount,
+                isActive: false
+            ) {
+                showCommentsSheet = true
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(interactionBarBackground)
+    }
+    
+    private var interactionBarBackground: some View {
+        Capsule()
+            .fill(Color.white)
+            .overlay(
+                Capsule()
+                    .strokeBorder(
+                        Color.black.opacity(0.2),
+                        lineWidth: 1.5
+                    )
+            )
+            .shadow(color: .black.opacity(0.12), radius: 6, y: 2)
+    }
+    
+    private var cardBackground: some View {
+        RoundedRectangle(cornerRadius: 24, style: .continuous)
+            .fill(Color.white)
+            .overlay(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .strokeBorder(
+                        Color.black.opacity(0.2),
+                        lineWidth: 1.5
+                    )
+            )
+            .shadow(color: .black.opacity(0.12), radius: 12, y: 4)
     }
     
     // MARK: - Menu Content
@@ -1484,12 +1577,13 @@ struct PostsContentView: View {
                 }
             }
             .padding(.top, 8)
+            .padding(.bottom, 20)
         }
     }
 }
 
 struct RepliesContentView: View {
-    @Binding var replies: [Comment]
+    @Binding var replies: [AMENAPP.Comment]
     
     var body: some View {
         if replies.isEmpty {
@@ -1513,15 +1607,11 @@ struct RepliesContentView: View {
             LazyVStack(spacing: 16) {
                 ForEach(replies) { comment in
                     ProfileReplyCard(comment: comment)
-                        .background(
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(Color(.systemBackground).opacity(0.7))
-                        )
-                        .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 16))
-                        .padding(.horizontal)
+                        .padding(.horizontal, 16)
                 }
             }
             .padding(.top, 8)
+            .padding(.bottom, 20)
         }
     }
 }
@@ -1574,6 +1664,7 @@ struct SavedContentView: View {
                 }
             }
             .padding(.top, 8)
+            .padding(.bottom, 20)
         }
     }
 }
@@ -1621,6 +1712,7 @@ struct RepostsContentView: View {
                 }
             }
             .padding(.top, 8)
+            .padding(.bottom, 20)
         }
     }
 }
@@ -1631,7 +1723,7 @@ struct RepostsContentView: View {
 // All post interactions are handled there with Firebase integration
 
 struct ProfileReplyCard: View {
-    let comment: Comment
+    let comment: AMENAPP.Comment
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -1678,7 +1770,7 @@ struct ProfileReplyCard: View {
                         .font(.custom("OpenSans-Bold", size: 14))
                         .foregroundStyle(.black)
                     
-                    Text(comment.createdAt.timeAgoDisplay())
+                    Text(comment.timeAgo)
                         .font(.custom("OpenSans-Regular", size: 12))
                         .foregroundStyle(Color.secondary)
                 }
@@ -1730,6 +1822,11 @@ struct ProfileReplyCard: View {
         .background(
             RoundedRectangle(cornerRadius: 12)
                 .fill(Color.white)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.black.opacity(0.15), lineWidth: 1)
+                )
+                .shadow(color: .black.opacity(0.08), radius: 4, y: 2)
         )
     }
 }
@@ -1751,6 +1848,24 @@ struct EditProfileView: View {
     @State private var showImagePicker = false
     @State private var newInterest = ""
     @State private var hasChanges = false
+    @State private var isSaving = false
+    @State private var showSaveError = false
+    @State private var saveErrorMessage = ""
+    @State private var showUnsavedChangesAlert = false
+    @State private var showSaveConfirmationAlert = false
+    
+    // Track original values to detect changes
+    private let originalName: String
+    private let originalBio: String
+    
+    // Character limits
+    private let nameCharacterLimit = 50
+    private let bioCharacterLimit = 150
+    private let interestCharacterLimit = 30
+    
+    // Validation errors
+    @State private var nameError: String? = nil
+    @State private var bioError: String? = nil
     
     init(profileData: Binding<UserProfileData>) {
         _profileData = profileData
@@ -1759,6 +1874,27 @@ struct EditProfileView: View {
         _bio = State(initialValue: profileData.wrappedValue.bio)
         _interests = State(initialValue: profileData.wrappedValue.interests)
         _socialLinks = State(initialValue: profileData.wrappedValue.socialLinks)
+        
+        // Store original values
+        self.originalName = profileData.wrappedValue.name
+        self.originalBio = profileData.wrappedValue.bio
+        
+        // Validate on init to ensure no errors blocking save
+        print("📝 EditProfileView initialized")
+        print("   Name: \(profileData.wrappedValue.name)")
+        print("   Bio: \(profileData.wrappedValue.bio)")
+        print("   Interests: \(profileData.wrappedValue.interests)")
+        print("   Social Links: \(profileData.wrappedValue.socialLinks.count)")
+    }
+    
+    // Validate initial values when view appears
+    private func validateInitialValues() {
+        validateName(name)
+        validateBio(bio)
+        
+        print("🔍 Initial validation complete")
+        print("   Name error: \(nameError ?? "none")")
+        print("   Bio error: \(bioError ?? "none")")
     }
     
     var body: some View {
@@ -1772,14 +1908,16 @@ struct EditProfileView: View {
                 }
                 .alert("Add Interest", isPresented: $showAddInterest) {
                     TextField("Interest name", text: $newInterest)
-                    Button("Cancel", role: .cancel) { }
-                    Button("Add") {
-                        if !newInterest.isEmpty && interests.count < 3 {
-                            interests.append(newInterest)
-                            newInterest = ""
-                            hasChanges = true
-                        }
+                        .autocapitalization(.words)
+                    Button("Cancel", role: .cancel) { 
+                        newInterest = ""
                     }
+                    Button("Add") {
+                        addInterest()
+                    }
+                    .disabled(newInterest.trimmingCharacters(in: .whitespaces).isEmpty)
+                } message: {
+                    Text("Add an interest (3-\(interestCharacterLimit) characters). You can add up to 3 interests.")
                 }
                 .sheet(isPresented: $showImagePicker) {
                     ProfilePhotoEditView(
@@ -1789,6 +1927,38 @@ struct EditProfileView: View {
                             hasChanges = true
                         }
                     )
+                }
+                .alert("Save Failed", isPresented: $showSaveError) {
+                    Button("OK", role: .cancel) { }
+                } message: {
+                    Text(saveErrorMessage)
+                }
+                .alert("Unsaved Changes", isPresented: $showUnsavedChangesAlert) {
+                    Button("Cancel", role: .cancel) { }
+                    Button("Discard Changes", role: .destructive) {
+                        dismiss()
+                    }
+                } message: {
+                    Text("You have unsaved changes. Are you sure you want to discard them?")
+                }
+                .alert("Confirm Changes", isPresented: $showSaveConfirmationAlert) {
+                    Button("Cancel", role: .cancel) { }
+                    Button("Save Changes", role: .none) {
+                        saveProfile()
+                    }
+                } message: {
+                    let nameChanged = name != originalName
+                    let bioChanged = bio != originalBio
+                    
+                    var changedFields: [String] = []
+                    if nameChanged { changedFields.append("Name") }
+                    if bioChanged { changedFields.append("Bio") }
+                    
+                    return Text("You're about to change your \(changedFields.joined(separator: " and ")). This will be visible to all users. Are you sure?")
+                }
+                .onAppear {
+                    // Validate initial values to ensure no blocking errors
+                    validateInitialValues()
                 }
         }
     }
@@ -1812,25 +1982,68 @@ struct EditProfileView: View {
     private var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .cancellationAction) {
             Button("Cancel") {
-                dismiss()
+                // Check for unsaved changes
+                if hasChanges {
+                    showUnsavedChangesAlert = true
+                } else {
+                    dismiss()
+                }
             }
             .font(.custom("OpenSans-SemiBold", size: 16))
+            .disabled(isSaving)
         }
         
         ToolbarItem(placement: .confirmationAction) {
-            Button("Done") {
-                saveProfile()
+            Button {
+                print("🔵 Done button tapped!")
+                print("   hasChanges: \(hasChanges)")
+                print("   isSaving: \(isSaving)")
+                print("   hasValidationErrors: \(hasValidationErrors)")
+                print("   nameError: \(nameError ?? "none")")
+                print("   bioError: \(bioError ?? "none")")
+                
+                // Check if name or bio changed - show confirmation
+                let nameChanged = name != originalName
+                let bioChanged = bio != originalBio
+                
+                if nameChanged || bioChanged {
+                    print("   -> Showing confirmation (name/bio changed)")
+                    // Show confirmation alert before saving
+                    showSaveConfirmation()
+                } else {
+                    print("   -> Saving directly (no sensitive changes)")
+                    // No sensitive changes, save directly
+                    saveProfile()
+                }
+            } label: {
+                if isSaving {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle())
+                } else {
+                    Text("Done")
+                        .font(.custom("OpenSans-Bold", size: 16))
+                        .foregroundStyle(hasChanges && !hasValidationErrors ? .blue : .gray)
+                }
             }
-            .font(.custom("OpenSans-Bold", size: 16))
+            .disabled(isSaving || !hasChanges || hasValidationErrors)
         }
+    }
+    
+    // Check if there are any validation errors
+    private var hasValidationErrors: Bool {
+        return nameError != nil || bioError != nil
     }
     
     private var profileFieldsSection: some View {
         VStack(alignment: .leading, spacing: 20) {
-            EditFieldView(title: "Name", text: $name)
-            EditFieldView(title: "Username", text: $username, prefix: "@")
+            // Name field with character counter and validation
+            nameFieldWithValidation
             
-            bioEditor
+            // Username - Read-only (cannot be changed)
+            usernameReadOnlyField
+            
+            // Bio editor with character counter and validation
+            bioEditorWithValidation
             
             interestsSection
             
@@ -1838,20 +2051,139 @@ struct EditProfileView: View {
         }
     }
     
-    private var bioEditor: some View {
+    // MARK: - Name Field with Validation
+    
+    private var nameFieldWithValidation: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Bio")
-                .font(.custom("OpenSans-SemiBold", size: 14))
-                .foregroundStyle(.black.opacity(0.6))
+            HStack {
+                Text("Name")
+                    .font(.custom("OpenSans-SemiBold", size: 14))
+                    .foregroundStyle(.black.opacity(0.6))
+                
+                Spacer()
+                
+                // Character counter
+                Text("\(name.count)/\(nameCharacterLimit)")
+                    .font(.custom("OpenSans-Regular", size: 12))
+                    .foregroundStyle(name.count > nameCharacterLimit ? .red : .secondary)
+            }
             
-            TextEditor(text: $bio)
+            TextField("Your name", text: $name)
                 .font(.custom("OpenSans-Regular", size: 15))
-                .frame(height: 100)
                 .padding(12)
                 .background(
                     RoundedRectangle(cornerRadius: 10)
-                        .stroke(Color.black.opacity(0.1), lineWidth: 1)
+                        .stroke(nameError != nil ? Color.red : Color.black.opacity(0.1), lineWidth: nameError != nil ? 2 : 1)
                 )
+                .onChange(of: name) { oldValue, newValue in
+                    hasChanges = true
+                    validateName(newValue)
+                }
+            
+            // Error message
+            if let error = nameError {
+                HStack(spacing: 4) {
+                    Image(systemName: "exclamationmark.circle.fill")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.red)
+                    
+                    Text(error)
+                        .font(.custom("OpenSans-Regular", size: 12))
+                        .foregroundStyle(.red)
+                }
+            }
+        }
+    }
+    
+    // MARK: - Username Read-only Field
+    
+    private var usernameReadOnlyField: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Username")
+                .font(.custom("OpenSans-SemiBold", size: 14))
+                .foregroundStyle(.black.opacity(0.6))
+            
+            HStack(spacing: 8) {
+                Text("@")
+                    .font(.custom("OpenSans-Regular", size: 15))
+                    .foregroundStyle(.black.opacity(0.4))
+                
+                Text(username)
+                    .font(.custom("OpenSans-Regular", size: 15))
+                    .foregroundStyle(.black.opacity(0.5))
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color.black.opacity(0.03))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(Color.black.opacity(0.1), lineWidth: 1)
+            )
+            
+            Text("Username cannot be changed")
+                .font(.custom("OpenSans-Regular", size: 12))
+                .foregroundStyle(.secondary)
+        }
+    }
+    
+    // MARK: - Bio Editor with Validation
+    
+    private var bioEditorWithValidation: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Bio")
+                    .font(.custom("OpenSans-SemiBold", size: 14))
+                    .foregroundStyle(.black.opacity(0.6))
+                
+                Spacer()
+                
+                // Character counter
+                Text("\(bio.count)/\(bioCharacterLimit)")
+                    .font(.custom("OpenSans-Regular", size: 12))
+                    .foregroundStyle(bio.count > bioCharacterLimit ? .red : .secondary)
+            }
+            
+            ZStack(alignment: .topLeading) {
+                // Placeholder text
+                if bio.isEmpty {
+                    Text("Tell us about yourself...")
+                        .font(.custom("OpenSans-Regular", size: 15))
+                        .foregroundStyle(.black.opacity(0.3))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 20)
+                }
+                
+                TextEditor(text: $bio)
+                    .font(.custom("OpenSans-Regular", size: 15))
+                    .frame(height: 100)
+                    .padding(8)
+                    .scrollContentBackground(.hidden)
+                    .background(Color.clear)
+                    .onChange(of: bio) { oldValue, newValue in
+                        hasChanges = true
+                        validateBio(newValue)
+                    }
+            }
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(bioError != nil ? Color.red : Color.black.opacity(0.1), lineWidth: bioError != nil ? 2 : 1)
+            )
+            
+            // Error message
+            if let error = bioError {
+                HStack(spacing: 4) {
+                    Image(systemName: "exclamationmark.circle.fill")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.red)
+                    
+                    Text(error)
+                        .font(.custom("OpenSans-Regular", size: 12))
+                        .foregroundStyle(.red)
+                }
+            }
         }
     }
     
@@ -1867,6 +2199,9 @@ struct EditProfileView: View {
                 if interests.count < 3 {
                     Button {
                         showAddInterest = true
+                        // Haptic feedback
+                        let haptic = UIImpactFeedbackGenerator(style: .light)
+                        haptic.impactOccurred()
                     } label: {
                         Image(systemName: "plus.circle.fill")
                             .font(.system(size: 20))
@@ -1875,14 +2210,31 @@ struct EditProfileView: View {
                 }
             }
             
-            if !interests.isEmpty {
-                // Use HStack with wrapping instead of FlowLayout
+            if interests.isEmpty {
+                // Empty state - encourage adding interests
                 VStack(alignment: .leading, spacing: 8) {
-                    ForEach(Array(interests.enumerated()), id: \.offset) { index, interest in
-                        InterestChip(interest: interest) {
-                            interests.removeAll { $0 == interest }
-                        }
+                    Text("No interests added yet")
+                        .font(.custom("OpenSans-Regular", size: 14))
+                        .foregroundStyle(.secondary)
+                    
+                    Text("Add up to 3 interests to help others connect with you")
+                        .font(.custom("OpenSans-Regular", size: 12))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.vertical, 8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                // Display interests as chips with flexible wrapping
+                FlexibleInterestsView(interests: interests) { interest in
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        interests.removeAll { $0 == interest }
+                        hasChanges = true
                     }
+                    
+                    // Haptic feedback
+                    let haptic = UIImpactFeedbackGenerator(style: .medium)
+                    haptic.impactOccurred()
                 }
             }
         }
@@ -1941,6 +2293,12 @@ struct EditProfileView: View {
         }
         .sheet(isPresented: $showAddSocialLink) {
             SocialLinksEditView(socialLinks: $socialLinks)
+                .onDisappear {
+                    // Check if social links changed
+                    if socialLinks != profileData.socialLinks {
+                        hasChanges = true
+                    }
+                }
         }
         .sheet(isPresented: $showImagePicker) {
             ProfileImagePicker(profileData: $profileData)
@@ -1965,7 +2323,26 @@ struct EditProfileView: View {
     
     private var avatarWithCameraButton: some View {
         ZStack(alignment: .bottomTrailing) {
-            avatarCircle
+            // Show current profile image or initials
+            if let imageURL = profileData.profileImageURL, !imageURL.isEmpty, let url = URL(string: imageURL) {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 100, height: 100)
+                            .clipShape(Circle())
+                    case .failure, .empty:
+                        avatarCircle
+                    @unknown default:
+                        avatarCircle
+                    }
+                }
+                .frame(width: 100, height: 100)
+            } else {
+                avatarCircle
+            }
             
             cameraButton
         }
@@ -1999,53 +2376,261 @@ struct EditProfileView: View {
     }
     
     private func saveProfile() {
-        // Update local profile data
-        profileData.name = name
-        profileData.username = username
-        profileData.bio = bio
-        profileData.interests = interests
-        profileData.socialLinks = socialLinks
+        // Prevent double-saves
+        guard !isSaving else { return }
         
-        // Dismiss first
-        dismiss()
+        // Start saving state
+        isSaving = true
         
-        // Haptic feedback
+        // Save to Firestore FIRST, then dismiss
+        Task { @MainActor in
+            do {
+                // Use FirebaseManager directly for profile updates
+                guard let userId = Auth.auth().currentUser?.uid else {
+                    isSaving = false
+                    saveErrorMessage = "User not authenticated"
+                    showSaveError = true
+                    return
+                }
+                
+                print("💾 Saving profile changes to Firestore...")
+                print("   Name: \(name)")
+                print("   Username: @\(username)")
+                print("   Bio: \(bio)")
+                print("   Interests: \(interests)")
+                print("   Social Links: \(socialLinks.count)")
+                
+                let db = Firestore.firestore()
+                
+                // 1. Update basic profile info (displayName and bio)
+                try await db.collection("users").document(userId).updateData([
+                    "displayName": name,
+                    "bio": bio,
+                    "interests": interests,  // Include interests in same update
+                    "updatedAt": FieldValue.serverTimestamp()
+                ])
+                
+                print("✅ Basic profile info saved")
+                
+                // 2. Save social links
+                let linkData = socialLinks.map { link in
+                    link.toData()
+                }
+                
+                // Convert SocialLinkData to dictionary format
+                let linksArray = linkData.map { link -> [String: Any] in
+                    return [
+                        "platform": link.platform,
+                        "username": link.username,
+                        "url": link.url
+                    ]
+                }
+                
+                try await db.collection("users").document(userId).updateData([
+                    "socialLinks": linksArray
+                ])
+                
+                print("✅ Social links saved (\(linksArray.count) links)")
+                
+                // Update local profile data after successful save
+                profileData.name = name
+                profileData.username = username
+                profileData.bio = bio
+                profileData.interests = interests
+                profileData.socialLinks = socialLinks
+                
+                print("✅ Profile saved successfully!")
+                
+                // Success haptic
+                let successHaptic = UINotificationFeedbackGenerator()
+                successHaptic.notificationOccurred(.success)
+                
+                isSaving = false
+                
+                // Dismiss AFTER successful save
+                dismiss()
+                
+            } catch {
+                print("❌ Failed to save profile: \(error.localizedDescription)")
+                print("   Error details: \(error)")
+                
+                isSaving = false
+                
+                // Show error to user
+                await MainActor.run {
+                    if let firestoreError = error as NSError?, 
+                       firestoreError.domain == "FIRFirestoreErrorDomain" {
+                        switch firestoreError.code {
+                        case 7: // Permission denied
+                            saveErrorMessage = "Permission denied. Please sign out and sign in again."
+                        case 14: // Network error
+                            saveErrorMessage = "Network error. Please check your connection and try again."
+                        default:
+                            saveErrorMessage = "Failed to save profile: \(error.localizedDescription)"
+                        }
+                    } else {
+                        saveErrorMessage = "Failed to save profile changes. Please try again.\n\nError: \(error.localizedDescription)"
+                    }
+                    
+                    showSaveError = true
+                    
+                    // Error haptic
+                    let errorHaptic = UINotificationFeedbackGenerator()
+                    errorHaptic.notificationOccurred(.error)
+                }
+            }
+        }
+    }
+    
+    // MARK: - Helper Methods
+    
+    // MARK: - Validation Functions
+    
+    /// Validate name field
+    private func validateName(_ name: String) {
+        // Clear previous error
+        nameError = nil
+        
+        // Check if empty
+        let trimmedName = name.trimmingCharacters(in: .whitespaces)
+        if trimmedName.isEmpty {
+            nameError = "Name is required"
+            return
+        }
+        
+        // Check length
+        if name.count > nameCharacterLimit {
+            nameError = "Name must be \(nameCharacterLimit) characters or less"
+            return
+        }
+        
+        // Check for invalid characters (must be letters, spaces, hyphens, apostrophes only)
+        let allowedCharacterSet = CharacterSet.letters
+            .union(CharacterSet.whitespaces)
+            .union(CharacterSet(charactersIn: "-'"))
+        
+        if name.rangeOfCharacter(from: allowedCharacterSet.inverted) != nil {
+            nameError = "Name can only contain letters, spaces, hyphens, and apostrophes"
+            return
+        }
+        
+        // Check minimum length
+        if trimmedName.count < 2 {
+            nameError = "Name must be at least 2 characters"
+            return
+        }
+    }
+    
+    /// Validate bio field
+    private func validateBio(_ bio: String) {
+        // Clear previous error
+        bioError = nil
+        
+        // Bio is optional, so empty is OK
+        if bio.isEmpty {
+            return
+        }
+        
+        // Check length
+        if bio.count > bioCharacterLimit {
+            bioError = "Bio must be \(bioCharacterLimit) characters or less"
+            return
+        }
+        
+        // Check for excessive newlines (max 3 line breaks)
+        let newlineCount = bio.components(separatedBy: .newlines).count - 1
+        if newlineCount > 3 {
+            bioError = "Bio can contain a maximum of 3 line breaks"
+            return
+        }
+    }
+    
+    /// Show confirmation alert for name/bio changes
+    private func showSaveConfirmation() {
+        showSaveConfirmationAlert = true
+    }
+    
+    /// Add a new interest with validation
+    private func addInterest() {
+        // Trim whitespace
+        let trimmedInterest = newInterest.trimmingCharacters(in: .whitespaces)
+        
+        // Validate - must not be empty
+        guard !trimmedInterest.isEmpty else {
+            newInterest = ""
+            return
+        }
+        
+        // Validate - max 3 interests
+        guard interests.count < 3 else {
+            newInterest = ""
+            let haptic = UINotificationFeedbackGenerator()
+            haptic.notificationOccurred(.warning)
+            
+            // Show alert
+            showErrorAlert(title: "Maximum Interests Reached", message: "You can add a maximum of 3 interests. Remove one to add another.")
+            return
+        }
+        
+        // Validate - no duplicates (case-insensitive)
+        guard !interests.contains(where: { $0.lowercased() == trimmedInterest.lowercased() }) else {
+            // Haptic feedback for duplicate
+            let haptic = UINotificationFeedbackGenerator()
+            haptic.notificationOccurred(.warning)
+            newInterest = ""
+            
+            showErrorAlert(title: "Duplicate Interest", message: "You've already added this interest.")
+            return
+        }
+        
+        // Validate - reasonable length (3-30 characters)
+        guard trimmedInterest.count >= 3 else {
+            let haptic = UINotificationFeedbackGenerator()
+            haptic.notificationOccurred(.warning)
+            newInterest = ""
+            
+            showErrorAlert(title: "Interest Too Short", message: "Interest must be at least 3 characters.")
+            return
+        }
+        
+        guard trimmedInterest.count <= interestCharacterLimit else {
+            let haptic = UINotificationFeedbackGenerator()
+            haptic.notificationOccurred(.warning)
+            newInterest = ""
+            
+            showErrorAlert(title: "Interest Too Long", message: "Interest must be \(interestCharacterLimit) characters or less.")
+            return
+        }
+        
+        // Add interest with animation
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            interests.append(trimmedInterest)
+            hasChanges = true
+        }
+        
+        // Success haptic
         let haptic = UINotificationFeedbackGenerator()
         haptic.notificationOccurred(.success)
         
-        // Save to Firestore in background
-        Task { @MainActor in
-            do {
-                let userService = UserService()
-                
-                print("💾 Saving profile changes to Firestore...")
-                
-                try await userService.updateProfile(
-                    displayName: name,
-                    bio: bio
-                )
-                
-                // Also save interests (keep existing goals and prayer time)
-                if !interests.isEmpty {
-                    try await userService.saveOnboardingPreferences(
-                        interests: interests,
-                        goals: userService.currentUser?.goals ?? [],
-                        prayerTime: userService.currentUser?.preferredPrayerTime ?? "Morning"
-                    )
-                }
-                
-                // Save social links - convert to SocialLinkData
-                if !socialLinks.isEmpty {
-                    let linkData = socialLinks.map { link in
-                        link.toData()  // Use the conversion method from SocialLinkUI
-                    }
-                    try await SocialLinksService.shared.updateSocialLinks(linkData)
-                }
-                
-                print("✅ Profile saved successfully!")
-            } catch {
-                print("❌ Failed to save profile: \(error)")
-            }
+        // Clear input
+        newInterest = ""
+        
+        print("✅ Interest added: \(trimmedInterest)")
+    }
+    
+    /// Show error alert helper
+    private func showErrorAlert(title: String, message: String) {
+        let alert = UIAlertController(
+            title: title,
+            message: message,
+            preferredStyle: .alert
+        )
+        
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let rootViewController = windowScene.windows.first?.rootViewController {
+            rootViewController.present(alert, animated: true)
         }
     }
 }
@@ -2106,6 +2691,26 @@ struct InterestChip: View {
         )
     }
 }
+
+// MARK: - Flexible Interests View (with proper wrapping)
+
+struct FlexibleInterestsView: View {
+    let interests: [String]
+    let onRemove: (String) -> Void
+    
+    var body: some View {
+        FlowLayout(spacing: 8) {
+            ForEach(interests, id: \.self) { interest in
+                InterestChip(interest: interest) {
+                    onRemove(interest)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Flow Layout (for wrapping chips)
+// Note: FlowLayout is defined in OnboardingAdvancedComponents.swift and reused here
 
 // MARK: - Old Components (Keep for compatibility)
 
@@ -3495,7 +4100,6 @@ struct AppearanceSettingsView: View {
 
 struct SafetySecurityView: View {
     @Environment(\.dismiss) var dismiss
-    @StateObject private var userService = UserService()
     
     @State private var twoFactorEnabled = false
     @State private var loginAlerts = true
@@ -3703,21 +4307,35 @@ struct SafetySecurityView: View {
     
     private func loadSecuritySettings() {
         Task {
-            await userService.fetchCurrentUser()
+            guard let userId = Auth.auth().currentUser?.uid else {
+                isLoading = false
+                return
+            }
             
-            if let user = userService.currentUser {
-                await MainActor.run {
-                    loginAlerts = user.loginAlerts
-                    showSensitiveContent = user.showSensitiveContent
-                    requirePasswordForPurchases = user.requirePasswordForPurchases
-                    isLoading = false
-                    
-                    print("✅ Security settings loaded from Firestore")
+            let db = Firestore.firestore()
+            
+            do {
+                let doc = try await db.collection("users").document(userId).getDocument()
+                
+                if let data = doc.data() {
+                    await MainActor.run {
+                        loginAlerts = data["loginAlerts"] as? Bool ?? true
+                        showSensitiveContent = data["showSensitiveContent"] as? Bool ?? false
+                        requirePasswordForPurchases = data["requirePasswordForPurchases"] as? Bool ?? true
+                        isLoading = false
+                        
+                        print("✅ Security settings loaded from Firestore")
+                    }
+                } else {
+                    await MainActor.run {
+                        isLoading = false
+                        print("⚠️ No user data found, using defaults")
+                    }
                 }
-            } else {
+            } catch {
+                print("❌ Error loading security settings: \(error)")
                 await MainActor.run {
                     isLoading = false
-                    print("⚠️ No user data found, using defaults")
                 }
             }
         }
@@ -3768,12 +4386,20 @@ struct SafetySecurityView: View {
         isSaving = true
         
         Task {
+            guard let userId = Auth.auth().currentUser?.uid else {
+                await MainActor.run { isSaving = false }
+                return
+            }
+            
+            let db = Firestore.firestore()
+            
             do {
-                try await userService.updateSecuritySettings(
-                    loginAlerts: loginAlerts,
-                    showSensitiveContent: showSensitiveContent,
-                    requirePasswordForPurchases: requirePasswordForPurchases
-                )
+                try await db.collection("users").document(userId).updateData([
+                    "loginAlerts": loginAlerts,
+                    "showSensitiveContent": showSensitiveContent,
+                    "requirePasswordForPurchases": requirePasswordForPurchases,
+                    "updatedAt": FieldValue.serverTimestamp()
+                ])
                 
                 await MainActor.run {
                     isSaving = false

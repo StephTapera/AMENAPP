@@ -1,0 +1,13 @@
+{
+  "rules": {
+    "user_saved_posts": {
+      "$userId": {
+        ".read": "auth != null && auth.uid === $userId",
+        ".write": "auth != null && auth.uid === $userId",
+        "$postId": {
+          ".validate": "newData.isNumber()"
+        }
+      }
+    }
+  }
+}

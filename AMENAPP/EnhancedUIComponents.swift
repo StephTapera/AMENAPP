@@ -160,7 +160,7 @@ extension View {
 }
 
 // MARK: - Shimmer Effect Modifier
-struct ShimmerEffect: ViewModifier {
+struct AmenShimmerEffect: ViewModifier {
     @State private var offset: CGFloat = -200
     var duration: Double = 2.0
     
@@ -193,8 +193,8 @@ struct ShimmerEffect: ViewModifier {
 }
 
 extension View {
-    func shimmerEffect(duration: Double = 2.0) -> some View {
-        modifier(ShimmerEffect(duration: duration))
+    func amenShimmerEffect(duration: Double = 2.0) -> some View {
+        modifier(AmenShimmerEffect(duration: duration))
     }
 }
 
@@ -341,6 +341,6 @@ struct HapticFeedback {
             .font(.system(size: 64, weight: .thin, design: .serif))
             .tracking(10)
             .foregroundColor(.white)
-            .shimmerEffect()
+            .amenShimmerEffect()
     }
 }

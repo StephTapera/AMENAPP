@@ -24,6 +24,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         
         // Configure Firebase
         FirebaseApp.configure()
+        print("✅ Firebase configured successfully")
         
         // Configure Firestore settings IMMEDIATELY after Firebase.configure()
         // This must happen before any Firestore access
@@ -32,14 +33,12 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         // Use the modern cacheSettings API (not the deprecated cacheSizeBytes)
         firestoreSettings.cacheSettings = PersistentCacheSettings(sizeBytes: FirestoreCacheSizeUnlimited as NSNumber)
         Firestore.firestore().settings = firestoreSettings
+        print("✅ Firestore settings configured (persistence enabled, unlimited cache)")
         
         // Configure Realtime Database URL
         // NOTE: Persistence must be enabled BEFORE first access to the database
         // This is done in RealtimeDatabaseService to ensure correct timing
         let databaseURL = "https://amen-5e359-default-rtdb.firebaseio.com"
-        
-        print("✅ Firebase configured")
-        print("✅ Firestore settings configured (persistence enabled, unlimited cache)")
         print("✅ Realtime Database URL: \(databaseURL)")
         
         // Setup push notifications

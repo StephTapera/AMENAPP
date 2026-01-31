@@ -22,6 +22,9 @@ struct Conversation: Identifiable, Codable, Equatable {
     var lastMessageTime: Date
     var unreadCount: [String: Int]  // userId: unreadCount
     var archivedBy: [String]  // Array of userIds who archived this conversation
+    var conversationStatus: String  // "accepted", "pending", "blocked"
+    var requesterId: String?  // User who initiated the conversation (for pending requests)
+    var requestReadBy: [String]?  // Users who have seen the request notification
     var createdAt: Date
     var updatedAt: Date
     
@@ -35,6 +38,9 @@ struct Conversation: Identifiable, Codable, Equatable {
         case lastMessageTime
         case unreadCount
         case archivedBy
+        case conversationStatus
+        case requesterId
+        case requestReadBy
         case createdAt
         case updatedAt
     }
@@ -49,6 +55,9 @@ struct Conversation: Identifiable, Codable, Equatable {
         lastMessageTime: Date = Date(),
         unreadCount: [String: Int] = [:],
         archivedBy: [String] = [],
+        conversationStatus: String = "accepted",
+        requesterId: String? = nil,
+        requestReadBy: [String]? = nil,
         createdAt: Date = Date(),
         updatedAt: Date = Date()
     ) {
@@ -61,6 +70,9 @@ struct Conversation: Identifiable, Codable, Equatable {
         self.lastMessageTime = lastMessageTime
         self.unreadCount = unreadCount
         self.archivedBy = archivedBy
+        self.conversationStatus = conversationStatus
+        self.requesterId = requesterId
+        self.requestReadBy = requestReadBy
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }
@@ -94,6 +106,21 @@ struct Conversation: Identifiable, Codable, Equatable {
     /// Check if conversation is archived by user
     func isArchivedByUser(_ userId: String) -> Bool {
         archivedBy.contains(userId)
+    }
+    
+    /// Check if conversation is pending (message request)
+    var isPending: Bool {
+        conversationStatus == "pending"
+    }
+    
+    /// Check if conversation is accepted
+    var isAccepted: Bool {
+        conversationStatus == "accepted"
+    }
+    
+    /// Check if conversation is blocked
+    var isBlocked: Bool {
+        conversationStatus == "blocked"
     }
 }
 
@@ -187,3 +214,33 @@ struct TypingIndicator: Codable {
     var isTyping: Bool
     var timestamp: Date
 }
+// MARK: - Message Request Model
+
+struct MessageRequest: Identifiable, Codable, Equatable {
+    var id: String  // Same as conversationId
+    var conversationId: String
+    var fromUserId: String
+    var fromUserName: String
+    var fromUserPhoto: String?
+    var isRead: Bool
+    var createdAt: Date
+    
+    init(
+        id: String,
+        conversationId: String,
+        fromUserId: String,
+        fromUserName: String,
+        fromUserPhoto: String? = nil,
+        isRead: Bool = false,
+        createdAt: Date = Date()
+    ) {
+        self.id = id
+        self.conversationId = conversationId
+        self.fromUserId = fromUserId
+        self.fromUserName = fromUserName
+        self.fromUserPhoto = fromUserPhoto
+        self.isRead = isRead
+        self.createdAt = createdAt
+    }
+}
+

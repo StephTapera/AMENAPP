@@ -1,0 +1,352 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ============================================
+    // HELPER FUNCTIONS
+    // ============================================
+    
+    // Check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Check if user is the owner
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    // Check if user is participant in conversation
+    function isParticipant(participantIds) {
+      return request.auth.uid in participantIds;
+    }
+    
+    // Validate required fields exist
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+    
+    // Check if field is unchanged
+    function fieldUnchanged(field) {
+      return resource.data[field] == request.resource.data[field];
+    }
+    
+    // ============================================
+    // USERS COLLECTION
+    // ============================================
+    
+    match /users/{userId} {
+      // Anyone authenticated can read user profiles (for discovery)
+      allow read: if isAuthenticated();
+      
+      // Users can create their own profile
+      allow create: if isAuthenticated() && 
+                       isOwner(userId) &&
+                       hasRequiredFields(['email', 'displayName', 'username', 'createdAt']);
+      
+      // Users can update their own profile
+      allow update: if isAuthenticated() && 
+                       isOwner(userId) &&
+                       // Prevent changing critical fields
+                       fieldUnchanged('email') &&
+                       fieldUnchanged('createdAt');
+      
+      // Users can delete their own profile
+      allow delete: if isAuthenticated() && isOwner(userId);
+    }
+    
+    // ============================================
+    // POSTS COLLECTION
+    // ============================================
+    
+    match /posts/{postId} {
+      // Anyone authenticated can read posts
+      allow read: if isAuthenticated();
+      
+      // Users can create posts
+      allow create: if isAuthenticated() &&
+                       isOwner(request.resource.data.authorId) &&
+                       hasRequiredFields(['authorId', 'authorName', 'content', 'category', 'timestamp']);
+      
+      // Users can update their own posts
+      allow update: if isAuthenticated() && 
+                       isOwner(resource.data.authorId) &&
+                       // Prevent changing author
+                       fieldUnchanged('authorId') &&
+                       fieldUnchanged('timestamp');
+      
+      // Users can delete their own posts
+      allow delete: if isAuthenticated() && isOwner(resource.data.authorId);
+      
+      // ============================================
+      // POST SUBCOLLECTIONS
+      // ============================================
+      
+      // Likes subcollection
+      match /likes/{likeId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated() && isOwner(request.resource.data.userId);
+        allow delete: if isAuthenticated() && isOwner(resource.data.userId);
+      }
+      
+      // Comments subcollection
+      match /comments/{commentId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated() && 
+                         isOwner(request.resource.data.authorId) &&
+                         hasRequiredFields(['authorId', 'authorName', 'content', 'timestamp']);
+        allow update: if isAuthenticated() && isOwner(resource.data.authorId);
+        allow delete: if isAuthenticated() && 
+                         (isOwner(resource.data.authorId) || isOwner(get(/databases/$(database)/documents/posts/$(postId)).data.authorId));
+      }
+      
+      // Shares subcollection
+      match /shares/{shareId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated() && isOwner(request.resource.data.userId);
+        allow delete: if isAuthenticated() && isOwner(resource.data.userId);
+      }
+    }
+    
+    // ============================================
+    // CONVERSATIONS COLLECTION
+    // ============================================
+    
+    match /conversations/{conversationId} {
+      // Only participants can read conversations
+      allow read: if isAuthenticated() && 
+                     isParticipant(resource.data.participantIds);
+      
+      // Users can create conversations they're part of
+      allow create: if isAuthenticated() &&
+                       isParticipant(request.resource.data.participantIds) &&
+                       hasRequiredFields(['participantIds', 'createdAt', 'updatedAt']);
+      
+      // Participants can update conversation metadata
+      allow update: if isAuthenticated() && 
+                       isParticipant(resource.data.participantIds) &&
+                       // Prevent changing participants
+                       fieldUnchanged('participantIds') &&
+                       fieldUnchanged('createdAt');
+      
+      // Participants can delete conversations
+      allow delete: if isAuthenticated() && isParticipant(resource.data.participantIds);
+      
+      // ============================================
+      // MESSAGES SUBCOLLECTION
+      // ============================================
+      
+      match /messages/{messageId} {
+        // Participants can read messages
+        allow read: if isAuthenticated() && 
+                       isParticipant(get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds);
+        
+        // Participants can create messages
+        allow create: if isAuthenticated() &&
+                         isParticipant(get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds) &&
+                         isOwner(request.resource.data.senderId) &&
+                         hasRequiredFields(['senderId', 'content', 'timestamp']);
+        
+        // Sender can update their own messages (e.g., mark as edited)
+        allow update: if isAuthenticated() && isOwner(resource.data.senderId);
+        
+        // Sender can delete their own messages
+        allow delete: if isAuthenticated() && isOwner(resource.data.senderId);
+      }
+    }
+    
+    // ============================================
+    // FOLLOWS COLLECTION
+    // ============================================
+    
+    match /follows/{followId} {
+      // Anyone authenticated can read follows
+      allow read: if isAuthenticated();
+      
+      // Users can follow others (followerId must be themselves)
+      allow create: if isAuthenticated() &&
+                       isOwner(request.resource.data.followerId) &&
+                       hasRequiredFields(['followerId', 'followingId', 'timestamp']);
+      
+      // Users can unfollow (delete their own follows)
+      allow delete: if isAuthenticated() && isOwner(resource.data.followerId);
+    }
+    
+    // ============================================
+    // BLOCKED USERS COLLECTION
+    // ============================================
+    
+    match /blockedUsers/{blockId} {
+      // Users can read their own blocks
+      allow read: if isAuthenticated() && isOwner(resource.data.userId);
+      
+      // Users can block others
+      allow create: if isAuthenticated() &&
+                       isOwner(request.resource.data.userId) &&
+                       hasRequiredFields(['userId', 'blockedUserId', 'timestamp']);
+      
+      // Users can unblock
+      allow delete: if isAuthenticated() && isOwner(resource.data.userId);
+    }
+    
+    // ============================================
+    // NOTIFICATIONS COLLECTION
+    // ============================================
+    
+    match /notifications/{notificationId} {
+      // Users can read their own notifications
+      allow read: if isAuthenticated() && isOwner(resource.data.userId);
+      
+      // System and users can create notifications for others
+      allow create: if isAuthenticated() &&
+                       hasRequiredFields(['userId', 'type', 'timestamp', 'read']);
+      
+      // Users can update their own notifications (mark as read)
+      allow update: if isAuthenticated() && isOwner(resource.data.userId);
+      
+      // Users can delete their own notifications
+      allow delete: if isAuthenticated() && isOwner(resource.data.userId);
+    }
+    
+    // ============================================
+    // SAVED POSTS COLLECTION
+    // ============================================
+    
+    match /savedPosts/{savedPostId} {
+      // Users can read their own saved posts
+      allow read: if isAuthenticated() && isOwner(resource.data.userId);
+      
+      // Users can save posts
+      allow create: if isAuthenticated() &&
+                       isOwner(request.resource.data.userId) &&
+                       hasRequiredFields(['userId', 'postId', 'timestamp']);
+      
+      // Users can unsave posts
+      allow delete: if isAuthenticated() && isOwner(resource.data.userId);
+    }
+    
+    // ============================================
+    // REFERRALS & REFERRAL CODES
+    // ============================================
+    
+    match /referralCodes/{code} {
+      // Anyone authenticated can read codes (to validate)
+      allow read: if isAuthenticated();
+      
+      // Only system/admin can create codes (via Cloud Functions)
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
+    }
+    
+    match /referrals/{referralId} {
+      // Users can read their own referrals
+      allow read: if isAuthenticated() &&
+                     (isOwner(resource.data.referrerId) || isOwner(resource.data.referredUserId));
+      
+      // System creates referral records (during onboarding)
+      allow create: if isAuthenticated() &&
+                       isOwner(request.resource.data.referredUserId) &&
+                       hasRequiredFields(['referrerId', 'referredUserId', 'code', 'timestamp']);
+      
+      allow update: if false;
+      allow delete: if false;
+    }
+    
+    // ============================================
+    // ONBOARDING FEEDBACK
+    // ============================================
+    
+    match /onboardingFeedback/{feedbackId} {
+      // Users can read their own feedback
+      allow read: if isAuthenticated() && isOwner(resource.data.userId);
+      
+      // Users can submit feedback
+      allow create: if isAuthenticated() &&
+                       isOwner(request.resource.data.userId) &&
+                       hasRequiredFields(['userId', 'rating', 'timestamp']);
+      
+      allow update: if false;
+      allow delete: if false;
+    }
+    
+    // ============================================
+    // PRAYER REQUESTS
+    // ============================================
+    
+    match /prayerRequests/{requestId} {
+      // Anyone authenticated can read prayer requests
+      allow read: if isAuthenticated();
+      
+      // Users can create prayer requests
+      allow create: if isAuthenticated() &&
+                       isOwner(request.resource.data.authorId) &&
+                       hasRequiredFields(['authorId', 'title', 'content', 'timestamp']);
+      
+      // Users can update their own requests
+      allow update: if isAuthenticated() && isOwner(resource.data.authorId);
+      
+      // Users can delete their own requests
+      allow delete: if isAuthenticated() && isOwner(resource.data.authorId);
+      
+      // Prayers subcollection
+      match /prayers/{prayerId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated() && isOwner(request.resource.data.userId);
+        allow delete: if isAuthenticated() && isOwner(resource.data.userId);
+      }
+    }
+    
+    // ============================================
+    // TESTIMONIES
+    // ============================================
+    
+    match /testimonies/{testimonyId} {
+      // Anyone authenticated can read testimonies
+      allow read: if isAuthenticated();
+      
+      // Users can create testimonies
+      allow create: if isAuthenticated() &&
+                       isOwner(request.resource.data.authorId) &&
+                       hasRequiredFields(['authorId', 'title', 'content', 'timestamp']);
+      
+      // Users can update their own testimonies
+      allow update: if isAuthenticated() && isOwner(resource.data.authorId);
+      
+      // Users can delete their own testimonies
+      allow delete: if isAuthenticated() && isOwner(resource.data.authorId);
+      
+      // Amens subcollection
+      match /amens/{amenId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated() && isOwner(request.resource.data.userId);
+        allow delete: if isAuthenticated() && isOwner(resource.data.userId);
+      }
+    }
+    
+    // ============================================
+    // REPORTS (User-generated content reports)
+    // ============================================
+    
+    match /reports/{reportId} {
+      // Users can read their own reports
+      allow read: if isAuthenticated() && isOwner(resource.data.reporterId);
+      
+      // Users can create reports
+      allow create: if isAuthenticated() &&
+                       isOwner(request.resource.data.reporterId) &&
+                       hasRequiredFields(['reporterId', 'contentType', 'contentId', 'reason', 'timestamp']);
+      
+      allow update: if false;
+      allow delete: if false;
+    }
+    
+    // ============================================
+    // DENY ALL OTHER COLLECTIONS
+    // ============================================
+    
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

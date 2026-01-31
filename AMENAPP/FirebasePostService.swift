@@ -18,7 +18,7 @@ struct FirestorePost: Codable, Identifiable {
     @DocumentID var id: String?
     var authorId: String
     var authorName: String
-    var authorUsername: String
+    var authorUsername: String?
     var authorInitials: String
     var authorProfileImageURL: String?
     var content: String
@@ -29,7 +29,7 @@ struct FirestorePost: Codable, Identifiable {
     var imageURLs: [String]?
     var linkURL: String?
     var createdAt: Date
-    var updatedAt: Date
+    var updatedAt: Date?
     
     // Interaction counts
     var amenCount: Int
@@ -80,11 +80,41 @@ struct FirestorePost: Codable, Identifiable {
         case lightbulbUserIds
     }
     
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        id = try container.decodeIfPresent(String.self, forKey: .id)
+        authorId = try container.decode(String.self, forKey: .authorId)
+        authorName = try container.decode(String.self, forKey: .authorName)
+        authorUsername = try container.decodeIfPresent(String.self, forKey: .authorUsername)
+        authorInitials = try container.decode(String.self, forKey: .authorInitials)
+        authorProfileImageURL = try container.decodeIfPresent(String.self, forKey: .authorProfileImageURL)
+        content = try container.decode(String.self, forKey: .content)
+        category = try container.decode(String.self, forKey: .category)
+        topicTag = try container.decodeIfPresent(String.self, forKey: .topicTag)
+        visibility = try container.decode(String.self, forKey: .visibility)
+        allowComments = try container.decode(Bool.self, forKey: .allowComments)
+        imageURLs = try container.decodeIfPresent([String].self, forKey: .imageURLs)
+        linkURL = try container.decodeIfPresent(String.self, forKey: .linkURL)
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
+        updatedAt = try container.decodeIfPresent(Date.self, forKey: .updatedAt)
+        amenCount = try container.decodeIfPresent(Int.self, forKey: .amenCount) ?? 0
+        lightbulbCount = try container.decodeIfPresent(Int.self, forKey: .lightbulbCount) ?? 0
+        commentCount = try container.decodeIfPresent(Int.self, forKey: .commentCount) ?? 0
+        repostCount = try container.decodeIfPresent(Int.self, forKey: .repostCount) ?? 0
+        isRepost = try container.decodeIfPresent(Bool.self, forKey: .isRepost) ?? false
+        originalPostId = try container.decodeIfPresent(String.self, forKey: .originalPostId)
+        originalAuthorId = try container.decodeIfPresent(String.self, forKey: .originalAuthorId)
+        originalAuthorName = try container.decodeIfPresent(String.self, forKey: .originalAuthorName)
+        amenUserIds = try container.decodeIfPresent([String].self, forKey: .amenUserIds) ?? []
+        lightbulbUserIds = try container.decodeIfPresent([String].self, forKey: .lightbulbUserIds) ?? []
+    }
+    
     init(
         id: String? = nil,
         authorId: String,
         authorName: String,
-        authorUsername: String,
+        authorUsername: String? = nil,
         authorInitials: String,
         authorProfileImageURL: String? = nil,
         content: String,
@@ -95,7 +125,7 @@ struct FirestorePost: Codable, Identifiable {
         imageURLs: [String]? = nil,
         linkURL: String? = nil,
         createdAt: Date = Date(),
-        updatedAt: Date = Date(),
+        updatedAt: Date? = nil,
         amenCount: Int = 0,
         lightbulbCount: Int = 0,
         commentCount: Int = 0,
@@ -137,11 +167,16 @@ struct FirestorePost: Codable, Identifiable {
     // Convert to local Post model
     func toPost() -> Post {
         let postCategory: Post.PostCategory = {
-            switch category {
-            case "openTable": return .openTable
-            case "testimonies": return .testimonies
-            case "prayer": return .prayer
-            default: return .openTable
+            switch category.lowercased() {
+            case "opentable", "#opentable":
+                return .openTable
+            case "testimonies":
+                return .testimonies
+            case "prayer":
+                return .prayer
+            default:
+                print("⚠️ Unknown category '\(category)', defaulting to openTable")
+                return .openTable
             }
         }()
         
@@ -160,6 +195,7 @@ struct FirestorePost: Codable, Identifiable {
             id: UUID(uuidString: id ?? UUID().uuidString) ?? UUID(),
             authorId: authorId,
             authorName: authorName,
+            authorUsername: authorUsername,
             authorInitials: authorInitials,
             timeAgo: timeAgo,
             content: content,
@@ -581,11 +617,40 @@ class FirebasePostService: ObservableObject {
         return posts
     }
     
+    /// Fetch a single post by its ID
+    func fetchPostById(postId: String) async throws -> Post? {
+        print("📥 Fetching post by ID: \(postId)")
+        
+        let document = try await db.collection(FirebaseManager.CollectionPath.posts)
+            .document(postId)
+            .getDocument()
+        
+        guard document.exists else {
+            print("⚠️ Post not found: \(postId)")
+            return nil
+        }
+        
+        let firestorePost = try document.data(as: FirestorePost.self)
+        let post = firestorePost.toPost()
+        
+        print("✅ Fetched post: \(postId)")
+        return post
+    }
+    
     // MARK: - Real-time Listeners
     
     /// Start listening to posts in real-time
     func startListening(category: Post.PostCategory? = nil) {
         print("🔊 Starting real-time listener for posts...")
+        
+        // Check if user is authenticated
+        guard firebaseManager.isAuthenticated else {
+            print("⚠️ User not authenticated - skipping Firestore listener")
+            self.error = "Please sign in to view posts"
+            return
+        }
+        
+        print("✅ User authenticated, setting up listener...")
         
         let query: Query
         
@@ -612,8 +677,17 @@ class FirebasePostService: ObservableObject {
             guard let self = self else { return }
             
             if let error = error {
-                print("❌ Listener error: \(error)")
-                self.error = error.localizedDescription
+                let nsError = error as NSError
+                print("❌ Firestore listener error: \(error.localizedDescription)")
+                print("   Error code: \(nsError.code), domain: \(nsError.domain)")
+                
+                // Check for specific error codes
+                if nsError.code == 7 { // Permission denied
+                    self.error = "Missing or insufficient permissions. Please check Firestore security rules."
+                    print("⚠️ PERMISSION DENIED: Update your Firestore security rules to allow read access to the posts collection")
+                } else {
+                    self.error = error.localizedDescription
+                }
                 return
             }
             

@@ -75,10 +75,12 @@ class FirebaseMessagingService: ObservableObject {
     internal let storage = Storage.storage()
     
     @Published var conversations: [ChatConversation] = []
+    @Published var archivedConversations: [ChatConversation] = []
     @Published var isLoading = false
     @Published var lastError: FirebaseMessagingError?
     
     private var conversationsListener: ListenerRegistration?
+    private var archivedConversationsListener: ListenerRegistration?
     private var messagesListeners: [String: ListenerRegistration] = [:]
     
     // Message pagination state
@@ -199,8 +201,25 @@ class FirebaseMessagingService: ObservableObject {
                     return
                 }
                 
-                self.conversations = documents.compactMap { doc in
-                    try? doc.data(as: FirebaseConversation.self).toConversation()
+                // Filter out archived and deleted conversations
+                self.conversations = documents.compactMap { doc -> ChatConversation? in
+                    guard let firebaseConv = try? doc.data(as: FirebaseConversation.self) else {
+                        return nil
+                    }
+                    
+                    // Check if conversation is archived for current user (array-based)
+                    if let archivedBy = firebaseConv.archivedByArray,
+                       archivedBy.contains(self.currentUserId) {
+                        return nil
+                    }
+                    
+                    // Check if conversation is deleted for current user
+                    if let deletedBy = firebaseConv.deletedBy,
+                       deletedBy[self.currentUserId] == true {
+                        return nil
+                    }
+                    
+                    return firebaseConv.toConversation()
                 }
                 
                 self.isLoading = false
@@ -220,6 +239,82 @@ class FirebaseMessagingService: ObservableObject {
     func stopListeningToConversations() {
         conversationsListener?.remove()
         conversationsListener = nil
+    }
+    
+    /// Start listening to archived conversations for the current user
+    func startListeningToArchivedConversations() {
+        guard isAuthenticated else {
+            lastError = .notAuthenticated
+            return
+        }
+        
+        print("👂 Starting real-time listener for archived conversations")
+        
+        archivedConversationsListener = db.collection("conversations")
+            .whereField("participantIds", arrayContains: currentUserId)
+            .order(by: "updatedAt", descending: true)
+            .addSnapshotListener { [weak self] snapshot, error in
+                guard let self = self else { return }
+                
+                if let error = error {
+                    print("❌ Error fetching archived conversations: \(error)")
+                    return
+                }
+                
+                guard let documents = snapshot?.documents else {
+                    return
+                }
+                
+                // Filter archived conversations in memory
+                self.archivedConversations = documents.compactMap { doc -> ChatConversation? in
+                    guard let firebaseConv = try? doc.data(as: FirebaseConversation.self) else {
+                        return nil
+                    }
+                    
+                    // Only include if archived by current user
+                    guard let archivedBy = firebaseConv.archivedByArray,
+                          archivedBy.contains(self.currentUserId) else {
+                        return nil
+                    }
+                    
+                    return firebaseConv.toConversation()
+                }
+                
+                print("📦 Archived conversations updated: \(self.archivedConversations.count)")
+                
+                if let error = error {
+                    print("❌ Error fetching archived conversations: \(error)")
+                    return
+                }
+                
+                guard let documents = snapshot?.documents else {
+                    return
+                }
+                
+                // Filter out deleted conversations
+                self.archivedConversations = documents.compactMap { doc -> ChatConversation? in
+                    guard let firebaseConv = try? doc.data(as: FirebaseConversation.self) else {
+                        return nil
+                    }
+                    
+                    // Don't include deleted conversations
+                    if let deletedBy = firebaseConv.deletedBy,
+                       deletedBy[self.currentUserId] == true {
+                        return nil
+                    }
+                    
+                    return firebaseConv.toConversation()
+                }
+                
+                print("📦 Updated archived conversations: \(self.archivedConversations.count)")
+            }
+    }
+    
+    /// Stop listening to archived conversations
+    func stopListeningToArchivedConversations() {
+        archivedConversationsListener?.remove()
+        archivedConversationsListener = nil
+        print("🔇 Stopped listening to archived conversations")
     }
     
     /// Create a new conversation
@@ -1525,8 +1620,8 @@ class FirebaseMessagingService: ObservableObject {
         try await db.collection("conversations")
             .document(conversationId)
             .updateData([
-                "archivedBy.\(currentUserId)": true,
-                "archivedAt.\(currentUserId)": Timestamp(date: Date())
+                "archivedBy": FieldValue.arrayUnion([currentUserId]),
+                "updatedAt": Timestamp(date: Date())
             ])
         
         print("📦 Conversation \(conversationId) archived")
@@ -1537,8 +1632,8 @@ class FirebaseMessagingService: ObservableObject {
         try await db.collection("conversations")
             .document(conversationId)
             .updateData([
-                "archivedBy.\(currentUserId)": FieldValue.delete(),
-                "archivedAt.\(currentUserId)": FieldValue.delete()
+                "archivedBy": FieldValue.arrayRemove([currentUserId]),
+                "updatedAt": Timestamp(date: Date())
             ])
         
         print("📬 Conversation \(conversationId) unarchived")
@@ -1548,12 +1643,37 @@ class FirebaseMessagingService: ObservableObject {
     func getArchivedConversations() async throws -> [ChatConversation] {
         let snapshot = try await db.collection("conversations")
             .whereField("participantIds", arrayContains: currentUserId)
-            .whereField("archivedBy.\(currentUserId)", isEqualTo: true)
-            .order(by: "archivedAt.\(currentUserId)", descending: true)
+            .order(by: "updatedAt", descending: true)
             .getDocuments()
         
-        let conversations = snapshot.documents.compactMap { doc in
-            try? doc.data(as: FirebaseConversation.self).toConversation()
+        // Filter archived conversations in memory
+        return snapshot.documents.compactMap { doc -> ChatConversation? in
+            guard let firebaseConv = try? doc.data(as: FirebaseConversation.self) else {
+                return nil
+            }
+            
+            // Check if archived by current user
+            guard let archivedBy = firebaseConv.archivedByArray,
+                  archivedBy.contains(currentUserId) else {
+                return nil
+            }
+            
+            return firebaseConv.toConversation()
+        }
+        
+        // Filter out deleted conversations from archived list
+        let conversations = snapshot.documents.compactMap { doc -> ChatConversation? in
+            guard let firebaseConv = try? doc.data(as: FirebaseConversation.self) else {
+                return nil
+            }
+            
+            // Don't include deleted conversations in archived list
+            if let deletedBy = firebaseConv.deletedBy,
+               deletedBy[self.currentUserId] == true {
+                return nil
+            }
+            
+            return firebaseConv.toConversation()
         }
         
         print("📦 Fetched \(conversations.count) archived conversations")
@@ -1817,6 +1937,71 @@ struct FirebaseConversation: Codable {
     let requestReadBy: [String]? // Users who have seen the request
     let createdAt: Timestamp?
     let updatedAt: Timestamp?
+    let archivedBy: [String: Bool]? // OLD: userId: archived status (deprecated)
+    let archivedByArray: [String]? // NEW: array of user IDs who archived
+    let archivedAt: Timestamp? // Shared archived timestamp
+    let deletedBy: [String: Bool]? // userId: deleted status
+    
+    enum CodingKeys: String, CodingKey {
+        case id
+        case participantIds
+        case participantNames
+        case isGroup
+        case groupName
+        case groupAvatarUrl
+        case lastMessage
+        case lastMessageText
+        case lastMessageTimestamp
+        case unreadCounts
+        case conversationStatus
+        case requesterId
+        case requestReadBy
+        case createdAt
+        case updatedAt
+        case archivedBy
+        case archivedAt
+        case deletedBy
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        // @DocumentID needs special handling - decode without the wrapper
+        _id = DocumentID(wrappedValue: try container.decodeIfPresent(String.self, forKey: .id))
+        
+        participantIds = try container.decode([String].self, forKey: .participantIds)
+        participantNames = try container.decode([String: String].self, forKey: .participantNames)
+        isGroup = try container.decode(Bool.self, forKey: .isGroup)
+        groupName = try container.decodeIfPresent(String.self, forKey: .groupName)
+        groupAvatarUrl = try container.decodeIfPresent(String.self, forKey: .groupAvatarUrl)
+        lastMessage = try container.decodeIfPresent(String.self, forKey: .lastMessage)
+        lastMessageText = try container.decode(String.self, forKey: .lastMessageText)
+        lastMessageTimestamp = try container.decodeIfPresent(Timestamp.self, forKey: .lastMessageTimestamp)
+        unreadCounts = try container.decode([String: Int].self, forKey: .unreadCounts)
+        conversationStatus = try container.decodeIfPresent(String.self, forKey: .conversationStatus)
+        requesterId = try container.decodeIfPresent(String.self, forKey: .requesterId)
+        requestReadBy = try container.decodeIfPresent([String].self, forKey: .requestReadBy)
+        createdAt = try container.decodeIfPresent(Timestamp.self, forKey: .createdAt)
+        updatedAt = try container.decodeIfPresent(Timestamp.self, forKey: .updatedAt)
+        
+        // Handle archivedBy - try to decode as array first (new format), then as dictionary (old format)
+        if let archivedByArrayValue = try? container.decode([String].self, forKey: .archivedBy) {
+            // New format: array of user IDs
+            archivedByArray = archivedByArrayValue
+            archivedBy = nil
+        } else if let archivedByDictValue = try? container.decode([String: Bool].self, forKey: .archivedBy) {
+            // Old format: dictionary of userId: Bool
+            archivedBy = archivedByDictValue
+            // Convert to array for convenience
+            archivedByArray = archivedByDictValue.filter { $0.value }.map { $0.key }
+        } else {
+            archivedBy = nil
+            archivedByArray = nil
+        }
+        
+        archivedAt = try container.decodeIfPresent(Timestamp.self, forKey: .archivedAt)
+        deletedBy = try container.decodeIfPresent([String: Bool].self, forKey: .deletedBy)
+    }
     
     init(
         id: String? = nil,
@@ -1850,6 +2035,10 @@ struct FirebaseConversation: Codable {
         self.requestReadBy = requestReadBy
         self.createdAt = Timestamp(date: createdAt)
         self.updatedAt = Timestamp(date: updatedAt)
+        self.archivedBy = nil
+        self.archivedByArray = nil
+        self.archivedAt = nil
+        self.deletedBy = nil
     }
     
     func toConversation() -> ChatConversation {
@@ -2175,4 +2364,7 @@ extension UIImage {
         }
     }
 }
+
+// MARK: - Note: Additional extensions are in FirebaseMessagingService+RequestsAndBlocking.swift
+// MARK: - Note: BlockService is defined in BlockService.swift (separate file)
 

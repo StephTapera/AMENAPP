@@ -6,7 +6,7 @@
  */
 
 import { genkit, z } from 'genkit';
-import { googleAI, gemini20FlashExp } from '@genkit-ai/googleai';
+import { googleAI, gemini15Flash } from '@genkit-ai/googleai';
 import { firebase } from '@genkit-ai/firebase';
 
 // Initialize Genkit with Firebase and Google AI
@@ -17,7 +17,7 @@ const ai = genkit({
     }),
     firebase(),
   ],
-  model: gemini20FlashExp, // Using Gemini 2.0 Flash
+  model: gemini15Flash, // Using Gemini 1.5 Flash (stable)
 });
 
 // System prompt for Biblical AI

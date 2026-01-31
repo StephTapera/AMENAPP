@@ -9,9 +9,9 @@ import SwiftUI
 
 struct AIBibleStudyView: View {
     @Environment(\.dismiss) var dismiss
-    @State private var selectedTab: AIStudyTab = .chat
+    @State var selectedTab: AIStudyTab = .chat
     @State private var userInput = ""
-    @State private var messages: [AIStudyMessage] = []
+    @State var messages: [AIStudyMessage] = []
     @State private var isProcessing = false
     @State private var showProUpgrade = false
     @State private var hasProAccess = false // Set to true if user has Pro
@@ -21,6 +21,11 @@ struct AIBibleStudyView: View {
     @State private var shimmerPhase: CGFloat = 0
     @FocusState private var isInputFocused: Bool
     @State private var keyboardHeight: CGFloat = 0
+    @State private var savedMessages: [AIStudyMessage] = []
+    @State var conversationHistory: [[AIStudyMessage]] = []
+    @State var showHistory = false
+    @State private var showSettings = false
+    @State private var currentStreak = 7
     
     enum AIStudyTab: String, CaseIterable {
         case chat = "Chat"
@@ -71,21 +76,29 @@ struct AIBibleStudyView: View {
                             VStack(spacing: 20) {
                                 // Streak Banner (only for chat tab)
                                 if selectedTab == .chat && hasProAccess {
-                                    StreakBanner()
+                                    StreakBanner(currentStreak: $currentStreak)
                                         .padding(.horizontal)
                                         .padding(.top)
                                 }
                                 
                                 switch selectedTab {
                                 case .chat:
-                                    ChatContent(messages: $messages, isProcessing: $isProcessing)
+                                    ChatContent(
+                                        messages: $messages,
+                                        isProcessing: $isProcessing,
+                                        savedMessages: $savedMessages
+                                    )
                                         .id("chatContent")
                                 case .insights:
                                     InsightsContent()
                                 case .questions:
-                                    QuestionsContent()
+                                    QuestionsContent(onQuestionTap: { question in
+                                        selectedTab = .chat
+                                        userInput = question
+                                        isInputFocused = true
+                                    })
                                 case .devotional:
-                                    DevotionalContent()
+                                    DevotionalContent(savedMessages: $savedMessages)
                                 case .study:
                                     StudyPlansContent()
                                 case .analysis:
@@ -127,7 +140,8 @@ struct AIBibleStudyView: View {
                             userInput: $userInput,
                             isProcessing: $isProcessing,
                             isInputFocused: $isInputFocused,
-                            onSend: sendMessage
+                            onSend: sendMessage,
+                            onClear: clearConversation
                         )
                     }
                 }
@@ -146,12 +160,43 @@ struct AIBibleStudyView: View {
                         .foregroundStyle(.primary)
                     }
                 }
+                
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    HStack(spacing: 12) {
+                        // History button
+                        Button {
+                            showHistory = true
+                        } label: {
+                            Image(systemName: "clock.arrow.circlepath")
+                                .font(.system(size: 18))
+                                .foregroundStyle(.primary)
+                        }
+                        
+                        // Settings button
+                        Button {
+                            showSettings = true
+                        } label: {
+                            Image(systemName: "gearshape.fill")
+                                .font(.system(size: 18))
+                                .foregroundStyle(.primary)
+                        }
+                    }
+                }
             }
             .toolbar(.visible, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
         }
         .sheet(isPresented: $showProUpgrade) {
             ProUpgradeSheet(hasProAccess: $hasProAccess)
+        }
+        .sheet(isPresented: $showHistory) {
+            AIBibleStudyConversationHistoryView(
+                history: $conversationHistory,
+                onLoad: loadConversation
+            )
+        }
+        .sheet(isPresented: $showSettings) {
+            AISettingsView()
         }
         .onAppear {
             setupKeyboardObservers()
@@ -175,6 +220,7 @@ struct AIBibleStudyView: View {
         }
         .onDisappear {
             removeKeyboardObservers()
+            saveCurrentConversation()
         }
     }
     
@@ -420,93 +466,65 @@ struct AIBibleStudyView: View {
         
         isProcessing = true
         
-        // Simulate AI response with more biblical context
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-            let response = generateSmartResponse(for: questionText)
-            messages.append(response)
-            isProcessing = false
+        // Call real AI API
+        Task {
+            do {
+                let response = try await callBibleChatAPI(message: questionText)
+                await MainActor.run {
+                    messages.append(AIStudyMessage(text: response, isUser: false))
+                    isProcessing = false
+                }
+            } catch {
+                await MainActor.run {
+                    messages.append(AIStudyMessage(
+                        text: "Sorry, I encountered an error. Please try again. (Error: \(error.localizedDescription))",
+                        isUser: false
+                    ))
+                    isProcessing = false
+                }
+            }
         }
     }
     
-    private func generateSmartResponse(for question: String) -> AIStudyMessage {
-        let lowerQuestion = question.lowercased()
+    private func callBibleChatAPI(message: String) async throws -> String {
+        let url = URL(string: "http://localhost:3400/bibleChat")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         
-        // Smart contextual responses
-        if lowerQuestion.contains("prayer") || lowerQuestion.contains("pray") {
-            return AIStudyMessage(
-                text: """
-                🙏 **Prayer in Scripture**
-                
-                The Bible teaches us about the power of prayer in several key passages:
-                
-                **Matthew 7:7-8** - "Ask and it will be given to you; seek and you will find; knock and the door will be opened to you."
-                
-                **Philippians 4:6** - "Do not be anxious about anything, but in every situation, by prayer and petition, with thanksgiving, present your requests to God."
-                
-                **1 Thessalonians 5:17** - "Pray continually."
-                
-                Prayer is our direct line to God. It's both communion and conversation with our Creator. Would you like to explore specific aspects of prayer, like intercession or thanksgiving?
-                """,
-                isUser: false
-            )
-        } else if lowerQuestion.contains("faith") {
-            return AIStudyMessage(
-                text: """
-                ✨ **Growing in Faith**
-                
-                **Hebrews 11:1** - "Now faith is confidence in what we hope for and assurance about what we do not see."
-                
-                **Romans 10:17** - "Consequently, faith comes from hearing the message, and the message is heard through the word about Christ."
-                
-                Key ways to strengthen faith:
-                • Daily Bible reading and meditation
-                • Prayer and worship
-                • Fellowship with other believers
-                • Acting on God's promises
-                • Remembering God's faithfulness
-                
-                Faith grows as we exercise it. What specific area of faith would you like to explore?
-                """,
-                isUser: false
-            )
-        } else if lowerQuestion.contains("love") {
-            return AIStudyMessage(
-                text: """
-                ❤️ **Biblical Love**
-                
-                **1 Corinthians 13:4-7** - "Love is patient, love is kind. It does not envy, it does not boast, it is not proud..."
-                
-                **1 John 4:8** - "Whoever does not love does not know God, because God is love."
-                
-                **John 13:34-35** - "A new command I give you: Love one another. As I have loved you, so you must love one another."
-                
-                God's love (agape) is unconditional, sacrificial, and transformative. It's the foundation of our faith and our relationships.
-                """,
-                isUser: false
-            )
-        } else {
-            return AIStudyMessage(
-                text: """
-                Thank you for your question about "\(question)"
-                
-                This is a simulated response. In a full implementation, this would:
-                • Connect to an AI service trained on biblical texts
-                • Provide relevant Scripture references
-                • Offer theological insights
-                • Include original language context
-                • Suggest related study topics
-                
-                The AI would analyze your question and provide comprehensive biblical guidance based on Scripture, church history, and sound theology.
-                """,
-                isUser: false
-            )
+        // Convert message history to API format
+        let history = messages.map { msg in
+            ["role": msg.isUser ? "user" : "assistant", "content": msg.text]
         }
+        
+        let body: [String: Any] = [
+            "data": [
+                "message": message,
+                "history": history
+            ]
+        ]
+        
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        
+        let (data, _) = try await URLSession.shared.data(for: request)
+        
+        // Parse response
+        if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let result = json["result"] as? [String: Any],
+           let response = result["response"] as? String {
+            return response
+        }
+        
+        throw NSError(domain: "BibleChatAPI", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid response format"])
     }
+    
+    // Functions are now defined in AIBibleStudyExtensions.swift
 }
 
 struct ChatContent: View {
     @Binding var messages: [AIStudyMessage]
     @Binding var isProcessing: Bool
+    @Binding var savedMessages: [AIStudyMessage]
     
     var body: some View {
         VStack(spacing: 16) {
@@ -676,6 +694,7 @@ struct ChatInputArea: View {
     @Binding var isProcessing: Bool
     @FocusState.Binding var isInputFocused: Bool
     let onSend: () -> Void
+    let onClear: () -> Void
     @State private var showQuickActions = false
     @State private var isListening = false
     
@@ -698,6 +717,7 @@ struct ChatInputArea: View {
                                 withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                                     showQuickActions = false
                                 }
+                                isInputFocused = true
                             } label: {
                                 HStack(spacing: 6) {
                                     Image(systemName: action.1)
@@ -733,6 +753,7 @@ struct ChatInputArea: View {
             HStack(spacing: 12) {
                 // Quick Actions Button
                 Button {
+                    isInputFocused = false
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                         showQuickActions.toggle()
                     }
@@ -752,14 +773,16 @@ struct ChatInputArea: View {
                         .focused($isInputFocused)
                         .submitLabel(.send)
                         .onSubmit {
-                            // Send on keyboard return
+                            // Send on keyboard return and dismiss keyboard
                             if !userInput.isEmpty && !isProcessing {
                                 onSend()
+                                isInputFocused = false
                             }
                         }
                     
                     // Voice Input Button
                     Button {
+                        isInputFocused = false
                         withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
                             isListening.toggle()
                         }
@@ -845,8 +868,7 @@ struct InsightsContent: View {
     }
 }
 
-struct AIInsightCard: View {
-    let insight: AIInsight
+struct AIInsightCard: View {    let insight: AIInsight
     @State private var isExpanded = false
     
     var body: some View {
@@ -907,6 +929,8 @@ struct AIInsightCard: View {
 }
 
 struct QuestionsContent: View {
+    let onQuestionTap: (String) -> Void
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Suggested Questions")
@@ -914,7 +938,9 @@ struct QuestionsContent: View {
                 .padding(.horizontal)
             
             ForEach(suggestedQuestions, id: \.self) { question in
-                QuestionCard(question: question)
+                QuestionCard(question: question, onTap: {
+                    onQuestionTap(question)
+                })
             }
         }
     }
@@ -922,10 +948,11 @@ struct QuestionsContent: View {
 
 struct QuestionCard: View {
     let question: String
+    let onTap: () -> Void
     
     var body: some View {
         Button {
-            // Would trigger AI response
+            onTap()
         } label: {
             HStack {
                 Image(systemName: "questionmark.circle.fill")
@@ -1016,6 +1043,8 @@ let suggestedQuestions = [
 // MARK: - New Content Views
 
 struct DevotionalContent: View {
+    @Binding var savedMessages: [AIStudyMessage]
+    
     var body: some View {
         VStack(spacing: 16) {
             // Header
@@ -1987,6 +2016,7 @@ let studyPlans = [
 // MARK: - Streak Banner
 
 struct StreakBanner: View {
+    @Binding var currentStreak: Int
     @State private var animateFlame = false
     
     var body: some View {
@@ -2018,7 +2048,7 @@ struct StreakBanner: View {
             
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 4) {
-                    Text("7 Day Streak!")
+                    Text("\(currentStreak) Day Streak!")
                         .font(.custom("OpenSans-Bold", size: 17))
                         .foregroundStyle(.primary)
                     

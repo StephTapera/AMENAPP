@@ -5,81 +5,27 @@
       location = "self:">
    </FileRef>
    <FileRef
-      location = "group:FIREBASE_SETUP_GUIDE.md">
+      location = "group:FIX_PHOTO_PERMISSIONS_NOW.md">
    </FileRef>
    <FileRef
-      location = "group:Extensions.swift">
+      location = "group:storage.rules">
    </FileRef>
    <FileRef
-      location = "group:SIGN_OUT_IMPLEMENTED.md">
+      location = "group:firestore.rules">
    </FileRef>
    <FileRef
-      location = "group:OnboardingCoordinator.swift">
+      location = "group:INFO_PLIST_SETUP_GUIDE.md">
    </FileRef>
    <FileRef
-      location = "group:OnboardingContainerView.swift">
+      location = "group:PRODUCTION_DEPLOYMENT_COMPLETE.md">
    </FileRef>
    <FileRef
-      location = "group:OnboardingWelcomeView.swift">
+      location = "group:QUICK_REFERENCE.md">
    </FileRef>
    <FileRef
-      location = "group:OnboardingStepViews.swift">
+      location = "group:firestore.rules.UPDATED">
    </FileRef>
    <FileRef
-      location = "group:OnboardingInterestsView.swift">
-   </FileRef>
-   <FileRef
-      location = "group:OnboardingDenominationView.swift">
-   </FileRef>
-   <FileRef
-      location = "group:OnboardingNotificationsView.swift">
-   </FileRef>
-   <FileRef
-      location = "group:OnboardingCompletionView.swift">
-   </FileRef>
-   <FileRef
-      location = "group:ONBOARDING_IMPLEMENTATION.md">
-   </FileRef>
-   <FileRef
-      location = "group:DailyCheckInView.swift">
-   </FileRef>
-   <FileRef
-      location = "group:DailyCheckInManager.swift">
-   </FileRef>
-   <FileRef
-      location = "group:SpiritualBlockView.swift">
-   </FileRef>
-   <FileRef
-      location = "group:README_DAILY_CHECKIN.md">
-   </FileRef>
-   <FileRef
-      location = "group:DAILY_CHECKIN_COMPLETE.md">
-   </FileRef>
-   <FileRef
-      location = "group:QUICK_START_CHECKIN.md">
-   </FileRef>
-   <FileRef
-      location = "group:DebugCheckInPanel.swift">
-   </FileRef>
-   <FileRef
-      location = "group:IMPLEMENTATION_SUMMARY.md">
-   </FileRef>
-   <FileRef
-      location = "group:ARCHITECTURE_DIAGRAM.md">
-   </FileRef>
-   <FileRef
-      location = "group:TROUBLESHOOTING.md">
-   </FileRef>
-   <FileRef
-      location = "group:DailyCheckIn_Manager.swift">
-   </FileRef>
-   <FileRef
-      location = "group:DailyCheckIn_View.swift">
-   </FileRef>
-   <FileRef
-      location = "group:SpiritualBlock_View.swift">
-   </FileRef>
-   <FileRef
-      location = "group:DebugCheckIn_Panel.swift">
+      location = "group:ENUM_ERROR_FIX_GUIDE.md">
    </FileRef>
 </Workspace>

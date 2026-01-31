@@ -96,12 +96,17 @@ class PushNotificationManager: NSObject, ObservableObject {
     // MARK: - FCM Token Management
     
     func setupFCMToken() {
+        #if targetEnvironment(simulator)
+        print("⚠️ Skipping FCM setup on simulator (APNS not available)")
+        return
+        #else
         // Get FCM token
         Messaging.messaging().token { [weak self] token, error in
             guard let self = self else { return }
             
             if let error = error {
-                print("❌ Error fetching FCM token: \(error)")
+                // Only log as warning, not error, since it's expected on simulator
+                print("⚠️ FCM token unavailable: \(error.localizedDescription)")
                 return
             }
             
@@ -113,6 +118,7 @@ class PushNotificationManager: NSObject, ObservableObject {
                 }
             }
         }
+        #endif
         
         // Listen for token refresh
         NotificationCenter.default.addObserver(
@@ -206,12 +212,28 @@ class PushNotificationManager: NSObject, ObservableObject {
     }
     
     private func handleNotificationAction(type: String, data: [AnyHashable: Any]) {
-        // Post notification for app to handle navigation
-        NotificationCenter.default.post(
-            name: Notification.Name("pushNotificationTapped"),
-            object: nil,
-            userInfo: data as? [String: Any] ?? [:]
-        )
+        // Handle different notification types
+        switch type {
+        case "message":
+            // Open specific conversation
+            if let conversationId = data["conversationId"] as? String {
+                print("📬 Opening conversation: \(conversationId)")
+                MessagingCoordinator.shared.openConversation(conversationId)
+            }
+        case "messageRequest":
+            // Open message requests tab
+            if let conversationId = data["conversationId"] as? String {
+                print("📨 Opening message request: \(conversationId)")
+                MessagingCoordinator.shared.openMessageRequests()
+            }
+        default:
+            // Post notification for app to handle navigation
+            NotificationCenter.default.post(
+                name: Notification.Name("pushNotificationTapped"),
+                object: nil,
+                userInfo: data as? [String: Any] ?? [:]
+            )
+        }
     }
     
     // MARK: - Badge Management
@@ -221,18 +243,36 @@ class PushNotificationManager: NSObject, ObservableObject {
             guard let userId = Auth.auth().currentUser?.uid else { return }
             
             do {
-                let snapshot = try await db.collection("notifications")
+                // Calculate total unread from conversations (messages)
+                let conversationsSnapshot = try await db.collection("conversations")
+                    .whereField("participantIds", arrayContains: userId)
+                    .whereField("conversationStatus", isEqualTo: "accepted")
+                    .getDocuments()
+                
+                var totalUnreadMessages = 0
+                for document in conversationsSnapshot.documents {
+                    if let unreadCounts = document.data()["unreadCounts"] as? [String: Int],
+                       let count = unreadCounts[userId] {
+                        totalUnreadMessages += count
+                    }
+                }
+                
+                // Add general notifications count
+                let notificationsSnapshot = try await db.collection("notifications")
                     .whereField("userId", isEqualTo: userId)
                     .whereField("read", isEqualTo: false)
                     .getDocuments()
                 
-                let count = snapshot.documents.count
+                let totalNotifications = notificationsSnapshot.documents.count
+                
+                // Total badge = messages + notifications
+                let totalBadge = totalUnreadMessages + totalNotifications
                 
                 await MainActor.run {
-                    UIApplication.shared.applicationIconBadgeNumber = count
+                    UIApplication.shared.applicationIconBadgeNumber = totalBadge
                 }
                 
-                print("📛 Badge count updated: \(count)")
+                print("📛 Badge count updated: \(totalBadge) (Messages: \(totalUnreadMessages), Notifications: \(totalNotifications))")
             } catch {
                 print("❌ Error updating badge count: \(error)")
             }

@@ -1279,6 +1279,7 @@ struct PrayerPostCard: View {
     @State private var hasReposted = false
     @State private var hasSaved = false
     @State private var showComments = false
+    @State private var showFullCommentSheet = false
     @State private var isAmenAnimating = false
     @State private var isFollowing = false
     @State private var showReportSheet = false
@@ -1330,26 +1331,16 @@ struct PrayerPostCard: View {
             topicTagSection
             contentSection
             reactionButtonsSection
-            
-            // Prayer-specific comment section
-            if showComments {
-                PrayerCommentSection(
-                    prayerAuthor: authorName,
-                    prayerCategory: category,
-                    post: post,
-                    commentCount: $commentCount
-                )
-                    .transition(.asymmetric(
-                        insertion: .scale.combined(with: .opacity),
-                        removal: .scale.combined(with: .opacity)
-                    ))
-            }
         }
         .padding(16)
         .background(cardBackground)
         .overlay(cardOverlay)
         .sheet(isPresented: $showingEditSheet) {
             EditPostSheet(post: post)
+        }
+        .sheet(isPresented: $showFullCommentSheet) {
+            CommentsView(post: post)
+                .environmentObject(UserService())
         }
         .alert("Delete Post", isPresented: $showingDeleteAlert) {
             Button("Cancel", role: .cancel) { }
@@ -1463,14 +1454,14 @@ struct PrayerPostCard: View {
             // Amen Button (Clapping Hands) - Optimistic Update
             amenButton
             
-            // Comment Button
+            // Comment Button - Opens Full Comment Sheet
             PrayerReactionButton(
                 icon: "bubble.left.fill",
                 count: commentCount,
                 isActive: false
             ) {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                    showComments.toggle()
+                    showFullCommentSheet = true
                     
                     let haptic = UIImpactFeedbackGenerator(style: .light)
                     haptic.impactOccurred()
@@ -1870,9 +1861,10 @@ struct PrayerPostCard: View {
         hasReposted = await interactionsService.hasReposted(postId: postId)
         
         // Update counts from backend
-        amenCount = await interactionsService.getAmenCount(postId: postId)
-        commentCount = await interactionsService.getCommentCount(postId: postId)
-        repostCount = await interactionsService.getRepostCount(postId: postId)
+        let counts = await interactionsService.getInteractionCounts(postId: postId)
+        amenCount = counts.amenCount
+        commentCount = counts.commentCount
+        repostCount = counts.repostCount
     }
     
     /// Toggle repost - Optimistic Update

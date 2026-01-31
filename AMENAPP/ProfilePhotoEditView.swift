@@ -9,6 +9,8 @@
 
 import SwiftUI
 import PhotosUI
+import Photos
+import AVFoundation
 
 struct ProfilePhotoEditView: View {
     @Environment(\.dismiss) var dismiss
@@ -21,6 +23,10 @@ struct ProfilePhotoEditView: View {
     @State private var showCamera = false
     @State private var showDeleteConfirmation = false
     @State private var showSuccessMessage = false
+    @State private var showPhotoPermissionAlert = false
+    @State private var showCameraPermissionAlert = false
+    @State private var photoPermissionDenied = false
+    @State private var cameraPermissionDenied = false
     
     let currentImageURL: String?
     let onPhotoUpdated: (String?) -> Void
@@ -93,7 +99,9 @@ struct ProfilePhotoEditView: View {
                         // Action Buttons
                         VStack(spacing: 16) {
                             // Choose from Library
-                            PhotosPicker(selection: $selectedPhoto, matching: .images) {
+                            Button {
+                                requestPhotoLibraryPermission()
+                            } label: {
                                 HStack(spacing: 12) {
                                     Image(systemName: "photo.on.rectangle")
                                         .font(.system(size: 20, weight: .semibold))
@@ -113,7 +121,7 @@ struct ProfilePhotoEditView: View {
                             
                             // Take Photo (Camera)
                             Button {
-                                showCamera = true
+                                requestCameraPermission()
                             } label: {
                                 HStack(spacing: 12) {
                                     Image(systemName: "camera.fill")
@@ -233,6 +241,27 @@ struct ProfilePhotoEditView: View {
             .sheet(isPresented: $showCamera) {
                 ImagePicker(sourceType: .camera, selectedImage: $selectedImage)
             }
+            .sheet(isPresented: $showPhotoPermissionAlert) {
+                PhotosPicker(selection: $selectedPhoto, matching: .images) {
+                    EmptyView()
+                }
+            }
+            .alert("Photo Library Access Required", isPresented: $photoPermissionDenied) {
+                Button("Cancel", role: .cancel) { }
+                Button("Open Settings") {
+                    openAppSettings()
+                }
+            } message: {
+                Text("Please allow access to your photo library in Settings to choose a profile photo.")
+            }
+            .alert("Camera Access Required", isPresented: $cameraPermissionDenied) {
+                Button("Cancel", role: .cancel) { }
+                Button("Open Settings") {
+                    openAppSettings()
+                }
+            } message: {
+                Text("Please allow camera access in Settings to take a profile photo.")
+            }
             .alert("Remove Photo?", isPresented: $showDeleteConfirmation) {
                 Button("Cancel", role: .cancel) { }
                 Button("Remove", role: .destructive) {
@@ -249,6 +278,96 @@ struct ProfilePhotoEditView: View {
                     selectedImage = uiImage
                 }
             }
+        }
+    }
+    
+    // MARK: - Permission Handling
+    
+    private func requestPhotoLibraryPermission() {
+        let status = PHPhotoLibrary.authorizationStatus(for: .readWrite)
+        
+        switch status {
+        case .authorized, .limited:
+            // Already authorized - show photo picker
+            showPhotoPermissionAlert = true
+            
+        case .notDetermined:
+            // Request permission
+            PHPhotoLibrary.requestAuthorization(for: .readWrite) { newStatus in
+                DispatchQueue.main.async {
+                    if newStatus == .authorized || newStatus == .limited {
+                        showPhotoPermissionAlert = true
+                        
+                        // Haptic feedback
+                        let haptic = UINotificationFeedbackGenerator()
+                        haptic.notificationOccurred(.success)
+                    } else {
+                        photoPermissionDenied = true
+                        
+                        // Haptic feedback
+                        let haptic = UINotificationFeedbackGenerator()
+                        haptic.notificationOccurred(.warning)
+                    }
+                }
+            }
+            
+        case .denied, .restricted:
+            // Show alert to go to settings
+            photoPermissionDenied = true
+            
+            // Haptic feedback
+            let haptic = UINotificationFeedbackGenerator()
+            haptic.notificationOccurred(.warning)
+            
+        @unknown default:
+            photoPermissionDenied = true
+        }
+    }
+    
+    private func requestCameraPermission() {
+        let status = AVCaptureDevice.authorizationStatus(for: .video)
+        
+        switch status {
+        case .authorized:
+            // Already authorized - show camera
+            showCamera = true
+            
+        case .notDetermined:
+            // Request permission
+            AVCaptureDevice.requestAccess(for: .video) { granted in
+                DispatchQueue.main.async {
+                    if granted {
+                        showCamera = true
+                        
+                        // Haptic feedback
+                        let haptic = UINotificationFeedbackGenerator()
+                        haptic.notificationOccurred(.success)
+                    } else {
+                        cameraPermissionDenied = true
+                        
+                        // Haptic feedback
+                        let haptic = UINotificationFeedbackGenerator()
+                        haptic.notificationOccurred(.warning)
+                    }
+                }
+            }
+            
+        case .denied, .restricted:
+            // Show alert to go to settings
+            cameraPermissionDenied = true
+            
+            // Haptic feedback
+            let haptic = UINotificationFeedbackGenerator()
+            haptic.notificationOccurred(.warning)
+            
+        @unknown default:
+            cameraPermissionDenied = true
+        }
+    }
+    
+    private func openAppSettings() {
+        if let settingsURL = URL(string: UIApplication.openSettingsURLString) {
+            UIApplication.shared.open(settingsURL)
         }
     }
     

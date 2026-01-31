@@ -162,17 +162,7 @@ enum MessageType: String, Codable {
 
 // MARK: - Report Model
 
-struct ProfileReport: Codable {
-    let id: UUID
-    let reporterId: String
-    let reportedProfileId: String
-    let reason: ReportReason
-    let description: String?
-    let timestamp: Date
-    var reviewStatus: ReviewStatus
-}
-
-enum ReportReason: String, Codable, CaseIterable {
+enum DatingReportReason: String, Codable, CaseIterable {
     case inappropriate = "Inappropriate Content"
     case fake = "Fake Profile"
     case harassment = "Harassment"
@@ -186,6 +176,16 @@ enum ReviewStatus: String, Codable {
     case reviewed
     case actionTaken
     case dismissed
+}
+
+struct ProfileReport: Codable {
+    let id: UUID
+    let reporterId: String
+    let reportedProfileId: String
+    let reason: DatingReportReason
+    let description: String?
+    let timestamp: Date
+    var reviewStatus: ReviewStatus
 }
 
 // MARK: - Profile Filters
