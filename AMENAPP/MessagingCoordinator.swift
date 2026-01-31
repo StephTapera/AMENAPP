@@ -9,6 +9,8 @@ import Foundation
 import SwiftUI
 import Combine
 
+// MARK: - Messaging Coordinator
+
 /// Coordinator for handling message-related navigation throughout the app
 @MainActor
 class MessagingCoordinator: ObservableObject {
@@ -19,6 +21,9 @@ class MessagingCoordinator: ObservableObject {
     
     /// Published property to trigger switching to messages tab
     @Published var shouldOpenMessagesTab = false
+    
+    /// Published property to trigger opening message requests tab
+    @Published var shouldOpenMessageRequests = false
     
     private var cancellables = Set<AnyCancellable>()
     
@@ -58,6 +63,18 @@ class MessagingCoordinator: ObservableObject {
         
         Task {
             try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+            shouldOpenMessagesTab = false
+        }
+    }
+    
+    /// Open message requests tab
+    func openMessageRequests() {
+        shouldOpenMessageRequests = true
+        shouldOpenMessagesTab = true
+        
+        Task {
+            try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+            shouldOpenMessageRequests = false
             shouldOpenMessagesTab = false
         }
     }

@@ -59,17 +59,6 @@ struct SettingsView: View {
                         }
                     }
                     
-                    NavigationLink(destination: FollowRequestsView()) {
-                        Label {
-                            Text("Follow Requests")
-                                .font(.custom("OpenSans-SemiBold", size: 15))
-                        } icon: {
-                            Image(systemName: "person.badge.clock")
-                                .foregroundStyle(.purple)
-                        }
-                    }
-                    .withFollowRequestsBadge()
-                    
                     NavigationLink(destination: FollowersAnalyticsView()) {
                         Label {
                             Text("Follower Analytics")

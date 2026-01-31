@@ -18,8 +18,11 @@ class MessageService: ObservableObject {
     
     // Published properties
     @Published var conversations: [Conversation] = []
+    @Published var archivedConversations: [Conversation] = []  // ✅ NEW: Separate list for archived
+    @Published var messageRequests: [MessageRequest] = []  // ✅ NEW: Message requests
     @Published var currentMessages: [Message] = []
     @Published var unreadCount: Int = 0
+    @Published var unreadRequestsCount: Int = 0  // ✅ NEW: Unread requests count
     @Published var isLoading = false
     @Published var error: String?
     
@@ -94,16 +97,68 @@ class MessageService: ObservableObject {
                 
                 Task { @MainActor in
                     do {
+                        // ✅ Filter OUT:
+                        // 1. Archived conversations
+                        // 2. Pending message requests (handled separately)
+                        // 3. Blocked conversations
                         self.conversations = try snapshot.documents.compactMap { doc in
                             try doc.data(as: Conversation.self)
+                        }.filter { conversation in
+                            !conversation.isArchivedByUser(currentUserId) &&
+                            !conversation.isPending &&
+                            !conversation.isBlocked
                         }
                         
                         // Update unread count
                         self.calculateUnreadCount()
                         
-                        print("✅ Real-time update: \(self.conversations.count) conversations")
+                        print("✅ Real-time update: \(self.conversations.count) conversations (archived & pending filtered)")
                     } catch {
                         print("❌ Error parsing conversations: \(error)")
+                    }
+                }
+            }
+        
+        conversationListeners.append(listener)
+    }
+    
+    /// Start listening to archived conversations in real-time
+    /// Note: Uses client-side filtering because Firebase only allows one array-contains per query
+    func startListeningToArchivedConversations() {
+        guard let currentUserId = firebaseManager.currentUser?.uid else {
+            print("⚠️ No user ID for archived conversations listener")
+            return
+        }
+        
+        print("🔊 Starting archived conversations listener...")
+        
+        // ✅ FIX: Only use array-contains for participants, then filter client-side for archivedBy
+        let listener = db.collection("conversations")
+            .whereField("participants", arrayContains: currentUserId)
+            .order(by: "lastMessageTime", descending: true)
+            .addSnapshotListener { [weak self] snapshot, error in
+                guard let self = self else { return }
+                
+                if let error = error {
+                    print("❌ Archived conversations listener error: \(error)")
+                    return
+                }
+                
+                guard let snapshot = snapshot else { return }
+                
+                Task { @MainActor in
+                    do {
+                        // ✅ Client-side filter for archived conversations
+                        self.archivedConversations = try snapshot.documents.compactMap { doc in
+                            try doc.data(as: Conversation.self)
+                        }.filter { conversation in
+                            // Only include conversations archived by current user
+                            conversation.isArchivedByUser(currentUserId)
+                        }
+                        
+                        print("✅ Real-time update: \(self.archivedConversations.count) archived conversations")
+                    } catch {
+                        print("❌ Error parsing archived conversations: \(error)")
                     }
                 }
             }
@@ -389,6 +444,121 @@ class MessageService: ObservableObject {
         print("🔇 Stopped all message listeners")
     }
     
+    // MARK: - Message Requests
+    
+    /// Start listening to message requests in real-time
+    func startListeningToMessageRequests() {
+        guard let currentUserId = firebaseManager.currentUser?.uid else {
+            print("⚠️ No user ID for message requests listener")
+            return
+        }
+        
+        print("🔊 Starting message requests listener...")
+        
+        // Query conversations with pending status where user is a participant
+        let listener = db.collection("conversations")
+            .whereField("participants", arrayContains: currentUserId)
+            .order(by: "lastMessageTime", descending: true)
+            .addSnapshotListener { [weak self] snapshot, error in
+                guard let self = self else { return }
+                
+                if let error = error {
+                    print("❌ Message requests listener error: \(error)")
+                    self.error = error.localizedDescription
+                    return
+                }
+                
+                guard let snapshot = snapshot else { return }
+                
+                Task { @MainActor in
+                    do {
+                        // Filter for pending conversations where current user is NOT the requester
+                        let pendingConversations = try snapshot.documents.compactMap { doc in
+                            try doc.data(as: Conversation.self)
+                        }.filter { conversation in
+                            conversation.isPending &&
+                            conversation.requesterId != currentUserId &&
+                            conversation.participants.contains(currentUserId)
+                        }
+                        
+                        // Convert to MessageRequest objects
+                        self.messageRequests = pendingConversations.compactMap { conversation in
+                            guard let conversationId = conversation.id,
+                                  let requesterId = conversation.requesterId else {
+                                return nil
+                            }
+                            
+                            let requesterName = conversation.participantNames[requesterId] ?? "Unknown"
+                            let requesterPhoto = conversation.participantPhotos[requesterId]
+                            let isRead = conversation.requestReadBy?.contains(currentUserId) ?? false
+                            
+                            return MessageRequest(
+                                id: conversationId,
+                                conversationId: conversationId,
+                                fromUserId: requesterId,
+                                fromUserName: requesterName,
+                                fromUserPhoto: requesterPhoto,
+                                isRead: isRead,
+                                createdAt: conversation.createdAt
+                            )
+                        }
+                        
+                        // Update unread requests count
+                        self.unreadRequestsCount = self.messageRequests.filter { !$0.isRead }.count
+                        
+                        print("✅ Real-time update: \(self.messageRequests.count) message requests (\(self.unreadRequestsCount) unread)")
+                    } catch {
+                        print("❌ Error parsing message requests: \(error)")
+                    }
+                }
+            }
+        
+        conversationListeners.append(listener)
+    }
+    
+    /// Accept a message request
+    func acceptMessageRequest(_ requestId: String) async throws {
+        guard let currentUserId = firebaseManager.currentUser?.uid else {
+            throw FirebaseError.unauthorized
+        }
+        
+        print("✅ Accepting message request: \(requestId)")
+        
+        try await db.collection("conversations").document(requestId).updateData([
+            "conversationStatus": "accepted",
+            "updatedAt": Date()
+        ])
+        
+        print("✅ Message request accepted")
+    }
+    
+    /// Decline a message request (deletes the conversation)
+    func declineMessageRequest(_ requestId: String) async throws {
+        guard let currentUserId = firebaseManager.currentUser?.uid else {
+            throw FirebaseError.unauthorized
+        }
+        
+        print("❌ Declining message request: \(requestId)")
+        
+        try await deleteConversation(requestId)
+        
+        print("✅ Message request declined")
+    }
+    
+    /// Mark message request as read
+    func markMessageRequestAsRead(_ requestId: String) async throws {
+        guard let currentUserId = firebaseManager.currentUser?.uid else {
+            throw FirebaseError.unauthorized
+        }
+        
+        try await db.collection("conversations").document(requestId).updateData([
+            "requestReadBy": FieldValue.arrayUnion([currentUserId]),
+            "updatedAt": Date()
+        ])
+        
+        print("📖 Message request marked as read")
+    }
+    
     // MARK: - Delete Conversation
     
     func deleteConversation(_ conversationId: String) async throws {
@@ -446,6 +616,7 @@ class MessageService: ObservableObject {
     }
     
     /// Fetch archived conversations
+    /// Note: Uses client-side filtering because Firebase only allows one array-contains per query
     func fetchArchivedConversations() async throws -> [Conversation] {
         guard let currentUserId = firebaseManager.currentUser?.uid else {
             throw FirebaseError.unauthorized
@@ -454,15 +625,17 @@ class MessageService: ObservableObject {
         print("📥 Fetching archived conversations")
         
         do {
-            // This query will trigger an index creation prompt on first use
+            // ✅ FIX: Query only by participants, then filter client-side
             let snapshot = try await db.collection("conversations")
                 .whereField("participants", arrayContains: currentUserId)
-                .whereField("archivedBy", arrayContains: currentUserId)
                 .order(by: "lastMessageTime", descending: true)
                 .getDocuments()
             
+            // ✅ Client-side filter for archived conversations
             let archived = try snapshot.documents.compactMap { doc in
                 try doc.data(as: Conversation.self)
+            }.filter { conversation in
+                conversation.isArchivedByUser(currentUserId)
             }
             
             print("✅ Fetched \(archived.count) archived conversations")

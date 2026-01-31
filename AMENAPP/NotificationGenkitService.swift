@@ -83,7 +83,7 @@ class NotificationGenkitService: ObservableObject {
               let body = response["body"] as? String,
               let priorityStr = response["priority"] as? String,
               let category = response["category"] as? String else {
-            throw NotificationError.invalidResponse
+            throw NotificationGenkitError.invalidResponse
         }
         
         let priority = NotificationPriority(rawValue: priorityStr) ?? .medium
@@ -111,7 +111,7 @@ class NotificationGenkitService: ObservableObject {
     ) async throws -> NotificationSummary {
         
         guard !notifications.isEmpty else {
-            throw NotificationError.noNotifications
+            throw NotificationGenkitError.noNotifications
         }
         
         isProcessing = true
@@ -139,7 +139,7 @@ class NotificationGenkitService: ObservableObject {
         guard let summary = response["summary"] as? String,
               let count = response["count"] as? Int,
               let topPriority = response["topPriority"] as? String else {
-            throw NotificationError.invalidResponse
+            throw NotificationGenkitError.invalidResponse
         }
         
         print("✅ Summary generated: \(summary)")
@@ -193,7 +193,7 @@ class NotificationGenkitService: ObservableObject {
         guard let sendImmediately = response["sendImmediately"] as? Bool,
               let delayMinutes = response["delayMinutes"] as? Int,
               let reasoning = response["reasoning"] as? String else {
-            throw NotificationError.invalidResponse
+            throw NotificationGenkitError.invalidResponse
         }
         
         print("✅ Timing optimized: \(sendImmediately ? "Send now" : "Delay \(delayMinutes) min")")
@@ -342,7 +342,7 @@ class NotificationGenkitService: ObservableObject {
     ) async throws -> [String: Any] {
         
         guard let url = URL(string: "\(genkitEndpoint)/\(flowName)") else {
-            throw NotificationError.invalidEndpoint
+            throw NotificationGenkitError.invalidEndpoint
         }
         
         var request = URLRequest(url: url)
@@ -355,7 +355,7 @@ class NotificationGenkitService: ObservableObject {
         let (data, response) = try await URLSession.shared.data(for: request)
         
         guard let httpResponse = response as? HTTPURLResponse else {
-            throw NotificationError.requestFailed
+            throw NotificationGenkitError.requestFailed
         }
         
         guard (200...299).contains(httpResponse.statusCode) else {
@@ -363,11 +363,11 @@ class NotificationGenkitService: ObservableObject {
             if let errorString = String(data: data, encoding: .utf8) {
                 print("   Error: \(errorString)")
             }
-            throw NotificationError.requestFailed
+            throw NotificationGenkitError.requestFailed
         }
         
         guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            throw NotificationError.invalidResponse
+            throw NotificationGenkitError.invalidResponse
         }
         
         // Genkit wraps response in "result" key
@@ -414,7 +414,7 @@ class NotificationGenkitService: ObservableObject {
         let doc = try await db.collection("users").document(userId).getDocument()
         
         guard let token = doc.data()?["fcmToken"] as? String else {
-            throw NotificationError.noFCMToken
+            throw NotificationGenkitError.noFCMToken
         }
         
         return token
@@ -565,7 +565,7 @@ struct NotificationUserProfile {
     let location: String?
 }
 
-enum NotificationError: LocalizedError {
+enum NotificationGenkitError: LocalizedError {
     case invalidEndpoint
     case requestFailed
     case invalidResponse

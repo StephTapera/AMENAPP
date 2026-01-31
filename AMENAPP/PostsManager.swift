@@ -16,7 +16,9 @@ struct Post: Identifiable, Codable, Equatable {
     let id: UUID
     let authorId: String  // Firebase user ID of the post author
     let authorName: String
+    let authorUsername: String?  // Optional username (e.g., @johndoe)
     let authorInitials: String
+    let authorProfileImageURL: String?  // Profile image URL
     let timeAgo: String
     var content: String  // Made mutable for editing
     let category: PostCategory
@@ -35,9 +37,18 @@ struct Post: Identifiable, Codable, Equatable {
     var originalAuthorId: String? // Track original author ID if repost
     
     enum PostCategory: String, Codable, CaseIterable {
-        case openTable = "#OPENTABLE"
-        case testimonies = "Testimonies"
-        case prayer = "Prayer"
+        case openTable = "openTable"      // ✅ Firebase-safe (no special chars)
+        case testimonies = "testimonies"  // ✅ Firebase-safe (lowercase)
+        case prayer = "prayer"            // ✅ Firebase-safe (lowercase)
+        
+        /// Display name for UI (with special formatting)
+        var displayName: String {
+            switch self {
+            case .openTable: return "#OPENTABLE"
+            case .testimonies: return "Testimonies"
+            case .prayer: return "Prayer"
+            }
+        }
         
         var cardCategory: PostCard.PostCardCategory {
             switch self {
@@ -54,11 +65,83 @@ struct Post: Identifiable, Codable, Equatable {
         case community = "Community Only"
     }
     
+    // MARK: - Custom Decoding (Handle Missing Fields)
+    
+    enum CodingKeys: String, CodingKey {
+        case id, authorId, authorName, authorUsername, authorInitials, authorProfileImageURL, timeAgo
+        case content, category, topicTag, visibility, allowComments
+        case imageURLs, linkURL, createdAt
+        case amenCount, lightbulbCount, commentCount, repostCount
+        case isRepost, originalAuthorName, originalAuthorId
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        id = try container.decode(UUID.self, forKey: .id)
+        authorId = try container.decode(String.self, forKey: .authorId)
+        authorName = try container.decode(String.self, forKey: .authorName)
+        
+        // ✅ Gracefully handle missing authorUsername (for backward compatibility)
+        authorUsername = try container.decodeIfPresent(String.self, forKey: .authorUsername)
+        
+        authorInitials = try container.decode(String.self, forKey: .authorInitials)
+        
+        // ✅ Gracefully handle missing authorProfileImageURL (for backward compatibility)
+        authorProfileImageURL = try container.decodeIfPresent(String.self, forKey: .authorProfileImageURL)
+        
+        timeAgo = try container.decode(String.self, forKey: .timeAgo)
+        content = try container.decode(String.self, forKey: .content)
+        category = try container.decode(PostCategory.self, forKey: .category)
+        topicTag = try container.decodeIfPresent(String.self, forKey: .topicTag)
+        visibility = try container.decode(PostVisibility.self, forKey: .visibility)
+        allowComments = try container.decode(Bool.self, forKey: .allowComments)
+        imageURLs = try container.decodeIfPresent([String].self, forKey: .imageURLs)
+        linkURL = try container.decodeIfPresent(String.self, forKey: .linkURL)
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
+        amenCount = try container.decode(Int.self, forKey: .amenCount)
+        lightbulbCount = try container.decode(Int.self, forKey: .lightbulbCount)
+        commentCount = try container.decode(Int.self, forKey: .commentCount)
+        repostCount = try container.decode(Int.self, forKey: .repostCount)
+        isRepost = try container.decodeIfPresent(Bool.self, forKey: .isRepost) ?? false
+        originalAuthorName = try container.decodeIfPresent(String.self, forKey: .originalAuthorName)
+        originalAuthorId = try container.decodeIfPresent(String.self, forKey: .originalAuthorId)
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        
+        try container.encode(id, forKey: .id)
+        try container.encode(authorId, forKey: .authorId)
+        try container.encode(authorName, forKey: .authorName)
+        try container.encodeIfPresent(authorUsername, forKey: .authorUsername)
+        try container.encode(authorInitials, forKey: .authorInitials)
+        try container.encodeIfPresent(authorProfileImageURL, forKey: .authorProfileImageURL)
+        try container.encode(timeAgo, forKey: .timeAgo)
+        try container.encode(content, forKey: .content)
+        try container.encode(category, forKey: .category)
+        try container.encodeIfPresent(topicTag, forKey: .topicTag)
+        try container.encode(visibility, forKey: .visibility)
+        try container.encode(allowComments, forKey: .allowComments)
+        try container.encodeIfPresent(imageURLs, forKey: .imageURLs)
+        try container.encodeIfPresent(linkURL, forKey: .linkURL)
+        try container.encode(createdAt, forKey: .createdAt)
+        try container.encode(amenCount, forKey: .amenCount)
+        try container.encode(lightbulbCount, forKey: .lightbulbCount)
+        try container.encode(commentCount, forKey: .commentCount)
+        try container.encode(repostCount, forKey: .repostCount)
+        try container.encode(isRepost, forKey: .isRepost)
+        try container.encodeIfPresent(originalAuthorName, forKey: .originalAuthorName)
+        try container.encodeIfPresent(originalAuthorId, forKey: .originalAuthorId)
+    }
+    
     init(
         id: UUID = UUID(),
         authorId: String = "",
         authorName: String,
+        authorUsername: String? = nil,
         authorInitials: String,
+        authorProfileImageURL: String? = nil,
         timeAgo: String = "Just now",
         content: String,
         category: PostCategory,
@@ -79,7 +162,9 @@ struct Post: Identifiable, Codable, Equatable {
         self.id = id
         self.authorId = authorId
         self.authorName = authorName
+        self.authorUsername = authorUsername
         self.authorInitials = authorInitials
+        self.authorProfileImageURL = authorProfileImageURL
         self.timeAgo = timeAgo
         self.content = content
         self.category = category

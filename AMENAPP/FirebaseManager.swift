@@ -7,9 +7,13 @@
 
 import Foundation
 import UIKit
+import FirebaseCore
 import FirebaseAuth
 import FirebaseFirestore
 import FirebaseStorage
+import GoogleSignIn
+import AuthenticationServices
+import CryptoKit
 
 /// Centralized Firebase manager for handling all Firebase operations
 class FirebaseManager {
@@ -171,6 +175,177 @@ class FirebaseManager {
         try await auth.sendPasswordReset(withEmail: email)
     }
     
+    // MARK: - Google Sign-In
+    
+    /// Sign in with Google
+    @MainActor
+    func signInWithGoogle() async throws -> FirebaseAuth.User {
+        guard let clientID = FirebaseApp.app()?.options.clientID else {
+            throw FirebaseError.invalidData
+        }
+        
+        let config = GIDConfiguration(clientID: clientID)
+        GIDSignIn.sharedInstance.configuration = config
+        
+        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let rootViewController = windowScene.windows.first?.rootViewController else {
+            throw FirebaseError.unauthorized
+        }
+        
+        let result = try await GIDSignIn.sharedInstance.signIn(withPresenting: rootViewController)
+        let user = result.user
+        
+        guard let idToken = user.idToken?.tokenString else {
+            throw FirebaseError.invalidData
+        }
+        
+        let credential = GoogleAuthProvider.credential(
+            withIDToken: idToken,
+            accessToken: user.accessToken.tokenString
+        )
+        
+        let authResult = try await auth.signIn(with: credential)
+        
+        // Check if this is a new user and create profile if needed
+        if authResult.additionalUserInfo?.isNewUser == true {
+            try await createGoogleUserProfile(user: authResult.user, googleUser: user)
+        }
+        
+        return authResult.user
+    }
+    
+    /// Create user profile for Google Sign-In
+    private func createGoogleUserProfile(user: FirebaseAuth.User, googleUser: GIDGoogleUser) async throws {
+        let displayName = user.displayName ?? googleUser.profile?.name ?? "User"
+        let email = user.email ?? googleUser.profile?.email ?? ""
+        
+        // Generate username from email
+        let username = email.components(separatedBy: "@").first?.lowercased() ?? "user\(Int.random(in: 1000...9999))"
+        
+        // Create initials
+        let names = displayName.components(separatedBy: " ")
+        let firstName = names.first ?? ""
+        let lastName = names.count > 1 ? names.last ?? "" : ""
+        let initials = "\(firstName.prefix(1))\(lastName.prefix(1))".uppercased()
+        
+        // Create searchable keywords
+        let nameKeywords = createNameKeywords(from: displayName)
+        
+        let userData: [String: Any] = [
+            "email": email,
+            "displayName": displayName,
+            "displayNameLowercase": displayName.lowercased(),
+            "username": username,
+            "usernameLowercase": username,
+            "initials": initials,
+            "bio": "",
+            "profileImageURL": user.photoURL?.absoluteString ?? NSNull(),
+            "nameKeywords": nameKeywords,
+            "createdAt": Timestamp(date: Date()),
+            "updatedAt": Timestamp(date: Date()),
+            "followersCount": 0,
+            "followingCount": 0,
+            "postsCount": 0,
+            "isPrivate": false,
+            "notificationsEnabled": true,
+            "pushNotificationsEnabled": true,
+            "emailNotificationsEnabled": true,
+            "notifyOnLikes": true,
+            "notifyOnComments": true,
+            "notifyOnFollows": true,
+            "notifyOnMentions": true,
+            "notifyOnPrayerRequests": true,
+            "allowMessagesFromEveryone": true,
+            "showActivityStatus": true,
+            "allowTagging": true,
+            "hasCompletedOnboarding": false,
+            "authProvider": "google"
+        ]
+        
+        try await firestore.collection(CollectionPath.users)
+            .document(user.uid)
+            .setData(userData)
+        
+        // Sync to Algolia
+        try? await AlgoliaSyncService.shared.syncUser(userId: user.uid, userData: userData)
+    }
+    
+    // MARK: - Apple Sign-In
+    
+    /// Sign in with Apple
+    func signInWithApple(idToken: String, nonce: String, fullName: PersonNameComponents?) async throws -> FirebaseAuth.User {
+        let credential = OAuthProvider.appleCredential(
+            withIDToken: idToken,
+            rawNonce: nonce,
+            fullName: fullName
+        )
+        
+        let authResult = try await auth.signIn(with: credential)
+        
+        // Check if this is a new user and create profile if needed
+        if authResult.additionalUserInfo?.isNewUser == true {
+            try await createAppleUserProfile(user: authResult.user, fullName: fullName)
+        }
+        
+        return authResult.user
+    }
+    
+    /// Create user profile for Apple Sign-In
+    private func createAppleUserProfile(user: FirebaseAuth.User, fullName: PersonNameComponents?) async throws {
+        // Apple provides full name only on first sign-in
+        let firstName = fullName?.givenName ?? "User"
+        let lastName = fullName?.familyName ?? ""
+        let displayName = "\(firstName) \(lastName)".trimmingCharacters(in: .whitespaces)
+        let email = user.email ?? "user@privaterelay.appleid.com"
+        
+        // Generate username
+        let username = email.components(separatedBy: "@").first?.lowercased() ?? "user\(Int.random(in: 1000...9999))"
+        
+        // Create initials
+        let initials = "\(firstName.prefix(1))\(lastName.prefix(1))".uppercased()
+        
+        // Create searchable keywords
+        let nameKeywords = createNameKeywords(from: displayName)
+        
+        let userData: [String: Any] = [
+            "email": email,
+            "displayName": displayName,
+            "displayNameLowercase": displayName.lowercased(),
+            "username": username,
+            "usernameLowercase": username,
+            "initials": initials,
+            "bio": "",
+            "profileImageURL": NSNull(),
+            "nameKeywords": nameKeywords,
+            "createdAt": Timestamp(date: Date()),
+            "updatedAt": Timestamp(date: Date()),
+            "followersCount": 0,
+            "followingCount": 0,
+            "postsCount": 0,
+            "isPrivate": false,
+            "notificationsEnabled": true,
+            "pushNotificationsEnabled": true,
+            "emailNotificationsEnabled": true,
+            "notifyOnLikes": true,
+            "notifyOnComments": true,
+            "notifyOnFollows": true,
+            "notifyOnMentions": true,
+            "notifyOnPrayerRequests": true,
+            "allowMessagesFromEveryone": true,
+            "showActivityStatus": true,
+            "allowTagging": true,
+            "hasCompletedOnboarding": false,
+            "authProvider": "apple"
+        ]
+        
+        try await firestore.collection(CollectionPath.users)
+            .document(user.uid)
+            .setData(userData)
+        
+        // Sync to Algolia
+        try? await AlgoliaSyncService.shared.syncUser(userId: user.uid, userData: userData)
+    }
+    
     // MARK: - Firestore Operations
     
     /// Reference to a collection
@@ -243,6 +418,40 @@ class FirebaseManager {
         return try await storageRef.downloadURL()
     }
     
+    // MARK: - Account Deletion
+    
+    /// Delete all user data from Firestore
+    func deleteUserData(userId: String) async throws {
+        print("🗑️ FirebaseManager: Deleting user data for: \(userId)")
+        
+        // Note: In a production app, you might want to do this via a Cloud Function
+        // to ensure all related data is properly cleaned up.
+        // For now, we'll delete the main user document
+        
+        do {
+            // Delete user's main document
+            try await firestore
+                .collection(CollectionPath.users)
+                .document(userId)
+                .delete()
+            
+            print("✅ FirebaseManager: User document deleted")
+            
+            // TODO: In a real app, you'd want to:
+            // - Delete user's posts
+            // - Delete user's comments
+            // - Delete user's messages
+            // - Delete user's saved posts
+            // - Update follower/following relationships
+            // - Delete user's profile images from Storage
+            // This is best done via a Cloud Function for data consistency
+            
+        } catch {
+            print("❌ FirebaseManager: Failed to delete user data: \(error)")
+            throw error
+        }
+    }
+    
     // MARK: - Helper Methods
     
     /// Create searchable keywords from a display name
@@ -289,6 +498,24 @@ enum FirebaseError: LocalizedError {
         case .unauthorized:
             return "You are not authorized to perform this action."
         }
+    }
+}
+
+// MARK: - FirebaseManager Extensions
+
+extension FirebaseManager {
+    /// Fetch user document as dictionary (for checking onboarding status)
+    func fetchUserDocument(userId: String) async throws -> [String: Any] {
+        let snapshot = try await firestore
+            .collection(CollectionPath.users)
+            .document(userId)
+            .getDocument()
+        
+        guard snapshot.exists, let data = snapshot.data() else {
+            throw FirebaseError.documentNotFound
+        }
+        
+        return data
     }
 }
 

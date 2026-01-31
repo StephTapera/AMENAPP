@@ -7,15 +7,47 @@
 
 import SwiftUI
 import FirebaseFirestore
+import Combine
 
 // MARK: - Data Models
 
 struct ProfilePost: Identifiable {
-    let id = UUID()
+    let id: String  // Real Firestore post ID
     let content: String
     let timestamp: String
     var likes: Int
     var replies: Int
+    let postType: PostType?  // Type of post
+    
+    enum PostType: String {
+        case prayer = "Prayer"
+        case testimony = "Testimony"
+        case openTable = "OpenTable"
+        
+        var icon: String {
+            switch self {
+            case .prayer: return "hands.sparkles.fill"
+            case .testimony: return "quote.bubble.fill"
+            case .openTable: return "book.closed.fill"
+            }
+        }
+        
+        var color: Color {
+            switch self {
+            case .prayer: return .blue
+            case .testimony: return .orange
+            case .openTable: return .black  // Black for OpenTable
+            }
+        }
+        
+        // Liquid glass style - uses blur and transparency
+        var isLiquidGlassStyle: Bool {
+            switch self {
+            case .prayer, .testimony: return true
+            case .openTable: return false  // Simple black/white for OpenTable
+            }
+        }
+    }
 }
 
 struct Reply: Identifiable {
@@ -27,6 +59,7 @@ struct Reply: Identifiable {
 }
 
 struct UserProfile {
+    var userId: String
     var name: String
     var username: String
     var bio: String
@@ -36,6 +69,7 @@ struct UserProfile {
     var socialLinks: [UserSocialLink]
     var followersCount: Int
     var followingCount: Int
+    var isPrivateAccount: Bool = false  // Privacy indicator
 }
 
 struct UserSocialLink: Identifiable {
@@ -69,6 +103,40 @@ struct UserSocialLink: Identifiable {
     }
 }
 
+// MARK: - User Profile Enums
+
+enum UserReportReason: String, CaseIterable {
+    case spam = "Spam"
+    case harassment = "Harassment or Bullying"
+    case inappropriate = "Inappropriate Content"
+    case impersonation = "Impersonation"
+    case falseInfo = "False Information"
+    case other = "Other"
+    
+    var icon: String {
+        switch self {
+        case .spam: return "envelope.badge.fill"
+        case .harassment: return "exclamationmark.triangle.fill"
+        case .inappropriate: return "eye.slash.fill"
+        case .impersonation: return "person.crop.circle.badge.exclamationmark"
+        case .falseInfo: return "checkmark.circle.trianglebadge.exclamationmark"
+        case .other: return "ellipsis.circle.fill"
+        }
+    }
+}
+
+enum UserProfileTab: String, CaseIterable {
+    case posts = "Posts"
+    case reposts = "Reposts"
+    
+    var icon: String {
+        switch self {
+        case .posts: return "square.grid.2x2"
+        case .reposts: return "arrow.2.squarepath"
+        }
+    }
+}
+
 /// User Profile View - For viewing other users' profiles
 /// Threads-inspired with Black & White Design
 struct UserProfileView: View {
@@ -88,74 +156,117 @@ struct UserProfileView: View {
     @State private var errorMessage = ""
     @State private var isFollowing = false
     @State private var isBlocked = false
+    @State private var isMuted = false  // Privacy: Mute status
+    @State private var isHidden = false  // Privacy: Hidden from this user
     @State private var profileData: UserProfile?
     @State private var posts: [ProfilePost] = []
-    @State private var replies: [Reply] = []
     @State private var reposts: [UserProfileRepost] = []
-    @State private var selectedReportReason: ReportReason?
+    @State private var selectedReportReason: UserReportReason?
     @State private var reportDescription = ""
     @State private var currentPage = 1
     @State private var hasMorePosts = true
     @State private var isLoadingMore = false
     @State private var followerCountListener: ListenerRegistration?
+    @State private var selectedPostForComments: Post?
+    @State private var showCommentsSheet = false
+    @State private var showUnfollowAlert = false  // New: Unfollow confirmation
+    @State private var scrollOffset: CGFloat = 0  // New: Track scroll position
+    @State private var showBackToTop = false  // Smart scroll
+    @State private var showInlineError = false  // Error recovery
+    @State private var inlineErrorMessage = ""
+    @StateObject private var scrollManager = SmartScrollManager()
     @Namespace private var tabNamespace
     
-    enum ReportReason: String, CaseIterable {
-        case spam = "Spam"
-        case harassment = "Harassment or Bullying"
-        case inappropriate = "Inappropriate Content"
-        case impersonation = "Impersonation"
-        case falseInfo = "False Information"
-        case other = "Other"
-        
-        var icon: String {
-            switch self {
-            case .spam: return "envelope.badge.fill"
-            case .harassment: return "exclamationmark.triangle.fill"
-            case .inappropriate: return "eye.slash.fill"
-            case .impersonation: return "person.crop.circle.badge.exclamationmark"
-            case .falseInfo: return "checkmark.circle.trianglebadge.exclamationmark"
-            case .other: return "ellipsis.circle.fill"
-            }
-        }
-    }
-    
-    enum UserProfileTab: String, CaseIterable {
-        case posts = "Posts"
-        case replies = "Replies"
-        case reposts = "Reposts"
-        
-        var icon: String {
-            switch self {
-            case .posts: return "square.grid.2x2"
-            case .replies: return "bubble.left"
-            case .reposts: return "arrow.2.squarepath"
-            }
-        }
+    // Computed property to determine if buttons should be in toolbar
+    private var shouldShowToolbarButtons: Bool {
+        scrollOffset > 200  // Show in toolbar after scrolling 200 points
     }
     
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 0) {
-                    // Profile Header
-                    profileHeaderView
-                    
-                    // Tab Selector
-                    tabSelectorView
-                    
-                    // Content based on selected tab
-                    if isLoading {
-                        LoadingStateView()
-                    } else {
-                        contentView
+            ZStack(alignment: .bottom) {
+                ScrollViewWithOffset(offset: $scrollOffset) {
+                    VStack(spacing: 0) {
+                        // Inline error banner
+                        if showInlineError {
+                            InlineErrorBanner(
+                                message: inlineErrorMessage,
+                                onRetry: {
+                                    await loadProfileData()
+                                },
+                                onDismiss: {
+                                    withAnimation {
+                                        showInlineError = false
+                                    }
+                                }
+                            )
+                            .padding(.top, 12)
+                        }
+                        
+                        // Profile Header
+                        profileHeaderView
+                        
+                        // Tab Selector
+                        tabSelectorView
+                        
+                        // Content based on selected tab
+                        if isLoading {
+                            // Skeleton loading state
+                            SkeletonProfileHeader()
+                            
+                            VStack(spacing: 0) {
+                                ForEach(0..<3, id: \.self) { _ in
+                                    SkeletonProfileCard()
+                                }
+                            }
+                            .padding(.top, 12)
+                        } else {
+                            contentView
+                        }
                     }
                 }
+                .onChange(of: scrollOffset) { _, newValue in
+                    // Show/hide back to top button
+                    showBackToTop = newValue > 500
+                }
+                .refreshable {
+                    await refreshProfile()
+                }
+                .background(Color(white: 0.98))
+                
+                // Back to top button
+                if showBackToTop {
+                    VStack {
+                        Spacer()
+                        HStack {
+                            Spacer()
+                            Button {
+                                withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                                    scrollOffset = 0
+                                }
+                            } label: {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "arrow.up")
+                                        .font(.system(size: 14, weight: .semibold))
+                                    Text("Back to top")
+                                        .font(.custom("OpenSans-SemiBold", size: 13))
+                                }
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 10)
+                                .background(
+                                    Capsule()
+                                        .fill(Color.black.opacity(0.8))
+                                        .shadow(color: .black.opacity(0.3), radius: 12, y: 4)
+                                )
+                            }
+                            .padding(.trailing, 20)
+                            .padding(.bottom, 20)
+                        }
+                    }
+                    .transition(.scale.combined(with: .opacity))
+                }
             }
-            .refreshable {
-                await refreshProfile()
-            }
-            .background(Color(white: 0.98))
             .navigationTitle("Profile")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -170,33 +281,7 @@ struct UserProfileView: View {
                 }
                 
                 ToolbarItem(placement: .topBarTrailing) {
-                    HStack(spacing: 12) {
-                        Button {
-                            shareProfile()
-                        } label: {
-                            Image(systemName: "square.and.arrow.up")
-                                .font(.system(size: 18, weight: .semibold))
-                                .foregroundStyle(.black)
-                        }
-                        
-                        Menu {
-                            Button {
-                                reportUser()
-                            } label: {
-                                Label("Report User", systemImage: "exclamationmark.triangle")
-                            }
-                            
-                            Button(role: .destructive) {
-                                showBlockAlert = true
-                            } label: {
-                                Label(isBlocked ? "Unblock User" : "Block User", systemImage: "hand.raised")
-                            }
-                        } label: {
-                            Image(systemName: "ellipsis")
-                                .font(.system(size: 18, weight: .semibold))
-                                .foregroundStyle(.black)
-                        }
-                    }
+                    toolbarButtonsView
                 }
             }
             .fullScreenCover(isPresented: $showFullScreenAvatar) {
@@ -211,6 +296,16 @@ struct UserProfileView: View {
                 }
             } message: {
                 Text(isBlocked ? "Are you sure you want to unblock \(profileData?.name ?? "this user")?" : "Are you sure you want to block \(profileData?.name ?? "this user")? You won't see their posts or be able to message them.")
+            }
+            .alert("Unfollow", isPresented: $showUnfollowAlert) {
+                Button("Cancel", role: .cancel) { }
+                Button("Unfollow", role: .destructive) {
+                    Task {
+                        await performFollowAction()
+                    }
+                }
+            } message: {
+                Text("Are you sure you want to unfollow \(profileData?.name ?? "this user")?")
             }
             .sheet(isPresented: $showReportOptions) {
                 if let profileData = profileData {
@@ -231,16 +326,15 @@ struct UserProfileView: View {
             }
             .sheet(isPresented: $showMessaging) {
                 if let profileData = profileData {
-                    ModernConversationDetailView(
-                        conversation: ChatConversation(
-                            name: profileData.name,
-                            lastMessage: "",
-                            timestamp: "Now",
-                            isGroup: false,
-                            unreadCount: 0,
-                            avatarColor: .blue
-                        )
+                    ChatConversationLoader(
+                        userId: profileData.userId,
+                        userName: profileData.name
                     )
+                }
+            }
+            .sheet(isPresented: $showCommentsSheet) {
+                if let post = selectedPostForComments {
+                    PostCommentsView(post: post)
                 }
             }
             .alert("Error", isPresented: $showErrorAlert) {
@@ -322,7 +416,7 @@ struct UserProfileView: View {
         print("🔇 Removed follower count listener")
     }
     
-    // MARK: - Refresh Function
+    // MARK: - Profile Data Loading
     
     @MainActor
     private func refreshProfile() async {
@@ -392,6 +486,7 @@ struct UserProfileView: View {
             let interests = data["interests"] as? [String] ?? []
             let followersCount = data["followersCount"] as? Int ?? 0
             let followingCount = data["followingCount"] as? Int ?? 0
+            let isPrivateAccount = data["isPrivateAccount"] as? Bool ?? false  // ✅ FIX: Actually load from Firestore
             
             print("📋 User data extracted:")
             print("   - displayName: \(displayName)")
@@ -399,6 +494,7 @@ struct UserProfileView: View {
             print("   - bio length: \(bio.count)")
             print("   - followersCount: \(followersCount)")
             print("   - followingCount: \(followingCount)")
+            print("   - isPrivateAccount: \(isPrivateAccount)")
             
             // Generate initials
             let names = displayName.components(separatedBy: " ")
@@ -408,6 +504,7 @@ struct UserProfileView: View {
             
             // Convert to UserProfile
             profileData = UserProfile(
+                userId: userId,  // Store the real userId
                 name: displayName,
                 username: username,
                 bio: bio,
@@ -416,25 +513,26 @@ struct UserProfileView: View {
                 interests: interests,
                 socialLinks: [], // TODO: Add social links to UserModel if needed
                 followersCount: followersCount,
-                followingCount: followingCount
+                followingCount: followingCount,
+                isPrivateAccount: isPrivateAccount  // ✅ FIX: Include in UserProfile
             )
             
             print("✅ Profile data converted successfully")
             
             // Fetch user's content in parallel
-            print("📥 Starting parallel fetch for posts, replies, reposts, and follow status...")
+            print("📥 Starting parallel fetch for posts, reposts, follow status, and privacy status...")
             
             async let postsTask = fetchUserPosts(page: 1)
-            async let repliesTask = fetchUserReplies()
             async let repostsTask = fetchUserReposts()
             async let followStatusTask = checkFollowStatus()
+            async let privacyStatusTask = checkPrivacyStatus()  // ✅ FIX: Actually load privacy status
             
             // Await all tasks
-            (posts, replies, reposts, isFollowing) = try await (postsTask, repliesTask, repostsTask, followStatusTask)
+            (posts, reposts, isFollowing) = try await (postsTask, repostsTask, followStatusTask)
+            await privacyStatusTask  // ✅ FIX: Privacy check doesn't return a value
             
             print("✅ Parallel fetch completed:")
             print("   - Posts: \(posts.count)")
-            print("   - Replies: \(replies.count)")
             print("   - Reposts: \(reposts.count)")
             print("   - Following: \(isFollowing)")
             
@@ -450,8 +548,41 @@ struct UserProfileView: View {
             print("   - Error description: \(error.localizedDescription)")
             print("   - Error: \(error)")
             
-            errorMessage = handleError(error)
-            showErrorAlert = true
+            // 🔌 OFFLINE HANDLING: Check if error is network-related
+            let isOfflineError = error.localizedDescription.contains("offline") ||
+                                 error.localizedDescription.contains("network") ||
+                                 error.localizedDescription.contains("no active listeners") ||
+                                 (error as NSError).domain == NSURLErrorDomain
+            
+            if isOfflineError {
+                // Handle offline gracefully with user-friendly message
+                print("📵 Device appears to be offline. Using cached data if available.")
+                errorMessage = "You're offline. Showing cached data."
+                inlineErrorMessage = "No internet connection. Some content may be outdated."
+                withAnimation {
+                    showInlineError = true
+                }
+                
+                // Try to use cached data if we have it
+                if profileData == nil {
+                    // No cached profile data, show placeholder
+                    errorMessage = "Unable to load profile. Please check your internet connection."
+                    showErrorAlert = true
+                }
+            } else {
+                // Handle other errors normally
+                errorMessage = handleError(error)
+                
+                // Show inline error for minor issues, full alert for critical
+                if error.localizedDescription.contains("not found") || error.localizedDescription.contains("404") {
+                    showErrorAlert = true
+                } else {
+                    inlineErrorMessage = errorMessage
+                    withAnimation {
+                        showInlineError = true
+                    }
+                }
+            }
         }
         
         isLoading = false
@@ -468,38 +599,37 @@ struct UserProfileView: View {
         
         print("✅ Fetched \(userPosts.count) posts for user")
         
-        // Convert Post to ProfilePost
+        // Convert Post to ProfilePost with real IDs and post types
         return userPosts.map { post in
-            ProfilePost(
+            // Determine post type from category field
+            let postType: ProfilePost.PostType?
+            switch post.category {
+            case .prayer:
+                postType = .prayer
+            case .testimonies:
+                postType = .testimony
+            case .openTable:
+                postType = .openTable
+            }
+            
+            // Convert post.id (UUID) to String, or generate new UUID string if nil
+            let postId = post.id.uuidString ?? UUID().uuidString
+            
+            return ProfilePost(
+                id: postId,  // Real Firestore post ID
                 content: post.content,
                 timestamp: post.timeAgo,
                 likes: post.amenCount,
-                replies: post.commentCount
+                replies: post.commentCount,
+                postType: postType
             )
         }
     }
     
     private func fetchUserReplies() async throws -> [Reply] {
-        print("📥 Fetching replies for user: \(userId)")
-        
-        // Use FirebasePostService to fetch real user replies
-        let firebasePostService = FirebasePostService.shared
-        let userComments = try await firebasePostService.fetchUserReplies(userId: userId)
-        
-        print("✅ Fetched \(userComments.count) replies for user")
-        
-        // Convert Comment to Reply
-        return userComments.compactMap { comment in
-            // Only show top-level comments (not nested replies)
-            guard comment.parentCommentId == nil else { return nil }
-            
-            return Reply(
-                originalAuthor: "Unknown", // We'd need to fetch the post author
-                originalContent: "...", // We'd need to fetch the original post
-                replyContent: comment.content,
-                timestamp: comment.createdAt.timeAgoDisplay()
-            )
-        }
+        // Replies are now private - not shown on public profile
+        print("📥 Replies are hidden from public profiles")
+        return []
     }
     
     private func fetchUserReposts() async throws -> [UserProfileRepost] {
@@ -531,6 +661,32 @@ struct UserProfileView: View {
         print("✅ Follow status for \(userId): \(isFollowing ? "following" : "not following")")
         
         return isFollowing
+    }
+    
+    /// Check privacy status (mute, hide, block)
+    @MainActor
+    private func checkPrivacyStatus() async {
+        do {
+            let moderationService = ModerationService.shared
+            
+            // Check if user is blocked
+            isBlocked = await moderationService.isBlocked(userId: userId)
+            
+            // Check if user is muted
+            isMuted = await moderationService.isMuted(userId: userId)
+            
+            // Check if profile is hidden from this user
+            isHidden = await moderationService.isHiddenFrom(userId: userId)
+            
+            print("✅ Privacy status loaded:")
+            print("   - Blocked: \(isBlocked)")
+            print("   - Muted: \(isMuted)")
+            print("   - Hidden: \(isHidden)")
+            
+        } catch {
+            print("⚠️ Failed to load privacy status: \(error)")
+            // Don't show error to user, just use default values
+        }
     }
     
     private func loadMorePosts() async {
@@ -619,8 +775,14 @@ struct UserProfileView: View {
     // MARK: - Actions
     
     private func toggleFollow() {
-        Task {
-            await performFollowAction()
+        // If currently following, show confirmation alert
+        if isFollowing {
+            showUnfollowAlert = true
+        } else {
+            // If not following, follow immediately
+            Task {
+                await performFollowAction()
+            }
         }
     }
     
@@ -748,17 +910,51 @@ struct UserProfileView: View {
         haptic.impactOccurred()
     }
     
-    private func submitReport(reason: ReportReason, description: String) {
-        // In a real app, send to backend API
-        print("Reporting user \(userId) for: \(reason.rawValue)")
-        print("Description: \(description)")
-        
-        // Show confirmation
-        let haptic = UINotificationFeedbackGenerator()
-        haptic.notificationOccurred(.success)
-        
-        // TODO: Call API endpoint
-        // NetworkManager.shared.reportUser(userId: userId, reason: reason, description: description)
+    private func submitReport(reason: UserReportReason, description: String) {
+        Task {
+            do {
+                // Real backend call using ModerationService
+                let moderationService = ModerationService.shared
+                
+                // Convert UserReportReason to ModerationReportReason
+                let moderationReason = convertToModerationReason(reason)
+                
+                try await moderationService.reportUser(
+                    userId: userId,
+                    reason: moderationReason,
+                    additionalDetails: description
+                )
+                
+                print("✅ Successfully reported user: \(userId) for: \(reason.rawValue)")
+                
+                // Show confirmation
+                await MainActor.run {
+                    let haptic = UINotificationFeedbackGenerator()
+                    haptic.notificationOccurred(.success)
+                }
+                
+            } catch {
+                print("❌ Failed to report user: \(error)")
+                await MainActor.run {
+                    errorMessage = "Failed to submit report. Please try again."
+                    showErrorAlert = true
+                    
+                    let haptic = UINotificationFeedbackGenerator()
+                    haptic.notificationOccurred(.error)
+                }
+            }
+        }
+    }
+    
+    private func convertToModerationReason(_ reason: UserReportReason) -> ModerationReportReason {
+        switch reason {
+        case .spam: return .spam
+        case .harassment: return .harassment
+        case .inappropriate: return .inappropriateContent
+        case .impersonation: return .other  // Map to .other since impersonation isn't available
+        case .falseInfo: return .falseInformation
+        case .other: return .other
+        }
     }
     
     private func toggleBlock() {
@@ -772,25 +968,24 @@ struct UserProfileView: View {
         let previousState = isBlocked
         isBlocked.toggle()
         
-        // If blocking, automatically unfollow
+        // If blocking, automatically unfollow and unmute
         if isBlocked {
             isFollowing = false
+            isMuted = false  // ✅ FIX: Blocking overrides mute
         }
         
         let haptic = UINotificationFeedbackGenerator()
         haptic.notificationOccurred(isBlocked ? .warning : .success)
         
         do {
-            // Simulate API call
-            try? await Task.sleep(nanoseconds: 300_000_000)
-            
-            // TODO: Replace with actual API call
+            // Real backend call using ModerationService
+            let moderationService = ModerationService.shared
             if isBlocked {
-                // try await NetworkManager.shared.blockUser(userId: userId)
-                print("Blocked user: \(userId)")
+                try await moderationService.blockUser(userId: userId)
+                print("✅ Successfully blocked user: \(userId)")
             } else {
-                // try await NetworkManager.shared.unblockUser(userId: userId)
-                print("Unblocked user: \(userId)")
+                try await moderationService.unblockUser(userId: userId)
+                print("✅ Successfully unblocked user: \(userId)")
             }
             
         } catch {
@@ -800,6 +995,111 @@ struct UserProfileView: View {
                 errorMessage = "Failed to \(previousState ? "unblock" : "block") user. Please try again."
                 showErrorAlert = true
             }
+            print("❌ Failed to toggle block: \(error)")
+        }
+    }
+    
+    // MARK: - Privacy Controls
+    
+    /// **Privacy Control Features:**
+    /// 
+    /// **1. Mute User**
+    /// - Hides posts from this user in your feed without unfollowing
+    /// - User is not notified when muted
+    /// - Can be toggled on/off at any time
+    /// - Automatically cleared when user is blocked
+    ///
+    /// **2. Hide from User**
+    /// - Hides YOUR profile from THIS specific user
+    /// - They won't be able to see your profile or posts
+    /// - Useful for privacy without full blocking
+    /// - Can be reversed at any time
+    ///
+    /// **3. Block User**
+    /// - Strongest privacy control
+    /// - Automatically unfollows and clears mute status
+    /// - Prevents all interactions between users
+    /// - Can view and manage in settings
+    ///
+    /// **4. Private Account Indicator**
+    /// - Shows lock badge next to name for private accounts
+    /// - Indicates content is only visible to approved followers
+    /// - Stored in user's Firestore document as `isPrivateAccount`
+    
+    /// Toggle mute status for this user
+    private func toggleMute() {
+        Task {
+            await performMuteAction()
+        }
+    }
+    
+    @MainActor
+    private func performMuteAction() async {
+        let previousState = isMuted
+        isMuted.toggle()
+        
+        let haptic = UIImpactFeedbackGenerator(style: .medium)
+        haptic.impactOccurred()
+        
+        do {
+            // Real backend call using ModerationService
+            let moderationService = ModerationService.shared
+            if isMuted {
+                try await moderationService.muteUser(userId: userId)
+                print("✅ Successfully muted user: \(userId)")
+            } else {
+                try await moderationService.unmuteUser(userId: userId)
+                print("✅ Successfully unmuted user: \(userId)")
+            }
+            
+        } catch {
+            // Rollback on error
+            await MainActor.run {
+                isMuted = previousState
+                errorMessage = "Failed to \(previousState ? "unmute" : "mute") user. Please try again."
+                showErrorAlert = true
+            }
+            print("❌ Failed to toggle mute: \(error)")
+        }
+    }
+    
+    /// Toggle hide status - hide your profile from this user
+    private func toggleHide() {
+        Task {
+            await performHideAction()
+        }
+    }
+    
+    @MainActor
+    private func performHideAction() async {
+        let previousState = isHidden
+        isHidden.toggle()
+        
+        let haptic = UIImpactFeedbackGenerator(style: .medium)
+        haptic.impactOccurred()
+        
+        do {
+            // Real backend call using privacy service
+            // This would hide YOUR profile from THIS user
+            let moderationService = ModerationService.shared
+            if isHidden {
+                // Hide your profile from this user
+                try await moderationService.hideProfileFromUser(userId: userId)
+                print("✅ Successfully hid profile from user: \(userId)")
+            } else {
+                // Unhide your profile from this user
+                try await moderationService.unhideProfileFromUser(userId: userId)
+                print("✅ Successfully unhid profile from user: \(userId)")
+            }
+            
+        } catch {
+            // Rollback on error
+            await MainActor.run {
+                isHidden = previousState
+                errorMessage = "Failed to \(previousState ? "unhide from" : "hide from") user. Please try again."
+                showErrorAlert = true
+            }
+            print("❌ Failed to toggle hide: \(error)")
         }
     }
     
@@ -813,6 +1113,82 @@ struct UserProfileView: View {
         // if url.pathComponents.contains("user") {
         //     // Already on user profile, potentially reload with different user
         // }
+    }
+    
+    // MARK: - Toolbar Buttons
+    
+    @ViewBuilder
+    private var toolbarButtonsView: some View {
+        HStack(spacing: 12) {
+            // Show Follow/Message buttons in toolbar when scrolled
+            if shouldShowToolbarButtons {
+                Button {
+                    toggleFollow()
+                } label: {
+                    Image(systemName: isFollowing ? "person.fill.checkmark" : "person.fill.badge.plus")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(isFollowing ? .blue : .black)
+                }
+                .transition(.scale.combined(with: .opacity))
+                
+                Button {
+                    sendMessage()
+                } label: {
+                    Image(systemName: "message.fill")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(.black)
+                }
+                .transition(.scale.combined(with: .opacity))
+            }
+            
+            Button {
+                shareProfile()
+            } label: {
+                Image(systemName: "square.and.arrow.up")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(.black)
+            }
+            
+            Menu {
+                // Privacy Controls Section
+                Section {
+                    Button {
+                        toggleMute()
+                    } label: {
+                        Label(isMuted ? "Unmute User" : "Mute User", systemImage: isMuted ? "speaker.wave.2" : "speaker.slash")
+                    }
+                    
+                    Button {
+                        toggleHide()
+                    } label: {
+                        Label(isHidden ? "Unhide from User" : "Hide from User", systemImage: isHidden ? "eye" : "eye.slash")
+                    }
+                }
+                
+                // Reporting Section
+                Section {
+                    Button {
+                        reportUser()
+                    } label: {
+                        Label("Report User", systemImage: "exclamationmark.triangle")
+                    }
+                }
+                
+                // Blocking Section
+                Section {
+                    Button(role: .destructive) {
+                        showBlockAlert = true
+                    } label: {
+                        Label(isBlocked ? "Unblock User" : "Block User", systemImage: "hand.raised")
+                    }
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(.black)
+            }
+        }
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: shouldShowToolbarButtons)
     }
     
     // MARK: - Profile Header
@@ -834,10 +1210,29 @@ struct UserProfileView: View {
                     // Top Section: Avatar and Name
                     HStack(alignment: .top, spacing: 16) {
                         VStack(alignment: .leading, spacing: 8) {
-                            // Name
-                            Text(profileData.name)
-                                .font(.custom("OpenSans-Bold", size: 28))
-                                .foregroundStyle(.black)
+                            // Name with private account badge
+                            HStack(spacing: 8) {
+                                Text(profileData.name)
+                                    .font(.custom("OpenSans-Bold", size: 28))
+                                    .foregroundStyle(.black)
+                                
+                                // Private account indicator
+                                if profileData.isPrivateAccount {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "lock.fill")
+                                            .font(.system(size: 12, weight: .semibold))
+                                        Text("Private")
+                                            .font(.custom("OpenSans-SemiBold", size: 11))
+                                    }
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(
+                                        Capsule()
+                                            .fill(Color.black.opacity(0.7))
+                                    )
+                                }
+                            }
                             
                             // Username
                             Text("@\(profileData.username)")
@@ -905,34 +1300,63 @@ struct UserProfileView: View {
                     
                     // Action Buttons
                     HStack(spacing: 12) {
-                        // Follow/Following Button
-                        Button {
-                            toggleFollow()
-                        } label: {
-                            Text(isFollowing ? "Following" : "Follow")
-                                .font(.custom("OpenSans-Bold", size: 15))
-                                .foregroundStyle(isFollowing ? .black : .white)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 12)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 20)
-                                        .fill(isFollowing ? Color(white: 0.93) : Color.black)
-                                        .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 4)
+                        // Follow/Following Button (hide when scrolled to toolbar)
+                        if !shouldShowToolbarButtons {
+                            Button {
+                                toggleFollow()
+                            } label: {
+                                Text(isFollowing ? "Following" : "Follow")
+                                    .font(.custom("OpenSans-Bold", size: 15))
+                                    .foregroundStyle(isFollowing ? .black : .white)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 12)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 20)
+                                            .fill(isFollowing ? Color(white: 0.93) : Color.black)
+                                            .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 4)
+                                    )
+                            }
+                            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isFollowing)
+                            .transition(.scale.combined(with: .opacity))
+                            
+                            // Message Button (hide when scrolled to toolbar)
+                            Button {
+                                sendMessage()
+                            } label: {
+                                Text("Message")
+                                    .font(.custom("OpenSans-Bold", size: 15))
+                                    .foregroundStyle(.black)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 12)
+                                    .background(messageButtonBackground)
+                            }
+                            .transition(.scale.combined(with: .opacity))
+                        }
+                    }
+                    .animation(.spring(response: 0.3, dampingFraction: 0.8), value: shouldShowToolbarButtons)
+                    
+                    // Privacy Status Indicators
+                    if isMuted || isHidden {
+                        VStack(spacing: 8) {
+                            if isMuted {
+                                PrivacyStatusBadge(
+                                    icon: "speaker.slash.fill",
+                                    text: "You've muted this user",
+                                    color: .orange
                                 )
+                            }
+                            
+                            if isHidden {
+                                PrivacyStatusBadge(
+                                    icon: "eye.slash.fill",
+                                    text: "Your profile is hidden from this user",
+                                    color: .purple
+                                )
+                            }
                         }
-                        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isFollowing)
-                        
-                        // Message Button
-                        Button {
-                            sendMessage()
-                        } label: {
-                            Text("Message")
-                                .font(.custom("OpenSans-Bold", size: 15))
-                                .foregroundStyle(.black)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 12)
-                                .background(messageButtonBackground)
-                        }
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: isMuted)
+                        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: isHidden)
                     }
                 }
                 .padding(20)
@@ -950,6 +1374,9 @@ struct UserProfileView: View {
         HStack(spacing: 0) {
             ForEach(UserProfileTab.allCases, id: \.self) { tab in
                 Button {
+                    // Prevent re-selecting same tab
+                    guard selectedTab != tab else { return }
+                    
                     let haptic = UIImpactFeedbackGenerator(style: .light)
                     haptic.impactOccurred()
                     
@@ -957,36 +1384,49 @@ struct UserProfileView: View {
                         selectedTab = tab
                     }
                 } label: {
-                    ZStack {
-                        // Selected tab background (glass pill)
+                    VStack(spacing: 8) {
+                        // Tab label with icon (optional - uncomment to show icons)
+                        HStack(spacing: 6) {
+                            // Uncomment to show icons alongside text:
+                            // Image(systemName: tab.icon)
+                            //     .font(.system(size: 14, weight: .semibold))
+                            
+                            Text(tab.rawValue)
+                                .font(.custom("OpenSans-Bold", size: 15))
+                        }
+                        .foregroundStyle(selectedTab == tab ? .black : .black.opacity(0.4))
+                        
+                        // Active indicator with smooth animation
                         if selectedTab == tab {
                             Capsule()
-                                .fill(Color.white)
-                                .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
+                                .fill(Color.black)
+                                .frame(height: 3)
                                 .matchedGeometryEffect(id: "tab", in: tabNamespace)
+                        } else {
+                            Capsule()
+                                .fill(Color.clear)
+                                .frame(height: 3)
                         }
-                        
-                        // Icon
-                        Image(systemName: tab.icon)
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundStyle(selectedTab == tab ? .black : .black.opacity(0.4))
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
+                    .padding(.vertical, 12)
+                    .contentShape(Rectangle()) // Expand tap area
                 }
                 .buttonStyle(PlainButtonStyle())
+                .accessibilityLabel(tab.rawValue)
+                .accessibilityHint("Shows \(tab.rawValue.lowercased()) from this user")
+                .accessibilityAddTraits(selectedTab == tab ? [.isSelected] : [])
             }
         }
-        .padding(4)
-        .background(
-            Capsule()
-                .fill(Color(white: 0.92))
-                .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 2)
-        )
-        .frame(maxWidth: 280)
         .padding(.horizontal, 20)
-        .padding(.vertical, 12)
         .background(Color.white)
+        .overlay(
+            Rectangle()
+                .fill(Color.black.opacity(0.1))
+                .frame(height: 1),
+            alignment: .bottom
+        )
+        .accessibilityElement(children: .contain)
     }
     
     // MARK: - Content View
@@ -1005,12 +1445,6 @@ struct UserProfileView: View {
                     insertion: .move(edge: .trailing).combined(with: .opacity),
                     removal: .move(edge: .leading).combined(with: .opacity)
                 ))
-            case .replies:
-                UserRepliesContentView(replies: replies)
-                    .transition(.asymmetric(
-                        insertion: .move(edge: .trailing).combined(with: .opacity),
-                        removal: .move(edge: .leading).combined(with: .opacity)
-                    ))
             case .reposts:
                 UserRepostsContentView(reposts: reposts)
                     .transition(.asymmetric(
@@ -1026,10 +1460,13 @@ struct UserProfileView: View {
 
 struct UserPostsContentView: View {
     let posts: [ProfilePost]
-    @State private var likedPosts: Set<UUID> = []
+    @State private var likedPosts: Set<String> = []
     var onLoadMore: (() async -> Void)?
     var hasMorePosts: Bool = false
     var isLoadingMore: Bool = false
+    @State private var selectedPostForComments: Post?
+    @State private var showCommentsSheet = false
+    @StateObject private var scrollManager = SmartScrollManager()
     
     var body: some View {
         LazyVStack(spacing: 0) {
@@ -1039,6 +1476,7 @@ struct UserPostsContentView: View {
                     title: "No Posts Yet",
                     message: "This user hasn't posted anything yet."
                 )
+                .padding(.top, 20)
             } else {
                 ForEach(posts.indices, id: \.self) { index in
                     ReadOnlyProfilePostCard(
@@ -1054,64 +1492,46 @@ struct UserPostsContentView: View {
                         }
                     )
                     
-                    if index < posts.count - 1 {
-                        Divider()
-                            .padding(.leading, 20)
-                    }
-                    
-                    // Load more trigger
-                    if index == posts.count - 3 && hasMorePosts && !isLoadingMore {
+                    // Smart prefetch trigger - loads 5 posts before reaching end
+                    if scrollManager.shouldPrefetch(currentIndex: index, totalCount: posts.count, threshold: 5) && hasMorePosts {
                         Color.clear
                             .frame(height: 1)
                             .onAppear {
-                                Task {
-                                    await onLoadMore?()
+                                if let onLoadMore = onLoadMore {
+                                    scrollManager.prefetch(loadMore: onLoadMore)
                                 }
                             }
                     }
                 }
                 
-                // Load more button
-                if hasMorePosts {
-                    Button {
-                        Task {
-                            await onLoadMore?()
-                        }
-                    } label: {
-                        if isLoadingMore {
-                            HStack(spacing: 12) {
-                                ProgressView()
-                                    .scaleEffect(0.8)
-                                Text("Loading...")
-                                    .font(.custom("OpenSans-SemiBold", size: 14))
-                                    .foregroundStyle(.black.opacity(0.6))
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 20)
-                        } else {
-                            Text("Load More Posts")
-                                .font(.custom("OpenSans-Bold", size: 15))
-                                .foregroundStyle(.black)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 16)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .fill(Color.white)
-                                        .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 4)
-                                )
-                        }
+                // Loading indicator at bottom
+                if hasMorePosts && scrollManager.isPrefetching {
+                    HStack(spacing: 12) {
+                        ProgressView()
+                            .scaleEffect(0.9)
+                        Text("Loading more posts...")
+                            .font(.custom("OpenSans-Regular", size: 14))
+                            .foregroundStyle(.secondary)
                     }
-                    .buttonStyle(PlainButtonStyle())
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 12)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 20)
                 }
             }
         }
-        .background(Color.white)
+        .background(Color(.systemGroupedBackground))
+        .padding(.top, 12)
+        .sheet(isPresented: $showCommentsSheet) {
+            if let post = selectedPostForComments {
+                PostCommentsView(post: post)
+            }
+        }
+        .onDisappear {
+            scrollManager.cancel()
+        }
     }
     
     @MainActor
-    private func handleLike(postId: UUID) async {
+    private func handleLike(postId: String) async {
         let wasLiked = likedPosts.contains(postId)
         
         // Optimistic update
@@ -1125,69 +1545,49 @@ struct UserPostsContentView: View {
         haptic.impactOccurred()
         
         do {
-            // Simulate API call
-            try? await Task.sleep(nanoseconds: 200_000_000)
-            
-            // TODO: Replace with actual API call
-            if wasLiked {
-                // try await NetworkManager.shared.unlikePost(postId: postId)
-                print("Unliked post: \(postId)")
-            } else {
-                // try await NetworkManager.shared.likePost(postId: postId)
-                print("Liked post: \(postId)")
-            }
+            // Real API call using PostInteractionsService
+            let interactionsService = PostInteractionsService.shared
+            try await interactionsService.toggleAmen(postId: postId)
+            print("✅ Toggled amen on post: \(postId)")
         } catch {
             // Rollback on error
-            if wasLiked {
-                likedPosts.insert(postId)
-            } else {
-                likedPosts.remove(postId)
+            await MainActor.run {
+                if wasLiked {
+                    likedPosts.insert(postId)
+                } else {
+                    likedPosts.remove(postId)
+                }
             }
+            print("❌ Failed to toggle amen: \(error)")
         }
     }
     
-    private func handleReply(postId: UUID) {
+    private func handleReply(postId: String) {
         let haptic = UIImpactFeedbackGenerator(style: .light)
         haptic.impactOccurred()
         
-        // TODO: Navigate to reply composer or post detail
-        // navigationPath.append(PostRoute.detail(postId: postId))
-        print("Reply to post: \(postId)")
-    }
-}
-
-struct UserRepliesContentView: View {
-    let replies: [Reply]
-    
-    var body: some View {
-        LazyVStack(spacing: 0) {
-            if replies.isEmpty {
-                UserProfileEmptyStateView(
-                    icon: "bubble.left",
-                    title: "No Replies Yet",
-                    message: "This user hasn't replied to any posts yet."
-                )
-            } else {
-                ForEach(replies.indices, id: \.self) { index in
-                    UserProfileReplyCard(
-                        originalAuthor: replies[index].originalAuthor,
-                        originalContent: replies[index].originalContent,
-                        replyContent: replies[index].replyContent,
-                        timestamp: replies[index].timestamp
-                    )
-                    
-                    if index < replies.count - 1 {
-                        Divider()
-                            .padding(.leading, 20)
+        // Fetch full post and show comments
+        Task {
+            do {
+                let firebasePostService = FirebasePostService.shared
+                // Fetch the full post object by ID
+                if let post = try await firebasePostService.fetchPostById(postId: postId) {
+                    await MainActor.run {
+                        selectedPostForComments = post
+                        showCommentsSheet = true
                     }
+                } else {
+                    print("⚠️ Post not found: \(postId)")
                 }
+            } catch {
+                print("❌ Failed to fetch post for comments: \(error)")
             }
         }
-        .background(Color.white)
     }
 }
 
-// MARK: - User Profile Reply Card
+// MARK: - User Profile Reply Card (Legacy - Not Used)
+// Keeping for potential future use in own profile view
 
 struct UserProfileReplyCard: View {
     let originalAuthor: String
@@ -1246,6 +1646,7 @@ struct UserRepostsContentView: View {
                     title: "No Reposts Yet",
                     message: "This user hasn't reposted anything yet."
                 )
+                .padding(.top, 20)
             } else {
                 ForEach(reposts.indices, id: \.self) { index in
                     ProfileRepostCard(
@@ -1255,15 +1656,11 @@ struct UserRepostsContentView: View {
                         likes: reposts[index].likes,
                         replies: reposts[index].replies
                     )
-                    
-                    if index < reposts.count - 1 {
-                        Divider()
-                            .padding(.leading, 20)
-                    }
                 }
             }
         }
-        .background(Color.white)
+        .background(Color(.systemGroupedBackground))
+        .padding(.top, 12)
     }
 }
 
@@ -1275,53 +1672,172 @@ struct ReadOnlyProfilePostCard: View {
     let onLike: () -> Void
     let onReply: () -> Void
     
+    @State private var isPressed = false
+    
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Content
+        VStack(alignment: .leading, spacing: 0) {
+            // Post content
             Text(post.content)
-                .font(.custom("OpenSans-Regular", size: 15))
-                .foregroundStyle(.black)
-                .lineSpacing(4)
+                .font(.custom("OpenSans-Regular", size: 16))
+                .foregroundStyle(.primary)
+                .lineSpacing(6)
+                .padding(.horizontal, 20)
+                .padding(.top, 20)
             
-            // Interaction Row
-            HStack(spacing: 20) {
+            // Time stamp with post type indicator
+            HStack(spacing: 8) {
                 Text(post.timestamp)
                     .font(.custom("OpenSans-Regular", size: 13))
-                    .foregroundStyle(.black.opacity(0.4))
+                    .foregroundStyle(.secondary)
                 
-                Spacer()
-                
-                // Like Button
+                // Post type indicator with liquid glass style for prayer/testimony
+                if let postType = post.postType {
+                    if postType.isLiquidGlassStyle {
+                        // Liquid glass style for Prayer and Testimony
+                        HStack(spacing: 4) {
+                            Image(systemName: postType.icon)
+                                .font(.system(size: 11))
+                            Text(postType.rawValue)
+                                .font(.custom("OpenSans-SemiBold", size: 11))
+                        }
+                        .foregroundStyle(postType.color)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(
+                            ZStack {
+                                // Frosted glass background
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(.ultraThinMaterial)
+                                
+                                // Color tint overlay
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(postType.color.opacity(0.15))
+                                
+                                // Subtle border
+                                RoundedRectangle(cornerRadius: 12)
+                                    .strokeBorder(postType.color.opacity(0.3), lineWidth: 0.5)
+                            }
+                        )
+                        .shadow(color: postType.color.opacity(0.2), radius: 4, y: 2)
+                    } else {
+                        // Simple black/white style for OpenTable
+                        HStack(spacing: 4) {
+                            Image(systemName: postType.icon)
+                                .font(.system(size: 11, weight: .semibold))
+                            Text(postType.rawValue)
+                                .font(.custom("OpenSans-SemiBold", size: 11))
+                        }
+                        .foregroundStyle(.black)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color.white)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .strokeBorder(Color.black.opacity(0.2), lineWidth: 1)
+                                )
+                        )
+                        .shadow(color: .black.opacity(0.08), radius: 3, y: 1)
+                    }
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
+            
+            // Interaction buttons
+            HStack(spacing: 24) {
+                // Amen (Like) Button
                 Button {
                     onLike()
                 } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: isLiked ? "heart.fill" : "heart")
-                            .font(.system(size: 14))
-                            .foregroundStyle(isLiked ? .red : .black.opacity(0.5))
+                    HStack(spacing: 6) {
+                        Image(systemName: isLiked ? "hands.clap.fill" : "hands.clap")
+                            .font(.system(size: 18))
+                            .foregroundStyle(isLiked ? .orange : .secondary)
+                        
                         Text("\(post.likes + (isLiked ? 1 : 0))")
-                            .font(.custom("OpenSans-SemiBold", size: 13))
-                            .foregroundStyle(.black.opacity(0.5))
+                            .font(.custom("OpenSans-SemiBold", size: 14))
+                            .foregroundStyle(.secondary)
                     }
                 }
                 .buttonStyle(PlainButtonStyle())
                 
-                // Reply Button
+                // Comment Button
                 Button {
                     onReply()
                 } label: {
-                    HStack(spacing: 4) {
+                    HStack(spacing: 6) {
                         Image(systemName: "bubble.left")
-                            .font(.system(size: 14))
+                            .font(.system(size: 18))
+                            .foregroundStyle(.secondary)
+                        
                         Text("\(post.replies)")
-                            .font(.custom("OpenSans-SemiBold", size: 13))
+                            .font(.custom("OpenSans-SemiBold", size: 14))
+                            .foregroundStyle(.secondary)
                     }
-                    .foregroundStyle(.black.opacity(0.5))
                 }
                 .buttonStyle(PlainButtonStyle())
+                
+                Spacer()
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 16)
+            .padding(.bottom, 20)
+        }
+        .background(
+            ZStack {
+                // Liquid glass effect background
+                RoundedRectangle(cornerRadius: 24)
+                    .fill(.ultraThinMaterial)
+                
+                // Subtle gradient overlay for depth
+                RoundedRectangle(cornerRadius: 24)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.8),
+                                Color.white.opacity(0.4)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                
+                // Inner glow border
+                RoundedRectangle(cornerRadius: 24)
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.6),
+                                Color.white.opacity(0.2)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1.5
+                    )
+            }
+        )
+        .shadow(color: .black.opacity(isPressed ? 0.12 : 0.08), radius: isPressed ? 8 : 16, x: 0, y: isPressed ? 4 : 8)
+        .shadow(color: .black.opacity(0.04), radius: 4, x: 0, y: 2)
+        .scaleEffect(isPressed ? 0.98 : 1.0)
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isPressed)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 8)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            // Add subtle press animation
+            withAnimation(.spring(response: 0.2, dampingFraction: 0.8)) {
+                isPressed = true
+            }
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    isPressed = false
+                }
             }
         }
-        .padding(20)
     }
 }
 
@@ -1371,6 +1887,7 @@ struct UserProfileEmptyStateView: View {
 
 extension UserProfile {
     static let sampleUser = UserProfile(
+        userId: "sample-user-id-123",
         name: "Sarah Chen",
         username: "sarahchen",
         bio: "Entrepreneur | Faith-driven leader 🙏\nBuilding tech solutions with purpose",
@@ -1381,35 +1898,44 @@ extension UserProfile {
             UserSocialLink(platform: .twitter, username: "@sarahchen")
         ],
         followersCount: 3456,
-        followingCount: 892
+        followingCount: 892,
+        isPrivateAccount: false
     )
 }
 
 extension ProfilePost {
     static let sampleUserPosts: [ProfilePost] = [
         ProfilePost(
+            id: "post-1",
             content: "Just launched our new faith-based networking app! So grateful for God's guidance throughout this journey. Check it out! 🚀",
             timestamp: "3h ago",
             likes: 234,
-            replies: 45
+            replies: 45,
+            postType: .testimony
         ),
         ProfilePost(
+            id: "post-2",
             content: "Morning devotional reminder: 'Trust in the Lord with all your heart.' - Proverbs 3:5. Start your day with faith! ☀️",
             timestamp: "1d ago",
             likes: 189,
-            replies: 23
+            replies: 23,
+            postType: .prayer
         ),
         ProfilePost(
+            id: "post-3",
             content: "Excited to announce I'll be speaking at the Christian Entrepreneurs Summit next month! Who's attending?",
             timestamp: "2d ago",
             likes: 156,
-            replies: 67
+            replies: 67,
+            postType: nil
         ),
         ProfilePost(
+            id: "post-4",
             content: "Reminder: Your worth is not determined by your productivity. Rest is biblical. Take care of yourself today. 💙",
             timestamp: "3d ago",
             likes: 412,
-            replies: 89
+            replies: 89,
+            postType: .openTable
         )
     ]
 }
@@ -1541,6 +2067,7 @@ struct FollowersListView: View {
             // Convert FollowUserProfile to UserProfile
             users = followUserProfiles.map { followUser in
                 UserProfile(
+                    userId: followUser.id,  // FollowUserProfile uses 'id' not 'userId'
                     name: followUser.displayName,
                     username: followUser.username,
                     bio: followUser.bio ?? "",
@@ -1565,6 +2092,7 @@ struct FollowersListView: View {
 struct UserListRow: View {
     let user: UserProfile
     @State private var isFollowing = false
+    @State private var isLoading = false
     
     var body: some View {
         HStack(spacing: 12) {
@@ -1591,20 +2119,29 @@ struct UserListRow: View {
             
             Spacer()
             
-            // Follow button
+            // Follow button with real backend integration
             Button {
-                isFollowing.toggle()
+                Task {
+                    await toggleFollow()
+                }
             } label: {
-                Text(isFollowing ? "Following" : "Follow")
-                    .font(.custom("OpenSans-Bold", size: 14))
-                    .foregroundStyle(isFollowing ? .black : .white)
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 8)
-                    .background(
-                        RoundedRectangle(cornerRadius: 16)
-                            .fill(isFollowing ? Color(white: 0.93) : Color.black)
-                    )
+                if isLoading {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                        .frame(width: 80, height: 32)
+                } else {
+                    Text(isFollowing ? "Following" : "Follow")
+                        .font(.custom("OpenSans-Bold", size: 14))
+                        .foregroundStyle(isFollowing ? .black : .white)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(isFollowing ? Color(white: 0.93) : Color.black)
+                        )
+                }
             }
+            .disabled(isLoading)
             .buttonStyle(PlainButtonStyle())
         }
         .padding(16)
@@ -1613,6 +2150,46 @@ struct UserListRow: View {
                 .fill(Color.white)
                 .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 4)
         )
+        .task {
+            // Check initial follow status when row appears
+            await checkFollowStatus()
+        }
+    }
+    
+    private func toggleFollow() async {
+        isLoading = true
+        let previousState = isFollowing
+        
+        // Optimistic update
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            isFollowing.toggle()
+        }
+        
+        let haptic = UIImpactFeedbackGenerator(style: .medium)
+        haptic.impactOccurred()
+        
+        do {
+            // Real backend call using FollowService
+            try await FollowService.shared.toggleFollow(userId: user.userId)
+            print("✅ Successfully \(isFollowing ? "followed" : "unfollowed") \(user.name)")
+        } catch {
+            // Rollback on error
+            await MainActor.run {
+                withAnimation {
+                    isFollowing = previousState
+                }
+            }
+            print("❌ Failed to toggle follow: \(error)")
+            
+            let haptic = UINotificationFeedbackGenerator()
+            haptic.notificationOccurred(.error)
+        }
+        
+        isLoading = false
+    }
+    
+    private func checkFollowStatus() async {
+        isFollowing = await FollowService.shared.isFollowing(userId: user.userId)
     }
 }
 
@@ -1622,9 +2199,9 @@ struct ReportUserView: View {
     @Environment(\.dismiss) var dismiss
     let userName: String
     let userId: String
-    let onSubmit: (UserProfileView.ReportReason, String) -> Void
+    let onSubmit: (UserReportReason, String) -> Void
     
-    @State private var selectedReason: UserProfileView.ReportReason?
+    @State private var selectedReason: UserReportReason?
     @State private var description = ""
     @State private var showingConfirmation = false
     
@@ -1655,7 +2232,7 @@ struct ReportUserView: View {
                             .font(.custom("OpenSans-Bold", size: 16))
                             .foregroundStyle(.black)
                         
-                        ForEach(UserProfileView.ReportReason.allCases, id: \.self) { reason in
+                        ForEach(UserReportReason.allCases, id: \.self) { reason in
                             ReportReasonRow(
                                 reason: reason,
                                 isSelected: selectedReason == reason
@@ -1756,7 +2333,7 @@ struct ReportUserView: View {
 }
 
 struct ReportReasonRow: View {
-    let reason: UserProfileView.ReportReason
+    let reason: UserReportReason
     let isSelected: Bool
     let action: () -> Void
     
@@ -1909,50 +2486,117 @@ struct ProfileRepostCard: View {
     var replies: Int
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Repost indicator
+        VStack(alignment: .leading, spacing: 0) {
+            // Repost indicator with liquid glass effect
             HStack(spacing: 6) {
-                Image(systemName: "arrow.2.squarepath")
-                    .font(.system(size: 12))
-                    .foregroundStyle(.black.opacity(0.4))
-                
+                Image(systemName: "arrow.triangle.2.circlepath")
+                    .font(.system(size: 12, weight: .semibold))
                 Text("Reposted from \(originalAuthor)")
-                    .font(.custom("OpenSans-SemiBold", size: 12))
-                    .foregroundStyle(.black.opacity(0.5))
+                    .font(.custom("OpenSans-SemiBold", size: 13))
             }
+            .foregroundStyle(.purple)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(
+                ZStack {
+                    Capsule()
+                        .fill(.ultraThinMaterial)
+                    
+                    Capsule()
+                        .fill(Color.purple.opacity(0.12))
+                    
+                    Capsule()
+                        .strokeBorder(Color.purple.opacity(0.3), lineWidth: 0.5)
+                }
+            )
+            .padding(.horizontal, 20)
+            .padding(.top, 16)
             
             // Content
             Text(content)
-                .font(.custom("OpenSans-Regular", size: 15))
-                .foregroundStyle(.black)
-                .lineSpacing(4)
+                .font(.custom("OpenSans-Regular", size: 16))
+                .foregroundStyle(.primary)
+                .lineSpacing(6)
+                .padding(.horizontal, 20)
+                .padding(.top, 12)
             
-            // Stats
-            HStack(spacing: 20) {
-                Text(timestamp)
-                    .font(.custom("OpenSans-Regular", size: 13))
-                    .foregroundStyle(.black.opacity(0.4))
+            // Time stamp
+            Text(timestamp)
+                .font(.custom("OpenSans-Regular", size: 13))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 20)
+                .padding(.top, 8)
+            
+            // Stats (non-interactive)
+            HStack(spacing: 24) {
+                HStack(spacing: 6) {
+                    Image(systemName: "hands.clap")
+                        .font(.system(size: 18))
+                        .foregroundStyle(.secondary)
+                    
+                    Text("\(likes)")
+                        .font(.custom("OpenSans-SemiBold", size: 14))
+                        .foregroundStyle(.secondary)
+                }
+                
+                HStack(spacing: 6) {
+                    Image(systemName: "bubble.left")
+                        .font(.system(size: 18))
+                        .foregroundStyle(.secondary)
+                    
+                    Text("\(replies)")
+                        .font(.custom("OpenSans-SemiBold", size: 14))
+                        .foregroundStyle(.secondary)
+                }
                 
                 Spacer()
-                
-                HStack(spacing: 4) {
-                    Image(systemName: "heart")
-                        .font(.system(size: 14))
-                    Text("\(likes)")
-                        .font(.custom("OpenSans-SemiBold", size: 13))
-                }
-                .foregroundStyle(.black.opacity(0.5))
-                
-                HStack(spacing: 4) {
-                    Image(systemName: "bubble.left")
-                        .font(.system(size: 14))
-                    Text("\(replies)")
-                        .font(.custom("OpenSans-SemiBold", size: 13))
-                }
-                .foregroundStyle(.black.opacity(0.5))
             }
+            .padding(.horizontal, 20)
+            .padding(.top, 16)
+            .padding(.bottom, 20)
         }
-        .padding(20)
+        .background(
+            ZStack {
+                // Liquid glass effect background
+                RoundedRectangle(cornerRadius: 24)
+                    .fill(.ultraThinMaterial)
+                
+                // Subtle gradient overlay for depth
+                RoundedRectangle(cornerRadius: 24)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.8),
+                                Color.white.opacity(0.4)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                
+                // Purple tint for reposts
+                RoundedRectangle(cornerRadius: 24)
+                    .fill(Color.purple.opacity(0.03))
+                
+                // Inner glow border
+                RoundedRectangle(cornerRadius: 24)
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.6),
+                                Color.white.opacity(0.2)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1.5
+                    )
+            }
+        )
+        .shadow(color: .black.opacity(0.08), radius: 16, x: 0, y: 8)
+        .shadow(color: .black.opacity(0.04), radius: 4, x: 0, y: 2)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 8)
     }
 }
 
@@ -1968,6 +2612,718 @@ struct LoadingStateView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 60)
+    }
+}
+
+// MARK: - 🎨 Production-Ready UX Enhancements
+
+// MARK: - 1. Skeleton Loading
+
+// MARK: - Shimmer Effect
+
+/// Shimmer effect for skeleton loading states
+struct ShimmerEffect: ViewModifier {
+    @State private var phase: CGFloat = 0
+    let duration: Double
+    
+    init(duration: Double = 1.5) {
+        self.duration = duration
+    }
+    
+    func body(content: Content) -> some View {
+        content
+            .overlay(
+                GeometryReader { geometry in
+                    LinearGradient(
+                        gradient: Gradient(colors: [
+                            .clear,
+                            .white.opacity(0.3),
+                            .clear
+                        ]),
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                    .frame(width: geometry.size.width * 2)
+                    .offset(x: -geometry.size.width + (phase * geometry.size.width * 2))
+                    .mask(content)
+                }
+            )
+            .onAppear {
+                withAnimation(
+                    .linear(duration: duration)
+                    .repeatForever(autoreverses: false)
+                ) {
+                    phase = 1
+                }
+            }
+    }
+}
+
+extension View {
+    /// Adds a shimmer effect to the view
+    func shimmerEffect(duration: Double = 1.5) -> some View {
+        modifier(ShimmerEffect(duration: duration))
+    }
+}
+
+/// Skeleton card for loading state
+struct SkeletonProfileCard: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Content placeholder
+            VStack(alignment: .leading, spacing: 8) {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.gray.opacity(0.2))
+                    .frame(height: 16)
+                
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.gray.opacity(0.2))
+                    .frame(height: 16)
+                    .frame(maxWidth: .infinity * 0.8)
+                
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.gray.opacity(0.2))
+                    .frame(height: 16)
+                    .frame(maxWidth: .infinity * 0.6)
+            }
+            
+            // Timestamp placeholder
+            RoundedRectangle(cornerRadius: 6)
+                .fill(Color.gray.opacity(0.15))
+                .frame(width: 80, height: 12)
+            
+            // Buttons placeholder
+            HStack(spacing: 20) {
+                ForEach(0..<2) { _ in
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(Color.gray.opacity(0.2))
+                            .frame(width: 20, height: 20)
+                        
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(Color.gray.opacity(0.2))
+                            .frame(width: 30, height: 12)
+                    }
+                }
+            }
+        }
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 20)
+                .fill(Color(.systemBackground))
+                .shadow(color: .black.opacity(0.06), radius: 12, y: 4)
+        )
+        .padding(.horizontal, 20)
+        .padding(.vertical, 8)
+        .shimmerEffect()
+    }
+}
+
+/// Skeleton header for profile loading
+struct SkeletonProfileHeader: View {
+    var body: some View {
+        VStack(spacing: 20) {
+            HStack(alignment: .top, spacing: 16) {
+                VStack(alignment: .leading, spacing: 8) {
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.gray.opacity(0.2))
+                        .frame(width: 150, height: 24)
+                    
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color.gray.opacity(0.15))
+                        .frame(width: 100, height: 16)
+                }
+                
+                Spacer()
+                
+                Circle()
+                    .fill(Color.gray.opacity(0.2))
+                    .frame(width: 80, height: 80)
+            }
+            
+            VStack(alignment: .leading, spacing: 8) {
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color.gray.opacity(0.15))
+                    .frame(height: 14)
+                
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color.gray.opacity(0.15))
+                    .frame(height: 14)
+                    .frame(maxWidth: .infinity * 0.7)
+            }
+            
+            HStack(spacing: 24) {
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color.gray.opacity(0.15))
+                    .frame(width: 100, height: 16)
+                
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color.gray.opacity(0.15))
+                    .frame(width: 100, height: 16)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            
+            HStack(spacing: 12) {
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(Color.gray.opacity(0.2))
+                    .frame(height: 44)
+                
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(Color.gray.opacity(0.2))
+                    .frame(height: 44)
+            }
+        }
+        .padding(20)
+        .background(Color.white)
+        .shimmerEffect()
+    }
+}
+
+// MARK: - 2. Smart Infinite Scroll
+
+/// Smart scroll manager with prefetching
+@MainActor
+class SmartScrollManager: ObservableObject {
+    @Published var isPrefetching = false
+    private var prefetchTask: Task<Void, Never>?
+    
+    /// Check if should prefetch based on scroll position
+    func shouldPrefetch(currentIndex: Int, totalCount: Int, threshold: Int = 5) -> Bool {
+        return currentIndex >= totalCount - threshold && !isPrefetching
+    }
+    
+    /// Prefetch next page
+    func prefetch(loadMore: @escaping () async -> Void) {
+        guard !isPrefetching else { return }
+        
+        isPrefetching = true
+        prefetchTask?.cancel()
+        
+        prefetchTask = Task {
+            await loadMore()
+            isPrefetching = false
+        }
+    }
+    
+    func cancel() {
+        prefetchTask?.cancel()
+        isPrefetching = false
+    }
+}
+
+/// Back to top button
+struct BackToTopButton: View {
+    let action: () -> Void
+    @State private var isVisible = false
+    
+    var body: some View {
+        if isVisible {
+            Button(action: action) {
+                HStack(spacing: 8) {
+                    Image(systemName: "arrow.up")
+                        .font(.system(size: 14, weight: .semibold))
+                    Text("Back to top")
+                        .font(.custom("OpenSans-SemiBold", size: 13))
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .background(
+                    Capsule()
+                        .fill(Color.black.opacity(0.8))
+                        .shadow(color: .black.opacity(0.3), radius: 12, y: 4)
+                )
+            }
+            .transition(.scale.combined(with: .opacity))
+        }
+    }
+    
+    func show() {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            isVisible = true
+        }
+    }
+    
+    func hide() {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            isVisible = false
+        }
+    }
+}
+
+// MARK: - 3. Pull-to-Refresh Animation
+
+/// Custom refresh control with animation
+struct CustomRefreshControl: View {
+    let isRefreshing: Bool
+    let progress: CGFloat
+    
+    var body: some View {
+        ZStack {
+            // Rotating ring
+            Circle()
+                .trim(from: 0, to: isRefreshing ? 1 : progress)
+                .stroke(
+                    Color.black.opacity(0.3),
+                    style: StrokeStyle(lineWidth: 3, lineCap: .round)
+                )
+                .frame(width: 30, height: 30)
+                .rotationEffect(.degrees(isRefreshing ? 360 : 0))
+                .animation(
+                    isRefreshing ? .linear(duration: 1).repeatForever(autoreverses: false) : .none,
+                    value: isRefreshing
+                )
+            
+            // Center dot
+            Circle()
+                .fill(Color.black.opacity(0.5))
+                .frame(width: 8, height: 8)
+                .scaleEffect(isRefreshing ? 1.2 : 0.8)
+                .animation(
+                    isRefreshing ? .easeInOut(duration: 0.6).repeatForever(autoreverses: true) : .none,
+                    value: isRefreshing
+                )
+        }
+        .opacity(progress > 0.1 || isRefreshing ? 1 : 0)
+    }
+}
+
+/// Pull to refresh wrapper
+struct PullToRefreshView<Content: View>: View {
+    @Binding var isRefreshing: Bool
+    let onRefresh: () async -> Void
+    @ViewBuilder let content: Content
+    
+    @State private var refreshProgress: CGFloat = 0
+    @State private var isUserDragging = false
+    
+    var body: some View {
+        GeometryReader { geometry in
+            ScrollView {
+                VStack(spacing: 0) {
+                    // Refresh indicator
+                    HStack {
+                        Spacer()
+                        CustomRefreshControl(
+                            isRefreshing: isRefreshing,
+                            progress: refreshProgress
+                        )
+                        Spacer()
+                    }
+                    .frame(height: 50)
+                    .offset(y: isRefreshing ? 0 : -50)
+                    
+                    content
+                }
+                .background(
+                    GeometryReader { contentGeometry in
+                        Color.clear.preference(
+                            key: RefreshOffsetKey.self,
+                            value: contentGeometry.frame(in: .named("refresh")).minY
+                        )
+                    }
+                )
+            }
+            .coordinateSpace(name: "refresh")
+            .onPreferenceChange(RefreshOffsetKey.self) { offset in
+                handleRefreshOffset(offset)
+            }
+        }
+    }
+    
+    private func handleRefreshOffset(_ offset: CGFloat) {
+        if isRefreshing { return }
+        
+        let threshold: CGFloat = 80
+        refreshProgress = min(offset / threshold, 1.0)
+        
+        if offset > threshold && !isUserDragging {
+            triggerRefresh()
+        }
+    }
+    
+    private func triggerRefresh() {
+        guard !isRefreshing else { return }
+        
+        isRefreshing = true
+        let haptic = UIImpactFeedbackGenerator(style: .medium)
+        haptic.impactOccurred()
+        
+        Task {
+            await onRefresh()
+            await MainActor.run {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                    isRefreshing = false
+                    refreshProgress = 0
+                }
+                
+                let successHaptic = UINotificationFeedbackGenerator()
+                successHaptic.notificationOccurred(.success)
+            }
+        }
+    }
+}
+
+struct RefreshOffsetKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
+// MARK: - 4. Error Recovery UI
+
+/// Error recovery view with retry
+struct ErrorRecoveryView: View {
+    let error: String
+    let onRetry: () async -> Void
+    let onDismiss: (() -> Void)?
+    
+    @State private var isRetrying = false
+    
+    var body: some View {
+        VStack(spacing: 24) {
+            // Error icon with animation
+            ZStack {
+                Circle()
+                    .fill(Color.red.opacity(0.1))
+                    .frame(width: 80, height: 80)
+                
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 36))
+                    .foregroundStyle(.red)
+            }
+            
+            // Error message
+            VStack(spacing: 8) {
+                Text("Oops!")
+                    .font(.custom("OpenSans-Bold", size: 22))
+                    .foregroundStyle(.black)
+                
+                Text(error)
+                    .font(.custom("OpenSans-Regular", size: 15))
+                    .foregroundStyle(.black.opacity(0.6))
+                    .multilineTextAlignment(.center)
+                    .lineSpacing(4)
+                    .padding(.horizontal, 32)
+            }
+            
+            // Action buttons
+            VStack(spacing: 12) {
+                Button {
+                    retry()
+                } label: {
+                    HStack(spacing: 8) {
+                        if isRetrying {
+                            ProgressView()
+                                .tint(.white)
+                                .scaleEffect(0.9)
+                        } else {
+                            Image(systemName: "arrow.clockwise")
+                                .font(.system(size: 14, weight: .semibold))
+                        }
+                        
+                        Text(isRetrying ? "Retrying..." : "Try Again")
+                            .font(.custom("OpenSans-Bold", size: 16))
+                    }
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.black)
+                    )
+                }
+                .disabled(isRetrying)
+                
+                if let onDismiss = onDismiss {
+                    Button("Dismiss") {
+                        onDismiss()
+                    }
+                    .font(.custom("OpenSans-SemiBold", size: 15))
+                    .foregroundStyle(.black.opacity(0.6))
+                }
+            }
+            .padding(.horizontal, 32)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(white: 0.98))
+    }
+    
+    private func retry() {
+        guard !isRetrying else { return }
+        
+        isRetrying = true
+        let haptic = UIImpactFeedbackGenerator(style: .light)
+        haptic.impactOccurred()
+        
+        Task {
+            await onRetry()
+            await MainActor.run {
+                isRetrying = false
+            }
+        }
+    }
+}
+
+/// Inline error banner
+struct InlineErrorBanner: View {
+    let message: String
+    let onRetry: (() async -> Void)?
+    let onDismiss: () -> Void
+    
+    @State private var isRetrying = false
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "exclamationmark.circle.fill")
+                .font(.system(size: 20))
+                .foregroundStyle(.red)
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Error")
+                    .font(.custom("OpenSans-Bold", size: 14))
+                    .foregroundStyle(.black)
+                
+                Text(message)
+                    .font(.custom("OpenSans-Regular", size: 13))
+                    .foregroundStyle(.black.opacity(0.7))
+                    .lineLimit(2)
+            }
+            
+            Spacer()
+            
+            if let onRetry = onRetry {
+                Button {
+                    retry(onRetry)
+                } label: {
+                    if isRetrying {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                    } else {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(.blue)
+                    }
+                }
+                .disabled(isRetrying)
+            }
+            
+            Button {
+                onDismiss()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.black.opacity(0.4))
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.red.opacity(0.05))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.red.opacity(0.2), lineWidth: 1)
+                )
+        )
+        .padding(.horizontal, 20)
+        .transition(.move(edge: .top).combined(with: .opacity))
+    }
+    
+    private func retry(_ action: @escaping () async -> Void) {
+        guard !isRetrying else { return }
+        
+        isRetrying = true
+        Task {
+            await action()
+            await MainActor.run {
+                isRetrying = false
+            }
+        }
+    }
+}
+
+// MARK: - Privacy Status Badge
+
+/// Badge to show privacy status (muted, hidden, etc.)
+struct PrivacyStatusBadge: View {
+    let icon: String
+    let text: String
+    let color: Color
+    
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 13, weight: .semibold))
+            
+            Text(text)
+                .font(.custom("OpenSans-SemiBold", size: 13))
+        }
+        .foregroundStyle(color)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(color.opacity(0.1))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .strokeBorder(color.opacity(0.3), lineWidth: 1)
+                )
+        )
+    }
+}
+
+// MARK: - Chat Conversation Loader
+
+/// Loader view that gets or creates a conversation before showing the chat
+/// Uses the production ChatViewLiquidGlass with full messaging functionality
+struct ChatConversationLoader: View {
+    let userId: String
+    let userName: String
+    
+    @StateObject private var messagingService = FirebaseMessagingService.shared
+    @Environment(\.dismiss) private var dismiss
+    
+    @State private var conversationId: String?
+    @State private var isLoading = true
+    @State private var errorMessage: String?
+    @State private var showError = false
+    
+    var body: some View {
+        Group {
+            if isLoading {
+                // Loading state
+                VStack(spacing: 20) {
+                    ProgressView()
+                        .scaleEffect(1.5)
+                    
+                    Text("Starting conversation with \(userName)...")
+                        .font(.custom("OpenSans-Regular", size: 16))
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 40)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color(.systemGroupedBackground))
+            } else if let conversationId = conversationId {
+                // ✅ Success - Open ChatViewLiquidGlass with the conversation
+                ChatViewLiquidGlass(
+                    conversation: ChatConversation(
+                        id: conversationId,
+                        name: userName,
+                        lastMessage: "",
+                        timestamp: "Now",
+                        isGroup: false,
+                        unreadCount: 0,
+                        avatarColor: .blue
+                    )
+                )
+            } else {
+                // Error state
+                VStack(spacing: 20) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.system(size: 50))
+                        .foregroundStyle(.red)
+                    
+                    Text("Unable to start conversation")
+                        .font(.custom("OpenSans-Bold", size: 18))
+                    
+                    if let errorMessage = errorMessage {
+                        Text(errorMessage)
+                            .font(.custom("OpenSans-Regular", size: 14))
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 40)
+                    }
+                    
+                    Button {
+                        dismiss()
+                    } label: {
+                        Text("Close")
+                            .font(.custom("OpenSans-Bold", size: 16))
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color.black)
+                            )
+                    }
+                    .padding(.horizontal, 40)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color(.systemGroupedBackground))
+            }
+        }
+        .task {
+            await loadConversation()
+        }
+    }
+    
+    @MainActor
+    private func loadConversation() async {
+        isLoading = true
+        
+        do {
+            print("📱 Getting or creating conversation with user: \(userName) (ID: \(userId))")
+            
+            let convId = try await messagingService.getOrCreateDirectConversation(
+                withUserId: userId,
+                userName: userName
+            )
+            
+            print("✅ Got conversation ID: \(convId)")
+            conversationId = convId
+            
+        } catch let error as FirebaseMessagingError {
+            print("❌ FirebaseMessagingError: \(error)")
+            
+            // Handle specific error cases
+            switch error {
+            case .permissionDenied:
+                errorMessage = "Unable to start conversation. This user may have blocked you or restricted messaging."
+            case .notAuthenticated:
+                errorMessage = "You must be signed in to send messages. Please sign in and try again."
+            case .userBlocked:
+                errorMessage = "You have blocked this user. Unblock them to send messages."
+            case .followRequired:
+                errorMessage = "You must follow this user before messaging them."
+            case .messagesNotAllowed:
+                errorMessage = "This user doesn't accept messages."
+            case .selfConversation:
+                errorMessage = "You cannot message yourself."
+            case .networkError(let underlyingError):
+                // Check if it's a Firestore permission error
+                let errorString = underlyingError.localizedDescription.lowercased()
+                if errorString.contains("permission") || errorString.contains("insufficient") {
+                    errorMessage = "Unable to access messaging. Please check your internet connection and try again. If the problem persists, try signing out and back in."
+                } else {
+                    errorMessage = "Network error: \(underlyingError.localizedDescription)"
+                }
+            default:
+                errorMessage = error.localizedDescription ?? "An error occurred while creating the conversation."
+            }
+            
+            showError = true
+        } catch {
+            print("❌ Unexpected error: \(error)")
+            print("   Error type: \(type(of: error))")
+            print("   Error description: \(error.localizedDescription)")
+            
+            // Check for common Firestore errors
+            let errorString = error.localizedDescription.lowercased()
+            if errorString.contains("permission") || errorString.contains("insufficient") {
+                errorMessage = "Unable to start conversation due to permissions. This might happen if:\n\n• You need to sign out and back in\n• Your account doesn't have messaging enabled\n• There's a temporary server issue\n\nPlease try again or contact support if this continues."
+            } else if errorString.contains("network") || errorString.contains("connection") {
+                errorMessage = "Network connection error. Please check your internet connection and try again."
+            } else {
+                errorMessage = "Unable to start conversation. Please try again later.\n\nError: \(error.localizedDescription)"
+            }
+            
+            showError = true
+        }
+        
+        isLoading = false
     }
 }
 

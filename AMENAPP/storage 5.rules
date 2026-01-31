@@ -1,0 +1,142 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // ============================================
+    // HELPER FUNCTIONS
+    // ============================================
+    
+    // Check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Check if user is owner of the file
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    // Validate file size (max 10MB)
+    function isValidSize() {
+      return request.resource.size <= 10 * 1024 * 1024;
+    }
+    
+    // Validate image file type
+    function isValidImageType() {
+      return request.resource.contentType.matches('image/.*');
+    }
+    
+    // Validate video file type
+    function isValidVideoType() {
+      return request.resource.contentType.matches('video/.*');
+    }
+    
+    // ============================================
+    // PROFILE IMAGES
+    // ============================================
+    
+    match /profile_images/{userId}/{fileName} {
+      // Anyone can read profile images (public)
+      allow read: if true;
+      
+      // Users can upload their own profile images
+      allow write: if isAuthenticated() &&
+                      isOwner(userId) &&
+                      isValidImageType() &&
+                      isValidSize();
+      
+      // Users can delete their own profile images
+      allow delete: if isAuthenticated() && isOwner(userId);
+    }
+    
+    // Alternative profile image path (for backwards compatibility)
+    match /profile_images/{userId}.jpg {
+      allow read: if true;
+      allow write: if isAuthenticated() &&
+                      isOwner(userId) &&
+                      isValidImageType() &&
+                      isValidSize();
+      allow delete: if isAuthenticated() && isOwner(userId);
+    }
+    
+    // ============================================
+    // POST MEDIA (images, videos)
+    // ============================================
+    
+    match /post_media/{userId}/{postId}/{fileName} {
+      // Anyone authenticated can read post media
+      allow read: if isAuthenticated();
+      
+      // Users can upload media for their own posts
+      allow write: if isAuthenticated() &&
+                      isOwner(userId) &&
+                      (isValidImageType() || isValidVideoType()) &&
+                      request.resource.size <= 50 * 1024 * 1024; // 50MB for videos
+      
+      // Users can delete their own post media
+      allow delete: if isAuthenticated() && isOwner(userId);
+    }
+    
+    // ============================================
+    // MESSAGE MEDIA (images, videos, documents)
+    // ============================================
+    
+    match /message_media/{conversationId}/{userId}/{fileName} {
+      // Only conversation participants can read (validated via Firestore)
+      allow read: if isAuthenticated();
+      
+      // Users can upload media in conversations
+      allow write: if isAuthenticated() &&
+                      isOwner(userId) &&
+                      request.resource.size <= 25 * 1024 * 1024; // 25MB max
+      
+      // Users can delete their own message media
+      allow delete: if isAuthenticated() && isOwner(userId);
+    }
+    
+    // ============================================
+    // TESTIMONY MEDIA
+    // ============================================
+    
+    match /testimony_media/{userId}/{testimonyId}/{fileName} {
+      // Anyone authenticated can read testimony media
+      allow read: if isAuthenticated();
+      
+      // Users can upload media for their testimonies
+      allow write: if isAuthenticated() &&
+                      isOwner(userId) &&
+                      (isValidImageType() || isValidVideoType()) &&
+                      request.resource.size <= 50 * 1024 * 1024;
+      
+      // Users can delete their own testimony media
+      allow delete: if isAuthenticated() && isOwner(userId);
+    }
+    
+    // ============================================
+    // PRAYER REQUEST MEDIA
+    // ============================================
+    
+    match /prayer_media/{userId}/{requestId}/{fileName} {
+      // Anyone authenticated can read prayer media
+      allow read: if isAuthenticated();
+      
+      // Users can upload media for their prayer requests
+      allow write: if isAuthenticated() &&
+                      isOwner(userId) &&
+                      isValidImageType() &&
+                      isValidSize();
+      
+      // Users can delete their own prayer media
+      allow delete: if isAuthenticated() && isOwner(userId);
+    }
+    
+    // ============================================
+    // DENY ALL OTHER PATHS
+    // ============================================
+    
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

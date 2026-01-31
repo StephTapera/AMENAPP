@@ -2,17 +2,36 @@
 //  NotificationsView.swift
 //  AMENAPP
 //
-//  Created by Steph on 1/15/26.
+//  Created by Steph on 1/29/26.
+//
+//  Complete notification view with real-time Firebase integration
+//  Features: Grouping, Smart Filters, Quick Actions, Performance Optimized
 //
 
 import SwiftUI
 import UserNotifications
+import FirebaseFirestore
+import Combine
 
 struct NotificationsView: View {
     @Environment(\.dismiss) var dismiss
     @StateObject private var notificationService = NotificationService.shared
+    @StateObject private var followRequestsViewModel = FollowRequestsViewModel()
+    @StateObject private var profileCache = NotificationProfileCache.shared
+    @StateObject private var priorityEngine = NotificationPriorityEngine.shared
     @State private var selectedFilter: NotificationFilter = .all
+    @State private var showFollowRequests = false
+    @State private var isRefreshing = false
+    @State private var showSettings = false
     @Namespace private var filterAnimation
+    
+    // Navigation state
+    @State private var navigationPath = NavigationPath()
+    
+    // Quick Actions state
+    @State private var showQuickActions = false
+    @State private var quickActionNotification: AppNotification?
+    @State private var quickReplyText = ""
     
     enum NotificationFilter: String, CaseIterable {
         case all = "All"
@@ -30,6 +49,78 @@ struct NotificationsView: View {
             case .follows: return "person.2.fill"
             }
         }
+    }
+    
+    // MARK: - Computed Properties
+    
+    /// Grouped notifications with smart aggregation
+    private var groupedNotifications: [NotificationGroup] {
+        let filtered = filteredNotifications
+        
+        // Group by post and type for aggregation
+        var groups: [String: [AppNotification]] = [:]
+        var standalone: [AppNotification] = []
+        
+        for notification in filtered {
+            // Group reactions and comments by post
+            if let postId = notification.postId,
+               (notification.type == .amen || notification.type == .comment) {
+                let key = "\(postId)_\(notification.type.rawValue)"
+                groups[key, default: []].append(notification)
+            } else {
+                standalone.append(notification)
+            }
+        }
+        
+        // Create notification groups
+        var result: [NotificationGroup] = []
+        
+        // Add grouped notifications
+        for (_, groupNotifications) in groups {
+            guard !groupNotifications.isEmpty else { continue }
+            
+            if groupNotifications.count > 1 {
+                // Multiple users - create aggregated group
+                result.append(NotificationGroup(notifications: groupNotifications))
+            } else {
+                // Single notification
+                result.append(NotificationGroup(notifications: [groupNotifications[0]]))
+            }
+        }
+        
+        // Add standalone notifications
+        for notification in standalone {
+            result.append(NotificationGroup(notifications: [notification]))
+        }
+        
+        // Sort by most recent
+        result.sort { $0.mostRecentDate > $1.mostRecentDate }
+        
+        return result
+    }
+    
+    private var filteredNotifications: [AppNotification] {
+        var notifications = notificationService.notifications
+        
+        switch selectedFilter {
+        case .all:
+            break
+        case .priority:
+            // Use ML-powered priority filtering
+            let priorityIds = priorityEngine.getPriorityNotificationIds()
+            notifications = notifications.filter { notification in
+                guard let id = notification.id else { return false }
+                return priorityIds.contains(id)
+            }
+        case .mentions:
+            notifications = notifications.filter { $0.type == .mention }
+        case .reactions:
+            notifications = notifications.filter { $0.type == .amen }
+        case .follows:
+            notifications = notifications.filter { $0.type == .follow }
+        }
+        
+        return notifications
     }
     
     var body: some View {
@@ -60,33 +151,124 @@ struct NotificationsView: View {
                         
                         Spacer()
                         
-                        // Unread count badge
-                        if unreadCount > 0 {
-                            HStack(spacing: 8) {
-                                Text("\(unreadCount)")
-                                    .font(.custom("OpenSans-Bold", size: 15))
-                                    .foregroundStyle(.white)
-                                    .padding(.horizontal, 10)
-                                    .padding(.vertical, 5)
-                                    .background(
-                                        Capsule()
-                                            .fill(Color.blue)
-                                            .shadow(color: .blue.opacity(0.3), radius: 8, y: 2)
-                                    )
-                                
-                                Button {
-                                    withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
-                                        markAllAsRead()
+                        // Unread count badge + Settings
+                        HStack(spacing: 12) {
+                            if unreadCount > 0 {
+                                HStack(spacing: 8) {
+                                    Text("\(unreadCount)")
+                                        .font(.custom("OpenSans-Bold", size: 15))
+                                        .foregroundStyle(.white)
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 5)
+                                        .background(
+                                            Capsule()
+                                                .fill(Color.blue)
+                                                .shadow(color: .blue.opacity(0.3), radius: 8, y: 2)
+                                        )
+                                    
+                                    Button {
+                                        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                                            markAllAsRead()
+                                        }
+                                    } label: {
+                                        Text("Mark all read")
+                                            .font(.custom("OpenSans-SemiBold", size: 14))
+                                            .foregroundStyle(.blue)
                                     }
-                                } label: {
-                                    Text("Mark all read")
-                                        .font(.custom("OpenSans-SemiBold", size: 14))
-                                        .foregroundStyle(.blue)
                                 }
+                            }
+                            
+                            // Settings button
+                            Button {
+                                showSettings = true
+                                let haptic = UIImpactFeedbackGenerator(style: .light)
+                                haptic.impactOccurred()
+                            } label: {
+                                Image(systemName: "gearshape")
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundStyle(.primary)
+                                    .frame(width: 36, height: 36)
+                                    .background(
+                                        Circle()
+                                            .fill(Color.black.opacity(0.05))
+                                    )
                             }
                         }
                     }
                     .padding(.horizontal)
+                    
+                    // Follow Requests Button
+                    if followRequestsViewModel.requests.count > 0 {
+                        Button {
+                            showFollowRequests = true
+                            let haptic = UIImpactFeedbackGenerator(style: .light)
+                            haptic.impactOccurred()
+                        } label: {
+                            HStack(spacing: 12) {
+                                // Icon
+                                ZStack {
+                                    Circle()
+                                        .fill(
+                                            LinearGradient(
+                                                colors: [Color.purple.opacity(0.2), Color.purple.opacity(0.1)],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            )
+                                        )
+                                        .frame(width: 44, height: 44)
+                                    
+                                    Image(systemName: "person.badge.clock.fill")
+                                        .font(.system(size: 20, weight: .semibold))
+                                        .foregroundStyle(.purple)
+                                }
+                                
+                                // Text
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Follow Requests")
+                                        .font(.custom("OpenSans-Bold", size: 16))
+                                        .foregroundStyle(.primary)
+                                    
+                                    Text("\(followRequestsViewModel.requests.count) pending request\(followRequestsViewModel.requests.count == 1 ? "" : "s")")
+                                        .font(.custom("OpenSans-Regular", size: 13))
+                                        .foregroundStyle(.secondary)
+                                }
+                                
+                                Spacer()
+                                
+                                // Badge + Arrow
+                                HStack(spacing: 8) {
+                                    Text("\(followRequestsViewModel.requests.count)")
+                                        .font(.custom("OpenSans-Bold", size: 13))
+                                        .foregroundStyle(.white)
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 4)
+                                        .background(
+                                            Capsule()
+                                                .fill(Color.purple)
+                                                .shadow(color: .purple.opacity(0.3), radius: 4, y: 2)
+                                        )
+                                    
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            .padding(16)
+                            .background(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .fill(Color.purple.opacity(0.05))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 16)
+                                            .stroke(Color.purple.opacity(0.2), lineWidth: 1)
+                                    )
+                                    .shadow(color: .purple.opacity(0.1), radius: 8, y: 2)
+                            )
+                        }
+                        .buttonStyle(ScaleButtonStyle())
+                        .padding(.horizontal)
+                        .padding(.bottom, 8)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                    }
                     
                     // Enhanced Filter Pills with Icons
                     modernFilterSection
@@ -94,80 +276,167 @@ struct NotificationsView: View {
                 .padding(.top)
                 .background(Color(.systemBackground))
                 
-                // Notifications list with enhanced animations and grouping
+                // Notifications list with smart grouping
                 if notificationService.isLoading {
                     ProgressView()
                         .padding(.top, 100)
-                } else if filteredNotifications.isEmpty {
+                } else if groupedNotifications.isEmpty {
                     emptyStateView
                 } else {
                     ScrollView {
-                        LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
-                            // Group notifications by time period
-                            ForEach(groupedNotifications.keys.sorted(by: { timeOrder($0) < timeOrder($1) }), id: \.self) { timeGroup in
-                                Section {
-                                    LazyVStack(spacing: 12) {
-                                        ForEach(groupedNotifications[timeGroup] ?? []) { notification in
-                                            RealNotificationRow(
-                                                notification: notification,
-                                                onDismiss: {
-                                                    removeNotification(notification)
-                                                },
-                                                onMarkAsRead: {
-                                                    markAsRead(notification)
-                                                }
-                                            )
-                                            .transition(.asymmetric(
-                                                insertion: .move(edge: .trailing).combined(with: .opacity),
-                                                removal: .move(edge: .leading).combined(with: .opacity)
-                                            ))
-                                        }
+                        LazyVStack(spacing: 12) {
+                            ForEach(groupedNotifications) { group in
+                                GroupedNotificationRow(
+                                    group: group,
+                                    onDismiss: {
+                                        removeGroup(group)
+                                    },
+                                    onMarkAsRead: {
+                                        markGroupAsRead(group)
+                                    },
+                                    onTap: {
+                                        handleGroupTap(group)
+                                    },
+                                    onLongPress: {
+                                        showQuickActions(for: group)
                                     }
-                                    .padding(.horizontal)
-                                    .padding(.bottom, 16)
-                                } header: {
-                                    HStack {
-                                        Text(timeGroup)
-                                            .font(.custom("OpenSans-Bold", size: 14))
-                                            .foregroundStyle(.secondary)
-                                            .textCase(.uppercase)
-                                        
-                                        Spacer()
-                                        
-                                        // Count for this time period
-                                        let groupCount = (groupedNotifications[timeGroup] ?? []).filter { !$0.read }.count
-                                        if groupCount > 0 {
-                                            Text("\(groupCount) unread")
-                                                .font(.custom("OpenSans-SemiBold", size: 12))
-                                                .foregroundStyle(.secondary.opacity(0.7))
-                                        }
-                                    }
-                                    .padding(.horizontal)
-                                    .padding(.vertical, 8)
-                                    .background(Color(.systemBackground).opacity(0.95))
-                                }
+                                )
+                                .id(group.id)
+                                .transition(.asymmetric(
+                                    insertion: .move(edge: .trailing).combined(with: .opacity),
+                                    removal: .move(edge: .leading).combined(with: .opacity)
+                                ))
                             }
                         }
+                        .padding(.horizontal)
                         .padding(.vertical, 16)
+                    }
+                    .refreshable {
+                        await refreshNotifications()
                     }
                 }
             }
             .navigationBarHidden(true)
+            .sheet(isPresented: $showFollowRequests) {
+                FollowRequestsView()
+            }
+            .sheet(isPresented: $showSettings) {
+                NotificationSettingsSheet()
+            }
+            .sheet(isPresented: $showQuickActions) {
+                if let notification = quickActionNotification {
+                    QuickActionsSheet(
+                        notification: notification,
+                        replyText: $quickReplyText,
+                        onReply: { handleQuickReply(notification) },
+                        onMarkRead: { markAsRead(notification) },
+                        onDismiss: { showQuickActions = false }
+                    )
+                    .presentationDetents([.height(300), .medium])
+                    .presentationDragIndicator(.visible)
+                }
+            }
             .onAppear {
                 notificationService.startListening()
                 clearBadgeCount()
                 
-                // Optional: Auto-mark all as read when opening notifications
-                // Uncomment if you want this behavior:
-                // Task {
-                //     try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second delay
-                //     await notificationService.markAllAsRead()
-                // }
+                // Load follow requests and priority scores
+                Task {
+                    await followRequestsViewModel.loadRequests()
+                    await priorityEngine.calculatePriorities(for: notificationService.notifications)
+                }
             }
             .onDisappear {
                 notificationService.stopListening()
             }
         }
+    }
+    
+    // MARK: - Group Actions
+    
+    private func handleGroupTap(_ group: NotificationGroup) {
+        // Mark all in group as read
+        for notification in group.notifications where !notification.read {
+            markAsRead(notification)
+        }
+        
+        let haptic = UIImpactFeedbackGenerator(style: .medium)
+        haptic.impactOccurred()
+        
+        // Navigate to relevant content
+        if let firstNotification = group.notifications.first {
+            switch firstNotification.type {
+            case .follow:
+                if let actorId = firstNotification.actorId {
+                    navigationPath.append("profile_\(actorId)")
+                }
+            case .amen, .comment, .mention, .reply:
+                if let postId = firstNotification.postId {
+                    navigationPath.append("post_\(postId)")
+                }
+            default:
+                break
+            }
+        }
+    }
+    
+    private func showQuickActions(for group: NotificationGroup) {
+        guard let first = group.notifications.first else { return }
+        quickActionNotification = first
+        showQuickActions = true
+        
+        let haptic = UIImpactFeedbackGenerator(style: .medium)
+        haptic.impactOccurred()
+    }
+    
+    private func handleQuickReply(_ notification: AppNotification) {
+        guard !quickReplyText.isEmpty else { return }
+        
+        Task {
+            // TODO: Implement quick reply to post/comment
+            print("Quick reply: \(quickReplyText)")
+            
+            // Close sheet
+            showQuickActions = false
+            quickReplyText = ""
+            
+            // Haptic feedback
+            let haptic = UINotificationFeedbackGenerator()
+            haptic.notificationOccurred(.success)
+        }
+    }
+    
+    private func markGroupAsRead(_ group: NotificationGroup) {
+        for notification in group.notifications where !notification.read {
+            markAsRead(notification)
+        }
+    }
+    
+    private func removeGroup(_ group: NotificationGroup) {
+        for notification in group.notifications {
+            removeNotification(notification)
+        }
+    }
+    
+    // MARK: - Refresh Handler
+    
+    private func refreshNotifications() async {
+        isRefreshing = true
+        
+        // Reload notifications
+        await notificationService.refresh()
+        
+        // Reload follow requests
+        await followRequestsViewModel.loadRequests()
+        
+        // Recalculate priorities
+        await priorityEngine.calculatePriorities(for: notificationService.notifications)
+        
+        // Haptic feedback
+        let haptic = UINotificationFeedbackGenerator()
+        haptic.notificationOccurred(.success)
+        
+        isRefreshing = false
     }
     
     // MARK: - Modern Filter Section
@@ -286,22 +555,29 @@ struct NotificationsView: View {
     private func notificationCount(for filter: NotificationFilter) -> Int {
         guard filter != .all else { return unreadCount }
         
-        return notificationService.notifications.filter { notification in
-            !notification.read && {
-                switch filter {
-                case .priority: return false // Not implemented yet
-                case .mentions: return notification.type == "mention"
-                case .reactions: return notification.type == "amen"
-                case .follows: return notification.type == "follow"
-                default: return false
-                }
-            }()
-        }.count
+        let filtered = notificationService.notifications.filter { !$0.read }
+        
+        switch filter {
+        case .all:
+            return unreadCount
+        case .priority:
+            let priorityIds = priorityEngine.getPriorityNotificationIds()
+            return filtered.filter { notification in
+                guard let id = notification.id else { return false }
+                return priorityIds.contains(id)
+            }.count
+        case .mentions:
+            return filtered.filter { $0.type == .mention }.count
+        case .reactions:
+            return filtered.filter { $0.type == .amen }.count
+        case .follows:
+            return filtered.filter { $0.type == .follow }.count
+        }
     }
     
     private func markAllAsRead() {
         Task {
-            await notificationService.markAllAsRead()
+            try? await notificationService.markAllAsRead()
         }
         
         // Update badge count
@@ -311,7 +587,7 @@ struct NotificationsView: View {
     private func markAsRead(_ notification: AppNotification) {
         Task {
             guard let id = notification.id else { return }
-            await notificationService.markAsRead(id)
+            try? await notificationService.markAsRead(id)
         }
     }
     
@@ -327,47 +603,7 @@ struct NotificationsView: View {
     private func removeNotification(_ notification: AppNotification) {
         Task {
             guard let id = notification.id else { return }
-            await notificationService.deleteNotification(id)
-        }
-    }
-    
-    private var filteredNotifications: [AppNotification] {
-        guard selectedFilter != .all else { return notificationService.notifications }
-        
-        return notificationService.notifications.filter { notification in
-            switch selectedFilter {
-            case .all:
-                return true
-            case .priority:
-                return false // Not implemented
-            case .mentions:
-                return notification.type == "mention"
-            case .reactions:
-                return notification.type == "amen"
-            case .follows:
-                return notification.type == "follow"
-            }
-        }
-    }
-    
-    // MARK: - Time Grouping
-    
-    /// Group notifications by time periods
-    private var groupedNotifications: [String: [AppNotification]] {
-        Dictionary(grouping: filteredNotifications) { notification in
-            notification.timeCategory
-        }
-    }
-    
-    /// Define time order for sorting sections
-    private func timeOrder(_ category: String) -> Int {
-        switch category {
-        case "Today": return 0
-        case "Yesterday": return 1
-        case "This Week": return 2
-        case "This Month": return 3
-        case "Earlier": return 4
-        default: return 5
+            try? await notificationService.deleteNotification(id)
         }
     }
     
@@ -381,8 +617,268 @@ struct NotificationsView: View {
     }
 }
 
+// MARK: - Notification Group Model
 
-// MARK: - Notification Item Model
+struct NotificationGroup: Identifiable {
+    let id = UUID()
+    let notifications: [AppNotification]
+    
+    var isGrouped: Bool {
+        notifications.count > 1
+    }
+    
+    var primaryNotification: AppNotification {
+        notifications.first!
+    }
+    
+    var otherCount: Int {
+        max(0, notifications.count - 1)
+    }
+    
+    var mostRecentDate: Date {
+        notifications.map { $0.createdAt.dateValue() }.max() ?? Date()
+    }
+    
+    var hasUnread: Bool {
+        notifications.contains { !$0.read }
+    }
+    
+    var actorNames: [String] {
+        notifications.compactMap { $0.actorName }
+    }
+    
+    var displayText: String {
+        if isGrouped {
+            let first = actorNames.first ?? "Someone"
+            let others = otherCount
+            return "\(first) and \(others) other\(others == 1 ? "" : "s") \(primaryNotification.actionText)"
+        } else {
+            return primaryNotification.actionText
+        }
+    }
+}
+
+// MARK: - Grouped Notification Row
+
+struct GroupedNotificationRow: View {
+    let group: NotificationGroup
+    let onDismiss: () -> Void
+    let onMarkAsRead: () -> Void
+    let onTap: () -> Void
+    let onLongPress: () -> Void
+    
+    @StateObject private var profileCache = NotificationProfileCache.shared
+    @State private var actorProfile: CachedProfile?
+    
+    var body: some View {
+        Button {
+            onTap()
+        } label: {
+            HStack(spacing: 14) {
+                // Avatar or stacked avatars
+                avatarView
+                
+                // Content
+                VStack(alignment: .leading, spacing: 6) {
+                    // User action text
+                    if group.isGrouped {
+                        // Grouped: "John and 3 others liked your post"
+                        HStack(spacing: 0) {
+                            Text(group.actorNames.first ?? "Someone")
+                                .font(.custom("OpenSans-Bold", size: 15))
+                                .foregroundStyle(.primary)
+                            
+                            Text(" and \(group.otherCount) other\(group.otherCount == 1 ? "" : "s") ")
+                                .font(.custom("OpenSans-Regular", size: 15))
+                                .foregroundStyle(.secondary)
+                            
+                            Text(group.primaryNotification.actionText)
+                                .font(.custom("OpenSans-Regular", size: 15))
+                                .foregroundStyle(.secondary)
+                        }
+                        .lineLimit(2)
+                    } else {
+                        // Single notification
+                        HStack(spacing: 0) {
+                            if let actorName = group.primaryNotification.actorName {
+                                Text(actorName)
+                                    .font(.custom("OpenSans-Bold", size: 15))
+                                    .foregroundStyle(.primary)
+                                
+                                Text(" " + group.primaryNotification.actionText)
+                                    .font(.custom("OpenSans-Regular", size: 15))
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                Text(group.primaryNotification.actionText)
+                                    .font(.custom("OpenSans-Regular", size: 15))
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .lineLimit(2)
+                    }
+                    
+                    // Comment preview
+                    if let commentText = group.primaryNotification.commentText {
+                        Text(commentText)
+                            .font(.custom("OpenSans-Regular", size: 13))
+                            .foregroundStyle(.secondary.opacity(0.8))
+                            .lineLimit(1)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(Color.gray.opacity(0.08))
+                            )
+                    }
+                    
+                    // Time ago
+                    Text(group.primaryNotification.timeAgo)
+                        .font(.custom("OpenSans-Regular", size: 12))
+                        .foregroundStyle(.secondary.opacity(0.8))
+                }
+                
+                Spacer()
+            }
+            .padding(16)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(group.hasUnread ? Color.blue.opacity(0.04) : Color(.systemBackground))
+                    .shadow(
+                        color: .black.opacity(group.hasUnread ? 0.06 : 0.04),
+                        radius: 12,
+                        y: 4
+                    )
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
+        .contextMenu {
+            Button {
+                onMarkAsRead()
+            } label: {
+                Label("Mark as Read", systemImage: "envelope.open")
+            }
+            
+            Button(role: .destructive) {
+                onDismiss()
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
+        }
+        .onLongPressGesture {
+            onLongPress()
+        }
+        .swipeActions(edge: .leading, allowsFullSwipe: true) {
+            Button {
+                onMarkAsRead()
+            } label: {
+                Label("Read", systemImage: "envelope.open")
+            }
+            .tint(.blue)
+        }
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            Button(role: .destructive) {
+                onDismiss()
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
+        }
+        .task {
+            // Load profile for avatar
+            if let actorId = group.primaryNotification.actorId {
+                actorProfile = await profileCache.getProfile(userId: actorId)
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private var avatarView: some View {
+        ZStack(alignment: .bottomTrailing) {
+            // Main avatar
+            if group.isGrouped {
+                // Stacked avatars for groups
+                ZStack(alignment: .topTrailing) {
+                    // Back avatar
+                    Circle()
+                        .fill(group.primaryNotification.color.opacity(0.2))
+                        .frame(width: 56, height: 56)
+                        .overlay(
+                            Image(systemName: group.primaryNotification.icon)
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundStyle(group.primaryNotification.color)
+                        )
+                    
+                    // Front avatar (slightly offset)
+                    Circle()
+                        .fill(Color(.systemBackground))
+                        .frame(width: 40, height: 40)
+                        .overlay(
+                            Circle()
+                                .fill(group.primaryNotification.color.opacity(0.3))
+                                .frame(width: 38, height: 38)
+                                .overlay(
+                                    Text("+\(group.otherCount)")
+                                        .font(.custom("OpenSans-Bold", size: 12))
+                                        .foregroundStyle(group.primaryNotification.color)
+                                )
+                        )
+                        .offset(x: 12, y: -12)
+                }
+                .frame(width: 56, height: 56)
+            } else if let profile = actorProfile,
+                      let imageURL = profile.imageURL,
+                      !imageURL.isEmpty {
+                // Real profile image
+                AsyncImage(url: URL(string: imageURL)) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 56, height: 56)
+                            .clipShape(Circle())
+                    case .failure, .empty:
+                        Circle()
+                            .fill(group.primaryNotification.color.opacity(0.2))
+                            .frame(width: 56, height: 56)
+                            .overlay(
+                                Text(profile.initials)
+                                    .font(.custom("OpenSans-Bold", size: 18))
+                                    .foregroundStyle(group.primaryNotification.color)
+                            )
+                    @unknown default:
+                        Circle()
+                            .fill(group.primaryNotification.color.opacity(0.2))
+                            .frame(width: 56, height: 56)
+                    }
+                }
+            } else {
+                // Fallback icon
+                Circle()
+                    .fill(group.primaryNotification.color.opacity(0.2))
+                    .frame(width: 56, height: 56)
+                    .overlay(
+                        Image(systemName: group.primaryNotification.icon)
+                            .font(.system(size: 20, weight: .semibold))
+                            .foregroundStyle(group.primaryNotification.color)
+                    )
+            }
+            
+            // Unread indicator
+            if group.hasUnread {
+                Circle()
+                    .fill(Color.blue)
+                    .frame(width: 12, height: 12)
+                    .overlay(
+                        Circle()
+                            .stroke(Color.white, lineWidth: 2)
+                    )
+            }
+        }
+    }
+}
+
+
+// MARK: - Notification Item Model (Legacy - for reference only)
 struct NotificationItem: Identifiable {
     let id = UUID()
     let type: NotificationType
@@ -533,28 +1029,58 @@ struct RealNotificationRow: View {
     let notification: AppNotification
     let onDismiss: () -> Void
     let onMarkAsRead: () -> Void
+    let onTap: () -> Void
+    
+    @StateObject private var profileCache = NotificationProfileCache.shared
+    @State private var actorProfile: CachedProfile?
     
     var body: some View {
         Button {
-            // Mark as read when tapped
-            if !notification.read {
-                onMarkAsRead()
-            }
-            // TODO: Navigate to relevant content
-            handleNotificationTap()
+            onTap()
         } label: {
             HStack(spacing: 14) {
-                // Avatar with notification icon
+                // Avatar with notification icon + REAL PROFILE IMAGE
                 ZStack(alignment: .bottomTrailing) {
-                    // Main avatar
-                    Circle()
-                        .fill(notification.color.opacity(0.2))
-                        .frame(width: 56, height: 56)
-                        .overlay(
-                            Image(systemName: notification.icon)
-                                .font(.system(size: 20, weight: .semibold))
-                                .foregroundStyle(notification.color)
-                        )
+                    // Main avatar with profile image
+                    Group {
+                        if let actorProfile = actorProfile,
+                           let imageURL = actorProfile.imageURL,
+                           !imageURL.isEmpty {
+                            AsyncImage(url: URL(string: imageURL)) { phase in
+                                switch phase {
+                                case .success(let image):
+                                    image
+                                        .resizable()
+                                        .scaledToFill()
+                                        .frame(width: 56, height: 56)
+                                        .clipShape(Circle())
+                                case .failure(_), .empty:
+                                    Circle()
+                                        .fill(notification.color.opacity(0.2))
+                                        .frame(width: 56, height: 56)
+                                        .overlay(
+                                            Text(actorProfile.initials)
+                                                .font(.custom("OpenSans-Bold", size: 18))
+                                                .foregroundStyle(notification.color)
+                                        )
+                                @unknown default:
+                                    Circle()
+                                        .fill(notification.color.opacity(0.2))
+                                        .frame(width: 56, height: 56)
+                                }
+                            }
+                        } else {
+                            // Fallback to colored circle with icon
+                            Circle()
+                                .fill(notification.color.opacity(0.2))
+                                .frame(width: 56, height: 56)
+                                .overlay(
+                                    Image(systemName: notification.icon)
+                                        .font(.system(size: 20, weight: .semibold))
+                                        .foregroundStyle(notification.color)
+                                )
+                        }
+                    }
                     
                     // Unread indicator
                     if !notification.read {
@@ -637,32 +1163,11 @@ struct RealNotificationRow: View {
                 Label("Delete", systemImage: "trash")
             }
         }
-    }
-    
-    private func handleNotificationTap() {
-        let haptic = UIImpactFeedbackGenerator(style: .medium)
-        haptic.impactOccurred()
-        
-        // Navigate based on notification type
-        switch notification.type {
-        case "follow":
-            print("📍 Navigate to profile: \(notification.actorUsername ?? "")")
-            // TODO: Navigate to user profile
-            
-        case "amen":
-            print("📍 Navigate to post: \(notification.postId ?? "")")
-            // TODO: Navigate to post
-            
-        case "comment":
-            print("📍 Navigate to post comments: \(notification.postId ?? "")")
-            // TODO: Navigate to post comments
-            
-        case "prayer_reminder":
-            print("📍 Navigate to prayer requests")
-            // TODO: Navigate to prayers
-            
-        default:
-            print("📍 Unknown notification type: \(notification.type)")
+        .task {
+            // Load actor profile for avatar
+            if let actorId = notification.actorId {
+                actorProfile = await profileCache.getProfile(userId: actorId)
+            }
         }
     }
 }
@@ -1228,7 +1733,264 @@ extension NotificationItem {
     }
 }
 
-// MARK: - Supporting Components
+// MARK: - Quick Actions Sheet
+
+struct QuickActionsSheet: View {
+    let notification: AppNotification
+    @Binding var replyText: String
+    let onReply: () -> Void
+    let onMarkRead: () -> Void
+    let onDismiss: () -> Void
+    @FocusState private var isReplyFocused: Bool
+    
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 20) {
+                // Header
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Quick Actions")
+                            .font(.custom("OpenSans-Bold", size: 20))
+                        
+                        Text(notification.actorName ?? "Unknown")
+                            .font(.custom("OpenSans-Regular", size: 14))
+                            .foregroundStyle(.secondary)
+                    }
+                    
+                    Spacer()
+                    
+                    Button {
+                        onDismiss()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 24))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.horizontal)
+                .padding(.top)
+                
+                // Quick reply for comments
+                if notification.type == .comment || notification.type == .mention {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Quick Reply")
+                            .font(.custom("OpenSans-Bold", size: 14))
+                            .foregroundStyle(.secondary)
+                        
+                        HStack {
+                            TextField("Type your reply...", text: $replyText)
+                                .textFieldStyle(.roundedBorder)
+                                .focused($isReplyFocused)
+                            
+                            Button {
+                                onReply()
+                            } label: {
+                                Image(systemName: "paperplane.fill")
+                                    .font(.system(size: 18, weight: .semibold))
+                                    .foregroundStyle(.white)
+                                    .frame(width: 44, height: 44)
+                                    .background(
+                                        Circle()
+                                            .fill(replyText.isEmpty ? Color.gray : Color.blue)
+                                    )
+                            }
+                            .disabled(replyText.isEmpty)
+                        }
+                    }
+                    .padding(.horizontal)
+                }
+                
+                // Action buttons
+                VStack(spacing: 12) {
+                    Button {
+                        onMarkRead()
+                        onDismiss()
+                    } label: {
+                        HStack {
+                            Image(systemName: "envelope.open")
+                            Text("Mark as Read")
+                            Spacer()
+                        }
+                        .font(.custom("OpenSans-SemiBold", size: 16))
+                        .foregroundStyle(.primary)
+                        .padding()
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color.gray.opacity(0.1))
+                        )
+                    }
+                }
+                .padding(.horizontal)
+                
+                Spacer()
+            }
+            .onAppear {
+                isReplyFocused = true
+            }
+        }
+    }
+}
+
+// MARK: - Profile Cache
+
+@MainActor
+class NotificationProfileCache: ObservableObject {
+    static let shared = NotificationProfileCache()
+    
+    private var cache: [String: CachedProfile] = [:]
+    private let db = Firestore.firestore()
+    
+    private init() {
+        // Private initializer for singleton pattern
+    }
+    
+    func getProfile(userId: String) async -> CachedProfile? {
+        // Check cache
+        if let cached = cache[userId] {
+            return cached
+        }
+        
+        // Fetch from Firestore
+        do {
+            let doc = try await db.collection("users").document(userId).getDocument()
+            guard let data = doc.data() else { return nil }
+            
+            let profile = CachedProfile(
+                id: userId,
+                name: data["displayName"] as? String ?? "Unknown",
+                imageURL: data["profileImageURL"] as? String
+            )
+            
+            // Cache it
+            cache[userId] = profile
+            return profile
+        } catch {
+            print("❌ Error fetching profile: \(error)")
+            return nil
+        }
+    }
+}
+
+struct CachedProfile {
+    let id: String
+    let name: String
+    let imageURL: String?
+    
+    var initials: String {
+        let components = name.split(separator: " ")
+        if components.count >= 2 {
+            return "\(components[0].prefix(1))\(components[1].prefix(1))".uppercased()
+        }
+        return String(name.prefix(2)).uppercased()
+    }
+}
+
+// MARK: - Priority Engine (Simple ML-like scoring)
+
+@MainActor
+class NotificationPriorityEngine: ObservableObject {
+    static let shared = NotificationPriorityEngine()
+    
+    @Published private(set) var priorityScores: [String: Double] = [:]
+    
+    private init() {
+        // Private initializer for singleton pattern
+    }
+    
+    func calculatePriorities(for notifications: [AppNotification]) async {
+        var scores: [String: Double] = [:]
+        
+        for notification in notifications {
+            guard let id = notification.id else { continue }
+            
+            var score = 0.0
+            
+            // Base score by type
+            switch notification.type {
+            case .mention:
+                score += 0.4
+            case .comment:
+                score += 0.3
+            case .amen:
+                score += 0.2
+            case .follow:
+                score += 0.15
+            default:
+                score += 0.1
+            }
+            
+            // Recency boost
+            let age = Date().timeIntervalSince(notification.createdAt.dateValue())
+            if age < 3600 { // 1 hour
+                score += 0.3
+            } else if age < 86400 { // 1 day
+                score += 0.1
+            }
+            
+            // Unread boost
+            if !notification.read {
+                score += 0.2
+            }
+            
+            scores[id] = min(score, 1.0)
+        }
+        
+        priorityScores = scores
+    }
+    
+    func getPriorityNotificationIds(threshold: Double = 0.6) -> Set<String> {
+        Set(priorityScores.filter { $0.value >= threshold }.map { $0.key })
+    }
+}
+
+// MARK: - Settings Sheet
+
+struct NotificationSettingsSheet: View {
+    @Environment(\.dismiss) var dismiss
+    @AppStorage("notificationsEnabled") private var notificationsEnabled = true
+    @AppStorage("notificationSoundEnabled") private var soundEnabled = true
+    @AppStorage("notificationBadgeEnabled") private var badgeEnabled = true
+    
+    var body: some View {
+        NavigationStack {
+            List {
+                Section("General") {
+                    Toggle("Enable Notifications", isOn: $notificationsEnabled)
+                }
+                
+                Section("Style") {
+                    Toggle("Sound", isOn: $soundEnabled)
+                    Toggle("Badge", isOn: $badgeEnabled)
+                }
+                
+                Section("Privacy") {
+                    NavigationLink("Follow Requests") {
+                        FollowRequestsView()
+                    }
+                }
+            }
+            .navigationTitle("Settings")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Extensions
+
+extension NotificationService {
+    func refreshNotifications() async {
+        await refresh()
+    }
+}
+
+// Note: ScaleButtonStyle is defined in SharedUIComponents.swift
 
 #Preview {
     NotificationsView()

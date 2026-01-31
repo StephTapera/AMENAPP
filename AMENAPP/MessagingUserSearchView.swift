@@ -58,46 +58,91 @@ struct MessagingUserSearchView: View {
     
     private var searchBar: some View {
         HStack(spacing: 12) {
-            HStack(spacing: 8) {
+            // Neumorphic search icon circle
+            ZStack {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [Color(.systemBackground), Color(.systemBackground).opacity(0.8)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 36, height: 36)
+                    .shadow(color: .black.opacity(0.15), radius: 8, x: 4, y: 4)
+                    .shadow(color: .white.opacity(0.8), radius: 8, x: -4, y: -4)
+                
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 16))
-                    .foregroundStyle(.secondary)
-                
-                TextField("Search by name or username", text: $searchText)
-                    .font(.custom("OpenSans-Regular", size: 16))
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .submitLabel(.search)
-                    .onSubmit {
-                        performSearch()
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [Color.black.opacity(0.5), Color.black.opacity(0.7)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+            }
+            
+            TextField("Search by name or username", text: $searchText)
+                .font(.custom("OpenSans-SemiBold", size: 15))
+                .foregroundStyle(.primary)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .submitLabel(.search)
+                .onSubmit {
+                    performSearch()
+                }
+            
+            if !searchText.isEmpty {
+                Button {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        searchText = ""
+                        searchResults = []
+                        errorMessage = nil
                     }
-                
-                if !searchText.isEmpty {
-                    Button {
-                        withAnimation {
-                            searchText = ""
-                            searchResults = []
-                            errorMessage = nil
-                        }
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 16))
+                } label: {
+                    ZStack {
+                        Circle()
+                            .fill(Color(.systemBackground))
+                            .frame(width: 24, height: 24)
+                        
+                        Image(systemName: "xmark")
+                            .font(.system(size: 10, weight: .bold))
                             .foregroundStyle(.secondary)
                     }
                 }
             }
-            .padding(14)
-            .background(
-                RoundedRectangle(cornerRadius: 14)
-                    .fill(Color(.systemBackground))
-                    .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
-            )
             
             if isSearching {
                 ProgressView()
-                    .padding(.trailing, 8)
+                    .scaleEffect(0.8)
             }
         }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 14)
+        .background(
+            Capsule()
+                .fill(
+                    LinearGradient(
+                        colors: [Color(.systemBackground), Color(.systemBackground).opacity(0.95)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .shadow(color: .black.opacity(0.12), radius: 12, x: 6, y: 6)
+                .shadow(color: .white.opacity(0.7), radius: 12, x: -6, y: -6)
+        )
+        .overlay(
+            Capsule()
+                .stroke(
+                    LinearGradient(
+                        colors: [Color.white.opacity(0.6), Color.white.opacity(0.3)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
+                )
+        )
         .onChange(of: searchText) { _, newValue in
             if !newValue.isEmpty {
                 // Debounce search
@@ -340,18 +385,6 @@ struct MessagingUserRow: View {
                 Text("@\(user.username)")
                     .font(.custom("OpenSans-Regular", size: 14))
                     .foregroundStyle(.secondary)
-                
-                if user.showActivityStatus {
-                    HStack(spacing: 4) {
-                        Circle()
-                            .fill(Color.green)
-                            .frame(width: 8, height: 8)
-                        
-                        Text("Active")
-                            .font(.custom("OpenSans-Regular", size: 12))
-                            .foregroundStyle(.green)
-                    }
-                }
             }
             
             Spacer()

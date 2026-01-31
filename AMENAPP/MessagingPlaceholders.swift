@@ -4,21 +4,7 @@ import Foundation
 import UIKit
 import PhotosUI
 
-struct MessageRequest: Identifiable, Hashable {
-    let id: String
-    let conversationId: String
-    let fromUserId: String
-    let fromUserName: String
-    var isRead: Bool
-    
-    init(id: String, conversationId: String, fromUserId: String, fromUserName: String, isRead: Bool) {
-        self.id = id
-        self.conversationId = conversationId
-        self.fromUserId = fromUserId
-        self.fromUserName = fromUserName
-        self.isRead = isRead
-    }
-}
+// MessageRequest is now defined in MessageModels.swift
 
 enum RequestAction {
     case accept

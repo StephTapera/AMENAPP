@@ -9,6 +9,7 @@ import SwiftUI
 import FirebaseCore
 import FirebaseAuth
 import FirebaseFirestore
+import GoogleSignIn
 // import FirebaseVertexAI  // TODO: Add Firebase VertexAI package later to enable AI features
 
 @main
@@ -85,6 +86,10 @@ struct AMENAPPApp: App {
                 
                 // ✅ START FOLLOW SERVICE LISTENERS
                 startFollowServiceListeners()
+            }
+            .onOpenURL { url in
+                // Handle Google Sign-In callback
+                GIDSignIn.sharedInstance.handle(url)
             }
         }
     }

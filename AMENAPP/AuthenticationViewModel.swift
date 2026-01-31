@@ -2,460 +2,355 @@
 //  AuthenticationViewModel.swift
 //  AMENAPP
 //
-//  Created by Steph on 1/19/26.
+//  Unified AuthenticationViewModel with Email, Google, and Apple Sign-In
 //
 
 import Foundation
 import SwiftUI
 import Combine
 import FirebaseAuth
-import FirebaseFirestore
 
 @MainActor
 class AuthenticationViewModel: ObservableObject {
+    // MARK: - Published Properties
+    
     @Published var isAuthenticated = false
     @Published var needsOnboarding = false
-    @Published var showWelcomeValues = false // Show values screen after sign-in
-    @Published var showAppTutorial = false // Show tutorial after onboarding
+    @Published var needsUsernameSelection = false  // NEW: For social sign-in users
     @Published var isLoading = false
     @Published var errorMessage: String?
     @Published var showError = false
+    @Published var showWelcomeValues = false
+    @Published var showAppTutorial = false
+    
+    // MARK: - Private Properties
     
     private let firebaseManager = FirebaseManager.shared
-    private let userService = UserService()
+    private var authStateListener: AuthStateDidChangeListenerHandle?
+    
+    // MARK: - Initialization
     
     init() {
-        checkAuthenticationStatus()
-        
-        // Debug: Print auth status on init
-        print("🔐 AuthViewModel Init - isAuthenticated: \(isAuthenticated)")
+        setupAuthStateListener()
     }
     
-    /// Check if user is already authenticated
-    func checkAuthenticationStatus() {
-        isAuthenticated = firebaseManager.isAuthenticated
-        
-        // Debug: Print current user info
-        if let currentUser = firebaseManager.currentUser {
-            print("✅ User is authenticated: \(currentUser.uid)")
-            print("📧 Email: \(currentUser.email ?? "No email")")
-        } else {
-            print("❌ No user is authenticated")
+    deinit {
+        if let listener = authStateListener {
+            Auth.auth().removeStateDidChangeListener(listener)
         }
-        
-        if isAuthenticated {
-            Task {
-                await userService.fetchCurrentUser()
+    }
+    
+    // MARK: - Auth State Listener
+    
+    private func setupAuthStateListener() {
+        authStateListener = Auth.auth().addStateDidChangeListener { [weak self] _, user in
+            Task { @MainActor in
+                guard let self = self else { return }
+                
+                if let user = user {
+                    print("🔐 Auth state changed: User logged in (\(user.email ?? "no email"))")
+                    
+                    // ✅ FIX: Check onboarding status BEFORE setting isAuthenticated
+                    // This prevents the UI glitch where main content flashes before onboarding
+                    await self.checkOnboardingStatus(userId: user.uid)
+                    
+                    // Now set isAuthenticated - onboarding state is already correct
+                    self.isAuthenticated = true
+                } else {
+                    print("🔐 Auth state changed: User logged out")
+                    self.isAuthenticated = false
+                    self.needsOnboarding = false
+                    self.needsUsernameSelection = false
+                }
             }
         }
     }
     
-    /// Sign in with email and password
+    // MARK: - Check Onboarding Status
+    
+    private func checkOnboardingStatus(userId: String) async {
+        do {
+            let userData = try await firebaseManager.fetchUserDocument(userId: userId)
+            
+            let hasCompletedOnboarding = userData["hasCompletedOnboarding"] as? Bool ?? false
+            
+            // ✅ FIX: Set needsOnboarding immediately to prevent UI glitch
+            // This ensures the state is updated before the view hierarchy re-renders
+            await MainActor.run {
+                self.needsOnboarding = !hasCompletedOnboarding
+            }
+            
+            // NEW: Check if user needs to select username (social sign-in)
+            // Social sign-in users have auto-generated usernames that start with "user" followed by random numbers
+            // or are derived from email (before @). We want them to customize.
+            let username = userData["username"] as? String ?? ""
+            let authProvider = userData["authProvider"] as? String ?? ""
+            
+            // Check if this is a social sign-in user who hasn't customized their username
+            let isSocialSignIn = authProvider == "google" || authProvider == "apple"
+            let hasGenericUsername = username.hasPrefix("user") || username.isEmpty
+            
+            if isSocialSignIn && hasGenericUsername && !hasCompletedOnboarding {
+                await MainActor.run {
+                    self.needsUsernameSelection = true
+                }
+            } else {
+                await MainActor.run {
+                    self.needsUsernameSelection = false
+                }
+            }
+            
+            print("📋 Onboarding status: \(needsOnboarding ? "Needs onboarding" : "Completed")")
+            print("📋 Username selection: \(needsUsernameSelection ? "Needs username" : "Has username")")
+            
+        } catch {
+            print("⚠️ Failed to check onboarding status: \(error)")
+            // Default to needing onboarding if we can't check
+            await MainActor.run {
+                self.needsOnboarding = true
+                self.needsUsernameSelection = false
+            }
+        }
+    }
+    
+    // MARK: - Sign In
+    
     func signIn(email: String, password: String) async {
         print("🔐 Starting sign in for: \(email)")
         isLoading = true
         errorMessage = nil
-        defer { isLoading = false }
+        
+        defer {
+            Task { @MainActor in
+                self.isLoading = false
+            }
+        }
         
         do {
-            let user = try await firebaseManager.signIn(email: email, password: password)
-            print("✅ Sign in successful! User ID: \(user.uid)")
-            isAuthenticated = true
-            // showWelcomeValues = true // Disabled - goes directly to main app
-            print("🔐 isAuthenticated set to: \(isAuthenticated)")
-            await userService.fetchCurrentUser()
+            _ = try await firebaseManager.signIn(email: email, password: password)
+            print("✅ Sign in successful")
             
-            // Haptic feedback
+            // Success haptic
             let haptic = UINotificationFeedbackGenerator()
             haptic.notificationOccurred(.success)
+            
+            // isAuthenticated and needsOnboarding are handled by auth state listener
+            
         } catch {
             print("❌ Sign in failed: \(error.localizedDescription)")
             errorMessage = handleAuthError(error)
             showError = true
             
-            // Haptic feedback
+            // Error haptic
             let haptic = UINotificationFeedbackGenerator()
             haptic.notificationOccurred(.error)
         }
     }
     
-    /// Sign up with email and password only (profile completion happens in onboarding)
-    func signUpWithEmail(email: String, password: String) async {
+    // MARK: - Sign Up
+    
+    func signUp(email: String, password: String, displayName: String, username: String) async {
         print("🔐 Starting sign up for: \(email)")
-        
         isLoading = true
         errorMessage = nil
-        defer { isLoading = false }
+        
+        defer {
+            Task { @MainActor in
+                self.isLoading = false
+            }
+        }
         
         do {
-            // Create Firebase Auth account and user profile
-            print("📝 Creating Firebase Auth account and profile...")
-            let user = try await firebaseManager.signUp(
+            _ = try await firebaseManager.signUp(
                 email: email,
                 password: password,
-                displayName: "User"  // Temporary - will be updated in onboarding
+                displayName: displayName,
+                username: username
             )
-            print("✅ Sign up successful! User ID: \(user.uid)")
+            print("✅ Sign up successful")
             
-            // Set state to show onboarding
-            isAuthenticated = true
-            needsOnboarding = true
-            print("✅ State updated - isAuthenticated: \(isAuthenticated), needsOnboarding: \(needsOnboarding)")
-            
-            // Haptic feedback
+            // Success haptic
             let haptic = UINotificationFeedbackGenerator()
             haptic.notificationOccurred(.success)
             
-            print("🎉 Sign up complete! User will complete profile in onboarding.")
+            // ✅ FIX: Set needsOnboarding BEFORE isAuthenticated to prevent UI glitch
+            // This ensures the onboarding screen shows immediately without flashing content
+            needsOnboarding = true
+            
+            // Small delay to ensure state is set before auth listener fires
+            try? await Task.sleep(nanoseconds: 50_000_000) // 0.05 seconds
+            
+            // Auth state listener will set isAuthenticated = true
+            // but needsOnboarding is already true, preventing the glitch
             
         } catch {
             print("❌ Sign up failed: \(error.localizedDescription)")
             errorMessage = handleAuthError(error)
             showError = true
             
-            // Haptic feedback
+            // Error haptic
             let haptic = UINotificationFeedbackGenerator()
             haptic.notificationOccurred(.error)
         }
     }
     
-    /// Sign up with email and password (legacy method - kept for compatibility)
-    func signUp(email: String, password: String, displayName: String, username: String) async {
-        print("🔐 Starting sign up for: \(email) with username: @\(username)")
-        
-        // Ensure we're on main actor for UI updates
-        await MainActor.run {
-            isLoading = true
-            errorMessage = nil
-        }
-        
-        defer {
-            Task { @MainActor in
-                isLoading = false
-            }
-        }
-        
-        do {
-            // Step 1: Create Firebase Auth account with user profile
-            print("📝 Step 1: Creating Firebase Auth account and profile...")
-            let user = try await firebaseManager.signUp(
-                email: email,
-                password: password,
-                displayName: displayName,
-                username: username  // Pass the username here!
-            )
-            print("✅ Sign up successful! User ID: \(user.uid)")
-            
-            // Step 2: SKIP UserService.createUserProfile - FirebaseManager already created the profile!
-            // NOTE: FirebaseManager.signUp() already creates the complete Firestore document
-            // Calling UserService.createUserProfile might cause conflicts or overwrites
-            print("📝 Step 2: Profile already created by FirebaseManager, skipping UserService...")
-            // try await userService.createUserProfile(email: email, displayName: displayName, username: username)
-            print("✅ Using profile created by FirebaseManager with username: @\(username)")
-            
-            // Step 3: Update UI state on MainActor
-            print("📝 Step 3: Updating authentication state...")
-            await MainActor.run {
-                self.isAuthenticated = true
-                self.needsOnboarding = true
-                print("✅ State updated - isAuthenticated: \(self.isAuthenticated), needsOnboarding: \(self.needsOnboarding)")
-            }
-            
-            // Haptic feedback
-            await MainActor.run {
-                let haptic = UINotificationFeedbackGenerator()
-                haptic.notificationOccurred(.success)
-            }
-            
-            print("🎉 Sign up complete! User should see onboarding next.")
-            
-        } catch {
-            print("❌ Sign up failed at some step: \(error.localizedDescription)")
-            print("❌ Error details: \(error)")
-            
-            await MainActor.run {
-                errorMessage = handleAuthError(error)
-                showError = true
-                
-                // Haptic feedback
-                let haptic = UINotificationFeedbackGenerator()
-                haptic.notificationOccurred(.error)
-            }
-        }
-    }
+    // MARK: - Sign Out
     
-    /// Sign out current user
     func signOut() {
         do {
             try firebaseManager.signOut()
+            print("✅ Sign out successful")
+            
+            // Reset state
             isAuthenticated = false
             needsOnboarding = false
-            userService.currentUser = nil
+            errorMessage = nil
             
-            // Haptic feedback
-            let haptic = UINotificationFeedbackGenerator()
-            haptic.notificationOccurred(.success)
         } catch {
+            print("❌ Sign out failed: \(error.localizedDescription)")
             errorMessage = "Failed to sign out: \(error.localizedDescription)"
             showError = true
-            
-            // Haptic feedback
-            let haptic = UINotificationFeedbackGenerator()
-            haptic.notificationOccurred(.error)
         }
     }
     
-    /// Complete onboarding flow
-    func completeOnboarding() {
-        needsOnboarding = false
-        showAppTutorial = true // Show tutorial after onboarding
-        print("✅ Onboarding completed, showing app tutorial")
-    }
+    // MARK: - Password Reset
     
-    /// Dismiss welcome values screen
-    func dismissWelcomeValues() {
-        showWelcomeValues = false
-        print("✅ Welcome values screen dismissed")
-    }
-    
-    /// Dismiss app tutorial
-    func dismissAppTutorial() {
-        showAppTutorial = false
-        print("✅ App tutorial dismissed, user ready for main app")
-    }
-    
-    /// Send password reset email
-    func sendPasswordReset(email: String) async {
-        isLoading = true
-        errorMessage = nil
-        defer { isLoading = false }
-        
-        do {
-            try await firebaseManager.sendPasswordReset(email: email)
-            errorMessage = "Password reset email sent! Check your inbox."
-            showError = true
-            
-            // Haptic feedback
-            let haptic = UINotificationFeedbackGenerator()
-            haptic.notificationOccurred(.success)
-        } catch {
-            errorMessage = handleAuthError(error)
-            showError = true
-            
-            // Haptic feedback
-            let haptic = UINotificationFeedbackGenerator()
-            haptic.notificationOccurred(.error)
-        }
-    }
-    
-    /// Handle authentication errors with user-friendly messages
-    private func handleAuthError(_ error: Error) -> String {
-        let nsError = error as NSError
-        
-        // Cast to AuthErrorCode directly
-        guard let errorCode = AuthErrorCode(_bridgedNSError: nsError) else {
-            return error.localizedDescription
-        }
-        
-        switch errorCode.code {
-        case .invalidEmail:
-            return "Invalid email address."
-        case .wrongPassword:
-            return "Incorrect password."
-        case .userNotFound:
-            return "No account found with this email."
-        case .emailAlreadyInUse:
-            return "This email is already registered."
-        case .weakPassword:
-            return "Password should be at least 6 characters."
-        case .networkError:
-            return "Network error. Please check your connection."
-        case .tooManyRequests:
-            return "Too many attempts. Please try again later."
-        default:
-            return error.localizedDescription
-        }
-    }
-    
-    /// Validate email format
-    func isValidEmail(_ email: String) -> Bool {
-        let emailRegex = "[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,64}"
-        let emailPredicate = NSPredicate(format:"SELF MATCHES %@", emailRegex)
-        return emailPredicate.evaluate(with: email)
-    }
-    
-    /// Validate password strength
-    func isValidPassword(_ password: String) -> Bool {
-        return password.count >= 6
+    func sendPasswordReset(email: String) async throws {
+        print("📧 Sending password reset email to: \(email)")
+        try await firebaseManager.sendPasswordReset(email: email)
+        print("✅ Password reset email sent")
     }
     
     // MARK: - Change Password
     
-    /// Change user's password
     func changePassword(currentPassword: String, newPassword: String) async throws {
-        print("🔐 Attempting to change password...")
+        print("🔐 Changing password")
         
-        guard let user = firebaseManager.currentUser else {
-            throw NSError(domain: "AuthError", code: 401, userInfo: [NSLocalizedDescriptionKey: "No user logged in"])
+        guard let user = Auth.auth().currentUser else {
+            throw NSError(domain: "AuthError", code: -1, userInfo: [NSLocalizedDescriptionKey: "No user is currently signed in"])
         }
         
         guard let email = user.email else {
-            throw NSError(domain: "AuthError", code: 400, userInfo: [NSLocalizedDescriptionKey: "User email not found"])
+            throw NSError(domain: "AuthError", code: -1, userInfo: [NSLocalizedDescriptionKey: "User email not found"])
         }
         
-        // Re-authenticate user first (required by Firebase for sensitive operations)
+        // Re-authenticate user with current password
         let credential = EmailAuthProvider.credential(withEmail: email, password: currentPassword)
         
         do {
             try await user.reauthenticate(with: credential)
             print("✅ Re-authentication successful")
             
-            // Now update password
+            // Update password
             try await user.updatePassword(to: newPassword)
-            print("✅ Password changed successfully!")
+            print("✅ Password changed successfully")
             
-            // Haptic feedback
-            await MainActor.run {
-                let haptic = UINotificationFeedbackGenerator()
-                haptic.notificationOccurred(.success)
-            }
         } catch {
-            print("❌ Failed to change password: \(error)")
+            print("❌ Password change failed: \(error.localizedDescription)")
             throw error
         }
     }
     
     // MARK: - Delete Account
     
-    /// Permanently delete user account and all associated data
     func deleteAccount(password: String) async throws {
-        print("🗑️ Attempting to delete account...")
+        print("🗑️ Deleting account")
         
-        guard let user = firebaseManager.currentUser else {
-            throw NSError(domain: "AuthError", code: 401, userInfo: [NSLocalizedDescriptionKey: "No user logged in"])
+        guard let user = Auth.auth().currentUser else {
+            throw NSError(domain: "AuthError", code: -1, userInfo: [NSLocalizedDescriptionKey: "No user is currently signed in"])
         }
         
         guard let email = user.email else {
-            throw NSError(domain: "AuthError", code: 400, userInfo: [NSLocalizedDescriptionKey: "User email not found"])
+            throw NSError(domain: "AuthError", code: -1, userInfo: [NSLocalizedDescriptionKey: "User email not found"])
         }
         
         let userId = user.uid
         
-        // Re-authenticate user first (required by Firebase for account deletion)
+        // Re-authenticate user with password
         let credential = EmailAuthProvider.credential(withEmail: email, password: password)
         
         do {
             try await user.reauthenticate(with: credential)
             print("✅ Re-authentication successful")
             
-            // Delete user data from Firestore first
-            print("🗑️ Deleting user data from Firestore...")
-            try await deleteUserData(userId: userId)
+            // Delete user data from Firestore
+            try await firebaseManager.deleteUserData(userId: userId)
+            print("✅ User data deleted from Firestore")
             
-            // Delete Firebase Auth account
+            // Delete user account from Firebase Auth
             try await user.delete()
-            print("✅ Account deleted successfully!")
+            print("✅ User account deleted")
             
-            // Update state - sign out the user
+            // Reset state
             await MainActor.run {
-                self.isAuthenticated = false
-                self.needsOnboarding = false
-                
-                // Haptic feedback
-                let haptic = UINotificationFeedbackGenerator()
-                haptic.notificationOccurred(.warning)
+                isAuthenticated = false
+                needsOnboarding = false
             }
+            
         } catch {
-            print("❌ Failed to delete account: \(error)")
+            print("❌ Account deletion failed: \(error.localizedDescription)")
             throw error
         }
     }
     
-    /// Delete all user data from Firestore
-    private func deleteUserData(userId: String) async throws {
-        let db = Firestore.firestore()
-        let batch = db.batch()
+    // MARK: - Complete Onboarding
+    
+    func completeOnboarding() {
+        needsOnboarding = false
+        print("✅ Onboarding completed")
+    }
+    
+    // MARK: - Complete Username Selection
+    
+    func completeUsernameSelection() {
+        needsUsernameSelection = false
+        print("✅ Username selection completed")
+    }
+    
+    // MARK: - Welcome Values
+    
+    func showWelcomeValuesScreen() {
+        showWelcomeValues = true
+    }
+    
+    func dismissWelcomeValues() {
+        showWelcomeValues = false
+    }
+    
+    // MARK: - App Tutorial
+    
+    func showAppTutorialScreen() {
+        showAppTutorial = true
+    }
+    
+    func dismissAppTutorial() {
+        showAppTutorial = false
+    }
+    
+    // MARK: - Error Handling
+    
+    private func handleAuthError(_ error: Error) -> String {
+        let nsError = error as NSError
         
-        // 1. Delete user document
-        let userRef = db.collection("users").document(userId)
-        batch.deleteDocument(userRef)
-        
-        // 2. Delete user's posts
-        let postsSnapshot = try await db.collection("posts")
-            .whereField("authorId", isEqualTo: userId)
-            .getDocuments()
-        
-        for doc in postsSnapshot.documents {
-            batch.deleteDocument(doc.reference)
+        switch nsError.code {
+        case AuthErrorCode.invalidEmail.rawValue:
+            return "Please enter a valid email address"
+        case AuthErrorCode.emailAlreadyInUse.rawValue:
+            return "This email is already registered"
+        case AuthErrorCode.weakPassword.rawValue:
+            return "Password must be at least 6 characters"
+        case AuthErrorCode.wrongPassword.rawValue:
+            return "Incorrect password. Please try again"
+        case AuthErrorCode.userNotFound.rawValue:
+            return "No account found with this email"
+        case AuthErrorCode.networkError.rawValue:
+            return "Network error. Please check your connection"
+        case AuthErrorCode.tooManyRequests.rawValue:
+            return "Too many attempts. Please try again later"
+        case AuthErrorCode.userDisabled.rawValue:
+            return "This account has been disabled"
+        default:
+            return error.localizedDescription
         }
-        
-        print("🗑️ Deleting \(postsSnapshot.documents.count) posts")
-        
-        // 3. Delete user's comments
-        let commentsSnapshot = try await db.collection("comments")
-            .whereField("userId", isEqualTo: userId)
-            .getDocuments()
-        
-        for doc in commentsSnapshot.documents {
-            batch.deleteDocument(doc.reference)
-        }
-        
-        print("🗑️ Deleting \(commentsSnapshot.documents.count) comments")
-        
-        // 4. Delete user's follows (as follower)
-        let followingSnapshot = try await db.collection("follows")
-            .whereField("followerId", isEqualTo: userId)
-            .getDocuments()
-        
-        for doc in followingSnapshot.documents {
-            batch.deleteDocument(doc.reference)
-        }
-        
-        // 5. Delete user's follows (as following)
-        let followersSnapshot = try await db.collection("follows")
-            .whereField("followingId", isEqualTo: userId)
-            .getDocuments()
-        
-        for doc in followersSnapshot.documents {
-            batch.deleteDocument(doc.reference)
-        }
-        
-        print("🗑️ Deleting \(followingSnapshot.documents.count + followersSnapshot.documents.count) follow relationships")
-        
-        // 6. Delete user's blocks (as blocker)
-        let blocksSnapshot = try await db.collection("blocks")
-            .whereField("blockerId", isEqualTo: userId)
-            .getDocuments()
-        
-        for doc in blocksSnapshot.documents {
-            batch.deleteDocument(doc.reference)
-        }
-        
-        // 7. Delete blocks where user is blocked
-        let blockedSnapshot = try await db.collection("blocks")
-            .whereField("blockedUserId", isEqualTo: userId)
-            .getDocuments()
-        
-        for doc in blockedSnapshot.documents {
-            batch.deleteDocument(doc.reference)
-        }
-        
-        print("🗑️ Deleting \(blocksSnapshot.documents.count + blockedSnapshot.documents.count) block relationships")
-        
-        // 8. Delete user's reposts
-        let repostsSnapshot = try await db.collection("reposts")
-            .whereField("userId", isEqualTo: userId)
-            .getDocuments()
-        
-        for doc in repostsSnapshot.documents {
-            batch.deleteDocument(doc.reference)
-        }
-        
-        print("🗑️ Deleting \(repostsSnapshot.documents.count) reposts")
-        
-        // Commit batch delete
-        try await batch.commit()
-        
-        print("✅ All user data deleted from Firestore")
     }
 }

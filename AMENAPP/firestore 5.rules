@@ -1,0 +1,293 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ========================================
+    // HELPER FUNCTIONS
+    // ========================================
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+    
+    function isParticipant(participantIds) {
+      return isSignedIn() && request.auth.uid in participantIds;
+    }
+    
+    // ========================================
+    // USERS COLLECTION
+    // ========================================
+    
+    match /users/{userId} {
+      // ✅ Anyone authenticated can READ user profiles
+      allow read: if isSignedIn();
+      
+      // ✅ Users can CREATE their own profile during signup
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      
+      // ✅ Users can UPDATE their own profile
+      // Special case: Allow updating followerCount/followingCount from follow operations
+      allow update: if isSignedIn() && (
+        // User updating their own profile
+        request.auth.uid == userId ||
+        // OR: Follow operation updating counts
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['followersCount', 'followingCount', 'updatedAt']))
+      );
+      
+      // ✅ Users can DELETE their own profile
+      allow delete: if isOwner(userId);
+      
+      // ----------------------------------------
+      // User Subcollections
+      // ----------------------------------------
+      
+      // Blocked Users Subcollection
+      match /blockedUsers/{blockedUserId} {
+        // Users can read their own blocked list
+        allow read: if isOwner(userId);
+        // Users can block/unblock anyone
+        allow write: if isOwner(userId);
+      }
+      
+      // Muted Users Subcollection  
+      match /mutedUsers/{mutedUserId} {
+        // Users can read their own muted list
+        allow read: if isOwner(userId);
+        // Users can mute/unmute anyone
+        allow write: if isOwner(userId);
+      }
+      
+      // Hidden From Subcollection (users you've hidden your profile from)
+      match /hiddenFrom/{hiddenUserId} {
+        // Users can read their own hidden list
+        allow read: if isOwner(userId);
+        // Users can hide/unhide their profile from anyone
+        allow write: if isOwner(userId);
+      }
+      
+      // Allow reading ANY user's blockedUsers for checking if blocked
+      // This is needed for conversation creation blocking checks
+      match /{subcollection}/{docId} {
+        allow read: if isSignedIn() && 
+                       (subcollection == 'blockedUsers' || 
+                        subcollection == 'mutedUsers' || 
+                        subcollection == 'hiddenFrom');
+      }
+    }
+    
+    // ========================================
+    // FOLLOWS COLLECTION (for follow/unfollow)
+    // ========================================
+    
+    match /follows/{followId} {
+      // ✅ Anyone can read follow relationships
+      allow read: if isSignedIn();
+      
+      // ✅ Users can create a follow relationship
+      // UPDATED: Support both followerId and followerUserId field names
+      allow create: if isSignedIn() && (
+        request.resource.data.followerId == request.auth.uid ||
+        request.resource.data.followerUserId == request.auth.uid
+      );
+      
+      // ✅ Users can update their own follows (status, timestamps)
+      allow update: if isSignedIn() && (
+        resource.data.followerId == request.auth.uid ||
+        resource.data.followerUserId == request.auth.uid
+      );
+      
+      // ✅ Users can delete their own follows (unfollow)
+      allow delete: if isSignedIn() && (
+        resource.data.followerId == request.auth.uid ||
+        resource.data.followerUserId == request.auth.uid
+      );
+    }
+    
+    // ========================================
+    // CONVERSATIONS COLLECTION
+    // ========================================
+    
+    match /conversations/{conversationId} {
+      // ✅ Users can read conversations they're part of
+      // CRITICAL: Allow querying by participantIds to find existing conversations
+      // When creating a new conversation, the app queries to check if one exists
+      allow read: if isSignedIn() && (
+        // Direct document read: check if user is in participantIds
+        (resource != null && (
+          request.auth.uid in resource.data.participantIds ||
+          request.auth.uid in resource.data.get('participantIds', [])
+        )) ||
+        // Query read: allow if querying for conversations where user is participant
+        // This is needed for the "arrayContains" query to find existing conversations
+        (resource == null)
+      );
+      
+      // ✅ Users can create new conversations
+      allow create: if isSignedIn() && (
+        request.auth.uid in request.resource.data.participantIds ||
+        request.auth.uid in request.resource.data.get('participantIds', [])
+      );
+      
+      // ✅ Participants can update conversation metadata
+      allow update: if isSignedIn() && (
+        request.auth.uid in resource.data.participantIds ||
+        request.auth.uid in resource.data.get('participantIds', [])
+      );
+      
+      // ✅ Participants can soft delete conversations
+      allow delete: if isSignedIn() && (
+        request.auth.uid in resource.data.participantIds ||
+        request.auth.uid in resource.data.get('participantIds', [])
+      );
+      
+      // Messages Subcollection
+      match /messages/{messageId} {
+        // ✅ Participants can read messages
+        allow read: if isSignedIn() && 
+                       exists(/databases/$(database)/documents/conversations/$(conversationId)) &&
+                       request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+        
+        // ✅ Participants can send messages
+        allow create: if isSignedIn() && 
+                         exists(/databases/$(database)/documents/conversations/$(conversationId)) &&
+                         request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds &&
+                         request.auth.uid == request.resource.data.senderId;
+        
+        // ✅ Sender can update their own messages (edit, mark as read, reactions)
+        allow update: if isSignedIn() && 
+                         request.auth.uid == resource.data.senderId;
+        
+        // ✅ Sender can delete their own messages
+        allow delete: if isSignedIn() && 
+                         request.auth.uid == resource.data.senderId;
+      }
+    }
+    
+    // ========================================
+    // POSTS COLLECTION
+    // ========================================
+    
+    match /posts/{postId} {
+      // ✅ Anyone authenticated can read posts
+      allow read: if isSignedIn();
+      
+      // ✅ Users can create their own posts
+      allow create: if isSignedIn() && 
+                       request.auth.uid == request.resource.data.userId;
+      
+      // ✅ Post authors can update their posts
+      // Special case: Allow updating amenCount/commentCount/repostCount
+      allow update: if isSignedIn() && (
+        // Post author updating their own post
+        request.auth.uid == resource.data.userId ||
+        // OR: Interaction updating counts only
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['amenCount', 'commentCount', 'repostCount', 'updatedAt'])
+      );
+      
+      // ✅ Post authors can delete their posts
+      allow delete: if isSignedIn() && 
+                       request.auth.uid == resource.data.userId;
+      
+      // Comments Subcollection
+      match /comments/{commentId} {
+        // ✅ Anyone can read comments
+        allow read: if isSignedIn();
+        
+        // ✅ Anyone can create comments
+        allow create: if isSignedIn();
+        
+        // ✅ Comment authors can update/delete their comments
+        allow update, delete: if isSignedIn() && 
+                                 request.auth.uid == resource.data.userId;
+      }
+      
+      // Amens (Likes) Subcollection
+      match /amens/{amenId} {
+        // ✅ Anyone can read who liked
+        allow read: if isSignedIn();
+        
+        // ✅ Users can like/unlike posts
+        allow create, delete: if isSignedIn() && 
+                                 request.auth.uid == amenId;
+      }
+      
+      // Reposts Subcollection
+      match /reposts/{repostId} {
+        // ✅ Anyone can read reposts
+        allow read: if isSignedIn();
+        
+        // ✅ Users can repost/unrepost
+        allow create, delete: if isSignedIn() && 
+                                 request.auth.uid == repostId;
+      }
+    }
+    
+    // ========================================
+    // NOTIFICATIONS COLLECTION
+    // ========================================
+    
+    match /notifications/{notificationId} {
+      // ✅ Users can read their own notifications
+      allow read: if isSignedIn() && 
+                     resource.data.recipientId == request.auth.uid;
+      
+      // ✅ System can create notifications for any user
+      allow create: if isSignedIn();
+      
+      // ✅ Users can mark their notifications as read
+      allow update: if isSignedIn() && 
+                       resource.data.recipientId == request.auth.uid;
+      
+      // ✅ Users can delete their own notifications
+      allow delete: if isSignedIn() && 
+                       resource.data.recipientId == request.auth.uid;
+    }
+    
+    // ========================================
+    // REPORTS COLLECTION (Moderation)
+    // ========================================
+    
+    match /reports/{reportId} {
+      // ✅ Only admins can read reports (add admin check if needed)
+      allow read: if false; // Update with admin check
+      
+      // ✅ Users can create reports
+      allow create: if isSignedIn() && 
+                       request.auth.uid == request.resource.data.reporterId;
+      
+      // ✅ No updates or deletes for reports
+      allow update, delete: if false;
+    }
+    
+    // ========================================
+    // COMMUNITIES COLLECTION (if you have it)
+    // ========================================
+    
+    match /communities/{communityId} {
+      // ✅ Anyone can read public communities
+      allow read: if isSignedIn();
+      
+      // ✅ Anyone can create communities
+      allow create: if isSignedIn();
+      
+      // ✅ Community admins/creators can update
+      allow update: if isSignedIn() && 
+                       request.auth.uid in resource.data.adminIds;
+      
+      // ✅ Community creators can delete
+      allow delete: if isSignedIn() && 
+                       request.auth.uid == resource.data.creatorId;
+      
+      // Members Subcollection
+      match /members/{memberId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn();
+        allow delete: if isSignedIn() && request.auth.uid == memberId;
+      }
+    }
+  }
+}

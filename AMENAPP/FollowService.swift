@@ -65,6 +65,9 @@ class FollowService: ObservableObject {
     
     // MARK: - Follow User
     
+    // Track in-progress follow operations to prevent duplicates
+    private var followOperationsInProgress = Set<String>()
+    
     /// Follow a user
     func followUser(userId: String) async throws {
         print("👥 Following user: \(userId)")
@@ -83,10 +86,34 @@ class FollowService: ObservableObject {
             return
         }
         
-        // Check if already following
-        if await isFollowing(userId: userId) {
-            print("⚠️ Already following this user")
+        // PREVENT DUPLICATE OPERATIONS
+        guard !followOperationsInProgress.contains(userId) else {
+            print("⚠️ Follow operation already in progress for user: \(userId)")
             return
+        }
+        
+        // Mark operation as in progress
+        followOperationsInProgress.insert(userId)
+        defer {
+            followOperationsInProgress.remove(userId)
+        }
+        
+        // Check if already following (check Firestore directly, not cache)
+        let snapshot = try await db.collection(FirebaseManager.CollectionPath.follows)
+            .whereField("followerId", isEqualTo: currentUserId)
+            .whereField("followingId", isEqualTo: userId)
+            .limit(to: 1)
+            .getDocuments()
+        
+        if !snapshot.documents.isEmpty {
+            print("⚠️ Already following this user (found in Firestore)")
+            following.insert(userId) // Update cache
+            return
+        }
+        
+        // Optimistically update local state FIRST (prevents double-tap)
+        await MainActor.run {
+            following.insert(userId)
         }
         
         // Create follow relationship
@@ -106,6 +133,8 @@ class FollowService: ObservableObject {
             try batch.setData(from: follow, forDocument: followRef)
         } catch {
             print("❌ Failed to encode follow data: \(error)")
+            // Revert optimistic update
+            following.remove(userId)
             throw error
         }
         
@@ -131,11 +160,10 @@ class FollowService: ObservableObject {
         } catch {
             print("❌ Batch commit failed: \(error)")
             print("   Error details: \((error as NSError).localizedDescription)")
+            // Revert optimistic update on error
+            following.remove(userId)
             throw error
         }
-        
-        // Update local state
-        following.insert(userId)
         
         // Create notification for followed user
         try? await createFollowNotification(userId: userId)
@@ -147,6 +175,9 @@ class FollowService: ObservableObject {
     
     // MARK: - Unfollow User
     
+    // Track in-progress unfollow operations to prevent duplicates
+    private var unfollowOperationsInProgress = Set<String>()
+    
     /// Unfollow a user
     func unfollowUser(userId: String) async throws {
         print("👥 Unfollowing user: \(userId)")
@@ -154,6 +185,21 @@ class FollowService: ObservableObject {
         guard let currentUserId = firebaseManager.currentUser?.uid else {
             throw FirebaseError.unauthorized
         }
+        
+        // PREVENT DUPLICATE OPERATIONS
+        guard !unfollowOperationsInProgress.contains(userId) else {
+            print("⚠️ Unfollow operation already in progress for user: \(userId)")
+            return
+        }
+        
+        // Mark operation as in progress
+        unfollowOperationsInProgress.insert(userId)
+        defer {
+            unfollowOperationsInProgress.remove(userId)
+        }
+        
+        // Optimistically update local state FIRST (prevents double-tap)
+        following.remove(userId)
         
         // Find the follow relationship
         let followQuery = db.collection(FirebaseManager.CollectionPath.follows)
@@ -189,12 +235,15 @@ class FollowService: ObservableObject {
         ], forDocument: currentUserRef)
         
         // Commit batch
-        try await batch.commit()
-        
-        print("✅ Unfollowed user successfully")
-        
-        // Update local state
-        following.remove(userId)
+        do {
+            try await batch.commit()
+            print("✅ Unfollowed user successfully")
+        } catch {
+            print("❌ Unfollow failed: \(error)")
+            // Revert optimistic update on error
+            following.insert(userId)
+            throw error
+        }
         
         // Haptic feedback
         let haptic = UIImpactFeedbackGenerator(style: .light)

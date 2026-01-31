@@ -7,14 +7,10 @@
 
 import Foundation
 
-// COMMENTED OUT TO TEST FOR DUPLICATE DECLARATION
-// Uncomment this file once the duplicate is found and removed
-
-/*
 extension Date {
     /// Converts date to "time ago" format (e.g., "2h ago", "3d ago")
     /// This is the standard method name used throughout the app
-    func timeAgoDisplay() -> String {
+    func timeAgoDisplayNew() -> String {
         let now = Date()
         let seconds = Int(now.timeIntervalSince(self))
         
@@ -51,9 +47,9 @@ extension Date {
         return "\(years)y ago"
     }
     
-    /// Alternative name for timeAgoDisplay()
+    /// Alternative name for timeAgoDisplayNew()
     func relativeTimeString() -> String {
-        return timeAgoDisplay()
+        return timeAgoDisplayNew()
     }
     
     /// Formats date as a readable string (e.g., "Jan 15, 2026")
@@ -72,5 +68,4 @@ extension Date {
         return formatter.string(from: self)
     }
 }
-*/
 

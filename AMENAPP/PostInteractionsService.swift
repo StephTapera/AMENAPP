@@ -269,7 +269,7 @@ class PostInteractionsService: ObservableObject {
     // MARK: - Comments
     
     /// Add a comment to a post
-    func addComment(postId: String, content: String, authorInitials: String = "??") async throws -> String {
+    func addComment(postId: String, content: String, authorInitials: String = "??", authorUsername: String) async throws -> String {
         guard currentUserId != "anonymous" else {
             throw NSError(domain: "PostInteractions", code: -1, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
         }
@@ -288,6 +288,7 @@ class PostInteractionsService: ObservableObject {
             "authorId": currentUserId,
             "authorName": currentUserName,
             "authorInitials": authorInitials,
+            "authorUsername": authorUsername,  // ✅ NEW: Store username
             "content": content,
             "timestamp": timestamp,
             "likes": 0
@@ -301,7 +302,7 @@ class PostInteractionsService: ObservableObject {
         // Update local state
         postComments[postId] = (postComments[postId] ?? 0) + 1
         
-        print("💬 Comment added to post: \(postId)")
+        print("💬 Comment added to post: \(postId) by @\(authorUsername)")
         
         return commentId
     }
@@ -355,6 +356,8 @@ class PostInteractionsService: ObservableObject {
                 }
                 
                 let likes = commentData["likes"] as? Int ?? 0
+                // ✅ NEW: Read username from RTDB if available
+                let authorUsername = commentData["authorUsername"] as? String
                 
                 let comment = RealtimeComment(
                     id: id,
@@ -362,6 +365,7 @@ class PostInteractionsService: ObservableObject {
                     authorId: authorId,
                     authorName: authorName,
                     authorInitials: authorInitials,
+                    authorUsername: authorUsername,  // ✅ Pass username
                     content: content,
                     timestamp: Date(timeIntervalSince1970: Double(timestamp) / 1000.0),
                     likes: likes
@@ -530,6 +534,8 @@ class PostInteractionsService: ObservableObject {
                 }
                 
                 let likes = commentData["likes"] as? Int ?? 0
+                // ✅ NEW: Read username from RTDB
+                let authorUsername = commentData["authorUsername"] as? String
                 
                 let comment = RealtimeComment(
                     id: id,
@@ -537,6 +543,7 @@ class PostInteractionsService: ObservableObject {
                     authorId: authorId,
                     authorName: authorName,
                     authorInitials: authorInitials,
+                    authorUsername: authorUsername,  // ✅ Pass username
                     content: content,
                     timestamp: Date(timeIntervalSince1970: Double(timestamp) / 1000.0),
                     likes: likes
@@ -663,6 +670,17 @@ class PostInteractionsService: ObservableObject {
         }
     }
     
+    /// Get all interaction counts for a specific post
+    func getInteractionCounts(postId: String) async -> (amenCount: Int, commentCount: Int, repostCount: Int, lightbulbCount: Int) {
+        async let amens = getAmenCount(postId: postId)
+        async let comments = getCommentCount(postId: postId)
+        async let reposts = getRepostCount(postId: postId)
+        async let lightbulbs = getLightbulbCount(postId: postId)
+        
+        let (amenCount, commentCount, repostCount, lightbulbCount) = await (amens, comments, reposts, lightbulbs)
+        return (amenCount, commentCount, repostCount, lightbulbCount)
+    }
+    
     // MARK: - Cleanup
     
     func cleanup() {
@@ -693,6 +711,7 @@ struct RealtimeComment: Identifiable, Codable {
     let authorId: String
     let authorName: String
     let authorInitials: String
+    let authorUsername: String?  // ✅ NEW: Optional username field
     let content: String
     let timestamp: Date
     var likes: Int

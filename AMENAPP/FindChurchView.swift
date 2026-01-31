@@ -97,14 +97,27 @@ struct FindChurchView: View {
     
     private var refreshAction: (() -> Void)? {
         if useRealSearch && locationManager.isAuthorized {
-            return performRealSearch
+            return { self.performRealSearch() }
         }
         return nil
     }
     
     var body: some View {
+        ZStack {
+            // Background gradient matching the image aesthetic
+            LinearGradient(
+                colors: [
+                    Color(red: 0.95, green: 0.85, blue: 0.9),
+                    Color(red: 0.85, green: 0.95, blue: 1.0),
+                    Color(red: 0.9, green: 1.0, blue: 0.95)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
+            
         VStack(spacing: 0) {
-            // Enhanced Header
+            // Compact Glass Header (reduced padding)
             FindChurchHeader(
                 searchText: $searchText,
                 locationStatus: locationStatusText,
@@ -278,7 +291,7 @@ struct FindChurchView: View {
                             if useRealSearch && !churchSearchService.searchResults.isEmpty {
                                 LiveSearchBanner(
                                     churchCount: churchSearchService.searchResults.count,
-                                    onRefresh: { performRealSearch() }
+                                    onRefresh: { self.performRealSearch() }
                                 )
                             }
                             
@@ -299,9 +312,9 @@ struct FindChurchView: View {
                                 EnhancedChurchCard(
                                     church: church,
                                     isSaved: savedChurchIds.contains(church.id),
-                                    onSave: { toggleSave(church) },
-                                    onGetDirections: { openDirections(to: church) },
-                                    onCall: { callChurch(church) }
+                                    onSave: { self.toggleSave(church) },
+                                    onGetDirections: { self.openDirections(to: church) },
+                                    onCall: { self.callChurch(church) }
                                 )
                             }
                         }
@@ -318,11 +331,11 @@ struct FindChurchView: View {
                 // Auto-perform real search on first appear if location is available
                 if !hasSearchedOnce {
                     hasSearchedOnce = true
-                    performRealSearch()
+                    self.performRealSearch()
                 }
             }
         }
-        .onChange(of: userLocation) { newLocation in
+        .onChange(of: userLocation) { oldValue, newLocation in
             if let newLoc = newLocation {
                 withAnimation {
                     region.center = newLoc
@@ -330,15 +343,18 @@ struct FindChurchView: View {
                 // Perform real search when location becomes available
                 if !hasSearchedOnce {
                     hasSearchedOnce = true
-                    performRealSearch()
+                    self.performRealSearch()
                 }
             }
         }
     }
-    
+}
+
+// MARK: - FindChurchView Methods
+extension FindChurchView {
     // MARK: - Real Search
     
-    private func performRealSearch() {
+    func performRealSearch() {
         guard let userLoc = userLocation else {
             print("⚠️ Cannot search: User location not available")
             return
@@ -374,7 +390,7 @@ struct FindChurchView: View {
         }
     }
     
-    private func toggleSave(_ church: Church) {
+    func toggleSave(_ church: Church) {
         if savedChurchIds.contains(church.id) {
             savedChurchIds.remove(church.id)
             // Remove all notifications when unsaving
@@ -386,22 +402,22 @@ struct FindChurchView: View {
         }
     }
     
-    private func scheduleSmartNotifications(for church: Church) {
+    func scheduleSmartNotifications(for church: Church) {
         // Request notification permission if needed
         Task {
             let notificationManager = ChurchNotificationManager.shared
             if !notificationManager.isAuthorized {
                 let granted = await notificationManager.requestNotificationPermission()
                 if granted {
-                    enableNotificationsForChurch(church)
+                    self.enableNotificationsForChurch(church)
                 }
             } else {
-                enableNotificationsForChurch(church)
+                self.enableNotificationsForChurch(church)
             }
         }
     }
     
-    private func enableNotificationsForChurch(_ church: Church) {
+    func enableNotificationsForChurch(_ church: Church) {
         let notificationManager = ChurchNotificationManager.shared
         
         // Weekly service reminder (Saturday evening)
@@ -414,13 +430,13 @@ struct FindChurchView: View {
         notificationManager.scheduleLocationReminder(for: church, radius: 500)
     }
     
-    private func openDirections(to church: Church) {
+    func openDirections(to church: Church) {
         let mapItem = MKMapItem(placemark: MKPlacemark(coordinate: church.coordinate))
         mapItem.name = church.name
         mapItem.openInMaps(launchOptions: [MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeDriving])
     }
     
-    private func callChurch(_ church: Church) {
+    func callChurch(_ church: Church) {
         let phoneNumber = church.phone.replacingOccurrences(of: "[^0-9]", with: "", options: .regularExpression)
         if let url = URL(string: "tel://\(phoneNumber)") {
             UIApplication.shared.open(url)
@@ -476,33 +492,43 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     }
 }
 
-// MARK: - Enhanced Header
+// MARK: - Compact Glassmorphic Header
 struct FindChurchHeader: View {
     @Binding var searchText: String
     let locationStatus: String
     var onRefresh: (() -> Void)? = nil
     var isSearching: Bool = false
+    @State private var isExpanded = false
     
     var body: some View {
-        VStack(spacing: 16) {
-            // Title with location indicator
+        VStack(spacing: 8) {
+            // Compact title row
             HStack {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text("Find a Church")
-                        .font(.custom("OpenSans-Bold", size: 28))
+                        .font(.custom("OpenSans-Bold", size: 24))
+                        .foregroundStyle(.white)
                     
-                    HStack(spacing: 4) {
-                        Image(systemName: "location.fill")
-                            .font(.system(size: 12))
-                        Text(locationStatus)
-                            .font(.custom("OpenSans-Regular", size: 13))
+                    Button {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            isExpanded.toggle()
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "location.fill")
+                                .font(.system(size: 10))
+                            Text(locationStatus)
+                                .font(.custom("OpenSans-Regular", size: 12))
+                            Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                                .font(.system(size: 10))
+                        }
+                        .foregroundStyle(.white.opacity(0.8))
                     }
-                    .foregroundStyle(.secondary)
                 }
                 
                 Spacer()
                 
-                // Refresh button (if provided)
+                // Refresh button
                 if let refresh = onRefresh {
                     Button {
                         let haptic = UIImpactFeedbackGenerator(style: .medium)
@@ -512,50 +538,118 @@ struct FindChurchHeader: View {
                         Group {
                             if isSearching {
                                 ProgressView()
-                                    .tint(.blue)
+                                    .tint(.white)
+                                    .scaleEffect(0.8)
                             } else {
                                 Image(systemName: "arrow.clockwise")
-                                    .font(.system(size: 18, weight: .semibold))
-                                    .foregroundStyle(.blue)
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundStyle(.white)
                             }
                         }
-                        .frame(width: 40, height: 40)
+                        .frame(width: 36, height: 36)
                         .background(
                             Circle()
-                                .fill(Color.blue.opacity(0.1))
+                                .fill(.ultraThinMaterial)
+                                .overlay(
+                                    Circle()
+                                        .stroke(Color.white.opacity(0.3), lineWidth: 1)
+                                )
                         )
                     }
                     .disabled(isSearching)
                 }
             }
             
-            // Enhanced search bar
+            // Expandable location details
+            if isExpanded {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 12) {
+                        Image(systemName: "mappin.circle.fill")
+                            .foregroundStyle(.green)
+                        Text("Live location enabled")
+                            .font(.custom("OpenSans-Regular", size: 13))
+                            .foregroundStyle(.white.opacity(0.9))
+                    }
+                    
+                    HStack(spacing: 12) {
+                        Image(systemName: "bell.fill")
+                            .foregroundStyle(.orange)
+                        Text("Smart notifications active")
+                            .font(.custom("OpenSans-Regular", size: 13))
+                            .foregroundStyle(.white.opacity(0.9))
+                    }
+                }
+                .padding(.top, 4)
+                .transition(.asymmetric(
+                    insertion: .move(edge: .top).combined(with: .opacity),
+                    removal: .opacity
+                ))
+            }
+            
+            // Glassmorphic search bar
             HStack(spacing: 12) {
                 Image(systemName: "magnifyingglass")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.white.opacity(0.7))
+                    .font(.system(size: 16))
                 
-                TextField("Search by name, address, or denomination", text: $searchText)
-                    .font(.custom("OpenSans-Regular", size: 16))
+                TextField("Search churches...", text: $searchText)
+                    .font(.custom("OpenSans-Regular", size: 15))
+                    .foregroundStyle(.white)
+                    .tint(.white)
                 
                 if !searchText.isEmpty {
                     Button {
-                        withAnimation {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                             searchText = ""
                         }
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.white.opacity(0.5))
+                            .font(.system(size: 16))
                     }
                 }
             }
-            .padding(14)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
             .background(
-                RoundedRectangle(cornerRadius: 14)
-                    .fill(Color(.systemGray6))
+                ZStack {
+                    // Frosted glass effect
+                    RoundedRectangle(cornerRadius: 14)
+                        .fill(.ultraThinMaterial)
+                    
+                    // Subtle white overlay
+                    RoundedRectangle(cornerRadius: 14)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color.white.opacity(0.15),
+                                    Color.white.opacity(0.05)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                    
+                    // Border
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(
+                            LinearGradient(
+                                colors: [
+                                    Color.white.opacity(0.4),
+                                    Color.white.opacity(0.2)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1
+                        )
+                }
             )
+            .shadow(color: Color.black.opacity(0.1), radius: 20, x: 0, y: 10)
         }
-        .padding(.horizontal, 20)
-        .padding(.top, 8)
+        .padding(.horizontal, 16)
+        .padding(.top, 4)
+        .padding(.bottom, 8)
     }
 }
 
@@ -652,7 +746,7 @@ struct EnhancedLocationPermissionBanner: View {
     }
 }
 
-// MARK: - Enhanced Church Card
+// MARK: - Dark Glassmorphic Church Card
 struct EnhancedChurchCard: View {
     let church: Church
     let isSaved: Bool
@@ -661,95 +755,86 @@ struct EnhancedChurchCard: View {
     let onCall: () -> Void
     
     @State private var isExpanded = false
+    @State private var isPressed = false
     
     var body: some View {
         VStack(spacing: 0) {
-            // Hero section with gradient
-            ZStack(alignment: .topTrailing) {
-                LinearGradient(
-                    colors: church.gradientColors,
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .frame(height: 120)
-                
-                // Church icon overlay
-                VStack {
-                    Spacer()
-                    HStack {
-                        Image(systemName: "building.2.fill")
-                            .font(.system(size: 48))
-                            .foregroundStyle(.white.opacity(0.3))
-                        Spacer()
-                    }
-                    .padding(20)
-                }
-                
-                // Save button
-                Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
-                        onSave()
-                        let haptic = UIImpactFeedbackGenerator(style: .medium)
-                        haptic.impactOccurred()
-                    }
-                } label: {
-                    Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
-                        .font(.system(size: 20))
-                        .foregroundStyle(.white)
-                        .frame(width: 44, height: 44)
-                        .background(
-                            Circle()
-                                .fill(.ultraThinMaterial)
-                        )
-                }
-                .padding(12)
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            
-            // Content section
+            // Main content
             VStack(alignment: .leading, spacing: 16) {
-                // Church info
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(church.name)
-                        .font(.custom("OpenSans-Bold", size: 20))
-                        .foregroundStyle(.primary)
-                    
-                    HStack(spacing: 12) {
-                        // Denomination badge
-                        Text(church.denomination)
-                            .font(.custom("OpenSans-SemiBold", size: 12))
-                            .foregroundStyle(church.denominationColor)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 5)
-                            .background(
-                                Capsule()
-                                    .fill(church.denominationColor.opacity(0.1))
-                            )
+                // Header with save button
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(church.name)
+                            .font(.custom("OpenSans-Bold", size: 20))
+                            .foregroundStyle(.white)
+                            .lineLimit(2)
                         
-                        // Distance
-                        HStack(spacing: 4) {
-                            Image(systemName: "location.fill")
-                                .font(.system(size: 11))
-                            Text(church.distance)
-                                .font(.custom("OpenSans-SemiBold", size: 13))
+                        HStack(spacing: 10) {
+                            // Denomination badge
+                            Text(church.denomination)
+                                .font(.custom("OpenSans-SemiBold", size: 11))
+                                .foregroundStyle(church.denominationColor)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 5)
+                                .background(
+                                    Capsule()
+                                        .fill(church.denominationColor.opacity(0.2))
+                                )
+                            
+                            // Distance
+                            HStack(spacing: 4) {
+                                Image(systemName: "location.fill")
+                                    .font(.system(size: 10))
+                                Text(church.distance)
+                                    .font(.custom("OpenSans-SemiBold", size: 12))
+                            }
+                            .foregroundStyle(.white.opacity(0.7))
                         }
-                        .foregroundStyle(.secondary)
                     }
+                    
+                    Spacer()
+                    
+                    // Save button
+                    Button {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                            onSave()
+                            let haptic = UIImpactFeedbackGenerator(style: .medium)
+                            haptic.impactOccurred()
+                        }
+                    } label: {
+                        Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
+                            .font(.system(size: 20, weight: .semibold))
+                            .foregroundStyle(isSaved ? .pink : .white.opacity(0.7))
+                            .frame(width: 44, height: 44)
+                            .background(
+                                Circle()
+                                    .fill(.ultraThinMaterial)
+                                    .background(
+                                        Circle()
+                                            .fill(Color.black.opacity(0.3))
+                                    )
+                            )
+                            .overlay(
+                                Circle()
+                                    .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                            )
+                    }
+                    .scaleEffect(isPressed && isSaved ? 1.1 : 1.0)
                 }
                 
-                // Quick info grid
+                // Quick info tiles
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                    QuickInfoTile(
+                    DarkQuickInfoTile(
                         icon: "clock.fill",
-                        title: "Service Times",
+                        title: "Service",
                         value: church.shortServiceTime,
                         color: .blue
                     )
                     
                     if let countdown = church.nextServiceCountdown {
-                        QuickInfoTile(
+                        DarkQuickInfoTile(
                             icon: "calendar",
-                            title: "Next Service",
+                            title: "Next",
                             value: countdown.replacingOccurrences(of: "Next service in ", with: ""),
                             color: .green
                         )
@@ -774,7 +859,7 @@ struct EnhancedChurchCard: View {
                         .padding(.vertical, 14)
                         .background(
                             RoundedRectangle(cornerRadius: 12)
-                                .fill(Color.black)
+                                .fill(.blue)
                         )
                     }
                     
@@ -789,24 +874,34 @@ struct EnhancedChurchCard: View {
                             Text("Directions")
                                 .font(.custom("OpenSans-Bold", size: 15))
                         }
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
                         .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(Color(.systemGray6))
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(.ultraThinMaterial)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .fill(Color.black.opacity(0.3))
+                                    )
+                                
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                            }
                         )
                     }
                 }
                 
                 // Expandable details
                 if isExpanded {
-                    Divider()
-                    
                     VStack(alignment: .leading, spacing: 14) {
-                        DetailRow(icon: "mappin.and.ellipse", text: church.address, color: .blue)
-                        DetailRow(icon: "clock", text: church.serviceTime, color: .green)
-                        DetailRow(icon: "phone", text: church.phone, color: .orange)
+                        Divider()
+                            .overlay(Color.white.opacity(0.1))
+                        
+                        DarkDetailRow(icon: "mappin.and.ellipse", text: church.address, color: .blue)
+                        DarkDetailRow(icon: "clock", text: church.serviceTime, color: .green)
+                        DarkDetailRow(icon: "phone", text: church.phone, color: .orange)
                         
                         if let website = church.website {
                             Link(destination: URL(string: "https://\(website)")!) {
@@ -830,43 +925,58 @@ struct EnhancedChurchCard: View {
                             }
                         }
                     }
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .bottom).combined(with: .opacity),
+                        removal: .opacity
+                    ))
                 }
                 
                 // Show more/less button
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
                         isExpanded.toggle()
                         let haptic = UIImpactFeedbackGenerator(style: .light)
                         haptic.impactOccurred()
                     }
                 } label: {
                     HStack {
-                        Text(isExpanded ? "Show Less" : "Show More Details")
+                        Text(isExpanded ? "Show Less" : "Show More")
                             .font(.custom("OpenSans-SemiBold", size: 14))
                         Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
                             .font(.system(size: 12))
                     }
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(.white.opacity(0.7))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
                     .background(
                         RoundedRectangle(cornerRadius: 10)
-                            .fill(Color.blue.opacity(0.1))
+                            .fill(Color.white.opacity(0.05))
                     )
                 }
             }
-            .padding(16)
+            .padding(20)
         }
         .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color(.systemBackground))
-                .shadow(color: .black.opacity(0.08), radius: 12, y: 4)
+            ZStack {
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(.ultraThinMaterial)
+                    .background(
+                        RoundedRectangle(cornerRadius: 20)
+                            .fill(Color.black.opacity(0.4))
+                    )
+                
+                RoundedRectangle(cornerRadius: 20)
+                    .stroke(Color.white.opacity(0.15), lineWidth: 1)
+            }
         )
+        .shadow(color: .black.opacity(0.4), radius: 25, x: 0, y: 12)
+        .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 4)
         .padding(.horizontal, 20)
     }
 }
 
-struct QuickInfoTile: View {
+// Dark Quick Info Tile
+struct DarkQuickInfoTile: View {
     let icon: String
     let title: String
     let value: String
@@ -875,29 +985,39 @@ struct QuickInfoTile: View {
     var body: some View {
         VStack(spacing: 8) {
             Image(systemName: icon)
-                .font(.system(size: 20))
+                .font(.system(size: 18))
                 .foregroundStyle(color)
             
             Text(title)
                 .font(.custom("OpenSans-Regular", size: 11))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.white.opacity(0.6))
             
             Text(value)
-                .font(.custom("OpenSans-Bold", size: 14))
-                .foregroundStyle(.primary)
+                .font(.custom("OpenSans-Bold", size: 13))
+                .foregroundStyle(.white)
                 .lineLimit(1)
-                .minimumScaleFactor(0.8)
+                .minimumScaleFactor(0.7)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
+        .padding(.vertical, 14)
         .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(Color(.systemGray6))
+            ZStack {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(.ultraThinMaterial)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.black.opacity(0.3))
+                    )
+                
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
+            }
         )
     }
 }
 
-struct DetailRow: View {
+// Dark Detail Row
+struct DarkDetailRow: View {
     let icon: String
     let text: String
     let color: Color
@@ -911,7 +1031,7 @@ struct DetailRow: View {
             
             Text(text)
                 .font(.custom("OpenSans-Regular", size: 15))
-                .foregroundStyle(.primary)
+                .foregroundStyle(.white.opacity(0.9))
             
             Spacer()
         }
@@ -1014,7 +1134,7 @@ struct NotificationPermissionBanner: View {
         }
     }
     
-    private func checkNotificationStatus() {
+    func checkNotificationStatus() {
         Task {
             let notificationManager = ChurchNotificationManager.shared
             let isAuthorized = await notificationManager.checkAuthorizationStatus()
@@ -1024,7 +1144,7 @@ struct NotificationPermissionBanner: View {
         }
     }
     
-    private func requestNotificationPermission() {
+    func requestNotificationPermission() {
         Task {
             let notificationManager = ChurchNotificationManager.shared
             let granted = await notificationManager.requestNotificationPermission()
@@ -1172,7 +1292,7 @@ struct ChurchMapAnnotation: View {
                 )
         }
     }
-    }
+}
 
 struct ChurchCard: View {
     let church: Church

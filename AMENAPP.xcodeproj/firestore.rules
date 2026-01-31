@@ -1,0 +1,527 @@
+rules_version = '2';
+
+// Firestore Security Rules for AMENAPP
+// Production-Ready - Last Updated: January 31, 2026
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ============================================
+    // HELPER FUNCTIONS
+    // ============================================
+    
+    // Check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Check if user is the owner of the resource
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Check if user is a participant in a conversation
+    function isParticipant(participantIds) {
+      return isAuthenticated() && request.auth.uid in participantIds;
+    }
+    
+    // Check if user is blocked
+    function isBlocked(userId, blockedUserId) {
+      return exists(/databases/$(database)/documents/blocks/$(userId + '_' + blockedUserId));
+    }
+    
+    // Check if field exists in incoming data
+    function hasField(field) {
+      return field in request.resource.data;
+    }
+    
+    // Check if field is unchanged
+    function fieldUnchanged(field) {
+      return !hasField(field) || 
+             request.resource.data[field] == resource.data[field];
+    }
+    
+    // Validate string length
+    function isValidLength(field, maxLength) {
+      return !hasField(field) || 
+             request.resource.data[field].size() <= maxLength;
+    }
+    
+    // ============================================
+    // USERS COLLECTION
+    // Path: /users/{userId}
+    // ============================================
+    match /users/{userId} {
+      // Anyone authenticated can read user profiles
+      allow read: if isAuthenticated();
+      
+      // Users can create their own profile
+      allow create: if isOwner(userId) 
+                    && hasField('email')
+                    && hasField('username')
+                    && hasField('createdAt')
+                    && isValidLength('bio', 500)
+                    && isValidLength('username', 30);
+      
+      // Users can update their own profile
+      allow update: if isOwner(userId)
+                    && fieldUnchanged('email')  // Can't change email
+                    && fieldUnchanged('createdAt')  // Can't change creation date
+                    && fieldUnchanged('followersCount')  // Protected counts
+                    && fieldUnchanged('followingCount')
+                    && fieldUnchanged('postsCount')
+                    && isValidLength('bio', 500)
+                    && isValidLength('username', 30);
+      
+      // Users can delete their own profile
+      allow delete: if isOwner(userId);
+      
+      // Subcollection: Following
+      match /following/{followingId} {
+        allow read: if isOwner(userId) || isAuthenticated();
+        allow write: if isOwner(userId);
+      }
+      
+      // Subcollection: Followers
+      match /followers/{followerId} {
+        allow read: if isOwner(userId) || isAuthenticated();
+        allow write: if isOwner(userId);
+      }
+    }
+    
+    // ============================================
+    // FOLLOWS COLLECTION
+    // Path: /follows/{followId}
+    // ============================================
+    match /follows/{followId} {
+      // Anyone authenticated can read follows
+      allow read: if isAuthenticated();
+      
+      // Users can create follows for themselves
+      allow create: if isAuthenticated()
+                    && hasField('followerId')
+                    && hasField('followingId')
+                    && request.resource.data.followerId == request.auth.uid
+                    && request.resource.data.followerId != request.resource.data.followingId;
+      
+      // Users can delete their own follows
+      allow delete: if isAuthenticated() 
+                    && resource.data.followerId == request.auth.uid;
+    }
+    
+    // ============================================
+    // POSTS COLLECTION
+    // Path: /posts/{postId}
+    // ============================================
+    match /posts/{postId} {
+      // Anyone authenticated can read posts
+      allow read: if isAuthenticated();
+      
+      // Users can create posts
+      allow create: if isAuthenticated()
+                    && hasField('authorId')
+                    && hasField('content')
+                    && hasField('createdAt')
+                    && request.resource.data.authorId == request.auth.uid
+                    && isValidLength('content', 10000)
+                    && (!hasField('category') || 
+                        request.resource.data.category in ['openTable', 'testimonies', 'prayer', 'general']);
+      
+      // Only post author can update
+      allow update: if isAuthenticated()
+                    && resource.data.authorId == request.auth.uid
+                    && fieldUnchanged('authorId')  // Can't change author
+                    && fieldUnchanged('createdAt')  // Can't change date
+                    && fieldUnchanged('likesCount')  // Protected counts
+                    && fieldUnchanged('commentsCount')
+                    && fieldUnchanged('repostsCount')
+                    && isValidLength('content', 10000);
+      
+      // Only post author can delete
+      allow delete: if isAuthenticated() 
+                    && resource.data.authorId == request.auth.uid;
+      
+      // Subcollection: Comments
+      match /comments/{commentId} {
+        allow read: if isAuthenticated();
+        
+        allow create: if isAuthenticated()
+                      && hasField('authorId')
+                      && hasField('content')
+                      && request.resource.data.authorId == request.auth.uid
+                      && isValidLength('content', 2000);
+        
+        allow update: if isAuthenticated()
+                      && resource.data.authorId == request.auth.uid
+                      && fieldUnchanged('authorId')
+                      && isValidLength('content', 2000);
+        
+        allow delete: if isAuthenticated()
+                      && (resource.data.authorId == request.auth.uid ||
+                          get(/databases/$(database)/documents/posts/$(postId)).data.authorId == request.auth.uid);
+        
+        // Nested: Comment Replies
+        match /replies/{replyId} {
+          allow read: if isAuthenticated();
+          
+          allow create: if isAuthenticated()
+                        && hasField('authorId')
+                        && request.resource.data.authorId == request.auth.uid
+                        && isValidLength('content', 2000);
+          
+          allow update: if isAuthenticated()
+                        && resource.data.authorId == request.auth.uid;
+          
+          allow delete: if isAuthenticated()
+                        && resource.data.authorId == request.auth.uid;
+        }
+      }
+      
+      // Subcollection: Likes
+      match /likes/{likeId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated() && likeId == request.auth.uid;
+        allow delete: if isAuthenticated() && likeId == request.auth.uid;
+      }
+    }
+    
+    // ============================================
+    // CONVERSATIONS COLLECTION
+    // Path: /conversations/{conversationId}
+    // ============================================
+    match /conversations/{conversationId} {
+      // Users can read conversations they're part of
+      allow read: if isAuthenticated() 
+                  && request.auth.uid in resource.data.participantIds;
+      
+      // CRITICAL FIX: Use request.resource for creation (resource doesn't exist yet!)
+      allow create: if isAuthenticated()
+                    && hasField('participantIds')
+                    && request.auth.uid in request.resource.data.participantIds
+                    && request.resource.data.participantIds.size() >= 2;
+      
+      // Participants can update conversation metadata
+      allow update: if isAuthenticated() 
+                    && request.auth.uid in resource.data.participantIds
+                    && fieldUnchanged('participantIds')  // Can't change participants
+                    && fieldUnchanged('createdAt');
+      
+      // Participants can delete conversations
+      allow delete: if isAuthenticated() 
+                    && request.auth.uid in resource.data.participantIds;
+      
+      // Subcollection: Messages
+      match /messages/{messageId} {
+        // Participants can read messages
+        allow read: if isAuthenticated()
+                    && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+        
+        // Participants can send messages
+        allow create: if isAuthenticated()
+                      && hasField('senderId')
+                      && request.resource.data.senderId == request.auth.uid
+                      && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds
+                      && isValidLength('content', 10000);
+        
+        // Only sender can update their message
+        allow update: if isAuthenticated()
+                      && resource.data.senderId == request.auth.uid
+                      && fieldUnchanged('senderId')
+                      && isValidLength('content', 10000);
+        
+        // Only sender can delete their message
+        allow delete: if isAuthenticated()
+                      && resource.data.senderId == request.auth.uid;
+      }
+    }
+    
+    // ============================================
+    // PRAYERS COLLECTION
+    // Path: /prayers/{prayerId}
+    // ============================================
+    match /prayers/{prayerId} {
+      allow read: if isAuthenticated();
+      
+      allow create: if isAuthenticated()
+                    && hasField('authorId')
+                    && hasField('content')
+                    && request.resource.data.authorId == request.auth.uid
+                    && isValidLength('content', 5000)
+                    && isValidLength('title', 200);
+      
+      allow update: if isAuthenticated()
+                    && resource.data.authorId == request.auth.uid
+                    && fieldUnchanged('authorId')
+                    && fieldUnchanged('createdAt')
+                    && isValidLength('content', 5000);
+      
+      allow delete: if isAuthenticated()
+                    && resource.data.authorId == request.auth.uid;
+      
+      // Subcollection: Comments
+      match /comments/{commentId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated()
+                      && hasField('authorId')
+                      && request.resource.data.authorId == request.auth.uid
+                      && isValidLength('content', 2000);
+        allow update: if isAuthenticated()
+                      && resource.data.authorId == request.auth.uid;
+        allow delete: if isAuthenticated()
+                      && resource.data.authorId == request.auth.uid;
+      }
+      
+      // Subcollection: Support (likes)
+      match /support/{userId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated() && userId == request.auth.uid;
+        allow delete: if isAuthenticated() && userId == request.auth.uid;
+      }
+    }
+    
+    // ============================================
+    // TESTIMONIES COLLECTION
+    // Path: /testimonies/{testimonyId}
+    // ============================================
+    match /testimonies/{testimonyId} {
+      allow read: if isAuthenticated();
+      
+      allow create: if isAuthenticated()
+                    && hasField('authorId')
+                    && hasField('content')
+                    && request.resource.data.authorId == request.auth.uid
+                    && isValidLength('content', 10000)
+                    && isValidLength('title', 200);
+      
+      allow update: if isAuthenticated()
+                    && resource.data.authorId == request.auth.uid
+                    && fieldUnchanged('authorId')
+                    && isValidLength('content', 10000);
+      
+      allow delete: if isAuthenticated()
+                    && resource.data.authorId == request.auth.uid;
+      
+      // Subcollection: Comments
+      match /comments/{commentId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated()
+                      && hasField('authorId')
+                      && request.resource.data.authorId == request.auth.uid
+                      && isValidLength('content', 2000);
+        allow update: if isAuthenticated()
+                      && resource.data.authorId == request.auth.uid;
+        allow delete: if isAuthenticated()
+                      && resource.data.authorId == request.auth.uid;
+      }
+      
+      // Subcollection: Likes
+      match /likes/{userId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated() && userId == request.auth.uid;
+        allow delete: if isAuthenticated() && userId == request.auth.uid;
+      }
+    }
+    
+    // ============================================
+    // NOTIFICATIONS COLLECTION
+    // Path: /notifications/{notificationId}
+    // ============================================
+    match /notifications/{notificationId} {
+      // Users can read their own notifications
+      allow read: if isAuthenticated() 
+                  && resource.data.userId == request.auth.uid;
+      
+      // System can create notifications
+      allow create: if isAuthenticated()
+                    && hasField('userId');
+      
+      // Users can update their own notifications (mark as read)
+      allow update: if isAuthenticated() 
+                    && resource.data.userId == request.auth.uid;
+      
+      // Users can delete their own notifications
+      allow delete: if isAuthenticated() 
+                    && resource.data.userId == request.auth.uid;
+    }
+    
+    // ============================================
+    // BLOCKS COLLECTION
+    // Path: /blocks/{blockId}
+    // ============================================
+    match /blocks/{blockId} {
+      // Users can read their own blocks
+      allow read: if isAuthenticated()
+                  && (resource.data.blockerId == request.auth.uid ||
+                      resource.data.blockedId == request.auth.uid);
+      
+      // Users can create blocks
+      allow create: if isAuthenticated()
+                    && hasField('blockerId')
+                    && hasField('blockedId')
+                    && request.resource.data.blockerId == request.auth.uid
+                    && request.resource.data.blockerId != request.resource.data.blockedId;
+      
+      // Users can delete their own blocks
+      allow delete: if isAuthenticated()
+                    && resource.data.blockerId == request.auth.uid;
+    }
+    
+    // ============================================
+    // REPORTS COLLECTION
+    // Path: /reports/{reportId}
+    // ============================================
+    match /reports/{reportId} {
+      // Users can read their own reports
+      allow read: if isAuthenticated()
+                  && resource.data.reporterId == request.auth.uid;
+      
+      // Users can create reports
+      allow create: if isAuthenticated()
+                    && hasField('reporterId')
+                    && hasField('contentId')
+                    && hasField('reason')
+                    && request.resource.data.reporterId == request.auth.uid
+                    && isValidLength('reason', 500);
+      
+      // Reports cannot be updated or deleted (audit trail)
+      allow update: if false;
+      allow delete: if false;
+    }
+    
+    // ============================================
+    // SAVED POSTS COLLECTION
+    // Path: /savedPosts/{savedPostId}
+    // ============================================
+    match /savedPosts/{savedPostId} {
+      // Users can read their own saved posts
+      allow read: if isAuthenticated()
+                  && resource.data.userId == request.auth.uid;
+      
+      // Users can save posts
+      allow create: if isAuthenticated()
+                    && hasField('userId')
+                    && hasField('postId')
+                    && request.resource.data.userId == request.auth.uid;
+      
+      // Users can unsave posts
+      allow delete: if isAuthenticated()
+                    && resource.data.userId == request.auth.uid;
+    }
+    
+    // ============================================
+    // REPOSTS COLLECTION
+    // Path: /reposts/{repostId}
+    // ============================================
+    match /reposts/{repostId} {
+      allow read: if isAuthenticated();
+      
+      allow create: if isAuthenticated()
+                    && hasField('userId')
+                    && hasField('postId')
+                    && request.resource.data.userId == request.auth.uid;
+      
+      allow delete: if isAuthenticated()
+                    && resource.data.userId == request.auth.uid;
+    }
+    
+    // ============================================
+    // COMMUNITIES COLLECTION
+    // Path: /communities/{communityId}
+    // ============================================
+    match /communities/{communityId} {
+      allow read: if isAuthenticated();
+      
+      allow create: if isAuthenticated()
+                    && hasField('creatorId')
+                    && hasField('name')
+                    && request.resource.data.creatorId == request.auth.uid
+                    && isValidLength('name', 100)
+                    && isValidLength('description', 500);
+      
+      allow update: if isAuthenticated()
+                    && (resource.data.creatorId == request.auth.uid ||
+                        request.auth.uid in resource.data.adminIds)
+                    && fieldUnchanged('creatorId')
+                    && isValidLength('description', 500);
+      
+      allow delete: if isAuthenticated()
+                    && resource.data.creatorId == request.auth.uid;
+      
+      // Subcollection: Members
+      match /members/{memberId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated();
+        allow delete: if isAuthenticated() && memberId == request.auth.uid;
+      }
+    }
+    
+    // ============================================
+    // CHURCHES COLLECTION
+    // Path: /churches/{churchId}
+    // ============================================
+    match /churches/{churchId} {
+      // Anyone can read church info (public)
+      allow read: if true;
+      
+      // Authenticated users can create churches
+      allow create: if isAuthenticated()
+                    && hasField('name')
+                    && hasField('createdBy')
+                    && request.resource.data.createdBy == request.auth.uid
+                    && isValidLength('name', 200)
+                    && isValidLength('description', 1000);
+      
+      // Church creators or admins can update
+      allow update: if isAuthenticated()
+                    && (resource.data.createdBy == request.auth.uid ||
+                        request.auth.uid in resource.data.adminIds);
+      
+      // Only creators can delete
+      allow delete: if isAuthenticated()
+                    && resource.data.createdBy == request.auth.uid;
+    }
+    
+    // ============================================
+    // EVENTS COLLECTION
+    // Path: /events/{eventId}
+    // ============================================
+    match /events/{eventId} {
+      allow read: if isAuthenticated();
+      
+      allow create: if isAuthenticated()
+                    && hasField('creatorId')
+                    && hasField('title')
+                    && request.resource.data.creatorId == request.auth.uid
+                    && isValidLength('title', 200)
+                    && isValidLength('description', 2000);
+      
+      allow update: if isAuthenticated()
+                    && resource.data.creatorId == request.auth.uid;
+      
+      allow delete: if isAuthenticated()
+                    && resource.data.creatorId == request.auth.uid;
+    }
+    
+    // ============================================
+    // ANALYTICS COLLECTION (Read-only)
+    // Path: /analytics/{analyticsId}
+    // ============================================
+    match /analytics/{analyticsId} {
+      allow read: if false;  // Only backend access
+      allow write: if false;  // Only backend access
+    }
+    
+    // ============================================
+    // ADMIN COLLECTION (No access)
+    // Path: /admin/{document}
+    // ============================================
+    match /admin/{document=**} {
+      allow read: if false;
+      allow write: if false;
+    }
+    
+    // ============================================
+    // DEFAULT DENY ALL OTHER PATHS
+    // ============================================
+  }
+}

@@ -1,0 +1,329 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ========================================
+    // HELPER FUNCTIONS
+    // ========================================
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+    
+    // Check if user is blocked by another user
+    function isBlocked(userId) {
+      return exists(/databases/$(database)/documents/users/$(userId)/blockedUsers/$(request.auth.uid));
+    }
+    
+    // Check if current user has blocked another user
+    function hasBlocked(userId) {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid)/blockedUsers/$(userId));
+    }
+    
+    // Check if two users follow each other (mutual follow)
+    function areFollowingEachOther(userId1, userId2) {
+      return exists(/databases/$(database)/documents/follows/$(userId1 + '_' + userId2)) &&
+             exists(/databases/$(database)/documents/follows/$(userId2 + '_' + userId1));
+    }
+    
+    // Check if a user allows messages from anyone
+    function allowsMessagesFromAnyone(userId) {
+      let userData = get(/databases/$(database)/documents/users/$(userId)).data;
+      return !('allowMessagesFromEveryone' in userData) || userData.allowMessagesFromEveryone == true;
+    }
+    
+    // Check if user can message another user
+    function canMessageUser(targetUserId) {
+      return !isBlocked(targetUserId) && 
+             !hasBlocked(targetUserId) &&
+             (allowsMessagesFromAnyone(targetUserId) || 
+              areFollowingEachOther(request.auth.uid, targetUserId));
+    }
+    
+    // Validate required fields exist in data
+    function hasRequiredFields(data, fields) {
+      return data.keys().hasAll(fields);
+    }
+    
+    // Validate string field length
+    function isValidLength(str, maxLen) {
+      return str is string && str.size() <= maxLen;
+    }
+    
+    // Get other participant in a 2-person conversation
+    function getOtherParticipant(participantIds) {
+      return participantIds[0] == request.auth.uid ? participantIds[1] : participantIds[0];
+    }
+    
+    // ========================================
+    // USERS COLLECTION
+    // ========================================
+    
+    match /users/{userId} {
+      // Anyone authenticated can READ user profiles (needed for search, follows, etc.)
+      allow read: if isSignedIn();
+      
+      // Users can CREATE their own profile with required fields
+      allow create: if isSignedIn() && 
+                       request.auth.uid == userId &&
+                       hasRequiredFields(request.resource.data, ['username', 'email', 'displayName', 'createdAt']) &&
+                       isValidLength(request.resource.data.username, 30) &&
+                       isValidLength(request.resource.data.displayName, 100) &&
+                       (!('bio' in request.resource.data) || isValidLength(request.resource.data.bio, 500));
+      
+      // Users can UPDATE their own profile OR update follower counts (for follow/unfollow system)
+      allow update: if isSignedIn() && (
+        // Own profile updates
+        (request.auth.uid == userId &&
+         (!('username' in request.resource.data.diff(resource.data).affectedKeys()) || 
+          isValidLength(request.resource.data.username, 30)) &&
+         (!('displayName' in request.resource.data.diff(resource.data).affectedKeys()) || 
+          isValidLength(request.resource.data.displayName, 100)) &&
+         (!('bio' in request.resource.data.diff(resource.data).affectedKeys()) || 
+          isValidLength(request.resource.data.bio, 500))) ||
+        // System counter updates (follow/unfollow operations)
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['followersCount', 'followingCount', 'postsCount', 'updatedAt'])
+      );
+      
+      // Users can DELETE their own profile
+      allow delete: if isOwner(userId);
+      
+      // Privacy subcollections (blockedUsers, mutedUsers, etc.)
+      match /blockedUsers/{blockedUserId} {
+        // Users can read their own blocked list
+        allow read: if isOwner(userId);
+        // Users can block/unblock others
+        allow write: if isOwner(userId);
+      }
+      
+      match /mutedUsers/{mutedUserId} {
+        // Users can read their own muted list
+        allow read: if isOwner(userId);
+        // Users can mute/unmute others
+        allow write: if isOwner(userId);
+      }
+    }
+    
+    // ========================================
+    // FOLLOWS COLLECTION
+    // ========================================
+    
+    match /follows/{followId} {
+      // Anyone can read follows (needed for followers/following lists, feed generation)
+      allow read: if isSignedIn();
+      
+      // Users can create their own follows
+      // followId format: {followerId}_{followingId}
+      allow create: if isSignedIn() && 
+                       request.resource.data.followerUserId == request.auth.uid &&
+                       hasRequiredFields(request.resource.data, ['followerUserId', 'followingUserId', 'createdAt']) &&
+                       // Prevent self-follows
+                       request.resource.data.followerUserId != request.resource.data.followingUserId;
+      
+      // Users can update their own follows (e.g., changing status)
+      allow update: if isSignedIn() && 
+                       resource.data.followerUserId == request.auth.uid;
+      
+      // Users can delete (unfollow) their own follows
+      allow delete: if isSignedIn() && 
+                       resource.data.followerUserId == request.auth.uid;
+    }
+    
+    // ========================================
+    // CONVERSATIONS COLLECTION
+    // ========================================
+    
+    match /conversations/{conversationId} {
+      allow list: if isSignedIn() && 
+                     request.auth.uid in resource.data.participants;
+      
+      allow get: if isSignedIn() && 
+                    request.auth.uid in resource.data.participants;
+      
+      allow create: if isSignedIn() && 
+                       request.auth.uid in request.resource.data.participants &&
+                       hasRequiredFields(request.resource.data, ['participants', 'createdAt', 'lastMessage']) &&
+                       request.resource.data.participants.size() == 2 &&
+                       canMessageUser(getOtherParticipant(request.resource.data.participants));
+      
+      allow update: if isSignedIn() && 
+                       request.auth.uid in resource.data.participants &&
+                       request.auth.uid in request.resource.data.participants;
+      
+      allow delete: if isSignedIn() && 
+                       request.auth.uid in resource.data.participants;
+      
+      // Messages subcollection
+      match /messages/{messageId} {
+        allow read: if isSignedIn() && 
+                       request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
+        
+        allow create: if isSignedIn() && 
+                         request.auth.uid == request.resource.data.senderId &&
+                         hasRequiredFields(request.resource.data, ['senderId', 'content', 'timestamp']) &&
+                         isValidLength(request.resource.data.content, 10000) &&
+                         request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
+        
+        allow update, delete: if isSignedIn() && 
+                                 request.auth.uid == resource.data.senderId;
+      }
+    }
+    
+    // ========================================
+    // POSTS COLLECTION (OpenTable, Testimonies, Prayer)
+    // ========================================
+    
+    match /posts/{postId} {
+      // Anyone can read posts (needed for feed)
+      allow read: if isSignedIn();
+      
+      // Users can create their own posts
+      allow create: if isSignedIn() && 
+                       request.auth.uid == request.resource.data.authorId &&
+                       hasRequiredFields(request.resource.data, ['authorId', 'authorName', 'category', 'createdAt']) &&
+                       (!('content' in request.resource.data) || isValidLength(request.resource.data.content, 10000)) &&
+                       // Valid category
+                       request.resource.data.category in ['#OPENTABLE', 'Testimonies', 'Prayer'];
+      
+      // Post owner can update, OR system can update counters
+      allow update: if isSignedIn() && (
+        request.auth.uid == resource.data.authorId ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['amenCount', 'lightbulbCount', 'commentCount', 'repostCount', 'updatedAt'])
+      );
+      
+      // Only post owner can delete
+      allow delete: if isSignedIn() && 
+                       request.auth.uid == resource.data.authorId;
+      
+      // Comments subcollection
+      match /comments/{commentId} {
+        allow read: if isSignedIn();
+        
+        // Comments must have authorId matching auth
+        allow create: if isSignedIn() &&
+                         request.resource.data.authorId == request.auth.uid &&
+                         hasRequiredFields(request.resource.data, ['authorId', 'text', 'createdAt']) &&
+                         isValidLength(request.resource.data.text, 2000);
+        
+        allow update, delete: if isSignedIn() && 
+                                 request.auth.uid == resource.data.authorId;
+      }
+      
+      // Amens subcollection (likes)
+      match /amens/{userId} {
+        allow read: if isSignedIn();
+        // userId should be the user's ID
+        allow create, delete: if isSignedIn() && 
+                                 request.auth.uid == userId;
+      }
+      
+      // Lightbulbs subcollection (for #OPENTABLE)
+      match /lightbulbs/{userId} {
+        allow read: if isSignedIn();
+        allow create, delete: if isSignedIn() && 
+                                 request.auth.uid == userId;
+      }
+      
+      // Support subcollection (for Prayer)
+      match /support/{userId} {
+        allow read: if isSignedIn();
+        allow create, delete: if isSignedIn() && 
+                                 request.auth.uid == userId;
+      }
+      
+      // Reposts subcollection
+      match /reposts/{repostId} {
+        allow read: if isSignedIn();
+        // repostId should be the user's ID
+        allow create, delete: if isSignedIn() && 
+                                 request.auth.uid == repostId;
+      }
+    }
+    
+    // ========================================
+    // NOTIFICATIONS
+    // ========================================
+    
+    match /notifications/{notificationId} {
+      // Only recipient can read their notifications
+      allow read: if isSignedIn() && 
+                     resource.data.recipientId == request.auth.uid;
+      
+      // Anyone can create notifications (system-generated)
+      allow create: if isSignedIn() &&
+                       hasRequiredFields(request.resource.data, ['recipientId', 'type', 'createdAt']);
+      
+      // Only recipient can update (e.g., mark as read)
+      allow update: if isSignedIn() && 
+                       resource.data.recipientId == request.auth.uid;
+      
+      // Only recipient can delete
+      allow delete: if isSignedIn() && 
+                       resource.data.recipientId == request.auth.uid;
+    }
+    
+    // ========================================
+    // REPORTS
+    // ========================================
+    
+    match /reports/{reportId} {
+      // Admin-only reads (implement via Cloud Functions)
+      allow read: if false;
+      
+      // Users can create reports
+      allow create: if isSignedIn() && 
+                       request.auth.uid == request.resource.data.reporterId &&
+                       hasRequiredFields(request.resource.data, ['reporterId', 'reportedId', 'reason', 'createdAt']);
+      
+      // No updates or deletes
+      allow update, delete: if false;
+    }
+    
+    // ========================================
+    // COMMUNITIES (if you implement this feature)
+    // ========================================
+    
+    match /communities/{communityId} {
+      // Anyone can read communities
+      allow read: if isSignedIn();
+      
+      // Anyone can create a community (becomes creator/admin)
+      allow create: if isSignedIn() &&
+                       request.resource.data.creatorId == request.auth.uid &&
+                       request.auth.uid in request.resource.data.adminIds &&
+                       hasRequiredFields(request.resource.data, ['name', 'creatorId', 'adminIds', 'createdAt']) &&
+                       isValidLength(request.resource.data.name, 100) &&
+                       (!('description' in request.resource.data) || isValidLength(request.resource.data.description, 1000));
+      
+      // Only admins can update
+      allow update: if isSignedIn() && 
+                       request.auth.uid in resource.data.adminIds &&
+                       // Prevent removing yourself as last admin
+                       (request.resource.data.adminIds.size() > 0);
+      
+      // Only creator can delete
+      allow delete: if isSignedIn() && 
+                       request.auth.uid == resource.data.creatorId;
+      
+      // Members subcollection
+      match /members/{memberId} {
+        allow read: if isSignedIn();
+        
+        // Anyone can join (create membership)
+        allow create: if isSignedIn() &&
+                         request.resource.data.userId == request.auth.uid &&
+                         hasRequiredFields(request.resource.data, ['userId', 'joinedAt']);
+        
+        // Users can leave (delete their membership) OR admins can remove members
+        allow delete: if isSignedIn() && (
+          request.auth.uid == memberId ||
+          request.auth.uid in get(/databases/$(database)/documents/communities/$(communityId)).data.adminIds
+        );
+      }
+    }
+  }
+}

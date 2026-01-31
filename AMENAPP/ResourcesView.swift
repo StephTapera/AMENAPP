@@ -194,6 +194,10 @@ struct ResourcesView: View {
                     )
             }
         )
+        .overlay(
+            // ✨ Subtle shining animation border
+            ShiningBorderView(isActive: true)
+        )
         .shadow(color: .black.opacity(0.06), radius: 12, x: 0, y: 4)
         .shadow(color: .black.opacity(0.04), radius: 4, x: 0, y: 2)
         .padding(.horizontal)
@@ -506,13 +510,25 @@ struct DailyVerseCard: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Daily Bible Verse")
-                        .font(.custom("OpenSans-Bold", size: 16))
-                        .foregroundStyle(.primary)
+                    HStack(spacing: 6) {
+                        Image(systemName: "book.fill")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(.blue)
+                        
+                        Text("Daily Bible Verse")
+                            .font(.custom("OpenSans-Bold", size: 16))
+                            .foregroundStyle(.white)
+                    }
                     
                     Text(verse.reference)
                         .font(.custom("OpenSans-SemiBold", size: 12))
                         .foregroundStyle(.blue)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(
+                            Capsule()
+                                .fill(.blue.opacity(0.2))
+                        )
                 }
                 
                 Spacer()
@@ -526,14 +542,19 @@ struct DailyVerseCard: View {
                         Image(systemName: "arrow.clockwise")
                             .font(.system(size: 16, weight: .semibold))
                             .foregroundStyle(.blue)
+                            .padding(8)
+                            .background(
+                                Circle()
+                                    .fill(.blue.opacity(0.15))
+                            )
                     }
                 }
             }
             
             Text(verse.text)
                 .font(.custom("OpenSans-Regular", size: 15))
-                .foregroundStyle(.secondary)
-                .lineSpacing(4)
+                .foregroundStyle(.white.opacity(0.9))
+                .lineSpacing(6)
                 .opacity(isRefreshing ? 0.5 : 1.0)
                 .transition(.asymmetric(
                     insertion: .move(edge: .trailing).combined(with: .opacity),
@@ -541,18 +562,40 @@ struct DailyVerseCard: View {
                 ))
                 .id(verse.id)
         }
-        .padding()
+        .padding(20)
         .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(
-                    LinearGradient(
-                        colors: [Color.blue.opacity(0.1), Color.purple.opacity(0.1)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
+            ZStack {
+                // Dark glass base
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(.ultraThinMaterial)
+                    .background(
+                        RoundedRectangle(cornerRadius: 20)
+                            .fill(Color.black.opacity(0.3))
                     )
-                )
-                .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
+                
+                // Subtle colored tint
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.blue.opacity(0.08),
+                                Color.clear
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                
+                // Subtle border
+                RoundedRectangle(cornerRadius: 20)
+                    .stroke(
+                        Color.white.opacity(0.15),
+                        lineWidth: 1
+                    )
+            }
         )
+        .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: 10)
+        .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
         .padding(.horizontal)
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isRefreshing)
     }
@@ -567,14 +610,20 @@ struct BibleFactCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                HStack(spacing: 6) {
+                HStack(spacing: 8) {
                     Image(systemName: "lightbulb.fill")
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(.orange)
                         .symbolEffect(.bounce, value: fact.id)
+                        .padding(8)
+                        .background(
+                            Circle()
+                                .fill(.orange.opacity(0.2))
+                        )
                     
                     Text("Fun Bible Fact")
                         .font(.custom("OpenSans-Bold", size: 16))
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(.white)
                 }
                 
                 Spacer()
@@ -583,6 +632,11 @@ struct BibleFactCard: View {
                     Image(systemName: "arrow.clockwise")
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(.orange)
+                        .padding(8)
+                        .background(
+                            Circle()
+                                .fill(.orange.opacity(0.15))
+                        )
                         .rotationEffect(.degrees(isRefreshing ? 360 : 0))
                         .animation(.linear(duration: 1).repeatCount(isRefreshing ? 100 : 0, autoreverses: false), value: isRefreshing)
                 }
@@ -591,26 +645,48 @@ struct BibleFactCard: View {
             
             Text(fact.text)
                 .font(.custom("OpenSans-Regular", size: 15))
-                .foregroundStyle(.secondary)
-                .lineSpacing(4)
+                .foregroundStyle(.white.opacity(0.9))
+                .lineSpacing(6)
                 .transition(.asymmetric(
                     insertion: .move(edge: .trailing).combined(with: .opacity),
                     removal: .move(edge: .leading).combined(with: .opacity)
                 ))
                 .id(fact.id)
         }
-        .padding()
+        .padding(20)
         .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(
-                    LinearGradient(
-                        colors: [Color.orange.opacity(0.1), Color.yellow.opacity(0.1)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
+            ZStack {
+                // Dark glass base
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(.ultraThinMaterial)
+                    .background(
+                        RoundedRectangle(cornerRadius: 20)
+                            .fill(Color.black.opacity(0.3))
                     )
-                )
-                .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
+                
+                // Subtle colored tint
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.orange.opacity(0.08),
+                                Color.clear
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                
+                // Subtle border
+                RoundedRectangle(cornerRadius: 20)
+                    .stroke(
+                        Color.white.opacity(0.15),
+                        lineWidth: 1
+                    )
+            }
         )
+        .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: 10)
+        .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
         .padding(.horizontal)
     }
 }
@@ -1656,35 +1732,45 @@ struct FindFriendsBannerButton: View {
 // MARK: - Featured Community Banner
 struct FeaturedCommunityBanner: View {
     @State private var isAnimating = false
+    @State private var shimmerPhase: CGFloat = 0
     
     var body: some View {
         VStack(spacing: 0) {
-            // Hero section with animated gradient
+            // Hero section with glassmorphic design
             ZStack {
-                // Animated gradient background
+                // Base dark glass
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .background(
+                        RoundedRectangle(cornerRadius: 24, style: .continuous)
+                            .fill(Color.black.opacity(0.4))
+                    )
+                
+                // Subtle animated gradient overlay
                 LinearGradient(
                     colors: [
-                        Color.purple,
-                        Color.blue,
-                        Color.cyan
+                        Color.purple.opacity(0.15),
+                        Color.blue.opacity(0.12),
+                        Color.cyan.opacity(0.08)
                     ],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
-                .hueRotation(.degrees(isAnimating ? 30 : 0))
+                .hueRotation(.degrees(isAnimating ? 15 : 0))
                 .animation(
                     Animation.easeInOut(duration: 3)
                         .repeatForever(autoreverses: true),
                     value: isAnimating
                 )
+                .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
                 
-                // Overlay pattern
+                // Pattern overlay
                 VStack {
                     Spacer()
                     HStack {
                         Image(systemName: "person.3.fill")
                             .font(.system(size: 60))
-                            .foregroundStyle(.white.opacity(0.15))
+                            .foregroundStyle(.white.opacity(0.05))
                         Spacer()
                     }
                     .padding(20)
@@ -1698,6 +1784,7 @@ struct FeaturedCommunityBanner: View {
                                 Image(systemName: "sparkles")
                                     .font(.system(size: 14, weight: .bold))
                                     .foregroundStyle(.yellow)
+                                    .symbolEffect(.pulse, options: .repeating)
                                 
                                 Text("NEW")
                                     .font(.custom("OpenSans-Bold", size: 12))
@@ -1706,7 +1793,11 @@ struct FeaturedCommunityBanner: View {
                                     .padding(.vertical, 4)
                                     .background(
                                         Capsule()
-                                            .fill(.white.opacity(0.2))
+                                            .fill(.ultraThinMaterial)
+                                            .overlay(
+                                                Capsule()
+                                                    .stroke(Color.white.opacity(0.3), lineWidth: 1)
+                                            )
                                     )
                             }
                             
@@ -1716,7 +1807,7 @@ struct FeaturedCommunityBanner: View {
                             
                             Text("Join your church, university, or organization")
                                 .font(.custom("OpenSans-Regular", size: 14))
-                                .foregroundStyle(.white.opacity(0.9))
+                                .foregroundStyle(.white.opacity(0.95))
                                 .lineSpacing(2)
                         }
                         
@@ -1725,14 +1816,22 @@ struct FeaturedCommunityBanner: View {
                         Image(systemName: "arrow.right.circle.fill")
                             .font(.system(size: 32))
                             .foregroundStyle(.white)
+                            .symbolEffect(.bounce, value: isAnimating)
                     }
                     .padding(20)
                 }
             }
             .frame(height: 140)
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(
+                // Clean border
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .stroke(
+                        Color.white.opacity(0.15),
+                        lineWidth: 1
+                    )
+            )
             
-            // Quick stats bar
+            // Quick stats bar - glassmorphic
             HStack(spacing: 0) {
                 CommunityStatBadge(icon: "graduationcap.fill", text: "Universities", color: .blue)
                 
@@ -1748,13 +1847,26 @@ struct FeaturedCommunityBanner: View {
             }
             .padding(.vertical, 12)
             .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(.ultraThinMaterial)
+                ZStack {
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                        .background(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .fill(Color.black.opacity(0.3))
+                        )
+                    
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(
+                            Color.white.opacity(0.15),
+                            lineWidth: 1
+                        )
+                }
             )
             .offset(y: -8)
         }
         .padding(.horizontal, 20)
-        .shadow(color: .purple.opacity(0.3), radius: 20, y: 10)
+        .shadow(color: .black.opacity(0.3), radius: 20, y: 10)
+        .shadow(color: .black.opacity(0.15), radius: 8, y: 4)
         .onAppear {
             isAnimating = true
         }
@@ -1981,6 +2093,66 @@ struct ResourceFeatureHighlightRow: View {
             Text(text)
                 .font(.custom("OpenSans-Regular", size: 15))
                 .foregroundStyle(.primary)
+        }
+    }
+}
+
+// MARK: - Shining Border Animation Component
+
+struct ShiningBorderView: View {
+    let isActive: Bool
+    var color: Color = .white
+    
+    @State private var rotation: Double = 0
+    
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack {
+                // Rotating gradient for shimmer effect
+                AngularGradient(
+                    colors: [
+                        color.opacity(0),
+                        color.opacity(0.1),
+                        color.opacity(0.3),
+                        color.opacity(0.5),
+                        color.opacity(0.3),
+                        color.opacity(0.1),
+                        color.opacity(0)
+                    ],
+                    center: .center,
+                    angle: .degrees(rotation)
+                )
+                .blur(radius: 8)
+                .opacity(isActive ? 0.6 : 0)
+                
+                // Black/white shimmer overlay
+                AngularGradient(
+                    colors: [
+                        Color.black.opacity(0),
+                        Color.white.opacity(0.15),
+                        Color.black.opacity(0.1),
+                        Color.white.opacity(0.2),
+                        Color.black.opacity(0.1),
+                        Color.white.opacity(0.15),
+                        Color.black.opacity(0)
+                    ],
+                    center: .center,
+                    angle: .degrees(rotation + 45)
+                )
+                .blur(radius: 6)
+                .opacity(isActive ? 0.4 : 0)
+            }
+            .frame(width: geometry.size.width, height: geometry.size.height)
+            .onAppear {
+                if isActive {
+                    withAnimation(
+                        .linear(duration: 4)
+                        .repeatForever(autoreverses: false)
+                    ) {
+                        rotation = 360
+                    }
+                }
+            }
         }
     }
 }

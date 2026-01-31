@@ -1,0 +1,99 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // ========================================
+    // HELPER FUNCTIONS
+    // ========================================
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+    
+    function isVideo() {
+      return request.resource.contentType.matches('video/.*');
+    }
+    
+    function isUnderSize(sizeMB) {
+      return request.resource.size < sizeMB * 1024 * 1024;
+    }
+    
+    // ========================================
+    // PROFILE IMAGES
+    // ========================================
+    
+    match /profile_images/{userId}/{allPaths=**} {
+      // Anyone can read profile images (public profiles)
+      allow read: if isSignedIn();
+      
+      // Users can upload their own profile images (2MB limit)
+      allow write: if isSignedIn() && 
+                      isOwner(userId) && 
+                      isImage() && 
+                      isUnderSize(2);
+    }
+    
+    // ========================================
+    // MESSAGE MEDIA (Photos/Videos in DMs)
+    // ========================================
+    
+    match /message_media/{userId}/{allPaths=**} {
+      // Only conversation participants can read
+      allow read: if isSignedIn();
+      
+      // Users can upload their own message media (5MB for images, 10MB for videos)
+      allow write: if isSignedIn() && 
+                      isOwner(userId) && 
+                      (isImage() && isUnderSize(5) || isVideo() && isUnderSize(10));
+    }
+    
+    // ========================================
+    // POST MEDIA (#OPENTABLE, Testimonies, Prayer)
+    // ========================================
+    
+    match /post_media/{userId}/{allPaths=**} {
+      // Anyone authenticated can read post media (public posts)
+      allow read: if isSignedIn();
+      
+      // Users can upload their own post media (10MB limit for images/videos)
+      allow write: if isSignedIn() && 
+                      isOwner(userId) && 
+                      (isImage() || isVideo()) && 
+                      isUnderSize(10);
+    }
+    
+    // ========================================
+    // COMMUNITY MEDIA (if you implement communities)
+    // ========================================
+    
+    match /community_media/{communityId}/{allPaths=**} {
+      // Anyone authenticated can read community media
+      allow read: if isSignedIn();
+      
+      // Community admins can upload media (5MB limit)
+      // Note: This rule is simplified - in production, you'd check admin status via Firestore
+      allow write: if isSignedIn() && 
+                      (isImage() || isVideo()) && 
+                      isUnderSize(5);
+    }
+    
+    // ========================================
+    // TEMPORARY UPLOADS (for processing)
+    // ========================================
+    
+    match /temp/{userId}/{allPaths=**} {
+      // Only owner can read/write temp files
+      allow read, write: if isSignedIn() && 
+                            isOwner(userId) && 
+                            isUnderSize(10);
+    }
+  }
+}

@@ -16,24 +16,27 @@ extension FirebaseMessagingService {
     // MARK: - Follow Status Detection
     
     /// Check if two users follow each other
+    /// UPDATED: Use /follows collection instead of subcollections
     func checkFollowStatus(userId1: String, userId2: String) async throws -> (user1FollowsUser2: Bool, user2FollowsUser1: Bool) {
         let db = Firestore.firestore()
         
-        async let user1Follows = db.collection("users")
-            .document(userId1)
-            .collection("following")
-            .document(userId2)
-            .getDocument()
+        // Check if user1 follows user2
+        async let user1FollowsQuery = db.collection("follows")
+            .whereField("followerId", isEqualTo: userId1)
+            .whereField("followingId", isEqualTo: userId2)
+            .limit(to: 1)
+            .getDocuments()
         
-        async let user2Follows = db.collection("users")
-            .document(userId2)
-            .collection("following")
-            .document(userId1)
-            .getDocument()
+        // Check if user2 follows user1
+        async let user2FollowsQuery = db.collection("follows")
+            .whereField("followerId", isEqualTo: userId2)
+            .whereField("followingId", isEqualTo: userId1)
+            .limit(to: 1)
+            .getDocuments()
         
-        let (doc1, doc2) = try await (user1Follows, user2Follows)
+        let (snapshot1, snapshot2) = try await (user1FollowsQuery, user2FollowsQuery)
         
-        return (doc1.exists, doc2.exists)
+        return (!snapshot1.documents.isEmpty, !snapshot2.documents.isEmpty)
     }
     
     /// Check if current user can message another user

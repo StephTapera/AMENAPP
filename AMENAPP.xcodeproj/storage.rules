@@ -1,0 +1,195 @@
+rules_version = '2';
+
+// Firebase Storage Security Rules for AMENAPP
+// Production-Ready - Last Updated: January 31, 2026
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // ============================================
+    // HELPER FUNCTIONS
+    // ============================================
+    
+    // Check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Check if the authenticated user owns this resource
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Check if file is an image
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+    
+    // Check if file is a video
+    function isVideo() {
+      return request.resource.contentType.matches('video/.*');
+    }
+    
+    // Check if file is audio
+    function isAudio() {
+      return request.resource.contentType.matches('audio/.*');
+    }
+    
+    // Check if file size is under limit (10MB)
+    function isValidSize() {
+      return request.resource.size < 10 * 1024 * 1024;
+    }
+    
+    // Check if file size is under limit for voice messages (5MB)
+    function isValidVoiceSize() {
+      return request.resource.size < 5 * 1024 * 1024;
+    }
+    
+    // ============================================
+    // PROFILE IMAGES
+    // Path: /profile_images/{userId}/{fileName}
+    // ============================================
+    match /profile_images/{userId}/{fileName} {
+      // Anyone can read profile images (they're public)
+      allow read: if true;
+      
+      // Only the user can upload/update/delete their own profile image
+      allow write: if isOwner(userId) && isImage() && isValidSize();
+    }
+    
+    // ============================================
+    // AVATARS (Alternative profile images)
+    // Path: /avatars/{userId}/{fileName}
+    // ============================================
+    match /avatars/{userId}/{fileName} {
+      allow read: if true;
+      allow write: if isOwner(userId) && isImage() && isValidSize();
+    }
+    
+    // ============================================
+    // COVER PHOTOS
+    // Path: /covers/{userId}/{fileName}
+    // ============================================
+    match /covers/{userId}/{fileName} {
+      allow read: if true;
+      allow write: if isOwner(userId) && isImage() && isValidSize();
+    }
+    
+    // ============================================
+    // POST IMAGES
+    // Path: /post_images/{userId}/{fileName}
+    // ============================================
+    match /post_images/{userId}/{fileName} {
+      // Authenticated users can read post images
+      allow read: if isAuthenticated();
+      
+      // Users can upload images to their own folder
+      allow write: if isOwner(userId) && isImage() && isValidSize();
+    }
+    
+    // ============================================
+    // POST VIDEOS
+    // Path: /post_videos/{userId}/{fileName}
+    // ============================================
+    match /post_videos/{userId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId) && isVideo() && isValidSize();
+    }
+    
+    // ============================================
+    // TESTIMONY IMAGES
+    // Path: /testimony_images/{userId}/{fileName}
+    // ============================================
+    match /testimony_images/{userId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId) && isImage() && isValidSize();
+    }
+    
+    // ============================================
+    // TESTIMONY VIDEOS
+    // Path: /testimony_videos/{userId}/{fileName}
+    // ============================================
+    match /testimony_videos/{userId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId) && isVideo() && isValidSize();
+    }
+    
+    // ============================================
+    // PRAYER IMAGES
+    // Path: /prayer_images/{userId}/{fileName}
+    // ============================================
+    match /prayer_images/{userId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId) && isImage() && isValidSize();
+    }
+    
+    // ============================================
+    // MESSAGE PHOTOS
+    // Path: /message_photos/{userId}/{fileName}
+    // ============================================
+    match /message_photos/{userId}/{fileName} {
+      // Only authenticated users can access message photos
+      allow read: if isAuthenticated();
+      
+      // Users can upload photos to their own folder
+      allow write: if isOwner(userId) && isImage() && isValidSize();
+    }
+    
+    // ============================================
+    // VOICE MESSAGES
+    // Path: /voice_messages/{userId}/{fileName}
+    // ============================================
+    match /voice_messages/{userId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId) && isAudio() && isValidVoiceSize();
+    }
+    
+    // ============================================
+    // COMMUNITY IMAGES
+    // Path: /community_images/{communityId}/{fileName}
+    // ============================================
+    match /community_images/{communityId}/{fileName} {
+      // Anyone can read community images (public)
+      allow read: if true;
+      
+      // Only authenticated users can upload community images
+      // Additional verification should be done in Firestore rules
+      allow write: if isAuthenticated() && isImage() && isValidSize();
+    }
+    
+    // ============================================
+    // EVENT IMAGES
+    // Path: /event_images/{eventId}/{fileName}
+    // ============================================
+    match /event_images/{eventId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && isImage() && isValidSize();
+    }
+    
+    // ============================================
+    // CHURCH IMAGES
+    // Path: /church_images/{churchId}/{fileName}
+    // ============================================
+    match /church_images/{churchId}/{fileName} {
+      // Anyone can read church images (public)
+      allow read: if true;
+      
+      // Only authenticated users can upload church images
+      allow write: if isAuthenticated() && isImage() && isValidSize();
+    }
+    
+    // ============================================
+    // TEMPORARY UPLOADS (24-hour expiry)
+    // Path: /temp/{userId}/{fileName}
+    // ============================================
+    match /temp/{userId}/{fileName} {
+      allow read: if isOwner(userId);
+      allow write: if isOwner(userId) && isValidSize();
+    }
+    
+    // ============================================
+    // DEFAULT DENY
+    // All other paths are denied by default
+    // ============================================
+  }
+}

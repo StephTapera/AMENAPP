@@ -120,6 +120,71 @@ struct UserModel: Codable, Identifiable {
         case hasCompletedOnboarding
     }
     
+    // ✅ Custom decoder for backward compatibility
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        // Required fields
+        email = try container.decode(String.self, forKey: .email)
+        displayName = try container.decode(String.self, forKey: .displayName)
+        username = try container.decode(String.self, forKey: .username)
+        
+        // Optional fields with defaults
+        id = try container.decodeIfPresent(String.self, forKey: .id)
+        initials = try container.decodeIfPresent(String.self, forKey: .initials) ?? String(displayName.prefix(2)).uppercased()
+        bio = try container.decodeIfPresent(String.self, forKey: .bio)
+        profileImageURL = try container.decodeIfPresent(String.self, forKey: .profileImageURL)
+        createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
+        updatedAt = try container.decodeIfPresent(Date.self, forKey: .updatedAt) ?? Date()
+        
+        // Social stats
+        followersCount = try container.decodeIfPresent(Int.self, forKey: .followersCount) ?? 0
+        followingCount = try container.decodeIfPresent(Int.self, forKey: .followingCount) ?? 0
+        postsCount = try container.decodeIfPresent(Int.self, forKey: .postsCount) ?? 0
+        
+        // Preferences
+        isPrivate = try container.decodeIfPresent(Bool.self, forKey: .isPrivate) ?? false
+        notificationsEnabled = try container.decodeIfPresent(Bool.self, forKey: .notificationsEnabled) ?? true
+        pushNotificationsEnabled = try container.decodeIfPresent(Bool.self, forKey: .pushNotificationsEnabled) ?? true
+        emailNotificationsEnabled = try container.decodeIfPresent(Bool.self, forKey: .emailNotificationsEnabled) ?? true
+        notifyOnLikes = try container.decodeIfPresent(Bool.self, forKey: .notifyOnLikes) ?? true
+        notifyOnComments = try container.decodeIfPresent(Bool.self, forKey: .notifyOnComments) ?? true
+        notifyOnFollows = try container.decodeIfPresent(Bool.self, forKey: .notifyOnFollows) ?? true
+        notifyOnMentions = try container.decodeIfPresent(Bool.self, forKey: .notifyOnMentions) ?? true
+        notifyOnPrayerRequests = try container.decodeIfPresent(Bool.self, forKey: .notifyOnPrayerRequests) ?? true
+        allowMessagesFromEveryone = try container.decodeIfPresent(Bool.self, forKey: .allowMessagesFromEveryone) ?? true
+        showActivityStatus = try container.decodeIfPresent(Bool.self, forKey: .showActivityStatus) ?? true
+        allowTagging = try container.decodeIfPresent(Bool.self, forKey: .allowTagging) ?? true
+        
+        // ✅ Profile visibility with defaults
+        showInterests = try container.decodeIfPresent(Bool.self, forKey: .showInterests) ?? true
+        showSocialLinks = try container.decodeIfPresent(Bool.self, forKey: .showSocialLinks) ?? true
+        showBio = try container.decodeIfPresent(Bool.self, forKey: .showBio) ?? true
+        showFollowerCount = try container.decodeIfPresent(Bool.self, forKey: .showFollowerCount) ?? true
+        showFollowingCount = try container.decodeIfPresent(Bool.self, forKey: .showFollowingCount) ?? true
+        showSavedPosts = try container.decodeIfPresent(Bool.self, forKey: .showSavedPosts) ?? false
+        showReposts = try container.decodeIfPresent(Bool.self, forKey: .showReposts) ?? true
+        
+        // Security settings
+        loginAlerts = try container.decodeIfPresent(Bool.self, forKey: .loginAlerts) ?? true
+        showSensitiveContent = try container.decodeIfPresent(Bool.self, forKey: .showSensitiveContent) ?? false
+        requirePasswordForPurchases = try container.decodeIfPresent(Bool.self, forKey: .requirePasswordForPurchases) ?? true
+        
+        // Account changes
+        lastUsernameChange = try container.decodeIfPresent(Date.self, forKey: .lastUsernameChange)
+        lastDisplayNameChange = try container.decodeIfPresent(Date.self, forKey: .lastDisplayNameChange)
+        pendingUsernameChange = try container.decodeIfPresent(String.self, forKey: .pendingUsernameChange)
+        pendingDisplayNameChange = try container.decodeIfPresent(String.self, forKey: .pendingDisplayNameChange)
+        usernameChangeRequestDate = try container.decodeIfPresent(Date.self, forKey: .usernameChangeRequestDate)
+        displayNameChangeRequestDate = try container.decodeIfPresent(Date.self, forKey: .displayNameChangeRequestDate)
+        
+        // Onboarding
+        interests = try container.decodeIfPresent([String].self, forKey: .interests)
+        goals = try container.decodeIfPresent([String].self, forKey: .goals)
+        preferredPrayerTime = try container.decodeIfPresent(String.self, forKey: .preferredPrayerTime)
+        hasCompletedOnboarding = try container.decodeIfPresent(Bool.self, forKey: .hasCompletedOnboarding) ?? false
+    }
+    
     init(
         id: String? = nil,
         email: String,
@@ -217,6 +282,8 @@ struct UserModel: Codable, Identifiable {
 
 @MainActor
 class UserService: ObservableObject {
+    static let shared = UserService()
+    
     @Published var currentUser: UserModel?
     @Published var isLoading = false
     @Published var error: String?

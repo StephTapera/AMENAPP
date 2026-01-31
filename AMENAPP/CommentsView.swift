@@ -14,7 +14,7 @@ struct CommentsView: View {
     let post: Post
     
     @StateObject private var commentService = CommentService.shared
-    @EnvironmentObject var userService: UserService
+    @StateObject private var userService = UserService.shared // ✅ Use shared instance instead of environment
     
     @State private var commentText = ""
     @State private var replyingTo: Comment?
@@ -89,7 +89,7 @@ struct CommentsView: View {
                                 // Replies
                                 if !commentWithReplies.replies.isEmpty {
                                     VStack(spacing: 0) {
-                                        ForEach(commentWithReplies.replies) { reply in
+                                        ForEach(Array(commentWithReplies.replies.enumerated()), id: \.offset) { index, reply in
                                             HStack(spacing: 0) {
                                                 // Reply indicator line
                                                 Rectangle()
@@ -112,11 +112,13 @@ struct CommentsView: View {
                                                     }
                                                 )
                                             }
+                                            .id("reply-\(commentWithReplies.id)-\(index)")
                                         }
                                     }
                                 }
                             }
                             .padding(.vertical, 8)
+                            .id("comment-\(commentWithReplies.id)")
                             
                             Divider()
                                 .padding(.leading, 60)
@@ -381,7 +383,6 @@ private struct PostCommentRow: View {
     let onAmen: () -> Void
     
     @State private var showOptions = false
-    @EnvironmentObject var userService: UserService
     
     private var isOwnComment: Bool {
         comment.authorId == FirebaseManager.shared.currentUser?.uid

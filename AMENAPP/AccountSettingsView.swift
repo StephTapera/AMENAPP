@@ -734,7 +734,7 @@ struct InfoRow: View {
 
 struct ChangePasswordView: View {
     @Environment(\.dismiss) var dismiss
-    @EnvironmentObject var authViewModel: AuthenticationViewModel
+    @StateObject private var authViewModel = AuthenticationViewModel()
     
     @State private var currentPassword = ""
     @State private var newPassword = ""
@@ -1010,7 +1010,7 @@ struct RequirementRow: View {
 
 struct DeleteAccountView: View {
     @Environment(\.dismiss) var dismiss
-    @EnvironmentObject var authViewModel: AuthenticationViewModel
+    @StateObject private var authViewModel = AuthenticationViewModel()
     @StateObject private var userService = UserService()
     
     @State private var password = ""

@@ -50,12 +50,25 @@ class CommentService: ObservableObject {
             throw NSError(domain: "CommentService", code: -1, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
         }
         
-        // Use PostInteractionsService to add comment to Realtime Database
+        // ✅ NEW: Fetch username BEFORE adding comment
+        let authorUsername: String
+        do {
+            let userProfile = try await userService.fetchUserProfile(userId: userId)
+            authorUsername = userProfile.username
+            print("✅ Using username: @\(authorUsername)")
+        } catch {
+            print("⚠️ Failed to fetch username, generating fallback from userId")
+            // Fallback: use first 8 chars of userId
+            authorUsername = "user\(userId.prefix(8))"
+        }
+        
+        // ✅ UPDATED: Pass username to PostInteractionsService
         let interactionsService = PostInteractionsService.shared
         let commentId = try await interactionsService.addComment(
             postId: postId,
             content: content,
-            authorInitials: firebaseManager.currentUser?.displayName?.prefix(2).uppercased() ?? "??"
+            authorInitials: firebaseManager.currentUser?.displayName?.prefix(2).uppercased() ?? "??",
+            authorUsername: authorUsername  // ← NEW PARAMETER
         )
         
         print("✅ Comment created with ID: \(commentId)")
@@ -71,15 +84,7 @@ class CommentService: ObservableObject {
         let authorInitials = commentData["authorInitials"] as? String ?? currentUserName.prefix(2).uppercased()
         let timestamp = commentData["timestamp"] as? Int64 ?? Int64(Date().timeIntervalSince1970 * 1000)
         
-        // Fetch username from user profile
-        let authorUsername: String
-        do {
-            let currentUser = try await userService.fetchUserProfile(userId: userId)
-            authorUsername = currentUser.username ?? "@user"
-        } catch {
-            print("⚠️ Failed to fetch user profile: \(error)")
-            authorUsername = "@user"
-        }
+        // ✅ REMOVED: No longer need to fetch username here - we already have it
         
         // Verify we have the essential data
         if commentData.isEmpty {
@@ -92,7 +97,7 @@ class CommentService: ObservableObject {
             postId: postId,
             authorId: userId,
             authorName: authorName,
-            authorUsername: authorUsername,
+            authorUsername: authorUsername,  // ✅ Use the username we already fetched
             authorInitials: String(authorInitials),
             authorProfileImageURL: nil,
             content: content,
@@ -177,14 +182,21 @@ class CommentService: ObservableObject {
         var fetchedComments: [Comment] = []
         
         for rtComment in realtimeComments {
-            // Fetch username from user profile
+            // ✅ NEW: Use username from RTDB if available, otherwise fetch or generate fallback
             let authorUsername: String
-            do {
-                let user = try await userService.fetchUserProfile(userId: rtComment.authorId)
-                authorUsername = user.username ?? "@\(user.displayName.lowercased().replacingOccurrences(of: " ", with: ""))"
-            } catch {
-                print("⚠️ Failed to fetch user profile: \(error)")
-                authorUsername = "@user"
+            if let storedUsername = rtComment.authorUsername, !storedUsername.isEmpty {
+                authorUsername = storedUsername
+                print("✅ Using stored username: @\(authorUsername)")
+            } else {
+                // Fallback: Try to fetch from Firestore for old comments
+                do {
+                    let user = try await userService.fetchUserProfile(userId: rtComment.authorId)
+                    authorUsername = user.username
+                    print("⚠️ Fetched username from Firestore (old comment): @\(authorUsername)")
+                } catch {
+                    print("⚠️ No stored username and fetch failed, using fallback")
+                    authorUsername = "user\(rtComment.authorId.prefix(8))"
+                }
             }
             
             let comment = Comment(
@@ -449,11 +461,17 @@ class CommentService: ObservableObject {
                     // Fetch username from user profile
                     let authorUsername: String
                     do {
-                        let user = try await self.userService.fetchUserProfile(userId: authorId)
-                        authorUsername = user.username ?? "@\(user.displayName.lowercased().replacingOccurrences(of: " ", with: ""))"
+                        // ✅ NEW: Check if username is already in RTDB
+                        if let storedUsername = commentData["authorUsername"] as? String, !storedUsername.isEmpty {
+                            authorUsername = storedUsername
+                        } else {
+                            // Fallback: Fetch from Firestore for old comments
+                            let user = try await self.userService.fetchUserProfile(userId: authorId)
+                            authorUsername = user.username
+                        }
                     } catch {
                         print("⚠️ Failed to fetch user profile: \(error)")
-                        authorUsername = "@user"
+                        authorUsername = "user\(authorId.prefix(8))"
                     }
                     
                     let comment = Comment(

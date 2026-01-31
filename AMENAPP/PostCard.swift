@@ -21,7 +21,7 @@ struct PostCard: View {
     let isUserPost: Bool // Track if this is the current user's post
     
     @StateObject private var postsManager = PostsManager.shared
-    @StateObject private var savedPostsService = SavedPostsService.shared
+    @StateObject private var savedPostsService = RealtimeSavedPostsService.shared
     @StateObject private var followService = FollowService.shared
     @StateObject private var moderationService = ModerationService.shared
     @StateObject private var interactionsService = PostInteractionsService.shared
@@ -167,17 +167,51 @@ struct PostCard: View {
     
     private var avatarContent: some View {
         ZStack(alignment: .bottomTrailing) {
+            // Show profile image if available, otherwise show gradient circle with initials
+            if let post = post, let profileImageURL = post.authorProfileImageURL, !profileImageURL.isEmpty {
+                profileImageView(url: profileImageURL)
+            } else {
+                // Fallback to gradient with initials
+                avatarCircleWithInitials
+            }
+            
+            // Follow button - only show if not user's post
+            if !isUserPost {
+                followButton
+            }
+        }
+    }
+    
+    private func profileImageView(url: String) -> some View {
+        AsyncImage(url: URL(string: url)) { phase in
+            switch phase {
+            case .success(let image):
+                image
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 44, height: 44)
+                    .clipShape(Circle())
+                    .overlay(
+                        Circle()
+                            .stroke(Color.black.opacity(0.1), lineWidth: 1)
+                    )
+            case .failure(_), .empty:
+                // Fallback to initials if image fails to load
+                avatarCircleWithInitials
+            @unknown default:
+                avatarCircleWithInitials
+            }
+        }
+    }
+    
+    private var avatarCircleWithInitials: some View {
+        ZStack {
             avatarCircle
             
             // User initials - black text on white/gray background
             Text(userInitials)
                 .font(.custom("OpenSans-Bold", size: 16))
                 .foregroundStyle(.black)
-            
-            // Follow button - only show if not user's post
-            if !isUserPost {
-                followButton
-            }
         }
     }
     
@@ -241,9 +275,9 @@ struct PostCard: View {
                 .frame(width: 20, height: 20)
                 .shadow(color: .black.opacity(0.2), radius: 2, y: 1)
             
-            // Icon
+            // Icon - smaller "+" symbol
             Image(systemName: isFollowing ? "checkmark" : "plus")
-                .font(.system(size: 11, weight: .bold))
+                .font(.system(size: 9, weight: .bold))
                 .foregroundStyle(.white)
         }
     }
@@ -555,9 +589,15 @@ struct PostCard: View {
     
     private var authorNameRow: some View {
         HStack(spacing: 8) {
-            Text(authorName)
-                .font(.custom("OpenSans-Bold", size: 15))
-                .foregroundStyle(.primary)
+            // Make author name tappable to view profile
+            Button {
+                openAuthorProfile()
+            } label: {
+                Text(authorName)
+                    .font(.custom("OpenSans-Bold", size: 15))
+                    .foregroundStyle(.primary)
+            }
+            .buttonStyle(PlainButtonStyle())
             
             // Category badge - only show for non-OpenTable posts
             if category != .openTable {
@@ -811,12 +851,29 @@ struct PostCard: View {
     ) -> some View {
         Button(action: action) {
             HStack(spacing: 6) {
-                // Icon with black/white design
+                // Icon with black/white design + subtle gradient border when active
                 ZStack {
                     // Background circle - black and white only
                     Circle()
                         .fill(isActive ? Color.black : Color(.systemGray6))
                         .frame(width: 32, height: 32)
+                    
+                    // Subtle gradient accent border when active
+                    if isActive {
+                        Circle()
+                            .strokeBorder(
+                                LinearGradient(
+                                    colors: [
+                                        activeColor.opacity(0.4),
+                                        activeColor.opacity(0.1)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 1.5
+                            )
+                            .frame(width: 32, height: 32)
+                    }
                     
                     // Icon - white when active, black when inactive
                     Image(systemName: icon)
@@ -1010,6 +1067,21 @@ struct PostCard: View {
     }
     
     // MARK: - Actions
+    
+    /// Open the author's profile (if not the current user)
+    private func openAuthorProfile() {
+        // Don't open profile for current user's own posts
+        guard !isUserPost, let post = post else {
+            print("ℹ️ Cannot open profile for own post")
+            return
+        }
+        
+        let haptic = UIImpactFeedbackGenerator(style: .light)
+        haptic.impactOccurred()
+        
+        showUserProfile = true
+        print("👤 Opening profile for: \(authorName) (ID: \(post.authorId))")
+    }
     
     /// Check if post can be edited (within 30 minutes of creation)
     private func canEditPost(_ post: Post) -> Bool {
@@ -1324,27 +1396,15 @@ struct PostCard: View {
         
         Task {
             do {
-                if isSaved {
-                    // Unsave the post
-                    try await savedPostsService.unsavePost(postId: post.id.uuidString)
-                    
-                    // Update local state
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                        isSaved = false
-                    }
-                    
-                    print("🗑️ Post unsaved")
-                } else {
-                    // Save the post (pass post object for notification)
-                    try await savedPostsService.savePost(postId: post.id.uuidString, post: post)
-                    
-                    // Update local state
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                        isSaved = true
-                    }
-                    
-                    print("💾 Post saved")
+                // Toggle using RTDB service (returns true if saved, false if unsaved)
+                let isSavedNow = try await savedPostsService.toggleSavePost(postId: post.id.uuidString)
+                
+                // Update local state with animation
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    isSaved = isSavedNow
                 }
+                
+                print(isSavedNow ? "💾 Post saved" : "🗑️ Post unsaved")
                 
                 // Haptic feedback
                 let haptic = UIImpactFeedbackGenerator(style: .medium)
@@ -1817,7 +1877,7 @@ private struct PostCardSheetsModifier: ViewModifier {
 private struct PostCardInteractionsModifier: ViewModifier {
     let post: Post?
     let interactionsService: PostInteractionsService
-    let savedPostsService: SavedPostsService
+    let savedPostsService: RealtimeSavedPostsService
     
     @Binding var hasLitLightbulb: Bool
     @Binding var hasSaidAmen: Bool
@@ -1842,7 +1902,15 @@ private struct PostCardInteractionsModifier: ViewModifier {
                 // Load initial states
                 hasLitLightbulb = await interactionsService.hasLitLightbulb(postId: postId)
                 hasSaidAmen = await interactionsService.hasAmened(postId: postId)
-                isSaved = await savedPostsService.isPostSaved(postId: postId)
+                
+                // Check saved status using RTDB service
+                do {
+                    isSaved = try await savedPostsService.isPostSaved(postId: postId)
+                } catch {
+                    print("⚠️ Failed to check saved status: \(error)")
+                    isSaved = savedPostsService.isPostSavedSync(postId: postId)
+                }
+                
                 hasReposted = await interactionsService.hasReposted(postId: postId)
                 
                 // Check if currently praying (if prayer post)

@@ -497,6 +497,76 @@ class ModerationService: ObservableObject {
         }
     }
     
+    // MARK: - Hide Profile From User
+    
+    /// Hide your profile from a specific user
+    func hideProfileFromUser(userId: String) async throws {
+        print("👁️‍🗨️ Hiding profile from user: \(userId)")
+        
+        guard let currentUserId = firebaseManager.currentUser?.uid else {
+            throw FirebaseError.unauthorized
+        }
+        
+        // Don't hide from yourself
+        guard userId != currentUserId else {
+            print("⚠️ Cannot hide from yourself")
+            return
+        }
+        
+        // Add to hiddenFrom array in user document
+        try await db.collection(FirebaseManager.CollectionPath.users)
+            .document(currentUserId)
+            .updateData([
+                "hiddenFromUsers": FieldValue.arrayUnion([userId])
+            ])
+        
+        print("✅ Profile hidden from user successfully")
+        
+        let haptic = UIImpactFeedbackGenerator(style: .medium)
+        haptic.impactOccurred()
+    }
+    
+    /// Unhide your profile from a specific user
+    func unhideProfileFromUser(userId: String) async throws {
+        print("👁️ Unhiding profile from user: \(userId)")
+        
+        guard let currentUserId = firebaseManager.currentUser?.uid else {
+            throw FirebaseError.unauthorized
+        }
+        
+        // Remove from hiddenFrom array in user document
+        try await db.collection(FirebaseManager.CollectionPath.users)
+            .document(currentUserId)
+            .updateData([
+                "hiddenFromUsers": FieldValue.arrayRemove([userId])
+            ])
+        
+        print("✅ Profile unhidden from user successfully")
+        
+        let haptic = UIImpactFeedbackGenerator(style: .light)
+        haptic.impactOccurred()
+    }
+    
+    /// Check if your profile is hidden from a specific user
+    func isHiddenFrom(userId: String) async -> Bool {
+        guard let currentUserId = firebaseManager.currentUser?.uid else {
+            return false
+        }
+        
+        do {
+            let userDoc = try await db.collection(FirebaseManager.CollectionPath.users)
+                .document(currentUserId)
+                .getDocument()
+            
+            let hiddenFromUsers = userDoc.data()?["hiddenFromUsers"] as? [String] ?? []
+            return hiddenFromUsers.contains(userId)
+            
+        } catch {
+            print("⚠️ Failed to check hide status: \(error)")
+            return false
+        }
+    }
+    
     // MARK: - Fetch Lists
     
     /// Fetch all blocked users

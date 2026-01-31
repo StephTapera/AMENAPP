@@ -9,6 +9,9 @@
 
 import SwiftUI
 import FirebaseFirestore
+import AuthenticationServices
+import CryptoKit
+import GoogleSignIn
 
 struct SignInView: View {
     @EnvironmentObject var viewModel: AuthenticationViewModel
@@ -21,6 +24,9 @@ struct SignInView: View {
     @State private var isCheckingUsername = false
     @State private var usernameAvailable: Bool?
     @State private var usernameCheckTask: Task<Void, Never>? // Track the task
+    @State private var showPasswordReset = false
+    @State private var resetEmail = ""
+    @State private var showResetSuccess = false
     
     private let userService = UserService()
     
@@ -155,6 +161,22 @@ struct SignInView: View {
                         .padding(.horizontal, 4)
                         .transition(.opacity)
                     }
+                    
+                    // Forgot Password Button (login only)
+                    if isLogin {
+                        HStack {
+                            Spacer()
+                            Button {
+                                showPasswordReset = true
+                            } label: {
+                                Text("Forgot Password?")
+                                    .font(.custom("OpenSans-SemiBold", size: 13))
+                                    .foregroundStyle(.black.opacity(0.6))
+                            }
+                        }
+                        .padding(.top, 4)
+                        .transition(.opacity)
+                    }
                 }
                 .padding(.horizontal, 32)
                 .animation(.easeInOut(duration: 0.3), value: isLogin)
@@ -203,6 +225,37 @@ struct SignInView: View {
                 }
                 .padding(.top, 20)
                 
+                // OR Divider
+                HStack(spacing: 16) {
+                    Rectangle()
+                        .frame(height: 1)
+                        .foregroundStyle(.black.opacity(0.1))
+                    
+                    Text("OR")
+                        .font(.custom("OpenSans-SemiBold", size: 12))
+                        .foregroundStyle(.black.opacity(0.4))
+                    
+                    Rectangle()
+                        .frame(height: 1)
+                        .foregroundStyle(.black.opacity(0.1))
+                }
+                .padding(.horizontal, 32)
+                .padding(.top, 24)
+                
+                // Social Sign-In Buttons
+                VStack(spacing: 12) {
+                    // Apple Sign-In Button
+                    AppleSignInButton()
+                        .frame(height: 52)
+                        .padding(.horizontal, 32)
+                    
+                    // Google Sign-In Button
+                    GoogleSignInButton()
+                        .frame(height: 52)
+                        .padding(.horizontal, 32)
+                }
+                .padding(.top, 16)
+                
                 Spacer()
                 Spacer()
             }
@@ -215,6 +268,40 @@ struct SignInView: View {
             if let errorMessage = viewModel.errorMessage {
                 Text(errorMessage)
             }
+        }
+        .sheet(isPresented: $showPasswordReset) {
+            PasswordResetSheet(
+                resetEmail: $resetEmail,
+                showSuccess: $showResetSuccess,
+                onSend: {
+                    Task {
+                        do {
+                            try await viewModel.sendPasswordReset(email: resetEmail)
+                            showPasswordReset = false
+                            showResetSuccess = true
+                            
+                            // Success haptic
+                            let haptic = UINotificationFeedbackGenerator()
+                            haptic.notificationOccurred(.success)
+                        } catch {
+                            viewModel.errorMessage = "Failed to send reset email. Please check the email address."
+                            viewModel.showError = true
+                            showPasswordReset = false
+                            
+                            // Error haptic
+                            let haptic = UINotificationFeedbackGenerator()
+                            haptic.notificationOccurred(.error)
+                        }
+                    }
+                }
+            )
+            .presentationDetents([.medium])
+            .presentationDragIndicator(.visible)
+        }
+        .alert("Email Sent! ✅", isPresented: $showResetSuccess) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("Check your inbox for password reset instructions")
         }
     }
     
@@ -232,10 +319,21 @@ struct SignInView: View {
                 return false
             }
             
+            // Email format validation
+            if !isValidEmailFormat(email) {
+                return false
+            }
+            
             // Username must be checked and available
             // Allow sign-up if username check is still pending (nil) for better UX
             return usernameAvailable == true || usernameAvailable == nil
         }
+    }
+    
+    private func isValidEmailFormat(_ email: String) -> Bool {
+        let emailRegex = "[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,64}"
+        let predicate = NSPredicate(format: "SELF MATCHES %@", emailRegex)
+        return predicate.evaluate(with: email)
     }
     
     private func handleAuth() {
@@ -254,6 +352,12 @@ struct SignInView: View {
                     // Assume it's username without @ prefix
                     await signInWithUsername("@\(loginIdentifier)")
                 }
+                
+                // ✅ Cache user name for messaging after successful login
+                if viewModel.isAuthenticated {
+                    await FirebaseMessagingService.shared.fetchAndCacheCurrentUserName()
+                    print("✅ User name cached for messaging")
+                }
             } else {
                 await viewModel.signUp(
                     email: email,
@@ -261,6 +365,12 @@ struct SignInView: View {
                     displayName: displayName,
                     username: username
                 )
+                
+                // ✅ Cache user name after successful signup
+                if viewModel.isAuthenticated {
+                    await FirebaseMessagingService.shared.fetchAndCacheCurrentUserName()
+                    print("✅ User name cached for messaging")
+                }
             }
         }
     }
@@ -632,6 +742,276 @@ private struct UsernameTextField: View {
         let usernameRegex = "^[a-z0-9_]{3,20}$"
         let predicate = NSPredicate(format: "SELF MATCHES %@", usernameRegex)
         return predicate.evaluate(with: text.lowercased())
+    }
+}
+
+// MARK: - Apple Sign-In Button
+
+struct AppleSignInButton: View {
+    @EnvironmentObject var viewModel: AuthenticationViewModel
+    @State private var currentNonce: String?
+    
+    var body: some View {
+        SignInWithAppleButton(
+            onRequest: { request in
+                let nonce = randomNonceString()
+                currentNonce = nonce
+                request.requestedScopes = [.fullName, .email]
+                request.nonce = sha256(nonce)
+            },
+            onCompletion: { result in
+                switch result {
+                case .success(let authorization):
+                    handleAppleSignIn(authorization)
+                case .failure(let error):
+                    Task { @MainActor in
+                        viewModel.errorMessage = "Apple Sign-In failed: \(error.localizedDescription)"
+                        viewModel.showError = true
+                    }
+                }
+            }
+        )
+        .signInWithAppleButtonStyle(.black)
+        .frame(height: 52)
+        .cornerRadius(26)
+    }
+    
+    private func handleAppleSignIn(_ authorization: ASAuthorization) {
+        guard let appleIDCredential = authorization.credential as? ASAuthorizationAppleIDCredential,
+              let nonce = currentNonce,
+              let appleIDToken = appleIDCredential.identityToken,
+              let idTokenString = String(data: appleIDToken, encoding: .utf8) else {
+            Task { @MainActor in
+                viewModel.errorMessage = "Unable to process Apple Sign-In"
+                viewModel.showError = true
+            }
+            return
+        }
+        
+        Task {
+            do {
+                let _ = try await FirebaseManager.shared.signInWithApple(
+                    idToken: idTokenString,
+                    nonce: nonce,
+                    fullName: appleIDCredential.fullName
+                )
+                
+                await MainActor.run {
+                    viewModel.isAuthenticated = true
+                    viewModel.needsOnboarding = true
+                }
+                
+                // Cache user name for messaging
+                await FirebaseMessagingService.shared.fetchAndCacheCurrentUserName()
+                
+            } catch {
+                await MainActor.run {
+                    viewModel.errorMessage = "Sign-in failed: \(error.localizedDescription)"
+                    viewModel.showError = true
+                }
+            }
+        }
+    }
+    
+    // Helper functions for Apple Sign-In nonce
+    private func randomNonceString(length: Int = 32) -> String {
+        precondition(length > 0)
+        var randomBytes = [UInt8](repeating: 0, count: length)
+        let errorCode = SecRandomCopyBytes(kSecRandomDefault, randomBytes.count, &randomBytes)
+        if errorCode != errSecSuccess {
+            fatalError("Unable to generate nonce. SecRandomCopyBytes failed with OSStatus \(errorCode)")
+        }
+        
+        let charset: [Character] = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._")
+        let nonce = randomBytes.map { byte in
+            charset[Int(byte) % charset.count]
+        }
+        
+        return String(nonce)
+    }
+    
+    private func sha256(_ input: String) -> String {
+        let inputData = Data(input.utf8)
+        let hashedData = SHA256.hash(data: inputData)
+        let hashString = hashedData.compactMap {
+            String(format: "%02x", $0)
+        }.joined()
+        
+        return hashString
+    }
+}
+
+// MARK: - Google Sign-In Button
+
+struct GoogleSignInButton: View {
+    @EnvironmentObject var viewModel: AuthenticationViewModel
+    
+    var body: some View {
+        Button {
+            handleGoogleSignIn()
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "g.circle.fill")
+                    .font(.system(size: 20))
+                    .foregroundStyle(.white)
+                
+                Text("Continue with Google")
+                    .font(.custom("OpenSans-SemiBold", size: 16))
+                    .foregroundStyle(.white)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 52)
+            .background(
+                RoundedRectangle(cornerRadius: 26)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color(red: 0.26, green: 0.52, blue: 0.96),
+                                Color(red: 0.20, green: 0.43, blue: 0.86)
+                            ],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+            )
+        }
+        .disabled(viewModel.isLoading)
+    }
+    
+    private func handleGoogleSignIn() {
+        Task {
+            do {
+                viewModel.isLoading = true
+                
+                let _ = try await FirebaseManager.shared.signInWithGoogle()
+                
+                await MainActor.run {
+                    viewModel.isAuthenticated = true
+                    viewModel.needsOnboarding = true
+                    viewModel.isLoading = false
+                }
+                
+                // Cache user name for messaging
+                await FirebaseMessagingService.shared.fetchAndCacheCurrentUserName()
+                
+            } catch {
+                await MainActor.run {
+                    viewModel.errorMessage = "Google Sign-In failed: \(error.localizedDescription)"
+                    viewModel.showError = true
+                    viewModel.isLoading = false
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Password Reset Sheet
+
+struct PasswordResetSheet: View {
+    @Environment(\.dismiss) var dismiss
+    @Binding var resetEmail: String
+    @Binding var showSuccess: Bool
+    let onSend: () -> Void
+    
+    @State private var isValidEmail = false
+    
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 24) {
+                // Icon
+                ZStack {
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color(red: 0.5, green: 0.3, blue: 0.9).opacity(0.2),
+                                    Color(red: 0.6, green: 0.4, blue: 1.0).opacity(0.1)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 80, height: 80)
+                    
+                    Image(systemName: "envelope.fill")
+                        .font(.system(size: 36))
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [
+                                    Color(red: 0.5, green: 0.3, blue: 0.9),
+                                    Color(red: 0.6, green: 0.4, blue: 1.0)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                }
+                .padding(.top, 20)
+                
+                // Title & Description
+                VStack(spacing: 8) {
+                    Text("Reset Password")
+                        .font(.custom("OpenSans-Bold", size: 24))
+                        .foregroundStyle(.black)
+                    
+                    Text("Enter your email address and we'll send you instructions to reset your password")
+                        .font(.custom("OpenSans-Regular", size: 14))
+                        .foregroundStyle(.black.opacity(0.6))
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 20)
+                }
+                
+                // Email Input
+                CleanTextField(
+                    icon: "envelope",
+                    placeholder: "Email",
+                    text: $resetEmail,
+                    keyboardType: .emailAddress
+                )
+                .padding(.horizontal, 32)
+                .onChange(of: resetEmail) { _, newValue in
+                    isValidEmail = isValidEmailFormat(newValue)
+                }
+                
+                // Send Button
+                Button {
+                    onSend()
+                } label: {
+                    Text("Send Reset Link")
+                        .font(.custom("OpenSans-SemiBold", size: 16))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 52)
+                        .background(
+                            RoundedRectangle(cornerRadius: 26)
+                                .fill(.black)
+                        )
+                }
+                .disabled(!isValidEmail)
+                .opacity(isValidEmail ? 1.0 : 0.5)
+                .padding(.horizontal, 32)
+                .padding(.top, 8)
+                
+                Spacer()
+            }
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 24))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+    }
+    
+    private func isValidEmailFormat(_ email: String) -> Bool {
+        let emailRegex = "[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,64}"
+        let predicate = NSPredicate(format: "SELF MATCHES %@", emailRegex)
+        return predicate.evaluate(with: email)
     }
 }
 
