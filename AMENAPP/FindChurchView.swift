@@ -152,7 +152,7 @@ struct FindChurchView: View {
                             withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                                 useRealSearch.toggle()
                                 if useRealSearch {
-                                    performRealSearch()
+                                    self.performRealSearch()
                                 }
                             }
                         } label: {
@@ -367,7 +367,7 @@ extension FindChurchView {
                 let haptic = UIImpactFeedbackGenerator(style: .light)
                 haptic.impactOccurred()
                 
-                _ = try await churchSearchService.searchChurches(near: userLoc)
+                _ = try await $churchSearchService.searchChurches(near: userLoc)
                 
                 print("✅ Found \(churchSearchService.searchResults.count) churches nearby")
                 
