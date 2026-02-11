@@ -521,7 +521,7 @@ struct TestimonyPostCard: View {
         \(post.content)
         
         Join us on AMEN APP to share and read more testimonies!
-        https://amenapp.com/testimony/\(post.id.uuidString)
+        https://amenapp.com/testimony/\(post.firestoreId)
         """
         return [shareText]
     }
@@ -727,7 +727,7 @@ struct TestimonyPostCard: View {
         haptic.impactOccurred()
         
         // Background sync to Firebase
-        let postId = post.id.uuidString
+        let postId = post.firestoreId
         let currentAmenState = hasAmened
         
         Task.detached(priority: .userInitiated) {
@@ -818,7 +818,7 @@ struct TestimonyPostCard: View {
         onRepost()
         
         // Background sync to Firebase
-        let postId = post.id.uuidString
+        let postId = post.firestoreId
         let currentRepostState = hasReposted
         
         Task.detached(priority: .userInitiated) {
@@ -925,7 +925,7 @@ struct TestimonyPostCard: View {
     
     /// Load interaction states from Firebase
     private func loadInteractionStates() async {
-        let postId = post.id.uuidString
+        let postId = post.firestoreId
         let interactionsService = PostInteractionsService.shared
         
         // Check if user has amened
@@ -948,7 +948,7 @@ struct TestimonyPostCard: View {
     }
     
     private func copyLink() {
-        UIPasteboard.general.string = "https://amenapp.com/testimony/\(post.id.uuidString)"
+        UIPasteboard.general.string = "https://amenapp.com/testimony/\(post.firestoreId)"
         let haptic = UINotificationFeedbackGenerator()
         haptic.notificationOccurred(.success)
         print("🔗 Link copied to clipboard")
@@ -1102,7 +1102,7 @@ struct TestimonyCommentSection: View {
                     TestimonyCommentRow(
                         comment: comment,
                         commentId: comment.id,
-                        postId: post.id.uuidString
+                        postId: post.firestoreId
                     )
                 }
             }
@@ -1120,7 +1120,7 @@ struct TestimonyCommentSection: View {
         isLoading = true
         
         do {
-            let fetchedComments = try await commentService.fetchComments(for: post.id.uuidString)
+            let fetchedComments = try await commentService.fetchComments(for: post.firestoreId)
             
             await MainActor.run {
                 comments = fetchedComments.map { $0.toTestimonyFeedComment() }
@@ -1639,7 +1639,7 @@ struct TestimonyFullCommentSheet: View {
                                     TestimonyCommentRow(
                                         comment: comment,
                                         commentId: comment.id,
-                                        postId: post.id.uuidString
+                                        postId: post.firestoreId
                                     )
                                     .padding(.horizontal)
                                 }
@@ -1683,7 +1683,7 @@ struct TestimonyFullCommentSheet: View {
         isLoading = true
         
         do {
-            let fetchedComments = try await commentService.fetchComments(for: post.id.uuidString)
+            let fetchedComments = try await commentService.fetchComments(for: post.firestoreId)
             
             await MainActor.run {
                 comments = fetchedComments.map { $0.toTestimonyFeedComment() }
@@ -1714,7 +1714,7 @@ struct TestimonyFullCommentSheet: View {
         Task {
             do {
                 let newComment = try await commentService.addComment(
-                    postId: post.id.uuidString,
+                    postId: post.firestoreId,
                     content: commentText
                 )
                 

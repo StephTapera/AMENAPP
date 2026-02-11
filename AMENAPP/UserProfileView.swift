@@ -612,8 +612,7 @@ struct UserProfileView: View {
                 postType = .openTable
             }
             
-            // Convert post.id (UUID) to String, or generate new UUID string if nil
-            let postId = post.id.uuidString ?? UUID().uuidString
+            let postId = post.firestoreId
             
             return ProfilePost(
                 id: postId,  // Real Firestore post ID

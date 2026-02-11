@@ -14,6 +14,7 @@ import FirebaseFirestore
 
 struct Post: Identifiable, Codable, Equatable {
     let id: UUID
+    let databaseId: String  // Actual Firestore/RTDB document ID (stable across loads)
     let authorId: String  // Firebase user ID of the post author
     let authorName: String
     let authorUsername: String?  // Optional username (e.g., @johndoe)
@@ -68,7 +69,7 @@ struct Post: Identifiable, Codable, Equatable {
     // MARK: - Custom Decoding (Handle Missing Fields)
     
     enum CodingKeys: String, CodingKey {
-        case id, authorId, authorName, authorUsername, authorInitials, authorProfileImageURL, timeAgo
+        case id, databaseId, authorId, authorName, authorUsername, authorInitials, authorProfileImageURL, timeAgo
         case content, category, topicTag, visibility, allowComments
         case imageURLs, linkURL, createdAt
         case amenCount, lightbulbCount, commentCount, repostCount
@@ -77,8 +78,9 @@ struct Post: Identifiable, Codable, Equatable {
     
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        
+
         id = try container.decode(UUID.self, forKey: .id)
+        databaseId = try container.decodeIfPresent(String.self, forKey: .databaseId) ?? id.uuidString
         authorId = try container.decode(String.self, forKey: .authorId)
         authorName = try container.decode(String.self, forKey: .authorName)
         
@@ -110,8 +112,9 @@ struct Post: Identifiable, Codable, Equatable {
     
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        
+
         try container.encode(id, forKey: .id)
+        try container.encode(databaseId, forKey: .databaseId)
         try container.encode(authorId, forKey: .authorId)
         try container.encode(authorName, forKey: .authorName)
         try container.encodeIfPresent(authorUsername, forKey: .authorUsername)
@@ -137,6 +140,7 @@ struct Post: Identifiable, Codable, Equatable {
     
     init(
         id: UUID = UUID(),
+        databaseId: String? = nil,
         authorId: String = "",
         authorName: String,
         authorUsername: String? = nil,
@@ -160,6 +164,7 @@ struct Post: Identifiable, Codable, Equatable {
         originalAuthorId: String? = nil
     ) {
         self.id = id
+        self.databaseId = databaseId ?? id.uuidString
         self.authorId = authorId
         self.authorName = authorName
         self.authorUsername = authorUsername
@@ -407,7 +412,7 @@ class PostsManager: ObservableObject {
     func repostToProfile(originalPost: Post, userInitials: String = "JD", userName: String = "John Disciple") {
         Task {
             do {
-                try await firebasePostService.repostToProfile(originalPostId: originalPost.id.uuidString)
+                try await firebasePostService.repostToProfile(originalPostId: originalPost.firestoreId)
                 
                 print("✅ Post reposted successfully")
                 
