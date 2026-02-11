@@ -284,6 +284,7 @@ class RealtimePostService: ObservableObject {
         let authorName = postData["authorName"] as? String ?? "Unknown"
         let authorUsername = postData["authorUsername"] as? String ?? ""
         let authorInitials = postData["authorInitials"] as? String ?? "?"
+        let authorProfileImageURL = postData["authorProfileImageURL"] as? String
         let content = postData["content"] as? String ?? ""
         let categoryStr = postData["category"] as? String ?? "openTable"
         let topicTag = postData["topicTag"] as? String
@@ -317,7 +318,9 @@ class RealtimePostService: ObservableObject {
             id: UUID(uuidString: postId) ?? UUID(),
             authorId: authorId,
             authorName: authorName,
+            authorUsername: authorUsername,
             authorInitials: authorInitials,
+            authorProfileImageURL: authorProfileImageURL,
             timeAgo: createdAt.timeAgo(),
             content: content,
             category: category,
