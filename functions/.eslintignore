@@ -1,0 +1,10 @@
+node_modules/
+*.swift
+*.md
+*.json
+*.lock
+.git/
+../AMENAPP/
+../AMENAPP.xcodeproj/
+../*.md
+../*.swift

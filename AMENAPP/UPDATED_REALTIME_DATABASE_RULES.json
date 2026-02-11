@@ -1,0 +1,514 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "postInteractions": {
+      "$postId": {
+        ".read": "auth != null",
+
+        "lightbulbs": {
+          "$userId": {
+            ".write": "auth != null && auth.uid == $userId",
+            ".validate": "newData.hasChildren(['timestamp', 'userName']) || !newData.exists()",
+
+            "timestamp": {
+              ".validate": "newData.isNumber()"
+            },
+            "userName": {
+              ".validate": "newData.isString()"
+            }
+          }
+        },
+
+        "amens": {
+          "$userId": {
+            ".write": "auth != null && auth.uid == $userId",
+            ".validate": "newData.hasChildren(['userId', 'userName', 'timestamp']) || !newData.exists()",
+
+            "userId": {
+              ".validate": "newData.isString()"
+            },
+            "userName": {
+              ".validate": "newData.isString()"
+            },
+            "timestamp": {
+              ".validate": "newData.isNumber()"
+            },
+            "createdAt": {
+              ".validate": "newData.isNumber()"
+            }
+          }
+        },
+
+        "reposts": {
+          "$userId": {
+            ".write": "auth != null && auth.uid == $userId",
+            ".validate": "newData.hasChildren(['timestamp', 'userName']) || !newData.exists()",
+
+            "timestamp": {
+              ".validate": "newData.isNumber()"
+            },
+            "userName": {
+              ".validate": "newData.isString()"
+            }
+          }
+        },
+
+        "comments": {
+          "$commentId": {
+            ".write": "auth != null && (!data.exists() || data.child('authorId').val() == auth.uid || data.child('userId').val() == auth.uid)",
+            ".validate": "newData.hasChildren(['authorId', 'content', 'timestamp']) || !newData.exists()",
+
+            "authorId": {
+              ".validate": "newData.isString()"
+            },
+            "authorName": {
+              ".validate": "newData.isString()"
+            },
+            "authorInitials": {
+              ".validate": "newData.isString()"
+            },
+            "authorProfileImageURL": {
+              ".validate": "newData.isString()"
+            },
+            "authorUsername": {
+              ".validate": "newData.isString()"
+            },
+            "id": {
+              ".validate": "newData.isString()"
+            },
+            "postId": {
+              ".validate": "newData.isString()"
+            },
+            "userId": {
+              ".validate": "newData.isString()"
+            },
+            "userName": {
+              ".validate": "newData.isString()"
+            },
+            "content": {
+              ".validate": "newData.isString() && newData.val().length <= 2000"
+            },
+            "text": {
+              ".validate": "newData.isString() && newData.val().length <= 2000"
+            },
+            "timestamp": {
+              ".validate": "newData.isNumber()"
+            },
+            "createdAt": {
+              ".validate": "newData.isNumber()"
+            },
+            "likes": {
+              ".validate": "newData.isNumber() && newData.val() >= 0"
+            },
+            "parentCommentId": {
+              ".validate": "newData.isString()"
+            }
+          }
+        },
+
+        "amenCount": {
+          ".write": "auth != null",
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+
+        "commentCount": {
+          ".write": "auth != null",
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+
+        "repostCount": {
+          ".write": "auth != null",
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+
+        "lightbulbCount": {
+          ".write": "auth != null",
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        }
+      }
+    },
+
+    "userInteractions": {
+      "$userId": {
+        ".read": "auth != null && auth.uid == $userId",
+
+        "lightbulbs": {
+          "$postId": {
+            ".write": "auth != null && auth.uid == $userId",
+            ".validate": "newData.isBoolean() || newData.hasChildren(['timestamp']) || !newData.exists()",
+
+            "timestamp": {
+              ".validate": "newData.isNumber()"
+            }
+          }
+        },
+
+        "amens": {
+          "$postId": {
+            ".write": "auth != null && auth.uid == $userId",
+            ".validate": "newData.isBoolean() || newData.hasChildren(['timestamp']) || !newData.exists()",
+
+            "timestamp": {
+              ".validate": "newData.isNumber()"
+            }
+          }
+        },
+
+        "reposts": {
+          "$postId": {
+            ".write": "auth != null && auth.uid == $userId",
+            ".validate": "newData.isBoolean() || newData.hasChildren(['timestamp']) || !newData.exists()",
+
+            "timestamp": {
+              ".validate": "newData.isNumber()"
+            }
+          }
+        }
+      }
+    },
+
+    "user-reposts": {
+      "$userId": {
+        ".read": "auth != null",
+        ".write": "auth != null && auth.uid == $userId"
+      }
+    },
+
+    "user_saved_posts": {
+      "$userId": {
+        ".read": "auth != null && auth.uid == $userId",
+        ".write": "auth != null && auth.uid == $userId"
+      }
+    },
+
+    "savedPosts": {
+      "$userId": {
+        ".read": "auth != null && auth.uid == $userId",
+        ".write": "auth != null && auth.uid == $userId"
+      }
+    },
+
+    "user_posts": {
+      "$userId": {
+        ".read": "auth != null",
+
+        "$postId": {
+          ".write": "auth != null && auth.uid == $userId",
+          ".validate": "newData.isBoolean() || newData.hasChildren(['timestamp', 'createdAt']) || !newData.exists()",
+
+          "timestamp": {
+            ".validate": "newData.isNumber()"
+          },
+          "createdAt": {
+            ".validate": "newData.isNumber()"
+          },
+          "content": {
+            ".validate": "newData.isString()"
+          },
+          "category": {
+            ".validate": "newData.isString()"
+          }
+        }
+      }
+    },
+
+    "test": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+
+      "connection": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    },
+
+    "comments": {
+      "$postId": {
+        ".read": "auth != null",
+
+        "$commentId": {
+          ".write": "auth != null && (!data.exists() || data.child('authorId').val() == auth.uid)",
+          ".validate": "newData.hasChildren(['authorId', 'content', 'createdAt']) || !newData.exists()",
+
+          "authorId": {
+            ".validate": "newData.isString()"
+          },
+          "authorName": {
+            ".validate": "newData.isString()"
+          },
+          "authorInitials": {
+            ".validate": "newData.isString()"
+          },
+          "authorProfileImageURL": {
+            ".validate": "newData.isString()"
+          },
+          "content": {
+            ".validate": "newData.isString() && newData.val().length <= 2000"
+          },
+          "createdAt": {
+            ".validate": "newData.isNumber()"
+          }
+        }
+      }
+    },
+
+    "comment_stats": {
+      "$commentId": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        ".validate": "newData.hasChildren(['amenCount', 'replyCount']) || !newData.exists()",
+
+        "amenCount": {
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+        "replyCount": {
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        }
+      }
+    },
+
+    "comment_interactions": {
+      "$commentId": {
+        ".read": "auth != null",
+
+        "amen": {
+          "$userId": {
+            ".write": "auth != null && auth.uid == $userId",
+            ".validate": "newData.isNumber() || !newData.exists()"
+          }
+        }
+      }
+    },
+
+    "user_comments": {
+      "$userId": {
+        ".read": "auth != null && auth.uid == $userId",
+
+        "$commentId": {
+          ".write": "auth != null && auth.uid == $userId",
+          ".validate": "newData.isNumber() || !newData.exists()"
+        }
+      }
+    },
+
+    "posts": {
+      "$postId": {
+        ".read": true,
+        "repostCount": {
+          ".write": "auth != null",
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        }
+      },
+      "recent": {
+        ".read": "auth != null",
+        "$postId": {
+          ".write": "auth != null && (!data.exists() || data.child('authorId').val() == auth.uid)",
+          ".validate": "newData.hasChildren(['authorId', 'authorName', 'content', 'timestamp']) || !newData.exists()",
+
+          "authorId": {
+            ".validate": "newData.isString()"
+          },
+          "authorName": {
+            ".validate": "newData.isString()"
+          },
+          "content": {
+            ".validate": "newData.isString()"
+          },
+          "timestamp": {
+            ".validate": "newData.isNumber()"
+          }
+        }
+      },
+
+      "byCategory": {
+        "$category": {
+          ".read": "auth != null",
+          "$postId": {
+            ".write": "auth != null && (!data.exists() || data.child('authorId').val() == auth.uid)"
+          }
+        }
+      }
+    },
+
+    "post-reposts": {
+      "$postId": {
+        ".read": true,
+        "$userId": {
+          ".write": "auth != null && auth.uid == $userId"
+        }
+      }
+    },
+
+    "prayerRequests": {
+      "$prayerId": {
+        ".read": "auth != null",
+
+        "prayers": {
+          "$prayId": {
+            ".write": "auth != null",
+            ".validate": "newData.hasChildren(['userId', 'createdAt']) || !newData.exists()",
+
+            "userId": {
+              ".validate": "newData.isString()"
+            },
+            "userName": {
+              ".validate": "newData.isString()"
+            },
+            "createdAt": {
+              ".validate": "newData.isNumber()"
+            }
+          }
+        },
+
+        "prayerCount": {
+          ".write": "auth != null",
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        }
+      }
+    },
+
+    "userPresence": {
+      "$userId": {
+        ".read": "auth != null",
+        ".write": "auth != null && auth.uid == $userId",
+        ".validate": "newData.hasChildren(['isOnline', 'lastSeen']) || !newData.exists()",
+
+        "isOnline": {
+          ".validate": "newData.isBoolean()"
+        },
+        "lastSeen": {
+          ".validate": "newData.isNumber()"
+        }
+      }
+    },
+
+    "typingIndicators": {
+      "$conversationId": {
+        "$userId": {
+          ".read": "auth != null",
+          ".write": "auth != null && auth.uid == $userId",
+          ".validate": "newData.hasChildren(['isTyping', 'timestamp']) || !newData.exists()",
+
+          "isTyping": {
+            ".validate": "newData.isBoolean()"
+          },
+          "timestamp": {
+            ".validate": "newData.isNumber()"
+          }
+        }
+      }
+    },
+
+    "notifications": {
+      "$userId": {
+        ".read": "auth != null && auth.uid == $userId",
+
+        "$notificationId": {
+          ".write": "auth != null && (!data.exists() || (auth.uid == $userId && newData.child('read').val() != data.child('read').val()) || (auth.uid == $userId && !newData.exists()))",
+          ".validate": "newData.hasChildren(['type', 'createdAt']) || !newData.exists()",
+
+          "type": {
+            ".validate": "newData.isString()"
+          },
+          "fromUserId": {
+            ".validate": "newData.isString()"
+          },
+          "fromUserName": {
+            ".validate": "newData.isString()"
+          },
+          "createdAt": {
+            ".validate": "newData.isNumber()"
+          },
+          "read": {
+            ".validate": "newData.isBoolean()"
+          },
+          "postId": {
+            ".validate": "newData.isString()"
+          },
+          "message": {
+            ".validate": "newData.isString()"
+          }
+        }
+      }
+    },
+
+    "messageReadReceipts": {
+      "$conversationId": {
+        "$messageId": {
+          "$userId": {
+            ".read": "auth != null",
+            ".write": "auth != null && auth.uid == $userId",
+            ".validate": "newData.isNumber() || !newData.exists()"
+          }
+        }
+      }
+    },
+
+    "liveActivities": {
+      "$activityId": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        ".validate": "newData.hasChildren(['type', 'createdAt']) || !newData.exists()",
+
+        "type": {
+          ".validate": "newData.isString()"
+        },
+        "createdAt": {
+          ".validate": "newData.isNumber()"
+        },
+        "participants": {
+          ".validate": "newData.hasChildren()"
+        }
+      }
+    },
+
+    "conversations": {
+      "$conversationId": {
+        ".read": "auth != null && data.child('metadata/participantIds').val().contains(auth.uid)",
+        ".write": "auth != null && data.child('metadata/participantIds').val().contains(auth.uid)",
+
+        "metadata": {
+          ".validate": "newData.hasChildren(['participantIds']) || !newData.exists()"
+        },
+
+        "messages": {
+          "$messageId": {
+            ".write": "auth != null && newData.child('senderId').val() === auth.uid"
+          }
+        },
+
+        "typing": {
+          "$userId": {
+            ".write": "auth != null && $userId === auth.uid"
+          }
+        }
+      }
+    },
+
+    "userConversations": {
+      "$userId": {
+        ".read": "auth != null && auth.uid == $userId",
+        ".write": "auth != null && auth.uid == $userId"
+      }
+    },
+
+    "presence": {
+      "$userId": {
+        ".read": true,
+        ".write": "auth != null && auth.uid == $userId"
+      }
+    },
+
+    "analytics": {
+      ".read": false,
+      ".write": false
+    },
+
+    "admin": {
+      ".read": false,
+      ".write": false
+    }
+  }
+}

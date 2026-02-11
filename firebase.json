@@ -1,8 +1,16 @@
 {
+  "database": {
+    "rules": "AMENAPP/database.rules.json"
+  },
+  "firestore": {
+    "database": "(default)",
+    "location": "nam5",
+    "rules": "AMENAPP/firestore 18.rules",
+    "indexes": "firestore.indexes.json"
+  },
   "functions": [
     {
       "codebase": "default",
-      "disallowLegacyRuntimeConfig": true,
       "ignore": [
         "node_modules",
         ".git",
@@ -10,13 +18,8 @@
         "firebase-debug.*.log",
         "*.local"
       ],
-      "source": "functions",
-      "predeploy": [
-        "npm --prefix \"$RESOURCE_DIR\" run build"
-      ]
+      "predeploy": [],
+      "source": "functions"
     }
-  ],
-  "database": {
-    "rules": "database.rules.json"
-  }
+  ]
 }
