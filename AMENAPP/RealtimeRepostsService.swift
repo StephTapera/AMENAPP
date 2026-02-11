@@ -288,6 +288,7 @@ class RealtimeRepostsService: ObservableObject {
         }
         
         let createdAt = Date(timeIntervalSince1970: timestamp)
+        let authorProfileImageURL = data["authorProfileImageURL"] as? String
         let topicTag = data["topicTag"] as? String
         let amenCount = data["amenCount"] as? Int ?? 0
         let lightbulbCount = data["lightbulbCount"] as? Int ?? 0
@@ -308,6 +309,7 @@ class RealtimeRepostsService: ObservableObject {
             authorId: authorId,
             authorName: authorName,
             authorInitials: authorInitials,
+            authorProfileImageURL: authorProfileImageURL,
             timeAgo: timeAgo,
             content: content,
             category: category,

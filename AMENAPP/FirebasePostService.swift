@@ -197,6 +197,7 @@ struct FirestorePost: Codable, Identifiable {
             authorName: authorName,
             authorUsername: authorUsername,
             authorInitials: authorInitials,
+            authorProfileImageURL: authorProfileImageURL,
             timeAgo: timeAgo,
             content: content,
             category: postCategory,
