@@ -10,6 +10,7 @@
 import SwiftUI
 import FirebaseAuth
 import FirebaseDatabase
+import FirebaseFirestore
 
 struct PostCard: View {
     let post: Post?
@@ -24,7 +25,7 @@ struct PostCard: View {
     @StateObject private var savedPostsService = RealtimeSavedPostsService.shared
     @StateObject private var followService = FollowService.shared
     @StateObject private var moderationService = ModerationService.shared
-    @StateObject private var interactionsService = PostInteractionsService.shared
+    @ObservedObject private var interactionsService = PostInteractionsService.shared  // ✅ FIXED: Use @ObservedObject for singletons
     @State private var showingMenu = false
     @State private var showingEditSheet = false
     @State private var showingDeleteAlert = false
@@ -39,11 +40,21 @@ struct PostCard: View {
     @State private var showUserProfile = false
     @State private var isSaved = false
     @State private var hasReposted = false
-    @State private var showRepostOptions = false
+    @State private var isSaveInFlight = false
+    @State private var isLightbulbToggleInFlight = false
+    @State private var expectedLightbulbState = false
+    @State private var isRepostToggleInFlight = false
+    @State private var expectedRepostState = false
     
     // Prayer activity
     @State private var isPraying = false
     @State private var prayingNowCount = 0
+    
+    // Animation timing constants
+    private let fastAnimationDuration: Double = 0.15
+    private let standardAnimationDuration: Double = 0.2
+    private let springResponse: Double = 0.3
+    private let springDamping: Double = 0.7
     
     // Moderation confirmations
     @State private var showMuteConfirmation = false
@@ -60,6 +71,13 @@ struct PostCard: View {
     @State private var amenCount = 0
     @State private var commentCount = 0
     @State private var repostCount = 0
+
+    // Church Note
+    @State private var showChurchNoteDetail = false
+    @State private var churchNote: ChurchNote?
+    
+    // ✅ Real-time profile image
+    @State private var currentProfileImageURL: String?
     
     enum PostCardCategory {
         case openTable
@@ -156,6 +174,12 @@ struct PostCard: View {
     
     private var avatarButton: some View {
         Button {
+            // ✅ FIXED: Validate post and authorId before opening profile
+            guard let post = post, !post.authorId.isEmpty else {
+                print("❌ Cannot open profile: Invalid post or authorId")
+                return
+            }
+            
             showUserProfile = true
             let haptic = UIImpactFeedbackGenerator(style: .light)
             haptic.impactOccurred()
@@ -167,40 +191,61 @@ struct PostCard: View {
     
     private var avatarContent: some View {
         ZStack(alignment: .bottomTrailing) {
-            // Show profile image if available, otherwise show gradient circle with initials
-            if let post = post, let profileImageURL = post.authorProfileImageURL, !profileImageURL.isEmpty {
-                profileImageView(url: profileImageURL)
-            } else {
-                // Fallback to gradient with initials
-                avatarCircleWithInitials
+            // ✅ Show real-time profile image if available, otherwise fallback to post data, then initials
+            Group {
+                if let profileImageURL = currentProfileImageURL, !profileImageURL.isEmpty {
+                    profileImageView(url: profileImageURL)
+                        .onAppear {
+                            print("🖼️ [POSTCARD] Showing current profile image: \(profileImageURL.prefix(50))...")
+                        }
+                        .id("current-\(profileImageURL)")
+                } else if let post = post, let profileImageURL = post.authorProfileImageURL, !profileImageURL.isEmpty {
+                    profileImageView(url: profileImageURL)
+                        .onAppear {
+                            print("🖼️ [POSTCARD] Showing cached profile image: \(profileImageURL.prefix(50))...")
+                        }
+                        .id("cached-\(profileImageURL)")
+                } else {
+                    // Fallback to gradient with initials
+                    avatarCircleWithInitials
+                        .onAppear {
+                            print("⚪️ [POSTCARD] No profile image - showing initials")
+                            print("   Post author: \(post?.authorName ?? "unknown")")
+                            print("   currentProfileImageURL: \(currentProfileImageURL ?? "nil")")
+                            print("   post.authorProfileImageURL: \(post?.authorProfileImageURL ?? "nil")")
+                        }
+                        .id("initials")
+                }
+            }
+            .onChange(of: currentProfileImageURL) { oldValue, newValue in
+                print("🔄 [POSTCARD] currentProfileImageURL changed from \(oldValue?.prefix(30) ?? "nil") to \(newValue?.prefix(30) ?? "nil")")
             }
             
-            // Follow button - only show if not user's post
-            if !isUserPost {
+            // Follow button - only show if not user's post AND post exists
+            if !isUserPost && post != nil {
                 followButton
             }
+        }
+        .task {
+            // ✅ Fetch latest profile image URL in real-time
+            await fetchLatestProfileImage()
         }
     }
     
     private func profileImageView(url: String) -> some View {
-        AsyncImage(url: URL(string: url)) { phase in
-            switch phase {
-            case .success(let image):
-                image
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: 44, height: 44)
-                    .clipShape(Circle())
-                    .overlay(
-                        Circle()
-                            .stroke(Color.black.opacity(0.1), lineWidth: 1)
-                    )
-            case .failure(_), .empty:
-                // Fallback to initials if image fails to load
-                avatarCircleWithInitials
-            @unknown default:
-                avatarCircleWithInitials
-            }
+        CachedAsyncImage(url: URL(string: url)) { image in
+            image
+                .resizable()
+                .scaledToFill()
+                .frame(width: 44, height: 44)
+                .clipShape(Circle())
+                .overlay(
+                    Circle()
+                        .stroke(Color.black.opacity(0.1), lineWidth: 1)
+                )
+        } placeholder: {
+            // Show placeholder while loading
+            avatarCircleWithInitials
         }
     }
     
@@ -259,6 +304,7 @@ struct PostCard: View {
         } label: {
             followButtonIcon
         }
+        .buttonStyle(.plain)
         .symbolEffect(.bounce, value: isFollowing)
         .offset(x: 2, y: 2)
         .task {
@@ -300,13 +346,14 @@ struct PostCard: View {
                 return
             }
             
+            // Optimistic UI update
+            let previousState = isFollowing
+            withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
+                isFollowing.toggle()
+            }
+            
             do {
                 try await followService.toggleFollow(userId: authorId)
-                
-                // Update UI with animation
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                    isFollowing.toggle()
-                }
                 
                 // Haptic feedback
                 let haptic = UINotificationFeedbackGenerator()
@@ -316,6 +363,13 @@ struct PostCard: View {
                 
             } catch {
                 print("❌ Follow error: \(error.localizedDescription)")
+                
+                // Revert on error
+                await MainActor.run {
+                    withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
+                        isFollowing = previousState
+                    }
+                }
                 
                 // Show error haptic
                 let haptic = UINotificationFeedbackGenerator()
@@ -374,7 +428,7 @@ struct PostCard: View {
     @ViewBuilder
     private var commonMenuOptions: some View {
         Button {
-            repostToProfile()
+            toggleRepost()
         } label: {
             Label("Repost to Profile", systemImage: "arrow.triangle.2.circlepath")
         }
@@ -443,7 +497,7 @@ struct PostCard: View {
             if !isUserPost {
                 toggleLightbulb()
             } else {
-                // Optional: Show a message or haptic feedback
+                // Haptic feedback
                 let haptic = UINotificationFeedbackGenerator()
                 haptic.notificationOccurred(.warning)
                 print("⚠️ Users cannot light their own posts")
@@ -451,6 +505,7 @@ struct PostCard: View {
         } label: {
             lightbulbButtonLabel
         }
+        .buttonStyle(.plain)
         .symbolEffect(.bounce, value: hasLitLightbulb)
         .disabled(isUserPost) // Disable for user's own posts
         .opacity(isUserPost ? 0.5 : 1.0) // Visual feedback that it's disabled
@@ -513,7 +568,7 @@ struct PostCard: View {
             if !isUserPost {
                 toggleAmen()
             } else {
-                // Optional: Show a message or haptic feedback
+                // Haptic feedback
                 let haptic = UINotificationFeedbackGenerator()
                 haptic.notificationOccurred(.warning)
                 print("⚠️ Users cannot amen their own posts")
@@ -521,6 +576,7 @@ struct PostCard: View {
         } label: {
             amenButtonLabel
         }
+        .buttonStyle(.plain)
         .symbolEffect(.bounce, value: hasSaidAmen)
         .disabled(isUserPost) // Disable for user's own posts
         .opacity(isUserPost ? 0.5 : 1.0) // Visual feedback that it's disabled
@@ -571,6 +627,12 @@ struct PostCard: View {
     
     private var authorInfoButton: some View {
         Button {
+            // ✅ FIXED: Validate post and authorId before opening profile
+            guard let post = post, !post.authorId.isEmpty else {
+                print("❌ Cannot open profile: Invalid post or authorId")
+                return
+            }
+            
             showUserProfile = true
             let haptic = UIImpactFeedbackGenerator(style: .light)
             haptic.impactOccurred()
@@ -647,6 +709,7 @@ struct PostCard: View {
                 .foregroundStyle(Color.black.opacity(0.6))
                 .frame(width: 32, height: 32)
         }
+        .buttonStyle(.plain)
     }
     
     var body: some View {
@@ -658,6 +721,8 @@ struct PostCard: View {
                 showCommentsSheet: $showCommentsSheet,
                 showingDeleteAlert: $showingDeleteAlert,
                 showReportSheet: $showReportSheet,
+                showChurchNoteDetail: $showChurchNoteDetail,
+                churchNote: $churchNote,
                 post: post,
                 authorName: authorName,
                 category: category,
@@ -676,8 +741,13 @@ struct PostCard: View {
                 amenCount: $amenCount,
                 commentCount: $commentCount,
                 repostCount: $repostCount,
-                prayingNowCount: $prayingNowCount
+                prayingNowCount: $prayingNowCount,
+                isLightbulbToggleInFlight: $isLightbulbToggleInFlight,
+                expectedLightbulbState: $expectedLightbulbState,
+                isRepostToggleInFlight: $isRepostToggleInFlight,
+                expectedRepostState: $expectedRepostState
             ))
+
             .alert("Mute \(authorName)?", isPresented: $showMuteConfirmation) {
                 Button("Cancel", role: .cancel) { }
                 Button("Mute", role: .destructive) {
@@ -728,6 +798,46 @@ struct PostCard: View {
                 .padding(.horizontal, 20)
                 .padding(.top, 16)
             
+            // ✅ Display post images if available
+            if let post = post, let imageURLs = post.imageURLs, !imageURLs.isEmpty {
+                PostImagesView(imageURLs: imageURLs)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 16)
+            }
+
+            // ✅ Church Note Preview (if post contains a church note)
+            if let post = post, let churchNoteId = post.churchNoteId {
+                churchNotePreview(churchNoteId: churchNoteId)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 16)
+            }
+
+            // ✅ Link Preview Card if post has a link
+            if let post = post, 
+               let linkURLString = post.linkURL, 
+               !linkURLString.isEmpty,
+               let linkURL = URL(string: linkURLString) {
+                // Create metadata from post fields
+                let metadata = LinkPreviewMetadata(
+                    url: linkURL,
+                    title: post.linkPreviewTitle,
+                    description: post.linkPreviewDescription,
+                    imageURL: post.linkPreviewImageURL != nil ? URL(string: post.linkPreviewImageURL!) : nil,
+                    siteName: post.linkPreviewSiteName
+                )
+                
+                LinkPreviewCard(metadata: metadata) {
+                    // Open link in Safari when tapped
+                    UIApplication.shared.open(linkURL)
+                    
+                    // Haptic feedback
+                    let haptic = UIImpactFeedbackGenerator(style: .medium)
+                    haptic.impactOccurred()
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 12)
+            }
+            
             // Repost indicator if this is a repost
             if let post = post, post.isRepost, let originalAuthor = post.originalAuthorName {
                 repostIndicator(originalAuthor: originalAuthor)
@@ -763,14 +873,51 @@ struct PostCard: View {
                 .fill(Color(.systemGray6))
         )
     }
-    
+
+    // MARK: - Church Note Preview
+
+    @ViewBuilder
+    private func churchNotePreview(churchNoteId: String) -> some View {
+        if let note = churchNote {
+            ChurchNotePreviewCard(note: note) {
+                showChurchNoteDetail = true
+                let haptic = UIImpactFeedbackGenerator(style: .light)
+                haptic.impactOccurred()
+            }
+        } else {
+            // Loading state
+            ProgressView()
+                .task {
+                    await loadChurchNote(id: churchNoteId)
+                }
+        }
+    }
+
+    private func loadChurchNote(id: String) async {
+        do {
+            let db = Firestore.firestore()
+            let doc = try await db.collection("churchNotes").document(id).getDocument()
+
+            guard doc.exists, let note = try? doc.data(as: ChurchNote.self) else {
+                print("❌ Church note not found: \(id)")
+                return
+            }
+
+            await MainActor.run {
+                churchNote = note
+            }
+        } catch {
+            print("❌ Error loading church note: \(error.localizedDescription)")
+        }
+    }
+
     private var interactionButtons: some View {
         HStack(spacing: 16) {
             // Primary Action (Lightbulb/Amen)
             if category == .openTable {
                 circularInteractionButton(
                     icon: hasLitLightbulb ? "lightbulb.fill" : "lightbulb",
-                    count: lightbulbCount,
+                    count: nil,  // ✅ No count - just illuminate when active
                     isActive: hasLitLightbulb,
                     activeColor: .orange,
                     disabled: isUserPost
@@ -780,7 +927,7 @@ struct PostCard: View {
             } else {
                 circularInteractionButton(
                     icon: hasSaidAmen ? "hands.clap.fill" : "hands.clap",
-                    count: amenCount,
+                    count: nil,  // ✅ No count - just illuminate when active
                     isActive: hasSaidAmen,
                     activeColor: .black,
                     disabled: isUserPost
@@ -802,26 +949,26 @@ struct PostCard: View {
                 }
             }
             
-            // Comment
+            // Comment - illuminate if there are comments
             circularInteractionButton(
                 icon: "bubble.left.fill",
-                count: commentCount > 0 ? commentCount : nil,
-                isActive: false,
+                count: nil,  // ✅ No count - just illuminate when there are comments
+                isActive: commentCount > 0,
                 activeColor: .blue,
                 disabled: false
             ) {
                 openComments()
             }
             
-            // Repost
+            // Repost - illuminate when user has reposted
             circularInteractionButton(
                 icon: hasReposted ? "arrow.2.squarepath" : "arrow.2.squarepath",
-                count: repostCount > 0 ? repostCount : nil,
+                count: nil,  // ✅ No count - just illuminate when active
                 isActive: hasReposted,
                 activeColor: .green,
                 disabled: isUserPost
             ) {
-                if !isUserPost { showRepostOptions = true }
+                if !isUserPost { toggleRepost() }
             }
             
             Spacer()
@@ -832,7 +979,8 @@ struct PostCard: View {
                 count: nil,
                 isActive: isSaved,
                 activeColor: .orange,
-                disabled: false
+                disabled: isSaveInFlight,
+                enableBounce: false
             ) {
                 toggleSave()
             }
@@ -847,157 +995,44 @@ struct PostCard: View {
         isActive: Bool,
         activeColor: Color,
         disabled: Bool,
+        enableBounce: Bool = true,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
-            HStack(spacing: 6) {
-                // Icon with black/white design + subtle gradient border when active
-                ZStack {
-                    // Background circle - black and white only
+            // Just show the icon - no count numbers
+            ZStack {
+                // Background circle - black and white only
+                Circle()
+                    .fill(isActive ? Color.black : Color(.systemGray6))
+                    .frame(width: 32, height: 32)
+                
+                // Subtle gradient accent border when active
+                if isActive {
                     Circle()
-                        .fill(isActive ? Color.black : Color(.systemGray6))
+                        .strokeBorder(
+                            LinearGradient(
+                                colors: [
+                                    activeColor.opacity(0.4),
+                                    activeColor.opacity(0.1)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1.5
+                        )
                         .frame(width: 32, height: 32)
-                    
-                    // Subtle gradient accent border when active
-                    if isActive {
-                        Circle()
-                            .strokeBorder(
-                                LinearGradient(
-                                    colors: [
-                                        activeColor.opacity(0.4),
-                                        activeColor.opacity(0.1)
-                                    ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ),
-                                lineWidth: 1.5
-                            )
-                            .frame(width: 32, height: 32)
-                    }
-                    
-                    // Icon - white when active, black when inactive
-                    Image(systemName: icon)
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundStyle(isActive ? Color.white : Color.black)
                 }
                 
-                // Count label next to icon (Threads style)
-                if let count = count {
-                    Text("\(count)")
-                        .font(.custom("OpenSans-SemiBold", size: 14))
-                        .foregroundStyle(Color.primary)
-                        .contentTransition(.numericText())
-                }
+                // Icon - white when active, black when inactive
+                Image(systemName: icon)
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(isActive ? Color.white : Color.black)
             }
         }
         .buttonStyle(PlainButtonStyle())
         .disabled(disabled)
-        .symbolEffect(.bounce, value: isActive)
+        .symbolEffect(.bounce, value: enableBounce ? isActive : false)
         .opacity(disabled ? 0.4 : 1.0)
-    }
-    
-    private var commentButton: some View {
-        Button {
-            openComments()
-        } label: {
-            HStack(spacing: 4) {
-                Image(systemName: "bubble.left.fill")
-                    .font(.system(size: 12, weight: .semibold))
-                Text("\(commentCount)")
-                    .font(.custom("OpenSans-SemiBold", size: 11))
-            }
-            .foregroundStyle(Color.black.opacity(0.5))
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(
-                Capsule()
-                    .fill(Color.black.opacity(0.05))
-            )
-            .overlay(
-                Capsule()
-                    .stroke(Color.black.opacity(0.1), lineWidth: 1)
-            )
-        }
-    }
-    
-    private var repostButton: some View {
-        Button {
-            // Prevent users from reposting their own posts
-            if !isUserPost {
-                showRepostOptions = true
-            } else {
-                // Show feedback that you can't repost your own post
-                let haptic = UINotificationFeedbackGenerator()
-                haptic.notificationOccurred(.warning)
-                print("⚠️ Users cannot repost their own posts")
-            }
-        } label: {
-            HStack(spacing: 4) {
-                Image(systemName: hasReposted ? "arrow.2.squarepath.circle.fill" : "arrow.2.squarepath")
-                    .font(.system(size: 12, weight: .semibold))
-                if repostCount > 0 {
-                    Text("\(repostCount)")
-                        .font(.custom("OpenSans-SemiBold", size: 11))
-                        .contentTransition(.numericText())
-                }
-            }
-            .foregroundStyle(hasReposted ? Color.green : Color.black.opacity(0.5))
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(
-                Capsule()
-                    .fill(hasReposted ? Color.green.opacity(0.1) : Color.black.opacity(0.05))
-            )
-            .overlay(
-                Capsule()
-                    .stroke(hasReposted ? Color.green.opacity(0.3) : Color.black.opacity(0.1), lineWidth: 1)
-            )
-        }
-        .symbolEffect(.bounce, value: hasReposted)
-        .disabled(isUserPost)
-        .opacity(isUserPost ? 0.5 : 1.0)
-        .confirmationDialog("Repost Options", isPresented: $showRepostOptions) {
-            if hasReposted {
-                Button("Remove Repost", role: .destructive) {
-                    removeRepost()
-                }
-            } else {
-                Button("Repost to Your Profile") {
-                    repostToProfile()
-                }
-                Button("Quote Repost (Coming Soon)", role: .cancel) {
-                    // Future feature: Add your own comment
-                }
-            }
-            Button("Cancel", role: .cancel) { }
-        } message: {
-            if hasReposted {
-                Text("This post is currently on your profile")
-            } else {
-                Text("Share this post with your followers")
-            }
-        }
-    }
-    
-    private var saveButton: some View {
-        Button {
-            toggleSave()
-        } label: {
-            Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(isSaved ? Color.orange : Color.black.opacity(0.5))
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(
-                    Capsule()
-                        .fill(isSaved ? Color.orange.opacity(0.1) : Color.black.opacity(0.05))
-                )
-                .overlay(
-                    Capsule()
-                        .stroke(isSaved ? Color.orange.opacity(0.3) : Color.black.opacity(0.1), lineWidth: 1)
-                )
-        }
-        .symbolEffect(.bounce, value: isSaved)
     }
     
     private var prayingNowButton: some View {
@@ -1062,7 +1097,7 @@ struct PostCard: View {
         \(post.content)
         
         Join the conversation on AMEN APP!
-        https://amenapp.com/post/\(post.id.uuidString)
+        https://amenapp.com/post/\(post.firestoreId)
         """
     }
     
@@ -1089,6 +1124,47 @@ struct PostCard: View {
         return post.createdAt >= thirtyMinutesAgo
     }
     
+    /// ✅ Fetch latest profile image URL from Firestore in real-time
+    private func fetchLatestProfileImage() async {
+        guard let post = post, !post.authorId.isEmpty else {
+            print("⚠️ [POSTCARD] No post or author ID for fetching profile image")
+            return
+        }
+        
+        print("🔍 [POSTCARD] Fetching profile image for user: \(post.authorId)")
+        print("   Post already has URL: \(post.authorProfileImageURL ?? "none")")
+        
+        do {
+            let db = Firestore.firestore()
+            let userDoc = try await db.collection("users").document(post.authorId).getDocument()
+            
+            // ✅ Handle both String values and null values from Firestore
+            if let userData = userDoc.data() {
+                let rawValue = userData["profileImageURL"]
+
+                // Handle case where value is explicitly null (NSNull)
+                if rawValue is NSNull {
+                    print("⚠️ [POSTCARD] profileImageURL is explicitly null in Firestore")
+                    return
+                }
+
+                // Try to get as String
+                if let profileImageURL = rawValue as? String, !profileImageURL.isEmpty {
+                    print("✅ [POSTCARD] Found profile image URL: \(profileImageURL.prefix(50))...")
+                    await MainActor.run {
+                        currentProfileImageURL = profileImageURL
+                    }
+                } else {
+                    print("⚠️ [POSTCARD] No valid profile image URL")
+                    print("   Raw value: \(String(describing: rawValue))")
+                    print("   Type: \(type(of: rawValue))")
+                }
+            }
+        } catch {
+            print("❌ [POSTCARD] Error fetching profile image for user \(post.authorId): \(error.localizedDescription)")
+        }
+    }
+    
     private func toggleLightbulb() {
         print("💡 toggleLightbulb() called")
         
@@ -1097,11 +1173,16 @@ struct PostCard: View {
             return
         }
         
-        print("   - Post ID: \(post.id.uuidString)")
+        print("   - Post ID: \(post.firestoreId)")
         print("   - Current state: \(hasLitLightbulb ? "lit" : "unlit")")
         
+        // Store previous state for rollback
+        let previousState = hasLitLightbulb
+        expectedLightbulbState = !previousState
+        isLightbulbToggleInFlight = true
+        
         // Optimistic UI update for the active state only (not the count)
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.5)) {
+        withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
             hasLitLightbulb.toggle()
             isLightbulbAnimating = true
         }
@@ -1112,7 +1193,7 @@ struct PostCard: View {
                 
                 // Call Realtime Database to toggle lightbulb
                 // The count will be updated by the real-time observer
-                try await interactionsService.toggleLightbulb(postId: post.id.uuidString)
+                try await interactionsService.toggleLightbulb(postId: post.firestoreId)
                 
                 print("✅ Lightbulb toggled successfully")
                 
@@ -1125,6 +1206,11 @@ struct PostCard: View {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
                         isLightbulbAnimating = false
                     }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                        if isLightbulbToggleInFlight {
+                            isLightbulbToggleInFlight = false
+                        }
+                    }
                 }
                 
             } catch {
@@ -1132,11 +1218,16 @@ struct PostCard: View {
                 
                 // Revert optimistic update on error
                 await MainActor.run {
-                    withAnimation {
-                        hasLitLightbulb.toggle()
+                    withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
+                        hasLitLightbulb = previousState
                     }
                     isLightbulbAnimating = false
+                    isLightbulbToggleInFlight = false
                 }
+                
+                // Error haptic
+                let haptic = UINotificationFeedbackGenerator()
+                haptic.notificationOccurred(.error)
             }
         }
     }
@@ -1149,11 +1240,14 @@ struct PostCard: View {
             return
         }
         
-        print("   - Post ID: \(post.id.uuidString)")
+        print("   - Post ID: \(post.firestoreId)")
         print("   - Current state: \(hasSaidAmen ? "amened" : "not amened")")
         
+        // Store previous state for rollback
+        let previousState = hasSaidAmen
+        
         // Optimistic UI update for the active state only (not the count)
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+        withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
             hasSaidAmen.toggle()
         }
         
@@ -1163,7 +1257,7 @@ struct PostCard: View {
                 
                 // Call Realtime Database to toggle amen
                 // The count will be updated by the real-time observer
-                try await interactionsService.toggleAmen(postId: post.id.uuidString)
+                try await interactionsService.toggleAmen(postId: post.firestoreId)
                 
                 print("✅ Amen toggled successfully")
                 
@@ -1176,10 +1270,14 @@ struct PostCard: View {
                 
                 // Revert optimistic update on error
                 await MainActor.run {
-                    withAnimation {
-                        hasSaidAmen.toggle()
+                    withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
+                        hasSaidAmen = previousState
                     }
                 }
+                
+                // Error haptic
+                let haptic = UINotificationFeedbackGenerator()
+                haptic.notificationOccurred(.error)
             }
         }
     }
@@ -1188,7 +1286,7 @@ struct PostCard: View {
         print("💬 openComments() called")
         
         if let post = post {
-            print("   - Post ID: \(post.id.uuidString)")
+            print("   - Post ID: \(post.firestoreId)")
             showCommentsSheet = true
             print("   - Comments sheet should appear")
         } else {
@@ -1215,30 +1313,46 @@ struct PostCard: View {
         print("🗑️ Post deleted - notification sent")
     }
     
-    private func repostToProfile() {
-        print("🔄 repostToProfile() called")
+    private func toggleRepost() {
+        print("🔄 toggleRepost() called")
         
         guard let post = post else {
             print("❌ No post object available")
             return
         }
         
-        print("   - Post ID: \(post.id.uuidString)")
-        print("   - Original author: \(post.authorName)")
+        print("   - Post ID: \(post.firestoreId)")
+        print("   - Current state: \(hasReposted)")
+        
+        // Store previous state for rollback
+        let previousState = hasReposted
+        expectedRepostState = !previousState
+        isRepostToggleInFlight = true
+        
+        // Optimistic UI update
+        withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
+            hasReposted.toggle()
+        }
         
         Task {
             do {
                 // Toggle repost in Realtime Database
-                let isReposted = try await interactionsService.toggleRepost(postId: post.id.uuidString)
+                let isReposted = try await interactionsService.toggleRepost(postId: post.firestoreId)
                 
+                // Update UI to match database state
                 await MainActor.run {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
                         hasReposted = isReposted
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                        if isRepostToggleInFlight {
+                            isRepostToggleInFlight = false
+                        }
                     }
                 }
                 
                 if isReposted {
-                    // Also create repost via PostsManager for user's profile
+                    // Create repost via PostsManager for user's profile
                     postsManager.repostToProfile(originalPost: post)
                     
                     // Send notification for real-time ProfileView update
@@ -1250,7 +1364,17 @@ struct PostCard: View {
                     
                     print("✅ Reposted to your profile")
                 } else {
-                    print("✅ Repost removed")
+                    // Remove repost from PostsManager
+                    postsManager.removeRepost(postId: post.id)
+                    
+                    // Send notification for real-time ProfileView update
+                    NotificationCenter.default.post(
+                        name: Notification.Name("repostRemoved"),
+                        object: nil,
+                        userInfo: ["postId": post.id]
+                    )
+                    
+                    print("✅ Repost removed from your profile")
                 }
                 
                 // Haptic feedback
@@ -1260,56 +1384,25 @@ struct PostCard: View {
             } catch {
                 print("❌ Failed to toggle repost: \(error)")
                 
-                // Show error to user
+                // Revert on error
                 await MainActor.run {
-                    // Could show an alert here
-                }
-            }
-        }
-    }
-    
-    private func removeRepost() {
-        print("🗑️ removeRepost() called")
-        
-        guard let post = post else {
-            print("❌ No post object available")
-            return
-        }
-        
-        Task {
-            do {
-                // Remove repost in Realtime Database
-                _ = try await interactionsService.toggleRepost(postId: post.id.uuidString)
-                
-                await MainActor.run {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                        hasReposted = false
+                    withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
+                        hasReposted = previousState
                     }
+                    isRepostToggleInFlight = false
+                    
+                    errorMessage = "Failed to toggle repost. Please try again."
+                    showErrorAlert = true
                 }
                 
-                // Remove from PostsManager
-                // Note: You'll need to add a removeRepost method to PostsManager
-                // postsManager.removeRepost(postId: post.id)
-                
-                // Send notification for real-time ProfileView update
-                NotificationCenter.default.post(
-                    name: Notification.Name("repostRemoved"),
-                    object: nil,
-                    userInfo: ["postId": post.id]
-                )
-                
-                print("✅ Repost removed from your profile")
-                
-                // Haptic feedback
+                // Error haptic
                 let haptic = UINotificationFeedbackGenerator()
-                haptic.notificationOccurred(.success)
-                
-            } catch {
-                print("❌ Failed to remove repost: \(error)")
+                haptic.notificationOccurred(.error)
             }
         }
     }
     
+
     private func sharePost() {
         showShareSheet = true
         let haptic = UIImpactFeedbackGenerator(style: .light)
@@ -1317,12 +1410,16 @@ struct PostCard: View {
     }
     
     private func copyLink() {
-        // TODO: Generate and copy post link
-        UIPasteboard.general.string = "https://amenapp.com/post/\(post?.id.uuidString ?? "")"
-        
+        guard let post = post else { return }
+
+        // ✅ Generate deep link URL for production
+        let deepLink = "amenapp://post/\(post.id.uuidString)"
+
+        UIPasteboard.general.string = deepLink
+
         let haptic = UINotificationFeedbackGenerator()
         haptic.notificationOccurred(.success)
-        print("🔗 Link copied to clipboard")
+        print("🔗 Deep link copied to clipboard: \(deepLink)")
     }
     
     private func copyPostText() {
@@ -1392,19 +1489,67 @@ struct PostCard: View {
     }
     
     private func toggleSave() {
+        guard !isSaveInFlight else { return }
         guard let post = post else { return }
         
+        // ✅ Check network first
+        guard AMENNetworkMonitor.shared.isConnected else {
+            print("📱 Offline - cannot save/unsave posts")
+            errorMessage = "You're offline. Please check your connection and try again."
+            showErrorAlert = true
+            
+            let haptic = UINotificationFeedbackGenerator()
+            haptic.notificationOccurred(.warning)
+            return
+        }
+        
+        isSaveInFlight = true
+        
+        // Store previous state for rollback
+        let previousState = isSaved
+        
+        // Optimistic UI update
+        withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
+            isSaved.toggle()
+        }
+        
         Task {
+            defer {
+                Task { @MainActor in
+                    isSaveInFlight = false
+                }
+            }
             do {
                 // Toggle using RTDB service (returns true if saved, false if unsaved)
-                let isSavedNow = try await savedPostsService.toggleSavePost(postId: post.id.uuidString)
+                let isSavedNow = try await savedPostsService.toggleSavePost(postId: post.firestoreId)
                 
-                // Update local state with animation
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                    isSaved = isSavedNow
+                // Ensure UI matches server state
+                await MainActor.run {
+                    if isSaved != isSavedNow {
+                        withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
+                            isSaved = isSavedNow
+                        }
+                    }
                 }
                 
                 print(isSavedNow ? "💾 Post saved" : "🗑️ Post unsaved")
+                
+                // ✅ Post notification with full Post object for ProfileView
+                if isSavedNow {
+                    NotificationCenter.default.post(
+                        name: Notification.Name("postSaved"),
+                        object: nil,
+                        userInfo: ["post": post]
+                    )
+                    print("📬 Posted postSaved notification with full Post object")
+                } else {
+                    NotificationCenter.default.post(
+                        name: Notification.Name("postUnsaved"),
+                        object: nil,
+                        userInfo: ["postId": post.id]
+                    )
+                    print("📬 Posted postUnsaved notification")
+                }
                 
                 // Haptic feedback
                 let haptic = UIImpactFeedbackGenerator(style: .medium)
@@ -1413,9 +1558,25 @@ struct PostCard: View {
             } catch {
                 print("❌ Failed to toggle save: \(error)")
                 
-                // Show error to user
+                // Revert on error
                 await MainActor.run {
-                    errorMessage = "Failed to save post. Please try again."
+                    withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
+                        isSaved = previousState
+                    }
+                    
+                    // ✅ Better error message based on error type
+                    if let urlError = error as? URLError {
+                        if urlError.code == .notConnectedToInternet {
+                            errorMessage = "No internet connection. Please try again when online."
+                        } else if urlError.code == .timedOut {
+                            errorMessage = "Request timed out. Please try again."
+                        } else {
+                            errorMessage = "Network error. Please check your connection."
+                        }
+                    } else {
+                        errorMessage = "Failed to save post. Please try again."
+                    }
+                    
                     showErrorAlert = true
                     
                     let haptic = UINotificationFeedbackGenerator()
@@ -1438,52 +1599,57 @@ struct PostCard: View {
             return
         }
         
-        print("   - Post ID: \(post.id.uuidString)")
+        print("   - Post ID: \(post.firestoreId)")
         print("   - Current state: \(isPraying ? "praying" : "not praying")")
         
+        // Store previous state for rollback
+        let previousState = isPraying
+        
         // Optimistic UI update for the active state only (not the count)
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+        withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
             isPraying.toggle()
         }
         
         let rtdb = RealtimeDatabaseManager.shared
         
-        if isPraying {
-            // Start praying
-            rtdb.startPraying(postId: post.id.uuidString) { success in
-                if success {
-                    print("✅ Started praying for post")
-                    
-                    // Haptic feedback
-                    let haptic = UIImpactFeedbackGenerator(style: .medium)
-                    haptic.impactOccurred()
-                } else {
-                    print("❌ Failed to start praying")
-                    // Revert on error
-                    Task { @MainActor in
-                        withAnimation {
-                            isPraying = false
-                        }
+        Task {
+            let success: Bool
+            
+            if isPraying {
+                // Start praying
+                success = await withCheckedContinuation { continuation in
+                    rtdb.startPraying(postId: post.firestoreId) { result in
+                        continuation.resume(returning: result)
+                    }
+                }
+            } else {
+                // Stop praying
+                success = await withCheckedContinuation { continuation in
+                    rtdb.stopPraying(postId: post.firestoreId) { result in
+                        continuation.resume(returning: result)
                     }
                 }
             }
-        } else {
-            // Stop praying
-            rtdb.stopPraying(postId: post.id.uuidString) { success in
-                if success {
-                    print("✅ Stopped praying for post")
-                    
-                    // Haptic feedback
+            
+            if success {
+                print("✅ \(isPraying ? "Started" : "Stopped") praying for post")
+                
+                // Haptic feedback
+                await MainActor.run {
                     let haptic = UIImpactFeedbackGenerator(style: .medium)
                     haptic.impactOccurred()
-                } else {
-                    print("❌ Failed to stop praying")
-                    // Revert on error
-                    Task { @MainActor in
-                        withAnimation {
-                            isPraying = true
-                        }
+                }
+            } else {
+                print("❌ Failed to \(isPraying ? "start" : "stop") praying")
+                
+                // Revert on error
+                await MainActor.run {
+                    withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
+                        isPraying = previousState
                     }
+                    
+                    let haptic = UINotificationFeedbackGenerator()
+                    haptic.notificationOccurred(.error)
                 }
             }
         }
@@ -1574,9 +1740,7 @@ struct ReportPostSheet: View {
                                 reason: reason,
                                 isSelected: selectedReason == reason
                             ) {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                    selectedReason = reason
-                                }
+                                selectedReason = reason
                                 let haptic = UIImpactFeedbackGenerator(style: .light)
                                 haptic.impactOccurred()
                             }
@@ -1622,7 +1786,7 @@ struct ReportPostSheet: View {
                                 .foregroundStyle(additionalDetails.count > 500 ? .red : .secondary)
                         }
                         .padding(.horizontal, 20)
-                        .transition(.move(edge: .top).combined(with: .opacity))
+                        .transition(.opacity.combined(with: .move(edge: .top)).animation(.easeOut(duration: 0.2)))
                     }
                     
                     // Privacy Notice
@@ -1702,7 +1866,7 @@ struct ReportPostSheet: View {
         Task {
             do {
                 try await ModerationService.shared.reportPost(
-                    postId: post.id.uuidString,
+                    postId: post.firestoreId,
                     postAuthorId: post.authorId,
                     reason: convertToModerationReason(reason),
                     additionalDetails: additionalDetails.isEmpty ? nil : additionalDetails
@@ -1790,9 +1954,10 @@ struct ReportReasonCard: View {
                     )
                     .shadow(color: isSelected ? Color.red.opacity(0.1) : Color.black.opacity(0.04), radius: isSelected ? 12 : 6, y: 2)
             )
-            .scaleEffect(isSelected ? 1.02 : 1.0)
         }
-        .buttonStyle(PlainButtonStyle())
+        .buttonStyle(.plain)
+        .scaleEffect(isSelected ? 1.0 : 1.0)
+        .animation(.easeOut(duration: 0.15), value: isSelected)
     }
 }
 
@@ -1806,7 +1971,9 @@ private struct PostCardSheetsModifier: ViewModifier {
     @Binding var showCommentsSheet: Bool
     @Binding var showingDeleteAlert: Bool
     @Binding var showReportSheet: Bool
-    
+    @Binding var showChurchNoteDetail: Bool
+    @Binding var churchNote: ChurchNote?
+
     let post: Post?
     let authorName: String
     let category: PostCard.PostCardCategory
@@ -1816,14 +1983,22 @@ private struct PostCardSheetsModifier: ViewModifier {
         content
             // User Profile Sheet - Opens when tapping avatar or author name
             .sheet(isPresented: $showUserProfile) {
-                if let post = post {
-                    NavigationStack {
-                        UserProfileView(userId: post.authorId)
-                    }
+                if let post = post, !post.authorId.isEmpty {
+                    UserProfileView(userId: post.authorId, showsDismissButton: true)
                 } else {
-                    // Fallback if no post data
-                    Text("Unable to load profile")
-                        .foregroundStyle(.secondary)
+                    // Fallback if no post data or invalid authorId
+                    VStack(spacing: 16) {
+                        Image(systemName: "person.crop.circle.badge.exclamationmark")
+                            .font(.system(size: 48))
+                            .foregroundStyle(.secondary)
+                        Text("Unable to load profile")
+                            .font(.custom("OpenSans-SemiBold", size: 16))
+                            .foregroundStyle(.primary)
+                        Text("The user information is not available")
+                            .font(.custom("OpenSans-Regular", size: 14))
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding()
                 }
             }
             .sheet(isPresented: $showingEditSheet) {
@@ -1851,6 +2026,11 @@ private struct PostCardSheetsModifier: ViewModifier {
                     )
                 }
             }
+            .sheet(isPresented: $showChurchNoteDetail) {
+                if let note = churchNote {
+                    ChurchNoteDetailModal(note: note)
+                }
+            }
             .alert("Delete Post", isPresented: $showingDeleteAlert) {
                 Button("Cancel", role: .cancel) { }
                 Button("Delete", role: .destructive) {
@@ -1868,7 +2048,7 @@ private struct PostCardSheetsModifier: ViewModifier {
         \(post.content)
         
         Join the conversation on AMEN APP!
-        https://amenapp.com/post/\(post.id.uuidString)
+        https://amenapp.com/post/\(post.firestoreId)
         """
     }
 }
@@ -1876,8 +2056,8 @@ private struct PostCardSheetsModifier: ViewModifier {
 /// Handles all interaction observers and state updates
 private struct PostCardInteractionsModifier: ViewModifier {
     let post: Post?
-    let interactionsService: PostInteractionsService
-    let savedPostsService: RealtimeSavedPostsService
+    @ObservedObject var interactionsService: PostInteractionsService  // ✅ FIXED: Observe changes
+    @ObservedObject var savedPostsService: RealtimeSavedPostsService  // ✅ FIXED: Observe changes
     
     @Binding var hasLitLightbulb: Bool
     @Binding var hasSaidAmen: Bool
@@ -1889,29 +2069,64 @@ private struct PostCardInteractionsModifier: ViewModifier {
     @Binding var commentCount: Int
     @Binding var repostCount: Int
     @Binding var prayingNowCount: Int
+    @Binding var isLightbulbToggleInFlight: Bool
+    @Binding var expectedLightbulbState: Bool
+    @Binding var isRepostToggleInFlight: Bool
+    @Binding var expectedRepostState: Bool
+    
+    @State private var hasCompletedInitialLoad = false
+    
+    // Helper computed properties to simplify onChange expressions
+    private var isPostLightbulbed: Bool {
+        guard let post = post else { return false }
+        return interactionsService.userLightbulbedPosts.contains(post.firestoreId)
+    }
+    
+    private var isPostAmened: Bool {
+        guard let post = post else { return false }
+        return interactionsService.userAmenedPosts.contains(post.firestoreId)
+    }
+    
+    private var isPostReposted: Bool {
+        guard let post = post else { return false }
+        return interactionsService.userRepostedPosts.contains(post.firestoreId)
+    }
     
     func body(content: Content) -> some View {
         content
             .task {
                 guard let post = post else { return }
-                let postId = post.id.uuidString
+                let postId = post.firestoreId
                 
                 // Start observing real-time interactions
                 interactionsService.observePostInteractions(postId: postId)
                 
-                // Load initial states
-                hasLitLightbulb = await interactionsService.hasLitLightbulb(postId: postId)
-                hasSaidAmen = await interactionsService.hasAmened(postId: postId)
+                // Load initial states from cached user interactions to avoid auto-toggling on launch
+                let lightbulbStatus = interactionsService.userLightbulbedPosts.contains(postId)
+                let amenStatus = await interactionsService.hasAmened(postId: postId)
                 
-                // Check saved status using RTDB service
-                do {
-                    isSaved = try await savedPostsService.isPostSaved(postId: postId)
-                } catch {
-                    print("⚠️ Failed to check saved status: \(error)")
-                    isSaved = savedPostsService.isPostSavedSync(postId: postId)
+                withTransaction(Transaction(animation: nil)) {
+                    if !isLightbulbToggleInFlight {
+                        hasLitLightbulb = lightbulbStatus
+                    }
+                    hasSaidAmen = amenStatus
+                }
+                print("🔍 PostCard loaded lightbulb state for \(postId.prefix(8)): \(hasLitLightbulb)")
+                
+                // Check saved status with offline handling
+                // ✅ Disable animation for initial load to prevent auto-toggle appearance
+                let savedStatus = await checkSavedStatusSafely(postId: postId)
+                withTransaction(Transaction(animation: nil)) {
+                    isSaved = savedStatus
                 }
                 
-                hasReposted = await interactionsService.hasReposted(postId: postId)
+                // ✅ Disable animation for initial repost load to prevent auto-toggle appearance
+                let repostedStatus = interactionsService.userRepostedPosts.contains(postId)
+                withTransaction(Transaction(animation: nil)) {
+                    if !isRepostToggleInFlight {
+                        hasReposted = repostedStatus
+                    }
+                }
                 
                 // Check if currently praying (if prayer post)
                 if post.category == .prayer {
@@ -1928,31 +2143,78 @@ private struct PostCardInteractionsModifier: ViewModifier {
                 if post.category == .prayer {
                     observePrayingCount(postId: postId)
                 }
+                
+                // Mark initial load as complete
+                hasCompletedInitialLoad = true
             }
             .onDisappear {
                 if let post = post {
-                    interactionsService.stopObservingPost(postId: post.id.uuidString)
+                    interactionsService.stopObservingPost(postId: post.firestoreId)
                 }
             }
             .onChange(of: interactionsService.postLightbulbs) { _, _ in
-                if let post = post, let count = interactionsService.postLightbulbs[post.id.uuidString] {
+                if let post = post, let count = interactionsService.postLightbulbs[post.firestoreId] {
                     lightbulbCount = count
                 }
             }
             .onChange(of: interactionsService.postAmens) { _, _ in
-                if let post = post, let count = interactionsService.postAmens[post.id.uuidString] {
+                if let post = post, let count = interactionsService.postAmens[post.firestoreId] {
                     amenCount = count
                 }
             }
             .onChange(of: interactionsService.postComments) { _, _ in
-                if let post = post, let count = interactionsService.postComments[post.id.uuidString] {
+                if let post = post, let count = interactionsService.postComments[post.firestoreId] {
                     commentCount = count
                 }
             }
             .onChange(of: interactionsService.postReposts) { _, _ in
-                if let post = post, let count = interactionsService.postReposts[post.id.uuidString] {
+                if let post = post, let count = interactionsService.postReposts[post.firestoreId] {
                     repostCount = count
                 }
+            }
+            // ✅ Update lightbulb state when userLightbulbedPosts changes (after initial load only)
+            .onChange(of: isPostLightbulbed) { oldState, newState in
+                guard let post = post else { return }
+                if !hasCompletedInitialLoad && !isLightbulbToggleInFlight { return }
+                
+                // Only update if state actually changed
+                guard oldState != newState else { return }
+                
+                if isLightbulbToggleInFlight {
+                    if newState == expectedLightbulbState {
+                        hasLitLightbulb = newState
+                        isLightbulbToggleInFlight = false
+                    }
+                    return
+                }
+                
+                print("🔄 Lightbulb onChange fired for \(post.firestoreId.prefix(8)): \(oldState) → \(newState)")
+                hasLitLightbulb = newState
+            }
+            // ✅ Update amen state when userAmenedPosts changes (after initial load only)
+            .onChange(of: isPostAmened) { oldState, newState in
+                guard hasCompletedInitialLoad else { return }
+                
+                guard oldState != newState else { return }
+                hasSaidAmen = newState
+            }
+            // ✅ Update repost state when userRepostedPosts changes (after initial load only)
+            .onChange(of: isPostReposted) { oldState, newState in
+                guard let post = post else { return }
+                if !hasCompletedInitialLoad && !isRepostToggleInFlight { return }
+                
+                guard oldState != newState else { return }
+                
+                if isRepostToggleInFlight {
+                    if newState == expectedRepostState {
+                        hasReposted = newState
+                        isRepostToggleInFlight = false
+                    }
+                    return
+                }
+                
+                print("🔄 Repost onChange fired for \(post.firestoreId.prefix(8)): \(oldState) → \(newState)")
+                hasReposted = newState
             }
     }
     
@@ -1971,6 +2233,27 @@ private struct PostCardInteractionsModifier: ViewModifier {
             ref.observeSingleEvent(of: .value) { snapshot in
                 continuation.resume(returning: snapshot.exists())
             }
+        }
+    }
+    
+    /// ✅ Check saved status with offline handling
+    private func checkSavedStatusSafely(postId: String) async -> Bool {
+        // First, check if we're online
+        guard AMENNetworkMonitor.shared.isConnected else {
+            print("📱 Offline - using cached saved status for post: \(postId)")
+            // Use synchronous cached check when offline
+            return savedPostsService.isPostSavedSync(postId: postId)
+        }
+        
+        // We're online - try the async check with error handling
+        do {
+            let saved = try await savedPostsService.isPostSaved(postId: postId)
+            print("✅ Checked saved status (online): \(saved)")
+            return saved
+        } catch {
+            // If Firebase query fails (permissions, timeout, etc.), fall back to cache
+            print("⚠️ Failed to check saved status (using cache): \(error.localizedDescription)")
+            return savedPostsService.isPostSavedSync(postId: postId)
         }
     }
     
@@ -1999,7 +2282,7 @@ struct PostCommentsView: View {
     
     // Computed property for real-time comments
     private var comments: [Comment] {
-        commentService.comments[post.id.uuidString] ?? []
+        commentService.comments[post.firestoreId] ?? []
     }
     
     var body: some View {
@@ -2114,7 +2397,7 @@ struct PostCommentsView: View {
             }
             .onAppear {
                 // Start listening for real-time updates
-                commentService.startListening(to: post.id.uuidString)
+                commentService.startListening(to: post.firestoreId)
             }
             .onDisappear {
                 // Stop listening when view disappears
@@ -2130,7 +2413,7 @@ struct PostCommentsView: View {
         
         do {
             // Fetch initial comments (will be updated by real-time listener)
-            _ = try await commentService.fetchComments(for: post.id.uuidString)
+            _ = try await commentService.fetchComments(for: post.firestoreId)
             
             await MainActor.run {
                 isLoading = false
@@ -2257,14 +2540,14 @@ struct PostCommentsView: View {
             if let replyingTo = replyingTo {
                 // Submit as a reply
                 _ = try await commentService.addReply(
-                    postId: post.id.uuidString,
+                    postId: post.firestoreId,
                     parentCommentId: replyingTo.id ?? "",
                     content: commentText
                 )
             } else {
                 // Submit as a top-level comment
                 _ = try await commentService.addComment(
-                    postId: post.id.uuidString,
+                    postId: post.firestoreId,
                     content: commentText
                 )
             }
@@ -2390,9 +2673,7 @@ private struct RealCommentCardView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     // Show/Hide replies button
                     Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                            showReplies.toggle()
-                        }
+                        showReplies.toggle()
                     } label: {
                         HStack(spacing: 4) {
                             Image(systemName: showReplies ? "chevron.down" : "chevron.right")
@@ -2403,6 +2684,8 @@ private struct RealCommentCardView: View {
                         .foregroundStyle(.blue)
                         .padding(.leading, 52)  // Indent to align with comment content
                     }
+                    .buttonStyle(.plain)
+                    .animation(.easeOut(duration: 0.15), value: showReplies)
                     
                     // Replies list
                     if showReplies {
@@ -2416,7 +2699,7 @@ private struct RealCommentCardView: View {
                                 .padding(.leading, 40)  // Indent replies
                             }
                         }
-                        .transition(.opacity.combined(with: .move(edge: .top)))
+                        .transition(.opacity.combined(with: .move(edge: .top)).animation(.easeOut(duration: 0.15)))
                     }
                 }
             }
@@ -2441,7 +2724,7 @@ private struct RealCommentCardView: View {
         .task {
             // Check if user has lit lightbulb on this comment
             guard let commentId = comment.id else { return }
-            hasLitLightbulb = await commentService.hasUserAmened(commentId: commentId)
+            hasLitLightbulb = await commentService.hasUserAmened(commentId: commentId, postId: comment.postId)
             hasAmen = hasLitLightbulb // Same function for both
         }
     }
@@ -2451,17 +2734,14 @@ private struct RealCommentCardView: View {
     private var avatarView: some View {
         Group {
             if let profileImageURL = comment.authorProfileImageURL, !profileImageURL.isEmpty {
-                AsyncImage(url: URL(string: profileImageURL)) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: 40, height: 40)
-                            .clipShape(Circle())
-                    default:
-                        defaultAvatar
-                    }
+                CachedAsyncImage(url: URL(string: profileImageURL)) { image in
+                    image
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 40, height: 40)
+                        .clipShape(Circle())
+                } placeholder: {
+                    defaultAvatar
                 }
             } else {
                 defaultAvatar
@@ -2502,17 +2782,28 @@ private struct RealCommentCardView: View {
             Task {
                 guard let commentId = comment.id else { return }
                 
+                // Store previous state for rollback
+                let previousLit = hasLitLightbulb
+                let previousCount = localLightbulbCount
+                
+                // Optimistic update
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                    hasLitLightbulb.toggle()
+                    localLightbulbCount += hasLitLightbulb ? 1 : -1
+                }
+                
                 do {
-                    try await commentService.toggleAmen(commentId: commentId)
-                    
-                    await MainActor.run {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
-                            hasLitLightbulb.toggle()
-                            localLightbulbCount += hasLitLightbulb ? 1 : -1
-                        }
-                    }
+                    try await commentService.toggleAmen(commentId: commentId, postId: comment.postId)
                 } catch {
                     print("❌ Failed to toggle lightbulb: \(error)")
+                    
+                    // Revert on error
+                    await MainActor.run {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                            hasLitLightbulb = previousLit
+                            localLightbulbCount = previousCount
+                        }
+                    }
                 }
             }
         } label: {
@@ -2550,6 +2841,7 @@ private struct RealCommentCardView: View {
                 }
             }
         }
+        .buttonStyle(.plain)
         .symbolEffect(.bounce, value: hasLitLightbulb)
     }
     
@@ -2558,17 +2850,28 @@ private struct RealCommentCardView: View {
             Task {
                 guard let commentId = comment.id else { return }
                 
+                // Store previous state for rollback
+                let previousAmen = hasAmen
+                let previousCount = localAmenCount
+                
+                // Optimistic update
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                    hasAmen.toggle()
+                    localAmenCount += hasAmen ? 1 : -1
+                }
+                
                 do {
-                    try await commentService.toggleAmen(commentId: commentId)
-                    
-                    await MainActor.run {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
-                            hasAmen.toggle()
-                            localAmenCount += hasAmen ? 1 : -1
-                        }
-                    }
+                    try await commentService.toggleAmen(commentId: commentId, postId: comment.postId)
                 } catch {
                     print("❌ Failed to toggle amen: \(error)")
+                    
+                    // Revert on error
+                    await MainActor.run {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                            hasAmen = previousAmen
+                            localAmenCount = previousCount
+                        }
+                    }
                 }
             }
         } label: {
@@ -2584,6 +2887,7 @@ private struct RealCommentCardView: View {
             }
             .foregroundStyle(hasAmen ? .black : .secondary)
         }
+        .buttonStyle(.plain)
         .symbolEffect(.bounce, value: hasAmen)
     }
     
@@ -2601,6 +2905,7 @@ private struct RealCommentCardView: View {
             }
             .foregroundStyle(.secondary)
         }
+        .buttonStyle(.plain)
     }
     
     // MARK: - Actions
@@ -2784,4 +3089,103 @@ struct EditCommentSheet: View {
         category: .openTable
     )
 }
+
+// MARK: - Post Link Button Component
+/// Button to open external links from posts
+struct PostLinkButton: View {
+    let url: String
+    @State private var isPressed = false
+    
+    var body: some View {
+        Button {
+            openURL()
+        } label: {
+            HStack(spacing: 12) {
+                // Link icon
+                ZStack {
+                    Circle()
+                        .fill(Color.blue.opacity(0.15))
+                        .frame(width: 36, height: 36)
+                    
+                    Image(systemName: "link")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(.blue)
+                }
+                
+                // URL text (shortened)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Open Link")
+                        .font(.custom("OpenSans-SemiBold", size: 14))
+                        .foregroundStyle(.primary)
+                    
+                    Text(displayURL)
+                        .font(.custom("OpenSans-Regular", size: 12))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                
+                Spacer()
+                
+                // External link indicator
+                Image(systemName: "arrow.up.right")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.blue)
+            }
+            .padding(12)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color(.systemGray6))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color.blue.opacity(0.2), lineWidth: 1)
+            )
+            .scaleEffect(isPressed ? 0.98 : 1.0)
+        }
+        .buttonStyle(.plain)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in
+                    withAnimation(.easeInOut(duration: 0.1)) {
+                        isPressed = true
+                    }
+                }
+                .onEnded { _ in
+                    withAnimation(.easeInOut(duration: 0.1)) {
+                        isPressed = false
+                    }
+                }
+        )
+    }
+    
+    private var displayURL: String {
+        // Remove protocol and www for display
+        var display = url
+        display = display.replacingOccurrences(of: "https://", with: "")
+        display = display.replacingOccurrences(of: "http://", with: "")
+        display = display.replacingOccurrences(of: "www.", with: "")
+        
+        // Limit length
+        if display.count > 40 {
+            return String(display.prefix(37)) + "..."
+        }
+        return display
+    }
+    
+    private func openURL() {
+        guard let url = URL(string: url) else {
+            print("❌ Invalid URL: \(url)")
+            return
+        }
+        
+        // Haptic feedback
+        let haptic = UIImpactFeedbackGenerator(style: .medium)
+        haptic.impactOccurred()
+        
+        // Open in Safari
+        UIApplication.shared.open(url)
+        print("✅ Opening URL: \(url)")
+    }
+}
+
 

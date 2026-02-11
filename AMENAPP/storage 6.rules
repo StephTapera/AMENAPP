@@ -1,0 +1,307 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // ============================================
+    // HELPER FUNCTIONS
+    // ============================================
+    
+    // Check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Check if user is the owner
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    // Validate file size (10MB max)
+    function isValidSize() {
+      return request.resource.size < 10 * 1024 * 1024;
+    }
+    
+    // Validate image file type
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+    
+    // Validate video file type
+    function isVideo() {
+      return request.resource.contentType.matches('video/.*');
+    }
+    
+    // Validate audio file type
+    function isAudio() {
+      return request.resource.contentType.matches('audio/.*');
+    }
+    
+    // Validate media (image or video)
+    function isMedia() {
+      return isImage() || isVideo();
+    }
+    
+    // ============================================
+    // PROFILE IMAGES
+    // ============================================
+    
+    match /profile_images/{userId}/{fileName} {
+      // Anyone can read profile images (public)
+      allow read: if true;
+      
+      // Only owner can upload/update their profile image
+      allow write: if isAuthenticated()
+        && isOwner(userId)
+        && isImage()
+        && isValidSize();
+      
+      // Only owner can delete their profile image
+      allow delete: if isAuthenticated() && isOwner(userId);
+    }
+    
+    match /avatars/{userId}/{fileName} {
+      // Anyone can read avatars (public)
+      allow read: if true;
+      
+      // Only owner can upload/update their avatar
+      allow write: if isAuthenticated()
+        && isOwner(userId)
+        && isImage()
+        && isValidSize();
+      
+      // Only owner can delete their avatar
+      allow delete: if isAuthenticated() && isOwner(userId);
+    }
+    
+    match /covers/{userId}/{fileName} {
+      // Anyone can read cover photos (public)
+      allow read: if true;
+      
+      // Only owner can upload/update their cover photo
+      allow write: if isAuthenticated()
+        && isOwner(userId)
+        && isImage()
+        && isValidSize();
+      
+      // Only owner can delete their cover photo
+      allow delete: if isAuthenticated() && isOwner(userId);
+    }
+    
+    // ============================================
+    // POST IMAGES
+    // ============================================
+    
+    match /post_images/{userId}/{fileName} {
+      // Anyone authenticated can read post images
+      allow read: if isAuthenticated();
+      
+      // Only owner can upload post images
+      allow write: if isAuthenticated()
+        && isOwner(userId)
+        && isMedia()
+        && isValidSize();
+      
+      // Only owner can delete their post images
+      allow delete: if isAuthenticated() && isOwner(userId);
+    }
+    
+    match /post_media/{userId}/{fileName} {
+      // Anyone authenticated can read post media
+      allow read: if isAuthenticated();
+      
+      // Only owner can upload post media
+      allow write: if isAuthenticated()
+        && isOwner(userId)
+        && isMedia()
+        && isValidSize();
+      
+      // Only owner can delete their post media
+      allow delete: if isAuthenticated() && isOwner(userId);
+    }
+    
+    // ============================================
+    // PRAYER IMAGES
+    // ============================================
+    
+    match /prayer_images/{userId}/{fileName} {
+      // Anyone authenticated can read prayer images
+      allow read: if isAuthenticated();
+      
+      // Only owner can upload prayer images
+      allow write: if isAuthenticated()
+        && isOwner(userId)
+        && isImage()
+        && isValidSize();
+      
+      // Only owner can delete their prayer images
+      allow delete: if isAuthenticated() && isOwner(userId);
+    }
+    
+    // ============================================
+    // TESTIMONY IMAGES
+    // ============================================
+    
+    match /testimony_images/{userId}/{fileName} {
+      // Anyone authenticated can read testimony images
+      allow read: if isAuthenticated();
+      
+      // Only owner can upload testimony images
+      allow write: if isAuthenticated()
+        && isOwner(userId)
+        && isMedia()
+        && isValidSize();
+      
+      // Only owner can delete their testimony images
+      allow delete: if isAuthenticated() && isOwner(userId);
+    }
+    
+    match /testimony_media/{userId}/{fileName} {
+      // Anyone authenticated can read testimony media
+      allow read: if isAuthenticated();
+      
+      // Only owner can upload testimony media
+      allow write: if isAuthenticated()
+        && isOwner(userId)
+        && isMedia()
+        && isValidSize();
+      
+      // Only owner can delete their testimony media
+      allow delete: if isAuthenticated() && isOwner(userId);
+    }
+    
+    // ============================================
+    // MESSAGE ATTACHMENTS
+    // ============================================
+    
+    match /message_photos/{userId}/{fileName} {
+      // Only authenticated users can read message photos
+      allow read: if isAuthenticated();
+      
+      // Only owner can upload message photos
+      allow write: if isAuthenticated()
+        && isOwner(userId)
+        && isImage()
+        && isValidSize();
+      
+      // Only owner can delete their message photos
+      allow delete: if isAuthenticated() && isOwner(userId);
+    }
+    
+    match /message_videos/{userId}/{fileName} {
+      // Only authenticated users can read message videos
+      allow read: if isAuthenticated();
+      
+      // Only owner can upload message videos
+      allow write: if isAuthenticated()
+        && isOwner(userId)
+        && isVideo()
+        && isValidSize();
+      
+      // Only owner can delete their message videos
+      allow delete: if isAuthenticated() && isOwner(userId);
+    }
+    
+    match /message_media/{userId}/{fileName} {
+      // Only authenticated users can read message media
+      allow read: if isAuthenticated();
+      
+      // Only owner can upload message media
+      allow write: if isAuthenticated()
+        && isOwner(userId)
+        && isMedia()
+        && isValidSize();
+      
+      // Only owner can delete their message media
+      allow delete: if isAuthenticated() && isOwner(userId);
+    }
+    
+    match /voice_messages/{userId}/{fileName} {
+      // Only authenticated users can read voice messages
+      allow read: if isAuthenticated();
+      
+      // Only owner can upload voice messages
+      allow write: if isAuthenticated()
+        && isOwner(userId)
+        && isAudio()
+        && isValidSize();
+      
+      // Only owner can delete their voice messages
+      allow delete: if isAuthenticated() && isOwner(userId);
+    }
+    
+    // ============================================
+    // DOCUMENTS (PDFs, etc.)
+    // ============================================
+    
+    match /documents/{userId}/{fileName} {
+      // Only authenticated users can read documents
+      allow read: if isAuthenticated();
+      
+      // Only owner can upload documents
+      allow write: if isAuthenticated()
+        && isOwner(userId)
+        && isValidSize();
+      
+      // Only owner can delete their documents
+      allow delete: if isAuthenticated() && isOwner(userId);
+    }
+    
+    // ============================================
+    // COMMUNITY IMAGES (if you have communities)
+    // ============================================
+    
+    match /community_images/{communityId}/{fileName} {
+      // Anyone authenticated can read community images
+      allow read: if isAuthenticated();
+      
+      // Only authenticated users can upload (authorization checked in Firestore rules)
+      allow write: if isAuthenticated()
+        && isImage()
+        && isValidSize();
+      
+      // Only authenticated users can delete (authorization checked in Firestore rules)
+      allow delete: if isAuthenticated();
+    }
+    
+    // ============================================
+    // TEMPORARY UPLOADS
+    // ============================================
+    
+    match /temp/{userId}/{fileName} {
+      // Only owner can read temporary files
+      allow read: if isAuthenticated() && isOwner(userId);
+      
+      // Only owner can upload temporary files
+      allow write: if isAuthenticated()
+        && isOwner(userId)
+        && isValidSize();
+      
+      // Only owner can delete temporary files
+      allow delete: if isAuthenticated() && isOwner(userId);
+    }
+    
+    // ============================================
+    // THUMBNAILS (Auto-generated by Cloud Functions)
+    // ============================================
+    
+    match /thumbnails/{userId}/{fileName} {
+      // Anyone authenticated can read thumbnails
+      allow read: if isAuthenticated();
+      
+      // Only Cloud Functions can write (no user access)
+      allow write: if false;
+      
+      // Only owner can delete
+      allow delete: if isAuthenticated() && isOwner(userId);
+    }
+    
+    // ============================================
+    // DEFAULT DENY
+    // ============================================
+    
+    // Deny everything else by default
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
