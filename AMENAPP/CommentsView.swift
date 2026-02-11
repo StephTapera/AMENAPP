@@ -206,7 +206,7 @@ struct CommentsView: View {
     private func loadComments() async {
         isLoading = true
         do {
-            commentsWithReplies = try await commentService.fetchCommentsWithReplies(for: post.id.uuidString)
+            commentsWithReplies = try await commentService.fetchCommentsWithReplies(for: post.firestoreId)
         } catch {
             errorMessage = error.localizedDescription
             showError = true
@@ -225,7 +225,7 @@ struct CommentsView: View {
                 if let replyingTo = replyingTo {
                     // Submit reply
                     _ = try await commentService.addReply(
-                        postId: post.id.uuidString,
+                        postId: post.firestoreId,
                         parentCommentId: replyingTo.id ?? "",
                         content: text
                     )
@@ -235,7 +235,7 @@ struct CommentsView: View {
                 } else {
                     // Submit comment
                     _ = try await commentService.addComment(
-                        postId: post.id.uuidString,
+                        postId: post.firestoreId,
                         content: text
                     )
                     
@@ -258,7 +258,7 @@ struct CommentsView: View {
     private func deleteComment(_ comment: Comment) {
         Task {
             do {
-                try await commentService.deleteComment(commentId: comment.id ?? "", postId: post.id.uuidString)
+                try await commentService.deleteComment(commentId: comment.id ?? "", postId: post.firestoreId)
                 
                 // Real-time listener will update UI automatically!
                 
@@ -309,8 +309,8 @@ struct CommentsView: View {
     private func startRealtimeListener() {
         guard !isListening else { return }
         
-        print("🔊 CommentsView: Starting real-time listener for post: \(post.id.uuidString)")
-        commentService.startListening(to: post.id.uuidString)
+        print("🔊 CommentsView: Starting real-time listener for post: \(post.firestoreId)")
+        commentService.startListening(to: post.firestoreId)
         isListening = true
         
         // Observe changes to commentService.comments and update UI
@@ -334,7 +334,7 @@ struct CommentsView: View {
     @MainActor
     private func updateCommentsFromService() async {
         // Get updated comments from service cache
-        let updatedComments = commentService.comments[post.id.uuidString] ?? []
+        let updatedComments = commentService.comments[post.firestoreId] ?? []
         
         // Build commentsWithReplies from service data
         var newCommentsWithReplies: [CommentWithReplies] = []

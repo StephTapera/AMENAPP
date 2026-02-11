@@ -264,7 +264,7 @@ struct SavedPostsView: View {
         do {
             // Remove all saved posts one by one
             for post in postsToRemove {
-                try await savedPostsService.toggleSavePost(postId: post.id.uuidString)
+                try await savedPostsService.toggleSavePost(postId: post.firestoreId)
             }
             
             savedPosts = []

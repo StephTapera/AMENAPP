@@ -10,9 +10,9 @@
 import Foundation
 
 extension Post {
-    /// Convert Post's UUID to String for Firestore operations
+    /// Stable database document ID for Firestore/RTDB operations
     var firestoreId: String {
-        id.uuidString
+        databaseId
     }
     
     /// Check if user has amened this post (requires checking amenUserIds from Firestore)

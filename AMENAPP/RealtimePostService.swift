@@ -316,6 +316,7 @@ class RealtimePostService: ObservableObject {
         
         return Post(
             id: UUID(uuidString: postId) ?? UUID(),
+            databaseId: postId,
             authorId: authorId,
             authorName: authorName,
             authorUsername: authorUsername,

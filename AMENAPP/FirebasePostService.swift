@@ -191,8 +191,10 @@ struct FirestorePost: Codable, Identifiable {
         
         let timeAgo = FirestorePost.formatTimeAgo(from: createdAt)
         
+        let firestoreDocId = id ?? UUID().uuidString
         return Post(
-            id: UUID(uuidString: id ?? UUID().uuidString) ?? UUID(),
+            id: UUID(uuidString: firestoreDocId) ?? UUID(),
+            databaseId: firestoreDocId,
             authorId: authorId,
             authorName: authorName,
             authorUsername: authorUsername,
@@ -305,7 +307,7 @@ class FirebasePostService: ObservableObject {
             
             // Update posts maintaining order from realtime feed
             self.posts = postIds.compactMap { postId in
-                allPosts.first { $0.id.uuidString == postId }
+                allPosts.first { $0.firestoreId == postId }
             }
             
             updateCategoryArrays()
@@ -428,11 +430,13 @@ class FirebasePostService: ObservableObject {
         // 🚀 OPTIMIZATION 4: Use Task detachment for non-blocking operations
         Task.detached(priority: .userInitiated) {
             do {
-                let docRef = try await self.db.collection(FirebaseManager.CollectionPath.posts)
-                    .addDocument(from: newPost)
-                
+                // Use UUID as document ID so it round-trips correctly through Post.id (UUID type)
+                let postUUID = UUID().uuidString
+                let docRef = self.db.collection(FirebaseManager.CollectionPath.posts).document(postUUID)
+                try await docRef.setData(from: newPost)
+
                 print("✅ Post created successfully with ID: \(docRef.documentID)")
-                
+
                 // Publish to Realtime Database for instant feed updates (background)
                 try? await self.realtimeService.publishRealtimePost(
                     postId: docRef.documentID,
@@ -749,7 +753,7 @@ class FirebasePostService: ObservableObject {
         print("✅ Post updated successfully")
         
         // Update local cache
-        if let index = posts.firstIndex(where: { $0.id.uuidString == postId }) {
+        if let index = posts.firstIndex(where: { $0.firestoreId == postId }) {
             var updatedPost = posts[index]
             updatedPost.content = newContent
             posts[index] = updatedPost
@@ -792,7 +796,7 @@ class FirebasePostService: ObservableObject {
             ])
         
         // Update local cache
-        posts.removeAll { $0.id.uuidString == postId }
+        posts.removeAll { $0.firestoreId == postId }
         updateCategoryArrays()
     }
     

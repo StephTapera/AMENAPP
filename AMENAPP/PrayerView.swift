@@ -1740,7 +1740,7 @@ struct PrayerPostCard: View {
         }
         
         // Capture the post ID before detaching
-        let postId = post.id.uuidString
+        let postId = post.firestoreId
         
         // Background sync to Firebase (no await needed)
         Task.detached(priority: .userInitiated) { [interactionsService] in
@@ -1816,7 +1816,7 @@ struct PrayerPostCard: View {
     
     /// Start real-time listener for interaction counts
     private func startRealtimeListener() {
-        let postId = post.id.uuidString
+        let postId = post.firestoreId
         let ref = Database.database().reference()
         
         // Listen to interaction counts in real-time
@@ -1842,14 +1842,14 @@ struct PrayerPostCard: View {
     
     /// Stop real-time listener
     private func stopRealtimeListener() {
-        let postId = post.id.uuidString
+        let postId = post.firestoreId
         let ref = Database.database().reference()
         ref.child("postInteractions").child(postId).removeAllObservers()
     }
     
     /// Load interaction states from backend
     private func loadInteractionStates() async {
-        let postId = post.id.uuidString
+        let postId = post.firestoreId
         
         // Check if user has amened
         hasAmened = await interactionsService.hasAmened(postId: postId)
@@ -1880,7 +1880,7 @@ struct PrayerPostCard: View {
         print("🔄 Prayer \(hasReposted ? "reposted" : "unreposted")")
         
         // Background sync to Firebase using RepostService
-        let postId = post.id.uuidString
+        let postId = post.firestoreId
         let currentRepostState = hasReposted
         
         Task.detached(priority: .userInitiated) {
@@ -1913,7 +1913,7 @@ struct PrayerPostCard: View {
         
         // Capture the current state before detaching
         let currentSavedState = hasSaved
-        let postId = post.id.uuidString
+        let postId = post.firestoreId
         
         // Background sync to Firebase
         Task.detached(priority: .userInitiated) { [savedPostsService] in
@@ -2256,7 +2256,7 @@ struct PrayerCommentSection: View {
         }
         .onAppear {
             // Start listening for real-time updates
-            commentService.startListening(to: post.id.uuidString)
+            commentService.startListening(to: post.firestoreId)
         }
         .onDisappear {
             // Stop listening when view disappears
@@ -2282,7 +2282,7 @@ struct PrayerCommentSection: View {
         // OPTIMISTIC UPDATE: Create temporary comment and show immediately
         let optimisticComment = Comment(
             id: UUID().uuidString,
-            postId: post.id.uuidString,
+            postId: post.firestoreId,
             authorId: currentUserId,
             authorName: currentUserName,
             authorUsername: "@\(currentUsername)",
@@ -2310,7 +2310,7 @@ struct PrayerCommentSection: View {
         Task.detached(priority: .userInitiated) {
             do {
                 let realComment = try await commentService.addComment(
-                    postId: post.id.uuidString,
+                    postId: post.firestoreId,
                     content: tempCommentText
                 )
                 
@@ -2336,7 +2336,7 @@ struct PrayerCommentSection: View {
         isLoading = true
         
         do {
-            let fetchedComments = try await commentService.fetchComments(for: post.id.uuidString)
+            let fetchedComments = try await commentService.fetchComments(for: post.firestoreId)
             
             await MainActor.run {
                 // Only show top-level comments (not replies)
@@ -2378,7 +2378,7 @@ struct PrayerCommentSection: View {
         haptic.notificationOccurred(.success)
         
         // Capture postId before detaching
-        let postId = post.id.uuidString
+        let postId = post.firestoreId
         
         // Background sync to Firebase
         Task.detached(priority: .userInitiated) {
