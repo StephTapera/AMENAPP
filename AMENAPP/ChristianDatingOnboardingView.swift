@@ -7,6 +7,8 @@
 
 import SwiftUI
 
+// MARK: - COMMENTED OUT - TO BE FIXED LATER
+/*
 struct ChristianDatingOnboardingView: View {
     @Environment(\.dismiss) var dismiss
     var onComplete: (() -> Void)? = nil
@@ -303,7 +305,7 @@ struct SafetyStep: View {
 }
 
 // MARK: - Safety Feature Row
-struct SafetyFeatureRow: View {
+private struct SafetyFeatureRow: View {
     let icon: String
     let title: String
     let description: String
@@ -1180,6 +1182,24 @@ struct ChurchInfoStep: View {
     }
 }
 
+// MARK: - Safety Tip Row
+private struct SafetyTipRow: View {
+    let text: String
+    
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 14))
+                .foregroundStyle(.orange)
+                .padding(.top, 2)
+            
+            Text(text)
+                .font(.custom("OpenSans-Regular", size: 14))
+                .foregroundStyle(.secondary)
+        }
+    }
+}
+
 // MARK: - Meeting Safety Step (NEW)
 struct MeetingSafetyStep: View {
     @Binding var selectedMeetingPreference: String
@@ -1268,22 +1288,7 @@ struct MeetingSafetyStep: View {
     }
 }
 
-struct SafetyTipRow: View {
-    let text: String
-    
-    var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "checkmark.shield.fill")
-                .font(.system(size: 12))
-                .foregroundStyle(.orange)
-            
-            Text(text)
-                .font(.custom("OpenSans-Regular", size: 13))
-                .foregroundStyle(.secondary)
-        }
-    }
-}
-
 #Preview {
     ChristianDatingOnboardingView()
 }
+*/

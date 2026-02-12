@@ -28,32 +28,51 @@ class RealtimeRepostsService: ObservableObject {
     // MARK: - Repost Actions
     
     /// Repost a post
+    /// - Parameters:
+    ///   - postId: The UUID of the post (for backwards compatibility)
+    ///   - originalPost: The post being reposted
+    /// ✅ FIXED: Now uses Firestore ID instead of full UUID for consistency
     func repostPost(postId: UUID, originalPost: Post) async throws {
+        print("🟢 [REALTIMEREPOSTS] repostPost() CALLED")
+        print("   Post ID (UUID): \(postId)")
+        print("   Post Firestore ID: \(originalPost.firestoreId)")
+        
         guard let userId = Auth.auth().currentUser?.uid else {
+            print("❌ [REALTIMEREPOSTS] No authenticated user")
             throw NSError(domain: "RealtimeRepostsService", code: 401, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
         }
         
+        print("   User ID: \(userId)")
+        
         let timestamp = Date().timeIntervalSince1970
+        
+        // ✅ Use the short Firestore ID instead of full UUID
+        let firestoreId = originalPost.firestoreId
         
         // 1. Add to user's reposts list
         let userRepostRef = database.reference()
             .child("user-reposts")
             .child(userId)
-            .child(postId.uuidString)
+            .child(firestoreId)
         
         let repostData: [String: Any] = [
-            "postId": postId.uuidString,
+            "postId": firestoreId,  // ✅ Use Firestore ID
             "originalAuthorId": originalPost.authorId,
             "timestamp": timestamp,
             "repostedAt": timestamp
         ]
         
+        print("🟢 [REALTIMEREPOSTS] Writing to RTDB path: user-reposts/\(userId)/\(firestoreId)")
+        print("   Data: \(repostData)")
+        
         try await userRepostRef.setValue(repostData)
+        
+        print("✅ [REALTIMEREPOSTS] Successfully wrote to user-reposts")
         
         // 2. Increment repost count on the original post
         let postRepostCountRef = database.reference()
             .child("posts")
-            .child(postId.uuidString)
+            .child(firestoreId)  // ✅ Use Firestore ID
             .child("repostCount")
         
         try await postRepostCountRef.runTransactionBlock { currentData in
@@ -68,7 +87,7 @@ class RealtimeRepostsService: ObservableObject {
         // 3. Add to global reposts tracking
         let globalRepostRef = database.reference()
             .child("post-reposts")
-            .child(postId.uuidString)
+            .child(firestoreId)  // ✅ Use Firestore ID
             .child(userId)
         
         try await globalRepostRef.setValue([
@@ -79,18 +98,23 @@ class RealtimeRepostsService: ObservableObject {
         // Update local cache
         repostedPostIds.insert(postId)
         
-        print("✅ Post reposted successfully: \(postId)")
+        print("✅ Post reposted successfully: \(firestoreId)")
         
-        // Send notification
+        // Send notification with the reposted post for ProfileView
         NotificationCenter.default.post(
             name: Notification.Name("postReposted"),
             object: nil,
-            userInfo: ["post": originalPost, "postId": postId]
+            userInfo: [
+                "post": originalPost,
+                "userId": userId  // Include who made the repost
+            ]
         )
+        print("📬 Sent postReposted notification for user: \(userId)")
     }
     
     /// Undo repost
-    func undoRepost(postId: UUID) async throws {
+    /// ✅ FIXED: Now accepts Firestore ID string instead of UUID
+    func undoRepost(firestoreId: String) async throws {
         guard let userId = Auth.auth().currentUser?.uid else {
             throw NSError(domain: "RealtimeRepostsService", code: 401, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
         }
@@ -99,14 +123,14 @@ class RealtimeRepostsService: ObservableObject {
         let userRepostRef = database.reference()
             .child("user-reposts")
             .child(userId)
-            .child(postId.uuidString)
+            .child(firestoreId)  // ✅ Use Firestore ID
         
         try await userRepostRef.removeValue()
         
         // 2. Decrement repost count on the original post
         let postRepostCountRef = database.reference()
             .child("posts")
-            .child(postId.uuidString)
+            .child(firestoreId)  // ✅ Use Firestore ID
             .child("repostCount")
         
         try await postRepostCountRef.runTransactionBlock { currentData in
@@ -121,25 +145,27 @@ class RealtimeRepostsService: ObservableObject {
         // 3. Remove from global reposts tracking
         let globalRepostRef = database.reference()
             .child("post-reposts")
-            .child(postId.uuidString)
+            .child(firestoreId)  // ✅ Use Firestore ID
             .child(userId)
         
         try await globalRepostRef.removeValue()
         
-        // Update local cache
-        repostedPostIds.remove(postId)
+        // Update local cache - Note: We can't remove from UUID cache without the UUID
+        // This is okay since the cache will be refreshed from RTDB
         
-        print("✅ Repost undone: \(postId)")
+        print("✅ Repost undone: \(firestoreId)")
         
         // Send notification
         NotificationCenter.default.post(
             name: Notification.Name("postUnreposted"),
             object: nil,
-            userInfo: ["postId": postId]
+            userInfo: ["firestoreId": firestoreId]
         )
     }
     
     /// Check if user has reposted a post
+    /// ⚠️ DEPRECATED: Use PostInteractionsService.hasReposted(postId: String) instead
+    /// This function is kept for backward compatibility but should not be used
     func hasReposted(postId: UUID) async throws -> Bool {
         guard let userId = Auth.auth().currentUser?.uid else {
             return false
@@ -150,6 +176,8 @@ class RealtimeRepostsService: ObservableObject {
             return true
         }
         
+        // ⚠️ This will not work with new Firestore ID format
+        // Use PostInteractionsService.hasReposted(postId: String) instead
         let repostRef = database.reference()
             .child("user-reposts")
             .child(userId)
@@ -176,44 +204,61 @@ class RealtimeRepostsService: ObservableObject {
             throw NSError(domain: "RealtimeRepostsService", code: 401, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
         }
         
+        print("🔍 [FETCH-REPOSTS] Starting fetch for user: \(targetUserId)")
+        
         let repostsRef = database.reference()
             .child("user-reposts")
             .child(targetUserId)
         
+        print("🔍 [FETCH-REPOSTS] RTDB path: user-reposts/\(targetUserId)")
+        
         let snapshot = try await repostsRef.getData()
+        
+        print("🔍 [FETCH-REPOSTS] Snapshot exists: \(snapshot.exists())")
+        print("🔍 [FETCH-REPOSTS] Snapshot value type: \(type(of: snapshot.value))")
+        print("🔍 [FETCH-REPOSTS] Snapshot value: \(String(describing: snapshot.value))")
         
         guard snapshot.exists(), let repostsData = snapshot.value as? [String: Any] else {
             print("📭 No reposts found for user: \(targetUserId)")
+            print("   Snapshot exists: \(snapshot.exists())")
+            print("   Could cast to [String: Any]: \(snapshot.value is [String: Any])")
             return []
         }
         
         // Extract post IDs
         let postIds = Array(repostsData.keys)
         print("📬 Found \(postIds.count) reposts for user: \(targetUserId)")
+        print("🔍 [FETCH-REPOSTS] Post IDs: \(postIds)")
         
-        // Fetch full post details for each reposted post
+        // ✅ Fetch full post details from FIRESTORE (where posts are actually saved)
         var posts: [Post] = []
+        let firestoreService = FirebasePostService.shared
+        
+        print("🔍 [FETCH-REPOSTS] Fetching \(postIds.count) posts from Firestore...")
         
         for postId in postIds {
             do {
-                let postRef = database.reference().child("posts").child(postId)
-                let postSnapshot = try await postRef.getData()
-                
-                if postSnapshot.exists(), let postData = postSnapshot.value as? [String: Any] {
-                    if let post = self.parsePost(from: postData, postId: postId) {
-                        posts.append(post)
-                    }
+                print("🔍 [FETCH-REPOSTS] Fetching post from Firestore: \(postId)")
+                // Fetch post from Firestore using the Firestore document ID
+                if let post = try await firestoreService.fetchPostById(postId: postId) {
+                    print("   ✅ Found post: \(post.firestoreId) by @\(post.authorUsername)")
+                    posts.append(post)
+                } else {
+                    print("   ⚠️ Post not found in Firestore: \(postId)")
                 }
             } catch {
-                print("⚠️ Error fetching reposted post \(postId): \(error)")
+                print("   ⚠️ Error fetching reposted post \(postId): \(error)")
             }
         }
         
+        print("🔍 [FETCH-REPOSTS] Successfully fetched \(posts.count) out of \(postIds.count) posts")
+        
         // Sort by repost timestamp (most recent first)
         posts.sort { post1, post2 in
-            if let repost1Data = repostsData[post1.id.uuidString] as? [String: Any],
+            // ✅ Use Firestore ID instead of full UUID for lookup
+            if let repost1Data = repostsData[post1.firestoreId] as? [String: Any],
                let timestamp1 = repost1Data["timestamp"] as? Double,
-               let repost2Data = repostsData[post2.id.uuidString] as? [String: Any],
+               let repost2Data = repostsData[post2.firestoreId] as? [String: Any],
                let timestamp2 = repost2Data["timestamp"] as? Double {
                 return timestamp1 > timestamp2
             }

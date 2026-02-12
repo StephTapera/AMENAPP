@@ -33,7 +33,18 @@ export const bibleChat = ai.defineFlow(
     }),
   },
   async (input) => {
+    // Debug: Log what we received
+    console.log('📥 bibleChat input:', JSON.stringify(input, null, 2));
+    
     const { message, history = [] } = input;
+    
+    // Validate message
+    if (!message || message.trim() === '') {
+      console.error('❌ Empty or undefined message received');
+      return {
+        response: 'I didn\'t receive your question. Please try again.',
+      };
+    }
 
     const systemPrompt = `You are a knowledgeable and compassionate Biblical AI assistant for the AMEN app.
 
@@ -53,6 +64,8 @@ Guidelines:
 
 Tone: Warm, reverent, scholarly yet accessible`;
 
+    console.log(`📖 Processing question: "${message}"`);
+
     // Build conversation context
     const messages = [
       { role: 'system', content: systemPrompt },
@@ -68,6 +81,8 @@ Tone: Warm, reverent, scholarly yet accessible`;
         maxOutputTokens: 1024,
       },
     });
+
+    console.log(`✅ Generated response (${response.text().length} chars)`);
 
     return {
       response: response.text(),

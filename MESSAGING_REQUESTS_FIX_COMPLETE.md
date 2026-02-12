@@ -164,9 +164,14 @@ Real-time messaging works ✅
 
 ## 🔧 Related Files Modified
 
-1. **MessageService.swift** (2 changes)
-   - Line 463-477: Create conversations as pending with requesterId
-   - Line 100-123: Smart filtering for pending conversations
+### **1. MessageService.swift** (2 changes)
+   - **Line 463-477**: Create conversations as pending with requesterId
+   - **Line 100-123**: Smart filtering for pending conversations (show to requester only)
+
+### **2. FirebaseMessagingService.swift** (3 changes)
+   - **createConversation() default parameter**: Changed from `"accepted"` to `nil`
+   - **Line ~275-290**: Auto-detect status - "pending" for 1-on-1, "accepted" for groups
+   - **Line ~210-220**: Filter out pending conversations where user is NOT the requester
 
 ---
 

@@ -30,17 +30,29 @@ class CompositeNotificationDelegate: NSObject, UNUserNotificationCenterDelegate 
         let userInfo = notification.request.content.userInfo
         
         // Check if this is a church notification by looking at the category
-        if notification.request.content.categoryIdentifier.contains("church") {
-            // Delegate to ChurchNotificationManager
-            ChurchNotificationManager.shared.userNotificationCenter(
-                center,
-                willPresent: notification,
-                withCompletionHandler: completionHandler
-            )
-        } else {
-            // This is a Firebase push notification - show it
+        if notification.request.content.categoryIdentifier.contains("church") ||
+           notification.request.content.categoryIdentifier.contains("SERVICE_REMINDER") {
+            // Show church notifications with banner, sound, and badge
             completionHandler([.banner, .sound, .badge])
+            return
         }
+        
+        // ✅ SMART NOTIFICATION HANDLING: Suppress FCM push notifications when app is in foreground
+        // The in-app Firestore notification will be shown instead via NotificationService
+        // This prevents duplicate notifications (FCM push + Firestore document)
+        
+        // Check if this is a message notification
+        if let notificationType = userInfo["type"] as? String {
+            if notificationType == "message" || notificationType == "message_request" {
+                print("🔕 Suppressing FCM message notification (app in foreground - Firestore notification will show instead)")
+                // Don't show the FCM push notification banner
+                completionHandler([])
+                return
+            }
+        }
+        
+        // For other notification types, show them with banner, sound, and badge
+        completionHandler([.banner, .sound, .badge])
     }
     
     /// Handle notification tap
@@ -50,19 +62,38 @@ class CompositeNotificationDelegate: NSObject, UNUserNotificationCenterDelegate 
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
         let userInfo = response.notification.request.content.userInfo
+        let categoryIdentifier = response.notification.request.content.categoryIdentifier
         
         // Check if this is a church notification
-        if response.notification.request.content.categoryIdentifier.contains("church") {
-            // Delegate to ChurchNotificationManager
-            ChurchNotificationManager.shared.userNotificationCenter(
-                center,
-                didReceive: response,
-                withCompletionHandler: completionHandler
-            )
+        if categoryIdentifier.contains("church") || categoryIdentifier.contains("SERVICE_REMINDER") {
+            // Handle church notification tap
+            handleChurchNotificationTap(response: response)
+            completionHandler()
         } else {
             // Handle Firebase push notification tap
             handlePushNotificationTap(response: response)
             completionHandler()
+        }
+    }
+    
+    // MARK: - Handle Church Notification Tap
+    
+    private func handleChurchNotificationTap(response: UNNotificationResponse) {
+        let actionIdentifier = response.actionIdentifier
+        let categoryIdentifier = response.notification.request.content.categoryIdentifier
+        
+        print("⛪️ Church notification tapped")
+        print("   Category: \(categoryIdentifier)")
+        print("   Action: \(actionIdentifier)")
+        
+        // Handle specific actions for church notifications
+        if actionIdentifier == "GET_DIRECTIONS" {
+            print("   Opening directions to church")
+            // TODO: Extract church data and open Maps
+        } else if actionIdentifier == UNNotificationDefaultActionIdentifier {
+            // User tapped the notification itself (not an action button)
+            print("   Opening church details")
+            // TODO: Navigate to church details or FindChurchView
         }
     }
     

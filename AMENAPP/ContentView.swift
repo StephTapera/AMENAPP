@@ -9,21 +9,27 @@ import SwiftUI
 import Combine
 import UIKit
 import FirebaseAuth
+import FirebaseFirestore
 
 struct ContentView: View {
     @StateObject private var viewModel: ContentViewModel
     @StateObject private var authViewModel: AuthenticationViewModel
-    @StateObject private var messagingCoordinator: AMENAPP.MessagingCoordinator
+    @StateObject private var messagingCoordinator: MessagingCoordinator
     @StateObject private var appUsageTracker = AppUsageTracker.shared
     @StateObject private var notificationManager = NotificationManager.shared
+    @ObservedObject private var messagingService = FirebaseMessagingService.shared
     @State private var showCreatePost: Bool
+    @State private var showPostSuccessToast = false
+    @State private var postSuccessCategory: String = ""
+    @State private var savedSearchObserver: NSObjectProtocol?
+    @State private var postSuccessObserver: NSObjectProtocol?
     @Environment(\.scenePhase) private var scenePhase
     
     init() {
         // Initialize property wrappers - default to HomeView (tab 0) to show OpenTable
         _viewModel = StateObject(wrappedValue: ContentViewModel())
         _authViewModel = StateObject(wrappedValue: AuthenticationViewModel())
-        _messagingCoordinator = StateObject(wrappedValue: AMENAPP.MessagingCoordinator.shared)
+        _messagingCoordinator = StateObject(wrappedValue: MessagingCoordinator.shared)
         _showCreatePost = State(initialValue: false)
         
         // Make tab bar smaller and more compact
@@ -35,9 +41,16 @@ struct ContentView: View {
         appearance.stackedLayoutAppearance.normal.iconColor = UIColor.secondaryLabel
         appearance.stackedLayoutAppearance.selected.iconColor = UIColor.label
         
-        // Remove titles to make it more compact
-        appearance.stackedLayoutAppearance.normal.titleTextAttributes = [.font: UIFont.systemFont(ofSize: 0)]
-        appearance.stackedLayoutAppearance.selected.titleTextAttributes = [.font: UIFont.systemFont(ofSize: 0)]
+        // Remove titles to make it more compact (use minimum valid font size)
+        let emptyFont = UIFont.systemFont(ofSize: 1.0, weight: .regular)
+        appearance.stackedLayoutAppearance.normal.titleTextAttributes = [
+            .font: emptyFont,
+            .foregroundColor: UIColor.clear
+        ]
+        appearance.stackedLayoutAppearance.selected.titleTextAttributes = [
+            .font: emptyFont,
+            .foregroundColor: UIColor.clear
+        ]
         
         UITabBar.appearance().standardAppearance = appearance
         UITabBar.appearance().scrollEdgeAppearance = appearance
@@ -79,16 +92,10 @@ struct ContentView: View {
             } else {
                 // Main app content
                 mainContent
-                    .fullScreenCover(isPresented: $authViewModel.showWelcomeValues) {
-                        WelcomeValuesView()
+                    .fullScreenCover(isPresented: $authViewModel.showWelcomeToAMEN) {
+                        WelcomeToAMENView()
                             .onDisappear {
-                                authViewModel.dismissWelcomeValues()
-                            }
-                    }
-                    .fullScreenCover(isPresented: $authViewModel.showAppTutorial) {
-                        AppTutorialView()
-                            .onDisappear {
-                                authViewModel.dismissAppTutorial()
+                                authViewModel.dismissWelcomeToAMEN()
                             }
                     }
                     .onAppear {
@@ -99,6 +106,9 @@ struct ContentView: View {
                     .task {
                         // Run user search migration on first launch (production-ready, silent)
                         await runUserSearchMigrationIfNeeded()
+                        
+                        // Run post profile image migration on first launch
+                        await runPostProfileImageMigrationIfNeeded()
                     }
             }
         }
@@ -128,75 +138,116 @@ struct ContentView: View {
         // All views are kept in memory but only the selected one is visible
         // This provides instant tab switching with no loading delay
         ZStack {
-            HomeView()
-                .id("home")
-                .opacity(viewModel.selectedTab == 0 ? 1 : 0)
-                .allowsHitTesting(viewModel.selectedTab == 0)
+            if viewModel.selectedTab == 0 {
+                HomeView()
+                    .id("home")
+                    .transition(.opacity.animation(.easeInOut(duration: 0.15)))
+            }
             
-            MessagesView()
-                .id("messages")
-                .environmentObject(messagingCoordinator)
-                .opacity(viewModel.selectedTab == 1 ? 1 : 0)
-                .allowsHitTesting(viewModel.selectedTab == 1)
+            if viewModel.selectedTab == 1 {
+                MessagesView()
+                    .id("messages")
+                    .environmentObject(messagingCoordinator)
+                    .transition(.opacity.animation(.easeInOut(duration: 0.15)))
+            }
             
-            ResourcesView()
-                .id("resources")
-                .opacity(viewModel.selectedTab == 3 ? 1 : 0)
-                .allowsHitTesting(viewModel.selectedTab == 3)
+            if viewModel.selectedTab == 3 {
+                ResourcesView()
+                    .id("resources")
+                    .transition(.opacity.animation(.easeInOut(duration: 0.15)))
+            }
             
-            ProfileView()
-                .environmentObject(authViewModel)
-                .id("profile")
-                .opacity(viewModel.selectedTab == 4 ? 1 : 0)
-                .allowsHitTesting(viewModel.selectedTab == 4)
+            if viewModel.selectedTab == 4 {
+                ProfileView()
+                    .environmentObject(authViewModel)
+                    .id("profile")
+                    .transition(.opacity.animation(.easeInOut(duration: 0.15)))
+            }
         }
-        .animation(.easeInOut(duration: 0.2), value: viewModel.selectedTab)
     }
     
     private var mainContent: some View {
         ZStack {
-            // Main content
+            // Main content (takes full screen)
             selectedTabView
-            
-            // Custom compact tab bar
-            VStack {
-                Spacer()
-                
-                CompactTabBar(selectedTab: $viewModel.selectedTab, showCreatePost: $showCreatePost)
-                    .padding(.bottom, 8)
-            }
+                .ignoresSafeArea(.all, edges: .bottom)
             
             // Daily limit reached dialog
             if appUsageTracker.showLimitReachedDialog {
+                Color.black.opacity(0.4)
+                    .ignoresSafeArea()
+                    .transition(.opacity.animation(.easeInOut(duration: 0.2)))
+                
                 DailyLimitReachedDialog()
                     .environmentObject(appUsageTracker)
-                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                    .transition(.scale(scale: 0.95).combined(with: .opacity).animation(.spring(response: 0.4, dampingFraction: 0.8)))
                     .zIndex(999)
             }
+            
+            // Post success toast notification (appears at bottom)
+            VStack {
+                Spacer()
+                
+                if showPostSuccessToast {
+                    PostSuccessToast(category: postSuccessCategory)
+                        .padding(.bottom, 100) // Above tab bar
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                        .zIndex(998)
+                }
+            }
+        }
+        .moderationToast() // ✅ Add moderation toast overlay
+        .overlay(alignment: .bottom) {
+            // Custom compact tab bar (fixed at bottom)
+            CompactTabBar(selectedTab: $viewModel.selectedTab, showCreatePost: $showCreatePost)
+                .ignoresSafeArea(.keyboard) // Don't move when keyboard appears
         }
         .sheet(isPresented: $showCreatePost) {
             CreatePostView()
         }
         .environmentObject(appUsageTracker)
         .environmentObject(notificationManager)
-        .onAppear {
+        .task {
             // Ensure we start on Home tab (OpenTable view)
             viewModel.selectedTab = 0
             
             // Start tracking app usage
             appUsageTracker.startSession()
             
+            // Cache current user's profile data (including profile image URL)
+            await UserProfileImageCache.shared.cacheCurrentUserProfile()
+            
             // Setup push notifications
-            Task {
-                await setupPushNotifications()
-            }
+            await setupPushNotifications()
+            
+            // ✅ Start listening to messages for real-time badge updates
+            messagingService.startListeningToConversations()
+            await messagingService.fetchAndCacheCurrentUserName()
             
             // Setup saved search notification observer
             setupSavedSearchObserver()
+            
+            // Setup post success notification observer
+            setupPostSuccessObserver()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .openCreatePost)) { _ in
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                showCreatePost = true
+            }
         }
         .onDisappear {
             // Stop tracking when view disappears
             appUsageTracker.endSession()
+
+            if let savedSearchObserver {
+                NotificationCenter.default.removeObserver(savedSearchObserver)
+                self.savedSearchObserver = nil
+            }
+
+            if let postSuccessObserver {
+                NotificationCenter.default.removeObserver(postSuccessObserver)
+                self.postSuccessObserver = nil
+            }
         }
     }
     
@@ -211,12 +262,8 @@ struct ContentView: View {
         if alreadyGranted {
             // Setup FCM token (with error handling)
             await MainActor.run {
-                do {
-                    pushManager.setupFCMToken()
-                    print("✅ Push notifications already enabled")
-                } catch {
-                    print("⚠️ FCM token setup failed (this is normal in simulator): \(error.localizedDescription)")
-                }
+                pushManager.setupFCMToken()
+                print("✅ Push notifications already enabled")
             }
         } else {
             // Request permission after a short delay (don't overwhelm user on launch)
@@ -226,24 +273,11 @@ struct ContentView: View {
             
             if granted {
                 await MainActor.run {
-                    do {
-                        pushManager.setupFCMToken()
-                        print("✅ Push notifications enabled")
-                    } catch {
-                        print("⚠️ FCM token setup failed (this is normal in simulator): \(error.localizedDescription)")
-                    }
+                    pushManager.setupFCMToken()
+                    print("✅ Push notifications enabled")
                 }
             } else {
                 print("⚠️ Push notifications denied")
-            }
-        }
-        
-        // Start listening to notifications (with error handling)
-        await MainActor.run {
-            do {
-                NotificationService.shared.startListening()
-            } catch {
-                print("⚠️ Notification listener setup failed: \(error.localizedDescription)")
             }
         }
     }
@@ -251,7 +285,9 @@ struct ContentView: View {
     // MARK: - Saved Search Notification Observer
     
     private func setupSavedSearchObserver() {
-        NotificationCenter.default.addObserver(
+        guard savedSearchObserver == nil else { return }
+
+        savedSearchObserver = NotificationCenter.default.addObserver(
             forName: Notification.Name("openSavedSearch"),
             object: nil,
             queue: .main
@@ -260,14 +296,48 @@ struct ContentView: View {
                   let searchId = userInfo["savedSearchId"] as? String,
                   let query = userInfo["query"] as? String else { return }
             
-            print("📍 Opening saved search: \(query) (ID: \(searchId))")
+            Task { @MainActor in
+                print("📍 Opening saved search: \(query) (ID: \(searchId))")
+
+                // Navigate to search tab
+                viewModel.selectedTab = 1
+
+                // Haptic feedback
+                let haptic = UIImpactFeedbackGenerator(style: .medium)
+                haptic.impactOccurred()
+            }
+        }
+    }
+    
+    // MARK: - Post Success Notification Observer
+    
+    private func setupPostSuccessObserver() {
+        guard postSuccessObserver == nil else { return }
+
+        postSuccessObserver = NotificationCenter.default.addObserver(
+            forName: .newPostCreated,
+            object: nil,
+            queue: .main
+        ) { [self] notification in
+            guard let userInfo = notification.userInfo,
+                  let category = userInfo["category"] as? String else { return }
             
-            // Navigate to search tab
-            viewModel.selectedTab = 1
-            
-            // Haptic feedback
-            let haptic = UIImpactFeedbackGenerator(style: .medium)
-            haptic.impactOccurred()
+            Task { @MainActor in
+                print("🎉 Post created successfully in category: \(category)")
+
+                // Show success toast
+                postSuccessCategory = category
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                    showPostSuccessToast = true
+                }
+
+                // Auto-dismiss after 3 seconds
+                DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                        showPostSuccessToast = false
+                    }
+                }
+            }
         }
     }
     
@@ -312,6 +382,47 @@ struct ContentView: View {
         }
     }
     
+    // MARK: - Post Profile Image Migration (Production - Runs Silently)
+    
+    /// Automatically runs post profile image migration on first app launch
+    private func runPostProfileImageMigrationIfNeeded() async {
+        // Check if migration has already run
+        guard !UserDefaults.standard.bool(forKey: "hasRunPostProfileImageMigration_v1") else {
+            print("✅ Post profile image migration already completed")
+            return
+        }
+        
+        print("🔧 Running post profile image migration in background...")
+        
+        do {
+            // Check if migration is needed
+            let status = try await PostProfileImageMigration.shared.checkStatus()
+            
+            if status.needsMigration > 0 {
+                print("📊 Found \(status.needsMigration) posts needing profile images")
+                
+                // Run migration silently in background
+                try await PostProfileImageMigration.shared.migrateAllPosts()
+                
+                // Mark as completed
+                UserDefaults.standard.set(true, forKey: "hasRunPostProfileImageMigration_v1")
+                
+                print("✅ Post profile image migration completed successfully!")
+                print("   Total: \(status.totalPosts)")
+                print("   Migrated: \(status.needsMigration)")
+            } else {
+                print("✅ All posts already have profile images")
+                
+                // Mark as completed even if no migration needed
+                UserDefaults.standard.set(true, forKey: "hasRunPostProfileImageMigration_v1")
+            }
+        } catch {
+            // Log error but don't show to user
+            print("⚠️ Post profile image migration failed: \(error.localizedDescription)")
+            print("   Posts without profile images will show initials instead")
+        }
+    }
+    
     // MARK: - Scene Phase Handler
     
     /// Handle app lifecycle changes for usage tracking
@@ -335,21 +446,28 @@ struct ContentView: View {
     }
 }
 
-// MARK: - Compact Tab Bar with Neomorphic Glass Design
+// MARK: - Compact Tab Bar (Smaller with Glassmorphic Design)
 struct CompactTabBar: View {
     @Binding var selectedTab: Int
     @Binding var showCreatePost: Bool
-    @StateObject private var messagingService = FirebaseMessagingService.shared
+    @ObservedObject private var messagingService = FirebaseMessagingService.shared
+    @ObservedObject private var postsManager = PostsManager.shared
+    @ObservedObject private var userService = UserService.shared
     @State private var previousUnreadCount: Int = 0
     @State private var badgePulse: Bool = false
+    @State private var newPostsBadgePulse: Bool = false
+    @State private var lastSeenPostTime: Date = Date()
     @Namespace private var tabNamespace
+
+    // ✅ REAL-TIME PROFILE PHOTO UPDATE
+    @State private var profilePhotoUpdateTrigger = UUID() // Force AsyncImage to reload
     
     // All tabs in order: Home, Messages, Create (center), Resources, Profile
     let allTabs: [(icon: String, tag: Int)] = [
-        ("house.fill", 0),           // Home
-        ("message.fill", 1),          // Messages
-        ("books.vertical.fill", 3),   // Resources
-        ("person.fill", 4)            // Profile
+        ("house.fill", 0),
+        ("message.fill", 1),
+        ("books.vertical.fill", 3),
+        ("person.fill", 4)
     ]
     
     // Computed property for total unread count
@@ -357,146 +475,33 @@ struct CompactTabBar: View {
         messagingService.conversations.reduce(0) { $0 + $1.unreadCount }
     }
     
+    // Computed property for new posts indicator
+    private var hasNewPosts: Bool {
+        guard let latestPost = postsManager.allPosts.first else { return false }
+        return latestPost.createdAt > lastSeenPostTime
+    }
+    
     var body: some View {
-        ZStack {
-            // Background container - more compact spacing
-            HStack(spacing: 4) {
-                // Home button
-                tabButton(for: allTabs[0])
+        HStack(spacing: 8) {  // Reduced from 12 to 8
+            ForEach(Array(allTabs.enumerated()), id: \.element.tag) { index, tab in
+                // Tab Button
+                tabButton(for: tab, isSelected: selectedTab == tab.tag)
                 
-                // Messages button with unread indicator
-                ZStack(alignment: .topTrailing) {
-                    tabButton(for: allTabs[1])
-                    
-                    // 🔴 Unread dot for Messages tab
-                    if totalUnreadCount > 0 {
-                        UnreadDot(pulse: badgePulse)
-                            .offset(x: 4, y: -1)
-                    }
-                }
-                
-                // Center Create Button - smaller with glass effect
-                Button {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
-                        showCreatePost = true
-                    }
-                    let haptic = UIImpactFeedbackGenerator(style: .medium)
-                    haptic.impactOccurred()
-                } label: {
-                    Image(systemName: "plus")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .frame(width: 28, height: 28)
-                        .background(
-                            Circle()
-                                .fill(
-                                    LinearGradient(
-                                        colors: [
-                                            Color.black,
-                                            Color.black.opacity(0.85)
-                                        ],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                )
-                                .shadow(color: .black.opacity(0.25), radius: 6, y: 2)
-                        )
-                }
-                .buttonStyle(PlainButtonStyle())
-                .padding(.horizontal, 2)
-                
-                // Resources button
-                tabButton(for: allTabs[2])
-                
-                // Profile button
-                tabButton(for: allTabs[3])
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
-            
-            // Morphing pill indicator that slides between tabs
-            HStack(spacing: 4) {
-                if selectedTab == 0 {
-                    pillIndicator
-                        .matchedGeometryEffect(id: "TAB_PILL", in: tabNamespace)
-                } else {
-                    Color.clear.frame(width: 38, height: 38)
-                }
-                
-                if selectedTab == 1 {
-                    pillIndicator
-                        .matchedGeometryEffect(id: "TAB_PILL", in: tabNamespace)
-                } else {
-                    Color.clear.frame(width: 38, height: 38)
-                }
-                
-                // Center button spacer - smaller
-                Color.clear.frame(width: 28, height: 28)
-                    .padding(.horizontal, 2)
-                
-                if selectedTab == 3 {
-                    pillIndicator
-                        .matchedGeometryEffect(id: "TAB_PILL", in: tabNamespace)
-                } else {
-                    Color.clear.frame(width: 38, height: 38)
-                }
-                
-                if selectedTab == 4 {
-                    pillIndicator
-                        .matchedGeometryEffect(id: "TAB_PILL", in: tabNamespace)
-                } else {
-                    Color.clear.frame(width: 38, height: 38)
+                // Add Create button after Messages (index 1)
+                if index == 1 {
+                    createButton
                 }
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 2.5)
-            .allowsHitTesting(false)
         }
-        .background(
-            ZStack {
-                // Glassmorphic background - frosted glass effect
-                Capsule()
-                    .fill(.ultraThinMaterial)
-                
-                // Subtle white gradient overlay for depth
-                Capsule()
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color.white.opacity(0.25),
-                                Color.white.opacity(0.05)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                
-                // Premium border with gradient
-                Capsule()
-                    .strokeBorder(
-                        LinearGradient(
-                            colors: [
-                                Color.white.opacity(0.5),
-                                Color.white.opacity(0.2),
-                                Color.gray.opacity(0.2)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 1.5
-                    )
-                
-                // Inner glow for depth
-                Capsule()
-                    .stroke(Color.white.opacity(0.6), lineWidth: 1)
-                    .blur(radius: 1)
-                    .offset(x: 0, y: -1)
-            }
-        )
-        .frame(height: 44)
-        .shadow(color: .black.opacity(0.12), radius: 16, x: 0, y: 8)
-        .shadow(color: .black.opacity(0.06), radius: 8, x: 0, y: 4)
-        .padding(.horizontal, 28)
+        .fixedSize()
+        .padding(.horizontal, 10)  // Reduced from 12 to 10
+        .padding(.vertical, 6)     // Reduced from 10 to 6
+        .background(glassmorphicBackground)
+        .clipShape(Capsule())
+        .shadow(color: .black.opacity(0.12), radius: 16, x: 0, y: 6)
+        .shadow(color: .black.opacity(0.06), radius: 4, x: 0, y: 2)
+        .padding(.horizontal, 16)  // Reduced from 20 to 16
+        .padding(.bottom, 6)       // Reduced from 8 to 6
         .onChange(of: totalUnreadCount) { oldValue, newValue in
             // Trigger pulse animation when unread count increases
             if newValue > oldValue {
@@ -517,77 +522,342 @@ struct CompactTabBar: View {
             }
             previousUnreadCount = newValue
         }
+        .onChange(of: postsManager.allPosts.count) { oldValue, newValue in
+            // Trigger pulse animation when new posts are added
+            if newValue > oldValue && selectedTab != 0 {
+                // Only show if user is not on Home tab
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.5)) {
+                    newPostsBadgePulse = true
+                }
+                
+                // Haptic feedback for new post
+                let haptic = UINotificationFeedbackGenerator()
+                haptic.notificationOccurred(.success)
+                
+                // Reset pulse after animation
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    withAnimation {
+                        newPostsBadgePulse = false
+                    }
+                }
+            }
+        }
         .onAppear {
             previousUnreadCount = totalUnreadCount
+            lastSeenPostTime = Date()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("profilePhotoUpdated"))) { notification in
+            // ✅ REAL-TIME UPDATE: Refresh tab bar profile photo immediately
+            if let imageURL = notification.userInfo?["profileImageURL"] as? String {
+                // Update UserDefaults cache
+                if !imageURL.isEmpty {
+                    UserDefaults.standard.set(imageURL, forKey: "currentUserProfileImageURL")
+                } else {
+                    UserDefaults.standard.removeObject(forKey: "currentUserProfileImageURL")
+                }
+
+                // Trigger re-render by changing UUID
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    profilePhotoUpdateTrigger = UUID()
+                }
+
+                // Success haptic
+                let haptic = UIImpactFeedbackGenerator(style: .light)
+                haptic.impactOccurred()
+
+                print("🔄 Tab bar: Profile photo updated in real-time to: \(imageURL)")
+            }
         }
     }
     
-    // MARK: - Inset Glass Pill Indicator (Subtle Transparent)
-    
-    private var pillIndicator: some View {
+    // MARK: - Enhanced Glassmorphic Background (Ultra Transparent Liquid Glass)
+
+    private var glassmorphicBackground: some View {
         ZStack {
-            // Very subtle recessed base - barely visible
+            // Base ultra-thin frosted glass
+            Capsule()
+                .fill(.ultraThinMaterial)
+                .opacity(0.7)  // More transparent base
+
+            // Liquid glass gradient overlay (very subtle)
             Capsule()
                 .fill(
                     LinearGradient(
                         colors: [
-                            Color.black.opacity(0.04),
-                            Color.black.opacity(0.02)
+                            Color.white.opacity(0.12),
+                            Color.white.opacity(0.04)
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
                 )
-            
-            // Inner shadow for depth
+
+            // Delicate shimmer highlight at top
             Capsule()
-                .strokeBorder(
+                .fill(
                     LinearGradient(
                         colors: [
-                            Color.black.opacity(0.08),
+                            Color.white.opacity(0.25),
                             Color.clear
                         ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    lineWidth: 0.5
+                        startPoint: .top,
+                        endPoint: .center
+                    )
                 )
+                .padding(0.5)
                 .blur(radius: 0.5)
-            
-            // Subtle light edge
+
+            // Refined border with gradient (thinner and more transparent)
             Capsule()
                 .strokeBorder(
                     LinearGradient(
                         colors: [
-                            Color.clear,
-                            Color.white.opacity(0.2)
+                            Color.white.opacity(0.3),
+                            Color.white.opacity(0.1)
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     ),
                     lineWidth: 0.5
                 )
+
+            // Subtle inner glow for depth
+            Capsule()
+                .stroke(
+                    Color.white.opacity(0.08),
+                    lineWidth: 1
+                )
+                .blur(radius: 1)
+                .padding(1)
         }
-        .frame(width: 38, height: 38)
-        .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
     }
     
-    // MARK: - Tab Button Helper
+    // MARK: - Tab Button (Smaller Icon-Only Pill Style)
     
     @ViewBuilder
-    private func tabButton(for tab: (icon: String, tag: Int)) -> some View {
+    private func tabButton(for tab: (icon: String, tag: Int), isSelected: Bool) -> some View {
         Button {
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
                 selectedTab = tab.tag
             }
-            let haptic = UIImpactFeedbackGenerator(style: .light)
+            
+            // Auto-refresh Home feed when tapping Home button
+            if tab.tag == 0 {
+                Task {
+                    await postsManager.refreshPosts()
+                }
+                // Mark posts as seen
+                lastSeenPostTime = Date()
+            }
+            
+            let haptic = UIImpactFeedbackGenerator(style: .medium)
             haptic.impactOccurred()
         } label: {
-            Image(systemName: tab.icon)
-                .font(.system(size: 16, weight: selectedTab == tab.tag ? .semibold : .medium))
-                .foregroundStyle(selectedTab == tab.tag ? .black : .black.opacity(0.35))
-                .frame(width: 38, height: 38)
-                .contentShape(Rectangle())
+            ZStack {
+                // Selected state background with glassmorphic effect
+                if isSelected {
+                    Capsule()
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color.black.opacity(0.2),
+                                    Color.black.opacity(0.12)
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        .overlay(
+                            Capsule()
+                                .fill(
+                                    LinearGradient(
+                                        colors: [
+                                            Color.white.opacity(0.1),
+                                            Color.clear
+                                        ],
+                                        startPoint: .top,
+                                        endPoint: .center
+                                    )
+                                )
+                        )
+                        .matchedGeometryEffect(id: "TAB_BACKGROUND", in: tabNamespace)
+                }
+                
+                // Icon with badge OR profile photo for Profile tab
+                ZStack(alignment: .topTrailing) {
+                    // Profile tab (tag 4) shows user's profile photo if available
+                    if tab.tag == 4 {
+                        profileTabContent(isSelected: isSelected)
+                    } else {
+                        // Regular icon for other tabs
+                        Image(systemName: tab.icon)
+                            .font(.system(size: 19, weight: isSelected ? .semibold : .medium))
+                            .foregroundStyle(isSelected ? .primary : .secondary)
+                            .symbolEffect(.bounce, value: isSelected)
+                    }
+                    
+                    // Smart badge for Messages tab (shows count then transitions to dot)
+                    if tab.tag == 1 && totalUnreadCount > 0 {
+                        SmartMessageBadge(unreadCount: totalUnreadCount, pulse: badgePulse)
+                            .offset(x: 8, y: -6)
+                    }
+                    
+                    // Simple dot indicator for Home tab (closer to button)
+                    if tab.tag == 0 && hasNewPosts {
+                        UnreadDot(pulse: newPostsBadgePulse)
+                            .offset(x: 8, y: -6)
+                    }
+                }
+                .frame(width: 46, height: 36)
+            }
+            .frame(width: 46, height: 36)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+    
+    // MARK: - Profile Tab Content
+    
+    @ViewBuilder
+    private func profileTabContent(isSelected: Bool) -> some View {
+        Group {
+            // Try to get profile image URL from UserDefaults cache first (faster)
+            let cachedImageURL = UserDefaults.standard.string(forKey: "currentUserProfileImageURL")
+            
+            if let photoURL = cachedImageURL ?? userService.currentUser?.profileImageURL,
+               !photoURL.isEmpty,
+               let url = URL(string: photoURL) {
+                // User has profile photo - show it
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(width: 28, height: 28)
+                            .clipShape(Circle())
+                            .overlay(
+                                Circle()
+                                    .strokeBorder(
+                                        isSelected ? Color.primary : Color.secondary.opacity(0.5),
+                                        lineWidth: isSelected ? 2 : 1.5
+                                    )
+                            )
+                            .shadow(color: .black.opacity(0.15), radius: 4, y: 2)
+                            .symbolEffect(.bounce, value: isSelected)
+                    case .failure(_):
+                        // Fallback to icon if image fails to load
+                        Image(systemName: "person.fill")
+                            .font(.system(size: 19, weight: isSelected ? .semibold : .medium))
+                            .foregroundStyle(isSelected ? .primary : .secondary)
+                            .symbolEffect(.bounce, value: isSelected)
+                    case .empty:
+                        // Show loading placeholder
+                        Circle()
+                            .fill(Color.gray.opacity(0.2))
+                            .frame(width: 28, height: 28)
+                            .overlay(
+                                ProgressView()
+                                    .scaleEffect(0.6)
+                            )
+                    @unknown default:
+                        Image(systemName: "person.fill")
+                            .font(.system(size: 19, weight: isSelected ? .semibold : .medium))
+                            .foregroundStyle(isSelected ? .primary : .secondary)
+                    }
+                }
+                .id(profilePhotoUpdateTrigger) // ✅ Force reload when UUID changes
+            } else {
+                // No profile photo - show default icon
+                Image(systemName: "person.fill")
+                    .font(.system(size: 19, weight: isSelected ? .semibold : .medium))
+                    .foregroundStyle(isSelected ? .primary : .secondary)
+                    .symbolEffect(.bounce, value: isSelected)
+            }
+        }
+        .task {
+            // Ensure user data is loaded
+            if userService.currentUser == nil {
+                await userService.fetchCurrentUser()
+            }
+        }
+    }
+    
+    // MARK: - Create Button (Smaller with Glassmorphic Touch)
+    
+    private var createButton: some View {
+        Button {
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
+                showCreatePost = true
+            }
+            let haptic = UIImpactFeedbackGenerator(style: .heavy)
+            haptic.impactOccurred()
+        } label: {
+            ZStack {
+                // Subtle outer glow
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [
+                                Color.primary.opacity(0.15),
+                                Color.clear
+                            ],
+                            center: .center,
+                            startRadius: 4,
+                            endRadius: 18
+                        )
+                    )
+                    .frame(width: 38, height: 38)  // Reduced from 44 to 38
+                
+                // Main circular button with glassmorphic touch
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.primary.opacity(0.92),
+                                Color.primary.opacity(0.78)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 38, height: 38)
+                    .overlay(
+                        Circle()
+                            .stroke(
+                                LinearGradient(
+                                    colors: [
+                                        Color.white.opacity(0.3),
+                                        Color.white.opacity(0.1)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 1
+                            )
+                    )
+                    .overlay(
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        Color.white.opacity(0.15),
+                                        Color.clear
+                                    ],
+                                    startPoint: .top,
+                                    endPoint: .center
+                                )
+                            )
+                            .padding(1)
+                    )
+                    .shadow(color: .black.opacity(0.2), radius: 6, y: 2)
+                
+                Image(systemName: "plus")
+                    .font(.system(size: 16, weight: .bold))  // Reduced from 18 to 16
+                    .foregroundStyle(.white)
+            }
+            .frame(width: 38, height: 38)
+            .contentShape(Circle())
         }
         .buttonStyle(PlainButtonStyle())
     }
@@ -610,14 +880,10 @@ struct UnreadDot: View {
                     .animation(.easeOut(duration: 0.6), value: pulse)
             }
             
-            // Main dot
+            // Main dot (no white outline)
             Circle()
                 .fill(Color.red)
                 .frame(width: 8, height: 8)
-                .overlay(
-                    Circle()
-                        .stroke(Color.white, lineWidth: 1.5)
-                )
                 .shadow(color: .red.opacity(0.5), radius: 3, y: 1)
                 .scaleEffect(pulse ? 1.2 : 1.0)
                 .animation(.spring(response: 0.3, dampingFraction: 0.6), value: pulse)
@@ -625,10 +891,81 @@ struct UnreadDot: View {
     }
 }
 
+// MARK: - Smart Message Badge (Shows count then transitions to dot)
+
+struct SmartMessageBadge: View {
+    let unreadCount: Int
+    let pulse: Bool
+    @State private var showCount: Bool = true
+    
+    var body: some View {
+        ZStack {
+            // Pulse circle background
+            if pulse {
+                Circle()
+                    .fill(Color.red.opacity(0.3))
+                    .frame(width: showCount ? 20 : 12, height: showCount ? 20 : 12)
+                    .scaleEffect(pulse ? 2.0 : 1.0)
+                    .opacity(pulse ? 0 : 1)
+                    .animation(.easeOut(duration: 0.6), value: pulse)
+            }
+            
+            if showCount && unreadCount > 0 {
+                // Show count badge
+                ZStack {
+                    Capsule()
+                        .fill(Color.red)
+                        .frame(width: max(16, CGFloat(unreadCount > 9 ? 20 : 16)), height: 16)
+                    
+                    Text("\(min(unreadCount, 9))")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(.white)
+                }
+                .shadow(color: .red.opacity(0.5), radius: 3, y: 1)
+                .scaleEffect(pulse ? 1.2 : 1.0)
+                .transition(.scale.combined(with: .opacity))
+            } else {
+                // Show simple dot
+                Circle()
+                    .fill(Color.red)
+                    .frame(width: 8, height: 8)
+                    .shadow(color: .red.opacity(0.5), radius: 3, y: 1)
+                    .scaleEffect(pulse ? 1.2 : 1.0)
+                    .transition(.scale.combined(with: .opacity))
+            }
+        }
+        .onAppear {
+            // Show count for 2 seconds, then transition to dot
+            if unreadCount > 0 {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                        showCount = false
+                    }
+                }
+            }
+        }
+        .onChange(of: unreadCount) { oldValue, newValue in
+            // Show count again when unread count increases
+            if newValue > oldValue && newValue > 0 {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                    showCount = true
+                }
+                
+                // Transition back to dot after 2 seconds
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                        showCount = false
+                    }
+                }
+            }
+        }
+    }
+}
+
 struct HomeView: View {
     @StateObject private var viewModel = HomeViewModel()
     @ObservedObject private var notificationService = NotificationService.shared
-    @StateObject private var postsManager = PostsManager.shared  // ✅ For post navigation
+    @ObservedObject private var postsManager = PostsManager.shared  // ✅ FIXED: Use @ObservedObject for singletons
     @State private var isCategoriesExpanded = false
     @State private var showNotifications = false
     @State private var showSearch = false
@@ -637,6 +974,12 @@ struct HomeView: View {
     @State private var showMigrationPanel = false  // NEW: Migration panel
     @State private var tapCount = 0
     @State private var notificationBadgePulse = false
+    
+    // MARK: - Scroll Detection for Dynamic UI
+    @State private var scrollOffset: CGFloat = 0
+    @State private var lastScrollOffset: CGFloat = 0
+    @State private var isScrollingUp = false
+    @State private var showToolbar = true
     
     // Helper function for adaptive spacing
     private func adaptiveSpacing(for width: CGFloat) -> CGFloat {
@@ -652,6 +995,9 @@ struct HomeView: View {
             mainScrollContent
                 .navigationTitle("AMEN")
                 .navigationBarTitleDisplayMode(.inline)
+                // GESTURE 1: Hide toolbar on scroll down
+                .toolbar(showToolbar ? .visible : .hidden, for: .navigationBar)
+                .animation(.easeInOut(duration: 0.3), value: showToolbar)
                 .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     // Berean AI Assistant Button
@@ -662,10 +1008,14 @@ struct HomeView: View {
                 
                 ToolbarItem(placement: .principal) {
                     Button {
-                        // Normal tap - expand categories
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                        // Tap AMEN title - toggle categories expand/collapse
+                        withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
                             isCategoriesExpanded.toggle()
+                            showToolbar = true // Also show toolbar
                         }
+                        
+                        let haptic = UIImpactFeedbackGenerator(style: .light)
+                        haptic.impactOccurred()
                     } label: {
                         HStack(spacing: 4) {
                             Text("AMEN")
@@ -688,31 +1038,46 @@ struct HomeView: View {
                 }
                 
                 ToolbarItem(placement: .topBarTrailing) {
-                    HStack(spacing: 12) {
+                    HStack(spacing: 16) {
+                        // People Discovery button
                         Button {
                             showSearch = true
                         } label: {
-                            Image(systemName: "magnifyingglass")
-                                .font(.system(size: 18, weight: .medium))
+                            Image(systemName: "person.2.fill")
+                                .font(.system(size: 16, weight: .medium))
                                 .foregroundStyle(.primary)
                         }
-                        
+
+                        // Notifications button with liquid glass glow
                         Button {
                             showNotifications = true
                         } label: {
-                            ZStack(alignment: .topTrailing) {
-                                Image(systemName: "bell")
-                                    .font(.system(size: 18, weight: .medium))
-                                    .foregroundStyle(.primary)
-                                
-                                // Notification badge - only shows if there are unread notifications
+                            ZStack {
+                                // Liquid glass glow effect when unread notifications exist
                                 if notificationService.unreadCount > 0 {
-                                    NotificationBadge(
-                                        count: notificationService.unreadCount,
-                                        pulse: notificationBadgePulse
-                                    )
-                                    .offset(x: 6, y: -6)
+                                    Circle()
+                                        .fill(
+                                            RadialGradient(
+                                                colors: [
+                                                    Color.blue.opacity(0.3),
+                                                    Color.blue.opacity(0.15),
+                                                    Color.clear
+                                                ],
+                                                center: .center,
+                                                startRadius: 0,
+                                                endRadius: 20
+                                            )
+                                        )
+                                        .frame(width: 40, height: 40)
+                                        .blur(radius: 4)
+                                        .scaleEffect(notificationBadgePulse ? 1.15 : 1.0)
+                                        .opacity(notificationBadgePulse ? 0.8 : 0.5)
+                                        .animation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true), value: notificationBadgePulse)
                                 }
+                                
+                                Image(systemName: "bell.fill")
+                                    .font(.system(size: 16, weight: .medium))
+                                    .foregroundStyle(.primary)
                             }
                         }
                     }
@@ -722,7 +1087,7 @@ struct HomeView: View {
                 NotificationsView()
             }
             .fullScreenCover(isPresented: $showSearch) {
-                SearchView()
+                PeopleDiscoveryView()
             }
             .fullScreenCover(isPresented: $showBereanAssistant) {
                 BereanAIAssistantView()
@@ -762,23 +1127,115 @@ struct HomeView: View {
     // MARK: - Computed Properties to help type checker
     
     private var mainScrollContent: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
-                // Expandable Category Pills - perfectly centered and aligned
-                if isCategoriesExpanded {
-                    categoryPillsView
+        ScrollViewReader { proxy in
+            ScrollView {
+                GeometryReader { geometry in
+                    Color.clear.preference(
+                        key: ScrollOffsetPreferenceKey.self,
+                        value: geometry.frame(in: .named("scroll")).minY
+                    )
+                }
+                .frame(height: 0)
+                
+                VStack(alignment: .leading, spacing: 0) {
+                    // GESTURE 3: Invisible top anchor for scroll-to-top
+                    Color.clear
+                        .frame(height: 1)
+                        .id("top")
+                    
+                    // Expandable Category Pills - perfectly centered and aligned
+                    if isCategoriesExpanded {
+                        categoryPillsView
+                            .padding(.top, 4)
+                            .padding(.bottom, 8)
+                    }
+                    
+                    // Dynamic Content Based on Selected Category
+                    selectedCategoryView
+                }
+                .padding(.bottom)
+            }
+            .coordinateSpace(name: "scroll")
+            .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
+                handleScrollOffset(value)
+            }
+            // GESTURE 3: Tap status bar area to scroll to top
+            .onTapGesture(count: 2) {
+                withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                    proxy.scrollTo("top", anchor: .top)
+                    showToolbar = true
                 }
                 
-                // Dynamic Content Based on Selected Category
-                selectedCategoryView
+                let haptic = UIImpactFeedbackGenerator(style: .light)
+                haptic.impactOccurred()
             }
-            .padding(.vertical)
+            .refreshable {
+                await refreshCurrentCategory()
+            }
+        }
+    }
+    
+    // MARK: - Scroll Offset Handler (GESTURE 1 & 2)
+    
+    private func handleScrollOffset(_ offset: CGFloat) {
+        let delta = offset - lastScrollOffset
+        lastScrollOffset = offset
+        
+        // GESTURE 1: Hide toolbar on scroll down
+        // Scrolling up (delta > 0) or at top (offset >= -5)
+        if delta > 5 || offset >= -5 {
+            if !showToolbar {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    showToolbar = true
+                }
+            }
+        }
+        // Scrolling down (delta < -10)
+        else if delta < -10 && offset < -100 {
+            if showToolbar {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    showToolbar = false
+                }
+            }
+        }
+        
+        // GESTURE 2: Auto-collapse category pills when scrolling down
+        if delta < -30 && offset < -50 {
+            if isCategoriesExpanded {
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                    isCategoriesExpanded = false
+                }
+            }
+        }
+    }
+    
+    // MARK: - Refresh Handler
+    
+    /// Refresh the currently selected category
+    private func refreshCurrentCategory() async {
+        let haptic = UIImpactFeedbackGenerator(style: .light)
+        haptic.impactOccurred()
+        
+        // Post notification to refresh the current category
+        NotificationCenter.default.post(
+            name: Notification.Name("refreshCategory"),
+            object: nil,
+            userInfo: ["category": viewModel.selectedCategory]
+        )
+        
+        // Wait a moment for the refresh to complete
+        try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+        
+        await MainActor.run {
+            let successHaptic = UINotificationFeedbackGenerator()
+            successHaptic.notificationOccurred(.success)
         }
     }
     
     private var categoryPillsView: some View {
-        HStack {
-            Spacer()
+        HStack(spacing: 0) {
+            Spacer(minLength: 0)
+            
             HStack(spacing: 12) {
                 ForEach(viewModel.categories, id: \.self) { category in
                     CategoryPill(
@@ -786,18 +1243,20 @@ struct HomeView: View {
                         isSelected: viewModel.selectedCategory == category
                     ) {
                         viewModel.selectCategory(category)
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                        withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
                             isCategoriesExpanded = false
                         }
                     }
                 }
             }
-            Spacer()
+            
+            Spacer(minLength: 0)
         }
-        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 16)
         .transition(.asymmetric(
-            insertion: .move(edge: .top).combined(with: .opacity),
-            removal: .move(edge: .top).combined(with: .opacity)
+            insertion: .move(edge: .top).combined(with: .opacity).animation(.spring(response: 0.25, dampingFraction: 0.85)),
+            removal: .move(edge: .top).combined(with: .opacity).animation(.spring(response: 0.25, dampingFraction: 0.85))
         ))
     }
     
@@ -806,19 +1265,22 @@ struct HomeView: View {
             switch viewModel.selectedCategory {
             case "#OPENTABLE":
                 OpenTableView()
-                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                    .id("openTable-\(viewModel.selectedCategory)") // Unique ID to force view update
+                    .transition(.opacity.animation(.easeInOut(duration: 0.2)))
             case "Testimonies":
                 TestimoniesView()
-                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                    .id("testimonies-\(viewModel.selectedCategory)")
+                    .transition(.opacity.animation(.easeInOut(duration: 0.2)))
             case "Prayer":
                 PrayerView()
-                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                    .id("prayer-\(viewModel.selectedCategory)")
+                    .transition(.opacity.animation(.easeInOut(duration: 0.2)))
             default:
                 OpenTableView()
-                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                    .id("openTable-\(viewModel.selectedCategory)")
+                    .transition(.opacity.animation(.easeInOut(duration: 0.2)))
             }
         }
-        .animation(.easeInOut(duration: 0.3), value: viewModel.selectedCategory)
     }
 }
 
@@ -828,6 +1290,7 @@ struct BereanAssistantButton: View {
     let action: () -> Void
     
     @State private var isPressed = false
+    @State private var isAnimating = false
     
     var body: some View {
         Button(action: {
@@ -836,18 +1299,60 @@ struct BereanAssistantButton: View {
             action()
         }) {
             ZStack {
-                // Minimal circle background
+                // Outer glow ring - subtle pulse
                 Circle()
-                    .fill(Color.black.opacity(0.05))
-                    .frame(width: 36, height: 36)
+                    .fill(
+                        RadialGradient(
+                            colors: [
+                                Color.black.opacity(0.08),
+                                Color.black.opacity(0.02),
+                                Color.clear
+                            ],
+                            center: .center,
+                            startRadius: 10,
+                            endRadius: 22
+                        )
+                    )
+                    .frame(width: 44, height: 44)
+                    .scaleEffect(isAnimating ? 1.08 : 1.0)
+                    .opacity(isAnimating ? 0.6 : 1.0)
                 
-                // Bible study icon - minimal and clean
-                Image(systemName: "book.closed.fill")
-                    .font(.system(size: 18, weight: .medium))
-                    .foregroundStyle(.black)
-                    .symbolRenderingMode(.hierarchical)
+                // Main button background with liquid glass effect
+                Circle()
+                    .fill(.ultraThinMaterial)
+                    .frame(width: 38, height: 38)
+                    .overlay(
+                        Circle()
+                            .stroke(
+                                LinearGradient(
+                                    colors: [
+                                        Color.white.opacity(0.3),
+                                        Color.white.opacity(0.1)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 1
+                            )
+                    )
+                    .shadow(color: .black.opacity(0.06), radius: 4, y: 2)
+                
+                // AMEN "A" Logo - Stylized
+                Text("A")
+                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [
+                                Color.black,
+                                Color.black.opacity(0.85)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .rotationEffect(.degrees(isAnimating ? 2 : 0))
             }
-            .scaleEffect(isPressed ? 0.90 : 1.0)
+            .scaleEffect(isPressed ? 0.92 : 1.0)
         }
         .buttonStyle(PlainButtonStyle())
         .simultaneousGesture(
@@ -863,6 +1368,15 @@ struct BereanAssistantButton: View {
                     }
                 }
         )
+        .onAppear {
+            // Subtle continuous pulse animation
+            withAnimation(
+                .easeInOut(duration: 2.5)
+                .repeatForever(autoreverses: true)
+            ) {
+                isAnimating = true
+            }
+        }
     }
 }
 
@@ -882,42 +1396,12 @@ struct CategoryPill: View {
         }) {
             Text(title)
                 .font(.custom("OpenSans-SemiBold", size: adaptiveFontSize))
+                .fontWeight(isSelected ? .bold : .semibold)
                 .foregroundStyle(isSelected ? .primary : .secondary)
                 .padding(.horizontal, adaptivePadding)
-                .padding(.vertical, 12)
+                .padding(.vertical, adaptiveVerticalPadding)
                 .lineLimit(1)
-                .background(
-                    ZStack {
-                        // Liquid glass effect
-                        Capsule()
-                            .fill(.ultraThinMaterial)
-                        
-                        // Subtle white gradient overlay
-                        Capsule()
-                            .fill(
-                                LinearGradient(
-                                    colors: [
-                                        Color.white.opacity(0.3),
-                                        Color.white.opacity(0.05)
-                                    ],
-                                    startPoint: .top,
-                                    endPoint: .bottom
-                                )
-                            )
-                        
-                        // Black border - more prominent when selected
-                        Capsule()
-                            .strokeBorder(
-                                Color.black.opacity(isSelected ? 0.4 : 0.15),
-                                lineWidth: isSelected ? 2 : 1
-                            )
-                    }
-                )
-                .shadow(
-                    color: .black.opacity(isSelected ? 0.15 : 0.08),
-                    radius: isSelected ? 12 : 8,
-                    y: isSelected ? 4 : 2
-                )
+                .background(glassmorphicBackground)
                 .scaleEffect(isPressed ? 0.96 : 1.0)
         }
         .buttonStyle(PlainButtonStyle())
@@ -936,24 +1420,122 @@ struct CategoryPill: View {
         )
     }
     
+    // MARK: - Glassmorphic Background
+    
+    @ViewBuilder
+    private var glassmorphicBackground: some View {
+        ZStack {
+            if isSelected {
+                selectedGlassBackground
+            } else {
+                unselectedGlassBackground
+            }
+        }
+    }
+    
+    // Selected state: Frosted glass with inner glow, rim light, and shadow
+    private var selectedGlassBackground: some View {
+        ZStack {
+            // Base frosted glass layer
+            Capsule()
+                .fill(.ultraThinMaterial)
+            
+            // Stronger inner glow effect (white from top) - MORE VISIBLE
+            Capsule()
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(0.6),
+                            Color.white.opacity(0.25),
+                            Color.clear
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+            
+            // Enhanced rim light (more prominent highlight on edges)
+            Capsule()
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(0.8),
+                            Color.white.opacity(0.5),
+                            Color.white.opacity(0.2)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 2
+                )
+            
+            // Stronger outer border (black/gray) - MORE VISIBLE
+            Capsule()
+                .strokeBorder(
+                    Color.black.opacity(0.35),
+                    lineWidth: 1.5
+                )
+                .padding(0.5)
+        }
+        .shadow(color: .black.opacity(0.15), radius: 10, x: 0, y: 4)
+        .shadow(color: .white.opacity(0.2), radius: 6, x: 0, y: -2)
+    }
+    
+    // Unselected state: Subtle glass with minimal styling
+    private var unselectedGlassBackground: some View {
+        ZStack {
+            // Base frosted glass layer (more transparent)
+            Capsule()
+                .fill(.ultraThinMaterial.opacity(0.5))
+            
+            // Very subtle gradient
+            Capsule()
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(0.15),
+                            Color.clear
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+            
+            // Subtle border
+            Capsule()
+                .strokeBorder(
+                    Color.black.opacity(0.1),
+                    lineWidth: 0.5
+                )
+        }
+        .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
+    }
+    
+    // MARK: - Adaptive Sizing (Smaller)
+    
     private var adaptiveFontSize: CGFloat {
-        // Adjust font size based on horizontal size class
+        // Reduced font size for smaller pills
         switch horizontalSizeClass {
         case .compact:
-            return 13  // iPhone portrait
+            return 12  // Smaller on iPhone portrait
         default:
-            return 14  // iPad or iPhone landscape
+            return 13  // Smaller on iPad/landscape
         }
     }
     
     private var adaptivePadding: CGFloat {
-        // Adjust horizontal padding
+        // Reduced horizontal padding for compact design
         switch horizontalSizeClass {
         case .compact:
-            return 16
+            return 12
         default:
-            return 20
+            return 14
         }
+    }
+    
+    private var adaptiveVerticalPadding: CGFloat {
+        // Reduced vertical padding for smaller pills
+        return 8
     }
 }
 
@@ -2356,13 +2938,18 @@ struct GIFPickerView: View {
 
 // MARK: - Testimony Category Model
 
-struct TestimonyCategory: Identifiable {
+struct TestimonyCategory: Identifiable, Equatable {
     let id = UUID()
     let icon: String
     let color: Color
     let title: String
     let subtitle: String
     let backgroundColor: Color
+    
+    // Equatable conformance - compare by title for logical equality
+    static func == (lhs: TestimonyCategory, rhs: TestimonyCategory) -> Bool {
+        lhs.title == rhs.title
+    }
     
     static let healing = TestimonyCategory(
         icon: "heart.fill",
@@ -2478,9 +3065,12 @@ struct FollowButton: View {
 
 struct OpenTableView: View {
     @ObservedObject private var postsManager = PostsManager.shared
+    @StateObject private var feedAlgorithm = HomeFeedAlgorithm.shared
     @State private var showTopIdeas = false
     @State private var showSpotlight = false
     @State private var isRefreshing = false
+    @State private var personalizedPosts: [Post] = []
+    @State private var hasPersonalized = false // Track if personalization has run
     
     var body: some View {
         ScrollView {
@@ -2503,7 +3093,7 @@ struct OpenTableView: View {
                             ProgressView()
                                 .scaleEffect(0.8)
                         }
-                        
+
                         Button {
                             // Discussion action
                         } label: {
@@ -2562,16 +3152,22 @@ struct OpenTableView: View {
                 CollapsibleTrendingSection()
                 
                 // Feed Section - Dynamic posts from PostsManager
-                VStack(spacing: 16) {
-                    ForEach(postsManager.openTablePosts, id: \.id) { post in
+                LazyVStack(spacing: 16) {
+                    let displayPosts = hasPersonalized && !personalizedPosts.isEmpty ? personalizedPosts : postsManager.openTablePosts
+
+                    ForEach(displayPosts, id: \.firestoreId) { post in
                         PostCard(
                             post: post,
                             isUserPost: isCurrentUserPost(post) // Check if post belongs to current user
                         )
+                        .onAppear {
+                            // Track view interaction
+                            feedAlgorithm.recordInteraction(with: post, type: .view)
+                        }
                     }
                     
                     // Show empty state if no posts
-                    if postsManager.openTablePosts.isEmpty {
+                    if postsManager.openTablePosts.isEmpty && !isRefreshing {
                         VStack(spacing: 16) {
                             Image(systemName: "tray")
                                 .font(.system(size: 48))
@@ -2594,6 +3190,23 @@ struct OpenTableView: View {
         }
         .refreshable {
             await refreshOpenTable()
+        }
+        .task {
+            // ✅ Start real-time listener for openTable posts
+            FirebasePostService.shared.startListening(category: .openTable)
+            
+            // Load user interests once
+            if !hasPersonalized {
+                feedAlgorithm.loadInterests()
+                personalizeFeeds()
+                hasPersonalized = true
+            }
+        }
+        .onChange(of: postsManager.openTablePosts) { oldValue, newValue in
+            // Only re-personalize if there are new posts
+            if oldValue.count != newValue.count {
+                personalizeFeeds()
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name.newPostCreated)) { notification in
             // Optimized real-time refresh when new post is created
@@ -2628,6 +3241,29 @@ struct OpenTableView: View {
         return post.authorId == currentUserId
     }
     
+    // MARK: - Personalization
+    
+    /// Apply smart algorithm to personalize feed
+    private func personalizeFeeds() {
+        guard !postsManager.openTablePosts.isEmpty else {
+            personalizedPosts = []
+            return
+        }
+        
+        // Rank posts using algorithm (optimized to run off main thread)
+        Task.detached(priority: .userInitiated) {
+            let ranked = await feedAlgorithm.rankPosts(
+                postsManager.openTablePosts,
+                for: feedAlgorithm.userInterests
+            )
+            
+            await MainActor.run {
+                personalizedPosts = ranked
+                print("✨ Feed personalized: \(personalizedPosts.count) posts ranked")
+            }
+        }
+    }
+    
     // MARK: - Refresh Function
     
     /// Refresh OpenTable posts with pull-to-refresh
@@ -2654,15 +3290,13 @@ struct OpenTableView: View {
 // MARK: - Collapsible Trending Section
 
 struct CollapsibleTrendingSection: View {
-    @State private var isExpanded = true
-    @State private var currentIndex = 0
-    let timer = Timer.publish(every: 4.0, on: .main, in: .common).autoconnect()
+    @AppStorage("trendingSectionExpanded") private var isExpanded = true
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             // Header with expand/collapse button
             Button {
-                withAnimation(.smooth(duration: 0.3)) {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                     isExpanded.toggle()
                 }
                 
@@ -2685,65 +3319,56 @@ struct CollapsibleTrendingSection: View {
             }
             .buttonStyle(PlainButtonStyle())
             
-            // Premium Trending Cards - Smaller & More Refined
+            // Premium Trending Cards - Horizontal Scroll
             if isExpanded {
-                TabView(selection: $currentIndex) {
-                    SmartTrendingCard(
-                        icon: "brain.head.profile",
-                        iconColor: Color(red: 0.4, green: 0.7, blue: 1.0),
-                        title: "AI & Faith",
-                        subtitle: "267 discussions",
-                        backgroundColor: Color(red: 0.4, green: 0.7, blue: 1.0)
-                    )
-                    .tag(0)
-                    
-                    SmartTrendingCard(
-                        icon: "shield.checkered",
-                        iconColor: Color(red: 0.4, green: 0.85, blue: 0.7),
-                        title: "Tech Ethics",
-                        subtitle: "189 discussions",
-                        backgroundColor: Color(red: 0.4, green: 0.85, blue: 0.7)
-                    )
-                    .tag(1)
-                    
-                    SmartTrendingCard(
-                        icon: "lightbulb.fill",
-                        iconColor: Color(red: 1.0, green: 0.7, blue: 0.4),
-                        title: "Startups",
-                        subtitle: "342 discussions",
-                        backgroundColor: Color(red: 1.0, green: 0.7, blue: 0.4)
-                    )
-                    .tag(2)
-                    
-                    SmartTrendingCard(
-                        icon: "book.fill",
-                        iconColor: Color(red: 0.6, green: 0.5, blue: 1.0),
-                        title: "Scripture",
-                        subtitle: "524 discussions",
-                        backgroundColor: Color(red: 0.6, green: 0.5, blue: 1.0)
-                    )
-                    .tag(3)
-                    
-                    SmartTrendingCard(
-                        icon: "flame.fill",
-                        iconColor: Color(red: 1.0, green: 0.6, blue: 0.7),
-                        title: "Hot Takes",
-                        subtitle: "412 discussions",
-                        backgroundColor: Color(red: 1.0, green: 0.6, blue: 0.7)
-                    )
-                    .tag(4)
-                }
-                .tabViewStyle(.page(indexDisplayMode: .always))
-                .indexViewStyle(.page(backgroundDisplayMode: .always))
-                .frame(height: 100)
-                .onReceive(timer) { _ in
-                    withAnimation(.easeInOut(duration: 0.5)) {
-                        currentIndex = (currentIndex + 1) % 5
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        SmartTrendingCard(
+                            icon: "brain.head.profile",
+                            iconColor: Color(red: 0.4, green: 0.7, blue: 1.0),
+                            title: "AI & Faith",
+                            subtitle: "267 discussions",
+                            backgroundColor: Color(red: 0.4, green: 0.7, blue: 1.0)
+                        )
+                        
+                        SmartTrendingCard(
+                            icon: "shield.checkered",
+                            iconColor: Color(red: 0.4, green: 0.85, blue: 0.7),
+                            title: "Tech Ethics",
+                            subtitle: "189 discussions",
+                            backgroundColor: Color(red: 0.4, green: 0.85, blue: 0.7)
+                        )
+                        
+                        SmartTrendingCard(
+                            icon: "lightbulb.fill",
+                            iconColor: Color(red: 1.0, green: 0.7, blue: 0.4),
+                            title: "Startups",
+                            subtitle: "342 discussions",
+                            backgroundColor: Color(red: 1.0, green: 0.7, blue: 0.4)
+                        )
+                        
+                        SmartTrendingCard(
+                            icon: "book.fill",
+                            iconColor: Color(red: 0.6, green: 0.5, blue: 1.0),
+                            title: "Scripture",
+                            subtitle: "524 discussions",
+                            backgroundColor: Color(red: 0.6, green: 0.5, blue: 1.0)
+                        )
+                        
+                        SmartTrendingCard(
+                            icon: "flame.fill",
+                            iconColor: Color(red: 1.0, green: 0.6, blue: 0.7),
+                            title: "Hot Takes",
+                            subtitle: "412 discussions",
+                            backgroundColor: Color(red: 1.0, green: 0.6, blue: 0.7)
+                        )
                     }
+                    .padding(.horizontal, 20)
                 }
+                .frame(height: 100)
                 .transition(.asymmetric(
-                    insertion: .scale(scale: 0.95).combined(with: .opacity),
-                    removal: .scale(scale: 0.95).combined(with: .opacity)
+                    insertion: .opacity.combined(with: .scale(scale: 0.95)).animation(.spring(response: 0.3, dampingFraction: 0.8)),
+                    removal: .opacity.combined(with: .scale(scale: 0.95)).animation(.spring(response: 0.3, dampingFraction: 0.8))
                 ))
             }
         }
@@ -2914,8 +3539,9 @@ struct SmartTrendingCard: View {
 
 struct TopIdeasView: View {
     @Environment(\.dismiss) var dismiss
+    @StateObject private var trendingService = TrendingService.shared
     @State private var selectedTimeframe: IdeaTimeframe = .week
-    @State private var selectedCategory: IdeaCategory = .all
+    @State private var selectedCategory: TopIdea.IdeaCategory = .all
     @State private var showFilters = false
     
     enum IdeaTimeframe: String, CaseIterable {
@@ -2923,40 +3549,19 @@ struct TopIdeasView: View {
         case week = "This Week"
         case month = "This Month"
         case allTime = "All Time"
-    }
-    
-    enum IdeaCategory: String, CaseIterable {
-        case all = "All Ideas"
-        case ai = "AI & Tech"
-        case ministry = "Ministry"
-        case business = "Business"
-        case creative = "Creative"
         
-        var icon: String {
+        var timeInterval: TimeInterval {
             switch self {
-            case .all: return "square.grid.2x2"
-            case .ai: return "brain.head.profile"
-            case .ministry: return "hands.sparkles"
-            case .business: return "briefcase"
-            case .creative: return "paintbrush"
-            }
-        }
-        
-        var color: Color {
-            switch self {
-            case .all: return .gray
-            case .ai: return .blue
-            case .ministry: return .purple
-            case .business: return .green
-            case .creative: return .orange
+            case .today: return 24 * 3600
+            case .week: return 7 * 24 * 3600
+            case .month: return 30 * 24 * 3600
+            case .allTime: return 365 * 24 * 3600
             }
         }
     }
     
-    var topIdeas: [TopIdea] {
-        [
-            // Sample ideas will be replaced with real data from Firebase
-        ].filter { idea in
+    var filteredTopIdeas: [TopIdea] {
+        trendingService.topIdeas.filter { idea in
             selectedCategory == .all || idea.category == selectedCategory
         }
     }
@@ -3022,6 +3627,12 @@ struct TopIdeasView: View {
                                         withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                                             selectedTimeframe = timeframe
                                         }
+                                        Task {
+                                            try? await trendingService.fetchTopIdeas(
+                                                timeframe: timeframe.timeInterval,
+                                                category: selectedCategory
+                                            )
+                                        }
                                     } label: {
                                         Text(timeframe.rawValue)
                                             .font(.custom("OpenSans-SemiBold", size: 13))
@@ -3057,10 +3668,16 @@ struct TopIdeasView: View {
                         // Category Filter
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 8) {
-                                ForEach(IdeaCategory.allCases, id: \.self) { category in
+                                ForEach(TopIdea.IdeaCategory.allCases, id: \.self) { category in
                                     Button {
                                         withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                                             selectedCategory = category
+                                        }
+                                        Task {
+                                            try? await trendingService.fetchTopIdeas(
+                                                timeframe: selectedTimeframe.timeInterval,
+                                                category: category
+                                            )
                                         }
                                     } label: {
                                         HStack(spacing: 6) {
@@ -3101,12 +3718,37 @@ struct TopIdeasView: View {
                     .padding(.horizontal)
                     
                     // Ideas List
-                    VStack(spacing: 16) {
-                        ForEach(topIdeas) { idea in
-                            TopIdeaCard(idea: idea)
+                    if trendingService.isLoading {
+                        VStack(spacing: 12) {
+                            ProgressView()
+                                .scaleEffect(1.2)
+                            Text("Finding the brightest ideas...")
+                                .font(.custom("OpenSans-Regular", size: 14))
+                                .foregroundStyle(.secondary)
                         }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 40)
+                    } else if filteredTopIdeas.isEmpty {
+                        VStack(spacing: 12) {
+                            Image(systemName: "lightbulb.slash")
+                                .font(.system(size: 48))
+                                .foregroundStyle(.secondary)
+                            Text("No trending ideas yet")
+                                .font(.custom("OpenSans-Bold", size: 18))
+                            Text("Be the first to share a brilliant idea!")
+                                .font(.custom("OpenSans-Regular", size: 14))
+                                .foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 40)
+                    } else {
+                        VStack(spacing: 16) {
+                            ForEach(filteredTopIdeas) { idea in
+                                TopIdeaCard(idea: idea)
+                            }
+                        }
+                        .padding(.horizontal)
                     }
-                    .padding(.horizontal)
                 }
                 .padding(.vertical)
             }
@@ -3122,23 +3764,18 @@ struct TopIdeasView: View {
                     }
                 }
             }
+            .task {
+                // Fetch top ideas when view appears
+                try? await trendingService.fetchTopIdeas(
+                    timeframe: selectedTimeframe.timeInterval,
+                    category: selectedCategory
+                )
+            }
         }
     }
 }
 
-// MARK: - Top Idea Model
-
-struct TopIdea: Identifiable {
-    let id = UUID()
-    let rank: Int
-    let authorName: String
-    let timeAgo: String
-    let content: String
-    let lightbulbCount: Int
-    let commentCount: Int
-    let category: TopIdeasView.IdeaCategory
-    let badges: [String]
-}
+// MARK: - Top Idea Model (Now in TrendingService.swift)
 
 // MARK: - Top Idea Card
 
@@ -3405,7 +4042,174 @@ extension View {
     }
 }
 
-#Preview {
+// MARK: - Post Success Toast (Glassmorphic Design)
+
+struct PostSuccessToast: View {
+    let category: String
+    @State private var isAnimating = false
+    
+    // Category display info
+    private var categoryInfo: (icon: String, name: String, color: Color) {
+        switch category {
+        case "openTable":
+            return ("lightbulb.fill", "#OPENTABLE", .orange)
+        case "testimonies":
+            return ("star.fill", "Testimonies", .yellow)
+        case "prayer":
+            return ("hands.sparkles.fill", "Prayer", .blue)
+        default:
+            return ("checkmark.circle.fill", "Post", .green)
+        }
+    }
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            // Success icon with subtle animation
+            ZStack {
+                // Outer pulse ring
+                Circle()
+                    .fill(categoryInfo.color.opacity(0.2))
+                    .frame(width: 40, height: 40)
+                    .scaleEffect(isAnimating ? 1.2 : 1.0)
+                    .opacity(isAnimating ? 0 : 1)
+                
+                // Inner circle with glassmorphic effect
+                Circle()
+                    .fill(.ultraThinMaterial)
+                    .frame(width: 36, height: 36)
+                    .overlay(
+                        Circle()
+                            .stroke(
+                                LinearGradient(
+                                    colors: [
+                                        Color.white.opacity(0.5),
+                                        Color.white.opacity(0.1)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 1
+                            )
+                    )
+                
+                // Icon
+                Image(systemName: categoryInfo.icon)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(categoryInfo.color)
+                    .symbolEffect(.bounce, value: isAnimating)
+            }
+            
+            // Text content
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Posted to \(categoryInfo.name)")
+                    .font(.custom("OpenSans-Bold", size: 14))
+                    .foregroundStyle(.primary)
+                
+                Text("Your post is now live")
+                    .font(.custom("OpenSans-Regular", size: 12))
+                    .foregroundStyle(.secondary)
+            }
+            
+            Spacer()
+            
+            // Checkmark
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 20))
+                .foregroundStyle(.green)
+                .symbolEffect(.bounce, value: isAnimating)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .background(
+            ZStack {
+                // Glassmorphic background
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(.ultraThinMaterial)
+                
+                // Subtle gradient overlay
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.15),
+                                Color.white.opacity(0.05)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                
+                // Border with gradient
+                RoundedRectangle(cornerRadius: 16)
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.4),
+                                Color.white.opacity(0.1)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
+            }
+        )
+        .shadow(color: .black.opacity(0.15), radius: 20, y: 8)
+        .shadow(color: categoryInfo.color.opacity(0.2), radius: 12, y: 4)
+        .padding(.horizontal, 20)
+        .onAppear {
+            // Trigger animations
+            withAnimation(.easeOut(duration: 0.6)) {
+                isAnimating = true
+            }
+            
+            // Haptic feedback
+            let haptic = UINotificationFeedbackGenerator()
+            haptic.notificationOccurred(.success)
+        }
+    }
+}
+
+#Preview("Post Success Toast - OpenTable") {
+    ZStack {
+        Color(.systemGroupedBackground)
+            .ignoresSafeArea()
+        
+        VStack {
+            Spacer()
+            PostSuccessToast(category: "openTable")
+                .padding(.bottom, 100)
+        }
+    }
+}
+
+#Preview("Post Success Toast - Prayer") {
+    ZStack {
+        Color(.systemGroupedBackground)
+            .ignoresSafeArea()
+        
+        VStack {
+            Spacer()
+            PostSuccessToast(category: "prayer")
+                .padding(.bottom, 100)
+        }
+    }
+}
+
+#Preview("Post Success Toast - Testimonies") {
+    ZStack {
+        Color(.systemGroupedBackground)
+            .ignoresSafeArea()
+        
+        VStack {
+            Spacer()
+            PostSuccessToast(category: "testimonies")
+                .padding(.bottom, 100)
+        }
+    }
+}
+
+#Preview("ContentView") {
     ContentView()
 }
 

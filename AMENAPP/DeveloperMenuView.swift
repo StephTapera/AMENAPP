@@ -16,6 +16,44 @@ struct DeveloperMenuView: View {
             List {
                 Section {
                     NavigationLink {
+                        SampleDataGeneratorView()
+                    } label: {
+                        HStack {
+                            Image(systemName: "photo.on.rectangle.angled")
+                                .foregroundStyle(.green)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Sample Posts Generator")
+                                    .font(.custom("OpenSans-SemiBold", size: 16))
+                                Text("Generate posts for App Store screenshots")
+                                    .font(.custom("OpenSans-Regular", size: 13))
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .padding(.vertical, 8)
+                    }
+                } header: {
+                    Text("App Store Tools")
+                }
+
+                Section {
+                    NavigationLink {
+                        ProfileImageDebugView()
+                    } label: {
+                        HStack {
+                            Image(systemName: "photo.circle")
+                                .foregroundStyle(.purple)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Profile Image Debug")
+                                    .font(.custom("OpenSans-SemiBold", size: 16))
+                                Text("Check profile image status")
+                                    .font(.custom("OpenSans-Regular", size: 13))
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .padding(.vertical, 8)
+                    }
+                    
+                    NavigationLink {
                         MigrationAdminView()
                     } label: {
                         HStack {

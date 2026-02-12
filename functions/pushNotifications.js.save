@@ -1,0 +1,125 @@
+ * Create notification when message request is accepted
+ */
+exports.onMessageRequestAccepted = functions.firestore
+  .document('messageRequests/{requestId}')
+  .onUpdate(async (change, context) => {
+    const before = change.before.data();
+    const after = change.after.data();
+    
+    if (before.status !== 'accepted' && after.status === 'accepted') {
+      console.log('✅ Message request accepted');
+      
+      try {
+        const accepterDoc = await db.collection('users').doc(after.toUserId).get();
+        
+        if (!accepterDoc.exists) {
+          console.log('⚠️ Accepter user not found');
+          return null;
+        }
+        
+        const accepterData = accepterDoc.data();
+        
+        await db.collection('notifications').add({
+          userId: after.fromUserId,
+          type: 'message_request_accepted',
+          actorId: after.toUserId,
+          actorName: accepterData.displayName || accepterData.username || 'Someone',
+          actorUsername: accepterData.username || 'unknown',
+          read: false,
+          createdAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+        
+        console.log('✅ Message request accepted notification created');
+        
+        await db.collection('users').doc(after.fromUserId).update({
+          unreadNotificationCount: admin.firestore.FieldValue.increment(1)
+        });
+        
+        return null;
+      } catch (error) {
+        console.error('❌ Failed to create message request accepted notification:', error);
+        return null;
+      }
+    }
+    
+    return null;
+  });
+
+/**
+ * Build notification payload based on type
+ */
+function buildNotificationPayload(notification) {
+  const actorName = notification.actorName || 'Someone';
+  
+  switch (notification.type) {
+    case 'follow':
+      return {
+        notification: {
+          title: 'New Follower',
+          body: `${actorName} started following you`
+        },
+        data: {
+          type: 'follow',
+          actorId: notification.actorId || '',
+          notificationId: notification.id || ''
+        }
+      };
+      
+    case 'follow_request_accepted':
+      return {
+        notification: {
+          title: 'Follow Request Accepted',
+          body: `${actorName} accepted your follow request`
+        },
+        data: {
+          type: 'follow_request_accepted',
+          actorId: notification.actorId || '',
+          notificationId: notification.id || ''
+        }
+      };
+      
+    case 'message_request_accepted':
+      return {
+        notification: {
+          title: 'Message Request Accepted',
+          body: `${actorName} accepted your message request`
+        },
+        data: {
+          type: 'message_request_accepted',
+          actorId: notification.actorId || '',
+          notificationId: notification.id || ''
+        }
+      };
+      
+    case 'amen':
+      return {
+        notification: {
+          title: 'New Reaction',
+          body: `${actorName} said Amen to your post`
+        },
+        data: {
+          type: 'amen',
+          postId: notification.postId || '',
+          actorId: notification.actorId || '',
+          notificationId: notification.id || ''
+        }
+      };
+      
+    case 'comment':
+      return {
+        notification: {
+          title: 'New Comment',
+          body: `${actorName} commented on your post`
+        },
+        data: {
+          type: 'comment',
+          postId: notification.postId || '',
+          actorId: notification.actorId || '',
+          notificationId: notification.id || ''
+        }
+      };
+      
+    default:
+      return null;
+  }
+}

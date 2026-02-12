@@ -156,148 +156,164 @@ class AppUsageTracker: ObservableObject {
 
 struct DailyLimitReachedDialog: View {
     @EnvironmentObject var tracker: AppUsageTracker
+    @Environment(\.scenePhase) private var scenePhase
     
     var body: some View {
         VStack(spacing: 0) {
             Spacer()
             
-            VStack(spacing: 24) {
-                // Icon
+            VStack(spacing: 28) {
+                // ✅ Liquid glass icon with neomorphic shadows
                 ZStack {
                     Circle()
-                        .fill(
-                            RadialGradient(
-                                colors: [
-                                    Color.orange.opacity(0.3),
-                                    Color.orange.opacity(0.1),
-                                    Color.clear
-                                ],
-                                center: .center,
-                                startRadius: 20,
-                                endRadius: 50
-                            )
-                        )
+                        .fill(Color(red: 0.94, green: 0.94, blue: 0.95))
                         .frame(width: 100, height: 100)
+                        .shadow(color: .black.opacity(0.15), radius: 10, x: 6, y: 6)
+                        .shadow(color: .white.opacity(0.8), radius: 10, x: -6, y: -6)
                     
                     Image(systemName: "clock.badge.exclamationmark.fill")
-                        .font(.system(size: 50, weight: .semibold))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [.orange, .red],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
+                        .font(.system(size: 48, weight: .light))
+                        .foregroundStyle(.black.opacity(0.7))
                 }
                 
-                VStack(spacing: 12) {
-                    Text("Time for a Break")
-                        .font(.custom("OpenSans-Bold", size: 28))
-                        .foregroundStyle(.primary)
-                    
-                    Text("You've spent **\(tracker.dailyLimitMinutes) minutes** in the app today. We encourage taking a break to pray, reflect, or spend time with loved ones.")
-                        .font(.custom("OpenSans-Regular", size: 16))
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .lineSpacing(4)
-                }
-                .padding(.horizontal, 32)
+                // Title
+                Text("Time for a Break")
+                    .font(.system(size: 32, weight: .light, design: .serif))
+                    .foregroundStyle(.black)
+                    .tracking(0.5)
                 
-                // Stats
+                // Message
+                Text("You've spent **\(tracker.dailyLimitMinutes) minutes** in the app today. We encourage taking a break to pray, reflect, or spend time with loved ones.")
+                    .font(.system(size: 15, weight: .regular))
+                    .foregroundStyle(.black.opacity(0.7))
+                    .multilineTextAlignment(.center)
+                    .lineSpacing(6)
+                    .padding(.horizontal, 32)
+                
+                // ✅ Liquid glass stats card
                 HStack(spacing: 20) {
                     VStack(spacing: 4) {
                         Text("\(tracker.todayUsageMinutes)")
-                            .font(.custom("OpenSans-Bold", size: 24))
-                            .foregroundStyle(.orange)
+                            .font(.system(size: 28, weight: .thin, design: .rounded))
+                            .foregroundStyle(.black)
                         Text("Minutes Used")
-                            .font(.custom("OpenSans-Regular", size: 12))
-                            .foregroundStyle(.secondary)
+                            .font(.system(size: 11, weight: .regular))
+                            .foregroundStyle(.black.opacity(0.5))
+                            .textCase(.uppercase)
+                            .tracking(0.5)
                     }
                     
-                    Divider()
-                        .frame(height: 40)
+                    Rectangle()
+                        .fill(Color.black.opacity(0.1))
+                        .frame(width: 1, height: 40)
                     
                     VStack(spacing: 4) {
                         Text("\(tracker.dailyLimitMinutes)")
-                            .font(.custom("OpenSans-Bold", size: 24))
-                            .foregroundStyle(.blue)
+                            .font(.system(size: 28, weight: .thin, design: .rounded))
+                            .foregroundStyle(.black)
                         Text("Daily Limit")
-                            .font(.custom("OpenSans-Regular", size: 12))
-                            .foregroundStyle(.secondary)
+                            .font(.system(size: 11, weight: .regular))
+                            .foregroundStyle(.black.opacity(0.5))
+                            .textCase(.uppercase)
+                            .tracking(0.5)
                     }
                 }
-                .padding()
+                .padding(.horizontal, 24)
+                .padding(.vertical, 20)
                 .background(
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(Color(.secondarySystemBackground))
+                    RoundedRectangle(cornerRadius: 20)
+                        .fill(Color(red: 0.94, green: 0.94, blue: 0.95))
+                        .shadow(color: .black.opacity(0.1), radius: 8, x: 4, y: 4)
+                        .shadow(color: .white.opacity(0.7), radius: 8, x: -4, y: -4)
                 )
                 .padding(.horizontal, 32)
                 
                 // Bible verse encouragement
-                VStack(spacing: 8) {
+                VStack(spacing: 6) {
                     Text("\"Be still, and know that I am God\"")
-                        .font(.custom("OpenSans-Italic", size: 15))
-                        .foregroundStyle(.primary)
+                        .font(.system(size: 14, weight: .light, design: .serif))
+                        .foregroundStyle(.black.opacity(0.8))
+                        .italic()
                     Text("Psalm 46:10")
-                        .font(.custom("OpenSans-Regular", size: 13))
-                        .foregroundStyle(.secondary)
+                        .font(.system(size: 11, weight: .regular))
+                        .foregroundStyle(.black.opacity(0.5))
+                        .textCase(.uppercase)
+                        .tracking(1)
                 }
                 .padding(.horizontal, 32)
                 
-                // Buttons
+                // ✅ Liquid glass buttons
                 VStack(spacing: 12) {
+                    // Take a Break button - closes app
                     Button {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                             tracker.showLimitReachedDialog = false
                         }
+                        
+                        // ✅ Close the app after brief delay for animation
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            // Request scene suspension (graceful close that allows reopening)
+                            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
+                                UIApplication.shared.perform(#selector(NSXPCConnection.suspend))
+                            }
+                        }
                     } label: {
                         Text("Take a Break")
-                            .font(.custom("OpenSans-Bold", size: 16))
+                            .font(.system(size: 16, weight: .medium))
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
                             .background(
                                 RoundedRectangle(cornerRadius: 16)
-                                    .fill(
-                                        LinearGradient(
-                                            colors: [.blue, .purple],
-                                            startPoint: .leading,
-                                            endPoint: .trailing
-                                        )
-                                    )
-                                    .shadow(color: .blue.opacity(0.3), radius: 12, y: 6)
+                                    .fill(.black)
+                                    .shadow(color: .black.opacity(0.2), radius: 8, x: 0, y: 4)
                             )
                     }
                     
+                    // Continue button - liquid glass style
                     Button {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                             tracker.showLimitReachedDialog = false
                         }
                     } label: {
                         Text("Continue Anyway")
-                            .font(.custom("OpenSans-SemiBold", size: 15))
-                            .foregroundStyle(.secondary)
+                            .font(.system(size: 15, weight: .regular))
+                            .foregroundStyle(.black.opacity(0.6))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
                             .background(
                                 RoundedRectangle(cornerRadius: 16)
-                                    .fill(Color(.secondarySystemBackground))
+                                    .fill(Color(red: 0.94, green: 0.94, blue: 0.95))
+                                    .shadow(color: .black.opacity(0.1), radius: 6, x: 3, y: 3)
+                                    .shadow(color: .white.opacity(0.7), radius: 6, x: -3, y: -3)
                             )
                     }
                 }
                 .padding(.horizontal, 32)
             }
-            .padding(.vertical, 32)
+            .padding(.vertical, 36)
             .background(
                 RoundedRectangle(cornerRadius: 32)
-                    .fill(Color(.systemBackground))
-                    .shadow(color: .black.opacity(0.2), radius: 30, y: 15)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color(red: 0.96, green: 0.96, blue: 0.97),
+                                Color(red: 0.92, green: 0.92, blue: 0.94)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .shadow(color: .black.opacity(0.15), radius: 40, y: 20)
             )
             .padding(.horizontal, 24)
             
             Spacer()
         }
-        .background(Color.black.opacity(0.5))
+        .background(
+            Color.black.opacity(0.4)
+                .blur(radius: 10)
+        )
         .ignoresSafeArea()
     }
 }

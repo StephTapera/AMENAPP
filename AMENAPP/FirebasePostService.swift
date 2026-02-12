@@ -47,6 +47,9 @@ struct FirestorePost: Codable, Identifiable {
     var amenUserIds: [String]
     var lightbulbUserIds: [String]
     
+    // Church note reference
+    var churchNoteId: String?
+    
     // Computed property for "time ago" display
     var timeAgo: String {
         FirestorePost.formatTimeAgo(from: createdAt)
@@ -78,6 +81,7 @@ struct FirestorePost: Codable, Identifiable {
         case originalAuthorName
         case amenUserIds
         case lightbulbUserIds
+        case churchNoteId
     }
     
     init(from decoder: Decoder) throws {
@@ -108,6 +112,7 @@ struct FirestorePost: Codable, Identifiable {
         originalAuthorName = try container.decodeIfPresent(String.self, forKey: .originalAuthorName)
         amenUserIds = try container.decodeIfPresent([String].self, forKey: .amenUserIds) ?? []
         lightbulbUserIds = try container.decodeIfPresent([String].self, forKey: .lightbulbUserIds) ?? []
+        churchNoteId = try container.decodeIfPresent(String.self, forKey: .churchNoteId)
     }
     
     init(
@@ -135,7 +140,8 @@ struct FirestorePost: Codable, Identifiable {
         originalAuthorId: String? = nil,
         originalAuthorName: String? = nil,
         amenUserIds: [String] = [],
-        lightbulbUserIds: [String] = []
+        lightbulbUserIds: [String] = [],
+        churchNoteId: String? = nil
     ) {
         self.id = id
         self.authorId = authorId
@@ -162,6 +168,7 @@ struct FirestorePost: Codable, Identifiable {
         self.originalAuthorName = originalAuthorName
         self.amenUserIds = amenUserIds
         self.lightbulbUserIds = lightbulbUserIds
+        self.churchNoteId = churchNoteId
     }
     
     // Convert to local Post model
@@ -193,10 +200,12 @@ struct FirestorePost: Codable, Identifiable {
         
         return Post(
             id: UUID(uuidString: id ?? UUID().uuidString) ?? UUID(),
+            firebaseId: id,
             authorId: authorId,
             authorName: authorName,
             authorUsername: authorUsername,
             authorInitials: authorInitials,
+            authorProfileImageURL: authorProfileImageURL,  // ✅ FIX: Added profile image URL
             timeAgo: timeAgo,
             content: content,
             category: postCategory,
@@ -212,7 +221,8 @@ struct FirestorePost: Codable, Identifiable {
             repostCount: repostCount,
             isRepost: isRepost,
             originalAuthorName: originalAuthorName,
-            originalAuthorId: originalAuthorId
+            originalAuthorId: originalAuthorId,
+            churchNoteId: churchNoteId
         )
     }
     
@@ -262,6 +272,8 @@ class FirebasePostService: ObservableObject {
     private let realtimeService = RealtimeDatabaseService.shared
     private var listeners: [ListenerRegistration] = []
     private var realtimePostsHandle: UInt?
+    private var activeListenerCategories: Set<String> = [] // ✅ Track active listeners per category
+    private var profileImageCache: [String: String] = [:] // ✅ Cache user profile images (userId: imageURL)
     
     private init() {
         setupRealtimeFeed()
@@ -285,18 +297,36 @@ class FirebasePostService: ObservableObject {
     private func fetchPostsByIds(_ postIds: [String]) async {
         guard !postIds.isEmpty else { return }
         
+        // Skip fetching if user is not authenticated
+        guard Auth.auth().currentUser != nil else {
+            return
+        }
+        
         do {
             // Firestore 'in' query limited to 10 items, so batch them
             let batches = postIds.chunked(into: 10)
             var allPosts: [Post] = []
             
             for batch in batches {
-                let snapshot = try await db.collection(FirebaseManager.CollectionPath.posts)
-                    .whereField(FieldPath.documentID(), in: batch)
-                    .getDocuments()
+                // ✅ Try server first, then fall back to cache if offline
+                var snapshot: QuerySnapshot
+                do {
+                    snapshot = try await db.collection(FirebaseManager.CollectionPath.posts)
+                        .whereField(FieldPath.documentID(), in: batch)
+                        .getDocuments(source: .server)
+                    print("🌐 Fetched \(snapshot.documents.count) posts from server")
+                } catch {
+                    print("⚠️ Server unavailable, loading from cache...")
+                    snapshot = try await db.collection(FirebaseManager.CollectionPath.posts)
+                        .whereField(FieldPath.documentID(), in: batch)
+                        .getDocuments(source: .cache)
+                    print("📦 Loaded \(snapshot.documents.count) posts from cache")
+                }
                 
                 let batchPosts = try snapshot.documents.compactMap { doc in
-                    try doc.data(as: FirestorePost.self)
+                    var firestorePost = try doc.data(as: FirestorePost.self)
+                    firestorePost.id = doc.documentID  // ✅ FIX: Explicitly set the document ID
+                    return firestorePost
                 }.map { $0.toPost() }
                 
                 allPosts.append(contentsOf: batchPosts)
@@ -316,7 +346,7 @@ class FirebasePostService: ObservableObject {
     
     // MARK: - Create Post
     
-    /// Create a new post in Firestore (OPTIMIZED FOR PERFORMANCE)
+    /// Create a new post in Firestore with INSTANT optimistic updates (like Threads)
     func createPost(
         content: String,
         category: Post.PostCategory,
@@ -324,55 +354,23 @@ class FirebasePostService: ObservableObject {
         visibility: Post.PostVisibility = .everyone,
         allowComments: Bool = true,
         imageURLs: [String]? = nil,
-        linkURL: String? = nil
+        linkURL: String? = nil,
+        churchNoteId: String? = nil
     ) async throws {
-        print("📝 Creating new post in Firestore (OPTIMIZED)...")
+        print("📝 Creating new post with INSTANT optimistic update...")
         
         guard let userId = firebaseManager.currentUser?.uid else {
             print("❌ No authenticated user")
             throw FirebaseError.unauthorized
         }
         
-        // 🚀 OPTIMIZATION 1: Use cached user data instead of fetching
-        let displayName: String
-        let username: String
-        let initials: String
-        let profileImageURL: String?
+        // 🚀 STEP 1: Get cached user data (INSTANT - no network call)
+        let displayName = UserDefaults.standard.string(forKey: "currentUserDisplayName") ?? "You"
+        let username = UserDefaults.standard.string(forKey: "currentUserUsername") ?? "you"
+        let initials = UserDefaults.standard.string(forKey: "currentUserInitials") ?? "ME"
+        let profileImageURL = UserDefaults.standard.string(forKey: "currentUserProfileImageURL")
         
-        // Try to get from UserDefaults cache first (set during login/profile load)
-        if let cachedName = UserDefaults.standard.string(forKey: "currentUserDisplayName"),
-           let cachedUsername = UserDefaults.standard.string(forKey: "currentUserUsername"),
-           let cachedInitials = UserDefaults.standard.string(forKey: "currentUserInitials") {
-            displayName = cachedName
-            username = cachedUsername
-            initials = cachedInitials
-            profileImageURL = UserDefaults.standard.string(forKey: "currentUserProfileImageURL")
-            print("✅ Using cached user data (FAST)")
-        } else {
-            // Fallback: Fetch from Firestore (only if cache miss)
-            print("⚠️ Cache miss - fetching user data from Firestore")
-            let userDoc = try await db.collection(FirebaseManager.CollectionPath.users)
-                .document(userId)
-                .getDocument()
-            
-            guard let userData = userDoc.data() else {
-                print("❌ User data not found")
-                throw FirebaseError.documentNotFound
-            }
-            
-            displayName = userData["displayName"] as? String ?? "Unknown User"
-            username = userData["username"] as? String ?? "unknown"
-            initials = userData["initials"] as? String ?? "??"
-            profileImageURL = userData["profileImageURL"] as? String
-            
-            // Cache for next time
-            UserDefaults.standard.set(displayName, forKey: "currentUserDisplayName")
-            UserDefaults.standard.set(username, forKey: "currentUserUsername")
-            UserDefaults.standard.set(initials, forKey: "currentUserInitials")
-            if let imageURL = profileImageURL {
-                UserDefaults.standard.set(imageURL, forKey: "currentUserProfileImageURL")
-            }
-        }
+        print("✅ Using cached user data (INSTANT)")
         
         let categoryString: String = {
             switch category {
@@ -390,7 +388,50 @@ class FirebasePostService: ObservableObject {
             }
         }()
         
-        let newPost = FirestorePost(
+        // 🚀 STEP 2: Create optimistic post object with temporary ID
+        let tempId = UUID()
+        let optimisticPost = Post(
+            id: tempId,
+            firebaseId: nil, // Will be set when Firebase confirms
+            authorId: userId,
+            authorName: displayName,
+            authorUsername: username,
+            authorInitials: initials,
+            authorProfileImageURL: profileImageURL,
+            timeAgo: "Just now",
+            content: content,
+            category: category,
+            topicTag: topicTag,
+            visibility: visibility,
+            allowComments: allowComments,
+            imageURLs: imageURLs,
+            linkURL: linkURL,
+            createdAt: Date(),
+            amenCount: 0,
+            lightbulbCount: 0,
+            commentCount: 0,
+            repostCount: 0,
+            isRepost: false,
+            originalAuthorName: nil,
+            originalAuthorId: nil,
+            churchNoteId: churchNoteId
+        )
+        
+        // 🚀 STEP 3: INSTANTLY notify ProfileView (UI updates IMMEDIATELY)
+        await MainActor.run {
+            NotificationCenter.default.post(
+                name: .newPostCreated,
+                object: nil,
+                userInfo: [
+                    "post": optimisticPost,
+                    "isOptimistic": true
+                ]
+            )
+            print("⚡️ Post added to ProfileView INSTANTLY (optimistic)!")
+        }
+        
+        // 🚀 STEP 4: Save to Firestore in background (non-blocking)
+        let firestorePost = FirestorePost(
             authorId: userId,
             authorName: displayName,
             authorUsername: username,
@@ -402,47 +443,60 @@ class FirebasePostService: ObservableObject {
             visibility: visibilityString,
             allowComments: allowComments,
             imageURLs: imageURLs,
-            linkURL: linkURL
+            linkURL: linkURL,
+            churchNoteId: churchNoteId
         )
         
-        // 🚀 OPTIMIZATION 2: Generate local ID immediately for optimistic update
-        let localPostId = UUID().uuidString
-        let optimisticPost = newPost.toPost()
-        
-        // 🚀 OPTIMIZATION 3: Immediately post notification with optimistic post object
-        await MainActor.run {
-            NotificationCenter.default.post(
-                name: .newPostCreated,
-                object: nil,
-                userInfo: [
-                    "post": optimisticPost,
-                    "category": categoryString,
-                    "isOptimistic": true
-                ]
-            )
-        }
-        
-        print("📤 Saving post to Firestore (async)...")
-        
-        // 🚀 OPTIMIZATION 4: Use Task detachment for non-blocking operations
+        // Background save - don't wait for it
         Task.detached(priority: .userInitiated) {
             do {
                 let docRef = try await self.db.collection(FirebaseManager.CollectionPath.posts)
-                    .addDocument(from: newPost)
+                    .addDocument(from: firestorePost)
                 
-                print("✅ Post created successfully with ID: \(docRef.documentID)")
+                print("✅ Post saved to Firestore with ID: \(docRef.documentID)")
                 
-                // Publish to Realtime Database for instant feed updates (background)
-                try? await self.realtimeService.publishRealtimePost(
-                    postId: docRef.documentID,
-                    authorId: userId,
-                    category: categoryString,
-                    timestamp: Date()
-                )
+                // ✅ Notify ProfileView that post was created successfully
+                await MainActor.run {
+                    // Create confirmed post with Firebase ID
+                    let confirmedPost = Post(
+                        id: tempId,
+                        firebaseId: docRef.documentID,
+                        authorId: userId,
+                        authorName: displayName,
+                        authorUsername: username,
+                        authorInitials: initials,
+                        authorProfileImageURL: profileImageURL,
+                        timeAgo: "Just now",
+                        content: content,
+                        category: category,
+                        topicTag: topicTag,
+                        visibility: visibility,
+                        allowComments: allowComments,
+                        imageURLs: imageURLs,
+                        linkURL: linkURL,
+                        createdAt: Date(),
+                        amenCount: 0,
+                        lightbulbCount: 0,
+                        commentCount: 0,
+                        repostCount: 0,
+                        isRepost: false,
+                        originalAuthorName: nil,
+                        originalAuthorId: nil,
+                        churchNoteId: churchNoteId
+                    )
+                    
+                    NotificationCenter.default.post(
+                        name: .newPostCreated,
+                        object: nil,
+                        userInfo: [
+                            "post": confirmedPost,
+                            "isOptimistic": false
+                        ]
+                    )
+                    print("📬 Sent newPostCreated notification for post: \(docRef.documentID)")
+                }
                 
-                print("✅ Post published to Realtime Database")
-                
-                // Update user's post count (background - no await)
+                // Update user's post count (background)
                 Task {
                     try? await self.db.collection(FirebaseManager.CollectionPath.users)
                         .document(userId)
@@ -452,7 +506,7 @@ class FirebasePostService: ObservableObject {
                         ])
                 }
                 
-                // Create mention notifications (background - no await)
+                // Create mention notifications (background)
                 Task {
                     try? await self.createMentionNotifications(
                         postId: docRef.documentID,
@@ -462,44 +516,69 @@ class FirebasePostService: ObservableObject {
                 }
                 
             } catch {
-                print("❌ Failed to create post: \(error)")
+                print("❌ Failed to save post to Firestore: \(error)")
                 
-                // Post failure notification
+                // Post failure notification - rollback optimistic update
                 await MainActor.run {
                     NotificationCenter.default.post(
                         name: Notification.Name("postCreationFailed"),
                         object: nil,
-                        userInfo: ["error": error]
+                        userInfo: [
+                            "error": error,
+                            "postId": tempId.uuidString
+                        ]
                     )
                 }
-                
-                throw error
             }
         }
         
-        // Return immediately after starting async operations
-        print("✅ Post creation initiated (returning immediately)")
+        print("✅ Post creation complete - UI updated INSTANTLY, saving in background")
     }
     
     // MARK: - Fetch Posts
     
     /// Fetch all posts (for main feed)
     func fetchAllPosts(limit: Int = 50) async throws {
+        // Skip fetching if user is not authenticated
+        guard Auth.auth().currentUser != nil else {
+            print("⏭️ Skipping fetchAllPosts - user not authenticated")
+            return
+        }
+        
         print("📥 Fetching all posts from Firestore...")
         isLoading = true
         defer { isLoading = false }
         
         do {
-            let snapshot = try await db.collection(FirebaseManager.CollectionPath.posts)
-                .order(by: "createdAt", descending: true)
-                .limit(to: limit)
-                .getDocuments()
-            
-            let firestorePosts = try snapshot.documents.compactMap { doc in
-                try doc.data(as: FirestorePost.self)
+            // ✅ Try server first, then fall back to cache if offline
+            var snapshot: QuerySnapshot
+            do {
+                snapshot = try await db.collection(FirebaseManager.CollectionPath.posts)
+                    .order(by: "createdAt", descending: true)
+                    .limit(to: limit)
+                    .getDocuments(source: .server)
+                print("🌐 Fetched \(snapshot.documents.count) posts from server")
+            } catch {
+                print("⚠️ Server unavailable, loading from cache...")
+                snapshot = try await db.collection(FirebaseManager.CollectionPath.posts)
+                    .order(by: "createdAt", descending: true)
+                    .limit(to: limit)
+                    .getDocuments(source: .cache)
+                print("📦 Loaded \(snapshot.documents.count) posts from cache")
             }
             
-            self.posts = firestorePosts.map { $0.toPost() }
+            let firestorePosts = try snapshot.documents.compactMap { doc in
+                var firestorePost = try doc.data(as: FirestorePost.self)
+                firestorePost.id = doc.documentID  // ✅ FIX: Explicitly set the document ID
+                return firestorePost
+            }
+            
+            var posts = firestorePosts.map { $0.toPost() }
+            
+            // ✅ Automatically enrich posts with profile images if missing
+            await enrichPostsWithProfileImages(&posts)
+            
+            self.posts = posts
             print("✅ Fetched \(self.posts.count) posts")
             
             // Also update category-specific arrays
@@ -577,7 +656,9 @@ class FirebasePostService: ObservableObject {
             let snapshot = try await query.getDocuments()
             
             let firestorePosts = try snapshot.documents.compactMap { doc in
-                try doc.data(as: FirestorePost.self)
+                var firestorePost = try doc.data(as: FirestorePost.self)
+                firestorePost.id = doc.documentID  // ✅ FIX: Explicitly set the document ID
+                return firestorePost
             }
             
             var posts = firestorePosts.map { $0.toPost() }
@@ -608,7 +689,9 @@ class FirebasePostService: ObservableObject {
             .getDocuments()
         
         let firestorePosts = try snapshot.documents.compactMap { doc in
-            try doc.data(as: FirestorePost.self)
+            var firestorePost = try doc.data(as: FirestorePost.self)
+            firestorePost.id = doc.documentID  // ✅ FIX: Explicitly set the document ID
+            return firestorePost
         }
         
         let posts = firestorePosts.map { $0.toPost() }
@@ -630,7 +713,8 @@ class FirebasePostService: ObservableObject {
             return nil
         }
         
-        let firestorePost = try document.data(as: FirestorePost.self)
+        var firestorePost = try document.data(as: FirestorePost.self)
+        firestorePost.id = document.documentID  // ✅ FIX: Explicitly set the document ID
         let post = firestorePost.toPost()
         
         print("✅ Fetched post: \(postId)")
@@ -641,16 +725,26 @@ class FirebasePostService: ObservableObject {
     
     /// Start listening to posts in real-time
     func startListening(category: Post.PostCategory? = nil) {
-        print("🔊 Starting real-time listener for posts...")
+        let categoryKey = category?.rawValue ?? "all"
+        
+        // ✅ If listeners array is empty but categories are marked active, clear the categories
+        // This handles app restarts or cases where listeners were removed but categories weren't cleared
+        if listeners.isEmpty && !activeListenerCategories.isEmpty {
+            activeListenerCategories.removeAll()
+        }
+        
+        // ✅ Prevent duplicate listeners for the same category
+        guard !activeListenerCategories.contains(categoryKey) else {
+            return
+        }
         
         // Check if user is authenticated
         guard firebaseManager.isAuthenticated else {
-            print("⚠️ User not authenticated - skipping Firestore listener")
             self.error = "Please sign in to view posts"
             return
         }
         
-        print("✅ User authenticated, setting up listener...")
+        activeListenerCategories.insert(categoryKey) // ✅ Mark this category as active
         
         let query: Query
         
@@ -673,37 +767,136 @@ class FirebasePostService: ObservableObject {
                 .limit(to: 100)
         }
         
+        // ✅ INSTANT LOAD: Load from cache immediately before starting listener
+        Task { @MainActor in
+            do {
+                let cacheSnapshot = try await query.getDocuments(source: .cache)
+                let cachedPosts = cacheSnapshot.documents.compactMap { doc -> FirestorePost? in
+                    var firestorePost = try? doc.data(as: FirestorePost.self)
+                    firestorePost?.id = doc.documentID  // ✅ FIX: Explicitly set the document ID
+                    return firestorePost
+                }.map { $0.toPost() }
+                
+                if !cachedPosts.isEmpty {
+                    if let category = category {
+                        switch category {
+                        case .prayer:
+                            self.prayerPosts = cachedPosts
+                        case .testimonies:
+                            self.testimoniesPosts = cachedPosts
+                        case .openTable:
+                            self.openTablePosts = cachedPosts
+                        }
+                        self.posts = self.prayerPosts + self.testimoniesPosts + self.openTablePosts
+                    } else {
+                        self.posts = cachedPosts
+                        self.updateCategoryArrays()
+                    }
+                    print("⚡️ INSTANT: Loaded \(cachedPosts.count) posts from cache")
+                }
+            } catch {
+                print("📱 No cached posts available - will wait for server")
+            }
+        }
+        
         let listener = query.addSnapshotListener { [weak self] snapshot, error in
             guard let self = self else { return }
             
-            if let error = error {
-                let nsError = error as NSError
-                print("❌ Firestore listener error: \(error.localizedDescription)")
-                print("   Error code: \(nsError.code), domain: \(nsError.domain)")
-                
-                // Check for specific error codes
-                if nsError.code == 7 { // Permission denied
-                    self.error = "Missing or insufficient permissions. Please check Firestore security rules."
-                    print("⚠️ PERMISSION DENIED: Update your Firestore security rules to allow read access to the posts collection")
-                } else {
-                    self.error = error.localizedDescription
+            Task { @MainActor in
+                if let error = error {
+                    let nsError = error as NSError
+                    print("❌ Firestore listener error: \(error.localizedDescription)")
+                    print("   Error code: \(nsError.code), domain: \(nsError.domain)")
+                    
+                    // Check for specific error codes
+                    if nsError.code == 7 { // Permission denied
+                        self.error = "Missing or insufficient permissions. Please check Firestore security rules."
+                        print("⚠️ PERMISSION DENIED: Update your Firestore security rules to allow read access to the posts collection")
+                    } else {
+                        self.error = error.localizedDescription
+                    }
+                    return
                 }
-                return
+                
+                guard let snapshot = snapshot else {
+                    print("❌ No snapshot data")
+                    return
+                }
+                
+                // ✅ CRITICAL FIX: Skip empty cache snapshots (we already loaded from cache manually)
+                let metadata = snapshot.metadata
+                if snapshot.documents.isEmpty && metadata.isFromCache {
+                    print("⏭️ Skipping empty cache snapshot (already loaded from cache)")
+                    return
+                }
+                
+                let firestorePosts = snapshot.documents.compactMap { doc -> FirestorePost? in
+                    var firestorePost = try? doc.data(as: FirestorePost.self)
+                    firestorePost?.id = doc.documentID  // ✅ FIX: Explicitly set the document ID
+                    return firestorePost
+                }
+                
+                var newPosts = firestorePosts.map { $0.toPost() }
+
+                // ✅ Update category-specific arrays IMMEDIATELY (non-blocking)
+                await MainActor.run {
+                    if let category = category {
+                        switch category {
+                        case .prayer:
+                            self.prayerPosts = newPosts
+                        case .testimonies:
+                            self.testimoniesPosts = newPosts
+                        case .openTable:
+                            self.openTablePosts = newPosts
+                        }
+
+                        // Update the main posts array by combining all categories
+                        self.posts = self.prayerPosts + self.testimoniesPosts + self.openTablePosts
+
+                        print("✅ Updated \(category.displayName): \(newPosts.count) posts with profile images")
+                    } else {
+                        // No category filter - update all posts
+                        self.posts = newPosts
+                        self.updateCategoryArrays()
+                    }
+                }
+                
+                // Log metadata for debugging
+                if metadata.isFromCache {
+                    print("📦 Posts loaded from cache (offline mode)")
+                } else {
+                    print("🌐 Posts loaded from server")
+                }
+                
+                if metadata.hasPendingWrites {
+                    print("⏳ Snapshot has pending writes")
+                }
+                
+                // ✅ Enrich with profile images AFTER posts are displayed (non-blocking)
+                Task.detached(priority: .background) { [weak self] in
+                    guard let self = self else { return }
+                    var enrichedPosts = newPosts
+                    await self.enrichPostsWithProfileImages(&enrichedPosts)
+                    
+                    // Update posts again with profile images
+                    await MainActor.run {
+                        if let category = category {
+                            switch category {
+                            case .prayer:
+                                self.prayerPosts = enrichedPosts
+                            case .testimonies:
+                                self.testimoniesPosts = enrichedPosts
+                            case .openTable:
+                                self.openTablePosts = enrichedPosts
+                            }
+                            self.posts = self.prayerPosts + self.testimoniesPosts + self.openTablePosts
+                        } else {
+                            self.posts = enrichedPosts
+                            self.updateCategoryArrays()
+                        }
+                    }
+                }
             }
-            
-            guard let snapshot = snapshot else {
-                print("❌ No snapshot data")
-                return
-            }
-            
-            let firestorePosts = snapshot.documents.compactMap { doc -> FirestorePost? in
-                try? doc.data(as: FirestorePost.self)
-            }
-            
-            self.posts = firestorePosts.map { $0.toPost() }
-            self.updateCategoryArrays()
-            
-            print("✅ Real-time update: \(self.posts.count) posts")
         }
         
         listeners.append(listener)
@@ -714,6 +907,7 @@ class FirebasePostService: ObservableObject {
         print("🔇 Stopping all listeners...")
         listeners.forEach { $0.remove() }
         listeners.removeAll()
+        activeListenerCategories.removeAll() // ✅ Clear all active categories
     }
     
     // MARK: - Update Post
@@ -795,16 +989,17 @@ class FirebasePostService: ObservableObject {
         updateCategoryArrays()
     }
     
-    // MARK: - Interactions
+    // MARK: - Interactions (with Optimistic Updates)
     
-    /// Toggle "Amen" on a post
+    /// Toggle "Amen" on a post with INSTANT optimistic update
     func toggleAmen(postId: String) async throws {
-        print("🙏 Toggling Amen on post: \(postId)")
+        print("🙏 Toggling Amen on post (INSTANT): \(postId)")
         
         guard let userId = firebaseManager.currentUser?.uid else {
             throw FirebaseError.unauthorized
         }
         
+        // 🚀 STEP 1: Check current state locally
         let postRef = db.collection(FirebaseManager.CollectionPath.posts).document(postId)
         let postDoc = try await postRef.getDocument()
         
@@ -814,34 +1009,61 @@ class FirebasePostService: ObservableObject {
         }
         
         let hasAmened = amenUserIds.contains(userId)
+        let willAdd = !hasAmened
         let postAuthorId = data["authorId"] as? String ?? ""
         
-        if hasAmened {
-            // Remove amen
-            amenUserIds.removeAll { $0 == userId }
-            try await postRef.updateData([
-                "amenCount": FieldValue.increment(Int64(-1)),
-                "amenUserIds": amenUserIds,
-                "updatedAt": Date()
-            ])
-            print("✅ Amen removed")
-        } else {
-            // Add amen
-            amenUserIds.append(userId)
-            try await postRef.updateData([
-                "amenCount": FieldValue.increment(Int64(1)),
-                "amenUserIds": amenUserIds,
-                "updatedAt": Date()
-            ])
-            print("✅ Amen added")
-            
-            // ✅ Create notification for post author
-            try? await createAmenNotification(
-                postId: postId,
-                postAuthorId: postAuthorId,
-                postContent: data["content"] as? String ?? "",
-                fromUserId: userId
-            )
+        // 🚀 STEP 2: Update UI INSTANTLY via RealtimePostService
+        // Note: Optimistic updates temporarily disabled
+        // await MainActor.run {
+        //     RealtimePostService.shared.updateReactionOptimistically(
+        //         postId: postId,
+        //         reactionType: .amen,
+        //         increment: willAdd
+        //     )
+        // }
+        
+        // 🚀 STEP 3: Update Firestore in background (non-blocking)
+        Task.detached(priority: .userInitiated) {
+            do {
+                if willAdd {
+                    // Add amen
+                    amenUserIds.append(userId)
+                    try await postRef.updateData([
+                        "amenCount": FieldValue.increment(Int64(1)),
+                        "amenUserIds": amenUserIds,
+                        "updatedAt": Date()
+                    ])
+                    print("✅ Amen added to Firestore")
+                    
+                    // Create notification for post author (background)
+                    try? await self.createAmenNotification(
+                        postId: postId,
+                        postAuthorId: postAuthorId,
+                        postContent: data["content"] as? String ?? "",
+                        fromUserId: userId
+                    )
+                } else {
+                    // Remove amen
+                    amenUserIds.removeAll { $0 == userId }
+                    try await postRef.updateData([
+                        "amenCount": FieldValue.increment(Int64(-1)),
+                        "amenUserIds": amenUserIds,
+                        "updatedAt": Date()
+                    ])
+                    print("✅ Amen removed from Firestore")
+                }
+            } catch {
+                print("❌ Failed to update amen in Firestore: \(error)")
+                // Rollback optimistic update
+                // Note: Optimistic updates temporarily disabled
+                // await MainActor.run {
+                //     RealtimePostService.shared.updateReactionOptimistically(
+                //         postId: postId,
+                //         reactionType: .amen,
+                //         increment: !willAdd // Reverse the action
+                //     )
+                // }
+            }
         }
         
         // Haptic feedback
@@ -849,116 +1071,156 @@ class FirebasePostService: ObservableObject {
         haptic.impactOccurred()
     }
     
-    /// Increment comment count and create notification
+    /// Increment comment count with INSTANT optimistic update
     func incrementCommentCount(
         postId: String,
         commentText: String? = nil
     ) async throws {
-        print("💬 Incrementing comment count for post: \(postId)")
+        print("💬 Incrementing comment count (INSTANT) for post: \(postId)")
         
         guard let userId = firebaseManager.currentUser?.uid else {
             throw FirebaseError.unauthorized
         }
         
-        // Get post data for notification
-        let postDoc = try await db.collection(FirebaseManager.CollectionPath.posts)
-            .document(postId)
-            .getDocument()
+        // 🚀 STEP 1: Update UI INSTANTLY
+        // Note: Optimistic updates temporarily disabled
+        // await MainActor.run {
+        //     RealtimePostService.shared.updateCommentCountOptimistically(postId: postId, increment: true)
+        // }
         
-        guard let postData = postDoc.data() else {
-            throw FirebaseError.documentNotFound
-        }
-        
-        // Update comment count
-        try await db.collection(FirebaseManager.CollectionPath.posts)
-            .document(postId)
-            .updateData([
-                "commentCount": FieldValue.increment(Int64(1)),
-                "updatedAt": Date()
-            ])
-        
-        print("✅ Comment count incremented")
-        
-        // ✅ Create notification if we have comment text
-        if let commentText = commentText {
-            try? await createCommentNotification(
-                postId: postId,
-                postAuthorId: postData["authorId"] as? String ?? "",
-                postContent: postData["content"] as? String ?? "",
-                commentText: commentText,
-                fromUserId: userId
-            )
+        // 🚀 STEP 2: Update Firestore in background
+        Task.detached(priority: .userInitiated) {
+            do {
+                // Get post data for notification
+                let postDoc = try await self.db.collection(FirebaseManager.CollectionPath.posts)
+                    .document(postId)
+                    .getDocument()
+                
+                guard let postData = postDoc.data() else {
+                    throw FirebaseError.documentNotFound
+                }
+                
+                // Update comment count
+                try await self.db.collection(FirebaseManager.CollectionPath.posts)
+                    .document(postId)
+                    .updateData([
+                        "commentCount": FieldValue.increment(Int64(1)),
+                        "updatedAt": Date()
+                    ])
+                
+                print("✅ Comment count updated in Firestore")
+                
+                // Create notification if we have comment text (background)
+                if let commentText = commentText {
+                    try? await self.createCommentNotification(
+                        postId: postId,
+                        postAuthorId: postData["authorId"] as? String ?? "",
+                        postContent: postData["content"] as? String ?? "",
+                        commentText: commentText,
+                        fromUserId: userId
+                    )
+                }
+            } catch {
+                print("❌ Failed to update comment count: \(error)")
+                // Rollback optimistic update
+                // Note: Optimistic updates temporarily disabled
+                // await MainActor.run {
+                //     RealtimePostService.shared.updateCommentCountOptimistically(postId: postId, increment: false)
+                // }
+            }
         }
     }
     
-    /// Repost to user's profile
+    /// Repost to user's profile with INSTANT optimistic update
     func repostToProfile(originalPostId: String) async throws {
-        print("🔄 Reposting post: \(originalPostId)")
+        print("🔄 Reposting post (INSTANT): \(originalPostId)")
         
         guard let userId = firebaseManager.currentUser?.uid else {
             throw FirebaseError.unauthorized
         }
         
-        // Fetch original post
-        let originalPostDoc = try await db.collection(FirebaseManager.CollectionPath.posts)
-            .document(originalPostId)
-            .getDocument()
+        // 🚀 STEP 1: Update UI INSTANTLY
+        // Note: Optimistic updates temporarily disabled
+        // await MainActor.run {
+        //     RealtimePostService.shared.updateReactionOptimistically(
+        //         postId: originalPostId,
+        //         reactionType: .repost,
+        //         increment: true
+        //     )
+        // }
         
-        guard let originalPost = try? originalPostDoc.data(as: FirestorePost.self) else {
-            throw FirebaseError.documentNotFound
+        // 🚀 STEP 2: Create repost in background
+        Task.detached(priority: .userInitiated) {
+            do {
+                // Try to fetch original post from Firestore
+                let originalPostDoc = try await self.db.collection(FirebaseManager.CollectionPath.posts)
+                    .document(originalPostId)
+                    .getDocument()
+                
+                guard originalPostDoc.exists,
+                      let originalPost = try? originalPostDoc.data(as: FirestorePost.self) else {
+                    print("⚠️ Original post not found: \(originalPostId)")
+                    throw FirebaseError.documentNotFound
+                }
+                
+                // Use cached user data
+                let displayName = UserDefaults.standard.string(forKey: "currentUserDisplayName") ?? "Unknown User"
+                let username = UserDefaults.standard.string(forKey: "currentUserUsername") ?? "unknown"
+                let initials = UserDefaults.standard.string(forKey: "currentUserInitials") ?? "??"
+                let profileImageURL = UserDefaults.standard.string(forKey: "currentUserProfileImageURL")
+                
+                // Create repost
+                let repost = FirestorePost(
+                    authorId: userId,
+                    authorName: displayName,
+                    authorUsername: username,
+                    authorInitials: initials,
+                    authorProfileImageURL: profileImageURL,
+                    content: originalPost.content,
+                    category: originalPost.category,
+                    topicTag: originalPost.topicTag,
+                    visibility: "everyone",
+                    allowComments: true,
+                    isRepost: true,
+                    originalPostId: originalPostId,
+                    originalAuthorId: originalPost.authorId,
+                    originalAuthorName: originalPost.authorName
+                )
+                
+                _ = try self.db.collection(FirebaseManager.CollectionPath.posts).addDocument(from: repost)
+                
+                // Increment repost count on original
+                try? await self.db.collection(FirebaseManager.CollectionPath.posts)
+                    .document(originalPostId)
+                    .updateData([
+                        "repostCount": FieldValue.increment(Int64(1)),
+                        "updatedAt": Date()
+                    ])
+                
+                // Update user's post count
+                try await self.db.collection(FirebaseManager.CollectionPath.users)
+                    .document(userId)
+                    .updateData([
+                        "postsCount": FieldValue.increment(Int64(1)),
+                        "updatedAt": Date()
+                    ])
+                
+                print("✅ Post reposted successfully")
+                
+            } catch {
+                print("❌ Failed to repost: \(error)")
+                // Rollback optimistic update
+                // Note: Optimistic updates temporarily disabled
+                // await MainActor.run {
+                //     RealtimePostService.shared.updateReactionOptimistically(
+                //         postId: originalPostId,
+                //         reactionType: .repost,
+                //         increment: false
+                //     )
+                // }
+                throw error
+            }
         }
-        
-        // Fetch current user data
-        let userDoc = try await db.collection(FirebaseManager.CollectionPath.users)
-            .document(userId)
-            .getDocument()
-        
-        guard let userData = userDoc.data() else {
-            throw FirebaseError.documentNotFound
-        }
-        
-        let displayName = userData["displayName"] as? String ?? "Unknown User"
-        let username = userData["username"] as? String ?? "unknown"
-        let initials = userData["initials"] as? String ?? "??"
-        let profileImageURL = userData["profileImageURL"] as? String
-        
-        // Create repost
-        let repost = FirestorePost(
-            authorId: userId,
-            authorName: displayName,
-            authorUsername: username,
-            authorInitials: initials,
-            authorProfileImageURL: profileImageURL,
-            content: originalPost.content,
-            category: originalPost.category,
-            topicTag: originalPost.topicTag,
-            visibility: "everyone",
-            allowComments: true,
-            isRepost: true,
-            originalPostId: originalPostId,
-            originalAuthorId: originalPost.authorId,
-            originalAuthorName: originalPost.authorName
-        )
-        
-        _ = try db.collection(FirebaseManager.CollectionPath.posts).addDocument(from: repost)
-        
-        // Increment repost count on original
-        try await db.collection(FirebaseManager.CollectionPath.posts)
-            .document(originalPostId)
-            .updateData([
-                "repostCount": FieldValue.increment(Int64(1)),
-                "updatedAt": Date()
-            ])
-        
-        // Update user's post count
-        try await db.collection(FirebaseManager.CollectionPath.users)
-            .document(userId)
-            .updateData([
-                "postsCount": FieldValue.increment(Int64(1)),
-                "updatedAt": Date()
-            ])
-        
-        print("✅ Post reposted successfully")
         
         // Haptic feedback
         let haptic = UINotificationFeedbackGenerator()
@@ -1059,22 +1321,107 @@ class FirebasePostService: ObservableObject {
     // MARK: - User-Specific Posts (for Profile View)
     
     /// Fetch original posts created by a specific user (excluding reposts)
-    func fetchUserOriginalPosts(userId: String) async throws -> [Post] {
+    /// Supports fallback query if composite index is missing
+    func fetchUserOriginalPosts(userId: String, useFallback: Bool = false) async throws -> [Post] {
         print("📥 Fetching original posts for user: \(userId)")
         
-        // ✅ Optimized query using composite index (authorId + isRepost + createdAt)
-        let query = db.collection(FirebaseManager.CollectionPath.posts)
-            .whereField("authorId", isEqualTo: userId)
-            .whereField("isRepost", isEqualTo: false)
-            .order(by: "createdAt", descending: true)
-            .limit(to: 50)
-        
-        let snapshot = try await query.getDocuments()
-        let firestorePosts = try snapshot.documents.compactMap { try $0.data(as: FirestorePost.self) }
-        let userPosts = firestorePosts.map { $0.toPost() }
-        
-        print("✅ Fetched \(userPosts.count) original posts for user")
-        return userPosts
+        do {
+            let snapshot: QuerySnapshot
+            
+            if useFallback {
+                // 🔄 FALLBACK: Simple query without isRepost filter (no composite index needed)
+                print("⚠️ Using fallback query (filtering isRepost in memory)")
+                let query = db.collection(FirebaseManager.CollectionPath.posts)
+                    .whereField("authorId", isEqualTo: userId)
+                    .order(by: "createdAt", descending: true)
+                    .limit(to: 100) // Fetch more since we'll filter in memory
+                
+                snapshot = try await query.getDocuments()
+            } else {
+                // ✅ PREFERRED: Optimized query using composite index (authorId + isRepost + createdAt)
+                let query = db.collection(FirebaseManager.CollectionPath.posts)
+                    .whereField("authorId", isEqualTo: userId)
+                    .whereField("isRepost", isEqualTo: false)
+                    .order(by: "createdAt", descending: true)
+                    .limit(to: 50)
+                
+                snapshot = try await query.getDocuments()
+            }
+            
+            // 🐛 DEBUG: Log raw Firestore data
+            print("📊 Firestore query returned \(snapshot.documents.count) documents")
+            
+            if snapshot.documents.isEmpty {
+                print("⚠️ No documents found. Possible reasons:")
+                print("   1. User hasn't created any posts")
+                print("   2. All posts by this user are reposts (isRepost=true)")
+                print("   3. Posts exist but authorId doesn't match '\(userId)'")
+                if !useFallback {
+                    print("   4. Firestore composite index not created (try useFallback=true)")
+                }
+            }
+            
+            // Debug: Log first few documents
+            for (index, doc) in snapshot.documents.prefix(3).enumerated() {
+                let data = doc.data()
+                print("   📄 Document \(index + 1):")
+                print("      - ID: \(doc.documentID)")
+                print("      - authorId: \(data["authorId"] as? String ?? "nil")")
+                print("      - category: \(data["category"] as? String ?? "nil")")
+                print("      - isRepost: \(data["isRepost"] as? Bool ?? false)")
+                print("      - content: \((data["content"] as? String ?? "").prefix(50))...")
+            }
+            
+            var firestorePosts = try snapshot.documents.compactMap { try $0.data(as: FirestorePost.self) }
+            
+            // If using fallback, filter out reposts in memory
+            if useFallback {
+                let beforeFilter = firestorePosts.count
+                firestorePosts = firestorePosts.filter { !$0.isRepost }
+                print("🔄 Filtered \(beforeFilter - firestorePosts.count) reposts in memory")
+            }
+            
+            let userPosts = firestorePosts.map { $0.toPost() }
+            
+            // Category breakdown
+            let categoryBreakdown = userPosts.reduce(into: [Post.PostCategory: Int]()) { counts, post in
+                counts[post.category, default: 0] += 1
+            }
+            
+            print("✅ Fetched \(userPosts.count) original posts for user")
+            if !categoryBreakdown.isEmpty {
+                print("📊 Category breakdown:")
+                categoryBreakdown.forEach { category, count in
+                    print("   - \(category): \(count)")
+                }
+            }
+            
+            return userPosts
+            
+        } catch {
+            print("❌ Error fetching user posts: \(error)")
+            
+            // Check if it's an index error
+            if let firestoreError = error as NSError?,
+               firestoreError.domain == "FIRFirestoreErrorDomain",
+               firestoreError.code == 9 { // FAILED_PRECONDITION
+                print("⚠️ FIRESTORE INDEX REQUIRED!")
+                print("   Create a composite index for:")
+                print("   Collection: posts")
+                print("   Fields: authorId (Ascending), isRepost (Ascending), createdAt (Descending)")
+                print("")
+                print("   OR you can use the fallback query:")
+                print("   try await fetchUserOriginalPosts(userId: userId, useFallback: true)")
+                
+                // Automatically retry with fallback if not already using it
+                if !useFallback {
+                    print("🔄 Automatically retrying with fallback query...")
+                    return try await fetchUserOriginalPosts(userId: userId, useFallback: true)
+                }
+            }
+            
+            throw error
+        }
     }
     
     /// Fetch reposts by a specific user
@@ -1283,6 +1630,146 @@ class FirebasePostService: ObservableObject {
         
         // Refresh posts from Firebase
         try await fetchAllPosts()
+    }
+    
+    // MARK: - Profile Image Enrichment
+    
+    /// Automatically enrich posts with profile images if they're missing
+    /// This runs transparently when posts are loaded from Firestore
+    private func enrichPostsWithProfileImages(_ posts: inout [Post]) async {
+        // Find posts without profile images
+        let postsNeedingImages = posts.filter { $0.authorProfileImageURL == nil || $0.authorProfileImageURL?.isEmpty == true }
+        
+        guard !postsNeedingImages.isEmpty else { return }
+        
+        // Group by author to batch fetch profile images
+        var authorIds = Set<String>()
+        for post in postsNeedingImages {
+            authorIds.insert(post.authorId)
+        }
+        
+        // Filter out authorIds already in cache
+        let authorIdsToFetch = authorIds.filter { profileImageCache[$0] == nil }
+        
+        // Fetch profile images for uncached authors only (in parallel)
+        await withTaskGroup(of: (String, String?).self) { group in
+            for authorId in authorIdsToFetch {
+                group.addTask {
+                    do {
+                        let userDoc = try await self.db.collection("users").document(authorId).getDocument()
+                        let profileImageURL = userDoc.data()?["profileImageURL"] as? String
+                        return (authorId, profileImageURL)
+                    } catch {
+                        return (authorId, nil)
+                    }
+                }
+            }
+            
+            for await (authorId, profileImageURL) in group {
+                if let url = profileImageURL, !url.isEmpty {
+                    await MainActor.run {
+                        self.profileImageCache[authorId] = url
+                    }
+                }
+            }
+        }
+        
+        // Update posts with profile images from cache (create new Post instances since it's a struct)
+        posts = posts.map { post in
+            if post.authorProfileImageURL == nil || post.authorProfileImageURL?.isEmpty == true {
+                if let profileImageURL = profileImageCache[post.authorId] {
+                    return Post(
+                        id: post.id,
+                        firebaseId: post.firebaseId,
+                        authorId: post.authorId,
+                        authorName: post.authorName,
+                        authorUsername: post.authorUsername,
+                        authorInitials: post.authorInitials,
+                        authorProfileImageURL: profileImageURL,
+                        timeAgo: post.timeAgo,
+                        content: post.content,
+                        category: post.category,
+                        topicTag: post.topicTag,
+                        visibility: post.visibility,
+                        allowComments: post.allowComments,
+                        imageURLs: post.imageURLs,
+                        linkURL: post.linkURL,
+                        createdAt: post.createdAt,
+                        amenCount: post.amenCount,
+                        lightbulbCount: post.lightbulbCount,
+                        commentCount: post.commentCount,
+                        repostCount: post.repostCount,
+                        isRepost: post.isRepost,
+                        originalAuthorName: post.originalAuthorName,
+                        originalAuthorId: post.originalAuthorId
+                    )
+                }
+            }
+            return post
+        }
+    }
+    
+    // MARK: - Migration Helpers
+    
+    /// One-time migration to add authorProfileImageURL to all existing posts
+    func migrateAllPostsWithProfileImages() async throws {
+        print("🔄 Starting migration to add profile images to all posts...")
+        
+        let db = Firestore.firestore()
+        
+        // Fetch all posts
+        let snapshot = try await db.collection(FirebaseManager.CollectionPath.posts)
+            .getDocuments()
+        
+        print("📊 Found \(snapshot.documents.count) posts to migrate")
+        
+        var updated = 0
+        var skipped = 0
+        
+        // Group posts by author
+        var postsByAuthor: [String: [QueryDocumentSnapshot]] = [:]
+        for doc in snapshot.documents {
+            if let authorId = doc.data()["authorId"] as? String {
+                postsByAuthor[authorId, default: []].append(doc)
+            }
+        }
+        
+        // Fetch each author's profile and update their posts
+        for (authorId, posts) in postsByAuthor {
+            do {
+                let userDoc = try await db.collection("users").document(authorId).getDocument()
+                
+                guard let userData = userDoc.data(),
+                      let profileImageURL = userData["profileImageURL"] as? String,
+                      !profileImageURL.isEmpty else {
+                    print("⚠️ No profile image for user \(authorId), skipping \(posts.count) posts")
+                    skipped += posts.count
+                    continue
+                }
+                
+                // Update all posts by this author
+                for postDoc in posts {
+                    // Check if already has profileImageURL
+                    if let existing = postDoc.data()["authorProfileImageURL"] as? String, !existing.isEmpty {
+                        skipped += 1
+                        continue
+                    }
+                    
+                    try await postDoc.reference.updateData([
+                        "authorProfileImageURL": profileImageURL
+                    ])
+                    updated += 1
+                }
+                
+                print("✅ Updated \(posts.count) posts for user \(authorId)")
+                
+            } catch {
+                print("⚠️ Failed to update posts for user \(authorId): \(error)")
+                skipped += posts.count
+            }
+        }
+        
+        print("✅ Migration complete! Updated: \(updated), Skipped: \(skipped)")
     }
     
     // MARK: - Notification Helpers

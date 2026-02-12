@@ -45,6 +45,8 @@ struct PostCard: View {
     @State private var expectedLightbulbState = false
     @State private var isRepostToggleInFlight = false
     @State private var expectedRepostState = false
+    @State private var lastSaveActionTimestamp: Date?  // ✅ NEW: Track last save action for debouncing
+    @State private var saveActionCounter = 0  // ✅ NEW: Count save actions for debugging
     
     // Prayer activity
     @State private var isPraying = false
@@ -170,6 +172,29 @@ struct PostCard: View {
         }
     }
     
+    // MARK: - Debug State Tracking
+    
+    #if DEBUG
+    @State private var showDebugOverlay = false
+    @State private var debugLog: [String] = []
+    
+    private func logDebug(_ message: String, category: String = "GENERAL") {
+        let timestamp = Date().formatted(date: .omitted, time: .standard)
+        let logEntry = "[\(timestamp)][\(category)] \(message)"
+        debugLog.append(logEntry)
+        print("🔍 [POSTCARD-DEBUG][\(category)] \(message)")
+        
+        // Keep only last 50 entries
+        if debugLog.count > 50 {
+            debugLog.removeFirst(debugLog.count - 50)
+        }
+    }
+    #else
+    private func logDebug(_ message: String, category: String = "GENERAL") {
+        // No-op in release builds
+    }
+    #endif
+    
     // MARK: - Extracted Views
     
     private var avatarButton: some View {
@@ -196,13 +221,17 @@ struct PostCard: View {
                 if let profileImageURL = currentProfileImageURL, !profileImageURL.isEmpty {
                     profileImageView(url: profileImageURL)
                         .onAppear {
+                            #if DEBUG
                             print("🖼️ [POSTCARD] Showing current profile image: \(profileImageURL.prefix(50))...")
+                            #endif
                         }
                         .id("current-\(profileImageURL)")
                 } else if let post = post, let profileImageURL = post.authorProfileImageURL, !profileImageURL.isEmpty {
                     profileImageView(url: profileImageURL)
                         .onAppear {
+                            #if DEBUG
                             print("🖼️ [POSTCARD] Showing cached profile image: \(profileImageURL.prefix(50))...")
+                            #endif
                         }
                         .id("cached-\(profileImageURL)")
                 } else {
@@ -217,8 +246,11 @@ struct PostCard: View {
                         .id("initials")
                 }
             }
+            .id(currentProfileImageURL ?? post?.authorProfileImageURL ?? "no-image")
             .onChange(of: currentProfileImageURL) { oldValue, newValue in
+                #if DEBUG
                 print("🔄 [POSTCARD] currentProfileImageURL changed from \(oldValue?.prefix(30) ?? "nil") to \(newValue?.prefix(30) ?? "nil")")
+                #endif
             }
             
             // Follow button - only show if not user's post AND post exists
@@ -229,6 +261,15 @@ struct PostCard: View {
         .task {
             // ✅ Fetch latest profile image URL in real-time
             await fetchLatestProfileImage()
+        }
+        .onChange(of: post?.authorProfileImageURL) { oldValue, newValue in
+            // ✅ Sync currentProfileImageURL when Post updates from PostsManager
+            if let newURL = newValue, !newURL.isEmpty, newURL != currentProfileImageURL {
+                #if DEBUG
+                print("🔄 [POSTCARD] Profile image updated in Post object: \(newURL.prefix(50))...")
+                #endif
+                currentProfileImageURL = newURL
+            }
         }
     }
     
@@ -428,12 +469,6 @@ struct PostCard: View {
     @ViewBuilder
     private var commonMenuOptions: some View {
         Button {
-            toggleRepost()
-        } label: {
-            Label("Repost to Profile", systemImage: "arrow.triangle.2.circlepath")
-        }
-        
-        Button {
             sharePost()
         } label: {
             Label("Share", systemImage: "square.and.arrow.up")
@@ -514,11 +549,6 @@ struct PostCard: View {
     private var lightbulbButtonLabel: some View {
         HStack(spacing: 4) {
             lightbulbIcon
-            
-            Text("\(lightbulbCount)")
-                .font(.custom("OpenSans-SemiBold", size: 11))
-                .foregroundStyle(hasLitLightbulb ? Color.orange : Color.black.opacity(0.5))
-                .contentTransition(.numericText())
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 7)
@@ -586,11 +616,8 @@ struct PostCard: View {
         HStack(spacing: 4) {
             Image(systemName: hasSaidAmen ? "hands.clap.fill" : "hands.clap")
                 .font(.system(size: 13, weight: .semibold))
-            Text("\(amenCount)")
-                .font(.custom("OpenSans-SemiBold", size: 11))
         }
         .foregroundStyle(hasSaidAmen ? Color.black : Color.black.opacity(0.5))
-        .contentTransition(.numericText())
         .padding(.horizontal, 12)
         .padding(.vertical, 7)
         .background(amenBackground)
@@ -655,12 +682,19 @@ struct PostCard: View {
             Button {
                 openAuthorProfile()
             } label: {
-                Text(authorName)
-                    .font(.custom("OpenSans-Bold", size: 15))
-                    .foregroundStyle(.primary)
+                HStack(spacing: 4) {
+                    Text(authorName)
+                        .font(.custom("OpenSans-Bold", size: 15))
+                        .foregroundStyle(.primary)
+
+                    // ✅ Verified badge
+                    if let post = post, VerifiedBadgeHelper.isVerified(userId: post.authorId) {
+                        VerifiedBadge(size: 14)
+                    }
+                }
             }
             .buttonStyle(PlainButtonStyle())
-            
+
             // Category badge - only show for non-OpenTable posts
             if category != .openTable {
                 categoryBadge
@@ -713,8 +747,9 @@ struct PostCard: View {
     }
     
     var body: some View {
-        cardContent
-            .modifier(PostCardSheetsModifier(
+        ZStack(alignment: .topTrailing) {
+            cardContent
+                .modifier(PostCardSheetsModifier(
                 showUserProfile: $showUserProfile,
                 showingEditSheet: $showingEditSheet,
                 showShareSheet: $showShareSheet,
@@ -779,7 +814,107 @@ struct PostCard: View {
             } message: {
                 Text(errorMessage)
             }
+            
+            #if DEBUG
+            // Debug overlay - tap post card 3 times quickly to toggle
+            if showDebugOverlay {
+                debugOverlayView
+            }
+            #endif
+        }
+        #if DEBUG
+        .onTapGesture(count: 3) {
+            withAnimation {
+                showDebugOverlay.toggle()
+            }
+            let haptic = UIImpactFeedbackGenerator(style: .heavy)
+            haptic.impactOccurred()
+            logDebug("Debug overlay toggled: \(showDebugOverlay)", category: "DEBUG")
+        }
+        #endif
     }
+    
+    #if DEBUG
+    private var debugOverlayView: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("🔍 DEBUG STATE")
+                    .font(.caption.bold())
+                Spacer()
+                Button("×") {
+                    withAnimation {
+                        showDebugOverlay = false
+                    }
+                }
+                .font(.title2)
+                .foregroundStyle(.secondary)
+            }
+            
+            Divider()
+            
+            if let post = post, let currentUserId = Auth.auth().currentUser?.uid {
+                debugStateRow(label: "Post ID", value: String(post.firestoreId.prefix(12)))
+                debugStateRow(label: "User ID", value: String(currentUserId.prefix(12)))
+                
+                Divider()
+                
+                debugStateRow(label: "Lightbulb (UI)", value: "\(hasLitLightbulb)")
+                debugStateRow(label: "Lightbulb (Backend)", value: "\(interactionsService.userLightbulbedPosts.contains(post.firestoreId))")
+                debugStateRow(label: "Lightbulb Count", value: "\(lightbulbCount)")
+                
+                Divider()
+                
+                debugStateRow(label: "Amen (UI)", value: "\(hasSaidAmen)")
+                debugStateRow(label: "Amen (Backend)", value: "\(interactionsService.userAmenedPosts.contains(post.firestoreId))")
+                debugStateRow(label: "Amen Count", value: "\(amenCount)")
+                
+                Divider()
+                
+                debugStateRow(label: "Repost (UI)", value: "\(hasReposted)")
+                debugStateRow(label: "Repost (Backend)", value: "\(interactionsService.userRepostedPosts.contains(post.firestoreId))")
+                debugStateRow(label: "Repost Count", value: "\(repostCount)")
+                
+                Divider()
+                
+                debugStateRow(label: "Saved (UI)", value: "\(isSaved)")
+                debugStateRow(label: "Comment Count", value: "\(commentCount)")
+                
+                Divider()
+                
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Recent Logs:")
+                            .font(.caption2.bold())
+                        ForEach(debugLog.suffix(10).reversed(), id: \.self) { log in
+                            Text(log)
+                                .font(.system(size: 8, design: .monospaced))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                .frame(maxHeight: 150)
+            }
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color(.systemBackground))
+                .shadow(color: .black.opacity(0.3), radius: 20, y: 10)
+        )
+        .padding(8)
+    }
+    
+    private func debugStateRow(label: String, value: String) -> some View {
+        HStack {
+            Text(label + ":")
+                .font(.caption2.bold())
+            Spacer()
+            Text(value)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+    }
+    #endif
     
     // MARK: - Card Content
     
@@ -790,13 +925,20 @@ struct PostCard: View {
                 .padding(.horizontal, 20)
                 .padding(.top, 20)
             
-            // Post content
-            Text(content)
-                .font(.custom("OpenSans-Regular", size: 16))
-                .foregroundStyle(.primary)
-                .lineSpacing(6)
-                .padding(.horizontal, 20)
-                .padding(.top, 16)
+            // Post content with mention support
+            MentionTextView(
+                text: content,
+                mentions: post?.mentions,
+                font: .custom("OpenSans-Regular", size: 16),
+                lineSpacing: 6
+            ) { mention in
+                // Navigate to mentioned user's profile
+                print("📧 Tapped mention: @\(mention.username) (\(mention.userId))")
+                // TODO: Navigate to user profile
+            }
+            .foregroundStyle(.primary)
+            .padding(.horizontal, 20)
+            .padding(.top, 16)
             
             // ✅ Display post images if available
             if let post = post, let imageURLs = post.imageURLs, !imageURLs.isEmpty {
@@ -899,7 +1041,11 @@ struct PostCard: View {
             let doc = try await db.collection("churchNotes").document(id).getDocument()
 
             guard doc.exists, let note = try? doc.data(as: ChurchNote.self) else {
-                print("❌ Church note not found: \(id)")
+                // Church note reference exists but document is missing (deleted or invalid)
+                // This is a non-critical error - silently skip showing the preview
+                #if DEBUG
+                print("⚠️ Church note reference exists but document not found: \(id.prefix(8))")
+                #endif
                 return
             }
 
@@ -907,7 +1053,10 @@ struct PostCard: View {
                 churchNote = note
             }
         } catch {
-            print("❌ Error loading church note: \(error.localizedDescription)")
+            // Network or parsing error - only log in debug mode
+            #if DEBUG
+            print("⚠️ Error loading church note \(id.prefix(8)): \(error.localizedDescription)")
+            #endif
         }
     }
 
@@ -966,12 +1115,29 @@ struct PostCard: View {
                 count: nil,  // ✅ No count - just illuminate when active
                 isActive: hasReposted,
                 activeColor: .green,
-                disabled: isUserPost
+                disabled: isUserPost || isRepostToggleInFlight  // ✅ Prevent double-tap
             ) {
-                if !isUserPost { toggleRepost() }
+                // ✅ Instant toggle - no confirmation needed
+                if !isUserPost && !isRepostToggleInFlight {
+                    toggleRepost()
+                }
             }
             
             Spacer()
+            
+            // Share Church Note (if post has church note)
+            if let _ = post?.churchNoteId, let _ = churchNote {
+                circularInteractionButton(
+                    icon: "square.and.arrow.up",
+                    count: nil,
+                    isActive: false,
+                    activeColor: .blue,
+                    disabled: false,
+                    enableBounce: false
+                ) {
+                    showShareSheet = true
+                }
+            }
             
             // Bookmark (right aligned)
             circularInteractionButton(
@@ -1131,8 +1297,10 @@ struct PostCard: View {
             return
         }
         
+        #if DEBUG
         print("🔍 [POSTCARD] Fetching profile image for user: \(post.authorId)")
         print("   Post already has URL: \(post.authorProfileImageURL ?? "none")")
+        #endif
         
         do {
             let db = Firestore.firestore()
@@ -1150,7 +1318,9 @@ struct PostCard: View {
 
                 // Try to get as String
                 if let profileImageURL = rawValue as? String, !profileImageURL.isEmpty {
+                    #if DEBUG
                     print("✅ [POSTCARD] Found profile image URL: \(profileImageURL.prefix(50))...")
+                    #endif
                     await MainActor.run {
                         currentProfileImageURL = profileImageURL
                     }
@@ -1166,18 +1336,26 @@ struct PostCard: View {
     }
     
     private func toggleLightbulb() {
-        print("💡 toggleLightbulb() called")
-        
         guard let post = post else {
-            print("❌ No post object available")
+            logDebug("❌ No post object available", category: "LIGHTBULB")
             return
         }
         
-        print("   - Post ID: \(post.firestoreId)")
-        print("   - Current state: \(hasLitLightbulb ? "lit" : "unlit")")
+        guard let currentUserId = Auth.auth().currentUser?.uid else {
+            logDebug("❌ No current user ID", category: "LIGHTBULB")
+            return
+        }
         
         // Store previous state for rollback
         let previousState = hasLitLightbulb
+        let previousCount = lightbulbCount
+        
+        logDebug("USER_ACTION: toggleLightbulb() called", category: "LIGHTBULB")
+        logDebug("  postId: \(post.firestoreId)", category: "LIGHTBULB")
+        logDebug("  currentUserId: \(currentUserId)", category: "LIGHTBULB")
+        logDebug("  BEFORE: hasLitLightbulb=\(previousState), count=\(previousCount)", category: "LIGHTBULB")
+        logDebug("  Source: Local @State", category: "LIGHTBULB")
+        
         expectedLightbulbState = !previousState
         isLightbulbToggleInFlight = true
         
@@ -1187,15 +1365,19 @@ struct PostCard: View {
             isLightbulbAnimating = true
         }
         
+        logDebug("  OPTIMISTIC: hasLitLightbulb=\(hasLitLightbulb), count=\(lightbulbCount)", category: "LIGHTBULB")
+        
         Task {
             do {
-                print("📤 Calling PostInteractionsService.toggleLightbulb...")
+                logDebug("📤 Calling PostInteractionsService.toggleLightbulb...", category: "LIGHTBULB")
                 
                 // Call Realtime Database to toggle lightbulb
                 // The count will be updated by the real-time observer
                 try await interactionsService.toggleLightbulb(postId: post.firestoreId)
                 
-                print("✅ Lightbulb toggled successfully")
+                logDebug("✅ Backend write SUCCESS", category: "LIGHTBULB")
+                logDebug("  AFTER: hasLitLightbulb=\(hasLitLightbulb), count=\(lightbulbCount)", category: "LIGHTBULB")
+                logDebug("  Note: Count will update via real-time observer", category: "LIGHTBULB")
                 
                 // Haptic feedback
                 let haptic = UIImpactFeedbackGenerator(style: .medium)
@@ -1214,7 +1396,8 @@ struct PostCard: View {
                 }
                 
             } catch {
-                print("❌ Failed to toggle lightbulb: \(error)")
+                logDebug("❌ Backend write FAILED: \(error.localizedDescription)", category: "LIGHTBULB")
+                logDebug("  ROLLBACK: Reverting to hasLitLightbulb=\(previousState)", category: "LIGHTBULB")
                 
                 // Revert optimistic update on error
                 await MainActor.run {
@@ -1225,6 +1408,8 @@ struct PostCard: View {
                     isLightbulbToggleInFlight = false
                 }
                 
+                logDebug("  AFTER ROLLBACK: hasLitLightbulb=\(hasLitLightbulb)", category: "LIGHTBULB")
+                
                 // Error haptic
                 let haptic = UINotificationFeedbackGenerator()
                 haptic.notificationOccurred(.error)
@@ -1233,40 +1418,52 @@ struct PostCard: View {
     }
     
     private func toggleAmen() {
-        print("🙏 toggleAmen() called")
-        
         guard let post = post else {
-            print("❌ No post object available")
+            logDebug("❌ No post object available", category: "AMEN")
             return
         }
         
-        print("   - Post ID: \(post.firestoreId)")
-        print("   - Current state: \(hasSaidAmen ? "amened" : "not amened")")
+        guard let currentUserId = Auth.auth().currentUser?.uid else {
+            logDebug("❌ No current user ID", category: "AMEN")
+            return
+        }
         
         // Store previous state for rollback
         let previousState = hasSaidAmen
+        let previousCount = amenCount
+        
+        logDebug("USER_ACTION: toggleAmen() called", category: "AMEN")
+        logDebug("  postId: \(post.firestoreId)", category: "AMEN")
+        logDebug("  currentUserId: \(currentUserId)", category: "AMEN")
+        logDebug("  BEFORE: hasSaidAmen=\(previousState), count=\(previousCount)", category: "AMEN")
+        logDebug("  Source: Local @State", category: "AMEN")
         
         // Optimistic UI update for the active state only (not the count)
         withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
             hasSaidAmen.toggle()
         }
         
+        logDebug("  OPTIMISTIC: hasSaidAmen=\(hasSaidAmen), count=\(amenCount)", category: "AMEN")
+        
         Task {
             do {
-                print("📤 Calling PostInteractionsService.toggleAmen...")
+                logDebug("📤 Calling PostInteractionsService.toggleAmen...", category: "AMEN")
                 
                 // Call Realtime Database to toggle amen
                 // The count will be updated by the real-time observer
                 try await interactionsService.toggleAmen(postId: post.firestoreId)
                 
-                print("✅ Amen toggled successfully")
+                logDebug("✅ Backend write SUCCESS", category: "AMEN")
+                logDebug("  AFTER: hasSaidAmen=\(hasSaidAmen), count=\(amenCount)", category: "AMEN")
+                logDebug("  Note: Count will update via real-time observer", category: "AMEN")
                 
                 // Haptic feedback
                 let haptic = UINotificationFeedbackGenerator()
                 haptic.notificationOccurred(.success)
                 
             } catch {
-                print("❌ Failed to toggle amen: \(error)")
+                logDebug("❌ Backend write FAILED: \(error.localizedDescription)", category: "AMEN")
+                logDebug("  ROLLBACK: Reverting to hasSaidAmen=\(previousState)", category: "AMEN")
                 
                 // Revert optimistic update on error
                 await MainActor.run {
@@ -1274,6 +1471,8 @@ struct PostCard: View {
                         hasSaidAmen = previousState
                     }
                 }
+                
+                logDebug("  AFTER ROLLBACK: hasSaidAmen=\(hasSaidAmen)", category: "AMEN")
                 
                 // Error haptic
                 let haptic = UINotificationFeedbackGenerator()
@@ -1314,18 +1513,32 @@ struct PostCard: View {
     }
     
     private func toggleRepost() {
-        print("🔄 toggleRepost() called")
-        
         guard let post = post else {
-            print("❌ No post object available")
+            logDebug("❌ No post object available", category: "REPOST")
             return
         }
         
-        print("   - Post ID: \(post.firestoreId)")
-        print("   - Current state: \(hasReposted)")
+        guard let currentUserId = Auth.auth().currentUser?.uid else {
+            logDebug("❌ No current user ID", category: "REPOST")
+            return
+        }
+        
+        // ✅ Prevent double-tap: Exit if toggle already in flight
+        guard !isRepostToggleInFlight else {
+            logDebug("⏭️ SKIPPED: Repost toggle already in flight", category: "REPOST")
+            return
+        }
         
         // Store previous state for rollback
         let previousState = hasReposted
+        let previousCount = repostCount
+        
+        logDebug("USER_ACTION: toggleRepost() called", category: "REPOST")
+        logDebug("  postId: \(post.firestoreId)", category: "REPOST")
+        logDebug("  currentUserId: \(currentUserId)", category: "REPOST")
+        logDebug("  BEFORE: hasReposted=\(previousState), count=\(previousCount)", category: "REPOST")
+        logDebug("  Source: Local @State", category: "REPOST")
+        
         expectedRepostState = !previousState
         isRepostToggleInFlight = true
         
@@ -1334,10 +1547,17 @@ struct PostCard: View {
             hasReposted.toggle()
         }
         
+        logDebug("  OPTIMISTIC: hasReposted=\(hasReposted), count=\(repostCount)", category: "REPOST")
+        
         Task {
             do {
+                logDebug("📤 Calling PostInteractionsService.toggleRepost...", category: "REPOST")
+                
                 // Toggle repost in Realtime Database
                 let isReposted = try await interactionsService.toggleRepost(postId: post.firestoreId)
+                
+                logDebug("✅ Backend write SUCCESS", category: "REPOST")
+                logDebug("  Backend returned: isReposted=\(isReposted)", category: "REPOST")
                 
                 // Update UI to match database state
                 await MainActor.run {
@@ -1351,6 +1571,8 @@ struct PostCard: View {
                     }
                 }
                 
+                logDebug("  AFTER: hasReposted=\(hasReposted), count=\(repostCount)", category: "REPOST")
+                
                 if isReposted {
                     // Create repost via PostsManager for user's profile
                     postsManager.repostToProfile(originalPost: post)
@@ -1362,10 +1584,11 @@ struct PostCard: View {
                         userInfo: ["post": post]
                     )
                     
-                    print("✅ Reposted to your profile")
+                    logDebug("✅ Reposted to profile", category: "REPOST")
                 } else {
                     // Remove repost from PostsManager
-                    postsManager.removeRepost(postId: post.id)
+                    // ✅ Pass Firestore ID for proper repost removal
+                    postsManager.removeRepost(postId: post.id, firestoreId: post.firestoreId)
                     
                     // Send notification for real-time ProfileView update
                     NotificationCenter.default.post(
@@ -1374,7 +1597,7 @@ struct PostCard: View {
                         userInfo: ["postId": post.id]
                     )
                     
-                    print("✅ Repost removed from your profile")
+                    logDebug("✅ Repost removed from profile", category: "REPOST")
                 }
                 
                 // Haptic feedback
@@ -1382,7 +1605,8 @@ struct PostCard: View {
                 haptic.notificationOccurred(.success)
                 
             } catch {
-                print("❌ Failed to toggle repost: \(error)")
+                logDebug("❌ Backend write FAILED: \(error.localizedDescription)", category: "REPOST")
+                logDebug("  ROLLBACK: Reverting to hasReposted=\(previousState)", category: "REPOST")
                 
                 // Revert on error
                 await MainActor.run {
@@ -1394,6 +1618,8 @@ struct PostCard: View {
                     errorMessage = "Failed to toggle repost. Please try again."
                     showErrorAlert = true
                 }
+                
+                logDebug("  AFTER ROLLBACK: hasReposted=\(hasReposted)", category: "REPOST")
                 
                 // Error haptic
                 let haptic = UINotificationFeedbackGenerator()
@@ -1489,12 +1715,38 @@ struct PostCard: View {
     }
     
     private func toggleSave() {
-        guard !isSaveInFlight else { return }
-        guard let post = post else { return }
+        // ✅ IDEMPOTENCY CHECK #1: Prevent saves already in flight
+        guard !isSaveInFlight else {
+            logDebug("⚠️ Save already in flight, ignoring", category: "SAVE")
+            print("⚠️ [SAVE-GUARD-1] Blocked duplicate save attempt (already in flight)")
+            return
+        }
+        
+        guard let post = post else {
+            logDebug("❌ No post object available", category: "SAVE")
+            print("❌ [SAVE-GUARD-2] No post object - cannot save")
+            return
+        }
+        
+        guard let currentUserId = Auth.auth().currentUser?.uid else {
+            logDebug("❌ No current user ID", category: "SAVE")
+            print("❌ [SAVE-GUARD-3] No current user - not authenticated")
+            return
+        }
+        
+        // ✅ IDEMPOTENCY CHECK #2: Debounce rapid taps (prevent saves within 500ms)
+        if let lastTimestamp = lastSaveActionTimestamp {
+            let timeSinceLastSave = Date().timeIntervalSince(lastTimestamp)
+            if timeSinceLastSave < 0.5 {
+                print("⚠️ [SAVE-GUARD-4] Debounced: \(Int(timeSinceLastSave * 1000))ms since last save (min 500ms)")
+                return
+            }
+        }
         
         // ✅ Check network first
         guard AMENNetworkMonitor.shared.isConnected else {
-            print("📱 Offline - cannot save/unsave posts")
+            logDebug("📱 Offline - cannot save/unsave posts", category: "SAVE")
+            print("📱 [SAVE-GUARD-5] Offline - save blocked")
             errorMessage = "You're offline. Please check your connection and try again."
             showErrorAlert = true
             
@@ -1503,15 +1755,32 @@ struct PostCard: View {
             return
         }
         
+        // Record this save action
+        saveActionCounter += 1
+        lastSaveActionTimestamp = Date()
         isSaveInFlight = true
         
         // Store previous state for rollback
         let previousState = isSaved
         
+        logDebug("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", category: "SAVE")
+        logDebug("USER_ACTION #\(saveActionCounter): toggleSave() called", category: "SAVE")
+        logDebug("  postId: \(post.firestoreId)", category: "SAVE")
+        logDebug("  currentUserId: \(currentUserId)", category: "SAVE")
+        logDebug("  BEFORE: isSaved=\(previousState)", category: "SAVE")
+        logDebug("  savedPostIds.contains: \(savedPostsService.savedPostIds.contains(post.firestoreId))", category: "SAVE")
+        logDebug("  Source: User tap on bookmark button", category: "SAVE")
+        logDebug("  Timestamp: \(Date())", category: "SAVE")
+        logDebug("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", category: "SAVE")
+        
         // Optimistic UI update
+        logDebug("  📤 Performing OPTIMISTIC UI update...", category: "SAVE")
         withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
             isSaved.toggle()
         }
+        
+        logDebug("  ✅ OPTIMISTIC UPDATE COMPLETE: isSaved=\(isSaved)", category: "SAVE")
+        logDebug("  Expected outcome: \(isSaved ? "SAVED" : "UNSAVED")", category: "SAVE")
         
         Task {
             defer {
@@ -1520,8 +1789,13 @@ struct PostCard: View {
                 }
             }
             do {
+                logDebug("📤 Calling savedPostsService.toggleSavePost...", category: "SAVE")
+                
                 // Toggle using RTDB service (returns true if saved, false if unsaved)
                 let isSavedNow = try await savedPostsService.toggleSavePost(postId: post.firestoreId)
+                
+                logDebug("✅ Backend write SUCCESS", category: "SAVE")
+                logDebug("  Backend returned: isSaved=\(isSavedNow)", category: "SAVE")
                 
                 // Ensure UI matches server state
                 await MainActor.run {
@@ -1532,7 +1806,8 @@ struct PostCard: View {
                     }
                 }
                 
-                print(isSavedNow ? "💾 Post saved" : "🗑️ Post unsaved")
+                logDebug("  AFTER: isSaved=\(isSaved)", category: "SAVE")
+                logDebug(isSavedNow ? "💾 Post saved" : "🗑️ Post unsaved", category: "SAVE")
                 
                 // ✅ Post notification with full Post object for ProfileView
                 if isSavedNow {
@@ -1541,14 +1816,14 @@ struct PostCard: View {
                         object: nil,
                         userInfo: ["post": post]
                     )
-                    print("📬 Posted postSaved notification with full Post object")
+                    logDebug("📬 Posted postSaved notification", category: "SAVE")
                 } else {
                     NotificationCenter.default.post(
                         name: Notification.Name("postUnsaved"),
                         object: nil,
                         userInfo: ["postId": post.id]
                     )
-                    print("📬 Posted postUnsaved notification")
+                    logDebug("📬 Posted postUnsaved notification", category: "SAVE")
                 }
                 
                 // Haptic feedback
@@ -1556,7 +1831,8 @@ struct PostCard: View {
                 haptic.impactOccurred()
                 
             } catch {
-                print("❌ Failed to toggle save: \(error)")
+                logDebug("❌ Backend write FAILED: \(error.localizedDescription)", category: "SAVE")
+                logDebug("  ROLLBACK: Reverting to isSaved=\(previousState)", category: "SAVE")
                 
                 // Revert on error
                 await MainActor.run {
@@ -2008,7 +2284,13 @@ private struct PostCardSheetsModifier: ViewModifier {
             }
             .sheet(isPresented: $showShareSheet) {
                 if let post = post {
-                    ShareSheet(items: [shareText(for: post)])
+                    // If post has a church note, show church note share options
+                    if post.churchNoteId != nil, let note = churchNote {
+                        ChurchNoteShareOptionsSheet(note: note)
+                    } else {
+                        // Otherwise show standard post sharing
+                        ShareSheet(items: [shareText(for: post)])
+                    }
                 }
             }
             .sheet(isPresented: $showCommentsSheet) {
@@ -2097,28 +2379,64 @@ private struct PostCardInteractionsModifier: ViewModifier {
             .task {
                 guard let post = post else { return }
                 let postId = post.firestoreId
+                guard let currentUserId = Auth.auth().currentUser?.uid else { return }
+                
+                #if DEBUG
+                print("🔍 [LIFECYCLE][TASK] PostCard.task started for post: \(postId.prefix(8))")
+                print("  currentUserId: \(currentUserId)")
+                #endif
                 
                 // Start observing real-time interactions
                 interactionsService.observePostInteractions(postId: postId)
+                #if DEBUG
+                print("  ✅ Started observing real-time interactions")
+                #endif
                 
-                // Load initial states from cached user interactions to avoid auto-toggling on launch
-                let lightbulbStatus = interactionsService.userLightbulbedPosts.contains(postId)
-                let amenStatus = await interactionsService.hasAmened(postId: postId)
-                
-                withTransaction(Transaction(animation: nil)) {
-                    if !isLightbulbToggleInFlight {
-                        hasLitLightbulb = lightbulbStatus
+                // ✅ Wait for initial cache to load before checking state
+                if !interactionsService.hasLoadedInitialCache {
+                    var attempts = 0
+                    // ✅ Increased timeout to 3 seconds (150 attempts × 20ms)
+                    // Cache-first reads should be instant, but this provides safety margin
+                    while !interactionsService.hasLoadedInitialCache && attempts < 150 {
+                        try? await Task.sleep(nanoseconds: 20_000_000) // 20ms
+                        attempts += 1
                     }
-                    hasSaidAmen = amenStatus
+                    #if DEBUG
+                    if attempts >= 150 {
+                        print("    ⚠️ Cache load timeout after 3 seconds")
+                    } else if attempts > 0 {
+                        print("    ✅ Cache loaded after \(attempts * 20)ms")
+                    }
+                    #endif
                 }
-                print("🔍 PostCard loaded lightbulb state for \(postId.prefix(8)): \(hasLitLightbulb)")
+                
+                // Load lightbulb state from userLightbulbedPosts
+                let lightbulbedStatus = interactionsService.userLightbulbedPosts.contains(postId)
+                withTransaction(Transaction(animation: nil)) {
+                    hasLitLightbulb = lightbulbedStatus
+                }
+                print("    hasLitLightbulb=\(hasLitLightbulb) (postId: \(String(postId.prefix(8))))")
+                
+                // Load amen state from userAmenedPosts
+                let amenedStatus = interactionsService.userAmenedPosts.contains(postId)
+                withTransaction(Transaction(animation: nil)) {
+                    hasSaidAmen = amenedStatus
+                }
+                print("    hasSaidAmen=\(hasSaidAmen) (from userAmenedPosts)")
                 
                 // Check saved status with offline handling
                 // ✅ Disable animation for initial load to prevent auto-toggle appearance
+                print("  📊 CHECKING SAVED STATUS...")
+                print("    - Method: checkSavedStatusSafely()")
+                print("    - PostId: \(postId.prefix(8))")
                 let savedStatus = await checkSavedStatusSafely(postId: postId)
+                print("    - Result from checkSavedStatusSafely: \(savedStatus)")
+                print("    - savedPostIds.contains: \(savedPostsService.savedPostIds.contains(postId))")
+                
                 withTransaction(Transaction(animation: nil)) {
                     isSaved = savedStatus
                 }
+                print("    ✅ isSaved set to: \(isSaved) (NO ANIMATION)")
                 
                 // ✅ Disable animation for initial repost load to prevent auto-toggle appearance
                 let repostedStatus = interactionsService.userRepostedPosts.contains(postId)
@@ -2127,10 +2445,12 @@ private struct PostCardInteractionsModifier: ViewModifier {
                         hasReposted = repostedStatus
                     }
                 }
+                print("    hasReposted=\(hasReposted) (from userRepostedPosts)")
                 
                 // Check if currently praying (if prayer post)
                 if post.category == .prayer {
                     isPraying = await checkIfPraying(postId: postId)
+                    print("    isPraying=\(isPraying) (prayer post)")
                 }
                 
                 // Load counts
@@ -2139,6 +2459,12 @@ private struct PostCardInteractionsModifier: ViewModifier {
                 commentCount = await interactionsService.getCommentCount(postId: postId)
                 repostCount = await interactionsService.getRepostCount(postId: postId)
                 
+                print("  📊 COUNTS LOADED:")
+                print("    lightbulbCount=\(lightbulbCount)")
+                print("    amenCount=\(amenCount)")
+                print("    commentCount=\(commentCount)")
+                print("    repostCount=\(repostCount)")
+                
                 // Observe praying count for prayer posts
                 if post.category == .prayer {
                     observePrayingCount(postId: postId)
@@ -2146,81 +2472,214 @@ private struct PostCardInteractionsModifier: ViewModifier {
                 
                 // Mark initial load as complete
                 hasCompletedInitialLoad = true
+                #if DEBUG
+                print("  ✅ Initial load complete, real-time observers active")
+                #endif
             }
             .onDisappear {
                 if let post = post {
+                    #if DEBUG
+                    print("🔍 [LIFECYCLE][DISAPPEAR] PostCard disappeared for post: \(post.firestoreId.prefix(8))")
+                    print("  Stopping observation of interactions")
+                    #endif
                     interactionsService.stopObservingPost(postId: post.firestoreId)
                 }
             }
-            .onChange(of: interactionsService.postLightbulbs) { _, _ in
+            .onChange(of: interactionsService.postLightbulbs) { oldValue, newValue in
                 if let post = post, let count = interactionsService.postLightbulbs[post.firestoreId] {
+                    print("🔍 [BACKEND][COUNT] Lightbulb count updated for \(post.firestoreId.prefix(8))")
+                    print("  BEFORE: \(lightbulbCount)")
+                    print("  AFTER: \(count)")
+                    print("  Source: Real-time observer (postLightbulbs)")
                     lightbulbCount = count
                 }
             }
-            .onChange(of: interactionsService.postAmens) { _, _ in
+            .onChange(of: interactionsService.postAmens) { oldValue, newValue in
                 if let post = post, let count = interactionsService.postAmens[post.firestoreId] {
+                    print("🔍 [BACKEND][COUNT] Amen count updated for \(post.firestoreId.prefix(8))")
+                    print("  BEFORE: \(amenCount)")
+                    print("  AFTER: \(count)")
+                    print("  Source: Real-time observer (postAmens)")
                     amenCount = count
                 }
             }
-            .onChange(of: interactionsService.postComments) { _, _ in
+            .onChange(of: interactionsService.postComments) { oldValue, newValue in
                 if let post = post, let count = interactionsService.postComments[post.firestoreId] {
+                    print("🔍 [BACKEND][COUNT] Comment count updated for \(post.firestoreId.prefix(8))")
+                    print("  BEFORE: \(commentCount)")
+                    print("  AFTER: \(count)")
+                    print("  Source: Real-time observer (postComments)")
                     commentCount = count
                 }
             }
-            .onChange(of: interactionsService.postReposts) { _, _ in
+            .onChange(of: interactionsService.postReposts) { oldValue, newValue in
                 if let post = post, let count = interactionsService.postReposts[post.firestoreId] {
+                    print("🔍 [BACKEND][COUNT] Repost count updated for \(post.firestoreId.prefix(8))")
+                    print("  BEFORE: \(repostCount)")
+                    print("  AFTER: \(count)")
+                    print("  Source: Real-time observer (postReposts)")
                     repostCount = count
                 }
             }
-            // ✅ Update lightbulb state when userLightbulbedPosts changes (after initial load only)
+            // ✅ Update lightbulb state when userLightbulbedPosts changes
             .onChange(of: isPostLightbulbed) { oldState, newState in
                 guard let post = post else { return }
-                if !hasCompletedInitialLoad && !isLightbulbToggleInFlight { return }
+                
+                print("🔍 [BACKEND][STATE] isPostLightbulbed changed for \(post.firestoreId.prefix(8))")
+                print("  BEFORE: \(oldState)")
+                print("  AFTER: \(newState)")
+                print("  Source: userLightbulbedPosts (backend)")
+                print("  hasCompletedInitialLoad: \(hasCompletedInitialLoad)")
+                print("  isLightbulbToggleInFlight: \(isLightbulbToggleInFlight)")
                 
                 // Only update if state actually changed
-                guard oldState != newState else { return }
+                guard oldState != newState else {
+                    print("  ⏭️ SKIPPED: No actual change")
+                    return
+                }
+                
+                // ✅ Allow updates during initial load to reflect cached data
+                // But use no animation to prevent visual "toggling"
+                let animation: Animation? = hasCompletedInitialLoad ? .default : nil
                 
                 if isLightbulbToggleInFlight {
+                    print("  🔄 Toggle in flight, expected state: \(expectedLightbulbState)")
                     if newState == expectedLightbulbState {
-                        hasLitLightbulb = newState
+                        print("  ✅ Backend state matches expected")
+                        // Only update if UI state doesn't already match
+                        if hasLitLightbulb != newState {
+                            print("  📝 Updating hasLitLightbulb: \(hasLitLightbulb) → \(newState)")
+                            withAnimation(animation) {
+                                hasLitLightbulb = newState
+                            }
+                        } else {
+                            print("  ⏭️ SKIPPED: hasLitLightbulb already matches backend state")
+                        }
                         isLightbulbToggleInFlight = false
+                    } else {
+                        print("  ⚠️ Backend state doesn't match expected, keeping toggle in flight")
                     }
                     return
                 }
                 
-                print("🔄 Lightbulb onChange fired for \(post.firestoreId.prefix(8)): \(oldState) → \(newState)")
-                hasLitLightbulb = newState
+                // Only update if UI state doesn't already match backend
+                if hasLitLightbulb != newState {
+                    print("  ✅ Updating hasLitLightbulb: \(oldState) → \(newState)")
+                    withAnimation(animation) {
+                        hasLitLightbulb = newState
+                    }
+                } else {
+                    print("  ⏭️ SKIPPED: hasLitLightbulb already matches backend state \(newState)")
+                }
             }
-            // ✅ Update amen state when userAmenedPosts changes (after initial load only)
+            // ✅ Update amen state when userAmenedPosts changes
             .onChange(of: isPostAmened) { oldState, newState in
-                guard hasCompletedInitialLoad else { return }
+                guard let post = post else { return }
                 
-                guard oldState != newState else { return }
-                hasSaidAmen = newState
+                print("🔍 [BACKEND][STATE] isPostAmened changed for \(post.firestoreId.prefix(8))")
+                print("  BEFORE: \(oldState)")
+                print("  AFTER: \(newState)")
+                print("  Source: userAmenedPosts (backend)")
+                print("  hasCompletedInitialLoad: \(hasCompletedInitialLoad)")
+                
+                guard oldState != newState else {
+                    print("  ⏭️ SKIPPED: No actual change")
+                    return
+                }
+                
+                // ✅ Allow updates during initial load to reflect cached data
+                let animation: Animation? = hasCompletedInitialLoad ? .default : nil
+                
+                // Only update if UI state doesn't already match backend
+                if hasSaidAmen != newState {
+                    print("  ✅ Updating hasSaidAmen: \(oldState) → \(newState)")
+                    withAnimation(animation) {
+                        hasSaidAmen = newState
+                    }
+                } else {
+                    print("  ⏭️ SKIPPED: hasSaidAmen already matches backend state \(newState)")
+                }
             }
             // ✅ Update repost state when userRepostedPosts changes (after initial load only)
             .onChange(of: isPostReposted) { oldState, newState in
                 guard let post = post else { return }
-                if !hasCompletedInitialLoad && !isRepostToggleInFlight { return }
                 
-                guard oldState != newState else { return }
+                print("🔍 [BACKEND][STATE] isPostReposted changed for \(post.firestoreId.prefix(8))")
+                print("  BEFORE: \(oldState)")
+                print("  AFTER: \(newState)")
+                print("  Source: userRepostedPosts (backend)")
+                print("  hasCompletedInitialLoad: \(hasCompletedInitialLoad)")
+                print("  isRepostToggleInFlight: \(isRepostToggleInFlight)")
+                
+                guard oldState != newState else {
+                    print("  ⏭️ SKIPPED: No actual change")
+                    return
+                }
+                
+                // ✅ Allow updates during initial load to reflect cached data
+                let animation: Animation? = hasCompletedInitialLoad ? .default : nil
                 
                 if isRepostToggleInFlight {
+                    print("  🔄 Toggle in flight, expected state: \(expectedRepostState)")
                     if newState == expectedRepostState {
-                        hasReposted = newState
+                        print("  ✅ Backend state matches expected")
+                        // Only update if UI state doesn't already match
+                        if hasReposted != newState {
+                            print("  📝 Updating hasReposted: \(hasReposted) → \(newState)")
+                            withAnimation(animation) {
+                                hasReposted = newState
+                            }
+                        } else {
+                            print("  ⏭️ SKIPPED: hasReposted already matches backend state")
+                        }
                         isRepostToggleInFlight = false
+                    } else {
+                        print("  ⚠️ Backend state doesn't match expected, keeping toggle in flight")
                     }
                     return
                 }
                 
-                print("🔄 Repost onChange fired for \(post.firestoreId.prefix(8)): \(oldState) → \(newState)")
-                hasReposted = newState
+                // Only update if UI state doesn't already match backend
+                if hasReposted != newState {
+                    print("  ✅ Updating hasReposted: \(oldState) → \(newState)")
+                    withAnimation(animation) {
+                        hasReposted = newState
+                    }
+                } else {
+                    print("  ⏭️ SKIPPED: hasReposted already matches backend state \(newState)")
+                }
+            }
+            // ✅ NEW: Monitor savedPostIds changes and sync to local state
+            .onChange(of: savedPostsService.savedPostIds) { oldValue, newValue in
+                guard let post = post, hasCompletedInitialLoad else { return }
+                let postId = post.firestoreId
+                
+                let wasInOldSet = oldValue.contains(postId)
+                let isInNewSet = newValue.contains(postId)
+                
+                // Only log and act if THIS specific post's state changed
+                guard wasInOldSet != isInNewSet else { return }
+                
+                print("🔍 [BACKEND][SAVED] savedPostIds changed for post: \(postId.prefix(8))")
+                print("  Was in set: \(wasInOldSet) → Now in set: \(isInNewSet)")
+                print("  Current local state: isSaved=\(isSaved)")
+                
+                // Sync local state to match backend truth
+                // The binding will update the @State in the parent PostCard
+                if isSaved != isInNewSet {
+                    print("  🔄 SYNCING isSaved: \(isSaved) → \(isInNewSet)")
+                    // ✅ Disable animation to prevent visual "auto-toggle" when switching tabs
+                    withTransaction(Transaction(animation: nil)) {
+                        isSaved = isInNewSet
+                    }
+                } else {
+                    print("  ✅ Already in sync")
+                }
             }
     }
     
     private func checkIfPraying(postId: String) async -> Bool {
         // Check if current user is praying for this post
-        let rtdb = RealtimeDatabaseManager.shared
         guard let userId = Auth.auth().currentUser?.uid else { return false }
         
         return await withCheckedContinuation { continuation in
@@ -2238,21 +2697,37 @@ private struct PostCardInteractionsModifier: ViewModifier {
     
     /// ✅ Check saved status with offline handling
     private func checkSavedStatusSafely(postId: String) async -> Bool {
+        print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        print("🔍 [CHECK-SAVED-STATUS] Starting check for post: \(postId.prefix(8))")
+        
         // First, check if we're online
-        guard AMENNetworkMonitor.shared.isConnected else {
-            print("📱 Offline - using cached saved status for post: \(postId)")
-            // Use synchronous cached check when offline
-            return savedPostsService.isPostSavedSync(postId: postId)
+        let isOnline = AMENNetworkMonitor.shared.isConnected
+        print("  Network status: \(isOnline ? "ONLINE" : "OFFLINE")")
+        
+        guard isOnline else {
+            print("  📱 Using CACHED saved status (offline)")
+            let cached = savedPostsService.isPostSavedSync(postId: postId)
+            print("  Result from cache: \(cached)")
+            print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+            return cached
         }
         
         // We're online - try the async check with error handling
+        print("  🌐 Querying Firebase RTDB...")
         do {
             let saved = try await savedPostsService.isPostSaved(postId: postId)
-            print("✅ Checked saved status (online): \(saved)")
+            print("  ✅ Firebase query SUCCESS")
+            print("  Result: \(saved)")
+            print("  savedPostIds updated: \(savedPostsService.savedPostIds.contains(postId))")
+            print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
             return saved
         } catch {
             // If Firebase query fails (permissions, timeout, etc.), fall back to cache
-            print("⚠️ Failed to check saved status (using cache): \(error.localizedDescription)")
+            print("  ⚠️ Firebase query FAILED: \(error.localizedDescription)")
+            print("  📱 Falling back to CACHE")
+            let cached = savedPostsService.isPostSavedSync(postId: postId)
+            print("  Result from cache: \(cached)")
+            print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
             return savedPostsService.isPostSavedSync(postId: postId)
         }
     }
@@ -3187,5 +3662,4 @@ struct PostLinkButton: View {
         print("✅ Opening URL: \(url)")
     }
 }
-
 

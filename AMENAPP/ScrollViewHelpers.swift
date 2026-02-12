@@ -8,8 +8,10 @@
 import SwiftUI
 
 // MARK: - ScrollView with Offset Tracking
+// Note: These components are defined in ScrollViewHelpers.swift
+// If you see redeclaration errors, check for duplicate definitions in other files
 
-struct ScrollViewWithOffset<Content: View>: View {
+struct HelpersScrollViewWithOffset<Content: View>: View {
     @Binding var offset: CGFloat
     @ViewBuilder let content: Content
     
@@ -17,7 +19,7 @@ struct ScrollViewWithOffset<Content: View>: View {
         ScrollView {
             GeometryReader { geometry in
                 Color.clear.preference(
-                    key: ScrollOffsetPreferenceKey.self,
+                    key: HelpersScrollOffsetPreferenceKey.self,
                     value: geometry.frame(in: .named("scroll")).origin.y
                 )
             }
@@ -26,13 +28,13 @@ struct ScrollViewWithOffset<Content: View>: View {
             content
         }
         .coordinateSpace(name: "scroll")
-        .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
+        .onPreferenceChange(HelpersScrollOffsetPreferenceKey.self) { value in
             offset = value
         }
     }
 }
 
-struct ScrollOffsetPreferenceKey: PreferenceKey {
+struct HelpersScrollOffsetPreferenceKey: PreferenceKey {
     static var defaultValue: CGFloat = 0
     
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
@@ -64,14 +66,14 @@ struct ScrollableMessageList<Content: View>: View {
                 .background(
                     GeometryReader { geometry in
                         Color.clear.preference(
-                            key: ScrollOffsetPreferenceKey.self,
+                            key: HelpersScrollOffsetPreferenceKey.self,
                             value: geometry.frame(in: .named("scroll")).minY
                         )
                     }
                 )
             }
             .coordinateSpace(name: "scroll")
-            .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
+            .onPreferenceChange(HelpersScrollOffsetPreferenceKey.self) { value in
                 // Negative value means scrolled up
                 showScrollButton = value < -500
             }

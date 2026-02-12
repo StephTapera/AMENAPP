@@ -82,6 +82,14 @@
       }
     },
     "posts": {
+      "$postId": {
+        ".read": true,
+        ".write": "auth != null",
+        "repostCount": {
+          ".read": true,
+          ".write": "auth != null"
+        }
+      },
       "recent": {
         ".read": true,
         "$postId": {
@@ -94,6 +102,22 @@
           "$postId": {
             ".write": "auth != null"
           }
+        }
+      }
+    },
+    "user-reposts": {
+      "$userId": {
+        ".read": "$userId === auth.uid",
+        "$postId": {
+          ".write": "$userId === auth.uid"
+        }
+      }
+    },
+    "post-reposts": {
+      "$postId": {
+        ".read": true,
+        "$userId": {
+          ".write": "$userId === auth.uid"
         }
       }
     }

@@ -3,22 +3,24 @@
 //  AMENAPP
 //
 //  Created by Steph on 1/17/26.
+//  Redesigned with dark glowing aesthetic
 //
 
 import SwiftUI
 
 struct AIBibleStudyView: View {
     @Environment(\.dismiss) var dismiss
+    @StateObject private var premiumManager = PremiumManager.shared
     @State var selectedTab: AIStudyTab = .chat
     @State private var userInput = ""
     @State var messages: [AIStudyMessage] = []
     @State private var isProcessing = false
     @State private var showProUpgrade = false
-    @State private var hasProAccess = false // Set to true if user has Pro
     @State private var showVoiceInput = false
     @State private var isListening = false
     @State private var pulseAnimation = false
-    @State private var shimmerPhase: CGFloat = 0
+    @State private var orbAnimation = false
+    @State private var orb2Animation = false
     @FocusState private var isInputFocused: Bool
     @State private var keyboardHeight: CGFloat = 0
     @State private var savedMessages: [AIStudyMessage] = []
@@ -26,6 +28,10 @@ struct AIBibleStudyView: View {
     @State var showHistory = false
     @State private var showSettings = false
     @State private var currentStreak = 7
+    
+    private var hasProAccess: Bool {
+        premiumManager.hasProAccess
+    }
     
     enum AIStudyTab: String, CaseIterable {
         case chat = "Chat"
@@ -61,24 +67,108 @@ struct AIBibleStudyView: View {
     var body: some View {
         NavigationStack {
             ZStack {
+                // Dark background with gradient
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.05, green: 0.05, blue: 0.08),
+                        Color(red: 0.02, green: 0.02, blue: 0.05),
+                        Color.black
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .ignoresSafeArea()
+                
+                // Glowing orbs background
+                ZStack {
+                    // Large orange/red orb - top right
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [
+                                    Color(red: 1.0, green: 0.4, blue: 0.2).opacity(0.4),
+                                    Color(red: 1.0, green: 0.3, blue: 0.1).opacity(0.2),
+                                    Color.clear
+                                ],
+                                center: .center,
+                                startRadius: 0,
+                                endRadius: 200
+                            )
+                        )
+                        .frame(width: 400, height: 400)
+                        .offset(x: 150, y: -200)
+                        .blur(radius: 60)
+                        .scaleEffect(orbAnimation ? 1.1 : 1.0)
+                        .animation(.easeInOut(duration: 8).repeatForever(autoreverses: true), value: orbAnimation)
+                    
+                    // Medium purple orb - bottom left
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [
+                                    Color(red: 0.6, green: 0.3, blue: 0.9).opacity(0.3),
+                                    Color(red: 0.5, green: 0.2, blue: 0.8).opacity(0.15),
+                                    Color.clear
+                                ],
+                                center: .center,
+                                startRadius: 0,
+                                endRadius: 150
+                            )
+                        )
+                        .frame(width: 300, height: 300)
+                        .offset(x: -100, y: 300)
+                        .blur(radius: 50)
+                        .scaleEffect(orb2Animation ? 1.15 : 1.0)
+                        .animation(.easeInOut(duration: 6).repeatForever(autoreverses: true), value: orb2Animation)
+                    
+                    // Small accent orb - center
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [
+                                    Color(red: 1.0, green: 0.6, blue: 0.3).opacity(0.25),
+                                    Color(red: 0.9, green: 0.5, blue: 0.2).opacity(0.1),
+                                    Color.clear
+                                ],
+                                center: .center,
+                                startRadius: 0,
+                                endRadius: 100
+                            )
+                        )
+                        .frame(width: 200, height: 200)
+                        .offset(x: 50, y: 100)
+                        .blur(radius: 40)
+                        .scaleEffect(pulseAnimation ? 1.2 : 1.0)
+                        .animation(.easeInOut(duration: 5).repeatForever(autoreverses: true), value: pulseAnimation)
+                }
+                
                 VStack(spacing: 0) {
-                    // Enhanced Header with Pro Badge
+                    // Elegant Header
                     headerView
                     
-                    // Enhanced Tab selector with icons
+                    // Enhanced Tab selector
                     tabSelector
                     
-                    Divider()
+                    // Usage limit banner for free users
+                    if !hasProAccess && selectedTab == .chat {
+                        UsageLimitBanner(
+                            messagesRemaining: premiumManager.freeMessagesRemaining,
+                            totalMessages: premiumManager.FREE_MESSAGES_PER_DAY,
+                            onUpgrade: { showProUpgrade = true }
+                        )
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                    }
                     
-                    // Content with ScrollViewReader for keyboard handling
+                    // Content with ScrollViewReader for keyboard handling - Full screen like ChatGPT
                     ScrollViewReader { proxy in
-                        ScrollView {
-                            VStack(spacing: 20) {
+                        ScrollView(showsIndicators: false) {
+                            VStack(spacing: 0) {
                                 // Streak Banner (only for chat tab)
                                 if selectedTab == .chat && hasProAccess {
                                     StreakBanner(currentStreak: $currentStreak)
-                                        .padding(.horizontal)
-                                        .padding(.top)
+                                        .padding(.horizontal, 16)
+                                        .padding(.top, 16)
+                                        .padding(.bottom, 12)
                                 }
                                 
                                 switch selectedTab {
@@ -89,32 +179,38 @@ struct AIBibleStudyView: View {
                                         savedMessages: $savedMessages
                                     )
                                         .id("chatContent")
+                                        .padding(.top, selectedTab == .chat && !hasProAccess ? 16 : 0)
                                 case .insights:
                                     InsightsContent()
+                                        .padding(.vertical, 20)
                                 case .questions:
                                     QuestionsContent(onQuestionTap: { question in
                                         selectedTab = .chat
                                         userInput = question
                                         isInputFocused = true
                                     })
+                                    .padding(.vertical, 20)
                                 case .devotional:
                                     DevotionalContent(savedMessages: $savedMessages)
+                                        .padding(.vertical, 20)
                                 case .study:
                                     StudyPlansContent()
+                                        .padding(.vertical, 20)
                                 case .analysis:
                                     AnalysisContent()
+                                        .padding(.vertical, 20)
                                 case .memorize:
                                     MemorizeContent()
+                                        .padding(.vertical, 20)
                                 }
                                 
                                 // Bottom spacer to prevent keyboard overlap
                                 if selectedTab == .chat {
                                     Color.clear
-                                        .frame(height: 120)
+                                        .frame(height: 80)
                                         .id("bottomSpacer")
                                 }
                             }
-                            .padding(.vertical)
                         }
                         .onChange(of: messages.count) { _, _ in
                             // Scroll to bottom when new message appears
@@ -134,12 +230,13 @@ struct AIBibleStudyView: View {
                         }
                     }
                     
-                    // Input area (only for chat tab)
+                    // Glassmorphic Input area (only for chat tab)
                     if selectedTab == .chat {
-                        ChatInputArea(
+                        GlassmorphicChatInput(
                             userInput: $userInput,
                             isProcessing: $isProcessing,
                             isInputFocused: $isInputFocused,
+                            isListening: $isListening,
                             onSend: sendMessage,
                             onClear: clearConversation
                         )
@@ -149,6 +246,7 @@ struct AIBibleStudyView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button {
+                        HapticManager.impact(style: .light)
                         dismiss()
                     } label: {
                         HStack(spacing: 4) {
@@ -157,7 +255,7 @@ struct AIBibleStudyView: View {
                             Text("Back")
                                 .font(.custom("OpenSans-SemiBold", size: 16))
                         }
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(.white)
                     }
                 }
                 
@@ -165,29 +263,32 @@ struct AIBibleStudyView: View {
                     HStack(spacing: 12) {
                         // History button
                         Button {
+                            HapticManager.impact(style: .light)
                             showHistory = true
                         } label: {
                             Image(systemName: "clock.arrow.circlepath")
                                 .font(.system(size: 18))
-                                .foregroundStyle(.primary)
+                                .foregroundStyle(.white.opacity(0.8))
                         }
                         
                         // Settings button
                         Button {
+                            HapticManager.impact(style: .light)
                             showSettings = true
                         } label: {
                             Image(systemName: "gearshape.fill")
                                 .font(.system(size: 18))
-                                .foregroundStyle(.primary)
+                                .foregroundStyle(.white.opacity(0.8))
                         }
                     }
                 }
             }
             .toolbar(.visible, for: .navigationBar)
-            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarBackground(.hidden, for: .navigationBar)
         }
+        .preferredColorScheme(.dark)
         .sheet(isPresented: $showProUpgrade) {
-            ProUpgradeSheet(hasProAccess: $hasProAccess)
+            PremiumUpgradeView()
         }
         .sheet(isPresented: $showHistory) {
             AIBibleStudyConversationHistoryView(
@@ -201,9 +302,21 @@ struct AIBibleStudyView: View {
         .onAppear {
             setupKeyboardObservers()
             
-            // Shimmer animation
-            withAnimation(.linear(duration: 2).repeatForever(autoreverses: false)) {
-                shimmerPhase = 200
+            // Start orb animations
+            withAnimation {
+                orbAnimation = true
+                orb2Animation = true
+                pulseAnimation = true
+            }
+            
+            // Check premium status
+            Task {
+                await premiumManager.checkSubscriptionStatus()
+            }
+            
+            // Load conversation history from Firestore
+            Task {
+                await loadConversationsFromFirestore()
             }
             
             if messages.isEmpty {
@@ -227,72 +340,82 @@ struct AIBibleStudyView: View {
     // MARK: - Extracted Views
     
     private var headerView: some View {
-        HStack {
-            // AI Bible Study Icon + Title
-            HStack(spacing: 12) {
-                // Stylish "B" Icon
+        VStack(spacing: 12) {
+            HStack {
+                // Elegant "B" Icon with glow
                 ZStack {
+                    // Glow effect
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [
+                                    Color(red: 1.0, green: 0.5, blue: 0.3).opacity(0.4),
+                                    Color.clear
+                                ],
+                                center: .center,
+                                startRadius: 0,
+                                endRadius: 30
+                            )
+                        )
+                        .frame(width: 60, height: 60)
+                        .blur(radius: 10)
+                    
+                    // Main circle
                     Circle()
                         .fill(
                             LinearGradient(
-                                colors: [Color(red: 0.5, green: 0.3, blue: 0.9), Color(red: 0.6, green: 0.4, blue: 1.0)],
+                                colors: [
+                                    Color(red: 1.0, green: 0.5, blue: 0.3).opacity(0.3),
+                                    Color(red: 1.0, green: 0.4, blue: 0.2).opacity(0.2)
+                                ],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             )
                         )
-                        .frame(width: 44, height: 44)
-                        .shadow(color: Color.purple.opacity(0.4), radius: 8, y: 3)
+                        .frame(width: 50, height: 50)
+                        .overlay(
+                            Circle()
+                                .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                        )
                     
                     Text("B")
-                        .font(.custom("OpenSans-Bold", size: 26))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [.white, Color.white.opacity(0.9)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .shadow(color: .black.opacity(0.2), radius: 2, x: 0, y: 1)
+                        .font(.system(size: 28, weight: .light, design: .serif))
+                        .foregroundStyle(.white)
                 }
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text("AI Bible Study")
-                        .font(.custom("OpenSans-Bold", size: 28))
+                        .font(.system(size: 32, weight: .light, design: .serif))
+                        .foregroundStyle(.white)
                     
-                    Text("Powered by Biblical AI")
+                    Text("Powered by Biblical Intelligence")
                         .font(.custom("OpenSans-Regular", size: 13))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.white.opacity(0.6))
                 }
+                
+                Spacer()
+                
+                // Pro Badge Button - Glassmorphic
+                proButton
             }
-            
-            Spacer()
-            
-            // Pro Badge Button - Modern Sparkle Design
-            proButton
+            .padding(.horizontal)
+            .padding(.top, 8)
         }
-        .padding(.horizontal)
-        .padding(.top)
-        .padding(.bottom, 12)
     }
     
     private var proButton: some View {
         Button {
+            HapticManager.impact(style: .medium)
             withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
                 showProUpgrade = true
             }
         } label: {
             HStack(spacing: 6) {
-                if hasProAccess {
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 14, weight: .bold))
-                        .symbolEffect(.variableColor.iterative, options: .repeating)
-                } else {
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 14, weight: .bold))
-                        .symbolEffect(.pulse.byLayer, options: .repeating)
-                }
+                Image(systemName: hasProAccess ? "sparkles" : "crown.fill")
+                    .font(.system(size: 14, weight: .bold))
+                    .symbolEffect(.pulse.byLayer, options: .repeating)
                 
-                Text(hasProAccess ? "PRO" : "Go Pro")
+                Text(hasProAccess ? "PRO" : "Upgrade")
                     .font(.custom("OpenSans-Bold", size: 13))
             }
             .foregroundStyle(
@@ -302,75 +425,42 @@ struct AIBibleStudyView: View {
                         startPoint: .leading,
                         endPoint: .trailing
                     ) :
-                    LinearGradient(
-                        colors: [.white, .white],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
+                    LinearGradient(colors: [.white, .white.opacity(0.9)], startPoint: .leading, endPoint: .trailing)
             )
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
             .background(
                 ZStack {
+                    // Glassmorphic background
                     Capsule()
-                        .fill(
+                        .fill(.ultraThinMaterial.opacity(0.8))
+                    
+                    // Gradient border
+                    Capsule()
+                        .stroke(
                             LinearGradient(
-                                colors: hasProAccess ?
-                                    [Color(red: 1.0, green: 0.84, blue: 0.0).opacity(0.15), Color(red: 1.0, green: 0.6, blue: 0.0).opacity(0.1)] :
-                                    [Color(red: 0.5, green: 0.3, blue: 1.0), Color(red: 0.7, green: 0.4, blue: 1.0)],
+                                colors: [
+                                    Color.white.opacity(0.3),
+                                    Color.white.opacity(0.1)
+                                ],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
-                            )
+                            ),
+                            lineWidth: 1
                         )
-                    
-                    // Shimmer effect for non-pro
-                    if !hasProAccess {
-                        Capsule()
-                            .fill(
-                                LinearGradient(
-                                    colors: [
-                                        Color.white.opacity(0),
-                                        Color.white.opacity(0.3),
-                                        Color.white.opacity(0)
-                                    ],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
-                            .offset(x: shimmerPhase)
-                            .mask(Capsule())
-                    }
                 }
             )
-            .shadow(
-                color: hasProAccess ?
-                    Color(red: 1.0, green: 0.84, blue: 0.0).opacity(0.4) :
-                    Color.purple.opacity(0.4),
-                radius: 8,
-                y: 2
-            )
-            .overlay(
-                Capsule()
-                    .stroke(
-                        LinearGradient(
-                            colors: hasProAccess ?
-                                [Color(red: 1.0, green: 0.84, blue: 0.0).opacity(0.6), Color(red: 1.0, green: 0.6, blue: 0.0).opacity(0.4)] :
-                                [Color.white.opacity(0.4), Color.white.opacity(0.2)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 1
-                    )
-            )
+            .shadow(color: hasProAccess ? Color(red: 1.0, green: 0.6, blue: 0.0).opacity(0.3) : Color.clear, radius: 8, y: 2)
         }
         .buttonStyle(ScaleButtonStyle())
     }
     
     private var tabSelector: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 12) {
+            HStack(spacing: 10) {
                 ForEach(AIStudyTab.allCases, id: \.self) { tab in
                     Button {
+                        HapticManager.selection()
                         if tab.requiresPro && !hasProAccess {
                             showProUpgrade = true
                         } else {
@@ -386,44 +476,62 @@ struct AIBibleStudyView: View {
                                 .font(.system(size: 14, weight: .semibold))
                             
                             Text(tab.rawValue)
-                                .font(.custom("OpenSans-Bold", size: 14))
+                                .font(.custom("OpenSans-SemiBold", size: 14))
                             
                             if tab.requiresPro && !hasProAccess {
-                                Image(systemName: "crown.fill")
+                                Image(systemName: "lock.fill")
                                     .font(.system(size: 10))
-                                    .foregroundStyle(Color(red: 1.0, green: 0.84, blue: 0.0))
+                                    .foregroundStyle(Color(red: 1.0, green: 0.6, blue: 0.3))
                             }
                         }
-                        .foregroundStyle(selectedTab == tab ? .white : .primary)
+                        .foregroundStyle(selectedTab == tab ? .white : .white.opacity(0.6))
                         .padding(.horizontal, 16)
                         .padding(.vertical, 10)
                         .background(
-                            Capsule()
-                                .fill(selectedTab == tab ? 
-                                    LinearGradient(
-                                        colors: [Color(red: 0.4, green: 0.2, blue: 0.8), Color(red: 0.6, green: 0.3, blue: 0.9)],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    ) : 
-                                    LinearGradient(
-                                        colors: [Color.gray.opacity(0.1), Color.gray.opacity(0.1)],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                )
-                                .shadow(
-                                    color: selectedTab == tab ? Color.purple.opacity(0.3) : .clear,
-                                    radius: 8,
-                                    y: 2
-                                )
+                            ZStack {
+                                if selectedTab == tab {
+                                    // Selected glassmorphic background
+                                    Capsule()
+                                        .fill(.ultraThinMaterial.opacity(0.9))
+                                    
+                                    Capsule()
+                                        .fill(
+                                            LinearGradient(
+                                                colors: [
+                                                    Color(red: 1.0, green: 0.5, blue: 0.3).opacity(0.4),
+                                                    Color(red: 1.0, green: 0.4, blue: 0.2).opacity(0.2)
+                                                ],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            )
+                                        )
+                                    
+                                    Capsule()
+                                        .stroke(
+                                            LinearGradient(
+                                                colors: [
+                                                    Color.white.opacity(0.4),
+                                                    Color.white.opacity(0.1)
+                                                ],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            ),
+                                            lineWidth: 1
+                                        )
+                                } else {
+                                    // Unselected subtle background
+                                    Capsule()
+                                        .fill(Color.white.opacity(0.05))
+                                }
+                            }
                         )
                     }
                     .buttonStyle(ScaleButtonStyle())
                 }
             }
             .padding(.horizontal)
+            .padding(.vertical, 12)
         }
-        .padding(.vertical, 8)
     }
     
     // MARK: - Keyboard Handling
@@ -459,12 +567,30 @@ struct AIBibleStudyView: View {
     private func sendMessage() {
         guard !userInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         
+        // ✅ Check message limit before sending
+        let premiumManager = PremiumManager.shared
+        guard premiumManager.canSendMessage() else {
+            // Show upgrade prompt
+            showProUpgrade = true
+            
+            // Show feedback message
+            let remainingMessages = premiumManager.freeMessagesRemaining
+            messages.append(AIStudyMessage(
+                text: "You've reached your daily limit of \(premiumManager.FREE_MESSAGES_PER_DAY) free messages. Upgrade to Pro for unlimited AI conversations! ✨\n\nYour limit resets at midnight, or upgrade now for unlimited access.",
+                isUser: false
+            ))
+            return
+        }
+        
         let message = AIStudyMessage(text: userInput, isUser: true)
         messages.append(message)
         let questionText = userInput
         userInput = ""
         
         isProcessing = true
+        
+        // Increment message count for free users
+        premiumManager.incrementMessageCount()
         
         // Call real AI API
         Task {
@@ -487,6 +613,26 @@ struct AIBibleStudyView: View {
     }
     
     private func callBibleChatAPI(message: String) async throws -> String {
+        // ✅ Use BereanGenkitService instead of hardcoded URL
+        // This automatically uses the correct endpoint (localhost in dev, Cloud Run in production)
+        let genkitService = BereanGenkitService.shared
+        
+        // Convert AIStudyMessage to BereanMessage format for compatibility
+        let conversationHistory = messages.map { msg in
+            BereanMessage(
+                content: msg.text,
+                role: msg.isUser ? .user : .assistant,
+                timestamp: Date(),
+                verseReferences: []
+            )
+        }
+        
+        // Use the sync version of sendMessage
+        let response = try await genkitService.sendMessageSync(message, conversationHistory: conversationHistory)
+        
+        return response
+        
+        /* OLD IMPLEMENTATION - Now using BereanGenkitService
         let url = URL(string: "http://localhost:3400/bibleChat")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -516,6 +662,7 @@ struct AIBibleStudyView: View {
         }
         
         throw NSError(domain: "BibleChatAPI", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid response format"])
+        */
     }
     
     // Functions are now defined in AIBibleStudyExtensions.swift
@@ -527,37 +674,58 @@ struct ChatContent: View {
     @Binding var savedMessages: [AIStudyMessage]
     
     var body: some View {
-        VStack(spacing: 16) {
+        // Full-screen chat like ChatGPT - no extra padding
+        VStack(spacing: 12) {
             ForEach(messages) { message in
                 AIStudyMessageBubble(message: message)
             }
             
             if isProcessing {
                 HStack(alignment: .top, spacing: 10) {
-                    // AI Avatar
+                    // AI Avatar with glow
                     ZStack {
+                        // Glow effect
                         Circle()
                             .fill(
-                                LinearGradient(
-                                    colors: [Color(red: 0.5, green: 0.3, blue: 0.9), Color(red: 0.4, green: 0.2, blue: 0.8)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
+                                RadialGradient(
+                                    colors: [
+                                        Color(red: 1.0, green: 0.5, blue: 0.3).opacity(0.4),
+                                        Color.clear
+                                    ],
+                                    center: .center,
+                                    startRadius: 0,
+                                    endRadius: 25
                                 )
                             )
+                            .frame(width: 50, height: 50)
+                            .blur(radius: 10)
+                        
+                        Circle()
+                            .fill(.ultraThinMaterial.opacity(0.8))
                             .frame(width: 36, height: 36)
-                            .shadow(color: Color.purple.opacity(0.3), radius: 4, y: 2)
+                            .overlay(
+                                Circle()
+                                    .stroke(
+                                        LinearGradient(
+                                            colors: [Color.white.opacity(0.3), Color.white.opacity(0.1)],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        ),
+                                        lineWidth: 1
+                                    )
+                            )
                         
                         Image(systemName: "sparkles")
                             .font(.system(size: 16, weight: .bold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Color(red: 1.0, green: 0.6, blue: 0.3))
                             .symbolEffect(.variableColor.iterative, options: .repeating)
                     }
                     
-                    // Animated typing indicator
+                    // Animated typing indicator with glassmorphic background
                     HStack(spacing: 8) {
                         ForEach(0..<3) { index in
                             Circle()
-                                .fill(Color.gray.opacity(0.5))
+                                .fill(Color.white.opacity(0.6))
                                 .frame(width: 8, height: 8)
                                 .scaleEffect(isProcessing ? 1.0 : 0.5)
                                 .animation(
@@ -570,20 +738,26 @@ struct ChatContent: View {
                     }
                     .padding(14)
                     .background(
-                        RoundedRectangle(cornerRadius: 18)
-                            .fill(
-                                LinearGradient(
-                                    colors: [Color.gray.opacity(0.12), Color.gray.opacity(0.08)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 18)
+                                .fill(.ultraThinMaterial.opacity(0.6))
+                            
+                            RoundedRectangle(cornerRadius: 18)
+                                .stroke(
+                                    LinearGradient(
+                                        colors: [Color.white.opacity(0.2), Color.white.opacity(0.1)],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    ),
+                                    lineWidth: 1
                                 )
-                            )
-                            .shadow(color: Color.black.opacity(0.05), radius: 8, y: 2)
+                        }
                     )
+                    .shadow(color: .black.opacity(0.15), radius: 8, y: 2)
                     
                     Spacer()
                 }
-                .padding(.horizontal)
+                .padding(.horizontal, 16)
                 .transition(.opacity.combined(with: .move(edge: .leading)))
             }
         }
@@ -600,22 +774,42 @@ struct AIStudyMessageBubble: View {
             if message.isUser {
                 Spacer()
             } else {
-                // AI Avatar with pulse animation
+                // AI Avatar with glow pulse
                 ZStack {
+                    // Glow effect
                     Circle()
                         .fill(
-                            LinearGradient(
-                                colors: [Color(red: 0.5, green: 0.3, blue: 0.9), Color(red: 0.4, green: 0.2, blue: 0.8)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
+                            RadialGradient(
+                                colors: [
+                                    Color(red: 1.0, green: 0.5, blue: 0.3).opacity(0.4),
+                                    Color.clear
+                                ],
+                                center: .center,
+                                startRadius: 0,
+                                endRadius: 25
                             )
                         )
+                        .frame(width: 50, height: 50)
+                        .blur(radius: 10)
+                    
+                    Circle()
+                        .fill(.ultraThinMaterial.opacity(0.8))
                         .frame(width: 36, height: 36)
-                        .shadow(color: Color.purple.opacity(0.3), radius: 4, y: 2)
+                        .overlay(
+                            Circle()
+                                .stroke(
+                                    LinearGradient(
+                                        colors: [Color.white.opacity(0.3), Color.white.opacity(0.1)],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    ),
+                                    lineWidth: 1
+                                )
+                        )
                     
                     Image(systemName: "sparkles")
                         .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Color(red: 1.0, green: 0.6, blue: 0.3))
                         .symbolEffect(.variableColor.iterative, options: .repeating)
                 }
                 .scaleEffect(appeared ? 1.0 : 0.5)
@@ -625,33 +819,68 @@ struct AIStudyMessageBubble: View {
             VStack(alignment: message.isUser ? .trailing : .leading, spacing: 4) {
                 Text(message.text)
                     .font(.custom("OpenSans-Regular", size: 15))
-                    .foregroundStyle(message.isUser ? .white : .primary)
+                    .foregroundStyle(.white)
                     .padding(14)
                     .background(
-                        RoundedRectangle(cornerRadius: 18)
-                            .fill(
-                                message.isUser ?
-                                    LinearGradient(
-                                        colors: [Color(red: 0.5, green: 0.3, blue: 0.9), Color(red: 0.6, green: 0.4, blue: 1.0)],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    ) :
-                                    LinearGradient(
-                                        colors: [Color.gray.opacity(0.12), Color.gray.opacity(0.08)],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
+                        ZStack {
+                            if message.isUser {
+                                // User message - gradient background
+                                RoundedRectangle(cornerRadius: 18)
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [
+                                                Color(red: 1.0, green: 0.5, blue: 0.3).opacity(0.6),
+                                                Color(red: 1.0, green: 0.4, blue: 0.2).opacity(0.5)
+                                            ],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
                                     )
-                            )
-                            .shadow(
-                                color: message.isUser ? Color.purple.opacity(0.25) : Color.black.opacity(0.05),
-                                radius: isLongPressed ? 12 : 8,
-                                y: 2
-                            )
+                                
+                                RoundedRectangle(cornerRadius: 18)
+                                    .stroke(
+                                        LinearGradient(
+                                            colors: [Color.white.opacity(0.3), Color.white.opacity(0.1)],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        ),
+                                        lineWidth: 1
+                                    )
+                            } else {
+                                // AI message - glassmorphic background
+                                RoundedRectangle(cornerRadius: 18)
+                                    .fill(.ultraThinMaterial.opacity(0.6))
+                                
+                                RoundedRectangle(cornerRadius: 18)
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [Color.white.opacity(0.1), Color.white.opacity(0.05)],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
+                                    )
+                                
+                                RoundedRectangle(cornerRadius: 18)
+                                    .stroke(
+                                        LinearGradient(
+                                            colors: [Color.white.opacity(0.2), Color.white.opacity(0.1)],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        ),
+                                        lineWidth: 1
+                                    )
+                            }
+                        }
+                    )
+                    .shadow(
+                        color: message.isUser ? Color(red: 1.0, green: 0.4, blue: 0.2).opacity(0.3) : Color.black.opacity(0.15),
+                        radius: isLongPressed ? 12 : 8,
+                        y: 2
                     )
                     .scaleEffect(isLongPressed ? 0.98 : 1.0)
                     .contextMenu {
                         Button {
-                            // Copy to clipboard
+                            HapticManager.impact(style: .light)
                             UIPasteboard.general.string = message.text
                         } label: {
                             Label("Copy", systemImage: "doc.on.doc")
@@ -659,12 +888,14 @@ struct AIStudyMessageBubble: View {
                         
                         if !message.isUser {
                             Button {
+                                HapticManager.impact(style: .light)
                                 // Share
                             } label: {
                                 Label("Share", systemImage: "square.and.arrow.up")
                             }
                             
                             Button {
+                                HapticManager.impact(style: .light)
                                 // Save to notes
                             } label: {
                                 Label("Save", systemImage: "bookmark")
@@ -680,7 +911,8 @@ struct AIStudyMessageBubble: View {
                 Spacer()
             }
         }
-        .padding(.horizontal)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 2)
         .onAppear {
             withAnimation(.spring(response: 0.5, dampingFraction: 0.7).delay(0.1)) {
                 appeared = true
@@ -852,8 +1084,211 @@ struct ChatInputArea: View {
                 }
                 .disabled(userInput.isEmpty || isProcessing)
             }
-            .padding()
-            .background(Color(.systemBackground))
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .padding(.bottom, 8) // Extra padding for safe area
+            .background(
+                Color(.systemBackground)
+                    .shadow(color: .black.opacity(0.05), radius: 8, y: -2)
+            )
+        }
+    }
+}
+
+// MARK: - Glassmorphic Chat Input
+
+struct GlassmorphicChatInput: View {
+    @Binding var userInput: String
+    @Binding var isProcessing: Bool
+    @FocusState.Binding var isInputFocused: Bool
+    @Binding var isListening: Bool
+    let onSend: () -> Void
+    let onClear: () -> Void
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            // Glassmorphic input container
+            HStack(spacing: 12) {
+                // Voice Input Button
+                Button {
+                    HapticManager.impact(style: .medium)
+                    isInputFocused = false
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
+                        isListening.toggle()
+                    }
+                } label: {
+                    ZStack {
+                        // Animated pulse when listening
+                        if isListening {
+                            Circle()
+                                .fill(Color(red: 1.0, green: 0.3, blue: 0.3).opacity(0.3))
+                                .frame(width: 44, height: 44)
+                                .scaleEffect(isListening ? 1.5 : 1.0)
+                                .opacity(isListening ? 0 : 1)
+                                .animation(.easeOut(duration: 1.2).repeatForever(autoreverses: false), value: isListening)
+                        }
+                        
+                        // Button circle
+                        Circle()
+                            .fill(.ultraThinMaterial)
+                            .frame(width: 44, height: 44)
+                            .overlay(
+                                Circle()
+                                    .stroke(
+                                        LinearGradient(
+                                            colors: [
+                                                Color.white.opacity(0.3),
+                                                Color.white.opacity(0.1)
+                                            ],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        ),
+                                        lineWidth: 1
+                                    )
+                            )
+                        
+                        Image(systemName: isListening ? "waveform" : "mic.fill")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundStyle(isListening ? Color(red: 1.0, green: 0.3, blue: 0.3) : .white)
+                            .symbolEffect(.variableColor.iterative, options: .repeating, value: isListening)
+                    }
+                }
+                .buttonStyle(ScaleButtonStyle())
+                
+                // Text input with glassmorphic background
+                HStack(spacing: 8) {
+                    TextField("", text: $userInput, axis: .vertical)
+                        .font(.custom("OpenSans-Regular", size: 16))
+                        .foregroundStyle(.white)
+                        .placeholder(when: userInput.isEmpty) {
+                            Text("Ask about Scripture...")
+                                .font(.custom("OpenSans-Regular", size: 16))
+                                .foregroundStyle(.white.opacity(0.5))
+                        }
+                        .padding(.leading, 4)
+                        .lineLimit(1...4)
+                        .focused($isInputFocused)
+                        .submitLabel(.send)
+                        .onSubmit {
+                            if !userInput.isEmpty && !isProcessing {
+                                HapticManager.impact(style: .medium)
+                                onSend()
+                                isInputFocused = false
+                            }
+                        }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
+                .background(
+                    ZStack {
+                        // Glassmorphic background
+                        RoundedRectangle(cornerRadius: 24)
+                            .fill(.ultraThinMaterial.opacity(0.6))
+                        
+                        // Subtle gradient overlay
+                        RoundedRectangle(cornerRadius: 24)
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        Color.white.opacity(0.15),
+                                        Color.white.opacity(0.05)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                        
+                        // Border
+                        RoundedRectangle(cornerRadius: 24)
+                            .stroke(
+                                LinearGradient(
+                                    colors: [
+                                        Color.white.opacity(isInputFocused ? 0.5 : 0.3),
+                                        Color.white.opacity(isInputFocused ? 0.3 : 0.1)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 1.5
+                            )
+                    }
+                )
+                .shadow(color: .black.opacity(0.2), radius: 12, y: 4)
+                
+                // Send button
+                Button {
+                    if !userInput.isEmpty && !isProcessing {
+                        HapticManager.impact(style: .medium)
+                        onSend()
+                        isInputFocused = false
+                    }
+                } label: {
+                    ZStack {
+                        // Glowing circle background
+                        Circle()
+                            .fill(
+                                RadialGradient(
+                                    colors: [
+                                        userInput.isEmpty ? Color.gray.opacity(0.3) : Color(red: 1.0, green: 0.5, blue: 0.3).opacity(0.6),
+                                        Color.clear
+                                    ],
+                                    center: .center,
+                                    startRadius: 0,
+                                    endRadius: 30
+                                )
+                            )
+                            .frame(width: 50, height: 50)
+                            .blur(radius: 8)
+                        
+                        // Button circle
+                        Circle()
+                            .fill(.ultraThinMaterial)
+                            .frame(width: 44, height: 44)
+                            .overlay(
+                                Circle()
+                                    .fill(
+                                        LinearGradient(
+                                            colors: userInput.isEmpty ?
+                                                [Color.gray.opacity(0.4), Color.gray.opacity(0.3)] :
+                                                [Color(red: 1.0, green: 0.5, blue: 0.3).opacity(0.6), Color(red: 1.0, green: 0.4, blue: 0.2).opacity(0.4)],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
+                                    )
+                            )
+                            .overlay(
+                                Circle()
+                                    .stroke(
+                                        LinearGradient(
+                                            colors: [
+                                                Color.white.opacity(0.4),
+                                                Color.white.opacity(0.1)
+                                            ],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        ),
+                                        lineWidth: 1
+                                    )
+                            )
+                        
+                        Image(systemName: isProcessing ? "stop.fill" : "arrow.up")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundStyle(.white)
+                            .symbolEffect(.bounce, value: !userInput.isEmpty)
+                    }
+                }
+                .disabled(userInput.isEmpty || isProcessing)
+                .buttonStyle(ScaleButtonStyle())
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(
+                // Dark translucent background
+                Rectangle()
+                    .fill(Color.black.opacity(0.3))
+                    .background(.ultraThinMaterial.opacity(0.5))
+                    .ignoresSafeArea(edges: .bottom)
+            )
         }
     }
 }
@@ -2097,6 +2532,122 @@ struct StreakBanner: View {
     }
 }
 
+// MARK: - Usage Limit Banner
+
+struct UsageLimitBanner: View {
+    let messagesRemaining: Int
+    let totalMessages: Int
+    let onUpgrade: () -> Void
+    
+    var progressPercent: Double {
+        let used = Double(totalMessages - messagesRemaining)
+        return used / Double(totalMessages)
+    }
+    
+    var statusColor: Color {
+        if messagesRemaining > 5 {
+            return .green
+        } else if messagesRemaining > 2 {
+            return .orange
+        } else {
+            return .red
+        }
+    }
+    
+    var body: some View {
+        VStack(spacing: 12) {
+            HStack(spacing: 12) {
+                // Icon
+                ZStack {
+                    Circle()
+                        .fill(statusColor.opacity(0.2))
+                        .frame(width: 36, height: 36)
+                    
+                    Image(systemName: "message.fill")
+                        .font(.system(size: 16))
+                        .foregroundStyle(statusColor)
+                }
+                
+                // Text
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("\(messagesRemaining) free messages left today")
+                        .font(.custom("OpenSans-SemiBold", size: 14))
+                        .foregroundStyle(.white)
+                    
+                    Text("Reset tomorrow • Upgrade for unlimited")
+                        .font(.custom("OpenSans-Regular", size: 12))
+                        .foregroundStyle(.white.opacity(0.6))
+                }
+                
+                Spacer()
+                
+                // Upgrade button
+                Button(action: onUpgrade) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "crown.fill")
+                            .font(.system(size: 12))
+                        
+                        Text("Upgrade")
+                            .font(.custom("OpenSans-Bold", size: 13))
+                    }
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(
+                        LinearGradient(
+                            colors: [Color(red: 1.0, green: 0.6, blue: 0.0), Color(red: 1.0, green: 0.4, blue: 0.2)],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .cornerRadius(20)
+                    .shadow(color: Color(red: 1.0, green: 0.6, blue: 0.0).opacity(0.3), radius: 8, y: 2)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            
+            // Progress bar
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    // Background
+                    Rectangle()
+                        .fill(.white.opacity(0.1))
+                        .frame(height: 4)
+                    
+                    // Progress
+                    Rectangle()
+                        .fill(statusColor)
+                        .frame(width: geometry.size.width * progressPercent, height: 4)
+                }
+            }
+            .frame(height: 4)
+            .padding(.horizontal, 16)
+        }
+        .background(
+            Rectangle()
+                .fill(.black.opacity(0.4))
+                .background(.ultraThinMaterial.opacity(0.3))
+        )
+    }
+}
+
 #Preview {
     AIBibleStudyView()
 }
+
+// MARK: - View Extensions
+
+extension View {
+    func placeholder<Content: View>(
+        when shouldShow: Bool,
+        alignment: Alignment = .leading,
+        @ViewBuilder placeholder: () -> Content) -> some View {
+        
+        ZStack(alignment: alignment) {
+            placeholder().opacity(shouldShow ? 1 : 0)
+            self
+        }
+    }
+}
+

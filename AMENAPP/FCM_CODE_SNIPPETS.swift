@@ -10,6 +10,8 @@ import SwiftUI
 import FirebaseAuth
 import UserNotifications
 
+#if canImport(FCMGuideNeverImport)
+
 // ============================================================================
 // SNIPPET 1: Add to Your Login View
 // ============================================================================
@@ -65,12 +67,14 @@ private func setupFCMAfterLogin() async {
  Add this to your ContentView's .onAppear modifier:
 */
 
+/*
 .onAppear {
     // Your existing onAppear code...
-    
+
     // ✅ ADD THIS:
     setupFCMIfAlreadyLoggedIn()
 }
+*/
 
 /*
  Then add this function to your ContentView:
@@ -509,3 +513,5 @@ struct CompleteSignInExample: View {
  
  ✅ THAT'S IT! Just add snippets 1, 2, and 3 and you're done!
 */
+
+#endif

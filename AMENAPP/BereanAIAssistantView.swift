@@ -18,6 +18,7 @@ struct BereanAIAssistantView: View {
     @FocusState private var isInputFocused: Bool
     @State private var scrollOffset: CGFloat = 0
     @State private var showSmartFeatures = false
+    @State private var keyboardHeight: CGFloat = 0
     @State private var isVoiceListening = false
     @State private var showContextMenu = false
     @State private var showShareSheet = false
@@ -31,21 +32,111 @@ struct BereanAIAssistantView: View {
     @State private var showClearAllAlert = false
     @State private var showNewConversationAlert = false
     
+    // ✅ New state variables for new features
+    @State private var showOnboarding = false
+    @State private var showSavedMessages = false
+    @State private var showReportIssue = false
+    @State private var messageToReport: BereanMessage?
+    @State private var showError: BereanError?
+    @State private var showErrorBanner = false
+    @ObservedObject private var networkMonitor = AMENNetworkMonitor.shared
+    @ObservedObject private var dataManager = BereanDataManager.shared
+    
     var body: some View {
         ZStack {
-            // Premium Dark Background with subtle gradient
-            LinearGradient(
-                colors: [
-                    Color(white: 0.05),
-                    Color.black,
-                    Color(white: 0.03)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
+            // Elegant gradient background inspired by modern design
+            ZStack {
+                // Base gradient - soft warm to cool tones
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.98, green: 0.96, blue: 0.94), // Soft cream
+                        Color(red: 0.95, green: 0.94, blue: 0.96), // Subtle lavender
+                        Color(red: 0.96, green: 0.95, blue: 0.94)  // Warm white
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                
+                // Floating gradient orbs for depth
+                GeometryReader { geometry in
+                    ZStack {
+                        // Orange glow (top right)
+                        Circle()
+                            .fill(
+                                RadialGradient(
+                                    colors: [
+                                        Color(red: 1.0, green: 0.6, blue: 0.4).opacity(0.4),
+                                        Color(red: 1.0, green: 0.7, blue: 0.5).opacity(0.2),
+                                        Color.clear
+                                    ],
+                                    center: .center,
+                                    startRadius: 50,
+                                    endRadius: 300
+                                )
+                            )
+                            .frame(width: 600, height: 600)
+                            .offset(x: geometry.size.width * 0.6, y: -200)
+                            .blur(radius: 60)
+                        
+                        // Blue-purple glow (bottom left)
+                        Circle()
+                            .fill(
+                                RadialGradient(
+                                    colors: [
+                                        Color(red: 0.5, green: 0.6, blue: 0.9).opacity(0.3),
+                                        Color(red: 0.6, green: 0.5, blue: 0.8).opacity(0.15),
+                                        Color.clear
+                                    ],
+                                    center: .center,
+                                    startRadius: 50,
+                                    endRadius: 300
+                                )
+                            )
+                            .frame(width: 500, height: 500)
+                            .offset(x: -100, y: geometry.size.height * 0.7)
+                            .blur(radius: 50)
+                        
+                        // Accent peach glow (center-right)
+                        Circle()
+                            .fill(
+                                RadialGradient(
+                                    colors: [
+                                        Color(red: 0.95, green: 0.7, blue: 0.6).opacity(0.25),
+                                        Color.clear
+                                    ],
+                                    center: .center,
+                                    startRadius: 30,
+                                    endRadius: 200
+                                )
+                            )
+                            .frame(width: 400, height: 400)
+                            .offset(x: geometry.size.width * 0.5, y: geometry.size.height * 0.4)
+                            .blur(radius: 40)
+                    }
+                }
+            }
             .ignoresSafeArea()
             
             VStack(spacing: 0) {
+                // Offline banner
+                OfflineModeBanner(isOnline: $networkMonitor.isConnected)
+                
+                // Error banner
+                if showErrorBanner, let error = showError {
+                    BereanErrorBanner(
+                        error: error,
+                        onRetry: {
+                            retryLastMessage()
+                        },
+                        onDismiss: {
+                            withAnimation(.easeOut(duration: 0.2)) {
+                                showErrorBanner = false
+                            }
+                        }
+                    )
+                    .zIndex(100)
+                }
+                
                 // Header
                 headerView
                 
@@ -70,16 +161,18 @@ struct BereanAIAssistantView: View {
                                     MessageBubbleView(message: message)
                                         .id(message.id)
                                         .transition(.asymmetric(
-                                            insertion: .scale(scale: 0.8).combined(with: .opacity),
+                                            insertion: .scale(scale: 0.9).combined(with: .opacity),
                                             removal: .opacity
                                         ))
+                                        .animation(.easeOut(duration: 0.2), value: viewModel.messages.count)
                                 }
                                 .environment(\.messageShareHandler) { message in
                                     messageToShare = message
-                                    withAnimation(.smooth(duration: 0.3)) {
+                                    withAnimation(.easeOut(duration: 0.2)) {
                                         showShareSheet = true
                                     }
                                 }
+                                .environmentObject(dataManager)
                                 
                                 // Thinking Indicator
                                 if isThinking {
@@ -88,25 +181,39 @@ struct BereanAIAssistantView: View {
                                 }
                             }
                         }
-                        .padding(.horizontal, 16)
+                        .frame(maxWidth: .infinity)
                         .padding(.top, 20)
-                        .padding(.bottom, 20)
+                        .padding(.bottom, 80) // Reduced space for smaller floating input bar
+                    }
+                    .refreshable {
+                        await refreshConversation()
                     }
                     .onTapGesture {
                         isInputFocused = false
                     }
                     .onChange(of: viewModel.messages.count) { _, _ in
                         if let lastMessage = viewModel.messages.last {
-                            withAnimation(.smooth(duration: 0.4)) {
+                            withAnimation(.easeOut(duration: 0.25)) {
                                 proxy.scrollTo(lastMessage.id, anchor: .bottom)
                             }
                         }
                     }
+                    .onChange(of: isInputFocused) { _, newValue in
+                        // Scroll to bottom when keyboard appears
+                        if newValue, let lastMessage = viewModel.messages.last {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                                withAnimation(.easeOut(duration: 0.25)) {
+                                    proxy.scrollTo(lastMessage.id, anchor: .bottom)
+                                }
+                            }
+                        }
+                    }
                 }
-            }
-            .safeAreaInset(edge: .bottom) {
+                
+                Spacer(minLength: 0)
+                
+                // Input Bar - Always at bottom
                 inputBarView
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
             }
             
             // Smart Features Overlay
@@ -138,17 +245,8 @@ struct BereanAIAssistantView: View {
                 .zIndex(11)
             }
             
-            // Premium Upgrade Modal
-            if showPremiumUpgrade {
-                PremiumUpgradeView(isShowing: $showPremiumUpgrade)
-                    .transition(.asymmetric(
-                        insertion: .scale(scale: 0.9).combined(with: .opacity),
-                        removal: .scale(scale: 0.9).combined(with: .opacity)
-                    ))
-                    .zIndex(12)
-            }
+            // Premium Upgrade Modal handled by .sheet modifier below
         }
-        .ignoresSafeArea(.keyboard) // Allow content to flow under keyboard
         .navigationBarHidden(true)
         // ✅ Translation Picker Sheet
         .sheet(isPresented: $showTranslationPicker) {
@@ -159,11 +257,17 @@ struct BereanAIAssistantView: View {
         }
         // ✅ Conversation History Sheet
         .sheet(isPresented: $showHistoryView) {
-            ConversationHistoryView(
-                conversations: viewModel.savedConversations,
+            BereanConversationManagementView(
+                conversations: $viewModel.savedConversations,
                 onSelect: { conversation in
                     viewModel.loadConversation(conversation)
                     showHistoryView = false
+                },
+                onDelete: { conversation in
+                    viewModel.deleteConversation(conversation)
+                },
+                onUpdate: { conversation, newTitle in
+                    viewModel.updateConversationTitle(conversation, newTitle: newTitle)
                 }
             )
         }
@@ -185,34 +289,99 @@ struct BereanAIAssistantView: View {
         } message: {
             Text("This will permanently delete all conversations and data. This action cannot be undone.")
         }
+        // ✅ Onboarding
+        .fullScreenCover(isPresented: $showOnboarding) {
+            BereanOnboardingView(isPresented: $showOnboarding)
+        }
+        // ✅ Saved Messages
+        .sheet(isPresented: $showSavedMessages) {
+            BereanSavedMessagesView()
+        }
+        // ✅ Report Issue
+        .sheet(isPresented: $showReportIssue) {
+            if let message = messageToReport {
+                ReportIssueView(message: message, isPresented: $showReportIssue)
+            }
+        }
+        .sheet(isPresented: $showPremiumUpgrade) {
+            PremiumUpgradeView()
+        }
+        .onAppear {
+            checkOnboardingStatus()
+            setupKeyboardObservers()
+        }
+        .onDisappear {
+            removeKeyboardObservers()
+        }
     }
     
     // MARK: - Share to OpenTable Feed
     
     private func shareToOpenTableFeed(text: String, originalMessage: BereanMessage) {
-        // This will integrate with your OpenTable feed system
-        // For now, we'll show a success message
-        
-        let haptic = UINotificationFeedbackGenerator()
-        haptic.notificationOccurred(.success)
-        
-        // TODO: Integrate with your actual OpenTable posting system
-        // Example: OpenTableManager.shared.createPost(content: text, type: .bereanInsight)
-        
-        withAnimation(.smooth(duration: 0.3)) {
-            showShareSheet = false
-            messageToShare = nil
+        Task {
+            do {
+                // Check network first
+                guard networkMonitor.isConnected else {
+                    throw BereanError.networkUnavailable
+                }
+                
+                // Extract personal note if present
+                var personalNote: String? = nil
+                if text.contains("---") {
+                    let components = text.components(separatedBy: "---")
+                    if components.count > 1 {
+                        personalNote = components[0].trimmingCharacters(in: .whitespacesAndNewlines)
+                    }
+                }
+                
+                // Share to feed
+                try await dataManager.shareToFeed(
+                    message: originalMessage,
+                    personalNote: personalNote,
+                    communityId: nil // Or get from current context
+                )
+                
+                let haptic = UINotificationFeedbackGenerator()
+                haptic.notificationOccurred(.success)
+                
+                await MainActor.run {
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        showShareSheet = false
+                        messageToShare = nil
+                    }
+                }
+            } catch let error as BereanError {
+                print("❌ Berean error sharing to feed: \(error.localizedDescription)")
+                
+                let haptic = UINotificationFeedbackGenerator()
+                haptic.notificationOccurred(.error)
+                
+                await MainActor.run {
+                    showError = error
+                    showErrorBanner = true
+                }
+            } catch {
+                print("❌ Failed to share to feed: \(error.localizedDescription)")
+                
+                let haptic = UINotificationFeedbackGenerator()
+                haptic.notificationOccurred(.error)
+                
+                await MainActor.run {
+                    showError = .unknown("Failed to share to feed. Please try again.")
+                    showErrorBanner = true
+                }
+            }
         }
     }
     
     // MARK: - Smart Feature Handler
     
     private func handleSmartFeature(_ feature: SmartFeature) {
-        withAnimation(.smooth(duration: 0.3)) {
+        withAnimation(.easeOut(duration: 0.2)) {
             showSmartFeatures = false
         }
         
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
             switch feature {
             case .crossReference:
                 messageText = "Show me cross-references for "
@@ -258,51 +427,71 @@ struct BereanAIAssistantView: View {
     
     private var closeButton: some View {
         Button {
-            withAnimation(.smooth(duration: 0.3)) {
+            withAnimation(.easeOut(duration: 0.2)) {
                 dismiss()
             }
         } label: {
             Image(systemName: "xmark")
                 .font(.system(size: 15, weight: .medium))
-                .foregroundStyle(.white.opacity(0.7))
+                .foregroundStyle(Color(white: 0.3))
                 .frame(width: 32, height: 32)
                 .background(
                     Circle()
-                        .fill(Color.white.opacity(0.1))
-                        .overlay(
-                            Circle()
-                                .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                        )
+                        .fill(Color.white.opacity(0.6))
+                        .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
                 )
         }
     }
     
     private var bereanBranding: some View {
         HStack(spacing: 12) {
-            // Minimal Fingerprint Icon - Identity & Personal Discovery
+            // Minimal elegant icon
             ZStack {
-                // Subtle pulsing background when thinking
+                // Soft glow when thinking
                 Circle()
-                    .fill(Color.white.opacity(0.05))
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color(red: 1.0, green: 0.7, blue: 0.5).opacity(isThinking ? 0.3 : 0.15),
+                                Color(red: 0.6, green: 0.5, blue: 0.9).opacity(isThinking ? 0.2 : 0.1)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
                     .frame(width: 40, height: 40)
-                    .scaleEffect(isThinking ? 1.15 : 1.0)
+                    .scaleEffect(isThinking ? 1.1 : 1.0)
                     .animation(.easeInOut(duration: 2).repeatForever(autoreverses: true), value: isThinking)
                 
-                // Fingerprint icon - represents personal identity and unique journey
-                Image(systemName: "touchid")
-                    .font(.system(size: 22, weight: .regular))
-                    .foregroundStyle(.white)
+                // Sparkle icon
+                Image(systemName: "sparkles")
+                    .font(.system(size: 18, weight: .light))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [
+                                Color(red: 0.3, green: 0.3, blue: 0.35),
+                                Color(red: 0.25, green: 0.25, blue: 0.3)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
                     .symbolEffect(.pulse, options: .repeating, value: isThinking)
             }
             
             VStack(alignment: .leading, spacing: 2) {
                 Text("Berean")
-                    .font(.custom("OpenSans-Bold", size: 18))
-                    .foregroundStyle(.white)
+                    .font(.custom("Georgia", size: 22))
+                    .fontWeight(.light)
+                    .foregroundStyle(Color(white: 0.2))
+                    .tracking(0.5)
                 
                 Text(isThinking ? "Thinking..." : "AI Bible Study")
-                    .font(.custom("OpenSans-Regular", size: 11))
-                    .foregroundStyle(.white.opacity(0.5))
+                    .font(.custom("SF Pro Display", size: 10))
+                    .fontWeight(.regular)
+                    .foregroundStyle(Color(white: 0.5))
+                    .tracking(1.2)
+                    .textCase(.uppercase)
             }
         }
     }
@@ -312,21 +501,21 @@ struct BereanAIAssistantView: View {
             let haptic = UIImpactFeedbackGenerator(style: .light)
             haptic.impactOccurred()
             
-            withAnimation(.smooth(duration: 0.4)) {
+            withAnimation(.easeOut(duration: 0.25)) {
                 showSmartFeatures.toggle()
             }
         } label: {
             Image(systemName: showSmartFeatures ? "star.circle.fill" : "star.circle")
-                .font(.system(size: 20))
+                .font(.system(size: 20, weight: .light))
                 .foregroundStyle(
                     showSmartFeatures ?
                         LinearGradient(
-                            colors: [Color(red: 0.4, green: 0.7, blue: 1.0), Color(red: 0.4, green: 0.85, blue: 0.7)],
+                            colors: [Color(red: 1.0, green: 0.6, blue: 0.4), Color(red: 0.6, green: 0.5, blue: 0.9)],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         ) :
                         LinearGradient(
-                            colors: [.white.opacity(0.9), .white.opacity(0.6)],
+                            colors: [Color(white: 0.4), Color(white: 0.35)],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
@@ -341,34 +530,31 @@ struct BereanAIAssistantView: View {
             let haptic = UIImpactFeedbackGenerator(style: .light)
             haptic.impactOccurred()
             
-            withAnimation(.smooth(duration: 0.4)) {
+            withAnimation(.easeOut(duration: 0.25)) {
                 showPremiumUpgrade = true
             }
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: "crown.fill")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: 11, weight: .medium))
                 Text("Pro")
-                    .font(.custom("OpenSans-Bold", size: 11))
+                    .font(.system(size: 11, weight: .semibold))
+                    .tracking(0.5)
             }
             .foregroundStyle(
                 LinearGradient(
-                    colors: [Color(red: 1.0, green: 0.84, blue: 0.0), Color(red: 1.0, green: 0.65, blue: 0.0)],
-                    startPoint: .leading,
-                    endPoint: .trailing
+                    colors: [Color(red: 1.0, green: 0.75, blue: 0.4), Color(red: 1.0, green: 0.6, blue: 0.3)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
                 )
             )
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
             .background(
                 Capsule()
-                    .fill(Color(red: 1.0, green: 0.84, blue: 0.0).opacity(0.15))
-                    .overlay(
-                        Capsule()
-                            .stroke(Color(red: 1.0, green: 0.84, blue: 0.0).opacity(0.4), lineWidth: 1)
-                    )
+                    .fill(Color.white.opacity(0.7))
+                    .shadow(color: Color(red: 1.0, green: 0.6, blue: 0.3).opacity(0.2), radius: 8, y: 2)
             )
-            .shadow(color: Color(red: 1.0, green: 0.84, blue: 0.0).opacity(0.3), radius: 8, y: 2)
         }
     }
     
@@ -381,6 +567,15 @@ struct BereanAIAssistantView: View {
                 showTranslationPicker = true
             } label: {
                 Label("Bible Translation: \(viewModel.selectedTranslation)", systemImage: "book.fill")
+            }
+            
+            // ✅ Saved Messages
+            Button {
+                let haptic = UIImpactFeedbackGenerator(style: .light)
+                haptic.impactOccurred()
+                showSavedMessages = true
+            } label: {
+                Label("Saved Messages (\(dataManager.savedMessages.count))", systemImage: "bookmark.fill")
             }
             
             // ✅ Conversation History
@@ -401,6 +596,15 @@ struct BereanAIAssistantView: View {
                 Label("New Conversation", systemImage: "plus.circle")
             }
             
+            Divider()
+            
+            // ✅ Show Onboarding
+            Button {
+                showOnboarding = true
+            } label: {
+                Label("View Tutorial", systemImage: "questionmark.circle")
+            }
+            
             // ✅ Clear All Data (Destructive)
             Button(role: .destructive) {
                 showClearAllAlert = true
@@ -410,39 +614,27 @@ struct BereanAIAssistantView: View {
         } label: {
             Image(systemName: "ellipsis")
                 .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(.white.opacity(0.7))
+                .foregroundStyle(Color(white: 0.4))
                 .frame(width: 32, height: 32)
                 .background(
                     Circle()
-                        .fill(Color.white.opacity(0.1))
-                        .overlay(
-                            Circle()
-                                .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                        )
+                        .fill(Color.white.opacity(0.6))
+                        .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
                 )
         }
     }
     
     private var headerBackground: some View {
         ZStack {
-            Color.black.opacity(0.6)
-                .background(.ultraThinMaterial.opacity(0.5))
+            Color.white.opacity(0.4)
+                .background(.ultraThinMaterial)
             
             // Subtle bottom border
             VStack {
                 Spacer()
                 Rectangle()
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color.white.opacity(0.1),
-                                Color.white.opacity(0.0)
-                            ],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-                    .frame(height: 1)
+                    .fill(Color.black.opacity(0.05))
+                    .frame(height: 0.5)
             }
         }
     }
@@ -453,12 +645,19 @@ struct BereanAIAssistantView: View {
         VStack(spacing: 32) {
             // Minimal Animated Icon
             ZStack {
-                // Subtle rings
+                // Soft gradient rings
                 ForEach(0..<2) { index in
                     Circle()
                         .stroke(
-                            Color.white.opacity(0.1),
-                            lineWidth: 1.5
+                            LinearGradient(
+                                colors: [
+                                    Color(red: 1.0, green: 0.7, blue: 0.5).opacity(0.15),
+                                    Color(red: 0.6, green: 0.5, blue: 0.9).opacity(0.1)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1
                         )
                         .frame(width: 70 + CGFloat(index * 30), height: 70 + CGFloat(index * 30))
                         .scaleEffect(1.0 + CGFloat(index) * 0.05)
@@ -469,8 +668,8 @@ struct BereanAIAssistantView: View {
                     .fill(
                         RadialGradient(
                             colors: [
-                                Color.white.opacity(0.15),
-                                Color.white.opacity(0.05),
+                                Color(red: 1.0, green: 0.7, blue: 0.5).opacity(0.2),
+                                Color(red: 0.6, green: 0.5, blue: 0.9).opacity(0.1),
                                 Color.clear
                             ],
                             center: .center,
@@ -482,24 +681,34 @@ struct BereanAIAssistantView: View {
                 
                 // Icon
                 Image(systemName: "sparkles")
-                    .font(.system(size: 32, weight: .medium))
-                    .foregroundStyle(.white)
+                    .font(.system(size: 28, weight: .ultraLight))
+                    .foregroundStyle(Color(white: 0.3))
                     .symbolEffect(.pulse.byLayer)
             }
             .padding(.top, 60)
             
             VStack(spacing: 16) {
                 Text("Berean AI")
-                    .font(.custom("OpenSans-Bold", size: 32))
-                    .foregroundStyle(.white)
-                    .tracking(0.5)
+                    .font(.custom("Georgia", size: 48))
+                    .fontWeight(.light)
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [
+                                Color(white: 0.2),
+                                Color(white: 0.3)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .tracking(1)
                 
                 Text("Your intelligent Bible study companion. Ask questions, explore context, and deepen your understanding of Scripture.")
-                    .font(.custom("OpenSans-Regular", size: 15))
-                    .foregroundStyle(.white.opacity(0.6))
+                    .font(.system(size: 15, weight: .light))
+                    .foregroundStyle(Color(white: 0.4))
                     .multilineTextAlignment(.center)
-                    .lineSpacing(6)
-                    .padding(.horizontal, 30)
+                    .lineSpacing(8)
+                    .padding(.horizontal, 40)
             }
         }
     }
@@ -509,10 +718,10 @@ struct BereanAIAssistantView: View {
     private var quickActionsSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Quick Actions")
-                .font(.custom("OpenSans-SemiBold", size: 13))
-                .foregroundStyle(.white.opacity(0.5))
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(Color(white: 0.45))
                 .textCase(.uppercase)
-                .tracking(1.2)
+                .tracking(2)
             
             LazyVGrid(columns: [
                 GridItem(.flexible(), spacing: 12),
@@ -521,7 +730,7 @@ struct BereanAIAssistantView: View {
                 BereanQuickActionCard(
                     icon: "book.closed.fill",
                     title: "Study Passage",
-                    color: nil // White minimal
+                    color: Color(red: 0.5, green: 0.6, blue: 0.9)
                 ) {
                     messageText = "Help me study "
                     isInputFocused = true
@@ -530,7 +739,7 @@ struct BereanAIAssistantView: View {
                 BereanQuickActionCard(
                     icon: "lightbulb.fill",
                     title: "Explain Verse",
-                    color: Color(red: 0.4, green: 0.7, blue: 1.0) // Soft blue accent
+                    color: Color(red: 1.0, green: 0.7, blue: 0.5)
                 ) {
                     messageText = "Explain "
                     isInputFocused = true
@@ -539,7 +748,7 @@ struct BereanAIAssistantView: View {
                 BereanQuickActionCard(
                     icon: "doc.text.fill",
                     title: "Compare",
-                    color: nil // White minimal
+                    color: Color(red: 0.95, green: 0.7, blue: 0.6)
                 ) {
                     sendMessage("Compare Bible translations for a verse")
                 }
@@ -547,7 +756,7 @@ struct BereanAIAssistantView: View {
                 BereanQuickActionCard(
                     icon: "map.fill",
                     title: "Context",
-                    color: Color(red: 0.4, green: 0.85, blue: 0.7) // Soft teal
+                    color: Color(red: 0.6, green: 0.5, blue: 0.8)
                 ) {
                     sendMessage("Tell me about Biblical context")
                 }
@@ -561,10 +770,10 @@ struct BereanAIAssistantView: View {
     private var suggestedPromptsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Suggested")
-                .font(.custom("OpenSans-SemiBold", size: 13))
-                .foregroundStyle(.white.opacity(0.5))
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(Color(white: 0.45))
                 .textCase(.uppercase)
-                .tracking(1.2)
+                .tracking(2)
             
             VStack(spacing: 8) {
                 ForEach(viewModel.suggestedPrompts, id: \.self) { prompt in
@@ -577,208 +786,347 @@ struct BereanAIAssistantView: View {
         .padding(.top, 24)
     }
     
-    // MARK: - Input Bar
+    // MARK: - Input Bar (Glassmorphic - Bottom Fixed)
     
     private var inputBarView: some View {
         VStack(spacing: 0) {
+            // Compact glassmorphic pill - smaller and closer to bottom
             HStack(alignment: .center, spacing: 12) {
-                inputFieldWithVoice
-                actionButton
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .background(inputBarBackground)
-        }
-        .contentShape(Rectangle())
-    }
-    
-    private var inputFieldWithVoice: some View {
-        HStack(spacing: 12) {
-            textInputField
-            voiceInputButton
-        }
-        .frame(maxWidth: .infinity)
-        .background(inputFieldBackground)
-    }
-    
-    private var textInputField: some View {
-        TextField("Continue conversation", text: $messageText, axis: .vertical)
-            .font(.custom("OpenSans-Regular", size: 15))
-            .foregroundStyle(.white.opacity(0.9))
-            .lineLimit(1...5)
-            .focused($isInputFocused)
-            .padding(.leading, 18)
-            .padding(.trailing, 8)
-            .padding(.vertical, 13)
-            .disabled(isGenerating)
-            .tint(.white)
-            .placeholder(when: messageText.isEmpty) {
-                Text("Continue conversation")
-                    .font(.custom("OpenSans-Regular", size: 15))
-                    .foregroundStyle(.white.opacity(0.4))
-                    .padding(.leading, 18)
-            }
-            .onSubmit {
-                sendMessage(messageText)
-            }
-            .simultaneousGesture(
-                TapGesture().onEnded {
-                    // Allow tapping in text field
+                // Plus button (left side) - WHITE/LIGHT - Smaller
+                Button {
+                    let haptic = UIImpactFeedbackGenerator(style: .light)
+                    haptic.impactOccurred()
+                    handlePlusButtonTap()
+                } label: {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 22, weight: .regular))
+                        .foregroundStyle(.white.opacity(0.9))
+                        .frame(width: 36, height: 36)
+                        .contentShape(Circle())
                 }
-            )
-    }
-    
-    private var voiceInputButton: some View {
-        Button {
-            let haptic = UIImpactFeedbackGenerator(style: .light)
-            haptic.impactOccurred()
-            
-            withAnimation(.smooth(duration: 0.3)) {
-                isVoiceListening.toggle()
+                .disabled(isGenerating)
+                .opacity(isGenerating ? 0.4 : 1.0)
+                .accessibilityLabel("Add attachment")
+
+                // Text input field - WHITE TEXT
+                textInputFieldGlassmorphic
+
+                // Voice/Send button (right side) - DARK PILL - Smaller
+                actionButtonGlassmorphic
             }
-            
-            if isVoiceListening {
-                // Start listening
-            } else {
-                // Stop listening
-            }
-        } label: {
-            voiceButtonContent
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(largeGlassmorphicBackground)
+            .padding(.horizontal, 12)
         }
-        .buttonStyle(PlainButtonStyle())
+        .padding(.bottom, 8)
+        .animation(.easeOut(duration: 0.25), value: keyboardHeight)
     }
     
-    private var voiceButtonContent: some View {
-        ZStack {
-            if isVoiceListening {
-                Circle()
-                    .fill(Color(red: 0.4, green: 0.7, blue: 1.0).opacity(0.3))
-                    .frame(width: 40, height: 40)
-                    .scaleEffect(isVoiceListening ? 1.3 : 1.0)
-                    .opacity(isVoiceListening ? 0 : 1)
-                    .animation(.easeOut(duration: 1.5).repeatForever(autoreverses: false), value: isVoiceListening)
-            }
-            
-            Image(systemName: isVoiceListening ? "waveform.circle.fill" : "waveform")
-                .font(.system(size: 18, weight: .medium))
-                .foregroundStyle(
-                    isVoiceListening ?
-                        Color(red: 0.4, green: 0.7, blue: 1.0) :
-                        .white.opacity(0.6)
-                )
-                .symbolEffect(.variableColor, options: .repeating, value: isVoiceListening)
+    private func getSafeAreaBottom() -> CGFloat {
+        guard let window = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene })
+            .flatMap({ $0.windows })
+            .first(where: { $0.isKeyWindow }) else {
+            return 0
         }
-        .frame(width: 40, height: 40)
-        .contentShape(Circle())
+        return window.safeAreaInsets.bottom
     }
     
-    private var inputFieldBackground: some View {
-        RoundedRectangle(cornerRadius: 24)
-            .fill(Color(white: 0.15).opacity(0.8))
-            .overlay(
-                RoundedRectangle(cornerRadius: 24)
-                    .stroke(Color.white.opacity(0.12), lineWidth: 1)
-            )
-            .shadow(color: .black.opacity(0.4), radius: 20, y: -5)
+    private var textInputFieldGlassmorphic: some View {
+        TextField("Ask AI", text: $messageText, axis: .vertical)
+            .font(.system(size: 13, weight: .regular))
+            .foregroundStyle(.black)
+            .lineLimit(1...1)
+            .focused($isInputFocused)
+            .disabled(isGenerating)
+            .tint(.black)
+            .onSubmit {
+                if !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    sendMessage(messageText)
+                }
+            }
+            .submitLabel(.send)
+            .frame(maxWidth: .infinity)
+            .accessibilityLabel("Message input field")
     }
     
     @ViewBuilder
-    private var actionButton: some View {
+    private var actionButtonGlassmorphic: some View {
         if isGenerating {
-            stopButton
+            stopButtonGlassmorphic
+        } else if !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            sendButtonGlassmorphic
         } else {
-            sendButton
+            voiceButtonGlassmorphic
         }
     }
     
-    private var stopButton: some View {
+    private var voiceButtonGlassmorphic: some View {
         Button {
+            let haptic = UIImpactFeedbackGenerator(style: .light)
+            haptic.impactOccurred()
+            handleVoiceButtonTap()
+        } label: {
+            ZStack {
+                // Dark pill background - Smaller
+                Capsule()
+                    .fill(Color.black.opacity(isVoiceListening ? 0.8 : 0.7))
+                    .frame(width: 80, height: 40)
+                    .overlay(
+                        Capsule()
+                            .stroke(.white.opacity(0.1), lineWidth: 1)
+                    )
+
+                // Pulsing animation when listening
+                if isVoiceListening {
+                    Capsule()
+                        .fill(.white.opacity(0.15))
+                        .frame(width: 80, height: 40)
+                        .scaleEffect(isVoiceListening ? 1.15 : 1.0)
+                        .opacity(isVoiceListening ? 0 : 1)
+                        .animation(.easeOut(duration: 1.2).repeatForever(autoreverses: false), value: isVoiceListening)
+                }
+
+                // Waveform icon - Smaller
+                Image(systemName: "waveform")
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundStyle(.white)
+                    .symbolEffect(.variableColor, options: .repeating, isActive: isVoiceListening)
+            }
+        }
+        .buttonStyle(ScaleButtonStyle())
+        .accessibilityLabel(isVoiceListening ? "Stop voice input" : "Start voice input")
+    }
+    
+    private var sendButtonGlassmorphic: some View {
+        Button {
+            guard !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+
+            let haptic = UIImpactFeedbackGenerator(style: .medium)
+            haptic.impactOccurred()
+
+            sendMessage(messageText)
+        } label: {
+            ZStack {
+                // Dark pill background - Smaller
+                Capsule()
+                    .fill(Color.black.opacity(0.8))
+                    .frame(width: 40, height: 40)
+                    .overlay(
+                        Capsule()
+                            .stroke(.white.opacity(0.1), lineWidth: 1)
+                    )
+
+                Image(systemName: "arrow.up")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(.white)
+            }
+        }
+        .buttonStyle(ScaleButtonStyle())
+        .transition(.scale.combined(with: .opacity))
+        .animation(.easeOut(duration: 0.15), value: !messageText.isEmpty)
+        .accessibilityLabel("Send message")
+    }
+    
+    private var stopButtonGlassmorphic: some View {
+        Button {
+            let haptic = UINotificationFeedbackGenerator()
+            haptic.notificationOccurred(.warning)
+
             stopGeneration()
         } label: {
             ZStack {
-                Circle()
-                    .fill(Color.red.opacity(0.2))
-                    .frame(width: 48, height: 48)
-                
-                Circle()
-                    .stroke(Color.red.opacity(0.3), lineWidth: 2)
-                    .frame(width: 48, height: 48)
-                
+                // Dark red pill background - Smaller
+                Capsule()
+                    .fill(.red.opacity(0.25))
+                    .frame(width: 40, height: 40)
+                    .overlay(
+                        Capsule()
+                            .stroke(.red.opacity(0.4), lineWidth: 1.5)
+                    )
+
                 Image(systemName: "stop.fill")
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.system(size: 14, weight: .bold))
                     .foregroundStyle(.red)
             }
-            .frame(width: 48, height: 48)
-            .contentShape(Circle())
         }
-        .buttonStyle(PlainButtonStyle())
+        .buttonStyle(ScaleButtonStyle())
         .transition(.scale.combined(with: .opacity))
+        .animation(.easeOut(duration: 0.15), value: isGenerating)
+        .accessibilityLabel("Stop generating")
     }
     
-    private var sendButton: some View {
-        Button {
-            sendMessage(messageText)
-        } label: {
-            sendButtonContent
-        }
-        .disabled(messageText.isEmpty)
-        .buttonStyle(PlainButtonStyle())
-        .transition(.scale.combined(with: .opacity))
-    }
-    
-    private var sendButtonContent: some View {
-        ZStack {
-            Circle()
-                .fill(sendButtonFill)
-                .frame(width: 48, height: 48)
-            
-            Image(systemName: "arrow.up")
-                .font(.system(size: 18, weight: .bold))
-                .foregroundStyle(.white)
-        }
-        .frame(width: 48, height: 48)
-        .contentShape(Circle())
-    }
-    
-    private var sendButtonFill: AnyShapeStyle {
-        if messageText.isEmpty {
-            return AnyShapeStyle(Color.white.opacity(0.1))
-        } else {
-            return AnyShapeStyle(
-                LinearGradient(
-                    colors: [Color(red: 0.4, green: 0.7, blue: 1.0), Color(red: 0.4, green: 0.85, blue: 0.7)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
+    private var largeGlassmorphicBackground: some View {
+        Capsule()
+            .fill(.ultraThinMaterial)
+            .background(
+                Capsule()
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                .white.opacity(0.25),
+                                .white.opacity(0.2)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
             )
-        }
+            .overlay(
+                Capsule()
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                .white.opacity(0.5),
+                                .white.opacity(0.2)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1.5
+                    )
+            )
+            .shadow(color: .black.opacity(0.15), radius: 20, x: 0, y: 8)
+            .shadow(color: .white.opacity(0.2), radius: 2, x: 0, y: -1)
     }
     
-    private var inputBarBackground: some View {
-        ZStack {
-            Color(white: 0.08)
-                .background(.ultraThinMaterial.opacity(0.3))
-            
-            VStack {
-                LinearGradient(
-                    colors: [
-                        Color.black.opacity(0.0),
-                        Color.black.opacity(0.3)
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .frame(height: 60)
-                Spacer()
-            }
+    // MARK: - Input Bar Action Handlers
+    
+    /// Handle plus button tap (add attachments/options)
+    private func handlePlusButtonTap() {
+        // Production-ready: Show action sheet for attachment options
+        #if DEBUG
+        print("➕ Plus button tapped - Show attachment options")
+        #endif
+        
+        // Future: Show action sheet with options like:
+        // - Upload image
+        // - Search Bible passage
+        // - Smart features
+        // - Saved prompts
+    }
+    
+    /// Handle voice button tap (start/stop voice input)
+    private func handleVoiceButtonTap() {
+        withAnimation(.easeOut(duration: 0.2)) {
+            isVoiceListening.toggle()
+        }
+        
+        #if DEBUG
+        print(isVoiceListening ? "🎤 Voice listening started" : "🎤 Voice listening stopped")
+        #endif
+        
+        // Production-ready: Integrate with Speech framework
+        if isVoiceListening {
+            // Start speech recognition
+            // Future: Use SFSpeechRecognizer
+        } else {
+            // Stop speech recognition
         }
     }
     
     // MARK: - Actions
     
+    /// Check if onboarding should be shown
+    private func checkOnboardingStatus() {
+        let hasCompletedOnboarding = UserDefaults.standard.bool(forKey: "berean_onboarding_completed")
+        
+        if !hasCompletedOnboarding {
+            // Delay slightly to ensure view is loaded
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                showOnboarding = true
+            }
+        }
+    }
+    
+    /// Setup keyboard observers for smooth animations
+    private func setupKeyboardObservers() {
+        NotificationCenter.default.addObserver(
+            forName: UIResponder.keyboardWillShowNotification,
+            object: nil,
+            queue: .main
+        ) { notification in
+            guard let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
+            withAnimation(.easeOut(duration: 0.25)) {
+                keyboardHeight = keyboardFrame.height
+            }
+        }
+        
+        NotificationCenter.default.addObserver(
+            forName: UIResponder.keyboardWillHideNotification,
+            object: nil,
+            queue: .main
+        ) { _ in
+            withAnimation(.easeOut(duration: 0.25)) {
+                keyboardHeight = 0
+            }
+        }
+    }
+    
+    /// Remove keyboard observers
+    private func removeKeyboardObservers() {
+        NotificationCenter.default.removeObserver(self, name: UIResponder.keyboardWillShowNotification, object: nil)
+        NotificationCenter.default.removeObserver(self, name: UIResponder.keyboardWillHideNotification, object: nil)
+    }
+    
+    /// Retry the last failed message
+    private func retryLastMessage() {
+        // Check network before retrying
+        guard networkMonitor.isConnected else {
+            print("❌ Cannot retry - no network connection")
+            showError = .networkUnavailable
+            showErrorBanner = true
+            return
+        }
+        
+        guard let lastUserMessage = viewModel.messages.last(where: { $0.role == .user }) else {
+            print("⚠️ No user message to retry")
+            return
+        }
+        
+        // Clear error banner
+        withAnimation(.easeOut(duration: 0.2)) {
+            showErrorBanner = false
+            showError = nil
+        }
+        
+        // Remove the last assistant message if it exists and was an error
+        if let lastAssistantIndex = viewModel.messages.lastIndex(where: { $0.role == .assistant }) {
+            // Only remove if it's empty or an error placeholder
+            let assistantMessage = viewModel.messages[lastAssistantIndex]
+            if assistantMessage.content.isEmpty || assistantMessage.content.contains("error") {
+                viewModel.messages.remove(at: lastAssistantIndex)
+            }
+        }
+        
+        print("🔄 Retrying last message: \(lastUserMessage.content.prefix(50))...")
+        
+        // Resend the message
+        sendMessage(lastUserMessage.content)
+    }
+    
+    /// Refresh the current conversation with pull-to-refresh
+    @MainActor
+    private func refreshConversation() async {
+        print("🔄 Refreshing conversation...")
+        
+        // Add small delay for smooth pull-to-refresh animation
+        try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+        
+        // Note: Current messages are already live-updated through @Published properties
+        // This refresh mainly provides user feedback that the action was acknowledged
+        
+        // Haptic feedback to indicate refresh completion
+        let haptic = UIImpactFeedbackGenerator(style: .medium)
+        haptic.impactOccurred()
+        
+        print("✅ Conversation refreshed")
+    }
+    
     /// Start a new conversation
     private func startNewConversation() {
-        withAnimation(.smooth(duration: 0.4)) {
+        withAnimation(.easeOut(duration: 0.25)) {
             // Save current conversation if it has messages
             if !viewModel.messages.isEmpty {
                 viewModel.saveCurrentConversation()
@@ -797,11 +1145,13 @@ struct BereanAIAssistantView: View {
         // Haptic feedback
         let haptic = UINotificationFeedbackGenerator()
         haptic.notificationOccurred(.success)
+        
+        print("✅ New conversation started")
     }
     
     /// Clear all data
     private func clearAllData() {
-        withAnimation(.smooth(duration: 0.4)) {
+        withAnimation(.easeOut(duration: 0.25)) {
             viewModel.clearAllData()
             
             // Reset UI state
@@ -814,11 +1164,13 @@ struct BereanAIAssistantView: View {
         // Haptic feedback
         let haptic = UINotificationFeedbackGenerator()
         haptic.notificationOccurred(.warning)
+        
+        print("✅ All data cleared successfully")
     }
     
     /// Stop AI generation
     private func stopGeneration() {
-        withAnimation(.smooth(duration: 0.3)) {
+        withAnimation(.easeOut(duration: 0.2)) {
             isGenerating = false
             isThinking = false
         }
@@ -834,18 +1186,44 @@ struct BereanAIAssistantView: View {
     }
     
     private func sendMessage(_ text: String) {
-        guard !text.isEmpty else { return }
+        // Trim whitespace and check if empty
+        let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedText.isEmpty else {
+            print("⚠️ Cannot send empty message")
+            return
+        }
+        
+        // Validate message length
+        guard trimmedText.count <= 2000 else {
+            showError = .unknown("Message is too long. Please keep it under 2000 characters.")
+            showErrorBanner = true
+            
+            let haptic = UINotificationFeedbackGenerator()
+            haptic.notificationOccurred(.warning)
+            return
+        }
+        
+        // Check network connectivity
+        guard networkMonitor.isConnected else {
+            print("❌ No network connection")
+            showError = .networkUnavailable
+            showErrorBanner = true
+            
+            let haptic = UINotificationFeedbackGenerator()
+            haptic.notificationOccurred(.error)
+            return
+        }
         
         // ✅ Dismiss keyboard
         isInputFocused = false
         
         let userMessage = BereanMessage(
-            content: text,
+            content: trimmedText,
             role: .user,
             timestamp: Date()
         )
         
-        withAnimation(.smooth(duration: 0.4)) {
+        withAnimation(.easeOut(duration: 0.25)) {
             viewModel.messages.append(userMessage)
             messageText = ""
             showSuggestions = false
@@ -865,48 +1243,89 @@ struct BereanAIAssistantView: View {
         )
         
         // Add placeholder immediately so user sees thinking indicator
-        withAnimation(.smooth(duration: 0.4)) {
+        withAnimation(.easeOut(duration: 0.25)) {
             viewModel.messages.append(placeholderMessage)
         }
         
-        // Call Genkit with streaming
+        // Call Genkit with streaming and comprehensive error handling
         viewModel.generateResponseStreaming(
-            for: text,
+            for: trimmedText,
             onChunk: { chunk in
                 // Update the last message with new chunk
-                if let lastIndex = self.viewModel.messages.lastIndex(where: { $0.role == .assistant }) {
-                    let existingMessage = self.viewModel.messages[lastIndex]
+                if let lastIndex = viewModel.messages.lastIndex(where: { $0.role == .assistant }) {
+                    let existingMessage = viewModel.messages[lastIndex]
                     let updatedMessage = BereanMessage(
                         content: existingMessage.content + chunk,
                         role: .assistant,
                         timestamp: existingMessage.timestamp,
                         verseReferences: existingMessage.verseReferences
                     )
-                    self.viewModel.messages[lastIndex] = updatedMessage
+                    viewModel.messages[lastIndex] = updatedMessage
                 }
             },
             onComplete: { finalMessage in
                 // Replace placeholder with final message
-                if let lastIndex = self.viewModel.messages.lastIndex(where: { $0.role == .assistant }) {
-                    self.viewModel.messages[lastIndex] = finalMessage
+                if let lastIndex = viewModel.messages.lastIndex(where: { $0.role == .assistant }) {
+                    viewModel.messages[lastIndex] = finalMessage
                 }
                 
-                withAnimation(.smooth(duration: 0.5)) {
-                    self.isThinking = false
-                    self.isGenerating = false  // ✅ Clear generating state
+                withAnimation(.easeOut(duration: 0.3)) {
+                    isThinking = false
+                    isGenerating = false  // ✅ Clear generating state
                 }
                 
                 // Success haptic
                 let successHaptic = UINotificationFeedbackGenerator()
                 successHaptic.notificationOccurred(.success)
+                
+                print("✅ Message sent and response received successfully")
             },
             onError: { error in
-                print("❌ Error: \(error.localizedDescription)")
+                print("❌ Error generating response: \(error.localizedDescription)")
                 
-                withAnimation(.smooth(duration: 0.5)) {
-                    self.isThinking = false
-                    self.isGenerating = false  // ✅ Clear generating state
+                // Remove the placeholder message on error
+                if let lastIndex = viewModel.messages.lastIndex(where: { $0.role == .assistant }),
+                   viewModel.messages[lastIndex].content.isEmpty {
+                    viewModel.messages.remove(at: lastIndex)
                 }
+                
+                withAnimation(.easeOut(duration: 0.3)) {
+                    isThinking = false
+                    isGenerating = false  // ✅ Clear generating state
+                }
+                
+                // Determine error type
+                let bereanError: BereanError
+                if let genkitError = error as? GenkitError {
+                    switch genkitError {
+                    case .invalidURL, .invalidResponse:
+                        bereanError = .invalidResponse
+                    case .httpError(let statusCode):
+                        if statusCode == 429 {
+                            bereanError = .rateLimitExceeded
+                        } else if statusCode >= 500 {
+                            bereanError = .aiServiceUnavailable
+                        } else {
+                            bereanError = .unknown("Server error (\(statusCode))")
+                        }
+                    case .networkError:
+                        bereanError = .networkUnavailable
+                    }
+                } else if let urlError = error as? URLError {
+                    if urlError.code == .notConnectedToInternet || urlError.code == .networkConnectionLost {
+                        bereanError = .networkUnavailable
+                    } else if urlError.code == .timedOut {
+                        bereanError = .aiServiceUnavailable
+                    } else {
+                        bereanError = .unknown("Network error: \(urlError.localizedDescription)")
+                    }
+                } else {
+                    bereanError = .aiServiceUnavailable
+                }
+                
+                // Show error
+                showError = bereanError
+                showErrorBanner = true
                 
                 // Error haptic
                 let errorHaptic = UINotificationFeedbackGenerator()
@@ -921,7 +1340,7 @@ struct BereanAIAssistantView: View {
 struct BereanQuickActionCard: View {
     let icon: String
     let title: String
-    let color: Color? // nil for minimal white design
+    let color: Color
     let action: () -> Void
     
     @State private var isPressed = false
@@ -931,38 +1350,46 @@ struct BereanQuickActionCard: View {
             let haptic = UIImpactFeedbackGenerator(style: .light)
             haptic.impactOccurred()
             
-            withAnimation(.smooth(duration: 0.3)) {
+            withAnimation(.easeOut(duration: 0.2)) {
                 action()
             }
         }) {
-            VStack(spacing: 12) {
+            VStack(spacing: 14) {
                 // Icon container
                 ZStack {
-                    // Background glow
-                    if let accentColor = color {
-                        Circle()
-                            .fill(accentColor.opacity(0.15))
-                            .frame(width: 48, height: 48)
-                            .blur(radius: 8)
-                    }
+                    // Soft gradient background
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [
+                                    color.opacity(0.15),
+                                    color.opacity(0.08),
+                                    Color.clear
+                                ],
+                                center: .center,
+                                startRadius: 5,
+                                endRadius: 30
+                            )
+                        )
+                        .frame(width: 56, height: 56)
                     
                     Circle()
-                        .fill(color?.opacity(0.12) ?? Color.white.opacity(0.08))
+                        .fill(Color.white.opacity(0.7))
                         .frame(width: 48, height: 48)
                         .overlay(
                             Circle()
-                                .stroke(color?.opacity(0.3) ?? Color.white.opacity(0.15), lineWidth: 1)
+                                .stroke(color.opacity(0.2), lineWidth: 1)
                         )
                     
                     Image(systemName: icon)
-                        .font(.system(size: 20, weight: .medium))
-                        .foregroundStyle(color ?? .white)
+                        .font(.system(size: 20, weight: .light))
+                        .foregroundStyle(color)
                         .symbolEffect(.bounce, value: isPressed)
                 }
                 
                 Text(title)
-                    .font(.custom("OpenSans-SemiBold", size: 13))
-                    .foregroundStyle(.white.opacity(0.9))
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(Color(white: 0.3))
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
@@ -970,15 +1397,16 @@ struct BereanQuickActionCard: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 20)
             .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.white.opacity(0.05))
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(Color.white.opacity(0.5))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 16)
-                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                        RoundedRectangle(cornerRadius: 20)
+                            .stroke(Color.black.opacity(0.04), lineWidth: 0.5)
                     )
+                    .shadow(color: color.opacity(0.1), radius: 15, y: 5)
             )
-            .scaleEffect(isPressed ? 0.96 : 1.0)
-            .opacity(isPressed ? 0.8 : 1.0)
+            .scaleEffect(isPressed ? 0.97 : 1.0)
+            .opacity(isPressed ? 0.9 : 1.0)
         }
         .buttonStyle(PlainButtonStyle())
         .onLongPressGesture(minimumDuration: .infinity, maximumDistance: .infinity, pressing: { pressing in
@@ -1002,39 +1430,40 @@ struct SuggestedPromptCard: View {
             let haptic = UIImpactFeedbackGenerator(style: .light)
             haptic.impactOccurred()
             
-            withAnimation(.smooth(duration: 0.3)) {
+            withAnimation(.easeOut(duration: 0.2)) {
                 action()
             }
         }) {
             HStack(spacing: 12) {
                 Image(systemName: "sparkle")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.4))
+                    .font(.system(size: 12, weight: .light))
+                    .foregroundStyle(Color(white: 0.5))
                 
                 Text(prompt)
-                    .font(.custom("OpenSans-Regular", size: 14))
-                    .foregroundStyle(.white.opacity(0.8))
+                    .font(.system(size: 14, weight: .regular))
+                    .foregroundStyle(Color(white: 0.3))
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
                 
                 Spacer()
                 
                 Image(systemName: "arrow.right")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.3))
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Color(white: 0.5))
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 14)
             .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.white.opacity(0.05))
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color.white.opacity(0.5))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(Color.black.opacity(0.04), lineWidth: 0.5)
                     )
+                    .shadow(color: Color.black.opacity(0.03), radius: 8, y: 2)
             )
             .scaleEffect(isPressed ? 0.98 : 1.0)
-            .opacity(isPressed ? 0.7 : 1.0)
+            .opacity(isPressed ? 0.8 : 1.0)
         }
         .buttonStyle(PlainButtonStyle())
         .onLongPressGesture(minimumDuration: .infinity, maximumDistance: .infinity, pressing: { pressing in
@@ -1052,12 +1481,15 @@ struct MessageBubbleView: View {
     @State private var showActions = false
     @State private var lightbulbPressed = false
     @State private var praisePressed = false
+    @State private var messageToReport: BereanMessage?
+    @State private var showReportIssue = false
     @Environment(\.messageShareHandler) private var shareHandler
+    @EnvironmentObject private var dataManager: BereanDataManager
     
     var body: some View {
         HStack {
             if message.isFromUser {
-                Spacer(minLength: 60)
+                Spacer(minLength: 20)
             }
             
             VStack(alignment: message.isFromUser ? .trailing : .leading, spacing: 10) {
@@ -1065,35 +1497,43 @@ struct MessageBubbleView: View {
                 HStack(spacing: 8) {
                     if !message.isFromUser {
                         Image(systemName: "sparkles")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundStyle(.white.opacity(0.6))
+                            .font(.system(size: 12, weight: .light))
+                            .foregroundStyle(Color(white: 0.5))
                     }
                     
                     Text(message.isFromUser ? "You" : "Berean")
-                        .font(.custom("OpenSans-SemiBold", size: 11))
-                        .foregroundStyle(.white.opacity(0.5))
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(Color(white: 0.5))
                         .textCase(.uppercase)
-                        .tracking(0.8)
+                        .tracking(1.5)
                 }
                 
                 // Message content
                 Text(message.content)
-                    .font(.custom("OpenSans-Regular", size: 15))
-                    .foregroundStyle(.white.opacity(0.95))
-                    .lineSpacing(6)
+                    .font(.system(size: 15, weight: .regular))
+                    .foregroundStyle(Color(white: 0.2))
+                    .lineSpacing(8)
                     .padding(.horizontal, 18)
                     .padding(.vertical, 14)
                     .background(
                         RoundedRectangle(cornerRadius: 20)
                             .fill(
                                 message.isFromUser ?
-                                    Color.white.opacity(0.12) :
-                                    Color.white.opacity(0.08)
+                                    AnyShapeStyle(Color.white.opacity(0.6)) :
+                                    AnyShapeStyle(LinearGradient(
+                                        colors: [
+                                            Color.white.opacity(0.7),
+                                            Color.white.opacity(0.6)
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    ))
                             )
                             .overlay(
                                 RoundedRectangle(cornerRadius: 20)
-                                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                                    .stroke(Color.black.opacity(0.04), lineWidth: 0.5)
                             )
+                            .shadow(color: Color.black.opacity(0.04), radius: 12, y: 4)
                     )
                 
                 // Smart reaction buttons (only for AI responses)
@@ -1102,10 +1542,10 @@ struct MessageBubbleView: View {
                         // Lightbulb - "Helpful" reaction
                         SmartReactionButton(
                             icon: "lightbulb.fill",
-                            activeColor: Color(red: 0.4, green: 0.7, blue: 1.0), // Soft blue
+                            activeColor: Color(red: 1.0, green: 0.7, blue: 0.5),
                             isActive: lightbulbPressed
                         ) {
-                            withAnimation(.smooth(duration: 0.3)) {
+                            withAnimation(.easeOut(duration: 0.2)) {
                                 lightbulbPressed.toggle()
                             }
                         }
@@ -1113,10 +1553,10 @@ struct MessageBubbleView: View {
                         // Praise hands - "Amen" reaction
                         SmartReactionButton(
                             icon: "hands.clap.fill",
-                            activeColor: Color(red: 0.4, green: 0.85, blue: 0.7), // Soft teal
+                            activeColor: Color(red: 0.5, green: 0.6, blue: 0.9),
                             isActive: praisePressed
                         ) {
-                            withAnimation(.smooth(duration: 0.3)) {
+                            withAnimation(.easeOut(duration: 0.2)) {
                                 praisePressed.toggle()
                             }
                         }
@@ -1131,34 +1571,63 @@ struct MessageBubbleView: View {
                         } label: {
                             Image(systemName: "square.and.arrow.up")
                                 .font(.system(size: 12, weight: .medium))
-                                .foregroundStyle(.white.opacity(0.4))
+                                .foregroundStyle(Color(white: 0.5))
                                 .frame(width: 28, height: 28)
                         }
                         
                         // More options
                         Menu {
                             Button {
-                                // Copy text
-                                UIPasteboard.general.string = message.content
+                                do {
+                                    // Copy text
+                                    UIPasteboard.general.string = message.content
+                                    
+                                    let haptic = UINotificationFeedbackGenerator()
+                                    haptic.notificationOccurred(.success)
+                                    
+                                    print("✅ Message copied to clipboard")
+                                } catch {
+                                    print("❌ Failed to copy to clipboard: \(error.localizedDescription)")
+                                    
+                                    let haptic = UINotificationFeedbackGenerator()
+                                    haptic.notificationOccurred(.error)
+                                }
                             } label: {
                                 Label("Copy Text", systemImage: "doc.on.doc")
                             }
                             
                             Button {
-                                // Save for later
+                                do {
+                                    // Save for later
+                                    dataManager.saveMessage(message)
+                                    
+                                    let haptic = UINotificationFeedbackGenerator()
+                                    haptic.notificationOccurred(.success)
+                                    
+                                    print("✅ Message saved for later")
+                                } catch {
+                                    print("❌ Failed to save message: \(error.localizedDescription)")
+                                    
+                                    let haptic = UINotificationFeedbackGenerator()
+                                    haptic.notificationOccurred(.error)
+                                }
                             } label: {
                                 Label("Save for Later", systemImage: "bookmark")
                             }
                             
-                            Button {
+                            Divider()
+                            
+                            Button(role: .destructive) {
                                 // Report issue
+                                messageToReport = message
+                                showReportIssue = true
                             } label: {
                                 Label("Report Issue", systemImage: "exclamationmark.triangle")
                             }
                         } label: {
                             Image(systemName: "ellipsis")
                                 .font(.system(size: 12, weight: .medium))
-                                .foregroundStyle(.white.opacity(0.3))
+                                .foregroundStyle(Color(white: 0.5))
                                 .frame(width: 28, height: 28)
                         }
                     }
@@ -1175,14 +1644,21 @@ struct MessageBubbleView: View {
                 }
                 
                 Text(message.timestamp, style: .time)
-                    .font(.custom("OpenSans-Regular", size: 10))
-                    .foregroundStyle(.white.opacity(0.3))
+                    .font(.system(size: 10, weight: .regular))
+                    .foregroundStyle(Color(white: 0.5))
             }
             
             if !message.isFromUser {
-                Spacer(minLength: 60)
+                Spacer(minLength: 20)
             }
         }
+        .padding(.horizontal, 16)
+    }
+    
+    private func openVerse() {
+        // Copy to clipboard for now
+        UIPasteboard.general.string = message.verseReferences.first ?? ""
+        print("📖 Opening verse: \(message.verseReferences.first ?? "")")
     }
 }
 
@@ -1214,16 +1690,17 @@ struct SmartReactionButton: View {
             action()
         }) {
             Image(systemName: icon)
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(isActive ? activeColor : .white.opacity(0.3))
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(isActive ? activeColor : Color(white: 0.5))
                 .frame(width: 32, height: 32)
                 .background(
                     Circle()
-                        .fill(isActive ? activeColor.opacity(0.15) : Color.white.opacity(0.05))
+                        .fill(isActive ? activeColor.opacity(0.12) : Color.white.opacity(0.6))
                         .overlay(
                             Circle()
-                                .stroke(isActive ? activeColor.opacity(0.3) : Color.white.opacity(0.1), lineWidth: 1)
+                                .stroke(isActive ? activeColor.opacity(0.3) : Color.black.opacity(0.04), lineWidth: 0.5)
                         )
+                        .shadow(color: isActive ? activeColor.opacity(0.15) : Color.clear, radius: 8)
                 )
                 .scaleEffect(isActive ? 1.1 : 1.0)
                 .symbolEffect(.bounce, value: isActive)
@@ -1236,30 +1713,42 @@ struct SmartReactionButton: View {
 
 struct VerseReferenceChip: View {
     let reference: String
+    let action: (() -> Void)?
+    
     @State private var isPressed = false
+    
+    init(reference: String, action: (() -> Void)? = nil) {
+        self.reference = reference
+        self.action = action
+    }
     
     var body: some View {
         Button {
             let haptic = UIImpactFeedbackGenerator(style: .light)
             haptic.impactOccurred()
-            // Open verse
+            
+            if let action = action {
+                action()
+            } else {
+                openVerseReference()
+            }
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: "book.closed.fill")
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.system(size: 9, weight: .medium))
                 
                 Text(reference)
-                    .font(.custom("OpenSans-SemiBold", size: 12))
+                    .font(.system(size: 12, weight: .semibold))
             }
-            .foregroundStyle(.white.opacity(0.9))
+            .foregroundStyle(Color(red: 0.5, green: 0.6, blue: 0.9))
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
             .background(
                 Capsule()
-                    .fill(Color.white.opacity(0.1))
+                    .fill(Color(red: 0.5, green: 0.6, blue: 0.9).opacity(0.12))
                     .overlay(
                         Capsule()
-                            .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                            .stroke(Color(red: 0.5, green: 0.6, blue: 0.9).opacity(0.25), lineWidth: 0.5)
                     )
             )
             .scaleEffect(isPressed ? 0.95 : 1.0)
@@ -1270,6 +1759,11 @@ struct VerseReferenceChip: View {
                 isPressed = pressing
             }
         }, perform: {})
+    }
+    
+    private func openVerseReference() {
+        UIPasteboard.general.string = reference
+        print("📖 Opening verse: \(reference)")
     }
 }
 
@@ -1283,21 +1777,21 @@ struct ThinkingIndicatorView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
                 Image(systemName: "sparkles")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.6))
+                    .font(.system(size: 12, weight: .light))
+                    .foregroundStyle(Color(white: 0.5))
                     .symbolEffect(.pulse)
                 
                 Text("Berean")
-                    .font(.custom("OpenSans-SemiBold", size: 11))
-                    .foregroundStyle(.white.opacity(0.5))
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(Color(white: 0.5))
                     .textCase(.uppercase)
-                    .tracking(0.8)
+                    .tracking(1.5)
             }
             
             HStack(spacing: 6) {
                 ForEach(0..<3) { index in
                     Circle()
-                        .fill(Color.white.opacity(0.4))
+                        .fill(Color(white: 0.4))
                         .frame(width: 6, height: 6)
                         .scaleEffect(dotCount == index ? 1.3 : 0.8)
                         .opacity(dotCount == index ? 1.0 : 0.4)
@@ -1307,16 +1801,17 @@ struct ThinkingIndicatorView: View {
             .padding(.vertical, 14)
             .background(
                 RoundedRectangle(cornerRadius: 20)
-                    .fill(Color.white.opacity(0.08))
+                    .fill(Color.white.opacity(0.6))
                     .overlay(
                         RoundedRectangle(cornerRadius: 20)
-                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                            .stroke(Color.black.opacity(0.04), lineWidth: 0.5)
                     )
+                    .shadow(color: Color.black.opacity(0.04), radius: 12, y: 4)
             )
         }
         .onAppear {
             Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { _ in
-                withAnimation(.smooth(duration: 0.3)) {
+                withAnimation(.easeOut(duration: 0.2)) {
                     dotCount = (dotCount + 1) % 3
                 }
             }
@@ -1336,7 +1831,7 @@ struct BereanSendButton: View {
             let haptic = UIImpactFeedbackGenerator(style: .medium)
             haptic.impactOccurred()
             
-            withAnimation(.smooth(duration: 0.3)) {
+            withAnimation(.easeOut(duration: 0.2)) {
                 isAnimating = true
             }
             
@@ -1438,12 +1933,12 @@ enum SmartFeature: String, CaseIterable {
     
     var color: Color {
         switch self {
-        case .crossReference: return Color(red: 0.4, green: 0.7, blue: 1.0) // Soft blue
-        case .greekHebrew: return Color(red: 0.6, green: 0.5, blue: 1.0) // Soft purple
-        case .historicalTimeline: return Color(red: 1.0, green: 0.7, blue: 0.4) // Soft orange
-        case .characterStudy: return Color(red: 0.4, green: 0.85, blue: 0.7) // Soft teal
-        case .theologicalThemes: return Color(red: 1.0, green: 0.6, blue: 0.7) // Soft pink
-        case .verseOfDay: return Color(red: 1.0, green: 0.85, blue: 0.4) // Soft yellow
+        case .crossReference: return Color(red: 0.5, green: 0.6, blue: 0.9) // Soft blue
+        case .greekHebrew: return Color(red: 0.6, green: 0.5, blue: 0.8) // Soft purple
+        case .historicalTimeline: return Color(red: 1.0, green: 0.7, blue: 0.5) // Soft orange
+        case .characterStudy: return Color(red: 0.95, green: 0.7, blue: 0.6) // Soft peach
+        case .theologicalThemes: return Color(red: 0.85, green: 0.6, blue: 0.7) // Soft rose
+        case .verseOfDay: return Color(red: 1.0, green: 0.85, blue: 0.5) // Soft yellow
         }
     }
 }
@@ -1457,10 +1952,10 @@ struct SmartFeaturesPanel: View {
     var body: some View {
         ZStack {
             // Backdrop
-            Color.black.opacity(0.6)
+            Color.black.opacity(0.3)
                 .ignoresSafeArea()
                 .onTapGesture {
-                    withAnimation(.smooth(duration: 0.3)) {
+                    withAnimation(.easeOut(duration: 0.2)) {
                         isShowing = false
                     }
                 }
@@ -1471,20 +1966,21 @@ struct SmartFeaturesPanel: View {
                 VStack(spacing: 0) {
                     // Handle
                     RoundedRectangle(cornerRadius: 3)
-                        .fill(Color.white.opacity(0.3))
+                        .fill(Color(white: 0.4))
                         .frame(width: 36, height: 5)
                         .padding(.top, 12)
                     
                     // Title
                     Text("Smart Features")
-                        .font(.custom("OpenSans-Bold", size: 20))
-                        .foregroundStyle(.white)
+                        .font(.custom("Georgia", size: 24))
+                        .fontWeight(.light)
+                        .foregroundStyle(Color(white: 0.2))
                         .padding(.top, 20)
                         .padding(.bottom, 8)
                     
                     Text("AI-powered Bible study tools")
-                        .font(.custom("OpenSans-Regular", size: 13))
-                        .foregroundStyle(.white.opacity(0.6))
+                        .font(.system(size: 13, weight: .regular))
+                        .foregroundStyle(Color(white: 0.5))
                         .padding(.bottom, 24)
                     
                     // Features Grid
@@ -1505,12 +2001,21 @@ struct SmartFeaturesPanel: View {
                 .frame(maxWidth: .infinity)
                 .background(
                     RoundedRectangle(cornerRadius: 24, style: .continuous)
-                        .fill(Color(white: 0.1))
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color(red: 0.98, green: 0.97, blue: 0.96),
+                                    Color(red: 0.96, green: 0.95, blue: 0.97)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
                         .overlay(
                             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                                .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                                .stroke(Color.black.opacity(0.05), lineWidth: 0.5)
                         )
-                        .shadow(color: .black.opacity(0.5), radius: 30, y: -10)
+                        .shadow(color: Color.black.opacity(0.15), radius: 30, y: -10)
                 )
                 .ignoresSafeArea(edges: .bottom)
             }
@@ -1531,35 +2036,45 @@ struct SmartFeatureButton: View {
             let haptic = UIImpactFeedbackGenerator(style: .light)
             haptic.impactOccurred()
             
-            withAnimation(.smooth(duration: 0.3)) {
+            withAnimation(.easeOut(duration: 0.2)) {
                 action()
             }
         }) {
             VStack(spacing: 10) {
                 ZStack {
-                    // Glow effect
+                    // Soft glow effect
                     Circle()
-                        .fill(feature.color.opacity(0.2))
-                        .frame(width: 50, height: 50)
-                        .blur(radius: 10)
+                        .fill(
+                            RadialGradient(
+                                colors: [
+                                    feature.color.opacity(0.2),
+                                    feature.color.opacity(0.08),
+                                    Color.clear
+                                ],
+                                center: .center,
+                                startRadius: 5,
+                                endRadius: 30
+                            )
+                        )
+                        .frame(width: 54, height: 54)
                     
                     Circle()
-                        .fill(feature.color.opacity(0.15))
-                        .frame(width: 50, height: 50)
+                        .fill(Color.white.opacity(0.7))
+                        .frame(width: 48, height: 48)
                         .overlay(
                             Circle()
-                                .stroke(feature.color.opacity(0.4), lineWidth: 1)
+                                .stroke(feature.color.opacity(0.3), lineWidth: 0.5)
                         )
                     
                     Image(systemName: feature.icon)
-                        .font(.system(size: 22, weight: .medium))
+                        .font(.system(size: 20, weight: .light))
                         .foregroundStyle(feature.color)
                         .symbolEffect(.bounce, value: isPressed)
                 }
                 
                 Text(feature.rawValue)
-                    .font(.custom("OpenSans-SemiBold", size: 11))
-                    .foregroundStyle(.white.opacity(0.9))
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Color(white: 0.3))
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
@@ -1587,6 +2102,9 @@ class BereanViewModel: ObservableObject {
     
     private let genkitService = BereanGenkitService.shared
     private var currentTask: Task<Void, Never>?  // ✅ Track current generation task
+    
+    // Timeout configuration
+    private let requestTimeout: TimeInterval = 60.0  // 60 seconds
     
     // ✅ Available Bible translations
     let availableTranslations = [
@@ -1620,7 +2138,10 @@ class BereanViewModel: ObservableObject {
     
     /// Save current conversation to history
     func saveCurrentConversation() {
-        guard !messages.isEmpty else { return }
+        guard !messages.isEmpty else {
+            print("⚠️ No messages to save")
+            return
+        }
         
         let conversation = SavedConversation(
             title: generateConversationTitle(),
@@ -1640,6 +2161,34 @@ class BereanViewModel: ObservableObject {
         messages = conversation.messages
         selectedTranslation = conversation.translation
         print("📖 Loaded conversation: \(conversation.title)")
+    }
+    
+    /// Delete a conversation
+    func deleteConversation(_ conversation: SavedConversation) {
+        savedConversations.removeAll { $0.id == conversation.id }
+        saveConversationsToUserDefaults()
+        print("🗑️ Deleted conversation: \(conversation.title)")
+    }
+    
+    /// Update conversation title
+    func updateConversationTitle(_ conversation: SavedConversation, newTitle: String) {
+        guard !newTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            print("⚠️ Cannot update with empty title")
+            return
+        }
+        
+        if let index = savedConversations.firstIndex(where: { $0.id == conversation.id }) {
+            let updatedConversation = SavedConversation(
+                id: conversation.id,
+                title: newTitle,
+                messages: conversation.messages,
+                date: conversation.date,
+                translation: conversation.translation
+            )
+            savedConversations[index] = updatedConversation
+            saveConversationsToUserDefaults()
+            print("✏️ Updated conversation title: \(newTitle)")
+        }
     }
     
     /// Clear current messages
@@ -1675,29 +2224,47 @@ class BereanViewModel: ObservableObject {
         do {
             let data = try JSONEncoder().encode(savedConversations)
             UserDefaults.standard.set(data, forKey: "berean_conversations")
+            print("💾 Saved \(savedConversations.count) conversations to UserDefaults")
         } catch {
-            print("❌ Failed to save conversations: \(error)")
+            print("❌ Failed to save conversations: \(error.localizedDescription)")
+            // Don't throw - this is a best-effort persistence
         }
     }
     
     private func loadSavedConversations() {
-        guard let data = UserDefaults.standard.data(forKey: "berean_conversations") else { return }
+        guard let data = UserDefaults.standard.data(forKey: "berean_conversations") else {
+            print("ℹ️ No saved conversations found")
+            return
+        }
+        
         do {
             savedConversations = try JSONDecoder().decode([SavedConversation].self, from: data)
             print("📖 Loaded \(savedConversations.count) conversations")
         } catch {
-            print("❌ Failed to load conversations: \(error)")
+            print("❌ Failed to load conversations: \(error.localizedDescription)")
+            // Reset to empty array on corruption
+            savedConversations = []
         }
     }
     
     private func loadSelectedTranslation() {
         if let saved = UserDefaults.standard.string(forKey: "berean_translation") {
-            selectedTranslation = saved
+            // Validate that it's a known translation
+            if availableTranslations.contains(saved) {
+                selectedTranslation = saved
+                print("📖 Loaded translation preference: \(saved)")
+            } else {
+                print("⚠️ Invalid saved translation '\(saved)', using default")
+                selectedTranslation = "ESV"
+            }
+        } else {
+            print("ℹ️ No saved translation preference, using default: ESV")
         }
     }
     
     private func saveSelectedTranslation() {
         UserDefaults.standard.set(selectedTranslation, forKey: "berean_translation")
+        print("💾 Saved translation preference: \(selectedTranslation)")
     }
     
     // MARK: - Stop Generation
@@ -1717,20 +2284,51 @@ class BereanViewModel: ObservableObject {
         onComplete: @escaping (BereanMessage) -> Void,
         onError: @escaping (Error) -> Void
     ) {
+        // Validate input
+        guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            print("⚠️ Cannot generate response for empty query")
+            onError(NSError(
+                domain: "BereanViewModel",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "Query cannot be empty"]
+            ))
+            return
+        }
+        
+        // ⚡ SPEED OPTIMIZATION: Limit conversation history to last 10 messages
+        // This reduces payload size and AI processing time significantly
+        let recentHistory = Array(messages.suffix(10))
+        
         // Cancel any existing task
         currentTask?.cancel()
         
-        // Create new task
+        // Create new task with timeout
         currentTask = Task {
             do {
                 var fullResponse = ""
+                let startTime = Date()
                 
-                // Stream response from Genkit
-                for try await chunk in genkitService.sendMessage(query, conversationHistory: messages) {
+                // Stream response from Genkit with timeout monitoring
+                // ⚡ Use limited history for faster processing
+                for try await chunk in genkitService.sendMessage(query, conversationHistory: recentHistory) {
                     // ✅ Check if task was cancelled
                     if Task.isCancelled {
                         print("⏸️ Generation cancelled by user")
                         return
+                    }
+                    
+                    // Check timeout
+                    let elapsed = Date().timeIntervalSince(startTime)
+                    if elapsed > requestTimeout {
+                        print("⏱️ Request timeout after \(elapsed) seconds")
+                        throw NSError(
+                            domain: "BereanViewModel",
+                            code: -3,
+                            userInfo: [
+                                NSLocalizedDescriptionKey: "Request timed out",
+                                NSLocalizedRecoverySuggestionErrorKey: "The AI took too long to respond. Please try again with a simpler question."
+                            ]
+                        )
                     }
                     
                     fullResponse += chunk
@@ -1740,7 +2338,20 @@ class BereanViewModel: ObservableObject {
                 }
                 
                 // ✅ Check again before completing
-                guard !Task.isCancelled else { return }
+                guard !Task.isCancelled else {
+                    print("⏸️ Generation cancelled before completion")
+                    return
+                }
+                
+                // Validate response
+                guard !fullResponse.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                    print("❌ Received empty response from AI")
+                    throw NSError(
+                        domain: "BereanViewModel",
+                        code: -2,
+                        userInfo: [NSLocalizedDescriptionKey: "AI returned empty response"]
+                    )
+                }
                 
                 // Create final message with verse references extracted
                 let verseReferences = extractVerseReferences(from: fullResponse)
@@ -1755,20 +2366,33 @@ class BereanViewModel: ObservableObject {
                     onComplete(finalMessage)
                 }
                 
-            } catch {
+                let duration = Date().timeIntervalSince(startTime)
+                print("✅ Response generation completed successfully in \(String(format: "%.2f", duration))s")
+                
+            } catch is CancellationError {
+                // Task was cancelled - don't report as error
+                print("⏸️ Generation task cancelled")
+                return
+            } catch let error as GenkitError {
                 // ✅ Don't show error if cancelled
                 guard !Task.isCancelled else { return }
                 
-                print("❌ Genkit streaming error: \(error.localizedDescription)")
+                print("❌ Genkit error: \(error.localizedDescription)")
                 await MainActor.run {
                     onError(error)
                 }
                 
-                // Fall back to mock response
-                let fallbackMessage = generateMockResponse(for: query)
+                // ✅ Production: No mock responses - show real errors to users
+            } catch {
+                // ✅ Don't show error if cancelled
+                guard !Task.isCancelled else { return }
+                
+                print("❌ Unexpected error during streaming: \(error.localizedDescription)")
                 await MainActor.run {
-                    onComplete(fallbackMessage)
+                    onError(error)
                 }
+                
+                // ✅ Production: No mock responses - show real errors to users
             }
         }
     }
@@ -1901,7 +2525,7 @@ struct ShareToFeedSheet: View {
         Color.black.opacity(0.7)
             .ignoresSafeArea()
             .onTapGesture {
-                withAnimation(.smooth(duration: 0.3)) {
+                withAnimation(.easeOut(duration: 0.2)) {
                     isShowing = false
                 }
             }
@@ -1936,7 +2560,7 @@ struct ShareToFeedSheet: View {
             Spacer()
             
             Button {
-                withAnimation(.smooth(duration: 0.3)) {
+                withAnimation(.easeOut(duration: 0.2)) {
                     isShowing = false
                 }
             } label: {
@@ -2032,7 +2656,7 @@ struct ShareToFeedSheet: View {
     
     private var personalNoteToggle: some View {
         Button {
-            withAnimation(.smooth(duration: 0.3)) {
+            withAnimation(.easeOut(duration: 0.2)) {
                 addPersonalNote.toggle()
             }
         } label: {
@@ -2136,9 +2760,9 @@ struct ShareToFeedSheet: View {
     }
 }
 
-// MARK: - Premium Upgrade View
+// MARK: - Premium Upgrade View (OLD - Use new standalone PremiumUpgradeView.swift instead)
 
-struct PremiumUpgradeView: View {
+struct BereanPremiumUpgradeView: View {
     @Binding var isShowing: Bool
     
     let premiumFeatures: [(icon: String, title: String, description: String, color: Color)] = [
@@ -2184,7 +2808,7 @@ struct PremiumUpgradeView: View {
         HStack {
             Spacer()
             Button {
-                withAnimation(.smooth(duration: 0.3)) {
+                withAnimation(.easeOut(duration: 0.2)) {
                     isShowing = false
                 }
             } label: {
@@ -2206,14 +2830,8 @@ struct PremiumUpgradeView: View {
                 Text("Berean Pro")
                     .font(.custom("OpenSans-Bold", size: 32))
             }
-            .foregroundStyle(
-                LinearGradient(
-                    colors: [Color(red: 1.0, green: 0.84, blue: 0.0), Color(red: 1.0, green: 0.65, blue: 0.0)],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
-            )
-            .shadow(color: Color(red: 1.0, green: 0.84, blue: 0.0).opacity(0.5), radius: 20)
+            .foregroundStyle(.white)
+            .shadow(color: .white.opacity(0.3), radius: 20)
             
             Text("Unlock the full power of AI-assisted Bible study")
                 .font(.custom("OpenSans-Regular", size: 17))
@@ -2289,15 +2907,9 @@ struct PremiumUpgradeView: View {
                 .padding(.vertical, 18)
                 .background(
                     RoundedRectangle(cornerRadius: 16)
-                        .fill(
-                            LinearGradient(
-                                colors: [Color(red: 1.0, green: 0.84, blue: 0.0), Color(red: 1.0, green: 0.65, blue: 0.0)],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
+                        .fill(.white)
                 )
-                .shadow(color: Color(red: 1.0, green: 0.84, blue: 0.0).opacity(0.5), radius: 20, y: 10)
+                .shadow(color: .white.opacity(0.3), radius: 20, y: 10)
                 
                 Text("7-day free trial • Cancel anytime")
                     .font(.custom("OpenSans-Regular", size: 12))
@@ -2346,13 +2958,7 @@ struct PremiumPricingCard: View {
             
             Text(price)
                 .font(.custom("OpenSans-Bold", size: 26))
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [Color(red: 1.0, green: 0.84, blue: 0.0), Color(red: 1.0, green: 0.65, blue: 0.0)],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                )
+                .foregroundStyle(.white)
         }
         .padding(20)
         .background(
@@ -2362,7 +2968,7 @@ struct PremiumPricingCard: View {
                     RoundedRectangle(cornerRadius: 16)
                         .stroke(
                             isRecommended ?
-                                Color(red: 1.0, green: 0.84, blue: 0.0).opacity(0.5) :
+                                Color.white.opacity(0.5) :
                                 Color.white.opacity(0.1),
                             lineWidth: isRecommended ? 2 : 1
                         )
@@ -2667,18 +3273,4 @@ struct ConversationHistoryRow: View {
     }
 }
 
-// MARK: - View Extensions
-
-extension View {
-    func placeholder<Content: View>(
-        when shouldShow: Bool,
-        alignment: Alignment = .leading,
-        @ViewBuilder placeholder: () -> Content) -> some View {
-        
-        ZStack(alignment: alignment) {
-            placeholder().opacity(shouldShow ? 1 : 0)
-            self
-        }
-    }
-}
 

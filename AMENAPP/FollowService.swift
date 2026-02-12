@@ -60,6 +60,7 @@ class FollowService: ObservableObject {
     private let firebaseManager = FirebaseManager.shared
     private let db = Firestore.firestore()
     private var listeners: [ListenerRegistration] = []
+    private var isListening = false  // ✅ FIX: Prevent duplicate listener registration
     
     private init() {}
     
@@ -165,8 +166,9 @@ class FollowService: ObservableObject {
             throw error
         }
         
-        // Create notification for followed user
-        try? await createFollowNotification(userId: userId)
+        // ✅ NOTIFICATION FIX: Removed duplicate notification creation
+        // Cloud Function (onUserFollow) handles follow notifications automatically
+        // when a document is created in the "follows" collection
         
         // Haptic feedback
         let haptic = UINotificationFeedbackGenerator()
@@ -512,11 +514,18 @@ class FollowService: ObservableObject {
     
     /// Start listening to current user's following list
     func startListening() {
+        // ✅ FIX: Prevent duplicate listeners
+        guard !isListening else {
+            print("⚠️ Already listening to follow changes")
+            return
+        }
+        
         guard let currentUserId = firebaseManager.currentUser?.uid else {
             print("⚠️ No user ID for listener")
             return
         }
         
+        isListening = true
         print("🔊 Starting real-time listener for follows...")
         
         // Listen to following
@@ -567,32 +576,11 @@ class FollowService: ObservableObject {
                 }
             }
         
-        // Listen to current user's document for count updates
-        let userStatsListener = db.collection(FirebaseManager.CollectionPath.users)
-            .document(currentUserId)
-            .addSnapshotListener { [weak self] snapshot, error in
-                guard let self = self else { return }
-                
-                if let error = error {
-                    print("❌ User stats listener error: \(error)")
-                    return
-                }
-                
-                guard let snapshot = snapshot, let data = snapshot.data() else { return }
-                
-                let followersCount = data["followersCount"] as? Int ?? 0
-                let followingCount = data["followingCount"] as? Int ?? 0
-                
-                Task { @MainActor in
-                    self.currentUserFollowersCount = followersCount
-                    self.currentUserFollowingCount = followingCount
-                    print("✅ Real-time stats: \(followersCount) followers, \(followingCount) following")
-                }
-            }
-        
         listeners.append(followingListener)
         listeners.append(followersListener)
-        listeners.append(userStatsListener)
+        
+        // NOTE: Removed userStatsListener to prevent duplicate counter updates
+        // The following/followers listeners already provide accurate counts from the follows collection
     }
     
     /// Stop all listeners
@@ -600,33 +588,7 @@ class FollowService: ObservableObject {
         print("🔇 Stopping follow listeners...")
         listeners.forEach { $0.remove() }
         listeners.removeAll()
-    }
-    
-    // MARK: - Notifications
-    
-    private func createFollowNotification(userId: String) async throws {
-        guard let currentUserId = firebaseManager.currentUser?.uid else { return }
-        
-        // Fetch current user's name
-        let userDoc = try await db.collection(FirebaseManager.CollectionPath.users)
-            .document(currentUserId)
-            .getDocument()
-        
-        let displayName = userDoc.data()?["displayName"] as? String ?? "Someone"
-        
-        let notification: [String: Any] = [
-            "userId": userId,
-            "type": "follow",
-            "fromUserId": currentUserId,
-            "fromUserName": displayName,
-            "message": "\(displayName) started following you",
-            "createdAt": Date(),
-            "isRead": false
-        ]
-        
-        try await db.collection("notifications").addDocument(data: notification)
-        
-        print("✅ Follow notification created for user: \(userId)")
+        isListening = false  // ✅ FIX: Reset flag so listeners can be restarted
     }
     
     // MARK: - Bulk Operations

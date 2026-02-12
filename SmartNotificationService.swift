@@ -34,7 +34,7 @@ struct NotificationBatch: Codable {
 }
 
 /// User notification preferences learned by AI
-struct NotificationPreferences: Codable {
+struct AINotificationPreferences: Codable {
     let userId: String
     let bestTimeOfDay: Int // Hour (0-23)
     let preferredBatchSize: Int
@@ -201,18 +201,18 @@ class SmartNotificationService {
     }
     
     /// Get user notification preferences (AI-learned)
-    private func getUserPreferences(userId: String) async throws -> NotificationPreferences {
+    private func getUserPreferences(userId: String) async throws -> AINotificationPreferences {
         
         let snapshot = try await db.collection("userNotificationPreferences")
             .document(userId)
             .getDocument()
         
-        if let preferences = try? snapshot.data(as: NotificationPreferences.self) {
+        if let preferences = try? snapshot.data(as: AINotificationPreferences.self) {
             return preferences
         }
         
         // Default preferences if not learned yet
-        return NotificationPreferences(
+        return AINotificationPreferences(
             userId: userId,
             bestTimeOfDay: 19, // 7 PM default
             preferredBatchSize: 5,
@@ -223,7 +223,7 @@ class SmartNotificationService {
     }
     
     /// Calculate optimal delivery time based on preferences
-    private func calculateOptimalDeliveryTime(preferences: NotificationPreferences) -> Date {
+    private func calculateOptimalDeliveryTime(preferences: AINotificationPreferences) -> Date {
         let now = Date()
         let calendar = Calendar.current
         let currentHour = calendar.component(.hour, from: now)
@@ -348,12 +348,12 @@ class SmartNotificationService {
     // MARK: - Learn User Preferences (AI)
     
     /// Update user preferences based on engagement patterns (called by Cloud Function)
-    func updateUserPreferences(userId: String, engagement: NotificationEngagement) async throws {
+    func updateUserPreferences(userId: String, engagement: AINotificationEngagement) async throws {
         
         let currentPrefs = try await getUserPreferences(userId: userId)
         
         // AI learning: Adjust preferences based on user behavior
-        let updatedPrefs = NotificationPreferences(
+        let updatedPrefs = AINotificationPreferences(
             userId: userId,
             bestTimeOfDay: engagement.openedAt?.hour ?? currentPrefs.bestTimeOfDay,
             preferredBatchSize: currentPrefs.preferredBatchSize,
@@ -380,8 +380,8 @@ class SmartNotificationService {
 
 // MARK: - Supporting Models
 
-/// Notification engagement tracking
-struct NotificationEngagement {
+/// Notification engagement tracking for AI learning
+struct AINotificationEngagement {
     let userId: String
     let batchId: String
     let opened: Bool

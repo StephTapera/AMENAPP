@@ -379,7 +379,7 @@ struct PeopleSearchResultsView: View {
                 LazyVStack(spacing: 16) {
                     ForEach(viewModel.users) { user in
                         NavigationLink(destination: UserProfileView(userId: user.id ?? "")) {
-                            UserDiscoveryCard(user: user)
+                            DiscoveryUserCard(user: user)
                         }
                         .buttonStyle(PlainButtonStyle())
                     }

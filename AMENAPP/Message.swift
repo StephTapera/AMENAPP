@@ -9,15 +9,46 @@ import Foundation
 import SwiftUI
 import UIKit
 
+// MARK: - Message Delivery Status
+
+public enum MessageDeliveryStatus {
+    case sending      // Gray clock icon
+    case sent         // Single gray checkmark
+    case delivered    // Double gray checkmarks
+    case read         // Double blue checkmarks
+    case failed       // Red exclamation
+    
+    public var icon: String {
+        switch self {
+        case .sending: return "clock"
+        case .sent: return "checkmark"
+        case .delivered: return "checkmark.circle"
+        case .read: return "checkmark.circle.fill"
+        case .failed: return "exclamationmark.circle.fill"
+        }
+    }
+    
+    public var color: SwiftUI.Color {
+        switch self {
+        case .sending: return .secondary
+        case .sent: return .secondary
+        case .delivered: return .secondary
+        case .read: return .blue
+        case .failed: return .red
+        }
+    }
+}
+
 // MARK: - Message Model
 
-class AppMessage: Identifiable, Equatable, Hashable {
-    var id: String
+public class AppMessage: Identifiable, Equatable, Hashable {
+    public var id: String
     let text: String
     let isFromCurrentUser: Bool
     let timestamp: Date
     var senderId: String
     var senderName: String?
+    var senderProfileImageURL: String? // ✅ Sender's profile image URL
     var attachments: [MessageAttachment] = []
     var replyTo: AppMessage?
     var reactions: [MessageReaction] = []
@@ -45,6 +76,7 @@ class AppMessage: Identifiable, Equatable, Hashable {
         timestamp: Date,
         senderId: String = "",
         senderName: String? = nil,
+        senderProfileImageURL: String? = nil,
         attachments: [MessageAttachment] = [],
         replyTo: AppMessage? = nil,
         reactions: [MessageReaction] = [],
@@ -69,6 +101,7 @@ class AppMessage: Identifiable, Equatable, Hashable {
         self.timestamp = timestamp
         self.senderId = senderId
         self.senderName = senderName
+        self.senderProfileImageURL = senderProfileImageURL
         self.attachments = attachments
         self.replyTo = replyTo
         self.reactions = reactions
@@ -113,23 +146,29 @@ class AppMessage: Identifiable, Equatable, Hashable {
         }
     }
     
-    static func == (lhs: AppMessage, rhs: AppMessage) -> Bool {
+    var formattedTimestamp: String {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        return formatter.string(from: timestamp)
+    }
+    
+    public static func == (lhs: AppMessage, rhs: AppMessage) -> Bool {
         lhs.id == rhs.id
     }
     
-    func hash(into hasher: inout Hasher) {
+    public func hash(into hasher: inout Hasher) {
         hasher.combine(id)
     }
 }
 
-struct MessageAttachment: Identifiable, Equatable, Hashable {
-    let id: UUID
-    let type: AttachmentType
-    let data: Data?
-    let thumbnail: UIImage?
-    let url: URL?
+public struct MessageAttachment: Identifiable, Equatable, Hashable {
+    public let id: UUID
+    public let type: AttachmentType
+    public let data: Data?
+    public let thumbnail: UIImage?
+    public let url: URL?
     
-    enum AttachmentType: Hashable {
+    public enum AttachmentType: Hashable {
         case photo
         case video
         case audio
@@ -137,7 +176,7 @@ struct MessageAttachment: Identifiable, Equatable, Hashable {
         case location
     }
     
-    init(
+    public init(
         id: UUID = UUID(),
         type: AttachmentType,
         data: Data? = nil,
@@ -151,48 +190,48 @@ struct MessageAttachment: Identifiable, Equatable, Hashable {
         self.url = url
     }
     
-    static func == (lhs: MessageAttachment, rhs: MessageAttachment) -> Bool {
+    public static func == (lhs: MessageAttachment, rhs: MessageAttachment) -> Bool {
         lhs.id == rhs.id
     }
     
-    func hash(into hasher: inout Hasher) {
+    public func hash(into hasher: inout Hasher) {
         hasher.combine(id)
     }
 }
 
-struct MessageReaction: Identifiable, Equatable, Hashable {
-    let id: UUID
-    let emoji: String
-    let userId: String
-    let username: String
+public struct MessageReaction: Identifiable, Equatable, Hashable {
+    public let id: UUID
+    public let emoji: String
+    public let userId: String
+    public let username: String
     
-    init(emoji: String, userId: String, username: String) {
+    public init(emoji: String, userId: String, username: String) {
         self.id = UUID()
         self.emoji = emoji
         self.userId = userId
         self.username = username
     }
     
-    static func == (lhs: MessageReaction, rhs: MessageReaction) -> Bool {
+    public static func == (lhs: MessageReaction, rhs: MessageReaction) -> Bool {
         lhs.id == rhs.id
     }
     
-    func hash(into hasher: inout Hasher) {
+    public func hash(into hasher: inout Hasher) {
         hasher.combine(id)
     }
 }
 
 // MARK: - Link Preview
 
-struct MessageLinkPreview: Identifiable, Equatable, Hashable {
-    let id: UUID
-    let url: URL
-    let title: String?
-    let description: String?
-    let imageUrl: String?
-    let favicon: String?
+public struct MessageLinkPreview: Identifiable, Equatable, Hashable {
+    public let id: UUID
+    public let url: URL
+    public let title: String?
+    public let description: String?
+    public let imageUrl: String?
+    public let favicon: String?
     
-    init(
+    public init(
         url: URL,
         title: String? = nil,
         description: String? = nil,
@@ -207,11 +246,11 @@ struct MessageLinkPreview: Identifiable, Equatable, Hashable {
         self.favicon = favicon
     }
     
-    static func == (lhs: MessageLinkPreview, rhs: MessageLinkPreview) -> Bool {
+    public static func == (lhs: MessageLinkPreview, rhs: MessageLinkPreview) -> Bool {
         lhs.id == rhs.id
     }
     
-    func hash(into hasher: inout Hasher) {
+    public func hash(into hasher: inout Hasher) {
         hasher.combine(id)
     }
 }

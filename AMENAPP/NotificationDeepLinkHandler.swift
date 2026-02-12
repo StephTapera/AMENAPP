@@ -8,6 +8,7 @@
 import Foundation
 import SwiftUI
 import UserNotifications
+import Combine
 
 /// Handles deep linking from system push notifications
 @MainActor

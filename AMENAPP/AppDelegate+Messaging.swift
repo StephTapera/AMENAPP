@@ -16,12 +16,12 @@ import UserNotifications
  ⚠️ INTEGRATION INSTRUCTIONS:
  
  1. Add this code to your existing AppDelegate.swift file
- 2. Make sure AppDelegate conforms to UNUserNotificationCenterDelegate
+ 2. This file uses CompositeNotificationDelegate for notification handling (not AppDelegate itself)
  3. Call setupMessaging() and setupFirestore() in application(_:didFinishLaunchingWithOptions:)
  
  Example:
  
- class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+ class AppDelegate: NSObject, UIApplicationDelegate {
      
      func application(_ application: UIApplication, 
                       didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
@@ -73,11 +73,16 @@ extension AppDelegate {
     
     /// Setup push notifications and FCM
     func setupMessaging() {
-        // Set notification delegate
-        UNUserNotificationCenter.current().delegate = self
+        let center = UNUserNotificationCenter.current()
         
-        // Configure push notification manager
-        PushNotificationManager.shared.configure()
+        // Use composite delegate that handles both Firebase and Church notifications
+        center.delegate = CompositeNotificationDelegate.shared
+        
+        // Set FCM delegate - PushNotificationManager conforms to MessagingDelegate
+        Messaging.messaging().delegate = PushNotificationManager.shared as MessagingDelegate
+        
+        // Setup FCM token
+        PushNotificationManager.shared.setupFCMToken()
         
         print("✅ Push notifications configured")
     }
@@ -98,50 +103,13 @@ extension AppDelegate {
     }
 }
 
-// MARK: - UNUserNotificationCenterDelegate
-
-extension AppDelegate {
-    
-    /// Handle notification when app is in foreground
-    func userNotificationCenter(_ center: UNUserNotificationCenter,
-                               willPresent notification: UNNotification,
-                               withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
-        let userInfo = notification.request.content.userInfo
-        
-        print("📬 Received notification while in foreground: \(userInfo)")
-        
-        // Show notification even when app is in foreground
-        completionHandler([.banner, .sound, .badge])
-    }
-    
-    /// Handle notification tap
-    func userNotificationCenter(_ center: UNUserNotificationCenter,
-                               didReceive response: UNNotificationResponse,
-                               withCompletionHandler completionHandler: @escaping () -> Void) {
-        let userInfo = response.notification.request.content.userInfo
-        
-        print("👆 User tapped notification: \(userInfo)")
-        
-        // Extract conversation ID
-        if let conversationId = userInfo["conversationId"] as? String {
-            handleNotificationTap(conversationId: conversationId)
-        }
-        
-        completionHandler()
-    }
-    
-    /// Handle notification tap - navigate to conversation
-    private func handleNotificationTap(conversationId: String) {
-        // Post notification to navigate to conversation
-        NotificationCenter.default.post(
-            name: NSNotification.Name("OpenConversation"),
-            object: nil,
-            userInfo: ["conversationId": conversationId]
-        )
-        
-        print("🚀 Navigating to conversation: \(conversationId)")
-    }
-}
+// MARK: - Notification Handling
+// Note: Notification delegate methods are handled by CompositeNotificationDelegate
+// which is set in setupMessaging(). The CompositeNotificationDelegate coordinates
+// between PushNotificationManager and ChurchNotificationManager.
+//
+// If you need custom notification handling in AppDelegate, you can extend
+// CompositeNotificationDelegate or PushNotificationManager instead.
 
 // MARK: - Sample AppDelegate Template
 
@@ -154,7 +122,7 @@ import FirebaseFirestore
 import FirebaseMessaging
 import UserNotifications
 
-class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+class AppDelegate: NSObject, UIApplicationDelegate {
     
     func application(_ application: UIApplication, 
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
@@ -188,42 +156,31 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     // MARK: - Push Notification Setup
     
     func setupMessaging() {
-        UNUserNotificationCenter.current().delegate = self
-        PushNotificationManager.shared.configure()
+        let center = UNUserNotificationCenter.current()
+        
+        // Use composite delegate that handles notifications
+        center.delegate = CompositeNotificationDelegate.shared
+        
+        // Set FCM delegate
+        Messaging.messaging().delegate = PushNotificationManager.shared as MessagingDelegate
+        
+        // Setup FCM token
+        PushNotificationManager.shared.setupFCMToken()
+        
         print("✅ Push notifications configured")
     }
     
     func application(_ application: UIApplication, 
                      didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         Messaging.messaging().apnsToken = deviceToken
+        PushNotificationManager.shared.didRegisterForRemoteNotifications(deviceToken: deviceToken)
         print("✅ APNS token registered")
     }
     
     func application(_ application: UIApplication, 
                      didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        PushNotificationManager.shared.didFailToRegisterForRemoteNotifications(error: error)
         print("❌ Failed to register for remote notifications: \(error)")
-    }
-    
-    // MARK: - UNUserNotificationCenterDelegate
-    
-    func userNotificationCenter(_ center: UNUserNotificationCenter,
-                               willPresent notification: UNNotification,
-                               withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
-        completionHandler([.banner, .sound, .badge])
-    }
-    
-    func userNotificationCenter(_ center: UNUserNotificationCenter,
-                               didReceive response: UNNotificationResponse,
-                               withCompletionHandler completionHandler: @escaping () -> Void) {
-        let userInfo = response.notification.request.content.userInfo
-        if let conversationId = userInfo["conversationId"] as? String {
-            NotificationCenter.default.post(
-                name: NSNotification.Name("OpenConversation"),
-                object: nil,
-                userInfo: ["conversationId": conversationId]
-            )
-        }
-        completionHandler()
     }
 }
 
@@ -238,4 +195,7 @@ struct AMENAPPApp: App {
         }
     }
 }
+
+// Note: Notification delegate methods (willPresent, didReceive) are handled by
+// CompositeNotificationDelegate and PushNotificationManager, not AppDelegate directly.
 */

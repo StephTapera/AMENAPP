@@ -219,6 +219,7 @@ class RealtimePostService: ObservableObject {
         // Create Post object for return
         let post = Post(
             id: UUID(uuidString: postId) ?? UUID(),
+            firebaseId: postId,
             authorId: userId,
             authorName: displayName,
             authorInitials: initials,
@@ -315,6 +316,7 @@ class RealtimePostService: ObservableObject {
         
         return Post(
             id: UUID(uuidString: postId) ?? UUID(),
+            firebaseId: postId,
             authorId: authorId,
             authorName: authorName,
             authorInitials: authorInitials,

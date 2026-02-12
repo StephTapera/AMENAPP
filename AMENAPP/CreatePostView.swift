@@ -56,11 +56,11 @@ struct CreatePostView: View {
     @Namespace private var categoryNamespace
     
     // MARK: - New Features State
-    @State private var autoSaveTimer: Timer?
+    @State private var autoSaveTask: Task<Void, Never>?
     @State private var showMentionSuggestions = false
     @State private var mentionSuggestions: [AlgoliaUser] = []
     @State private var currentMentionQuery = ""
-    @State private var linkMetadata: LinkMetadata?
+    @State private var linkMetadata: LinkPreviewMetadata?
     @State private var isLoadingLinkPreview = false
     @State private var showDraftRecovery = false
     @State private var recoveredDraft: Draft?
@@ -165,6 +165,7 @@ struct CreatePostView: View {
                         .padding(.bottom, 100)
                     }
                     .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .animation(.easeOut(duration: 0.2), value: isUploadingImages)
                 }
                 
                 // Draft saved notification
@@ -191,16 +192,49 @@ struct CreatePostView: View {
                         .padding(.bottom, 100)
                     }
                     .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .animation(.easeOut(duration: 0.2), value: showingDraftSavedNotice)
+                }
+                
+                // Success notification (for post published) - Subtle black & white
+                if showingSuccessNotice {
+                    VStack {
+                        Spacer()
+                        
+                        HStack(spacing: 10) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(.black)
+                            
+                            Text("Post published")
+                                .font(.custom("OpenSans-SemiBold", size: 14))
+                                .foregroundStyle(.black.opacity(0.8))
+                        }
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 12)
+                        .background(
+                            Capsule()
+                                .fill(.white)
+                                .overlay(
+                                    Capsule()
+                                        .stroke(.black.opacity(0.1), lineWidth: 1)
+                                )
+                                .shadow(color: .black.opacity(0.08), radius: 8, y: 2)
+                        )
+                        .padding(.bottom, 100)
+                    }
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .animation(.spring(response: 0.4, dampingFraction: 0.8), value: showingSuccessNotice)
                 }
             }
             .navigationTitle("Create Post")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
+                ToolbarItem(placement: .navigationBarLeading) {
                     GlassmorphicButton(
                         icon: "xmark",
                         style: .secondary
                     ) {
+                        isTextFieldFocused = false
                         if !postText.isEmpty {
                             saveDraft()
                         }
@@ -210,35 +244,11 @@ struct CreatePostView: View {
                     .accessibilityHint("Saves draft if content exists and closes the post editor")
                 }
                 
-                // Keyboard dismiss button (shows when keyboard is visible)
-                ToolbarItem(placement: .keyboard) {
-                    HStack {
-                        Spacer()
-                        
-                        Button {
-                            isTextFieldFocused = false
-                        } label: {
-                            HStack(spacing: 6) {
-                                Image(systemName: "keyboard.chevron.compact.down")
-                                    .font(.system(size: 14, weight: .semibold))
-                                Text("Done")
-                                    .font(.custom("OpenSans-SemiBold", size: 15))
-                            }
-                            .foregroundStyle(.blue)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(
-                                Capsule()
-                                    .fill(Color.blue.opacity(0.1))
-                            )
-                        }
-                    }
-                }
-                
-                // Add Drafts button
+                // Drafts button
                 ToolbarItem(placement: .navigationBarLeading) {
                     if !draftsManager.drafts.isEmpty {
                         Button {
+                            isTextFieldFocused = false
                             showDraftsSheet = true
                         } label: {
                             HStack(spacing: 6) {
@@ -263,7 +273,7 @@ struct CreatePostView: View {
                 }
                 
                 // Post Button - Top Right
-                ToolbarItem(placement: .confirmationAction) {
+                ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: {
                         print("🔵 Post button tapped!")
                         print("   canPost: \(canPost)")
@@ -277,7 +287,9 @@ struct CreatePostView: View {
                             return
                         }
                         
-                        print("✅ Calling publishPost()")
+                        // ⚡ INSTANT: No delay - dismiss keyboard and post immediately
+                        isTextFieldFocused = false
+                        print("✅ Calling publishPost() immediately (Instagram-fast)")
                         publishPost()
                     }) {
                         ZStack {
@@ -379,13 +391,13 @@ struct CreatePostView: View {
             }
             .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { notification in
                 if let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect {
-                    withAnimation(.easeOut(duration: 0.25)) {
+                    withAnimation(.easeOut(duration: 0.2)) {
                         keyboardHeight = keyboardFrame.height
                     }
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
-                withAnimation(.easeOut(duration: 0.25)) {
+                withAnimation(.easeOut(duration: 0.2)) {
                     keyboardHeight = 0
                 }
             }
@@ -408,8 +420,9 @@ struct CreatePostView: View {
             startAutoSaveTimer()
         }
         .onDisappear {
-            // Stop auto-save timer when view disappears
-            autoSaveTimer?.invalidate()
+            // Stop auto-save task when view disappears
+            autoSaveTask?.cancel()
+            autoSaveTask = nil
         }
         .alert("Recover Draft?", isPresented: $showDraftRecovery) {
             Button("Recover") {
@@ -431,27 +444,16 @@ struct CreatePostView: View {
         let hasContent = !postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         let isWithinLimit = postText.count <= 500
         
-        print("🔍 canPost check:")
-        print("   hasContent: \(hasContent)")
-        print("   isWithinLimit: \(isWithinLimit)")
-        print("   postText length: \(postText.count)")
-        print("   selectedCategory: \(selectedCategory.rawValue)")
-        print("   selectedTopicTag: '\(selectedTopicTag)'")
-        
         // Block posting if over character limit
         guard isWithinLimit else {
-            print("   ❌ Over character limit")
             return false
         }
         
         // If posting to #OPENTABLE or Prayer, topic tag is required
         if selectedCategory == .openTable || selectedCategory == .prayer {
-            let result = hasContent && !selectedTopicTag.isEmpty
-            print("   Topic tag required - result: \(result)")
-            return result
+            return hasContent && !selectedTopicTag.isEmpty
         }
         
-        print("   ✅ Can post: \(hasContent)")
         return hasContent
     }
     
@@ -518,16 +520,17 @@ struct CreatePostView: View {
                 characterCountView
             }
         }
-        .scrollDismissesKeyboard(.interactively) // ✅ Dismiss keyboard on scroll
+        .scrollDismissesKeyboard(.interactively) // ✅ Dismiss keyboard on scroll (swipe down)
+        .contentShape(Rectangle()) // Make entire scroll view tappable
         .onTapGesture {
-            // ✅ Dismiss keyboard when tapping outside
+            // ✅ Dismiss keyboard when tapping empty space (like Threads)
             isTextFieldFocused = false
         }
     }
     
     private var bottomToolbar: some View {
         VStack(spacing: 0) {
-            // Character count indicator above toolbar
+            // Character count indicator above toolbar (only when approaching limit)
             if postText.count > 400 {
                 HStack(spacing: 3) {
                     Image(systemName: characterCountIcon)
@@ -545,50 +548,58 @@ struct CreatePostView: View {
                 )
                 .padding(.bottom, 6)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
+                .animation(.easeOut(duration: 0.15), value: postText.count > 400)
             }
             
-            // Sleek glass toolbar (matching design image)
-            HStack(spacing: 16) {
+            // Compact sleek glass toolbar (matching design image)
+            HStack(spacing: 14) {
                 // Photo button
-                GlassToolbarIcon(
+                CompactGlassButton(
                     icon: "photo.fill",
-                    isActive: !selectedImageData.isEmpty
+                    isActive: !selectedImageData.isEmpty,
+                    count: selectedImageData.count
                 ) {
-                    showingImagePicker = true
+                    withAnimation(.easeOut(duration: 0.15)) {
+                        showingImagePicker = true
+                    }
                 }
                 .accessibilityLabel("Add photos")
                 
                 // Link button
-                GlassToolbarIcon(
+                CompactGlassButton(
                     icon: "link",
                     isActive: !linkURL.isEmpty
                 ) {
-                    showingLinkSheet = true
+                    withAnimation(.easeOut(duration: 0.15)) {
+                        showingLinkSheet = true
+                    }
                 }
                 .accessibilityLabel("Add link")
                 
                 // Schedule button
-                GlassToolbarIcon(
+                CompactGlassButton(
                     icon: "calendar",
                     isActive: scheduledDate != nil
                 ) {
-                    showingScheduleSheet = true
+                    withAnimation(.easeOut(duration: 0.15)) {
+                        showingScheduleSheet = true
+                    }
                 }
                 .accessibilityLabel("Schedule post")
                 
                 // Allow comments toggle
-                GlassToolbarIcon(
-                    icon: "bubble.left.and.bubble.right.fill",
+                CompactGlassButton(
+                    icon: allowComments ? "bubble.left.and.bubble.right.fill" : "bubble.left.and.bubble.right",
                     isActive: allowComments
                 ) {
-                    allowComments.toggle()
-                    let haptic = UIImpactFeedbackGenerator(style: .light)
-                    haptic.impactOccurred()
+                    withAnimation(.easeOut(duration: 0.15)) {
+                        allowComments.toggle()
+                    }
                 }
                 .accessibilityLabel("Comments")
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8) // Reduced from 10
             .background(
                 ZStack {
                     // Glass effect background
@@ -619,15 +630,19 @@ struct CreatePostView: View {
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             ),
-                            lineWidth: 1
+                            lineWidth: 0.5
                         )
                 }
             )
-            .shadow(color: .black.opacity(0.08), radius: 16, y: 4)
-            .shadow(color: .white.opacity(0.5), radius: 8, y: -2)
+            .shadow(color: .black.opacity(0.06), radius: 12, y: 3)
+            .shadow(color: .white.opacity(0.4), radius: 6, y: -1)
             .padding(.horizontal, 40)
-            .padding(.bottom, 8)
+            .padding(.bottom, 6) // Reduced from 8
         }
+        .animation(.easeOut(duration: 0.15), value: selectedImageData.count)
+        .animation(.easeOut(duration: 0.15), value: linkURL)
+        .animation(.easeOut(duration: 0.15), value: scheduledDate)
+        .animation(.easeOut(duration: 0.15), value: allowComments)
     }
     
     // MARK: - View Components
@@ -663,7 +678,9 @@ struct CreatePostView: View {
             topicTagHeaderView
             
             Button {
-                showingTopicTagSheet = true
+                withAnimation(.easeOut(duration: 0.2)) {
+                    showingTopicTagSheet = true
+                }
             } label: {
                 topicTagButtonContent
             }
@@ -733,32 +750,28 @@ struct CreatePostView: View {
     
     private var textEditorView: some View {
         VStack(alignment: .leading, spacing: 12) {
-            ZStack(alignment: .topLeading) {
-                // Background that dismisses keyboard on tap
-                Color.clear
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        // Only dismiss if tapping empty space
-                        if postText.isEmpty {
-                            isTextFieldFocused = false
-                        }
-                    }
-                
-                GeometryReader { geometry in
+            GeometryReader { geometry in
+                ZStack(alignment: .topLeading) {
                     TextEditor(text: $postText)
                         .font(.custom("OpenSans-Regular", size: 17))
                         .focused($isTextFieldFocused)
                         .scrollContentBackground(.hidden)
-                        .overlay(alignment: .topLeading) {
-                            EditorPlaceholderView(
-                                isEmpty: postText.isEmpty,
-                                placeholder: placeholderText,
-                                description: selectedCategory.description
-                            )
-                        }
                         .onChange(of: postText) { _, newValue in
                             detectHashtags(in: newValue)
+                            detectAndFetchLinkPreview(in: newValue)
                         }
+                    
+                    // Placeholder overlay
+                    if postText.isEmpty {
+                        EditorPlaceholderView(
+                            isEmpty: postText.isEmpty,
+                            placeholder: placeholderText,
+                            description: selectedCategory.description
+                        )
+                        .padding(.top, 8)
+                        .padding(.leading, 5)
+                        .allowsHitTesting(false)
+                    }
                 }
             }
             .frame(minHeight: 150, maxHeight: 300)
@@ -895,7 +908,9 @@ struct CreatePostView: View {
             Spacer()
             
             Button {
-                self.scheduledDate = nil
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    self.scheduledDate = nil
+                }
             } label: {
                 Image(systemName: "xmark.circle.fill")
                     .font(.system(size: 20))
@@ -912,7 +927,7 @@ struct CreatePostView: View {
                 .stroke(Color.green.opacity(0.3), lineWidth: 1)
         )
         .padding(.horizontal, 20)
-        .transition(.move(edge: .top).combined(with: .opacity))
+        .transition(.scale.combined(with: .opacity))
     }
     
     private var characterCountView: some View {
@@ -951,11 +966,9 @@ struct CreatePostView: View {
     }
     
     private func handleCategorySelection(_ category: PostCategory) {
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+        withAnimation(.easeOut(duration: 0.2)) {
             selectedCategory = category
             updateHashtagSuggestions()
-            let haptic = UIImpactFeedbackGenerator(style: .medium)
-            haptic.impactOccurred()
         }
     }
     
@@ -994,9 +1007,56 @@ struct CreatePostView: View {
         errorMessage = message
         showingErrorAlert = true
         
-        // Error haptic
-        let haptic = UINotificationFeedbackGenerator()
-        haptic.notificationOccurred(.error)
+    }
+    
+    /// Show crisis resources alert when crisis is detected in prayer request
+    private func showCrisisResourcesAlert(crisisResult: CrisisDetectionResult) {
+        let resourcesText = crisisResult.recommendedResources.map { resource in
+            "\(resource.displayName): \(resource.phoneNumber)"
+        }.joined(separator: "\n")
+        
+        let alert = UIAlertController(
+            title: "🙏 We're Here for You",
+            message: """
+            We noticed your prayer request may indicate you're going through a difficult time.
+            
+            Please consider reaching out to these resources for immediate support:
+            
+            \(resourcesText)
+            
+            You are not alone. Help is available 24/7.
+            """,
+            preferredStyle: .alert
+        )
+        
+        // Add "Call Now" buttons for critical resources
+        if crisisResult.urgencyLevel == .critical {
+            for resource in crisisResult.recommendedResources.prefix(2) {
+                alert.addAction(UIAlertAction(title: "Call \(resource.displayName)", style: .default) { _ in
+                    if let url = URL(string: "tel://\(resource.phoneNumber.replacingOccurrences(of: "-", with: ""))") {
+                        UIApplication.shared.open(url)
+                    }
+                })
+            }
+        }
+        
+        // View Resources button
+        alert.addAction(UIAlertAction(title: "View All Resources", style: .default) { _ in
+            // Navigate to Resources view
+            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+               let rootVC = windowScene.windows.first?.rootViewController {
+                // Present resources view
+            }
+        })
+        
+        // Continue Posting button
+        alert.addAction(UIAlertAction(title: "Continue Posting", style: .cancel))
+        
+        // Present alert
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let rootVC = windowScene.windows.first?.rootViewController {
+            rootVC.present(alert, animated: true)
+        }
     }
     
     /// Convert technical errors to user-friendly messages
@@ -1138,8 +1198,6 @@ struct CreatePostView: View {
             }
         }
         
-        let haptic = UINotificationFeedbackGenerator()
-        haptic.notificationOccurred(.success)
     }
     
     private func publishPost() {
@@ -1260,97 +1318,223 @@ struct CreatePostView: View {
                 print("   Link URL: \(linkURL ?? "none")")
                 print("   Images: \(selectedImageData.count)")
                 
-                // Upload images first if any
-                var imageURLs: [String]? = nil
-                if !selectedImageData.isEmpty {
-                    print("📤 Uploading \(selectedImageData.count) images...")
-                    do {
-                        imageURLs = try await uploadImages()
-                        print("✅ Images uploaded: \(imageURLs?.count ?? 0)")
-                    } catch {
-                        print("❌ Image upload failed: \(error)")
-                        throw error
-                    }
+                guard let currentUserId = Auth.auth().currentUser?.uid else {
+                    throw NSError(domain: "CreatePostView", code: 401, 
+                                  userInfo: [NSLocalizedDescriptionKey: "Not authenticated"])
                 }
                 
-                // 🔥 FIX: Use Firestore directly (RealtimePostService has schema mismatch)
-                print("📝 Creating post in Firestore...")
+                // ============================================================================
+                // ⚡ INSTAGRAM-FAST: Run moderation and post creation in parallel
+                // ============================================================================
                 
-                let newPost: Post
-                do {
-                    guard let currentUser = Auth.auth().currentUser else {
-                        throw NSError(domain: "CreatePostView", code: 401, userInfo: [NSLocalizedDescriptionKey: "Not authenticated"])
-                    }
-                    
-                    let postId = UUID()
-                    let timestamp = Date()
-                    
-                    // Create Post object
-                    newPost = Post(
-                        id: postId,
-                        authorId: currentUser.uid,
-                        authorName: currentUser.displayName ?? "User",
-                        authorInitials: String((currentUser.displayName ?? "U").prefix(1)),
-                        timeAgo: "now",
-                        content: content,
-                        category: category,
-                        topicTag: topicTag,
-                        visibility: .everyone,
-                        allowComments: allowComments,
-                        imageURLs: imageURLs,
-                        linkURL: linkURL,
-                        createdAt: timestamp,
-                        amenCount: 0,
-                        lightbulbCount: 0,
-                        commentCount: 0,
-                        repostCount: 0
+                // Start moderation check (don't await yet)
+                let contentType: ContentType = category == .prayer ? .prayerRequest : .post
+                print("🛡️ Starting AI moderation check in parallel...")
+                let moderationTask = Task {
+                    try await ContentModerationService.shared.moderateContent(
+                        content,
+                        type: contentType,
+                        userId: currentUserId
                     )
-                    
-                    print("   ✅ Post object created: \(postId)")
-                    
-                    // Save to Firestore
-                    let postData: [String: Any] = [
-                        "authorId": currentUser.uid,
-                        "authorName": currentUser.displayName ?? "User",
-                        "authorInitials": String((currentUser.displayName ?? "U").prefix(1)),
-                        "content": content,
-                        "category": category.rawValue,
-                        "topicTag": topicTag as Any,
-                        "visibility": "everyone",
-                        "allowComments": allowComments,
-                        "imageURLs": imageURLs as Any,
-                        "linkURL": linkURL as Any,
-                        "createdAt": Timestamp(date: timestamp),
-                        "amenCount": 0,
-                        "commentCount": 0,
-                        "repostCount": 0,
-                        "lightbulbCount": 0
-                    ]
-                    
-                    print("   📤 Saving to Firestore...")
-                    try await FirebaseManager.shared.firestore
-                        .collection("posts")
-                        .document(postId.uuidString)
-                        .setData(postData)
-                    
-                    print("✅ Post saved to Firestore successfully!")
-                    print("   Post ID: \(newPost.id)")
-                    print("   Category: \(newPost.category.rawValue)")
-                    print("   Author: \(newPost.authorName)")
-                } catch {
-                    print("❌ RealtimePostService.createPost failed: \(error)")
-                    if let nsError = error as NSError? {
-                        print("   Domain: \(nsError.domain)")
-                        print("   Code: \(nsError.code)")
-                        print("   UserInfo: \(nsError.userInfo)")
-                    }
-                    throw error
                 }
                 
+                // Start fetching user data in parallel
+                guard let currentUser = Auth.auth().currentUser else {
+                    throw NSError(domain: "CreatePostView", code: 401, userInfo: [NSLocalizedDescriptionKey: "Not authenticated"])
+                }
+                
+                let postId = UUID()
+                let timestamp = Date()
+                
+                // ⚡ PARALLEL: Fetch profile picture while other tasks run
+                print("🖼️ Fetching profile picture in parallel...")
+                let userDataTask = Task {
+                    try await FirebaseManager.shared.firestore
+                        .collection("users")
+                        .document(currentUser.uid)
+                        .getDocument()
+                }
+                
+                // ⚡ PARALLEL: Upload images while other tasks run
+                var imageURLs: [String]? = nil
+                let imageUploadTask: Task<[String]?, Error>? = selectedImageData.isEmpty ? nil : Task {
+                    print("📤 Uploading \(selectedImageData.count) images in parallel...")
+                    do {
+                        let urls = try await uploadImages()
+                        print("✅ Images uploaded: \(urls.count)")
+                        return urls
+                    } catch {
+                        print("❌ Image upload failed (non-critical): \(error)")
+                        return nil
+                    }
+                }
+                
+                // ⚡ WAIT: Get results from parallel tasks
+                let userDoc = try await userDataTask.value
+                let userData = userDoc.data()
+                let authorProfileImageURL = userData?["profileImageURL"] as? String
+                
+                if let imageTask = imageUploadTask {
+                    imageURLs = try await imageTask.value
+                }
+                
+                // Check moderation result (should be fast since it started first)
+                let moderationResult = try await moderationTask.value
+                
+                if !moderationResult.isApproved {
+                    await MainActor.run {
+                        isPublishing = false
+                        let reasons = moderationResult.flaggedReasons.joined(separator: ", ")
+                        showError(
+                            title: "Content Flagged",
+                            message: "Your post was flagged for: \(reasons). Please review and edit your content."
+                        )
+                    }
+                    print("❌ Post blocked by moderation: \(moderationResult.flaggedReasons)")
+                    return
+                }
+                
+                print("✅ Content passed moderation")
+                
+                // Extract mentions from content
+                let mentionUsernames = Post.extractMentionUsernames(from: content)
+                var mentions: [MentionedUser] = []
+                
+                if !mentionUsernames.isEmpty {
+                    print("📧 Found \(mentionUsernames.count) mentions: \(mentionUsernames)")
+                    // Fetch user data for each mentioned username
+                    for username in mentionUsernames {
+                        do {
+                            let userQuery = try await FirebaseManager.shared.firestore
+                                .collection("users")
+                                .whereField("username", isEqualTo: username)
+                                .limit(to: 1)
+                                .getDocuments()
+                            
+                            if let userDoc = userQuery.documents.first {
+                                let userId = userDoc.documentID
+                                let displayName = userDoc.data()["displayName"] as? String ?? username
+                                mentions.append(MentionedUser(
+                                    userId: userId,
+                                    username: username,
+                                    displayName: displayName
+                                ))
+                                print("   ✓ Resolved @\(username) -> \(userId)")
+                            }
+                        } catch {
+                            print("   ⚠️ Failed to resolve @\(username): \(error)")
+                        }
+                    }
+                }
+                
+                // Create Post object with mentions
+                var newPost = Post(
+                    id: postId,
+                    firebaseId: nil, // Will be set after Firestore save
+                    authorId: currentUser.uid,
+                    authorName: currentUser.displayName ?? "User",
+                    authorUsername: nil, // TODO: Get from user profile
+                    authorInitials: String((currentUser.displayName ?? "U").prefix(1)),
+                    authorProfileImageURL: authorProfileImageURL, // ✅ Include profile picture!
+                    timeAgo: "now",
+                    content: content,
+                    category: category,
+                    topicTag: topicTag,
+                    visibility: .everyone,
+                    allowComments: allowComments,
+                    commentPermissions: nil,
+                    imageURLs: imageURLs,
+                    linkURL: linkURL,
+                    linkPreviewTitle: linkMetadata?.title,
+                    linkPreviewDescription: linkMetadata?.description,
+                    linkPreviewImageURL: linkMetadata?.imageURL?.absoluteString,
+                    linkPreviewSiteName: linkMetadata?.siteName,
+                    createdAt: timestamp,
+                    amenCount: 0,
+                    lightbulbCount: 0,
+                    commentCount: 0,
+                    repostCount: 0
+                )
+                
+                // Set mentions if any were found
+                if !mentions.isEmpty {
+                    newPost.mentions = mentions
+                }
+                
+                print("   ✅ Post object created: \(postId)")
+                
+                // Save to Firestore immediately
+                var postData: [String: Any] = [
+                    "authorId": currentUser.uid,
+                    "authorName": currentUser.displayName ?? "User",
+                    "authorInitials": String((currentUser.displayName ?? "U").prefix(1)),
+                    "content": content,
+                    "category": category.rawValue,
+                    "topicTag": topicTag as Any,
+                    "visibility": "everyone",
+                    "allowComments": allowComments,
+                    "imageURLs": imageURLs as Any,
+                    "linkURL": linkURL as Any,
+                    "createdAt": Timestamp(date: timestamp),
+                    "amenCount": 0,
+                    "commentCount": 0,
+                    "repostCount": 0,
+                    "lightbulbCount": 0
+                ]
+                
+                // ✅ Add profile picture if available
+                if let authorProfileImageURL = authorProfileImageURL {
+                    postData["authorProfileImageURL"] = authorProfileImageURL
+                }
+                
+                // ✅ Add mentions if available
+                if !mentions.isEmpty {
+                    postData["mentions"] = mentions.map { mention in
+                        [
+                            "userId": mention.userId,
+                            "username": mention.username,
+                            "displayName": mention.displayName
+                        ]
+                    }
+                }
+                
+                // ✅ Add link preview metadata if available
+                if let linkMetadata = linkMetadata {
+                    postData["linkPreviewTitle"] = linkMetadata.title as Any
+                    postData["linkPreviewDescription"] = linkMetadata.description as Any
+                    postData["linkPreviewImageURL"] = linkMetadata.imageURL?.absoluteString as Any
+                    postData["linkPreviewSiteName"] = linkMetadata.siteName as Any
+                    print("   🔗 Link preview metadata added")
+                }
+                
+                print("   📤 Saving to Firestore immediately...")
+                try await FirebaseManager.shared.firestore
+                    .collection("posts")
+                    .document(postId.uuidString)
+                    .setData(postData)
+                
+                print("✅ Post saved to Firestore successfully!")
+                print("   Post ID: \(newPost.id)")
+                print("   Category: \(newPost.category.rawValue)")
+                print("   Author: \(newPost.authorName)")
+                
+                // 📧 Send mention notifications (non-blocking background task)
+                if !mentions.isEmpty {
+                    Task {
+                        await NotificationService.shared.sendMentionNotifications(
+                            mentions: mentions,
+                            actorId: currentUser.uid,
+                            actorName: currentUser.displayName ?? "User",
+                            actorUsername: userData?["username"] as? String,
+                            postId: postId.uuidString,
+                            contentType: "post"
+                        )
+                    }
+                }
+                
+                // 📬 INSTANT: Send notification to update UI + dismiss immediately
                 await MainActor.run {
                     print("📬 Sending notification to update UI...")
-                    
-                    // 📬 CRITICAL: Send notification for INSTANT ProfileView update
                     NotificationCenter.default.post(
                         name: .newPostCreated,
                         object: nil,
@@ -1360,25 +1544,16 @@ struct CreatePostView: View {
                             "isOptimistic": true
                         ]
                     )
-                    
                     print("✅ Notification sent successfully")
                     
-                    // Success! Sync to Algolia for search (non-blocking)
-                    print("🔍 Syncing to Algolia in background...")
-                    syncPostToAlgolia(newPost)
-                    
-                    // Success haptic
-                    let haptic = UINotificationFeedbackGenerator()
-                    haptic.notificationOccurred(.success)
-                    
-                    // Show brief success notice
+                    // ⚡ INSTAGRAM-FAST: Show success and dismiss immediately
                     withAnimation {
                         showingSuccessNotice = true
                     }
                     
-                    // Dismiss after brief delay
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        print("👋 Dismissing CreatePostView")
+                    // ⚡ INSTANT DISMISS: No 0.3s delay - dismiss right away
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                        print("👋 Dismissing CreatePostView (Instagram-fast)")
                         dismiss()
                     }
                     
@@ -1386,40 +1561,69 @@ struct CreatePostView: View {
                     isPublishing = false
                     print("✅ Post creation flow completed!")
                 }
+                
+                // Success! Sync to Algolia for search (non-blocking background task)
+                print("🔍 Syncing to Algolia in background...")
+                syncPostToAlgolia(newPost)
+                
+                // ============================================================================
+                // ✅ CRISIS DETECTION (for prayer requests - in background after dismiss)
+                // ============================================================================
+                if category == .prayer {
+                    print("🚨 Running crisis detection for prayer request in background...")
+                    Task {
+                        do {
+                            let crisisResult = try await CrisisDetectionService.shared.detectCrisis(
+                                in: content,
+                                userId: currentUserId
+                            )
+                            
+                            // If crisis detected, show resources (post already created and dismissed)
+                            if crisisResult.isCrisis {
+                                await MainActor.run {
+                                    showCrisisResourcesAlert(crisisResult: crisisResult)
+                                }
+                                print("🚨 Crisis detected: \(crisisResult.crisisTypes.map { $0.displayName })")
+                            }
+                        } catch {
+                            print("⚠️ Crisis detection failed (non-critical): \(error)")
+                        }
+                    }
+                }
             } catch let error as NSError {
+                // ⚠️ Post creation failed in background - user already saw success
+                print("❌ Failed to create post in background (NSError)")
+                print("   Error domain: \(error.domain)")
+                print("   Error code: \(error.code)")
+                print("   Error description: \(error.localizedDescription)")
+                print("   Error userInfo: \(error.userInfo)")
+                print("   Localized failure reason: \(error.localizedFailureReason ?? "none")")
+                print("   Localized recovery suggestion: \(error.localizedRecoverySuggestion ?? "none")")
+                
+                // TODO: Could show a toast notification that post failed
+                // For now, just log - user won't see their post appear
+                
                 await MainActor.run {
-                    print("❌ Failed to create post (NSError)")
-                    print("   Error domain: \(error.domain)")
-                    print("   Error code: \(error.code)")
-                    print("   Error description: \(error.localizedDescription)")
-                    print("   Error userInfo: \(error.userInfo)")
-                    print("   Localized failure reason: \(error.localizedFailureReason ?? "none")")
-                    print("   Localized recovery suggestion: \(error.localizedRecoverySuggestion ?? "none")")
-                    
-                    // Convert to user-friendly error
-                    let friendlyError = getUserFriendlyError(from: error)
-                    showError(title: friendlyError.title, message: friendlyError.message)
-                    
                     isPublishing = false
                 }
             } catch {
+                // ⚠️ Post creation failed in background - user already saw success
+                print("❌ Failed to create post in background (Generic Error)")
+                print("   Error: \(error)")
+                print("   Error type: \(type(of: error))")
+                print("   Error description: \(String(describing: error))")
+                
+                // Try to get more details
+                if let error = error as? LocalizedError {
+                    print("   Error description: \(error.errorDescription ?? "none")")
+                    print("   Failure reason: \(error.failureReason ?? "none")")
+                    print("   Recovery suggestion: \(error.recoverySuggestion ?? "none")")
+                }
+                
+                // TODO: Could show a toast notification that post failed
+                // For now, just log - user won't see their post appear
+                
                 await MainActor.run {
-                    print("❌ Failed to create post (Generic Error)")
-                    print("   Error: \(error)")
-                    print("   Error type: \(type(of: error))")
-                    print("   Error description: \(String(describing: error))")
-                    
-                    // Try to get more details
-                    if let error = error as? LocalizedError {
-                        print("   Error description: \(error.errorDescription ?? "none")")
-                        print("   Failure reason: \(error.failureReason ?? "none")")
-                        print("   Recovery suggestion: \(error.recoverySuggestion ?? "none")")
-                    }
-                    
-                    // Convert to user-friendly error
-                    let friendlyError = getUserFriendlyError(from: error)
-                    showError(title: friendlyError.title, message: friendlyError.message)
-                    
                     isPublishing = false
                 }
             }
@@ -1469,14 +1673,25 @@ struct CreatePostView: View {
             )
         }
         
+        // Validate image data before upload
+        guard !selectedImageData.isEmpty else {
+            return []
+        }
+        
         await MainActor.run {
             isUploadingImages = true
             uploadProgress = 0.0
         }
         
         var failedUploads = 0
+        let totalImages = selectedImageData.count
         
         for (index, imageData) in selectedImageData.enumerated() {
+            guard !Task.isCancelled else {
+                print("⚠️ Image upload cancelled")
+                break
+            }
+            
             do {
                 // Create a unique filename
                 let filename = "\(UUID().uuidString)_\(index).jpg"
@@ -1503,25 +1718,25 @@ struct CreatePostView: View {
                 imageURLs.append(downloadURL.absoluteString)
                 
                 // Update progress
-                let progress = Double(index + 1) / Double(selectedImageData.count)
+                let progress = Double(index + 1) / Double(totalImages)
                 await MainActor.run {
                     uploadProgress = progress
                 }
                 
-                print("✅ Uploaded image \(index + 1)/\(selectedImageData.count)")
+                print("✅ Uploaded image \(index + 1)/\(totalImages)")
             } catch {
                 print("❌ Failed to upload image \(index): \(error)")
                 failedUploads += 1
                 
                 // If more than half the images fail, throw error
-                if failedUploads > selectedImageData.count / 2 {
+                if failedUploads > totalImages / 2 {
                     await MainActor.run {
                         isUploadingImages = false
                     }
                     throw NSError(
                         domain: "ImageUpload",
                         code: -1,
-                        userInfo: [NSLocalizedDescriptionKey: "Too many images failed to upload"]
+                        userInfo: [NSLocalizedDescriptionKey: "Too many images failed to upload. Please check your connection and try again."]
                     )
                 }
             }
@@ -1529,6 +1744,7 @@ struct CreatePostView: View {
         
         await MainActor.run {
             isUploadingImages = false
+            uploadProgress = 0.0
         }
         
         // Warn user if some images failed but post can still be created
@@ -1593,9 +1809,6 @@ struct CreatePostView: View {
                     .addDocument(data: scheduledPostData)
                 
                 await MainActor.run {
-                    // Success feedback
-                    let haptic = UINotificationFeedbackGenerator()
-                    haptic.notificationOccurred(.success)
                     
                     withAnimation {
                         showingSuccessNotice = true
@@ -1678,10 +1891,15 @@ struct CreatePostView: View {
     
     // MARK: - ✅ IMPLEMENTED: Draft Auto-Save (Every 30s)
     
-    /// Start auto-save timer
+    /// Start auto-save task using Swift Concurrency
     private func startAutoSaveTimer() {
-        autoSaveTimer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: true) { _ in
-            autoSaveDraft()
+        autoSaveTask = Task { @MainActor in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 30_000_000_000) // 30 seconds
+                if !Task.isCancelled {
+                    autoSaveDraft()
+                }
+            }
         }
     }
     
@@ -1770,13 +1988,13 @@ struct CreatePostView: View {
     
     /// Fetch link metadata when URL is added
     private func fetchLinkMetadata(for url: String) {
-        guard isValidURL(url) else { return }
+        guard isValidURL(url), let urlObject = URL(string: url) else { return }
         
         isLoadingLinkPreview = true
         
         Task {
             do {
-                let metadata = try await LinkPreviewService.shared.fetchMetadata(url: url)
+                let metadata = try await LinkPreviewService.shared.fetchMetadata(for: urlObject)
                 
                 await MainActor.run {
                     linkMetadata = metadata
@@ -1788,6 +2006,22 @@ struct CreatePostView: View {
                     isLoadingLinkPreview = false
                 }
             }
+        }
+    }
+    
+    /// Auto-detect URLs in text and fetch link preview
+    private func detectAndFetchLinkPreview(in text: String) {
+        // Only detect if we don't already have a link
+        guard linkURL.isEmpty else { return }
+        
+        // Detect URLs in the text
+        let urls = LinkPreviewService.shared.detectURLs(in: text)
+        
+        // If we found a URL, use the first one
+        if let firstURL = urls.first {
+            linkURL = firstURL.absoluteString
+            fetchLinkMetadata(for: linkURL)
+            print("🔗 Auto-detected URL: \(linkURL)")
         }
     }
     
@@ -1846,8 +2080,23 @@ struct LiquidGlassCategoryButton: View {
     let namespace: Namespace.ID
     let action: () -> Void
     
+    @State private var isPressed = false
+    
     var body: some View {
-        Button(action: action) {
+        Button(action: {
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                isPressed = true
+            }
+            
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                    isPressed = false
+                }
+            }
+            
+            action()
+        }) {
             HStack(spacing: 5) {
                 Image(systemName: category.icon)
                     .font(.system(size: 15, weight: .semibold))
@@ -1875,8 +2124,10 @@ struct LiquidGlassCategoryButton: View {
                     }
                 }
             )
+            .scaleEffect(isPressed ? 0.95 : 1.0)
         }
         .buttonStyle(PlainButtonStyle())
+        .animation(.spring(response: 0.35, dampingFraction: 0.75), value: isSelected)
     }
 }
 
@@ -1895,8 +2146,6 @@ struct EnhancedToolbarButton: View {
             withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
                 isPressed = true
             }
-            let haptic = UIImpactFeedbackGenerator(style: .light)
-            haptic.impactOccurred()
             
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
@@ -1929,16 +2178,26 @@ struct TopicTagSheet: View {
     @Binding var selectedCategory: CreatePostView.PostCategory
     
     // OpenTable topic tags
-    let openTableTags = [
-        ("AI & Technology", "cpu", Color.blue),
-        ("Ethics & Morality", "scale.3d", Color.purple),
-        ("Innovation", "lightbulb.max.fill", Color.orange),
-        ("Digital Ministry", "app.connected.to.app.below.fill", Color.green),
-        ("Future of Faith", "clock.arrow.2.circlepath", Color.cyan),
-        ("Theology & Tech", "brain.head.profile", Color.indigo),
-        ("Social Media & Faith", "bubble.left.and.bubble.right.fill", Color.pink),
-        ("Automation & Work", "gearshape.2.fill", Color.teal)
-    ]
+    var openTableTags: [(String, String, Color)] {
+        var tags: [(String, String, Color)] = []
+        tags.append(("AI & Technology", "cpu", .blue))
+        tags.append(("Machine Learning", "brain", .purple))
+        tags.append(("Ethics & Morality", "scale.3d", .indigo))
+        tags.append(("Innovation", "lightbulb.max.fill", .orange))
+        tags.append(("Digital Ministry", "app.connected.to.app.below.fill", .green))
+        tags.append(("Future of Faith", "clock.arrow.2.circlepath", .cyan))
+        tags.append(("Theology & Tech", "brain.head.profile", .pink))
+        tags.append(("Social Media & Faith", "bubble.left.and.bubble.right.fill", .mint))
+        tags.append(("Automation & Work", "gearshape.2.fill", .teal))
+        tags.append(("Blockchain & Web3", "link.circle.fill", .orange))
+        tags.append(("Metaverse & VR", "visionpro.fill", .purple))
+        tags.append(("Cybersecurity", "lock.shield.fill", .red))
+        tags.append(("Data Privacy", "eye.slash.fill", .blue))
+        tags.append(("Artificial Intelligence", "sparkles", .yellow))
+        tags.append(("Quantum Computing", "atom", .cyan))
+        tags.append(("Biotechnology", "cross.vial.fill", .green))
+        return tags
+    }
     
     // Prayer types
     let prayerTypes = [
@@ -2014,7 +2273,20 @@ struct TopicTagCard: View {
     @State private var isPressed = false
     
     var body: some View {
-        Button(action: action) {
+        Button(action: {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                isPressed = true
+            }
+            
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    isPressed = false
+                }
+            }
+            
+            action()
+        }) {
             VStack(spacing: 12) {
                 ZStack {
                     Circle()
@@ -2031,6 +2303,7 @@ struct TopicTagCard: View {
                         .font(.system(size: 24, weight: .semibold))
                         .foregroundStyle(color)
                 }
+                .scaleEffect(isPressed ? 0.9 : 1.0)
                 
                 Text(title)
                     .font(.custom("OpenSans-Bold", size: 13))
@@ -2048,23 +2321,13 @@ struct TopicTagCard: View {
                         RoundedRectangle(cornerRadius: 16)
                             .stroke(isSelected ? color : Color.clear, lineWidth: 2)
                     )
-                    .shadow(color: isSelected ? color.opacity(0.2) : .black.opacity(0.05), radius: isSelected ? 12 : 8, y: 4)
+                    .shadow(color: isSelected ? color.opacity(0.3) : .black.opacity(0.05), radius: isSelected ? 12 : 8, y: 4)
             )
             .scaleEffect(isPressed ? 0.95 : 1.0)
         }
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in
-                    withAnimation(.spring(response: 0.2, dampingFraction: 0.6)) {
-                        isPressed = true
-                    }
-                }
-                .onEnded { _ in
-                    withAnimation(.spring(response: 0.2, dampingFraction: 0.6)) {
-                        isPressed = false
-                    }
-                }
-        )
+        .buttonStyle(PlainButtonStyle())
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isPressed)
     }
 }
 
@@ -2153,8 +2416,6 @@ struct SchedulePostSheet: View {
                         scheduledDate = selectedDateTime
                         isPresented = false
                         
-                        let haptic = UINotificationFeedbackGenerator()
-                        haptic.notificationOccurred(.success)
                     } label: {
                         HStack {
                             Image(systemName: "checkmark.circle.fill")
@@ -2399,27 +2660,31 @@ struct ImagePreviewGrid: View {
                                 .scaledToFill()
                                 .frame(width: 120, height: 120)
                                 .clipShape(RoundedRectangle(cornerRadius: 12))
+                                .transition(.scale.combined(with: .opacity))
                             
                             Button {
-                                withAnimation {
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                                     _ = images.remove(at: index)
                                 }
                             } label: {
-                                Image(systemName: "xmark.circle.fill")
-                                    .font(.system(size: 22))
-                                    .foregroundStyle(.white)
-                                    .background(
-                                        Circle()
-                                            .fill(Color.black.opacity(0.5))
-                                            .frame(width: 24, height: 24)
-                                    )
+                                ZStack {
+                                    Circle()
+                                        .fill(Color.black.opacity(0.7))
+                                        .frame(width: 28, height: 28)
+                                    
+                                    Image(systemName: "xmark")
+                                        .font(.system(size: 12, weight: .bold))
+                                        .foregroundStyle(.white)
+                                }
                             }
                             .padding(8)
                         }
+                        .transition(.scale.combined(with: .opacity))
                     }
                 }
             }
         }
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: images.count)
     }
 }
 
@@ -2531,7 +2796,7 @@ struct LinkInputSheet: View {
 
 struct LinkPreviewCardView: View {
     let url: String
-    let metadata: LinkMetadata?
+    let metadata: LinkPreviewMetadata?
     let isLoading: Bool
     let onRemove: () -> Void
     
@@ -2545,9 +2810,8 @@ struct LinkPreviewCardView: View {
                         RoundedRectangle(cornerRadius: 8)
                             .fill(Color(.systemGray6))
                     )
-            } else if let imageURL = metadata?.imageURL,
-                      let url = URL(string: imageURL) {
-                AsyncImage(url: url) { image in
+            } else if let imageURL = metadata?.imageURL {
+                AsyncImage(url: imageURL) { image in
                     image
                         .resizable()
                         .scaledToFill()
@@ -2589,7 +2853,11 @@ struct LinkPreviewCardView: View {
             Spacer()
             
             // Remove button
-            Button(action: onRemove) {
+            Button(action: {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    onRemove()
+                }
+            }) {
                 Image(systemName: "xmark.circle.fill")
                     .font(.system(size: 22))
                     .foregroundStyle(.secondary)
@@ -2600,6 +2868,7 @@ struct LinkPreviewCardView: View {
             RoundedRectangle(cornerRadius: 12)
                 .fill(Color(.systemGray6))
         )
+        .transition(.scale.combined(with: .opacity))
     }
     
     private var linkIconPlaceholder: some View {
@@ -2665,8 +2934,6 @@ struct ConsolidatedToolbar: View {
                 // Comments Toggle
                 Button {
                     allowComments.toggle()
-                    let haptic = UIImpactFeedbackGenerator(style: .light)
-                    haptic.impactOccurred()
                 } label: {
                     Label(
                         allowComments ? "Disable Comments" : "Enable Comments",
@@ -2748,8 +3015,6 @@ struct CompactToolbarButton: View {
             withAnimation(.spring(response: 0.25, dampingFraction: 0.6)) {
                 isPressed = true
             }
-            let haptic = UIImpactFeedbackGenerator(style: .light)
-            haptic.impactOccurred()
             
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 withAnimation(.spring(response: 0.25, dampingFraction: 0.6)) {
@@ -2789,8 +3054,6 @@ struct GlassmorphicButton: View {
                 isPressed = true
             }
             
-            let haptic = UIImpactFeedbackGenerator(style: .medium)
-            haptic.impactOccurred()
             
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
@@ -2847,8 +3110,6 @@ struct GlassToolbarIcon: View {
             withAnimation(.spring(response: 0.25, dampingFraction: 0.65)) {
                 isPressed = true
             }
-            let haptic = UIImpactFeedbackGenerator(style: .light)
-            haptic.impactOccurred()
             
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
                 withAnimation(.spring(response: 0.25, dampingFraction: 0.65)) {
@@ -2867,6 +3128,58 @@ struct GlassToolbarIcon: View {
     }
 }
 
+// MARK: - Compact Glass Button (NEW - Smaller, Production-Ready)
+
+struct CompactGlassButton: View {
+    let icon: String
+    let isActive: Bool
+    var count: Int = 0
+    let action: () -> Void
+    
+    @State private var isPressed = false
+    
+    var body: some View {
+        Button(action: {
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+                isPressed = true
+            }
+            action()
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+                    isPressed = false
+                }
+            }
+        }) {
+            ZStack(alignment: .topTrailing) {
+                Image(systemName: icon)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(isActive ? Color.primary : Color.primary.opacity(0.4))
+                    .frame(width: 32, height: 32)
+                    .scaleEffect(isPressed ? 0.85 : 1.0)
+                
+                // Badge for count (e.g., image count)
+                if count > 0 {
+                    Text("\(count)")
+                        .font(.custom("OpenSans-Bold", size: 9))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 2)
+                        .background(
+                            Capsule()
+                                .fill(Color.blue)
+                        )
+                        .offset(x: 8, y: -8)
+                        .transition(.scale.combined(with: .opacity))
+                }
+            }
+        }
+        .buttonStyle(PlainButtonStyle())
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isActive)
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: count)
+    }
+}
+
 // MARK: - Minimal Toolbar Button (Inspired by design)
 
 struct MinimalToolbarButton: View {
@@ -2882,8 +3195,6 @@ struct MinimalToolbarButton: View {
             withAnimation(.spring(response: 0.3, dampingFraction: 0.65)) {
                 isPressed = true
             }
-            let haptic = UIImpactFeedbackGenerator(style: .light)
-            haptic.impactOccurred()
             
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.65)) {
@@ -2937,8 +3248,6 @@ struct LiquidGlassPostButton: View {
                 isPressed = true
             }
             
-            let haptic = UIImpactFeedbackGenerator(style: .heavy)
-            haptic.impactOccurred()
             
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.6)) {
@@ -3027,14 +3336,6 @@ struct LiquidGlassPostButton: View {
 
 // MARK: - Supporting Models & Services
 
-/// Link metadata for rich previews
-struct LinkMetadata {
-    let title: String?
-    let description: String?
-    let imageURL: String?
-    let siteName: String?
-}
-
 /// Draft model for recovery
 struct Draft: Identifiable {
     let id: String
@@ -3044,67 +3345,6 @@ struct Draft: Identifiable {
     let linkURL: String?
     let visibility: String
     let createdAt: Date
-}
-
-/// Service to fetch link metadata
-actor LinkPreviewService {
-    static let shared = LinkPreviewService()
-    
-    private init() {}
-    
-    func fetchMetadata(url: String) async throws -> LinkMetadata {
-        guard let url = URL(string: url) else {
-            throw URLError(.badURL)
-        }
-        
-        // Fetch HTML
-        let (data, _) = try await URLSession.shared.data(from: url)
-        guard let html = String(data: data, encoding: .utf8) else {
-            throw URLError(.cannotDecodeContentData)
-        }
-        
-        // Parse OpenGraph/meta tags
-        let title = extractMetaTag(from: html, property: "og:title") ?? extractTitle(from: html)
-        let description = extractMetaTag(from: html, property: "og:description") ?? extractMetaTag(from: html, name: "description")
-        let imageURL = extractMetaTag(from: html, property: "og:image")
-        let siteName = extractMetaTag(from: html, property: "og:site_name")
-        
-        return LinkMetadata(
-            title: title,
-            description: description,
-            imageURL: imageURL,
-            siteName: siteName
-        )
-    }
-    
-    private func extractMetaTag(from html: String, property: String) -> String? {
-        let pattern = "<meta\\s+property=\"\(property)\"\\s+content=\"([^\"]+)\""
-        return extractPattern(pattern, from: html)
-    }
-    
-    private func extractMetaTag(from html: String, name: String) -> String? {
-        let pattern = "<meta\\s+name=\"\(name)\"\\s+content=\"([^\"]+)\""
-        return extractPattern(pattern, from: html)
-    }
-    
-    private func extractTitle(from html: String) -> String? {
-        let pattern = "<title>([^<]+)</title>"
-        return extractPattern(pattern, from: html)
-    }
-    
-    private func extractPattern(_ pattern: String, from html: String) -> String? {
-        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
-            return nil
-        }
-        
-        let range = NSRange(html.startIndex..., in: html)
-        guard let match = regex.firstMatch(in: html, range: range),
-              let contentRange = Range(match.range(at: 1), in: html) else {
-            return nil
-        }
-        
-        return String(html[contentRange])
-    }
 }
 
 

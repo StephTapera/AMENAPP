@@ -10,13 +10,20 @@ import SwiftUI
 struct ResourcesView: View {
     @State private var searchText = ""
     @State private var selectedCategory: ResourceCategory = .all
-    @State private var dailyVerse: DailyVerse = .sample
     @State private var bibleFact: BibleFact = .sample
-    @State private var isRefreshingVerse = false
     @State private var isRefreshingFact = false
+    @FocusState private var isSearchFocused: Bool
+    @State private var keyboardHeight: CGFloat = 0
+    @State private var scrollToResults = false
+    @State private var aiSearchResults: [AISearchResult] = []
+    @State private var isSearchingWithAI = false
+    @State private var useAISearch = false
     
     enum ResourceCategory: String, CaseIterable {
         case all = "All"
+        case mentalHealth = "Mental Health"
+        case crisis = "Crisis"
+        case giving = "Giving"
         case reading = "Reading"
         case listening = "Listening"
         case community = "Community"
@@ -35,6 +42,13 @@ struct ResourcesView: View {
         guard !searchText.isEmpty else {
             return filteredResources
         }
+        
+        // Use AI search results if available
+        if useAISearch && !aiSearchResults.isEmpty {
+            return aiSearchResults.map { $0.resource }
+        }
+        
+        // Fallback to keyword search
         return filteredResources.filter { resource in
             resource.title.localizedCaseInsensitiveContains(searchText) ||
             resource.description.localizedCaseInsensitiveContains(searchText) ||
@@ -48,12 +62,41 @@ struct ResourcesView: View {
                 // Header that stays at top
                 headerView
                 
-                ScrollView {
-                    contentView
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        contentView
+                            .onChange(of: scrollToResults) { _, shouldScroll in
+                                if shouldScroll {
+                                    withAnimation(.easeInOut(duration: 0.4)) {
+                                        proxy.scrollTo("searchResults", anchor: .top)
+                                    }
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                        scrollToResults = false
+                                    }
+                                }
+                            }
+                    }
+                    .simultaneousGesture(
+                        // Tap to dismiss keyboard
+                        TapGesture()
+                            .onEnded { _ in
+                                if isSearchFocused {
+                                    isSearchFocused = false
+                                }
+                            }
+                    )
                 }
             }
             .navigationBarHidden(true)
-            .animation(.spring(response: 0.4, dampingFraction: 0.8), value: searchFilteredResources.count)
+            .animation(.easeOut(duration: 0.15), value: searchFilteredResources.count)
+            .onAppear {
+                setupKeyboardObservers()
+            }
+            .onDisappear {
+                removeKeyboardObservers()
+            }
+            .padding(.bottom, keyboardHeight)
+            .animation(.easeOut(duration: 0.25), value: keyboardHeight)
         }
     }
     
@@ -100,47 +143,80 @@ struct ResourcesView: View {
     
     private var searchBarView: some View {
         HStack(spacing: 14) {
-            // Circular icon container with glass effect
-            ZStack {
-                Circle()
-                    .fill(.ultraThinMaterial)
-                    .frame(width: 44, height: 44)
-                    .overlay(
-                        Circle()
-                            .stroke(
-                                LinearGradient(
-                                    colors: [
-                                        Color.white.opacity(0.3),
-                                        Color.white.opacity(0.1)
-                                    ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ),
-                                lineWidth: 1
-                            )
-                    )
-                    .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 2)
-                
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(.primary)
-                    .scaleEffect(searchText.isEmpty ? 1.0 : 1.1)
-                    .symbolEffect(.bounce, value: searchText.isEmpty)
+            // Circular icon button with glass effect
+            Button {
+                print("🔍 [DEBUG] Search button tapped, searchText: '\(searchText)'")
+                if !searchText.isEmpty {
+                    print("🔍 [DEBUG] Calling performAISearch()")
+                    // Trigger AI search
+                    performAISearch()
+                    
+                    let haptic = UIImpactFeedbackGenerator(style: .medium)
+                    haptic.impactOccurred()
+                } else {
+                    print("🔍 [DEBUG] Search text empty, focusing search field")
+                    // Focus search field when empty
+                    isSearchFocused = true
+                }
+            } label: {
+                ZStack {
+                    Circle()
+                        .fill(.ultraThinMaterial)
+                        .frame(width: 44, height: 44)
+                        .overlay(
+                            Circle()
+                                .stroke(
+                                    LinearGradient(
+                                        colors: [
+                                            Color.white.opacity(0.3),
+                                            Color.white.opacity(0.1)
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    ),
+                                    lineWidth: 1
+                                )
+                        )
+                        .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 2)
+                    
+                    if isSearchingWithAI {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                    } else {
+                        Image(systemName: searchText.isEmpty ? "magnifyingglass" : "sparkles.rectangle.stack.fill")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundStyle(searchText.isEmpty ? Color.primary.opacity(0.6) : Color.purple)
+                            .symbolEffect(.pulse, options: .repeating, isActive: useAISearch && !searchText.isEmpty)
+                    }
+                }
+                .animation(.easeOut(duration: 0.2), value: searchText.isEmpty)
+                .animation(.easeOut(duration: 0.2), value: isSearchingWithAI)
             }
             
             // Text field with custom styling
-            TextField("Search", text: $searchText)
+            TextField("Search resources...", text: $searchText)
                 .font(.custom("OpenSans-Regular", size: 17))
                 .foregroundStyle(.primary)
                 .textFieldStyle(.plain)
                 .frame(maxWidth: .infinity)
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+                .focused($isSearchFocused)
+                .submitLabel(.search)
+                .onSubmit {
+                    // Dismiss keyboard when user taps search
+                    isSearchFocused = false
+                    let haptic = UIImpactFeedbackGenerator(style: .light)
+                    haptic.impactOccurred()
+                }
             
             // Clear button with glass effect
             if !searchText.isEmpty {
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(.easeOut(duration: 0.15)) {
                         searchText = ""
                     }
+                    isSearchFocused = false
                     
                     let haptic = UIImpactFeedbackGenerator(style: .light)
                     haptic.impactOccurred()
@@ -155,7 +231,7 @@ struct ResourcesView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                .transition(.scale.combined(with: .opacity))
+                .transition(.scale.combined(with: .opacity).animation(.easeOut(duration: 0.15)))
             }
         }
         .padding(.horizontal, 16)
@@ -201,7 +277,7 @@ struct ResourcesView: View {
         .shadow(color: .black.opacity(0.06), radius: 12, x: 0, y: 4)
         .shadow(color: .black.opacity(0.04), radius: 4, x: 0, y: 2)
         .padding(.horizontal)
-        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: searchText.isEmpty)
+        .animation(.easeOut(duration: 0.15), value: searchText.isEmpty)
     }
     
     private var categoryPillsView: some View {
@@ -215,214 +291,247 @@ struct ResourcesView: View {
     // MARK: - Content View
     private var contentView: some View {
         VStack(alignment: .leading, spacing: 20) {
-                    
-                    // Daily Bible Verse Card
-                    DailyVerseCard(verse: dailyVerse, isRefreshing: $isRefreshingVerse) {
-                        refreshDailyVerse()
-                    }
-                    
-                    // Fun Bible Fact Card
-                    BibleFactCard(fact: bibleFact, isRefreshing: $isRefreshingFact) {
-                        refreshBibleFact()
-                    }
-                    
-                    // AMEN | Connect Section with Banners
-                    VStack(alignment: .leading, spacing: 16) {
-                        HStack {
-                            Text("AMEN | Connect")
-                                .font(.custom("OpenSans-Bold", size: 20))
-                            Image(systemName: "heart.fill")
-                                .foregroundStyle(.red)
-                                .symbolEffect(.bounce, value: selectedCategory)
-                        }
+            // AI-Powered Daily Bible Verse Card (with safe loading)
+            SafeAIDailyVerseCard()
+            
+            // Fun Bible Fact Card
+            BibleFactCard(fact: bibleFact, isRefreshing: $isRefreshingFact) {
+                refreshBibleFact()
+            }
+            
+            // AMEN | Connect Section - Condensed with Color Accents
+            if selectedCategory == .all || selectedCategory == .community {
+                VStack(alignment: .leading, spacing: 14) {
+                    Text("AMEN | Connect")
+                        .font(.custom("OpenSans-Bold", size: 22))
+                        .foregroundStyle(.primary)
                         .padding(.horizontal)
-                        
-                        // Private Communities - Featured Banner
+                    
+                    // Grid layout for connect cards
+                    VStack(spacing: 12) {
+                        // Private Communities - Full width, colored
                         NavigationLink(destination: PrivateCommunitiesView()) {
-                            FeaturedCommunityBanner()
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                        
-                        // Christian Dating - Compact Banner
-                        ChristianDatingBannerButton()
-                        
-                        // Find Friends - Compact Banner
-                        FindFriendsBannerButton()
-                        
-                        // Find a Local Church - Smaller Banner
-                        NavigationLink(destination: FindChurchView()) {
-                            CompactConnectBanner(
-                                icon: "building.2.fill",
-                                iconColor: .white,
-                                title: "Find a Local Church",
-                                subtitle: "Connect with your faith community",
-                                badge: nil,
-                                gradientColors: [Color.blue, Color.purple]
+                            MinimalConnectCard(
+                                icon: "person.3.fill",
+                                title: "Private Communities",
+                                subtitle: "Church, university & more",
+                                badge: "COMING SOON",
+                                accentColor: .blue,
+                                isFullWidth: true
                             )
                         }
                         .buttonStyle(PlainButtonStyle())
                         
-                        // Church Notes - Last, Smaller Banner
-                        NavigationLink(destination: ChurchNotesView()) {
-                            CompactConnectBanner(
-                                icon: "note.text",
-                                iconColor: .white,
-                                title: "Church Notes",
-                                subtitle: "Premium - Take notes & share",
-                                badge: "Premium",
-                                gradientColors: [Color.orange, Color.pink]
-                            )
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                    }
-                    
-                    // Faith Apps & Tools
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack {
-                            Text("Faith Apps & Tools")
-                                .font(.custom("OpenSans-Bold", size: 20))
-                            Image(systemName: "app.badge.fill")
-                                .foregroundStyle(.blue)
-                                .symbolEffect(.pulse, options: .repeating, value: selectedCategory)
-                        }
-                        .padding(.horizontal)
-                        
-                        // Bible App Integration
-                        BibleAppCard()
-                        
-                        // Pray.com Integration
-                        PrayComCard()
-                        
-                        // Essential Books (implemented)
-                        NavigationLink(destination: EssentialBooksView()) {
-                            ResourceCard(
-                                icon: "book.pages.fill",
-                                iconColor: .green,
-                                title: "Essential Books",
-                                description: "Foundational reading for new Christians",
-                                category: "Reading"
-                            )
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                        
-                        // Recommended Sermons (implemented)
-                        NavigationLink(destination: RecommendedSermonsView()) {
-                            ResourceCard(
-                                icon: "mic.fill",
-                                iconColor: .red,
-                                title: "Recommended Sermons",
-                                description: "Powerful messages to strengthen your faith",
-                                category: "Listening"
-                            )
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                        
-                        // Faith Podcasts (implemented)
-                        NavigationLink(destination: FaithPodcastsView()) {
-                            ResourceCard(
-                                icon: "headphones",
-                                iconColor: .purple,
-                                title: "Faith Podcasts",
-                                description: "Grow on-the-go with inspiring podcasts",
-                                category: "Listening"
-                            )
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                        
-                        // Faith & Tech (implemented)
-                        NavigationLink(destination: FaithTechView()) {
-                            ResourceCard(
-                                icon: "lightbulb.fill",
-                                iconColor: .orange,
-                                title: "Faith & Technology",
-                                description: "Navigating tech with biblical wisdom",
-                                category: "Learning"
-                            )
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                    }
-                    
-                    // Smart Resources Section
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack {
-                            Text("Smart Resources")
-                                .font(.custom("OpenSans-Bold", size: 20))
-                            Image(systemName: "brain.fill")
-                                .foregroundStyle(.cyan)
-                                .symbolEffect(.variableColor, options: .repeating, value: selectedCategory)
-                        }
-                        .padding(.horizontal)
-                        
-                        if searchFilteredResources.isEmpty {
-                            emptyStateView
-                        } else {
-                            ForEach(searchFilteredResources) { resource in
-                                ResourceCard(
-                                    icon: resource.icon,
-                                    iconColor: resource.iconColor,
-                                    title: resource.title,
-                                    description: resource.description,
-                                    category: resource.category
+                        // Two-column grid
+                        HStack(spacing: 12) {
+                            // Find Church
+                            NavigationLink(destination: FindChurchView()) {
+                                MinimalConnectCard(
+                                    icon: "building.2.fill",
+                                    title: "Find Church",
+                                    subtitle: "Nearby worship",
+                                    badge: nil,
+                                    accentColor: .purple,
+                                    isFullWidth: false
                                 )
-                                .transition(.asymmetric(
-                                    insertion: .scale.combined(with: .opacity),
-                                    removal: .opacity
-                                ))
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                            
+                            // Church Notes
+                            NavigationLink(destination: ChurchNotesView()) {
+                                MinimalConnectCard(
+                                    icon: "note.text",
+                                    title: "Church Notes",
+                                    subtitle: "Take & share",
+                                    badge: nil,
+                                    accentColor: .orange,
+                                    isFullWidth: false
+                                )
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                        }
+                        
+                        HStack(spacing: 12) {
+                            // Christian Dating - Coming Soon
+                            Button {
+                                // Show coming soon
+                            } label: {
+                                MinimalConnectCard(
+                                    icon: "heart.text.square.fill",
+                                    title: "Dating",
+                                    subtitle: "Coming soon",
+                                    badge: nil,
+                                    accentColor: .pink,
+                                    isFullWidth: false
+                                )
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                            
+                            // Find Friends - Coming Soon
+                            Button {
+                                // Show coming soon
+                            } label: {
+                                MinimalConnectCard(
+                                    icon: "person.2.fill",
+                                    title: "Find Friends",
+                                    subtitle: "Coming soon",
+                                    badge: nil,
+                                    accentColor: .cyan,
+                                    isFullWidth: false
+                                )
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                        }
+                    }
+                    .padding(.horizontal)
+                }
+            }
+            
+
+            
+            // Crisis & Support - Always accessible, subtle
+            if selectedCategory == .all || selectedCategory == .crisis || selectedCategory == .mentalHealth {
+                VStack(alignment: .leading, spacing: 14) {
+                    Text("Support & Wellness")
+                        .font(.custom("OpenSans-Bold", size: 22))
+                        .foregroundStyle(.primary)
+                        .padding(.horizontal)
+                    
+                    VStack(spacing: 12) {
+                        // Crisis Resources Banner
+                        NavigationLink(destination: CrisisResourcesDetailView()) {
+                            SimplifiedFeatureBanner(
+                                icon: "phone.fill",
+                                title: "Crisis Resources",
+                                subtitle: "24/7 help & support",
+                                accentColor: .red,
+                                features: [
+                                    "988 Suicide & Crisis Lifeline",
+                                    "Crisis Text Line: Text HOME to 741741",
+                                    "SAMHSA National Helpline: 1-800-662-4357",
+                                    "Immediate professional support"
+                                ]
+                            )
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        .padding(.horizontal)
+                        
+                        // Mental Health Banner
+                        NavigationLink(destination: MentalHealthDetailView()) {
+                            SimplifiedFeatureBanner(
+                                icon: "heart.text.square.fill",
+                                title: "Mental Health & Wellness",
+                                subtitle: "Faith-based support",
+                                accentColor: .green,
+                                features: [
+                                    "Christian counseling resources",
+                                    "Mental health awareness",
+                                    "Prayer and meditation guides",
+                                    "Community support groups"
+                                ]
+                            )
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        .padding(.horizontal)
+                        
+                        // Giving & Nonprofits Banner
+                        NavigationLink(destination: GivingNonprofitsDetailView()) {
+                            SimplifiedFeatureBanner(
+                                icon: "heart.circle.fill",
+                                title: "Giving & Nonprofits",
+                                subtitle: "Make an impact",
+                                accentColor: .blue,
+                                features: [
+                                    "Vetted Christian nonprofits",
+                                    "Mission & humanitarian work",
+                                    "Local church support",
+                                    "Track your giving journey"
+                                ]
+                            )
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        .padding(.horizontal)
+                    }
+                }
+            }
+            
+            // Search Results (when searching)
+            if !searchText.isEmpty {
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack(spacing: 8) {
+                        Image(systemName: useAISearch ? "sparkles" : "magnifyingglass")
+                            .foregroundStyle(useAISearch ? Color.purple : Color.black.opacity(0.6))
+                            .font(.system(size: 14))
+                        Text(useAISearch ? "AI Search Results" : "Search Results")
+                            .font(.custom("OpenSans-Bold", size: 22))
+                            .foregroundStyle(.primary)
+                        
+                        Spacer()
+                        
+                        // Results count badge
+                        Text("\(searchFilteredResources.count)")
+                            .font(.custom("OpenSans-Bold", size: 14))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(
+                                Capsule()
+                                    .fill(searchFilteredResources.isEmpty ? Color.red : (useAISearch ? Color.purple : Color.blue))
+                            )
+                    }
+                    .padding(.horizontal)
+                    .id("searchResults") // For scrolling
+                    
+                    // AI search indicator
+                    if useAISearch && !aiSearchResults.isEmpty {
+                        HStack(spacing: 6) {
+                            Image(systemName: "brain.head.profile")
+                                .font(.system(size: 12))
+                            Text("Results ranked by AI relevance")
+                                .font(.custom("OpenSans-Regular", size: 13))
+                        }
+                        .foregroundStyle(.purple.opacity(0.8))
+                        .padding(.horizontal)
+                    }
+                    
+                    if searchFilteredResources.isEmpty {
+                        emptyStateView
+                    } else {
+                        LazyVGrid(columns: [
+                            GridItem(.flexible(), spacing: 12),
+                            GridItem(.flexible(), spacing: 12)
+                        ], spacing: 12) {
+                            ForEach(Array(searchFilteredResources.enumerated()), id: \.element.id) { index, resource in
+                                VStack(spacing: 0) {
+                                    MinimalResourceCard(
+                                        icon: resource.icon,
+                                        title: resource.title,
+                                        accentColor: resource.iconColor
+                                    )
+                                    
+                                    // Show AI relevance reason
+                                    if useAISearch, index < aiSearchResults.count {
+                                        Text(aiSearchResults[index].reason)
+                                            .font(.custom("OpenSans-Regular", size: 11))
+                                            .foregroundStyle(.secondary)
+                                            .multilineTextAlignment(.center)
+                                            .padding(.horizontal, 8)
+                                            .padding(.top, 6)
+                                    }
+                                }
                             }
                         }
-                    }
-                }
-                .padding(.vertical)
-            }
-    
-    private func refreshDailyVerse() {
-        Task {
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
-                isRefreshingVerse = true
-            }
-            
-            // First, try to load from cache (instant!)
-            if let cachedVerse = CacheManager.shared.loadCachedDailyVerse() {
-                await MainActor.run {
-                    withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
-                        dailyVerse = cachedVerse
-                        isRefreshingVerse = false
-                    }
-                }
-                return // Use cached verse, no need to fetch
-            }
-            
-            do {
-                // Call Bible API for real verse
-                let verse = try await BibleAPIService.shared.getVerseOfTheDay()
-                
-                // Cache the verse for today
-                let dailyVerse = DailyVerse(text: verse.text, reference: verse.reference)
-                CacheManager.shared.saveDailyVerse(dailyVerse)
-                
-                await MainActor.run {
-                    withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
-                        self.dailyVerse = dailyVerse
-                        isRefreshingVerse = false
-                    }
-                }
-            } catch {
-                print("❌ Bible API Error: \(error.localizedDescription)")
-                
-                // Fallback to sample verses if API fails
-                await MainActor.run {
-                    withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
-                        dailyVerse = DailyVerse.random()
-                        isRefreshingVerse = false
+                        .padding(.horizontal)
                     }
                 }
             }
         }
+        .padding(.vertical)
     }
     
     private func refreshBibleFact() {
         Task {
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
                 isRefreshingFact = true
             }
             
@@ -431,7 +540,7 @@ struct ResourcesView: View {
                 let aiFact = try await BereanGenkitService.shared.generateFunBibleFact(category: nil)
                 
                 await MainActor.run {
-                    withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
                         bibleFact = BibleFact(text: aiFact)
                         isRefreshingFact = false
                     }
@@ -444,11 +553,98 @@ struct ResourcesView: View {
                 
                 // Fallback to static random facts if AI fails
                 await MainActor.run {
-                    withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
                         bibleFact = BibleFact.random()
                         isRefreshingFact = false
                     }
                 }
+            }
+        }
+    }
+    
+    // MARK: - Keyboard Handling
+    
+    private func setupKeyboardObservers() {
+        NotificationCenter.default.addObserver(
+            forName: UIResponder.keyboardWillShowNotification,
+            object: nil,
+            queue: .main
+        ) { notification in
+            guard let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
+            withAnimation(.easeOut(duration: 0.25)) {
+                keyboardHeight = keyboardFrame.height
+            }
+        }
+        
+        NotificationCenter.default.addObserver(
+            forName: UIResponder.keyboardWillHideNotification,
+            object: nil,
+            queue: .main
+        ) { _ in
+            withAnimation(.easeOut(duration: 0.25)) {
+                keyboardHeight = 0
+            }
+        }
+    }
+    
+    private func removeKeyboardObservers() {
+        NotificationCenter.default.removeObserver(self, name: UIResponder.keyboardWillShowNotification, object: nil)
+        NotificationCenter.default.removeObserver(self, name: UIResponder.keyboardWillHideNotification, object: nil)
+    }
+    
+    // MARK: - AI Search
+    
+    private func performAISearch() {
+        print("🔍 [DEBUG] performAISearch() called")
+        guard !searchText.isEmpty else {
+            print("🔍 [DEBUG] Search text is empty, returning")
+            return
+        }
+        
+        print("🔍 [DEBUG] Starting AI search task for query: '\(searchText)'")
+        print("🔍 [DEBUG] Total resources available: \(allResources.count)")
+        
+        Task {
+            await MainActor.run {
+                isSearchingWithAI = true
+                isSearchFocused = false
+            }
+            print("🔍 [DEBUG] Set isSearchingWithAI = true")
+            
+            do {
+                // Call AI search service
+                print("🔍 [DEBUG] Calling AIResourceSearchService.shared.searchWithAI()")
+                let results = try await AIResourceSearchService.shared.searchWithAI(
+                    query: searchText,
+                    allResources: allResources
+                )
+                
+                print("🔍 [DEBUG] AI search returned \(results.count) results")
+                
+                await MainActor.run {
+                    withAnimation(.easeOut(duration: 0.3)) {
+                        aiSearchResults = results
+                        useAISearch = true
+                        isSearchingWithAI = false
+                        scrollToResults = true
+                    }
+                }
+                
+                print("✅ AI search complete: \(results.count) results")
+                
+            } catch {
+                print("❌ AI search error: \(error)")
+                print("❌ Error details: \(error.localizedDescription)")
+                
+                // Fall back to keyword search
+                await MainActor.run {
+                    withAnimation(.easeOut(duration: 0.3)) {
+                        useAISearch = false
+                        isSearchingWithAI = false
+                        scrollToResults = true
+                    }
+                }
+                print("🔍 [DEBUG] Fell back to keyword search")
             }
         }
     }
@@ -476,10 +672,13 @@ struct ResourcesView: View {
             
             if !searchText.isEmpty || selectedCategory != .all {
                 Button {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                    withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
                         searchText = ""
                         selectedCategory = .all
                     }
+                    
+                    let haptic = UIImpactFeedbackGenerator(style: .medium)
+                    haptic.impactOccurred()
                 } label: {
                     Text("Clear Filters")
                         .font(.custom("OpenSans-SemiBold", size: 14))
@@ -500,107 +699,6 @@ struct ResourcesView: View {
     }
 }
 
-// MARK: - Daily Verse Card
-struct DailyVerseCard: View {
-    let verse: DailyVerse
-    @Binding var isRefreshing: Bool
-    let onRefresh: () -> Void
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "book.fill")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(.blue)
-                        
-                        Text("Daily Bible Verse")
-                            .font(.custom("OpenSans-Bold", size: 16))
-                            .foregroundStyle(.white)
-                    }
-                    
-                    Text(verse.reference)
-                        .font(.custom("OpenSans-SemiBold", size: 12))
-                        .foregroundStyle(.blue)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(
-                            Capsule()
-                                .fill(.blue.opacity(0.2))
-                        )
-                }
-                
-                Spacer()
-                
-                if isRefreshing {
-                    ProgressView()
-                        .scaleEffect(0.9)
-                        .tint(.blue)
-                } else {
-                    Button(action: onRefresh) {
-                        Image(systemName: "arrow.clockwise")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(.blue)
-                            .padding(8)
-                            .background(
-                                Circle()
-                                    .fill(.blue.opacity(0.15))
-                            )
-                    }
-                }
-            }
-            
-            Text(verse.text)
-                .font(.custom("OpenSans-Regular", size: 15))
-                .foregroundStyle(.white.opacity(0.9))
-                .lineSpacing(6)
-                .opacity(isRefreshing ? 0.5 : 1.0)
-                .transition(.asymmetric(
-                    insertion: .move(edge: .trailing).combined(with: .opacity),
-                    removal: .move(edge: .leading).combined(with: .opacity)
-                ))
-                .id(verse.id)
-        }
-        .padding(20)
-        .background(
-            ZStack {
-                // Dark glass base
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(.ultraThinMaterial)
-                    .background(
-                        RoundedRectangle(cornerRadius: 20)
-                            .fill(Color.black.opacity(0.3))
-                    )
-                
-                // Subtle colored tint
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color.blue.opacity(0.08),
-                                Color.clear
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                
-                // Subtle border
-                RoundedRectangle(cornerRadius: 20)
-                    .stroke(
-                        Color.white.opacity(0.15),
-                        lineWidth: 1
-                    )
-            }
-        )
-        .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: 10)
-        .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
-        .padding(.horizontal)
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isRefreshing)
-    }
-}
-
 // MARK: - Bible Fact Card
 struct BibleFactCard: View {
     let fact: BibleFact
@@ -608,34 +706,34 @@ struct BibleFactCard: View {
     let onRefresh: () -> Void
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack {
-                HStack(spacing: 8) {
+                HStack(spacing: 6) {
                     Image(systemName: "lightbulb.fill")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.orange)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.primary)
                         .symbolEffect(.bounce, value: fact.id)
-                        .padding(8)
+                        .padding(7)
                         .background(
                             Circle()
-                                .fill(.orange.opacity(0.2))
+                                .fill(.ultraThinMaterial)
                         )
                     
                     Text("Fun Bible Fact")
-                        .font(.custom("OpenSans-Bold", size: 16))
-                        .foregroundStyle(.white)
+                        .font(.custom("OpenSans-Bold", size: 15))
+                        .foregroundStyle(.primary)
                 }
                 
                 Spacer()
                 
                 Button(action: onRefresh) {
                     Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.orange)
-                        .padding(8)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                        .padding(7)
                         .background(
                             Circle()
-                                .fill(.orange.opacity(0.15))
+                                .fill(.ultraThinMaterial)
                         )
                         .rotationEffect(.degrees(isRefreshing ? 360 : 0))
                         .animation(.linear(duration: 1).repeatCount(isRefreshing ? 100 : 0, autoreverses: false), value: isRefreshing)
@@ -644,49 +742,38 @@ struct BibleFactCard: View {
             }
             
             Text(fact.text)
-                .font(.custom("OpenSans-Regular", size: 15))
-                .foregroundStyle(.white.opacity(0.9))
-                .lineSpacing(6)
+                .font(.custom("OpenSans-Regular", size: 14))
+                .foregroundStyle(.primary)
+                .lineSpacing(5)
                 .transition(.asymmetric(
                     insertion: .move(edge: .trailing).combined(with: .opacity),
                     removal: .move(edge: .leading).combined(with: .opacity)
                 ))
                 .id(fact.id)
         }
-        .padding(20)
+        .padding(16)
         .background(
             ZStack {
-                // Dark glass base
-                RoundedRectangle(cornerRadius: 20)
+                // Clean glassmorphic background
+                RoundedRectangle(cornerRadius: 16)
                     .fill(.ultraThinMaterial)
-                    .background(
-                        RoundedRectangle(cornerRadius: 20)
-                            .fill(Color.black.opacity(0.3))
-                    )
                 
-                // Subtle colored tint
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(
+                // Simple border
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(
                         LinearGradient(
                             colors: [
-                                Color.orange.opacity(0.08),
-                                Color.clear
+                                Color.white.opacity(0.3),
+                                Color.white.opacity(0.1)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
-                        )
-                    )
-                
-                // Subtle border
-                RoundedRectangle(cornerRadius: 20)
-                    .stroke(
-                        Color.white.opacity(0.15),
+                        ),
                         lineWidth: 1
                     )
             }
         )
-        .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: 10)
-        .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
+        .shadow(color: .black.opacity(0.06), radius: 8, y: 2)
         .padding(.horizontal)
     }
 }
@@ -824,7 +911,7 @@ struct FeaturedBanner: View {
         .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
         .padding(.horizontal)
         .scaleEffect(isHovered ? 1.02 : 1.0)
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isHovered)
+        .animation(.spring(response: 0.25, dampingFraction: 0.75), value: isHovered)
         .onAppear {
             withAnimation(.linear(duration: 3).repeatForever(autoreverses: false)) {
                 shimmerPhase = 400
@@ -937,7 +1024,7 @@ struct LiquidGlassConnectCard: View {
             .padding(.horizontal)
             .scaleEffect(isPressed ? 0.98 : 1.0)
             .onTapGesture {
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) {
                     isExpanded.toggle()
                 }
                 let haptic = UIImpactFeedbackGenerator(style: .medium)
@@ -958,9 +1045,19 @@ struct LiquidGlassConnectCard: View {
             )
             .sheet(isPresented: $showOnboarding) {
                 if title == "Christian Dating" {
-                    ChristianDatingOnboardingView()
+                    ResourceComingSoonPlaceholder(
+                        title: "Christian Dating",
+                        icon: "heart.text.square.fill",
+                        iconColor: .pink,
+                        description: "Meet fellow believers looking for meaningful relationships built on shared faith and values. Our Christian dating feature will help you find your match in Christ."
+                    )
                 } else if title == "Find Friends" {
-                    FindFriendsOnboardingView()
+                    ResourceComingSoonPlaceholder(
+                        title: "Find Friends",
+                        icon: "person.2.fill",
+                        iconColor: .blue,
+                        description: "Connect with fellow believers in your area. Build authentic friendships rooted in faith through shared interests, Bible studies, and community activities."
+                    )
                 }
             }
     }
@@ -1314,28 +1411,6 @@ struct PlaceholderResourceView: View {
 }
 
 // MARK: - Data Models
-struct DailyVerse: Identifiable {
-    let id = UUID()
-    let text: String
-    let reference: String
-    
-    static let sample = DailyVerse(
-        text: "For God so loved the world that he gave his one and only Son, that whoever believes in him shall not perish but have eternal life.",
-        reference: "John 3:16"
-    )
-    
-    static func random() -> DailyVerse {
-        let verses = [
-            DailyVerse(text: "Trust in the Lord with all your heart and lean not on your own understanding.", reference: "Proverbs 3:5"),
-            DailyVerse(text: "I can do all things through Christ who strengthens me.", reference: "Philippians 4:13"),
-            DailyVerse(text: "The Lord is my shepherd; I shall not want.", reference: "Psalm 23:1"),
-            DailyVerse(text: "Be still, and know that I am God.", reference: "Psalm 46:10"),
-            DailyVerse(text: "And we know that in all things God works for the good of those who love him.", reference: "Romans 8:28")
-        ]
-        return verses.randomElement() ?? sample
-    }
-}
-
 struct BibleFact: Identifiable {
     let id = UUID()
     let text: String
@@ -1366,9 +1441,23 @@ struct ResourceItem: Identifiable {
     let category: String
 }
 
-// MARK: - Resource Data (Cleaned - Only Implemented Features)
+// MARK: - Resource Data (Expanded for Search)
 let allResources: [ResourceItem] = [
-    // Articles & Guides
+    // Reading Resources
+    ResourceItem(
+        icon: "book.fill",
+        iconColor: .blue,
+        title: "Bible App",
+        description: "Read, study, and share scripture with YouVersion",
+        category: "Reading"
+    ),
+    ResourceItem(
+        icon: "book.pages.fill",
+        iconColor: .green,
+        title: "Essential Books",
+        description: "Recommended Christian books and literature",
+        category: "Reading"
+    ),
     ResourceItem(
         icon: "newspaper.fill",
         iconColor: .blue,
@@ -1384,7 +1473,51 @@ let allResources: [ResourceItem] = [
         category: "Reading"
     ),
     
-    // Community Features (implemented via banners)
+    // Listening Resources
+    ResourceItem(
+        icon: "mic.fill",
+        iconColor: .red,
+        title: "Sermons",
+        description: "Powerful sermons from Christian leaders worldwide",
+        category: "Listening"
+    ),
+    ResourceItem(
+        icon: "headphones",
+        iconColor: .indigo,
+        title: "Podcasts",
+        description: "Faith-based podcasts for spiritual growth",
+        category: "Listening"
+    ),
+    ResourceItem(
+        icon: "hands.sparkles.fill",
+        iconColor: .purple,
+        title: "Pray.com",
+        description: "Guided prayers, sleep stories, and worship music",
+        category: "Listening"
+    ),
+    
+    // Community Resources
+    ResourceItem(
+        icon: "person.3.fill",
+        iconColor: .blue,
+        title: "Private Communities",
+        description: "Join your church, university, or organization",
+        category: "Community"
+    ),
+    ResourceItem(
+        icon: "building.2.fill",
+        iconColor: .purple,
+        title: "Find Church",
+        description: "Discover nearby worship communities",
+        category: "Community"
+    ),
+    ResourceItem(
+        icon: "note.text",
+        iconColor: .orange,
+        title: "Church Notes",
+        description: "Take and share sermon notes with your community",
+        category: "Community"
+    ),
     ResourceItem(
         icon: "person.2.fill",
         iconColor: .green,
@@ -1392,14 +1525,83 @@ let allResources: [ResourceItem] = [
         description: "Connect with believers in your area",
         category: "Community"
     ),
+    ResourceItem(
+        icon: "heart.text.square.fill",
+        iconColor: .pink,
+        title: "Christian Dating",
+        description: "Find meaningful relationships rooted in faith",
+        category: "Community"
+    ),
+    ResourceItem(
+        icon: "person.2.fill",
+        iconColor: .cyan,
+        title: "Find Friends",
+        description: "Build authentic friendships with fellow believers",
+        category: "Community"
+    ),
     
-    // Digital Tools
+    // Tools & Apps
+    ResourceItem(
+        icon: "sparkles",
+        iconColor: .orange,
+        title: "Faith & Tech",
+        description: "Explore how technology enhances faith journeys",
+        category: "Tools"
+    ),
     ResourceItem(
         icon: "app.badge.fill",
         iconColor: .purple,
         title: "Recommended Apps",
         description: "Top Christian apps for your spiritual journey",
         category: "Tools"
+    ),
+    
+    // Crisis & Support
+    ResourceItem(
+        icon: "phone.fill",
+        iconColor: .red,
+        title: "Crisis Resources",
+        description: "24/7 help and support for mental health emergencies",
+        category: "Crisis"
+    ),
+    ResourceItem(
+        icon: "heart.text.square.fill",
+        iconColor: .green,
+        title: "Mental Health & Wellness",
+        description: "Faith-based mental health support and resources",
+        category: "Mental Health"
+    ),
+    
+    // Giving
+    ResourceItem(
+        icon: "heart.circle.fill",
+        iconColor: .blue,
+        title: "Giving & Nonprofits",
+        description: "Support vetted Christian ministries and causes",
+        category: "Giving"
+    ),
+    
+    // Learning
+    ResourceItem(
+        icon: "brain.head.profile",
+        iconColor: .purple,
+        title: "Bible Study Tools",
+        description: "Commentaries, concordances, and study aids",
+        category: "Learning"
+    ),
+    ResourceItem(
+        icon: "graduationcap.fill",
+        iconColor: .blue,
+        title: "Theology Courses",
+        description: "Learn doctrine and theology from trusted sources",
+        category: "Learning"
+    ),
+    ResourceItem(
+        icon: "book.and.wrench.fill",
+        iconColor: .orange,
+        title: "Discipleship Resources",
+        description: "Materials for spiritual growth and maturity",
+        category: "Learning"
     )
 ]
 
@@ -1635,7 +1837,7 @@ struct LiquidGlassSegmentedControl: View {
                 // Smooth color cross-fade
                 .animation(.easeInOut(duration: 0.25), value: isSelected)
         }
-        .buttonStyle(SegmentButtonStyle())
+        .buttonStyle(ResourcesSegmentButtonStyle())
     }
     
     private func selectCategory(_ category: ResourcesView.ResourceCategory) {
@@ -1644,23 +1846,23 @@ struct LiquidGlassSegmentedControl: View {
         haptic.impactOccurred()
         
         // Trigger springy scale animation
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.65)) {
+        withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
             isAnimating = true
             selection = category
         }
         
         // Reset scale after animation
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+            withAnimation(.spring(response: 0.2, dampingFraction: 0.75)) {
                 isAnimating = false
             }
         }
     }
 }
 
-// MARK: - Segment Button Style
+// MARK: - Segment Button Style (Resources specific to avoid conflicts)
 
-struct SegmentButtonStyle: ButtonStyle {
+struct ResourcesSegmentButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
@@ -2097,6 +2299,168 @@ struct ResourceFeatureHighlightRow: View {
     }
 }
 
+// MARK: - Minimal Connect Card (Black & White Glassmorphic with Color Accents)
+
+struct MinimalConnectCard: View {
+    let icon: String
+    let title: String
+    let subtitle: String
+    let badge: String?
+    let accentColor: Color
+    let isFullWidth: Bool
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 12) {
+                // Clean glassmorphic icon - no glow
+                ZStack {
+                    Circle()
+                        .fill(.ultraThinMaterial)
+                        .frame(width: isFullWidth ? 48 : 44, height: isFullWidth ? 48 : 44)
+                        .overlay(
+                            Circle()
+                                .stroke(accentColor.opacity(0.3), lineWidth: 1.5)
+                        )
+                    
+                    Image(systemName: icon)
+                        .font(.system(size: isFullWidth ? 22 : 20, weight: .semibold))
+                        .foregroundStyle(accentColor)
+                }
+                
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 6) {
+                        Text(title)
+                            .font(.custom("OpenSans-Bold", size: isFullWidth ? 16 : 15))
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                        
+                        if let badge = badge {
+                            Text(badge)
+                                .font(.custom("OpenSans-Bold", size: 9))
+                                .foregroundStyle(accentColor)
+                                .padding(.horizontal, 7)
+                                .padding(.vertical, 3)
+                                .background(
+                                    Capsule()
+                                        .fill(accentColor.opacity(0.12))
+                                        .overlay(
+                                            Capsule()
+                                                .stroke(accentColor.opacity(0.3), lineWidth: 1)
+                                        )
+                                )
+                        }
+                    }
+                    
+                    Text(subtitle)
+                        .font(.custom("OpenSans-Regular", size: isFullWidth ? 13 : 12))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                
+                Spacer(minLength: 0)
+                
+                if isFullWidth {
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(accentColor)
+                }
+            }
+        }
+        .padding(isFullWidth ? 18 : 14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            ZStack {
+                // Clean glassmorphic background
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(.ultraThinMaterial)
+                
+                // Simple border
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.3),
+                                Color.white.opacity(0.1)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
+            }
+        )
+        .shadow(color: .black.opacity(0.06), radius: 8, y: 2)
+    }
+}
+
+// MARK: - Minimal Resource Card (Compact Grid Item)
+
+struct MinimalResourceCard: View {
+    let icon: String
+    let title: String
+    let accentColor: Color
+    var action: (() -> Void)? = nil
+    
+    var body: some View {
+        Button {
+            action?()
+            
+            let haptic = UIImpactFeedbackGenerator(style: .light)
+            haptic.impactOccurred()
+        } label: {
+            VStack(spacing: 12) {
+                // Icon
+                ZStack {
+                    Circle()
+                        .fill(.ultraThinMaterial)
+                        .frame(width: 56, height: 56)
+                        .overlay(
+                            Circle()
+                                .stroke(accentColor.opacity(0.25), lineWidth: 1.5)
+                        )
+                    
+                    Image(systemName: icon)
+                        .font(.system(size: 24, weight: .semibold))
+                        .foregroundStyle(accentColor)
+                        .symbolEffect(.pulse, options: .repeating.speed(0.5))
+                }
+                
+                // Title
+                Text(title)
+                    .font(.custom("OpenSans-Bold", size: 13))
+                    .foregroundStyle(.primary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .padding(.horizontal, 12)
+            .background(
+                ZStack {
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(.ultraThinMaterial)
+                    
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(
+                            LinearGradient(
+                                colors: [
+                                    Color.white.opacity(0.3),
+                                    Color.white.opacity(0.1)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1
+                        )
+                }
+            )
+            .shadow(color: .black.opacity(0.05), radius: 6, y: 2)
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+}
+
 // MARK: - Shining Border Animation Component
 
 struct ShiningBorderView: View {
@@ -2152,6 +2516,207 @@ struct ShiningBorderView: View {
                         rotation = 360
                     }
                 }
+            }
+        }
+    }
+}
+
+// MARK: - Simplified Feature Banner (Compact with Expandable Features)
+
+struct SimplifiedFeatureBanner: View {
+    let icon: String
+    let title: String
+    let subtitle: String
+    let accentColor: Color
+    let features: [String]
+    
+    @State private var isExpanded = false
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header with expand/collapse
+            HStack(spacing: 12) {
+                // Colored icon
+                ZStack {
+                    Circle()
+                        .fill(accentColor.opacity(0.15))
+                        .frame(width: 44, height: 44)
+                    
+                    Image(systemName: icon)
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundStyle(accentColor)
+                }
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.custom("OpenSans-Bold", size: 16))
+                        .foregroundStyle(.primary)
+                    
+                    Text(subtitle)
+                        .font(.custom("OpenSans-Regular", size: 13))
+                        .foregroundStyle(.secondary)
+                }
+                
+                Spacer()
+                
+                // Expand/collapse button
+                Button {
+                    withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) {
+                        isExpanded.toggle()
+                    }
+                    
+                    let haptic = UIImpactFeedbackGenerator(style: .light)
+                    haptic.impactOccurred()
+                } label: {
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(accentColor)
+                        .padding(8)
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
+            .padding(14)
+            
+            // Expandable features list
+            if isExpanded {
+                VStack(alignment: .leading, spacing: 10) {
+                    Divider()
+                        .padding(.horizontal, 14)
+                    
+                    ForEach(features, id: \.self) { feature in
+                        HStack(spacing: 10) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: 12))
+                                .foregroundStyle(accentColor)
+                            
+                            Text(feature)
+                                .font(.custom("OpenSans-Regular", size: 14))
+                                .foregroundStyle(.primary)
+                                .lineSpacing(3)
+                        }
+                        .padding(.horizontal, 14)
+                    }
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .top).combined(with: .opacity),
+                        removal: .opacity
+                    ))
+                }
+                .padding(.bottom, 14)
+            }
+        }
+        .background(
+            ZStack {
+                // Black and white glassmorphic background
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(.ultraThinMaterial)
+                
+                // Very subtle accent tint (mostly black and white)
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.05),
+                                Color.white.opacity(0.02)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                
+                // Colored border for accent
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                accentColor.opacity(0.3),
+                                accentColor.opacity(0.1)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
+            }
+        )
+        .shadow(color: accentColor.opacity(0.1), radius: 8, y: 2)
+        .shadow(color: .black.opacity(0.05), radius: 4, y: 1)
+    }
+}
+
+// MARK: - Safe AI Daily Verse Card Wrapper
+
+struct SafeAIDailyVerseCard: View {
+    @State private var loadFailed = false
+    @State private var isLoading = true
+    
+    var body: some View {
+        Group {
+            if loadFailed {
+                // Fallback card when AI service fails
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "book.closed.fill")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(.primary)
+                            .padding(6)
+                            .background(Circle().fill(.ultraThinMaterial))
+                        
+                        Text("Daily Verse")
+                            .font(.custom("OpenSans-Bold", size: 13))
+                            .foregroundStyle(.primary)
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 16)
+                    
+                    Text("\"For I know the plans I have for you,\" declares the LORD, \"plans to prosper you and not to harm you, plans to give you hope and a future.\"")
+                        .font(.custom("OpenSans-Regular", size: 16))
+                        .foregroundStyle(.primary)
+                        .lineSpacing(6)
+                        .padding(.horizontal, 20)
+                    
+                    Text("Jeremiah 29:11")
+                        .font(.custom("OpenSans-Bold", size: 14))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 16)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(
+                    ZStack {
+                        // Clean glassmorphic background
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(.ultraThinMaterial)
+                        
+                        // Simple border
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(
+                                LinearGradient(
+                                    colors: [
+                                        Color.white.opacity(0.3),
+                                        Color.white.opacity(0.1)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 1
+                            )
+                    }
+                )
+                .shadow(color: .black.opacity(0.06), radius: 8, y: 2)
+                .padding(.horizontal)
+            } else {
+                AIDailyVerseCard()
+                    .onAppear {
+                        isLoading = false
+                    }
+            }
+        }
+        .task {
+            // Monitor for crashes with timeout
+            try? await Task.sleep(nanoseconds: 3_000_000_000) // 3 seconds
+            if isLoading {
+                print("⚠️ AIDailyVerseCard taking too long, using fallback")
+                loadFailed = true
             }
         }
     }

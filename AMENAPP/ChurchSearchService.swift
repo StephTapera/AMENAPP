@@ -9,6 +9,27 @@ import Foundation
 import MapKit
 import Combine
 
+// MARK: - Church Search Errors
+enum ChurchSearchError: LocalizedError {
+    case noInternetConnection
+    case noResultsFound
+    case tooManyRequests
+    case locationUnavailable
+    
+    var errorDescription: String? {
+        switch self {
+        case .noInternetConnection:
+            return "No internet connection available"
+        case .noResultsFound:
+            return "No churches found in this area"
+        case .tooManyRequests:
+            return "Too many search requests. Please try again later"
+        case .locationUnavailable:
+            return "Location services are unavailable"
+        }
+    }
+}
+
 @MainActor
 class ChurchSearchService: ObservableObject {
     static let shared = ChurchSearchService()
@@ -35,38 +56,78 @@ class ChurchSearchService: ObservableObject {
         )
         
         let search = MKLocalSearch(request: request)
-        let response = try await search.start()
         
-        let churches = response.mapItems.compactMap { mapItem -> Church? in
-            guard let name = mapItem.name else { return nil }
+        do {
+            let response = try await search.start()
             
-            // Calculate distance
-            let churchLocation = CLLocation(
-                latitude: mapItem.placemark.coordinate.latitude,
-                longitude: mapItem.placemark.coordinate.longitude
-            )
-            let userLocation = CLLocation(
-                latitude: location.latitude,
-                longitude: location.longitude
-            )
-            let distanceInMiles = userLocation.distance(from: churchLocation) / 1609.34
+            // Check if we have results
+            guard !response.mapItems.isEmpty else {
+                throw ChurchSearchError.noResultsFound
+            }
             
-            return Church(
-                name: name,
-                denomination: extractDenomination(from: name),
-                address: formatAddress(from: mapItem.placemark),
-                distance: String(format: "%.1f miles away", distanceInMiles),
-                distanceValue: distanceInMiles,
-                serviceTime: "Contact church for service times",
-                phone: mapItem.phoneNumber ?? "No phone available",
-                coordinate: mapItem.placemark.coordinate,
-                website: mapItem.url?.host,
-                nextServiceCountdown: calculateNextService()
-            )
+            let churches = response.mapItems.compactMap { mapItem -> Church? in
+                guard let name = mapItem.name else { return nil }
+                
+                // Calculate distance
+                let churchLocation = CLLocation(
+                    latitude: mapItem.placemark.coordinate.latitude,
+                    longitude: mapItem.placemark.coordinate.longitude
+                )
+                let userLocation = CLLocation(
+                    latitude: location.latitude,
+                    longitude: location.longitude
+                )
+                let distanceInMiles = userLocation.distance(from: churchLocation) / 1609.34
+                
+                return Church(
+                    id: UUID(), // Generate unique ID for each search result
+                    name: name,
+                    denomination: extractDenomination(from: name),
+                    address: formatAddress(from: mapItem.placemark),
+                    distance: String(format: "%.1f miles away", distanceInMiles),
+                    distanceValue: distanceInMiles,
+                    serviceTime: "Contact church for service times",
+                    phone: mapItem.phoneNumber ?? "No phone available",
+                    coordinate: mapItem.placemark.coordinate,
+                    website: mapItem.url?.host,
+                    nextServiceCountdown: calculateNextService()
+                )
+            }
+            
+            // Check if we got any valid churches after filtering
+            guard !churches.isEmpty else {
+                throw ChurchSearchError.noResultsFound
+            }
+            
+            searchResults = churches.sorted { $0.distanceValue < $1.distanceValue }
+            return searchResults
+            
+        } catch let error as ChurchSearchError {
+            // Re-throw our custom errors
+            throw error
+        } catch let mkError as MKError {
+            // Handle MapKit-specific errors
+            switch mkError.code {
+            case .placemarkNotFound:
+                throw ChurchSearchError.noResultsFound
+            case .loadingThrottled:
+                throw ChurchSearchError.tooManyRequests
+            default:
+                // Check for network-related errors
+                if (mkError.errorUserInfo[NSUnderlyingErrorKey] as? URLError)?.code == .notConnectedToInternet {
+                    throw ChurchSearchError.noInternetConnection
+                }
+                throw mkError
+            }
+        } catch {
+            // Check for network errors
+            if let urlError = error as? URLError {
+                if urlError.code == .notConnectedToInternet {
+                    throw ChurchSearchError.noInternetConnection
+                }
+            }
+            throw error
         }
-        
-        searchResults = churches.sorted { $0.distanceValue < $1.distanceValue }
-        return searchResults
     }
     
     // MARK: - Helper Methods

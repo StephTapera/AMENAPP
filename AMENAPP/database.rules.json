@@ -22,9 +22,9 @@
         },
         
         "amens": {
-          "$amenId": {
-            ".write": "auth != null && (!data.exists() || data.child('userId').val() == auth.uid)",
-            ".validate": "newData.hasChildren(['userId', 'createdAt']) || !newData.exists()",
+          "$userId": {
+            ".write": "auth != null && auth.uid == $userId",
+            ".validate": "newData.hasChildren(['userId', 'userName', 'timestamp']) || !newData.exists()",
             
             "userId": {
               ".validate": "newData.isString()"
@@ -58,8 +58,8 @@
         "comments": {
           "$commentId": {
             ".write": "auth != null && (!data.exists() || data.child('authorId').val() == auth.uid || data.child('userId').val() == auth.uid)",
-            ".validate": "((newData.hasChildren(['authorId', 'content']) || newData.hasChildren(['userId', 'text'])) && (newData.hasChild('createdAt') || newData.hasChild('timestamp'))) || !newData.exists()",
-            
+            ".validate": "newData.hasChildren(['authorId', 'content', 'timestamp']) || !newData.exists()",
+
             "authorId": {
               ".validate": "newData.isString()"
             },
@@ -73,6 +73,12 @@
               ".validate": "newData.isString()"
             },
             "authorUsername": {
+              ".validate": "newData.isString()"
+            },
+            "id": {
+              ".validate": "newData.isString()"
+            },
+            "postId": {
               ".validate": "newData.isString()"
             },
             "userId": {
@@ -163,27 +169,24 @@
       }
     },
     
+    "user-reposts": {
+      "$userId": {
+        ".read": "auth != null",
+        ".write": "auth != null && auth.uid == $userId"
+      }
+    },
+    
     "user_saved_posts": {
       "$userId": {
         ".read": "auth != null && auth.uid == $userId",
-        
-        "$postId": {
-          ".write": "auth != null && auth.uid == $userId",
-          ".validate": "newData.isBoolean() || newData.hasChildren(['timestamp', 'savedAt']) || !newData.exists()",
-          
-          "timestamp": {
-            ".validate": "newData.isNumber()"
-          },
-          "savedAt": {
-            ".validate": "newData.isNumber()"
-          },
-          "postTitle": {
-            ".validate": "newData.isString()"
-          },
-          "postAuthor": {
-            ".validate": "newData.isString()"
-          }
-        }
+        ".write": "auth != null && auth.uid == $userId"
+      }
+    },
+    
+    "savedPosts": {
+      "$userId": {
+        ".read": "auth != null && auth.uid == $userId",
+        ".write": "auth != null && auth.uid == $userId"
       }
     },
     
@@ -212,6 +215,9 @@
     },
     
     "test": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      
       "connection": {
         ".read": "auth != null",
         ".write": "auth != null"
@@ -446,11 +452,17 @@
       "$conversationId": {
         ".read": "auth != null && data.child('metadata/participantIds').val().contains(auth.uid)",
         ".write": "auth != null && data.child('metadata/participantIds').val().contains(auth.uid)",
+        
+        "metadata": {
+          ".validate": "newData.hasChildren(['participantIds']) || !newData.exists()"
+        },
+        
         "messages": {
           "$messageId": {
             ".write": "auth != null && newData.child('senderId').val() === auth.uid"
           }
         },
+        
         "typing": {
           "$userId": {
             ".write": "auth != null && $userId === auth.uid"

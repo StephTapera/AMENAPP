@@ -9,6 +9,7 @@
 
 import Foundation
 import FirebaseFirestore
+import SwiftUI
 
 // MARK: - Conversation Model
 
@@ -241,6 +242,29 @@ struct MessageRequest: Identifiable, Codable, Equatable {
         self.fromUserPhoto = fromUserPhoto
         self.isRead = isRead
         self.createdAt = createdAt
+    }
+}
+
+// MARK: - Conversation Extensions for MessagesView
+
+extension Conversation {
+    /// Check if this is a group conversation (more than 2 participants)
+    var isGroup: Bool {
+        return participants.count > 2
+    }
+    
+    /// Get the profile photo URL for the other participant (1-on-1 chats)
+    /// - Parameter currentUserId: The current user's ID
+    /// - Returns: The other participant's profile photo URL, or nil if not available
+    func profilePhotoURL(currentUserId: String) -> String? {
+        return otherParticipantPhoto(currentUserId: currentUserId)
+    }
+    
+    /// Get an avatar color based on the conversation
+    var avatarColor: Color {
+        let colors: [Color] = [.blue, .purple, .green, .orange, .pink, .cyan, .red, .indigo]
+        let hash = abs((id ?? "unknown").hashValue)
+        return colors[hash % colors.count]
     }
 }
 

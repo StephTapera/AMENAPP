@@ -7,6 +7,7 @@
 
 import SwiftUI
 import FirebaseFirestore
+import Combine
 
 struct NotificationUserProfileView: View {
     let userId: String
@@ -79,7 +80,7 @@ struct NotificationUserProfileView: View {
 // MARK: - Profile Content View
 
 struct ProfileContentView: View {
-    let profile: NotificationUserProfile
+    let profile: NotificationProfileData
     
     @StateObject private var followService = FollowService.shared
     @State private var isFollowing = false
@@ -147,9 +148,9 @@ struct ProfileContentView: View {
                     
                     // Stats
                     HStack(spacing: 32) {
-                        StatView(count: profile.postsCount, label: "Posts")
-                        StatView(count: profile.followersCount, label: "Followers")
-                        StatView(count: profile.followingCount, label: "Following")
+                        ProfileStatView(count: profile.postsCount, label: "Posts")
+                        ProfileStatView(count: profile.followersCount, label: "Followers")
+                        ProfileStatView(count: profile.followingCount, label: "Following")
                     }
                     
                     // Follow Button
@@ -158,7 +159,7 @@ struct ProfileContentView: View {
                     } label: {
                         Text(isFollowing ? "Following" : "Follow")
                             .font(.custom("OpenSans-Bold", size: 16))
-                            .foregroundStyle(isFollowing ? .primary : .white)
+                            .foregroundStyle(isFollowing ? .primary : Color.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
                             .background(
@@ -199,7 +200,7 @@ struct ProfileContentView: View {
     }
 }
 
-struct StatView: View {
+struct ProfileStatView: View {
     let count: Int
     let label: String
     
@@ -219,7 +220,7 @@ struct StatView: View {
 
 @MainActor
 class NotificationProfileViewModel: ObservableObject {
-    @Published var profile: NotificationUserProfile?
+    @Published var profile: NotificationProfileData?
     @Published var isLoading = false
     @Published var error: Error?
     
@@ -236,7 +237,7 @@ class NotificationProfileViewModel: ObservableObject {
                 return
             }
             
-            profile = NotificationUserProfile(
+            profile = NotificationProfileData(
                 id: userId,
                 displayName: data["displayName"] as? String ?? "Unknown",
                 username: data["username"] as? String,
@@ -255,7 +256,7 @@ class NotificationProfileViewModel: ObservableObject {
 
 // MARK: - Profile Model
 
-struct NotificationUserProfile {
+struct NotificationProfileData {
     let id: String
     let displayName: String
     let username: String?

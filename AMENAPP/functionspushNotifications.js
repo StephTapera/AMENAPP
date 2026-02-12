@@ -99,13 +99,22 @@ exports.sendPushNotification = functions.firestore
 
 /**
  * Handle follow events with duplicate prevention
- * Triggers on: /followers/{userId}/following/{followingId}
+ * Triggers on: /follows/{followId}
+ * 
+ * IMPORTANT: Uses top-level /follows collection, NOT subcollection
+ * Document structure: { followerId: string, followingId: string, createdAt: timestamp }
  */
 exports.onUserFollow = functions.firestore
-  .document('followers/{userId}/following/{followingId}')
+  .document('follows/{followId}')
   .onCreate(async (snap, context) => {
-    const followerId = context.params.userId;
-    const followingId = context.params.followingId;
+    const followData = snap.data();
+    const followerId = followData.followerId;
+    const followingId = followData.followingId;
+    
+    if (!followerId || !followingId) {
+      console.log('⚠️ Missing followerId or followingId in follow document');
+      return null;
+    }
     
     console.log('👥 New follow detected');
     console.log('   Follower:', followerId);
@@ -117,6 +126,7 @@ exports.onUserFollow = functions.firestore
         .where('userId', '==', followingId)
         .where('type', '==', 'follow')
         .where('actorId', '==', followerId)
+        .limit(1)
         .get();
       
       if (!existingNotifications.empty) {
@@ -143,7 +153,7 @@ exports.onUserFollow = functions.firestore
       const followerData = followerDoc.data();
       
       // Create notification
-      await db.collection('notifications').add({
+      const notificationRef = await db.collection('notifications').add({
         userId: followingId,
         type: 'follow',
         actorId: followerId,
@@ -153,7 +163,7 @@ exports.onUserFollow = functions.firestore
         createdAt: admin.firestore.FieldValue.serverTimestamp()
       });
       
-      console.log('✅ Follow notification created');
+      console.log('✅ Follow notification created:', notificationRef.id);
       
       // Increment unread count
       await db.collection('users').doc(followingId).update({
@@ -169,13 +179,19 @@ exports.onUserFollow = functions.firestore
 
 /**
  * Delete notification when someone unfollows
- * Triggers on: /followers/{userId}/following/{followingId} (delete)
+ * Triggers on: /follows/{followId} (delete)
  */
 exports.onUserUnfollow = functions.firestore
-  .document('followers/{userId}/following/{followingId}')
+  .document('follows/{followId}')
   .onDelete(async (snap, context) => {
-    const followerId = context.params.userId;
-    const followingId = context.params.followingId;
+    const followData = snap.data();
+    const followerId = followData.followerId;
+    const followingId = followData.followingId;
+    
+    if (!followerId || !followingId) {
+      console.log('⚠️ Missing followerId or followingId in deleted follow document');
+      return null;
+    }
     
     console.log('👋 Unfollow detected');
     console.log('   Follower:', followerId);
@@ -196,18 +212,25 @@ exports.onUserUnfollow = functions.firestore
       
       // Delete all matching notifications (should be only one due to duplicate prevention)
       const batch = db.batch();
+      let deletedCount = 0;
+      let wasUnread = false;
+      
       notifications.forEach(doc => {
         batch.delete(doc.ref);
+        deletedCount++;
+        if (!doc.data().read) {
+          wasUnread = true;
+        }
       });
+      
       await batch.commit();
       
-      console.log('✅ Follow notification(s) deleted:', notifications.size);
+      console.log('✅ Follow notification(s) deleted:', deletedCount);
       
       // Decrement unread count if notification was unread
-      const wasUnread = notifications.docs.some(doc => !doc.data().read);
       if (wasUnread) {
         await db.collection('users').doc(followingId).update({
-          unreadNotificationCount: admin.firestore.FieldValue.increment(-1)
+          unreadNotificationCount: admin.firestore.FieldValue.increment(-deletedCount)
         });
       }
       

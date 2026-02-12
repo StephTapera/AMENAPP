@@ -36,11 +36,6 @@ struct OnboardingView: View {
         "trendingPosts": false
     ]
     
-    // Referral code
-    @State private var referralCode: String = ""
-    @State private var referralApplied: Bool = false
-    @State private var referralError: String?
-    
     // Contact permissions
     @State private var contactsPermissionGranted: Bool = false
     
@@ -57,7 +52,7 @@ struct OnboardingView: View {
     
     @Environment(\.dismiss) var dismiss
     
-    let totalPages = 12  // Updated to include new pages: Referral, Contacts, Feedback
+    let totalPages = 11  // Updated to include new pages: Contacts, Feedback
     
     enum PrayerTime: String, CaseIterable {
         case morning = "Morning"
@@ -173,28 +168,20 @@ struct OnboardingView: View {
                     PrayerTimePage(prayerTime: $prayerTime)
                         .tag(8)
                     
-                    // Page 10: Referral Code (NEW)
-                    ReferralCodePage(
-                        referralCode: $referralCode,
-                        referralApplied: $referralApplied,
-                        referralError: $referralError
-                    )
-                        .tag(9)
-                    
-                    // Page 11: Find Friends / Contacts (NEW)
+                    // Page 10: Find Friends / Contacts (NEW)
                     FindFriendsPage(
                         contactsPermissionGranted: $contactsPermissionGranted
                     )
-                        .tag(10)
+                        .tag(9)
                     
-                    // Page 12: Feedback & Recommendations (NEW)
+                    // Page 11: Feedback & Recommendations (NEW - FINAL PAGE)
                     FeedbackRecommendationsPage(
                         rating: $onboardingRating,
                         feedback: $onboardingFeedback,
                         selectedInterests: selectedInterests,
                         selectedGoals: selectedGoals
                     )
-                        .tag(11)
+                        .tag(10)
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
                 
@@ -321,6 +308,11 @@ struct OnboardingView: View {
                 let haptic = UINotificationFeedbackGenerator()
                 haptic.notificationOccurred(.success)
                 
+                // Show exciting Welcome to AMEN screen
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    authViewModel.showWelcomeToAMENScreen()
+                }
+                
             } catch {
                 // Show retry dialog
                 saveError = error.localizedDescription
@@ -382,7 +374,6 @@ struct OnboardingView: View {
         print("   - Goals: \(goalsArray)")
         print("   - Prayer Time: \(prayerTime.rawValue)")
         print("   - Daily Time Limit: \(dailyTimeLimit) minutes")
-        print("   - Referral Code: \(referralCode.isEmpty ? "None" : referralCode)")
         print("   - Contacts Permission: \(contactsPermissionGranted)")
         print("   - Feedback Rating: \(onboardingRating)/5")
         
@@ -402,16 +393,6 @@ struct OnboardingView: View {
             prayerTime: prayerTime.rawValue,
             profileImageURL: imageURL
         )
-        
-        // Apply referral code if provided
-        if !referralCode.isEmpty && !referralApplied {
-            do {
-                try await applyReferralCode(referralCode)
-                print("✅ Referral code applied: \(referralCode)")
-            } catch {
-                print("⚠️ Failed to apply referral code (continuing anyway): \(error)")
-            }
-        }
         
         // Save contacts permission preference
         if contactsPermissionGranted {
@@ -434,11 +415,19 @@ struct OnboardingView: View {
         
         // Request notification permissions if prayer reminders are enabled
         if notificationPreferences["prayerReminders"] == true {
-            await notificationManager.requestAuthorization()
+            // Use BreakTimeNotificationManager for prayer break notifications
+            let breakTimeManager = BreakTimeNotificationManager.shared
+            let breakAuthorized = await breakTimeManager.requestAuthorization()
             
-            // Schedule prayer reminders
-            await notificationManager.schedulePrayerReminders(time: prayerTime.rawValue)
-            print("🔔 Prayer reminders scheduled for \(prayerTime.rawValue)")
+            if breakAuthorized {
+                await breakTimeManager.scheduleBreakNotifications(for: prayerTime.rawValue)
+                print("🔔 Prayer break notifications scheduled for \(prayerTime.rawValue)")
+                
+                // Log scheduled times for verification
+                let pendingCount = await breakTimeManager.getPendingNotificationsCount()
+                print("📅 Total break notifications scheduled: \(pendingCount)")
+                print("📋 Break times: \(breakTimeManager.scheduledBreakTimes.map { $0.timeString }.joined(separator: ", "))")
+            }
         }
         
         // Setup notification categories
@@ -448,55 +437,6 @@ struct OnboardingView: View {
     }
     
     // MARK: - Helper Functions
-    
-    /// Apply referral code
-    private func applyReferralCode(_ code: String) async throws {
-        guard let userId = Auth.auth().currentUser?.uid else {
-            throw NSError(domain: "OnboardingError", code: -1, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
-        }
-        
-        let db = Firestore.firestore()
-        
-        // Validate referral code format
-        guard !code.isEmpty, code.count >= 6 else {
-            throw NSError(domain: "OnboardingError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid referral code format"])
-        }
-        
-        // Check if referral code exists and get referrer ID
-        let referralDoc = try await db.collection("referralCodes").document(code).getDocument()
-        
-        guard referralDoc.exists,
-              let referrerId = referralDoc.data()?["userId"] as? String else {
-            throw NSError(domain: "OnboardingError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid referral code"])
-        }
-        
-        // Can't use your own referral code
-        guard referrerId != userId else {
-            throw NSError(domain: "OnboardingError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Cannot use your own referral code"])
-        }
-        
-        // Save referral info to user document
-        try await db.collection("users").document(userId).updateData([
-            "referredBy": referrerId,
-            "referralCode": code,
-            "referralAppliedAt": Timestamp(date: Date())
-        ])
-        
-        // Increment referrer's referral count
-        try await db.collection("users").document(referrerId).updateData([
-            "referralCount": FieldValue.increment(Int64(1))
-        ])
-        
-        // Log referral event
-        try await db.collection("referrals").addDocument(data: [
-            "referrerId": referrerId,
-            "referredUserId": userId,
-            "code": code,
-            "timestamp": Timestamp(date: Date())
-        ])
-        
-        print("✅ Referral code applied successfully")
-    }
     
     /// Save contacts permission preference
     private func saveContactsPermission() async throws {
@@ -985,6 +925,9 @@ struct OnboardingFeatureCard: View {
 struct InterestsPage: View {
     @Binding var selectedInterests: Set<String>
     @State private var animate = false
+    @State private var showMaxReachedAlert = false
+    
+    let maxInterests = 3
     
     // ✅ Expanded from 16 to 30+ topics for better personalization
     let interests = [
@@ -1048,7 +991,7 @@ struct InterestsPage: View {
                         .offset(y: animate ? 0 : -20)
                         .opacity(animate ? 1.0 : 0)
                     
-                    Text("Select topics you'd like to explore")
+                    Text("Select up to 3 topics you'd like to explore")
                         .font(.custom("OpenSans-Regular", size: 16))
                         .foregroundStyle(.secondary)
                         .offset(y: animate ? 0 : -20)
@@ -1056,16 +999,21 @@ struct InterestsPage: View {
                     
                     // Selection counter
                     if !selectedInterests.isEmpty {
-                        Text("\(selectedInterests.count) selected")
-                            .font(.custom("OpenSans-SemiBold", size: 13))
-                            .foregroundStyle(.blue)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(
-                                Capsule()
-                                    .fill(Color.blue.opacity(0.1))
-                            )
-                            .transition(.scale.combined(with: .opacity))
+                        HStack(spacing: 4) {
+                            Text("\(selectedInterests.count)")
+                                .font(.custom("OpenSans-Bold", size: 14))
+                                .foregroundStyle(selectedInterests.count == maxInterests ? .orange : .blue)
+                            Text("/ \(maxInterests) selected")
+                                .font(.custom("OpenSans-SemiBold", size: 13))
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(
+                            Capsule()
+                                .fill((selectedInterests.count == maxInterests ? Color.orange : Color.blue).opacity(0.1))
+                        )
+                        .transition(.scale.combined(with: .opacity))
                     }
                 }
                 .padding(.top, 40)
@@ -1076,17 +1024,27 @@ struct InterestsPage: View {
                         OnboardingInterestChip(
                             icon: interest.1,
                             title: interest.0,
-                            isSelected: selectedInterests.contains(interest.0)
+                            isSelected: selectedInterests.contains(interest.0),
+                            isDisabled: !selectedInterests.contains(interest.0) && selectedInterests.count >= maxInterests
                         ) {
                             withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                                 if selectedInterests.contains(interest.0) {
+                                    // Allow deselecting
                                     selectedInterests.remove(interest.0)
-                                } else {
+                                    let haptic = UIImpactFeedbackGenerator(style: .light)
+                                    haptic.impactOccurred()
+                                } else if selectedInterests.count < maxInterests {
+                                    // Allow selecting if under limit
                                     selectedInterests.insert(interest.0)
+                                    let haptic = UIImpactFeedbackGenerator(style: .light)
+                                    haptic.impactOccurred()
+                                } else {
+                                    // Show alert when limit reached
+                                    showMaxReachedAlert = true
+                                    let haptic = UINotificationFeedbackGenerator()
+                                    haptic.notificationOccurred(.warning)
                                 }
                             }
-                            let haptic = UIImpactFeedbackGenerator(style: .light)
-                            haptic.impactOccurred()
                         }
                         .offset(y: animate ? 0 : 20)
                         .opacity(animate ? 1.0 : 0)
@@ -1096,6 +1054,11 @@ struct InterestsPage: View {
                 .padding(.horizontal)
             }
             .padding(.bottom, 120)
+        }
+        .alert("Maximum Reached", isPresented: $showMaxReachedAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("You can select up to \(maxInterests) interests. Deselect one to choose a different topic.")
         }
         .onAppear {
             animate = true
@@ -1107,6 +1070,7 @@ struct OnboardingInterestChip: View {
     let icon: String
     let title: String
     let isSelected: Bool
+    var isDisabled: Bool = false
     let action: () -> Void
     
     var body: some View {
@@ -1114,11 +1078,11 @@ struct OnboardingInterestChip: View {
             VStack(spacing: 12) {
                 Image(systemName: icon)
                     .font(.system(size: 32))
-                    .foregroundStyle(isSelected ? Color.blue : .secondary)
+                    .foregroundStyle(isSelected ? Color.blue : (isDisabled ? .secondary.opacity(0.5) : .secondary))
                 
                 Text(title)
                     .font(.custom("OpenSans-Bold", size: 14))
-                    .foregroundStyle(isSelected ? Color.blue : .primary)
+                    .foregroundStyle(isSelected ? Color.blue : (isDisabled ? .primary.opacity(0.5) : .primary))
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
                     .minimumScaleFactor(0.8)
@@ -1127,7 +1091,7 @@ struct OnboardingInterestChip: View {
             .padding(.vertical, 20)
             .background(
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(isSelected ? Color.blue.opacity(0.1) : Color(.secondarySystemBackground))
+                    .fill(isSelected ? Color.blue.opacity(0.1) : (isDisabled ? Color(.secondarySystemBackground).opacity(0.5) : Color(.secondarySystemBackground)))
                     .overlay(
                         RoundedRectangle(cornerRadius: 16)
                             .stroke(isSelected ? Color.blue.opacity(0.3) : Color.clear, lineWidth: 2)
@@ -1135,8 +1099,10 @@ struct OnboardingInterestChip: View {
                     .shadow(color: isSelected ? .blue.opacity(0.2) : .clear, radius: 12, y: 4)
             )
             .scaleEffect(isSelected ? 1.05 : 1.0)
+            .opacity(isDisabled ? 0.6 : 1.0)
         }
         .buttonStyle(PlainButtonStyle())
+        .disabled(isDisabled)
     }
 }
 
@@ -2652,15 +2618,16 @@ struct FeedbackRecommendationsPage: View {
                 Spacer()
                     .frame(height: 40)
                 
-                // Header
+                // Header - Black & White Liquid Glass
                 VStack(spacing: 16) {
                     ZStack {
+                        // Outer glass glow
                         Circle()
                             .fill(
                                 RadialGradient(
                                     colors: [
-                                        Color.blue.opacity(0.3),
-                                        Color.blue.opacity(0.1),
+                                        Color.white.opacity(0.15),
+                                        Color.black.opacity(0.05),
                                         Color.clear
                                     ],
                                     center: .center,
@@ -2670,45 +2637,65 @@ struct FeedbackRecommendationsPage: View {
                             )
                             .frame(width: 120, height: 120)
                             .blur(radius: 10)
-                        
+
+                        // Main glass circle
                         Circle()
-                            .fill(.ultraThinMaterial)
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        Color.white.opacity(0.1),
+                                        Color.black.opacity(0.05)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
                             .frame(width: 100, height: 100)
+                            .background(
+                                Circle()
+                                    .fill(.ultraThinMaterial)
+                                    .frame(width: 100, height: 100)
+                            )
                             .overlay(
                                 Circle()
                                     .stroke(
                                         LinearGradient(
                                             colors: [
-                                                Color.white.opacity(0.4),
-                                                Color.white.opacity(0.1)
+                                                Color.white.opacity(0.6),
+                                                Color.white.opacity(0.2),
+                                                Color.black.opacity(0.1)
                                             ],
                                             startPoint: .topLeading,
                                             endPoint: .bottomTrailing
                                         ),
-                                        lineWidth: 1
+                                        lineWidth: 1.5
                                     )
                             )
-                        
+                            .shadow(color: .black.opacity(0.1), radius: 15, y: 8)
+
+                        // Icon
                         Image(systemName: "sparkles")
                             .font(.system(size: 48, weight: .semibold))
                             .foregroundStyle(
                                 LinearGradient(
-                                    colors: [.blue, .purple],
+                                    colors: [
+                                        Color.primary.opacity(0.9),
+                                        Color.primary.opacity(0.6)
+                                    ],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 )
                             )
-                            .shadow(color: .blue.opacity(0.5), radius: 10, y: 5)
                             .symbolEffect(.pulse)
                     }
                     .scaleEffect(animate ? 1.0 : 0.8)
                     .opacity(animate ? 1.0 : 0)
-                    
+
                     Text("You're All Set!")
                         .font(.custom("OpenSans-Bold", size: 32))
                         .foregroundStyle(.primary)
                         .opacity(animate ? 1.0 : 0)
-                    
+
                     Text("Here's what we recommend based on your interests")
                         .font(.custom("OpenSans-Regular", size: 15))
                         .foregroundStyle(.secondary)
@@ -2719,35 +2706,71 @@ struct FeedbackRecommendationsPage: View {
                         .opacity(animate ? 1.0 : 0)
                 }
                 
-                // Personalized Recommendations
+                // Personalized Recommendations - Black & White Liquid Glass
                 VStack(alignment: .leading, spacing: 16) {
                     Text("Personalized for You")
                         .font(.custom("OpenSans-Bold", size: 18))
                         .foregroundStyle(.primary)
-                    
+
                     VStack(spacing: 12) {
                         ForEach(recommendations, id: \.self) { recommendation in
                             HStack(alignment: .top, spacing: 12) {
                                 Image(systemName: "checkmark.circle.fill")
                                     .font(.system(size: 20))
-                                    .foregroundStyle(.blue)
-                                
+                                    .foregroundStyle(
+                                        LinearGradient(
+                                            colors: [
+                                                Color.primary.opacity(0.8),
+                                                Color.primary.opacity(0.5)
+                                            ],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
+                                    )
+
                                 Text(recommendation)
                                     .font(.custom("OpenSans-Regular", size: 14))
                                     .foregroundStyle(.primary)
                                     .fixedSize(horizontal: false, vertical: true)
-                                
+
                                 Spacer()
                             }
                             .padding()
                             .background(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.blue.opacity(0.05))
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .stroke(Color.blue.opacity(0.15), lineWidth: 1)
-                                    )
+                                ZStack {
+                                    // Liquid glass background
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .fill(.ultraThinMaterial)
+
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .fill(
+                                            LinearGradient(
+                                                colors: [
+                                                    Color.white.opacity(0.08),
+                                                    Color.black.opacity(0.02)
+                                                ],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            )
+                                        )
+
+                                    // Glass border
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .stroke(
+                                            LinearGradient(
+                                                colors: [
+                                                    Color.white.opacity(0.4),
+                                                    Color.white.opacity(0.1),
+                                                    Color.black.opacity(0.1)
+                                                ],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            ),
+                                            lineWidth: 1
+                                        )
+                                }
                             )
+                            .shadow(color: .black.opacity(0.05), radius: 8, y: 4)
                         }
                     }
                 }

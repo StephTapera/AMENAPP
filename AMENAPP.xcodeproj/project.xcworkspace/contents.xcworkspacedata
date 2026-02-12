@@ -5,27 +5,15 @@
       location = "self:">
    </FileRef>
    <FileRef
-      location = "group:FIX_PHOTO_PERMISSIONS_NOW.md">
+      location = "group:REPOST_DOUBLE_DIALOGUE_DEBUG.md">
    </FileRef>
    <FileRef
-      location = "group:storage.rules">
+      location = "group:REPOST_INSTANT_TOGGLE_COMPLETE.md">
    </FileRef>
    <FileRef
-      location = "group:firestore.rules">
+      location = "group:RESOURCES_VIEW_CLEANUP_COMPLETE.md">
    </FileRef>
    <FileRef
-      location = "group:INFO_PLIST_SETUP_GUIDE.md">
-   </FileRef>
-   <FileRef
-      location = "group:PRODUCTION_DEPLOYMENT_COMPLETE.md">
-   </FileRef>
-   <FileRef
-      location = "group:QUICK_REFERENCE.md">
-   </FileRef>
-   <FileRef
-      location = "group:firestore.rules.UPDATED">
-   </FileRef>
-   <FileRef
-      location = "group:ENUM_ERROR_FIX_GUIDE.md">
+      location = "group:MENTIONS_IMPLEMENTATION_COMPLETE.md">
    </FileRef>
 </Workspace>

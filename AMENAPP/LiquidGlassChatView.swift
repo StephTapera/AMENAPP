@@ -51,7 +51,7 @@ struct LiquidGlassChatView: View {
             ScrollView {
                 LazyVStack(spacing: 16) {
                     ForEach(viewModel.messages) { message in
-                        LiquidGlassMessageBubble(
+                        LiquidGlassMessageBubbleSimple(
                             message: message,
                             isFromCurrentUser: message.senderId == viewModel.currentUserId
                         )
@@ -101,7 +101,7 @@ struct LiquidGlassChatView: View {
 
 // MARK: - Liquid Glass Message Bubble
 
-struct LiquidGlassMessageBubble: View {
+struct LiquidGlassMessageBubbleSimple: View {
     let message: Message
     let isFromCurrentUser: Bool
     

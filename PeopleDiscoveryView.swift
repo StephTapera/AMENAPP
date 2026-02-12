@@ -25,11 +25,13 @@ struct PeopleDiscoveryViewNew: View {
     enum DiscoveryFilter: String, CaseIterable {
         case suggested = "Suggested"
         case recent = "Recent"
+        case posts = "Posts"
         
         var icon: String {
             switch self {
             case .suggested: return "sparkles"
             case .recent: return "clock.fill"
+            case .posts: return "square.grid.2x2.fill"
             }
         }
     }
@@ -49,56 +51,77 @@ struct PeopleDiscoveryViewNew: View {
                 .ignoresSafeArea()
                 
                 VStack(spacing: 0) {
-                    // Header with back button
+                    // Header with back button (always shown)
                     headerSection
                     
-                    // Liquid Glass search bar
-                    liquidGlassSearchSection
+                    // Search bar (only for people discovery, not posts)
+                    if selectedFilter != .posts {
+                        liquidGlassSearchSection
+                    }
                     
-                    // Filter tabs
+                    // Filter tabs (always shown)
                     liquidGlassFilterSection
-                    
-                    // Content
-                    ScrollView(showsIndicators: false) {
-                        LazyVStack(spacing: 12) {
-                            if viewModel.isLoading && viewModel.users.isEmpty {
-                                loadingView
-                            } else if viewModel.users.isEmpty {
-                                emptyStateView
-                            } else {
-                                ForEach(viewModel.users.filter { $0.id != nil }) { user in
-                                    PeopleDiscoveryPersonCard(
-                                        user: user,
-                                        onTap: {
-                                            showProfileSheet = user
-                                        },
-                                        viewModel: viewModel
-                                    )
+                        .background(
+                            Color.blue.opacity(0.3)
+                                .onTapGesture {
+                                    print("🔵 BLUE DEBUG LAYER TAPPED - touches ARE reaching this area")
                                 }
-                                
-                                // Load more trigger
-                                if viewModel.hasMore {
-                                    ProgressView()
-                                        .progressViewStyle(CircularProgressViewStyle(tint: .white.opacity(0.5)))
-                                        .frame(height: 50)
-                                        .onAppear {
-                                            Task { await viewModel.loadMore() }
-                                        }
+                        )
+                    
+                    // Conditional content based on filter
+                    if selectedFilter == .posts {
+                        // Show PostsSearchView for Posts filter
+                        PostsSearchView()
+                    } else {
+                        // Show People Discovery content for Suggested/Recent filters
+                        ScrollView(showsIndicators: false) {
+                            LazyVStack(spacing: 12) {
+                                if viewModel.isLoading && viewModel.users.isEmpty {
+                                    loadingView
+                                } else if viewModel.users.isEmpty {
+                                    emptyStateView
+                                } else {
+                                    ForEach(viewModel.users.filter { $0.id != nil }) { user in
+                                        PeopleDiscoveryPersonCard(
+                                            user: user,
+                                            onTap: {
+                                                showProfileSheet = user
+                                            },
+                                            viewModel: viewModel
+                                        )
+                                    }
+                                    
+                                    // Load more trigger
+                                    if viewModel.hasMore {
+                                        ProgressView()
+                                            .progressViewStyle(CircularProgressViewStyle(tint: .white.opacity(0.5)))
+                                            .frame(height: 50)
+                                            .onAppear {
+                                                Task { await viewModel.loadMore() }
+                                            }
+                                    }
                                 }
                             }
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 20)
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 20)
-                    }
-                    .refreshable {
-                        await viewModel.refresh()
+                        .refreshable {
+                            await viewModel.refresh()
+                        }
                     }
                 }
             }
             .navigationBarHidden(true)
             .sheet(item: $showProfileSheet) { user in
-                if let userId = user.id {
-                    UserProfileView(userId: userId)
+                if let userId = user.id, !userId.isEmpty {
+                    NavigationView {
+                        SafeUserProfileWrapper(userId: userId)
+                    }
+                } else {
+                    Text("Unable to load profile")
+                        .font(.custom("OpenSans-Regular", size: 16))
+                        .foregroundStyle(.secondary)
+                        .padding()
                 }
             }
             .task {
@@ -235,28 +258,74 @@ struct PeopleDiscoveryViewNew: View {
     // MARK: - Liquid Glass Filters
     
     private var liquidGlassFilterSection: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 12) {
-                ForEach(DiscoveryFilter.allCases, id: \.self) { filter in
-                    LiquidGlassFilterChip(
-                        title: filter.rawValue,
-                        icon: filter.icon,
-                        isSelected: selectedFilter == filter
-                    ) {
-                        withAnimation(.easeOut(duration: 0.2)) {
-                            selectedFilter = filter
-                        }
-                        let haptic = UIImpactFeedbackGenerator(style: .light)
-                        haptic.impactOccurred()
+        HStack(spacing: 12) {
+            ForEach(DiscoveryFilter.allCases, id: \.self) { filter in
+                // Direct button implementation for better touch reliability
+                ZStack {
+                    // Background
+                    if selectedFilter == filter {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(Color.white)
+                            .shadow(color: .white.opacity(0.3), radius: 12, y: 6)
+                    } else {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(.ultraThinMaterial.opacity(0.2))
+                        
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(
+                                LinearGradient(
+                                    colors: [
+                                        Color.white.opacity(0.2),
+                                        Color.white.opacity(0.05)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 1
+                            )
+                    }
+                    
+                    // Content
+                    HStack(spacing: 8) {
+                        Image(systemName: filter.icon)
+                            .font(.system(size: 14, weight: .semibold))
+                        
+                        Text(filter.rawValue)
+                            .font(.custom("OpenSans-SemiBold", size: 15))
+                    }
+                    .foregroundColor(selectedFilter == filter ? .black : .white.opacity(0.7))
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 12)
+                }
+                .contentShape(Rectangle()) // Expand tap area
+                .onTapGesture {
+                    print("🎯 DIRECT TAP: \(filter.rawValue)")
+                    
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        selectedFilter = filter
+                    }
+                    
+                    let haptic = UIImpactFeedbackGenerator(style: .light)
+                    haptic.impactOccurred()
+                    
+                    // Only load users if not Posts filter
+                    if filter != .posts {
                         Task {
                             await viewModel.loadUsers(filter: filter)
                         }
+                    } else {
+                        print("✅ Posts filter selected - showing PostsSearchView")
                     }
                 }
             }
-            .padding(.horizontal, 20)
         }
+        .frame(height: 60)
+        .padding(.horizontal, 20)
         .padding(.bottom, 20)
+        .background(Color.green.opacity(0.2)) // Changed to green to verify this version is loaded
+        .onTapGesture {
+            print("🚨 HStack container tapped - touch is reaching this view!")
+        }
     }
     
     // MARK: - Loading
@@ -308,7 +377,10 @@ struct LiquidGlassFilterChip: View {
     let action: () -> Void
     
     var body: some View {
-        Button(action: action) {
+        Button {
+            print("🎯 LiquidGlassFilterChip tapped: \(title)")
+            action()
+        } label: {
             HStack(spacing: 8) {
                 Image(systemName: icon)
                     .font(.system(size: 14, weight: .semibold))
@@ -350,7 +422,18 @@ struct LiquidGlassFilterChip: View {
             )
             .contentShape(Rectangle()) // Better tap target
         }
-        .buttonStyle(ScaleButtonStyle()) // Custom scale effect on tap
+        .buttonStyle(PlainButtonStyle())
+        .allowsHitTesting(true)
+    }
+}
+
+// MARK: - Scale Button Style
+
+struct ScaleButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
+            .animation(.easeInOut(duration: 0.15), value: configuration.isPressed)
     }
 }
 
@@ -447,6 +530,11 @@ struct PeopleDiscoveryPersonCard: View {
                                 .font(.custom("OpenSans-SemiBold", size: 12))
                         }
                         .foregroundColor(.white.opacity(0.5))
+                    }
+                    
+                    // ✨ Mutual Connections Badge
+                    if let userId = user.id {
+                        MutualConnectionsBadge(userId: userId)
                     }
                 }
                 
@@ -964,8 +1052,74 @@ class PeopleDiscoveryViewModelNew: ObservableObject {
     }
 }
 
+// MARK: - Safe Profile Wrapper
+
+struct SafeUserProfileWrapper: View {
+    let userId: String
+    @State private var loadFailed = false
+    @State private var isLoading = true
+    @Environment(\.dismiss) var dismiss
+    
+    var body: some View {
+        Group {
+            if loadFailed {
+                VStack(spacing: 20) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.system(size: 48))
+                        .foregroundStyle(.orange)
+                    
+                    Text("Unable to Load Profile")
+                        .font(.custom("OpenSans-Bold", size: 20))
+                    
+                    Text("This profile could not be loaded. Please try again later.")
+                        .font(.custom("OpenSans-Regular", size: 14))
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 40)
+                    
+                    Button {
+                        dismiss()
+                    } label: {
+                        Text("Close")
+                            .font(.custom("OpenSans-SemiBold", size: 16))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 32)
+                            .padding(.vertical, 12)
+                            .background(
+                                RoundedRectangle(cornerRadius: 24)
+                                    .fill(.black)
+                            )
+                    }
+                }
+                .padding()
+            } else {
+                UserProfileView(userId: userId, showsDismissButton: true)
+                    .task {
+                        // Add timeout to detect crashes
+                        try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 second
+                        isLoading = false
+                    }
+                    .onDisappear {
+                        // Clean up if needed
+                        isLoading = false
+                    }
+            }
+        }
+        .task {
+            // Watchdog timer - if view doesn't load in 10 seconds, show error
+            try? await Task.sleep(nanoseconds: 10_000_000_000) // 10 seconds
+            if isLoading {
+                loadFailed = true
+            }
+        }
+    }
+}
+
 // MARK: - Preview
 
+
+// MARK: - Typealias for backward compatibility
+typealias PeopleDiscoveryView = PeopleDiscoveryViewNew
 
 #Preview {
     let view = PeopleDiscoveryViewNew()

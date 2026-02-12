@@ -124,18 +124,3 @@ class PostProfileImageMigration {
     }
 }
 
-// MARK: - Firebase Error (if not already defined elsewhere)
-
-enum FirebaseError: LocalizedError {
-    case documentNotFound
-    case unauthorized
-    
-    var errorDescription: String? {
-        switch self {
-        case .documentNotFound:
-            return "Document not found"
-        case .unauthorized:
-            return "Unauthorized access"
-        }
-    }
-}

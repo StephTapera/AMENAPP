@@ -4,7 +4,7 @@
 //
 //  Created by Steph on 1/19/26.
 //
-//  Clean minimal design inspired by modern web apps
+//  Dark glassmorphic design inspired by modern auth flows
 //
 
 import SwiftUI
@@ -27,8 +27,11 @@ struct SignInView: View {
     @State private var showPasswordReset = false
     @State private var resetEmail = ""
     @State private var showResetSuccess = false
-    
-    private let userService = UserService()
+    @State private var currentNonce: String?
+    @State private var nonceGeneratedAt: Date?
+    @State private var appleSignInCoordinator: AppleSignInCoordinator?
+    @State private var showAmenTitle = false
+    @State private var amenTitleOpacity: Double = 0
     
     // Password strength
     private var passwordStrength: PasswordStrength {
@@ -37,229 +40,282 @@ struct SignInView: View {
     
     var body: some View {
         ZStack {
-            // Soft gradient background (light purple/pink like the design)
-            LinearGradient(
-                colors: [
-                    Color(red: 0.95, green: 0.94, blue: 0.98),
-                    Color(red: 0.98, green: 0.95, blue: 0.97),
-                    Color(red: 1.0, green: 0.97, blue: 0.95)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
-            
-            VStack(spacing: 0) {
-                Spacer()
-                
-                // Logo and Title
-                VStack(spacing: 24) {
-                    Text("AMEN")
-                        .font(.custom("OpenSans-Bold", size: 32))
-                        .foregroundStyle(.black)
-                        .tracking(2)
-                    
-                    Text(isLogin ? "Welcome back" : "Create your account")
-                        .font(.custom("OpenSans-Regular", size: 16))
-                        .foregroundStyle(.black.opacity(0.6))
-                }
-                .padding(.bottom, 60)
-                
-                // Input fields
-                VStack(spacing: 16) {
-                    // Display Name (signup only)
-                    if !isLogin {
-                        CleanTextField(
-                            icon: "person",
-                            placeholder: "Display Name",
-                            text: $displayName,
-                            keyboardType: .default
-                        )
-                        .transition(.opacity.combined(with: .move(edge: .top)))
+            // Dark background matching the design image
+            Color.black
+                .ignoresSafeArea()
+
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 0) {
+                    // AMEN Title at top with subtle animation
+                    if showAmenTitle {
+                        Text("AMEN")
+                            .font(.custom("OpenSans-Bold", size: 32))
+                            .foregroundStyle(.white)
+                            .opacity(amenTitleOpacity)
+                            .padding(.top, 80)
+                            .padding(.bottom, 20)
+                            .transition(.opacity)
                     }
-                    
-                    // Username (signup only)
-                    if !isLogin {
-                        UsernameTextField(
-                            text: $username,
-                            isChecking: $isCheckingUsername,
-                            isAvailable: $usernameAvailable
-                        )
-                        .transition(.opacity.combined(with: .move(edge: .top)))
-                        .onChange(of: username) { _, newValue in
-                            checkUsernameAvailability(newValue)
-                        }
-                    }
-                    
-                    // Email or Username
-                    CleanTextField(
-                        icon: "envelope",
-                        placeholder: isLogin ? "Email or @username" : "Email",
-                        text: $email,
-                        keyboardType: isLogin ? .default : .emailAddress
-                    )
-                    .onChange(of: email) { _, _ in
-                        // Clear error when user starts typing
-                        if viewModel.showError {
-                            viewModel.showError = false
-                            viewModel.errorMessage = nil
-                        }
-                    }
-                    
-                    // Password
-                    CleanTextField(
-                        icon: "lock",
-                        placeholder: "Password",
-                        text: $password,
-                        isSecure: !showPassword,
-                        showPasswordToggle: true,
-                        showPassword: $showPassword
-                    )
-                    .onChange(of: password) { _, _ in
-                        // Clear error when user starts typing
-                        if viewModel.showError {
-                            viewModel.showError = false
-                            viewModel.errorMessage = nil
-                        }
-                    }
-                    
-                    // Show error message if there is one
-                    if let errorMessage = viewModel.errorMessage, viewModel.showError {
-                        HStack(spacing: 8) {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .font(.system(size: 14))
-                                .foregroundStyle(.red)
-                            Text(errorMessage)
+
+                    // Glassmorphic Card Container - Dark Style
+                    VStack(spacing: 24) {
+                        // Icon at top (matching design)
+                        Image(systemName: "person.circle.fill")
+                            .font(.system(size: 36))
+                            .foregroundStyle(.white.opacity(0.8))
+                            .padding(.top, 32)
+
+                        // Title Section
+                        VStack(spacing: 8) {
+                            Text(isLogin ? "Sign In" : "Sign Up")
+                                .font(.custom("OpenSans-Bold", size: 24))
+                                .foregroundStyle(.white)
+                                .multilineTextAlignment(.center)
+
+                            Text(isLogin ? "Please enter your details to sign in" : "Create your AMEN account")
                                 .font(.custom("OpenSans-Regular", size: 13))
-                                .foregroundStyle(.red)
+                                .foregroundStyle(.white.opacity(0.6))
+                                .multilineTextAlignment(.center)
                         }
-                        .padding(12)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(Color.red.opacity(0.1))
-                        )
-                        .transition(.opacity.combined(with: .move(edge: .top)))
-                    }
-                    
-                    // Password strength indicator (signup only)
-                    if !isLogin && !password.isEmpty {
-                        PasswordStrengthIndicator(strength: passwordStrength)
-                            .transition(.opacity.combined(with: .move(edge: .top)))
-                    }
-                    
-                    // Password warning for login (too short)
-                    if isLogin && !password.isEmpty && password.count < 6 {
-                        HStack(spacing: 8) {
-                            Image(systemName: "exclamationmark.circle.fill")
-                                .font(.system(size: 12))
-                                .foregroundStyle(.orange)
-                            Text("Password must be at least 6 characters")
-                                .font(.custom("OpenSans-Regular", size: 12))
-                                .foregroundStyle(.orange)
-                        }
-                        .padding(.horizontal, 4)
-                        .transition(.opacity)
-                    }
-                    
-                    // Forgot Password Button (login only)
-                    if isLogin {
-                        HStack {
-                            Spacer()
-                            Button {
-                                showPasswordReset = true
-                            } label: {
-                                Text("Forgot Password?")
-                                    .font(.custom("OpenSans-SemiBold", size: 13))
-                                    .foregroundStyle(.black.opacity(0.6))
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.horizontal, 32)
+                
+                        // Input Fields Section
+                        VStack(spacing: 14) {
+                            // Display Name (signup only)
+                            if !isLogin {
+                                DarkGlassmorphicTextField(
+                                    icon: "person",
+                                    placeholder: "Display Name",
+                                    text: $displayName
+                                )
+                                .transition(.opacity.combined(with: .move(edge: .top)))
+                            }
+
+                            // Username (signup only)
+                            if !isLogin {
+                                DarkGlassmorphicUsernameField(
+                                    text: $username,
+                                    isChecking: $isCheckingUsername,
+                                    isAvailable: $usernameAvailable
+                                )
+                                .transition(.opacity.combined(with: .move(edge: .top)))
+                                .onChange(of: username) { _, newValue in
+                                    checkUsernameAvailability(newValue)
+                                }
+                            }
+
+                            // Email
+                            DarkGlassmorphicTextField(
+                                icon: "envelope",
+                                placeholder: isLogin ? "Enter your email address" : "Email",
+                                text: $email,
+                                keyboardType: isLogin ? .default : .emailAddress
+                            )
+                            .onChange(of: email) { _, _ in
+                                if viewModel.showError {
+                                    viewModel.showError = false
+                                    viewModel.errorMessage = nil
+                                }
+                            }
+
+                            // Password
+                            DarkGlassmorphicPasswordField(
+                                placeholder: "Password",
+                                text: $password,
+                                showPassword: $showPassword
+                            )
+                            .onChange(of: password) { _, _ in
+                                if viewModel.showError {
+                                    viewModel.showError = false
+                                    viewModel.errorMessage = nil
+                                }
+                            }
+
+                            // Forgot Password link
+                            if isLogin {
+                                Button {
+                                    showPasswordReset = true
+                                } label: {
+                                    Text("Forgot Password?")
+                                        .font(.custom("OpenSans-Regular", size: 12))
+                                        .foregroundStyle(.white.opacity(0.5))
+                                }
+                                .frame(maxWidth: .infinity, alignment: .trailing)
+                                .padding(.trailing, 4)
+                            }
+                            
+                            // Error Message
+                            if let errorMessage = viewModel.errorMessage, viewModel.showError {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "exclamationmark.triangle.fill")
+                                        .font(.system(size: 12))
+                                    Text(errorMessage)
+                                        .font(.custom("OpenSans-Regular", size: 12))
+                                }
+                                .foregroundStyle(.red.opacity(0.9))
+                                .padding(12)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .fill(.red.opacity(0.1))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 10)
+                                                .stroke(.red.opacity(0.3), lineWidth: 1)
+                                        )
+                                )
+                                .transition(.opacity.combined(with: .move(edge: .top)))
+                            }
+
+                            // Password Strength (signup only)
+                            if !isLogin && !password.isEmpty {
+                                DarkPasswordStrengthIndicator(strength: passwordStrength)
+                                    .transition(.opacity.combined(with: .move(edge: .top)))
                             }
                         }
-                        .padding(.top, 4)
-                        .transition(.opacity)
-                    }
-                }
-                .padding(.horizontal, 32)
-                .animation(.easeInOut(duration: 0.3), value: isLogin)
+                        .padding(.horizontal, 32)
+                        .animation(.spring(response: 0.35, dampingFraction: 0.75), value: isLogin)
                 
-                // Primary Action Button
-                Button {
-                    handleAuth()
-                } label: {
-                    HStack(spacing: 8) {
-                        if viewModel.isLoading {
-                            ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                        } else {
-                            Text(isLogin ? "Sign In" : "Create Account")
-                                .font(.custom("OpenSans-SemiBold", size: 16))
-                        }
-                    }
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 52)
-                    .background(
-                        RoundedRectangle(cornerRadius: 26)
-                            .fill(.black)
-                    )
-                }
-                .disabled(viewModel.isLoading || !isFormValid)
-                .opacity(isFormValid ? 1.0 : 0.5)
-                .padding(.horizontal, 32)
-                .padding(.top, 32)
-                
-                // Toggle Login/Signup
-                Button {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        isLogin.toggle()
-                    }
-                } label: {
-                    HStack(spacing: 4) {
-                        Text(isLogin ? "Don't have an account?" : "Already have an account?")
-                            .font(.custom("OpenSans-Regular", size: 14))
-                            .foregroundStyle(.black.opacity(0.6))
-                        
-                        Text(isLogin ? "Sign Up" : "Sign In")
-                            .font(.custom("OpenSans-SemiBold", size: 14))
+                        // Primary Action Button (White background, dark text)
+                        Button {
+                            handleAuth()
+                        } label: {
+                            HStack(spacing: 12) {
+                                if viewModel.isLoading {
+                                    ProgressView()
+                                        .progressViewStyle(CircularProgressViewStyle(tint: .black))
+                                } else {
+                                    Text(isLogin ? "Sign In" : "Sign Up")
+                                        .font(.custom("OpenSans-SemiBold", size: 15))
+                                }
+                            }
                             .foregroundStyle(.black)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 48)
+                            .background(
+                                RoundedRectangle(cornerRadius: 24)
+                                    .fill(.white)
+                                    .shadow(color: .white.opacity(0.2), radius: 8, y: 4)
+                            )
+                        }
+                        .disabled(viewModel.isLoading || !isFormValid)
+                        .opacity(isFormValid ? 1.0 : 0.5)
+                        .padding(.horizontal, 32)
+                        .padding(.top, 12)
+
+                        // Google Sign-In Button
+                        Button {
+                            handleGoogleSignIn()
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: "g.circle.fill")
+                                    .font(.system(size: 18))
+                                Text("Continue with Google")
+                                    .font(.custom("OpenSans-SemiBold", size: 14))
+                            }
+                            .foregroundStyle(.white.opacity(0.9))
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 48)
+                            .background(
+                                RoundedRectangle(cornerRadius: 24)
+                                    .fill(.white.opacity(0.1))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 24)
+                                            .stroke(.white.opacity(0.2), lineWidth: 1)
+                                    )
+                            )
+                        }
+                        .padding(.horizontal, 32)
+                        .padding(.top, 8)
+                        
+                        // Sign in with Apple Button
+                        Button {
+                            handleAppleSignIn()
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: "apple.logo")
+                                    .font(.system(size: 18, weight: .semibold))
+                                Text("Continue with Apple")
+                                    .font(.custom("OpenSans-SemiBold", size: 14))
+                            }
+                            .foregroundStyle(.white.opacity(0.9))
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 48)
+                            .background(
+                                RoundedRectangle(cornerRadius: 24)
+                                    .fill(.white.opacity(0.1))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 24)
+                                            .stroke(.white.opacity(0.2), lineWidth: 1)
+                                    )
+                            )
+                        }
+                        .padding(.horizontal, 32)
+                        .padding(.top, 8)
+
+                        // Toggle Sign In/Sign Up
+                        HStack(spacing: 6) {
+                            Text(isLogin ? "Don't have an account?" : "Already have an account?")
+                                .font(.custom("OpenSans-Regular", size: 13))
+                                .foregroundStyle(.white.opacity(0.5))
+
+                            Button {
+                                withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                                    isLogin.toggle()
+                                }
+                            } label: {
+                                Text(isLogin ? "Sign up" : "Sign in")
+                                    .font(.custom("OpenSans-SemiBold", size: 13))
+                                    .foregroundStyle(.white)
+                            }
+                        }
+                        .padding(.top, 16)
+                        .padding(.bottom, 32)
                     }
+                    .frame(maxWidth: 420)
+                    .background(
+                        RoundedRectangle(cornerRadius: 24)
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        Color.white.opacity(0.08),
+                                        Color.white.opacity(0.04)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .background(
+                                RoundedRectangle(cornerRadius: 24)
+                                    .fill(.ultraThinMaterial.opacity(0.3))
+                                    .blur(radius: 1)
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 24)
+                                    .stroke(
+                                        LinearGradient(
+                                            colors: [
+                                                Color.white.opacity(0.2),
+                                                Color.white.opacity(0.05)
+                                            ],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        ),
+                                        lineWidth: 1
+                                    )
+                            )
+                            .shadow(color: .black.opacity(0.5), radius: 40, y: 20)
+                    )
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 60)
                 }
-                .padding(.top, 20)
-                
-                // OR Divider
-                HStack(spacing: 16) {
-                    Rectangle()
-                        .frame(height: 1)
-                        .foregroundStyle(.black.opacity(0.1))
-                    
-                    Text("OR")
-                        .font(.custom("OpenSans-SemiBold", size: 12))
-                        .foregroundStyle(.black.opacity(0.4))
-                    
-                    Rectangle()
-                        .frame(height: 1)
-                        .foregroundStyle(.black.opacity(0.1))
-                }
-                .padding(.horizontal, 32)
-                .padding(.top, 24)
-                
-                // Social Sign-In Buttons
-                VStack(spacing: 12) {
-                    // Apple Sign-In Button
-                    AppleSignInButton()
-                        .frame(height: 52)
-                        .padding(.horizontal, 32)
-                    
-                    // Google Sign-In Button
-                    GoogleSignInButton()
-                        .frame(height: 52)
-                        .padding(.horizontal, 32)
-                }
-                .padding(.top, 16)
-                
-                Spacer()
-                Spacer()
+            }
+            .onTapGesture {
+                // Dismiss keyboard when tapping background
+                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
             }
         }
+        .ignoresSafeArea()
         .alert("Error", isPresented: $viewModel.showError) {
             Button("OK", role: .cancel) {
                 viewModel.errorMessage = nil
@@ -303,6 +359,15 @@ struct SignInView: View {
         } message: {
             Text("Check your inbox for password reset instructions")
         }
+        .onAppear {
+            // Subtle AMEN title animation
+            withAnimation(.easeIn(duration: 0.6)) {
+                showAmenTitle = true
+            }
+            withAnimation(.easeIn(duration: 0.8).delay(0.2)) {
+                amenTitleOpacity = 1.0
+            }
+        }
     }
     
     private var isFormValid: Bool {
@@ -316,17 +381,31 @@ struct SignInView: View {
                    !username.isEmpty
             
             if !basicValidation {
+                print("⚠️ Form validation failed: Basic fields not filled")
                 return false
             }
             
             // Email format validation
             if !isValidEmailFormat(email) {
+                print("⚠️ Form validation failed: Invalid email format")
+                return false
+            }
+            
+            // Password strength validation - require at least medium strength
+            let strength = calculatePasswordStrength(password)
+            if strength == .weak {
+                print("⚠️ Form validation failed: Password too weak")
                 return false
             }
             
             // Username must be checked and available
-            // Allow sign-up if username check is still pending (nil) for better UX
-            return usernameAvailable == true || usernameAvailable == nil
+            let usernameValid = usernameAvailable == true
+            if !usernameValid {
+                print("⚠️ Form validation failed: Username not available (status: \(String(describing: usernameAvailable)))")
+            } else {
+                print("✅ Form validation passed!")
+            }
+            return usernameValid
         }
     }
     
@@ -337,19 +416,27 @@ struct SignInView: View {
     }
     
     private func handleAuth() {
+        // Dismiss keyboard
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        
         Task {
             if isLogin {
                 // Check if user entered @username instead of email
-                let loginIdentifier = email.trimmingCharacters(in: .whitespaces)
+                let loginIdentifier = email.trimmingCharacters(in: .whitespaces).lowercased()
+                
+                print("📧 Sign-in attempt with: \(loginIdentifier.contains("@") && !loginIdentifier.hasPrefix("@") ? "email" : "username")")
                 
                 if loginIdentifier.hasPrefix("@") {
                     // User entered @username - need to look up email
+                    print("🔍 Looking up email for username: \(loginIdentifier)")
                     await signInWithUsername(loginIdentifier)
                 } else if loginIdentifier.contains("@") {
                     // Regular email sign-in
+                    print("📧 Email sign-in")
                     await viewModel.signIn(email: loginIdentifier, password: password)
                 } else {
                     // Assume it's username without @ prefix
+                    print("🔍 Looking up email for username: @\(loginIdentifier)")
                     await signInWithUsername("@\(loginIdentifier)")
                 }
                 
@@ -359,8 +446,14 @@ struct SignInView: View {
                     print("✅ User name cached for messaging")
                 }
             } else {
+                print("📝 Sign-up attempt")
+                print("   Email: \(email)")
+                print("   Display name: \(displayName)")
+                print("   Username: @\(username)")
+                
+                // Lowercase email for sign up
                 await viewModel.signUp(
-                    email: email,
+                    email: email.lowercased().trimmingCharacters(in: .whitespaces),
                     password: password,
                     displayName: displayName,
                     username: username
@@ -381,6 +474,8 @@ struct SignInView: View {
             .trimmingCharacters(in: .whitespaces)
             .replacingOccurrences(of: "@", with: "")
         
+        print("🔍 Username lookup: @\(cleanUsername)")
+        
         // Look up email by username in Firestore
         let db = Firestore.firestore()
         
@@ -393,6 +488,7 @@ struct SignInView: View {
             guard let userDoc = snapshot.documents.first,
                   let userEmail = userDoc.data()["email"] as? String else {
                 // Username not found
+                print("❌ Username @\(cleanUsername) not found")
                 await MainActor.run {
                     viewModel.errorMessage = "No account found with username @\(cleanUsername)"
                     viewModel.showError = true
@@ -400,10 +496,13 @@ struct SignInView: View {
                 return
             }
             
+            print("✅ Found email for @\(cleanUsername)")
+            
             // Found email - now sign in with it
             await viewModel.signIn(email: userEmail, password: password)
             
         } catch {
+            print("❌ Username lookup failed: \(error.localizedDescription)")
             await MainActor.run {
                 viewModel.errorMessage = "Failed to look up username: \(error.localizedDescription)"
                 viewModel.showError = true
@@ -464,9 +563,12 @@ struct SignInView: View {
                     isCheckingUsername = false
                 }
             } catch {
+                print("❌ Username availability check error: \(error)")
+                print("   Error details: \(error.localizedDescription)")
                 await MainActor.run {
-                    // On error, set to nil (neutral state)
-                    usernameAvailable = nil
+                    // On error, assume available to not block signup
+                    // The backend will do final validation anyway
+                    usernameAvailable = true
                     isCheckingUsername = false
                 }
             }
@@ -477,6 +579,300 @@ struct SignInView: View {
         let usernameRegex = "^[a-z0-9_]{3,20}$"
         let predicate = NSPredicate(format: "SELF MATCHES %@", usernameRegex)
         return predicate.evaluate(with: username)
+    }
+    
+    private func handleGoogleSignIn() {
+        Task {
+            do {
+                viewModel.isLoading = true
+                print("🔵 Google Sign-In initiated")
+                
+                let _ = try await FirebaseManager.shared.signInWithGoogle()
+                
+                print("✅ Google Sign-In successful")
+                
+                await MainActor.run {
+                    viewModel.isAuthenticated = true
+                    viewModel.needsOnboarding = true
+                    viewModel.isLoading = false
+                }
+                
+                // Cache user name for messaging
+                await FirebaseMessagingService.shared.fetchAndCacheCurrentUserName()
+                print("✅ User name cached for messaging")
+                
+            } catch {
+                let nsError = error as NSError
+                print("❌ Google Sign-In failed")
+                print("   Error domain: \(nsError.domain)")
+                print("   Error code: \(nsError.code)")
+                print("   Description: \(error.localizedDescription)")
+                
+                await MainActor.run {
+                    // Provide more specific error messages
+                    if nsError.domain == "FIRAuthErrorDomain" {
+                        switch nsError.code {
+                        case 17999: // Invalid credential
+                            viewModel.errorMessage = "Google authentication expired. Please try again."
+                        case 17011: // User not found
+                            viewModel.errorMessage = "No account found with this Google account."
+                        case 17020: // Network error
+                            viewModel.errorMessage = "Network error. Please check your connection."
+                        default:
+                            viewModel.errorMessage = "Google Sign-In failed: \(error.localizedDescription)"
+                        }
+                    } else if nsError.code == -5 { // User cancelled
+                        print("ℹ️ User cancelled Google Sign-In")
+                        // Don't show error for cancellation
+                    } else {
+                        viewModel.errorMessage = "Google Sign-In failed: \(error.localizedDescription)"
+                        viewModel.showError = true
+                    }
+                    
+                    viewModel.isLoading = false
+                }
+            }
+        }
+    }
+    
+    // MARK: - Apple Sign-In Helpers
+    
+    private func handleAppleSignIn() {
+        // Generate fresh nonce with timestamp
+        let nonce = randomNonceString()
+        currentNonce = nonce
+        nonceGeneratedAt = Date()
+        
+        print("🍎 Apple Sign-In initiated")
+        print("📋 Nonce generated: \(nonce.prefix(10))... (length: \(nonce.count))")
+        print("⏰ Timestamp: \(Date())")
+        
+        let appleIDProvider = ASAuthorizationAppleIDProvider()
+        let request = appleIDProvider.createRequest()
+        request.requestedScopes = [.fullName, .email]
+        request.nonce = sha256(nonce)
+        
+        print("🔐 SHA256 nonce: \(sha256(nonce).prefix(10))...")
+        
+        let authorizationController = ASAuthorizationController(authorizationRequests: [request])
+        let coordinator = AppleSignInCoordinator(onCompletion: { result in
+            self.handleAppleSignInResult(result)
+            self.appleSignInCoordinator = nil // Clean up after completion
+        })
+        
+        // Retain coordinator to prevent deallocation
+        appleSignInCoordinator = coordinator
+        
+        authorizationController.delegate = coordinator
+        authorizationController.presentationContextProvider = coordinator
+        authorizationController.performRequests()
+    }
+    
+    private func handleAppleSignInResult(_ result: Result<ASAuthorization, Error>) {
+        switch result {
+        case .success(let authorization):
+            // Check if nonce has expired (5 minute timeout)
+            if let timestamp = nonceGeneratedAt {
+                let elapsed = Date().timeIntervalSince(timestamp)
+                print("⏱️ Time elapsed since nonce generation: \(elapsed) seconds")
+                
+                if elapsed > 300 { // 5 minutes
+                    print("❌ Nonce expired (>5 minutes old)")
+                    Task { @MainActor in
+                        viewModel.errorMessage = "Sign-in session expired. Please try again."
+                        viewModel.showError = true
+                        
+                        // Clear expired nonce
+                        currentNonce = nil
+                        nonceGeneratedAt = nil
+                    }
+                    return
+                }
+            }
+            
+            // Check if nonce still exists
+            guard currentNonce != nil else {
+                print("❌ No nonce available - session may have expired")
+                Task { @MainActor in
+                    viewModel.errorMessage = "Sign-in session expired. Please try again."
+                    viewModel.showError = true
+                }
+                return
+            }
+            
+            handleAppleSignIn(authorization)
+            
+        case .failure(let error):
+            let nsError = error as NSError
+            let errorCode = nsError.code
+            
+            print("❌ Apple Sign-In failed with code: \(errorCode)")
+            print("   Error domain: \(nsError.domain)")
+            print("   Description: \(error.localizedDescription)")
+            
+            Task { @MainActor in
+                // Don't show error for user cancellation
+                if errorCode == 1001 { // ASAuthorizationError.canceled
+                    print("ℹ️ User cancelled Apple Sign-In")
+                    return
+                }
+                
+                // Clear nonce on failure
+                currentNonce = nil
+                nonceGeneratedAt = nil
+                
+                viewModel.errorMessage = "Apple Sign-In failed: \(error.localizedDescription)"
+                viewModel.showError = true
+            }
+        }
+    }
+    
+    private func handleAppleSignIn(_ authorization: ASAuthorization) {
+        guard let appleIDCredential = authorization.credential as? ASAuthorizationAppleIDCredential else {
+            print("❌ Failed to get ASAuthorizationAppleIDCredential")
+            Task { @MainActor in
+                viewModel.errorMessage = "Unable to process Apple Sign-In credentials"
+                viewModel.showError = true
+            }
+            return
+        }
+        
+        guard let nonce = currentNonce else {
+            print("❌ No nonce available")
+            Task { @MainActor in
+                viewModel.errorMessage = "Sign-in session expired. Please try again."
+                viewModel.showError = true
+            }
+            return
+        }
+        
+        guard let appleIDToken = appleIDCredential.identityToken else {
+            print("❌ No identity token in credential")
+            Task { @MainActor in
+                viewModel.errorMessage = "Unable to get identity token from Apple"
+                viewModel.showError = true
+            }
+            return
+        }
+        
+        guard let idTokenString = String(data: appleIDToken, encoding: .utf8) else {
+            print("❌ Failed to convert token data to string")
+            Task { @MainActor in
+                viewModel.errorMessage = "Invalid token format"
+                viewModel.showError = true
+            }
+            return
+        }
+        
+        // Validate token and nonce
+        guard !idTokenString.isEmpty, idTokenString.count > 100 else {
+            print("❌ Token string too short or empty (length: \(idTokenString.count))")
+            Task { @MainActor in
+                viewModel.errorMessage = "Invalid authentication token"
+                viewModel.showError = true
+            }
+            return
+        }
+        
+        guard nonce.count == 32 else {
+            print("❌ Nonce has invalid length: \(nonce.count) (expected 32)")
+            Task { @MainActor in
+                viewModel.errorMessage = "Invalid authentication session"
+                viewModel.showError = true
+            }
+            return
+        }
+        
+        print("✅ Apple Sign-In credentials validated")
+        print("📋 User ID: \(appleIDCredential.user)")
+        print("📋 Token length: \(idTokenString.count)")
+        print("📋 Nonce length: \(nonce.count)")
+        print("📧 Email: \(appleIDCredential.email ?? "none")")
+        print("👤 Full name: \(appleIDCredential.fullName?.givenName ?? "none") \(appleIDCredential.fullName?.familyName ?? "")")
+        
+        Task {
+            do {
+                print("🔄 Attempting Firebase authentication...")
+                let _ = try await FirebaseManager.shared.signInWithApple(
+                    idToken: idTokenString,
+                    nonce: nonce,
+                    fullName: appleIDCredential.fullName
+                )
+                
+                print("✅ Firebase authentication successful")
+                
+                await MainActor.run {
+                    viewModel.isAuthenticated = true
+                    viewModel.needsOnboarding = true
+                    
+                    // Clear nonce after successful auth
+                    currentNonce = nil
+                    nonceGeneratedAt = nil
+                }
+                
+                // Cache user name for messaging
+                await FirebaseMessagingService.shared.fetchAndCacheCurrentUserName()
+                print("✅ User name cached for messaging")
+                
+            } catch {
+                let nsError = error as NSError
+                print("❌ Firebase authentication failed")
+                print("   Error domain: \(nsError.domain)")
+                print("   Error code: \(nsError.code)")
+                print("   Description: \(error.localizedDescription)")
+                print("   User info: \(nsError.userInfo)")
+                
+                await MainActor.run {
+                    // Clear nonce on failure
+                    currentNonce = nil
+                    nonceGeneratedAt = nil
+                    
+                    // Provide more specific error messages
+                    if nsError.domain == "FIRAuthErrorDomain" {
+                        switch nsError.code {
+                        case 17999: // Invalid credential
+                            viewModel.errorMessage = "Authentication credential expired. Please try signing in again."
+                        case 17011: // User not found
+                            viewModel.errorMessage = "No account found. Please sign up first."
+                        case 17020: // Network error
+                            viewModel.errorMessage = "Network error. Please check your connection and try again."
+                        default:
+                            viewModel.errorMessage = "Sign-in failed: \(error.localizedDescription)"
+                        }
+                    } else {
+                        viewModel.errorMessage = "Sign-in failed: \(error.localizedDescription)"
+                    }
+                    
+                    viewModel.showError = true
+                }
+            }
+        }
+    }
+    
+    private func randomNonceString(length: Int = 32) -> String {
+        precondition(length > 0)
+        var randomBytes = [UInt8](repeating: 0, count: length)
+        let errorCode = SecRandomCopyBytes(kSecRandomDefault, randomBytes.count, &randomBytes)
+        if errorCode != errSecSuccess {
+            fatalError("Unable to generate nonce. SecRandomCopyBytes failed with OSStatus \(errorCode)")
+        }
+        
+        let charset: [Character] = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._")
+        let nonce = randomBytes.map { byte in
+            charset[Int(byte) % charset.count]
+        }
+        
+        return String(nonce)
+    }
+    
+    private func sha256(_ input: String) -> String {
+        let inputData = Data(input.utf8)
+        let hashedData = SHA256.hash(data: inputData)
+        let hashString = hashedData.compactMap {
+            String(format: "%02x", $0)
+        }.joined()
+        
+        return hashString
     }
     
     private func calculatePasswordStrength(_ password: String) -> PasswordStrength {
@@ -538,373 +934,6 @@ enum PasswordStrength {
     }
 }
 
-// MARK: - Password Strength Indicator
-
-private struct PasswordStrengthIndicator: View {
-    let strength: PasswordStrength
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                Text("Password strength:")
-                    .font(.custom("OpenSans-Regular", size: 12))
-                    .foregroundStyle(.black.opacity(0.6))
-                
-                Text(strength.text)
-                    .font(.custom("OpenSans-SemiBold", size: 12))
-                    .foregroundStyle(strength.color)
-            }
-            
-            // Strength bar
-            GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(.black.opacity(0.1))
-                        .frame(height: 4)
-                    
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(strength.color)
-                        .frame(width: geometry.size.width * strength.progress, height: 4)
-                        .animation(.easeInOut(duration: 0.3), value: strength.progress)
-                }
-            }
-            .frame(height: 4)
-        }
-        .padding(.horizontal, 4)
-    }
-}
-
-// MARK: - Clean Text Field
-
-private struct CleanTextField: View {
-    let icon: String
-    let placeholder: String
-    @Binding var text: String
-    var isSecure: Bool = false
-    var keyboardType: UIKeyboardType = .default
-    var showPasswordToggle: Bool = false
-    @Binding var showPassword: Bool
-    
-    @FocusState private var isFocused: Bool
-    
-    init(
-        icon: String,
-        placeholder: String,
-        text: Binding<String>,
-        isSecure: Bool = false,
-        keyboardType: UIKeyboardType = .default,
-        showPasswordToggle: Bool = false,
-        showPassword: Binding<Bool> = .constant(false)
-    ) {
-        self.icon = icon
-        self.placeholder = placeholder
-        self._text = text
-        self.isSecure = isSecure
-        self.keyboardType = keyboardType
-        self.showPasswordToggle = showPasswordToggle
-        self._showPassword = showPassword
-    }
-    
-    var body: some View {
-        HStack(spacing: 14) {
-            Image(systemName: icon)
-                .font(.system(size: 16, weight: .regular))
-                .foregroundStyle(.black.opacity(0.4))
-                .frame(width: 20)
-            
-            if isSecure {
-                SecureField(placeholder, text: $text)
-                    .font(.custom("OpenSans-Regular", size: 15))
-                    .foregroundStyle(.black)
-                    .autocorrectionDisabled()
-                    .textInputAutocapitalization(.never)
-                    .focused($isFocused)
-            } else {
-                TextField(placeholder, text: $text)
-                    .font(.custom("OpenSans-Regular", size: 15))
-                    .foregroundStyle(.black)
-                    .autocorrectionDisabled()
-                    .textInputAutocapitalization(keyboardType == .emailAddress ? .never : .words)
-                    .keyboardType(keyboardType)
-                    .focused($isFocused)
-            }
-            
-            if showPasswordToggle {
-                Button {
-                    showPassword.toggle()
-                } label: {
-                    Image(systemName: showPassword ? "eye.slash" : "eye")
-                        .font(.system(size: 16, weight: .regular))
-                        .foregroundStyle(.black.opacity(0.4))
-                }
-            }
-        }
-        .padding(.vertical, 16)
-        .padding(.horizontal, 18)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(.white.opacity(0.8))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(
-                    isFocused ? Color.black.opacity(0.3) : Color.black.opacity(0.1),
-                    lineWidth: 1
-                )
-        )
-    }
-}
-
-// MARK: - Username Text Field
-
-private struct UsernameTextField: View {
-    @Binding var text: String
-    @Binding var isChecking: Bool
-    @Binding var isAvailable: Bool?
-    
-    @FocusState private var isFocused: Bool
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 14) {
-                Image(systemName: "at")
-                    .font(.system(size: 16, weight: .regular))
-                    .foregroundStyle(.black.opacity(0.4))
-                    .frame(width: 20)
-                
-                TextField("Username", text: $text)
-                    .font(.custom("OpenSans-Regular", size: 15))
-                    .foregroundStyle(.black)
-                    .autocorrectionDisabled()
-                    .textInputAutocapitalization(.never)
-                    .focused($isFocused)
-                
-                // Status indicator
-                if isChecking {
-                    ProgressView()
-                        .scaleEffect(0.8)
-                } else if let available = isAvailable {
-                    Image(systemName: available ? "checkmark.circle.fill" : "xmark.circle.fill")
-                        .font(.system(size: 16, weight: .regular))
-                        .foregroundStyle(available ? .green : .red)
-                }
-            }
-            .padding(.vertical, 16)
-            .padding(.horizontal, 18)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(.white.opacity(0.8))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(
-                        statusBorderColor,
-                        lineWidth: 1
-                    )
-            )
-            
-            // Validation message
-            if !text.isEmpty {
-                if isChecking {
-                    Text("Checking availability...")
-                        .font(.custom("OpenSans-Regular", size: 12))
-                        .foregroundStyle(.black.opacity(0.6))
-                } else if let available = isAvailable {
-                    Text(available ? "@\(text) is available" : "@\(text) is already taken")
-                        .font(.custom("OpenSans-Regular", size: 12))
-                        .foregroundStyle(available ? .green : .red)
-                } else if !isValidFormat {
-                    Text("3-20 characters (letters, numbers, underscores)")
-                        .font(.custom("OpenSans-Regular", size: 12))
-                        .foregroundStyle(.orange)
-                }
-            }
-        }
-    }
-    
-    private var statusBorderColor: Color {
-        if isFocused {
-            return .black.opacity(0.3)
-        }
-        
-        guard !text.isEmpty else {
-            return .black.opacity(0.1)
-        }
-        
-        if let available = isAvailable {
-            return available ? .green.opacity(0.3) : .red.opacity(0.3)
-        }
-        
-        return .black.opacity(0.1)
-    }
-    
-    private var isValidFormat: Bool {
-        let usernameRegex = "^[a-z0-9_]{3,20}$"
-        let predicate = NSPredicate(format: "SELF MATCHES %@", usernameRegex)
-        return predicate.evaluate(with: text.lowercased())
-    }
-}
-
-// MARK: - Apple Sign-In Button
-
-struct AppleSignInButton: View {
-    @EnvironmentObject var viewModel: AuthenticationViewModel
-    @State private var currentNonce: String?
-    
-    var body: some View {
-        SignInWithAppleButton(
-            onRequest: { request in
-                let nonce = randomNonceString()
-                currentNonce = nonce
-                request.requestedScopes = [.fullName, .email]
-                request.nonce = sha256(nonce)
-            },
-            onCompletion: { result in
-                switch result {
-                case .success(let authorization):
-                    handleAppleSignIn(authorization)
-                case .failure(let error):
-                    Task { @MainActor in
-                        viewModel.errorMessage = "Apple Sign-In failed: \(error.localizedDescription)"
-                        viewModel.showError = true
-                    }
-                }
-            }
-        )
-        .signInWithAppleButtonStyle(.black)
-        .frame(height: 52)
-        .cornerRadius(26)
-    }
-    
-    private func handleAppleSignIn(_ authorization: ASAuthorization) {
-        guard let appleIDCredential = authorization.credential as? ASAuthorizationAppleIDCredential,
-              let nonce = currentNonce,
-              let appleIDToken = appleIDCredential.identityToken,
-              let idTokenString = String(data: appleIDToken, encoding: .utf8) else {
-            Task { @MainActor in
-                viewModel.errorMessage = "Unable to process Apple Sign-In"
-                viewModel.showError = true
-            }
-            return
-        }
-        
-        Task {
-            do {
-                let _ = try await FirebaseManager.shared.signInWithApple(
-                    idToken: idTokenString,
-                    nonce: nonce,
-                    fullName: appleIDCredential.fullName
-                )
-                
-                await MainActor.run {
-                    viewModel.isAuthenticated = true
-                    viewModel.needsOnboarding = true
-                }
-                
-                // Cache user name for messaging
-                await FirebaseMessagingService.shared.fetchAndCacheCurrentUserName()
-                
-            } catch {
-                await MainActor.run {
-                    viewModel.errorMessage = "Sign-in failed: \(error.localizedDescription)"
-                    viewModel.showError = true
-                }
-            }
-        }
-    }
-    
-    // Helper functions for Apple Sign-In nonce
-    private func randomNonceString(length: Int = 32) -> String {
-        precondition(length > 0)
-        var randomBytes = [UInt8](repeating: 0, count: length)
-        let errorCode = SecRandomCopyBytes(kSecRandomDefault, randomBytes.count, &randomBytes)
-        if errorCode != errSecSuccess {
-            fatalError("Unable to generate nonce. SecRandomCopyBytes failed with OSStatus \(errorCode)")
-        }
-        
-        let charset: [Character] = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._")
-        let nonce = randomBytes.map { byte in
-            charset[Int(byte) % charset.count]
-        }
-        
-        return String(nonce)
-    }
-    
-    private func sha256(_ input: String) -> String {
-        let inputData = Data(input.utf8)
-        let hashedData = SHA256.hash(data: inputData)
-        let hashString = hashedData.compactMap {
-            String(format: "%02x", $0)
-        }.joined()
-        
-        return hashString
-    }
-}
-
-// MARK: - Google Sign-In Button
-
-struct GoogleSignInButton: View {
-    @EnvironmentObject var viewModel: AuthenticationViewModel
-    
-    var body: some View {
-        Button {
-            handleGoogleSignIn()
-        } label: {
-            HStack(spacing: 12) {
-                Image(systemName: "g.circle.fill")
-                    .font(.system(size: 20))
-                    .foregroundStyle(.white)
-                
-                Text("Continue with Google")
-                    .font(.custom("OpenSans-SemiBold", size: 16))
-                    .foregroundStyle(.white)
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: 52)
-            .background(
-                RoundedRectangle(cornerRadius: 26)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color(red: 0.26, green: 0.52, blue: 0.96),
-                                Color(red: 0.20, green: 0.43, blue: 0.86)
-                            ],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-            )
-        }
-        .disabled(viewModel.isLoading)
-    }
-    
-    private func handleGoogleSignIn() {
-        Task {
-            do {
-                viewModel.isLoading = true
-                
-                let _ = try await FirebaseManager.shared.signInWithGoogle()
-                
-                await MainActor.run {
-                    viewModel.isAuthenticated = true
-                    viewModel.needsOnboarding = true
-                    viewModel.isLoading = false
-                }
-                
-                // Cache user name for messaging
-                await FirebaseMessagingService.shared.fetchAndCacheCurrentUserName()
-                
-            } catch {
-                await MainActor.run {
-                    viewModel.errorMessage = "Google Sign-In failed: \(error.localizedDescription)"
-                    viewModel.showError = true
-                    viewModel.isLoading = false
-                }
-            }
-        }
-    }
-}
-
 // MARK: - Password Reset Sheet
 
 struct PasswordResetSheet: View {
@@ -962,7 +991,7 @@ struct PasswordResetSheet: View {
                 }
                 
                 // Email Input
-                CleanTextField(
+                SimpleCleanTextField(
                     icon: "envelope",
                     placeholder: "Email",
                     text: $resetEmail,
@@ -1012,6 +1041,213 @@ struct PasswordResetSheet: View {
         let emailRegex = "[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,64}"
         let predicate = NSPredicate(format: "SELF MATCHES %@", emailRegex)
         return predicate.evaluate(with: email)
+    }
+}
+
+// MARK: - Dark Glassmorphic Text Fields
+
+private struct DarkGlassmorphicTextField: View {
+    let icon: String
+    let placeholder: String
+    @Binding var text: String
+    var keyboardType: UIKeyboardType = .default
+
+    @FocusState private var isFocused: Bool
+
+    var body: some View {
+        HStack(spacing: 14) {
+            TextField("", text: $text, prompt: Text(placeholder).foregroundColor(.white.opacity(0.4)))
+                .font(.custom("OpenSans-Regular", size: 14))
+                .foregroundStyle(.white.opacity(0.9))
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(keyboardType == .emailAddress ? .never : .words)
+                .keyboardType(keyboardType)
+                .focused($isFocused)
+                .tint(.white)
+        }
+        .padding(.vertical, 14)
+        .padding(.horizontal, 18)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color.white.opacity(isFocused ? 0.12 : 0.08))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(Color.white.opacity(isFocused ? 0.25 : 0.15), lineWidth: 1)
+                )
+        )
+        .animation(.spring(response: 0.25, dampingFraction: 0.75), value: isFocused)
+    }
+}
+
+
+private struct DarkGlassmorphicPasswordField: View {
+    let placeholder: String
+    @Binding var text: String
+    @Binding var showPassword: Bool
+
+    @FocusState private var isFocused: Bool
+
+    var body: some View {
+        HStack(spacing: 14) {
+            if showPassword {
+                TextField(placeholder, text: $text)
+                    .font(.custom("OpenSans-Regular", size: 14))
+                    .foregroundStyle(.white.opacity(0.9))
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.never)
+                    .focused($isFocused)
+                    .tint(.white)
+            } else {
+                SecureField(placeholder, text: $text)
+                    .font(.custom("OpenSans-Regular", size: 14))
+                    .foregroundStyle(.white.opacity(0.9))
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.never)
+                    .focused($isFocused)
+                    .tint(.white)
+            }
+
+            Button {
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) {
+                    showPassword.toggle()
+                }
+            } label: {
+                Image(systemName: showPassword ? "eye.slash.fill" : "eye.fill")
+                    .font(.system(size: 14))
+                    .foregroundStyle(.white.opacity(0.5))
+            }
+        }
+        .padding(.vertical, 14)
+        .padding(.horizontal, 18)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color.white.opacity(isFocused ? 0.12 : 0.08))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(Color.white.opacity(isFocused ? 0.25 : 0.15), lineWidth: 1)
+                )
+        )
+        .animation(.spring(response: 0.25, dampingFraction: 0.75), value: isFocused)
+    }
+}
+
+private struct DarkGlassmorphicUsernameField: View {
+    @Binding var text: String
+    @Binding var isChecking: Bool
+    @Binding var isAvailable: Bool?
+
+    @FocusState private var isFocused: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 14) {
+                TextField("@username", text: $text)
+                    .font(.custom("OpenSans-Regular", size: 14))
+                    .foregroundStyle(.white.opacity(0.9))
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.never)
+                    .focused($isFocused)
+                    .tint(.white)
+
+                if isChecking {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        .scaleEffect(0.8)
+                } else if let available = isAvailable {
+                    Image(systemName: available ? "checkmark.circle.fill" : "xmark.circle.fill")
+                        .font(.system(size: 14))
+                        .foregroundStyle(available ? .green : .red)
+                }
+            }
+            .padding(.vertical, 14)
+            .padding(.horizontal, 18)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color.white.opacity(isFocused ? 0.12 : 0.08))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(statusBorderColor, lineWidth: 1)
+                    )
+            )
+            .animation(.spring(response: 0.25, dampingFraction: 0.75), value: isFocused)
+
+            if !text.isEmpty, let available = isAvailable {
+                Text(available ? "✓ @\(text) is available" : "✗ @\(text) is taken")
+                    .font(.custom("OpenSans-Regular", size: 11))
+                    .foregroundStyle(available ? .green.opacity(0.9) : .red.opacity(0.9))
+                    .padding(.leading, 4)
+            }
+        }
+    }
+
+    private var statusBorderColor: Color {
+        if isFocused {
+            return .white.opacity(0.25)
+        }
+
+        guard !text.isEmpty, let available = isAvailable else {
+            return .white.opacity(0.15)
+        }
+
+        return available ? .green.opacity(0.4) : .red.opacity(0.4)
+    }
+}
+
+private struct DarkPasswordStrengthIndicator: View {
+    let strength: PasswordStrength
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Text("Password strength:")
+                    .font(.custom("OpenSans-Regular", size: 11))
+                    .foregroundStyle(.white.opacity(0.5))
+
+                Text(strength.text)
+                    .font(.custom("OpenSans-SemiBold", size: 11))
+                    .foregroundStyle(strength.color)
+            }
+
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(.white.opacity(0.1))
+                        .frame(height: 3)
+
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(strength.color.opacity(0.9))
+                        .frame(width: geometry.size.width * strength.progress, height: 3)
+                        .animation(.spring(response: 0.35, dampingFraction: 0.75), value: strength.progress)
+                }
+            }
+            .frame(height: 3)
+        }
+        .padding(.horizontal, 4)
+    }
+}
+
+// MARK: - Apple Sign-In Coordinator
+class AppleSignInCoordinator: NSObject, ASAuthorizationControllerDelegate, ASAuthorizationControllerPresentationContextProviding {
+    private let onCompletion: (Result<ASAuthorization, Error>) -> Void
+    
+    init(onCompletion: @escaping (Result<ASAuthorization, Error>) -> Void) {
+        self.onCompletion = onCompletion
+    }
+    
+    func authorizationController(controller: ASAuthorizationController, didCompleteWithAuthorization authorization: ASAuthorization) {
+        onCompletion(.success(authorization))
+    }
+    
+    func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
+        onCompletion(.failure(error))
+    }
+    
+    func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
+        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let window = windowScene.windows.first else {
+            fatalError("No window available")
+        }
+        return window
     }
 }
 

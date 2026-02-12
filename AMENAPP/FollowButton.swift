@@ -11,10 +11,11 @@ import SwiftUI
 struct SocialFollowButton: View {
     let userId: String
     let username: String
-    @StateObject private var socialService = SocialService.shared
     
     @State private var isFollowing = false
     @State private var isLoading = false
+    
+    private let followService = FollowService.shared
     
     var body: some View {
         Button {
@@ -65,11 +66,7 @@ struct SocialFollowButton: View {
     }
     
     private func checkFollowStatus() async {
-        do {
-            isFollowing = try await socialService.isFollowing(userId: userId)
-        } catch {
-            print("❌ Failed to check follow status: \(error)")
-        }
+        isFollowing = await followService.isFollowing(userId: userId)
     }
     
     private func handleFollowToggle() {
@@ -78,9 +75,9 @@ struct SocialFollowButton: View {
         Task {
             do {
                 if isFollowing {
-                    try await socialService.unfollowUser(userId: userId)
+                    try await followService.unfollowUser(userId: userId)
                 } else {
-                    try await socialService.followUser(userId: userId)
+                    try await followService.followUser(userId: userId)
                 }
                 
                 await MainActor.run {

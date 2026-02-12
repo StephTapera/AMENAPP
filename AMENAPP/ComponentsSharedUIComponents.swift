@@ -428,8 +428,10 @@ struct ErrorView: View {
 }
 
 // MARK: - Inline Error Banner
+// Note: This component is defined in ComponentsSharedUIComponents.swift
+// If you see redeclaration errors, check for duplicate definitions in other files
 
-struct InlineErrorBanner: View {
+struct SharedUIInlineErrorBanner: View {
     let message: String
     var retryAction: (() -> Void)?
     

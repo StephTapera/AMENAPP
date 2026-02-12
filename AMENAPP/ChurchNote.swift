@@ -10,9 +10,23 @@
 import Foundation
 import FirebaseFirestore
 
+enum NotePermission: String, Codable {
+    case privateNote = "private"
+    case shared = "shared"
+    case publicNote = "public"
+}
+
+enum NoteSortOption: String, CaseIterable {
+    case dateNewest = "Newest First"
+    case dateOldest = "Oldest First"
+    case titleAZ = "Title A-Z"
+    case titleZA = "Title Z-A"
+    case church = "Church"
+}
+
 struct ChurchNote: Identifiable, Codable, Hashable {
     @DocumentID var id: String?
-    let userId: String
+    var userId: String
     var title: String
     var sermonTitle: String?
     var churchName: String?
@@ -25,6 +39,13 @@ struct ChurchNote: Identifiable, Codable, Hashable {
     var isFavorite: Bool
     var createdAt: Date
     var updatedAt: Date
+    
+    // New features
+    var folderId: String? // For organizing notes into folders
+    var permission: NotePermission // Privacy setting
+    var sharedWith: [String] // UserIDs of people note is shared with
+    var scriptureReferences: [String] // Array of scripture references
+    var shareLinkId: String? // Unique ID for deep linking and sharing
     
     // Coding keys for Firestore
     enum CodingKeys: String, CodingKey {
@@ -42,6 +63,11 @@ struct ChurchNote: Identifiable, Codable, Hashable {
         case isFavorite
         case createdAt
         case updatedAt
+        case folderId
+        case permission
+        case sharedWith
+        case scriptureReferences
+        case shareLinkId
     }
     
     // Initializer with defaults
@@ -59,7 +85,12 @@ struct ChurchNote: Identifiable, Codable, Hashable {
         tags: [String] = [],
         isFavorite: Bool = false,
         createdAt: Date = Date(),
-        updatedAt: Date = Date()
+        updatedAt: Date = Date(),
+        folderId: String? = nil,
+        permission: NotePermission = .privateNote,
+        sharedWith: [String] = [],
+        scriptureReferences: [String] = [],
+        shareLinkId: String? = nil
     ) {
         self.id = id
         self.userId = userId
@@ -75,6 +106,12 @@ struct ChurchNote: Identifiable, Codable, Hashable {
         self.isFavorite = isFavorite
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+        self.folderId = folderId
+        self.permission = permission
+        self.sharedWith = sharedWith
+        self.scriptureReferences = scriptureReferences
+        // Generate share link ID if not provided
+        self.shareLinkId = shareLinkId ?? UUID().uuidString
     }
     
     // Hashable conformance

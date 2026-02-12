@@ -47,7 +47,7 @@ class EnhancedSearchService: ObservableObject {
     private let userSearchService = UserSearchService.shared
     
     @Published var isSearching = false
-    @Published var searchResults: [AppSearchResult] = []
+    @Published var searchResults: [AMENAPP.AppSearchResult] = []
     @Published var aiSuggestions: [AISearchSuggestion] = []
     @Published var filterRecommendations: [SearchFilterRecommendation] = []
     @Published var recentSearches: [String] = []
@@ -65,9 +65,9 @@ class EnhancedSearchService: ObservableObject {
     /// Search with AI suggestions and smart filtering
     func searchWithAI(
         query: String,
-        filter: SearchViewTypes.SearchFilter = .all,
+        filter: AMENAPP.SearchFilter = .all,
         context: String? = nil
-    ) async throws -> [AppSearchResult] {
+    ) async throws -> [AMENAPP.AppSearchResult] {
         
         guard !query.trimmingCharacters(in: .whitespaces).isEmpty else {
             return []
@@ -85,7 +85,7 @@ class EnhancedSearchService: ObservableObject {
         }
         
         // 2. Perform search based on filter
-        var results: [AppSearchResult] = []
+        var results: [AMENAPP.AppSearchResult] = []
         
         switch filter {
         case .all:
@@ -192,12 +192,12 @@ class EnhancedSearchService: ObservableObject {
     // MARK: - Enhanced People Search
     
     /// Search people with AI enhancement
-    private func searchPeopleEnhanced(query: String) async throws -> [AppSearchResult] {
+    private func searchPeopleEnhanced(query: String) async throws -> [AMENAPP.AppSearchResult] {
         // Use UserSearchService for people
         let users = try await userSearchService.searchUsers(query: query, searchType: SearchType.both)
         
         return users.map { user in
-            AppSearchResult(
+            AMENAPP.AppSearchResult(
                 firestoreId: user.id,
                 title: user.displayName,
                 subtitle: "@\(user.username)",
@@ -210,7 +210,7 @@ class EnhancedSearchService: ObservableObject {
     
     // MARK: - Search All Categories
     
-    private func searchAll(query: String) async throws -> [AppSearchResult] {
+    private func searchAll(query: String) async throws -> [AMENAPP.AppSearchResult] {
         // Search all categories in parallel
         async let people = searchPeopleEnhanced(query: query)
         async let groups = searchGroups(query: query)
@@ -224,12 +224,12 @@ class EnhancedSearchService: ObservableObject {
     
     // MARK: - Category-Specific Search
     
-    private func searchGroups(query: String) async throws -> [AppSearchResult] {
+    private func searchGroups(query: String) async throws -> [AMENAPP.AppSearchResult] {
         // Mock implementation - replace with real Firestore query
         return []
     }
     
-    private func searchPosts(query: String) async throws -> [AppSearchResult] {
+    private func searchPosts(query: String) async throws -> [AMENAPP.AppSearchResult] {
         let lowercaseQuery = query.lowercased()
         
         let snapshot = try await db.collection("posts")
@@ -246,7 +246,7 @@ class EnhancedSearchService: ObservableObject {
                 return nil
             }
             
-            return AppSearchResult(
+            return AMENAPP.AppSearchResult(
                 firestoreId: doc.documentID,
                 title: authorName,
                 subtitle: content.prefix(100).description,
@@ -257,14 +257,14 @@ class EnhancedSearchService: ObservableObject {
         }
     }
     
-    private func searchEvents(query: String) async throws -> [AppSearchResult] {
+    private func searchEvents(query: String) async throws -> [AMENAPP.AppSearchResult] {
         // Mock implementation - replace with real Firestore query
         return []
     }
     
     // MARK: - Relevance Sorting
     
-    private func sortByRelevance(_ results: [AppSearchResult], query: String) -> [AppSearchResult] {
+    private func sortByRelevance(_ results: [AMENAPP.AppSearchResult], query: String) -> [AMENAPP.AppSearchResult] {
         let lowercaseQuery = query.lowercased()
         
         return results.sorted { a, b in
@@ -274,7 +274,7 @@ class EnhancedSearchService: ObservableObject {
         }
     }
     
-    private func relevanceScore(for result: AppSearchResult, query: String) -> Int {
+    private func relevanceScore(for result: AMENAPP.AppSearchResult, query: String) -> Int {
         var score = 0
         
         let title = result.title.lowercased()
@@ -329,7 +329,7 @@ class EnhancedSearchService: ObservableObject {
     
     // MARK: - Helper Functions
     
-    private func contextString(from filter: SearchViewTypes.SearchFilter) -> String {
+    private func contextString(from filter: AMENAPP.SearchFilter) -> String {
         switch filter {
         case .all: return "all"
         case .people: return "people"

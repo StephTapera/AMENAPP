@@ -37,8 +37,8 @@ enum MessageSheetType: Identifiable, Equatable {
 }
 
 struct MessagesView: View {
-    @StateObject private var messagingService = FirebaseMessagingService.shared
-    @StateObject private var messagingCoordinator = MessagingCoordinator.shared
+    @ObservedObject private var messagingService = FirebaseMessagingService.shared
+    @ObservedObject private var messagingCoordinator = MessagingCoordinator.shared
     @State private var searchText = ""
     @State private var activeSheet: MessageSheetType?
     @State private var selectedTab: MessageTab = .messages
@@ -47,6 +47,7 @@ struct MessagesView: View {
     @State private var conversationToDelete: ChatConversation?
     @State private var isArchiving = false
     @State private var isDeleting = false
+    @State private var isRefreshing = false
     
     enum MessageTab {
         case messages
@@ -59,11 +60,98 @@ struct MessagesView: View {
         messagingService.conversations
     }
     
-    var filteredConversations: [ChatConversation] {
-        if searchText.isEmpty {
-            return conversations
+    // Pinned conversations (separate from regular messages)
+    var pinnedConversations: [ChatConversation] {
+        var conversations = messagingService.conversations
+
+        // Only show pinned conversations in Messages tab (not in requests or archived)
+        guard selectedTab == .messages else { return [] }
+
+        conversations = conversations.filter { $0.status == "accepted" && $0.isPinned }
+
+        // Apply search filter if search text is not empty
+        if !searchText.isEmpty {
+            conversations = conversations.filter { conversation in
+                conversation.name.localizedCaseInsensitiveContains(searchText) ||
+                conversation.lastMessage.localizedCaseInsensitiveContains(searchText)
+            }
         }
-        return conversations.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+
+        // Sort by most recent
+        return conversations.sorted { $0.timestamp > $1.timestamp }
+    }
+
+    var filteredConversations: [ChatConversation] {
+        var conversations = messagingService.conversations
+        let currentUserId = Auth.auth().currentUser?.uid ?? ""
+
+        // ✅ Filter by tab FIRST (Instagram/Threads style)
+        switch selectedTab {
+        case .messages:
+            // Show:
+            // 1. All accepted conversations (not pinned)
+            // 2. Pending conversations that YOU initiated (your outgoing messages)
+            conversations = conversations.filter { conversation in
+                if conversation.isPinned {
+                    return false
+                }
+                
+                if conversation.status == "accepted" {
+                    return true
+                }
+                
+                // Show pending conversations that you initiated
+                if conversation.status == "pending" && conversation.requesterId == currentUserId {
+                    return true
+                }
+                
+                return false
+            }
+        case .requests:
+            // Show only pending conversations FROM others (incoming requests)
+            conversations = conversations.filter { conversation in
+                conversation.status == "pending" && conversation.requesterId != currentUserId
+            }
+        case .archived:
+            // Archived conversations are handled separately by messagingService.archivedConversations
+            conversations = messagingService.archivedConversations
+        }
+
+        // Apply search filter if search text is not empty
+        if !searchText.isEmpty {
+            conversations = conversations.filter { conversation in
+                conversation.name.localizedCaseInsensitiveContains(searchText) ||
+                conversation.lastMessage.localizedCaseInsensitiveContains(searchText)
+            }
+        }
+
+        // Deduplicate by ID (in case there are any duplicates)
+        var seen = Set<String>()
+        var uniqueConversations: [ChatConversation] = []
+        var duplicateCount = 0
+
+        for conversation in conversations {
+            if !seen.contains(conversation.id) {
+                seen.insert(conversation.id)
+                uniqueConversations.append(conversation)
+            } else {
+                duplicateCount += 1
+            }
+        }
+        
+        if duplicateCount > 0 {
+            print("⚠️ Found and removed \(duplicateCount) duplicate conversation(s)")
+        }
+        
+        return uniqueConversations
+    }
+    
+    // ✅ Count of pending message requests (only incoming requests from others)
+    private var pendingRequestsCount: Int {
+        let currentUserId = Auth.auth().currentUser?.uid ?? ""
+        return messagingService.conversations.filter { 
+            $0.status == "pending" && $0.requesterId != currentUserId
+        }.count
     }
     
     // Count of unread requests
@@ -76,35 +164,38 @@ struct MessagesView: View {
             mainContentView
                 .navigationBarHidden(true)
                 .sheet(item: $activeSheet) { sheetType in
-                    switch sheetType {
-                    case .chat(let conversation):
-                        ModernConversationDetailView(conversation: conversation)
+                    Group {
+                        switch sheetType {
+                        case .chat(let conversation):
+                            UnifiedChatView(conversation: conversation)
+                                .onAppear {
+                                    print("\n🎬 SHEET OPENED: Chat with \(conversation.name)")
+                                }
+                        
+                        case .newMessage:
+                            ProductionMessagingUserSearchView { selectedUser in
+                                Task {
+                                    await startConversation(with: selectedUser)
+                                }
+                            }
                             .onAppear {
-                                print("\n🎬 SHEET OPENED: Chat with \(conversation.name)")
+                                print("\n🎬 SHEET OPENED: New Message Search")
                             }
-                    
-                    case .newMessage:
-                        ProductionMessagingUserSearchView { selectedUser in
-                            Task {
-                                await startConversation(with: selectedUser)
-                            }
+                        
+                        case .createGroup:
+                            CreateGroupView()
+                                .onAppear {
+                                    print("\n🎬 SHEET OPENED: Create Group")
+                                }
+                        
+                        case .settings:
+                            MessageSettingsView()
+                                .onAppear {
+                                    print("\n🎬 SHEET OPENED: Settings")
+                                }
                         }
-                        .onAppear {
-                            print("\n🎬 SHEET OPENED: New Message Search")
-                        }
-                    
-                    case .createGroup:
-                        CreateGroupView()
-                            .onAppear {
-                                print("\n🎬 SHEET OPENED: Create Group")
-                            }
-                    
-                    case .settings:
-                        MessageSettingsView()
-                            .onAppear {
-                                print("\n🎬 SHEET OPENED: Settings")
-                            }
                     }
+                    .presentationDragIndicator(.visible)
                 }
                 .onChange(of: activeSheet) { oldValue, newValue in
                     print("\n🔄 SHEET STATE CHANGED")
@@ -124,6 +215,7 @@ struct MessagesView: View {
                 ))
                 .modifier(CoordinatorModifier(
                     messagingCoordinator: messagingCoordinator,
+                    messagingService: messagingService,
                     conversations: conversations,
                     activeSheet: $activeSheet,
                     selectedTab: $selectedTab
@@ -177,7 +269,7 @@ struct MessagesView: View {
             // Single "Compose" button - industry standard (like iMessage, WhatsApp)
             Menu {
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(.easeOut(duration: 0.2)) {
                         activeSheet = .newMessage
                     }
                     let haptic = UIImpactFeedbackGenerator(style: .light)
@@ -187,7 +279,7 @@ struct MessagesView: View {
                 }
                 
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(.easeOut(duration: 0.2)) {
                         activeSheet = .createGroup
                     }
                     let haptic = UIImpactFeedbackGenerator(style: .light)
@@ -199,7 +291,7 @@ struct MessagesView: View {
                 Divider()
                 
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(.easeOut(duration: 0.2)) {
                         activeSheet = .settings
                     }
                     let haptic = UIImpactFeedbackGenerator(style: .light)
@@ -221,26 +313,63 @@ struct MessagesView: View {
     }
     
     private var tabSelector: some View {
-        NeomorphicSegmentedControl(
-            selectedIndex: Binding(
-                get: {
-                    switch selectedTab {
-                    case .messages: return 0
-                    case .requests: return 1
-                    case .archived: return 2
+        HStack(spacing: 0) {
+            ForEach([MessageTab.messages, MessageTab.requests, MessageTab.archived], id: \.self) { tab in
+                Button {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                        selectedTab = tab
                     }
-                },
-                set: { newIndex in
-                    switch newIndex {
-                    case 0: selectedTab = .messages
-                    case 1: selectedTab = .requests
-                    case 2: selectedTab = .archived
-                    default: selectedTab = .messages
+                    let haptic = UIImpactFeedbackGenerator(style: .light)
+                    haptic.impactOccurred()
+                } label: {
+                    HStack(spacing: 6) {
+                        Text(tabTitle(for: tab))
+                            .font(.custom("OpenSans-Bold", size: 14))
+                            .foregroundStyle(selectedTab == tab ? .white : .primary)
+                        
+                        // Badge for unread requests
+                        if tab == .requests && unreadRequestsCount > 0 {
+                            ZStack {
+                                Circle()
+                                    .fill(Color.red)
+                                    .frame(width: 20, height: 20)
+                                
+                                Text("\(unreadRequestsCount)")
+                                    .font(.custom("OpenSans-Bold", size: 10))
+                                    .foregroundStyle(.white)
+                            }
+                            .transition(.scale.combined(with: .opacity))
+                        }
                     }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background(
+                        ZStack {
+                            if selectedTab == tab {
+                                Capsule()
+                                    .fill(Color.blue)
+                                    .matchedGeometryEffect(id: "TAB", in: tabNamespace)
+                            }
+                        }
+                    )
                 }
-            ),
-            options: ["Messages", "Requests", "Archived"]
+            }
+        }
+        .padding(4)
+        .background(
+            Capsule()
+                .fill(Color(.systemGray6))
         )
+    }
+    
+    @Namespace private var tabNamespace
+    
+    private func tabTitle(for tab: MessageTab) -> String {
+        switch tab {
+        case .messages: return "Messages"
+        case .requests: return "Requests"
+        case .archived: return "Archived"
+        }
     }
     
     private func unreadBadge(count: Int) -> some View {
@@ -281,18 +410,125 @@ struct MessagesView: View {
                 .tag(MessageTab.archived)
         }
         .tabViewStyle(.page(indexDisplayMode: .never))
-        .animation(.easeInOut(duration: 0.2), value: selectedTab)
+        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: selectedTab)
     }
     
     // MARK: - Content Views
     
     private var messagesContent: some View {
         Group {
-            if filteredConversations.isEmpty {
+            if filteredConversations.isEmpty && pinnedConversations.isEmpty {
                 emptyStateView
             } else {
                 ScrollView(showsIndicators: false) {
                     LazyVStack(spacing: 12) {
+                        // Pinned conversations section (only in Messages tab)
+                        if !pinnedConversations.isEmpty {
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack {
+                                    Text("Pinned")
+                                        .font(.system(size: 13, weight: .semibold))
+                                        .foregroundStyle(.secondary)
+                                        .textCase(.uppercase)
+                                        .tracking(0.5)
+
+                                    Spacer()
+
+                                    Text("\(pinnedConversations.count)/3")
+                                        .font(.system(size: 12, weight: .medium))
+                                        .foregroundStyle(.secondary.opacity(0.7))
+                                }
+                                .padding(.horizontal, 20)
+                                .padding(.top, 8)
+
+                                ForEach(pinnedConversations) { conversation in
+                                    Button {
+                                        print("\n========================================")
+                                        print("📌 PINNED CONVERSATION TAPPED")
+                                        print("========================================")
+                                        print("   - Name: \(conversation.name)")
+                                        print("   - ID: \(conversation.id)")
+                                        print("   - Last Message: \(conversation.lastMessage)")
+                                        print("   - Is Group: \(conversation.isGroup)")
+                                        print("========================================")
+
+                                        let haptic = UIImpactFeedbackGenerator(style: .light)
+                                        haptic.impactOccurred()
+
+                                        activeSheet = .chat(conversation)
+                                        print("   - Set activeSheet to chat: \(conversation.name)")
+                                        print("========================================\n")
+                                    } label: {
+                                        SmartConversationRow(conversation: conversation)
+                                    }
+                                    .buttonStyle(PlainButtonStyle())
+                                    .contextMenu {
+                                        conversationContextMenu(for: conversation)
+                                    }
+                                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                        // Delete
+                                        Button(role: .destructive) {
+                                            conversationToDelete = conversation
+                                            showDeleteConfirmation = true
+                                        } label: {
+                                            Label("Delete", systemImage: "trash.fill")
+                                        }
+
+                                        // Archive
+                                        Button {
+                                            archiveConversation(conversation)
+                                        } label: {
+                                            Label("Archive", systemImage: "archivebox.fill")
+                                        }
+                                        .tint(.orange)
+                                    }
+                                    .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                                        // Unpin (always unpin for pinned conversations)
+                                        Button {
+                                            unpinConversation(conversation)
+                                        } label: {
+                                            Label("Unpin", systemImage: "pin.slash.fill")
+                                        }
+                                        .tint(.yellow)
+
+                                        // Mute/Unmute
+                                        Button {
+                                            if conversation.isMuted {
+                                                unmuteConversation(conversation)
+                                            } else {
+                                                muteConversation(conversation)
+                                            }
+                                        } label: {
+                                            Label(
+                                                conversation.isMuted ? "Unmute" : "Mute",
+                                                systemImage: conversation.isMuted ? "speaker.wave.2.fill" : "speaker.slash.fill"
+                                            )
+                                        }
+                                        .tint(.purple)
+                                    }
+                                }
+
+                                // Divider between pinned and regular
+                                Divider()
+                                    .padding(.horizontal, 20)
+                                    .padding(.vertical, 8)
+                            }
+                        }
+
+                        // Regular conversations section
+                        if !filteredConversations.isEmpty && !pinnedConversations.isEmpty {
+                            HStack {
+                                Text("Messages")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundStyle(.secondary)
+                                    .textCase(.uppercase)
+                                    .tracking(0.5)
+
+                                Spacer()
+                            }
+                            .padding(.horizontal, 20)
+                        }
+
                         ForEach(filteredConversations) { conversation in
                             Button {
                                 print("\n========================================")
@@ -303,44 +539,67 @@ struct MessagesView: View {
                                 print("   - Last Message: \(conversation.lastMessage)")
                                 print("   - Is Group: \(conversation.isGroup)")
                                 print("========================================")
-                                
+
                                 let haptic = UIImpactFeedbackGenerator(style: .light)
                                 haptic.impactOccurred()
-                                
+
                                 activeSheet = .chat(conversation)
                                 print("   - Set activeSheet to chat: \(conversation.name)")
                                 print("========================================\n")
                             } label: {
-                                NeumorphicConversationRow(conversation: conversation)
+                                SmartConversationRow(conversation: conversation)
                             }
                             .buttonStyle(PlainButtonStyle())
                             .contextMenu {
-                                Button {
-                                    muteConversation(conversation)
-                                } label: {
-                                    Label("Mute", systemImage: "bell.slash")
-                                }
-                                
-                                Button {
-                                    pinConversation(conversation)
-                                } label: {
-                                    Label("Pin", systemImage: "pin")
-                                }
-                                
-                                Divider()
-                                
-                                Button {
-                                    archiveConversation(conversation)
-                                } label: {
-                                    Label("Archive", systemImage: "archivebox")
-                                }
-                                
+                                conversationContextMenu(for: conversation)
+                            }
+                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                // Delete
                                 Button(role: .destructive) {
                                     conversationToDelete = conversation
                                     showDeleteConfirmation = true
                                 } label: {
-                                    Label("Delete", systemImage: "trash")
+                                    Label("Delete", systemImage: "trash.fill")
                                 }
+
+                                // Archive
+                                Button {
+                                    archiveConversation(conversation)
+                                } label: {
+                                    Label("Archive", systemImage: "archivebox.fill")
+                                }
+                                .tint(.orange)
+                            }
+                            .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                                // Pin/Unpin
+                                Button {
+                                    if conversation.isPinned {
+                                        unpinConversation(conversation)
+                                    } else {
+                                        pinConversation(conversation)
+                                    }
+                                } label: {
+                                    Label(
+                                        conversation.isPinned ? "Unpin" : "Pin",
+                                        systemImage: conversation.isPinned ? "pin.slash.fill" : "pin.fill"
+                                    )
+                                }
+                                .tint(.yellow)
+
+                                // Mute/Unmute
+                                Button {
+                                    if conversation.isMuted {
+                                        unmuteConversation(conversation)
+                                    } else {
+                                        muteConversation(conversation)
+                                    }
+                                } label: {
+                                    Label(
+                                        conversation.isMuted ? "Unmute" : "Mute",
+                                        systemImage: conversation.isMuted ? "speaker.wave.2.fill" : "speaker.slash.fill"
+                                    )
+                                }
+                                .tint(.purple)
                             }
                             .transition(.asymmetric(
                                 insertion: .scale.combined(with: .opacity),
@@ -359,27 +618,82 @@ struct MessagesView: View {
     }
     
     private func refreshConversations() async {
-        // Manually refresh conversations from Firebase
-        do {
-            print("🔄 Refreshing conversations...")
-            
-            // Stop current listener
-            messagingService.stopListeningToConversations()
-            
-            // Small delay for better UX
-            try? await Task.sleep(nanoseconds: 500_000_000)
-            
-            // Restart listener to fetch fresh data
-            messagingService.startListeningToConversations()
-            
-            // Haptic feedback
-            await MainActor.run {
-                let haptic = UINotificationFeedbackGenerator()
-                haptic.notificationOccurred(.success)
-            }
-            
-            print("✅ Conversations refreshed")
+        // Prevent multiple simultaneous refreshes
+        guard !isRefreshing else { return }
+        
+        isRefreshing = true
+        print("🔄 Refreshing conversations...")
+        
+        // Stop current listener
+        messagingService.stopListeningToConversations()
+        
+        // Small delay for better UX
+        try? await Task.sleep(nanoseconds: 300_000_000)
+        
+        // Restart listener to fetch fresh data
+        messagingService.startListeningToConversations()
+        
+        // Wait a bit more for data to load
+        try? await Task.sleep(nanoseconds: 500_000_000)
+        
+        // Haptic feedback
+        await MainActor.run {
+            let haptic = UINotificationFeedbackGenerator()
+            haptic.notificationOccurred(.success)
+            isRefreshing = false
         }
+        
+        print("✅ Conversations refreshed")
+    }
+    
+    private func refreshMessageRequests() async {
+        guard !isRefreshing else { return }
+        
+        isRefreshing = true
+        print("🔄 Refreshing message requests...")
+        
+        // Reload message requests
+        await loadMessageRequests()
+        
+        // Small delay for UX
+        try? await Task.sleep(nanoseconds: 300_000_000)
+        
+        // Haptic feedback
+        await MainActor.run {
+            let haptic = UINotificationFeedbackGenerator()
+            haptic.notificationOccurred(.success)
+            isRefreshing = false
+        }
+        
+        print("✅ Message requests refreshed")
+    }
+    
+    private func refreshArchivedConversations() async {
+        guard !isRefreshing else { return }
+        
+        isRefreshing = true
+        print("🔄 Refreshing archived conversations...")
+        
+        // Stop current listener
+        messagingService.stopListeningToArchivedConversations()
+        
+        // Small delay for better UX
+        try? await Task.sleep(nanoseconds: 300_000_000)
+        
+        // Restart listener to fetch fresh data
+        messagingService.startListeningToArchivedConversations()
+        
+        // Wait for data to load
+        try? await Task.sleep(nanoseconds: 500_000_000)
+        
+        // Haptic feedback
+        await MainActor.run {
+            let haptic = UINotificationFeedbackGenerator()
+            haptic.notificationOccurred(.success)
+            isRefreshing = false
+        }
+        
+        print("✅ Archived conversations refreshed")
     }
     
     // MARK: - Conversation Management
@@ -388,76 +702,194 @@ struct MessagesView: View {
     
     private func muteConversation(_ conversation: ChatConversation) {
         guard !isProcessing else { return }
-        
+
         Task { @MainActor in
             isProcessing = true
             defer { isProcessing = false }
-            
+
             do {
-                try await FirebaseMessagingService.shared.muteConversation(
-                    conversationId: conversation.id,
-                    muted: true
-                )
-                
+                try await FirebaseMessagingService.shared.muteConversation(conversation.id)
+
                 let haptic = UINotificationFeedbackGenerator()
                 haptic.notificationOccurred(.success)
-                
-                print("🔕 Muted conversation: \(conversation.name)")
+
+                print("🔕 Conversation muted: \(conversation.name)")
             } catch {
-                print("❌ Error muting conversation: \(error)")
-                // TODO: Show error to user
+                print("❌ Failed to mute conversation: \(error)")
+                // TODO: Show error alert to user
             }
         }
     }
-    
-    private func pinConversation(_ conversation: ChatConversation) {
+
+    private func unmuteConversation(_ conversation: ChatConversation) {
         guard !isProcessing else { return }
-        
+
         Task { @MainActor in
             isProcessing = true
             defer { isProcessing = false }
-            
+
             do {
-                try await FirebaseMessagingService.shared.pinConversation(
-                    conversationId: conversation.id,
-                    pinned: true
-                )
-                
-                let haptic = UIImpactFeedbackGenerator(style: .light)
-                haptic.impactOccurred()
-                
-                print("📌 Pinned conversation: \(conversation.name)")
+                try await FirebaseMessagingService.shared.unmuteConversation(conversation.id)
+
+                let haptic = UINotificationFeedbackGenerator()
+                haptic.notificationOccurred(.success)
+
+                print("🔔 Conversation unmuted: \(conversation.name)")
             } catch {
-                print("❌ Error pinning conversation: \(error)")
-                // TODO: Show error to user
+                print("❌ Failed to unmute conversation: \(error)")
+                // TODO: Show error alert to user
             }
         }
     }
-    
+
+    private func pinConversation(_ conversation: ChatConversation) {
+        guard !isProcessing else { return }
+
+        Task { @MainActor in
+            isProcessing = true
+            defer { isProcessing = false }
+
+            do {
+                try await FirebaseMessagingService.shared.pinConversation(conversation.id)
+
+                let haptic = UINotificationFeedbackGenerator()
+                haptic.notificationOccurred(.success)
+
+                print("📌 Conversation pinned: \(conversation.name)")
+            } catch {
+                print("❌ Failed to pin conversation: \(error.localizedDescription)")
+                // TODO: Show error alert to user (e.g., "You can only pin up to 3 conversations")
+            }
+        }
+    }
+
+    private func unpinConversation(_ conversation: ChatConversation) {
+        guard !isProcessing else { return }
+
+        Task { @MainActor in
+            isProcessing = true
+            defer { isProcessing = false }
+
+            do {
+                try await FirebaseMessagingService.shared.unpinConversation(conversation.id)
+
+                let haptic = UINotificationFeedbackGenerator()
+                haptic.notificationOccurred(.success)
+
+                print("📌 Conversation unpinned: \(conversation.name)")
+            } catch {
+                print("❌ Failed to unpin conversation: \(error)")
+                // TODO: Show error alert to user
+            }
+        }
+    }
+
+    private func reportSpam(_ conversation: ChatConversation) {
+        guard !isProcessing else { return }
+
+        Task { @MainActor in
+            isProcessing = true
+            defer { isProcessing = false }
+
+            do {
+                try await FirebaseMessagingService.shared.reportSpam(conversation.id, reason: "Spam or unwanted messages")
+
+                let haptic = UINotificationFeedbackGenerator()
+                haptic.notificationOccurred(.success)
+
+                print("⚠️ Conversation reported as spam: \(conversation.name)")
+            } catch {
+                print("❌ Failed to report conversation: \(error)")
+                // TODO: Show error alert to user
+            }
+        }
+    }
+
     private func deleteConversation(_ conversation: ChatConversation) {
         guard !isDeleting else { return }
-        
+
         Task { @MainActor in
             isDeleting = true
             defer { isDeleting = false }
-            
+
             do {
                 // Animate removal
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                withAnimation(.easeOut(duration: 0.2)) {
                     // Will be removed from list automatically via Firebase listener
                 }
-                
+
                 try await FirebaseMessagingService.shared.deleteConversation(
                     conversationId: conversation.id
                 )
-                
+
                 let haptic = UINotificationFeedbackGenerator()
                 haptic.notificationOccurred(.success)
-                
+
                 print("🗑️ Deleted conversation: \(conversation.name)")
             } catch {
                 print("❌ Error deleting conversation: \(error)")
                 // TODO: Show error to user
+            }
+        }
+    }
+
+    // MARK: - Context Menu
+
+    @ViewBuilder
+    private func conversationContextMenu(for conversation: ChatConversation) -> some View {
+        // Pin/Unpin
+        Button {
+            if conversation.isPinned {
+                unpinConversation(conversation)
+            } else {
+                pinConversation(conversation)
+            }
+        } label: {
+            Label(
+                conversation.isPinned ? "Unpin" : "Pin",
+                systemImage: conversation.isPinned ? "pin.slash.fill" : "pin.fill"
+            )
+        }
+
+        // Mute/Unmute
+        Button {
+            if conversation.isMuted {
+                unmuteConversation(conversation)
+            } else {
+                muteConversation(conversation)
+            }
+        } label: {
+            Label(
+                conversation.isMuted ? "Unmute" : "Mute",
+                systemImage: conversation.isMuted ? "speaker.wave.2.fill" : "speaker.slash.fill"
+            )
+        }
+
+        Divider()
+
+        // Archive
+        Button {
+            archiveConversation(conversation)
+        } label: {
+            Label("Archive", systemImage: "archivebox.fill")
+        }
+
+        // Delete
+        Button(role: .destructive) {
+            conversationToDelete = conversation
+            showDeleteConfirmation = true
+        } label: {
+            Label("Delete", systemImage: "trash.fill")
+        }
+
+        // Report Spam (only for non-group conversations)
+        if !conversation.isGroup {
+            Divider()
+
+            Button(role: .destructive) {
+                reportSpam(conversation)
+            } label: {
+                Label("Report Spam", systemImage: "exclamationmark.shield.fill")
             }
         }
     }
@@ -473,7 +905,7 @@ struct MessagesView: View {
             
             do {
                 // Animate archiving
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
+                withAnimation(.easeOut(duration: 0.2)) {
                     // Will move to archived tab automatically via listener
                 }
                 
@@ -493,13 +925,15 @@ struct MessagesView: View {
     }
     
     private func unarchiveConversation(_ conversation: ChatConversation) {
+        guard !isArchiving else { return }
+        
         Task { @MainActor in
+            isArchiving = true
+            defer { isArchiving = false }
+            
             do {
-                isArchiving = true
-                defer { isArchiving = false }
-                
                 // Animate unarchiving
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
+                withAnimation(.easeOut(duration: 0.2)) {
                     // Will move back to messages tab automatically via listener
                 }
                 
@@ -576,6 +1010,9 @@ struct MessagesView: View {
                     .padding(.horizontal, 20)
                     .padding(.bottom, 100)
                 }
+                .refreshable {
+                    await refreshArchivedConversations()
+                }
             }
         }
     }
@@ -633,6 +1070,9 @@ struct MessagesView: View {
                     .padding(.horizontal, 20)
                     .padding(.bottom, 100)
                 }
+                .refreshable {
+                    await refreshMessageRequests()
+                }
             }
         }
     }
@@ -670,6 +1110,15 @@ struct MessagesView: View {
     private func handleRequestAction(request: MessageRequest, action: RequestAction) {
         Task {
             do {
+                // Optimistic UI update - remove request immediately for smoother UX
+                if action == .accept || action == .decline || action == .block {
+                    await MainActor.run {
+                        withAnimation(.easeOut(duration: 0.25)) {
+                            messageRequests.removeAll { $0.id == request.id }
+                        }
+                    }
+                }
+                
                 switch action {
                 case .accept:
                     try await acceptMessageRequest(request)
@@ -680,9 +1129,13 @@ struct MessagesView: View {
                 case .report:
                     try await reportUser(request.fromUserId)
                 }
+                
+                // Reload to ensure consistency
                 await loadMessageRequests()
             } catch {
                 print("❌ Error handling request action: \(error)")
+                // Reload on error to restore accurate state
+                await loadMessageRequests()
             }
         }
     }
@@ -698,10 +1151,34 @@ struct MessagesView: View {
         // Mark the request as read
         try await service.markMessageRequestAsRead(requestId: request.conversationId)
         
-        // Haptic feedback
+        // Haptic feedback and smooth transition to messages tab
         await MainActor.run {
             let haptic = UINotificationFeedbackGenerator()
             haptic.notificationOccurred(.success)
+            
+            // Smoothly transition to messages tab with animation
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                selectedTab = .messages
+            }
+            
+            if let acceptedConversation = messagingService.conversations.first(where: { $0.id == request.conversationId }) {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                    activeSheet = .chat(acceptedConversation)
+                }
+            } else {
+                let placeholderConversation = ChatConversation(
+                    id: request.conversationId,
+                    name: request.fromUserName,
+                    lastMessage: "",
+                    timestamp: Date().smartTimestamp,
+                    isGroup: false,
+                    unreadCount: 0,
+                    avatarColor: .blue
+                )
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                    activeSheet = .chat(placeholderConversation)
+                }
+            }
         }
         
         print("✅ Message request accepted successfully")
@@ -843,7 +1320,6 @@ struct MessagesView: View {
     
     // MARK: - Helper Functions
     
-    /// Start a new conversation with a selected user
     private func startConversation(with user: SearchableUser) async {
         print("\n========================================")
         print("🚀 START CONVERSATION DEBUG")
@@ -872,8 +1348,8 @@ struct MessagesView: View {
                 activeSheet = nil
             }
             
-            // Small delay for sheet dismissal
-            print("⏳ Step 5: Waiting for sheet dismissal...")
+            // Small delay for sheet dismissal animation
+            print("⏳ Step 5: Waiting for sheet dismissal animation...")
             try? await Task.sleep(nanoseconds: 300_000_000) // 0.3 seconds
             
             // Check if conversation exists in list
@@ -1042,14 +1518,14 @@ struct NeumorphicMessagesSearchBar: View {
                 .foregroundStyle(.primary)
                 .submitLabel(.search)
                 .onChange(of: text) { _, newValue in
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(.easeOut(duration: 0.2)) {
                         isSearching = !newValue.isEmpty
                     }
                 }
             
             if !text.isEmpty {
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(.easeOut(duration: 0.2)) {
                         text = ""
                         isSearching = false
                     }
@@ -1100,7 +1576,7 @@ struct NeumorphicMessagesSearchBar: View {
             }
         )
         .shadow(color: isSearching ? .blue.opacity(0.2) : .black.opacity(0.08), radius: 12, y: 4)
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSearching)
+        .animation(.easeOut(duration: 0.2), value: isSearching)
     }
 }
 
@@ -1173,8 +1649,8 @@ struct SmartGlassmorphicButton: View {
         }
         .shadow(color: isActive ? .blue.opacity(0.2) : .black.opacity(0.1), radius: 8, y: 4)
         .scaleEffect(isPressed ? 0.92 : 1.0)
-        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isPressed)
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isActive)
+        .animation(.easeOut(duration: 0.15), value: isPressed)
+        .animation(.easeOut(duration: 0.2), value: isActive)
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in
@@ -1316,42 +1792,53 @@ struct NeumorphicConversationRow: View {
         .padding(16)
         .background(
             ZStack {
-                // Glassmorphic background
-                RoundedRectangle(cornerRadius: 20)
+                // Compact glassmorphic background with subtle elevation
+                RoundedRectangle(cornerRadius: 16)
                     .fill(.ultraThinMaterial)
                 
-                RoundedRectangle(cornerRadius: 20)
+                RoundedRectangle(cornerRadius: 16)
                     .fill(
                         LinearGradient(
                             colors: [
-                                Color.white.opacity(0.4),
-                                Color.white.opacity(0.1)
+                                Color.white.opacity(conversation.isPinned ? 0.5 : 0.35),
+                                Color.white.opacity(conversation.isPinned ? 0.2 : 0.1)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
                     )
                 
-                RoundedRectangle(cornerRadius: 20)
+                // Enhanced border for pinned conversations
+                RoundedRectangle(cornerRadius: 16)
                     .strokeBorder(
                         LinearGradient(
-                            colors: [
-                                Color.white.opacity(0.6),
+                            colors: conversation.isPinned ? [
+                                Color.orange.opacity(0.4),
+                                Color.orange.opacity(0.2)
+                            ] : [
+                                Color.white.opacity(0.5),
                                 Color.white.opacity(0.2)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         ),
-                        lineWidth: 1.5
+                        lineWidth: conversation.isPinned ? 1.5 : 1
                     )
             }
         )
-        .shadow(color: conversation.unreadCount > 0 ? .blue.opacity(0.15) : .black.opacity(0.08), radius: 12, y: 4)
-        .scaleEffect(isPressed ? 0.97 : 1.0)
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isPressed)
+        .shadow(
+            color: conversation.isPinned ? .orange.opacity(0.12) :
+                   conversation.unreadCount > 0 ? .blue.opacity(0.12) : 
+                   .black.opacity(0.06),
+            radius: 8,
+            y: 3
+        )
+        .scaleEffect(isPressed ? 0.98 : 1.0)
+        .animation(.easeOut(duration: 0.12), value: isPressed)
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: conversation.unreadCount)
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: conversation.isPinned)
         .onLongPressGesture(minimumDuration: .infinity, maximumDistance: .infinity, pressing: { pressing in
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            withAnimation(.easeOut(duration: 0.12)) {
                 isPressed = pressing
             }
         }, perform: {})
@@ -1475,7 +1962,7 @@ struct ModernConversationRow: View {
         .shadow(color: .black.opacity(0.08), radius: 12, y: 4)
         .scaleEffect(isPressed ? 0.98 : 1.0)
         .onLongPressGesture(minimumDuration: .infinity, maximumDistance: .infinity, pressing: { pressing in
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            withAnimation(.easeOut(duration: 0.15)) {
                 isPressed = pressing
             }
         }, perform: {})
@@ -1489,7 +1976,7 @@ struct ConversationRow: View {
     
     var body: some View {
         HStack(spacing: 14) {
-            // Avatar
+            // Avatar with real-time profile photo
             ZStack {
                 Circle()
                     .fill(conversation.avatarColor.opacity(0.15))
@@ -1499,6 +1986,23 @@ struct ConversationRow: View {
                     Image(systemName: "person.3.fill")
                         .font(.system(size: 20))
                         .foregroundStyle(conversation.avatarColor)
+                } else if let profilePhotoURL = conversation.profilePhotoURL, !profilePhotoURL.isEmpty {
+                    // Show profile photo with caching for persistence
+                    CachedAsyncImage(
+                        url: URL(string: profilePhotoURL),
+                        content: { image in
+                            image
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 56, height: 56)
+                                .clipShape(Circle())
+                        },
+                        placeholder: {
+                            ProgressView()
+                                .tint(conversation.avatarColor)
+                                .frame(width: 56, height: 56)
+                        }
+                    )
                 } else {
                     Text(conversation.initials)
                         .font(.custom("OpenSans-Bold", size: 18))
@@ -1606,7 +2110,7 @@ struct MessageRequestRow: View {
 
 struct CreateGroupView: View {
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var messagingService = FirebaseMessagingService.shared
+    @ObservedObject private var messagingService = FirebaseMessagingService.shared
     
     @State private var groupName = ""
     @State private var selectedUsers: [ContactUser] = [] // Store full user objects
@@ -1698,13 +2202,7 @@ struct CreateGroupView: View {
                 .padding()
                 .background(Color(.systemGray6))
                 .cornerRadius(12)
-                .onSubmit {
-                    // Enforce character limit on submit
-                    if groupName.count > nameCharLimit {
-                        groupName = String(groupName.prefix(nameCharLimit))
-                    }
-                }
-                .onReceive(Just(groupName)) { newValue in
+                .onChange(of: groupName) { _, newValue in
                     // Enforce character limit in real-time
                     if newValue.count > nameCharLimit {
                         groupName = String(newValue.prefix(nameCharLimit))
@@ -1817,7 +2315,7 @@ struct CreateGroupView: View {
     }
     
     private func removeUser(_ user: ContactUser) {
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+        withAnimation(.easeOut(duration: 0.2)) {
             selectedUsers.removeAll { $0.id == user.id }
         }
         
@@ -1989,7 +2487,7 @@ struct CreateGroupView: View {
     }
     
     private func toggleUserSelection(_ user: ContactUser) {
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+        withAnimation(.easeOut(duration: 0.2)) {
             if let index = selectedUsers.firstIndex(where: { $0.id == user.id }) {
                 selectedUsers.remove(at: index)
             } else if selectedUsers.count < maxMembers {
@@ -2040,12 +2538,11 @@ struct CreateGroupView: View {
                     haptic.notificationOccurred(.success)
                     
                     isCreating = false
+                    
                     dismiss()
                     
-                    // Open the new group conversation after a brief delay
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        MessagingCoordinator.shared.openConversation(conversationId)
-                    }
+                    print("📬 Opening new group conversation: \(conversationId)")
+                    MessagingCoordinator.shared.openConversation(conversationId)
                 }
                 
             } catch {
@@ -2262,7 +2759,7 @@ struct ProductionMessagingUserSearchView: View {
             
             if !searchText.isEmpty {
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(.easeOut(duration: 0.2)) {
                         searchText = ""
                         searchResults = []
                         errorMessage = nil
@@ -2532,6 +3029,688 @@ struct ProductionUserRow: View {
 
 // MARK: - END TEMPORARY STUBS
 
+// MARK: - Global Message Search View
+
+struct GlobalMessageSearchView: View {
+    @Environment(\.dismiss) var dismiss
+    @State private var searchText = ""
+    @State private var searchResults: [MessageSearchResult] = []
+    @State private var isSearching = false
+    @State private var selectedFilter: SearchFilter = .all
+    @State private var searchTask: Task<Void, Never>?
+    
+    enum SearchFilter: String, CaseIterable {
+        case all = "All"
+        case photos = "Photos"
+        case links = "Links"
+        case people = "People"
+    }
+    
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                // Search bar
+                searchBar
+                
+                // Filter tabs
+                if !searchText.isEmpty {
+                    filterTabs
+                }
+                
+                // Results
+                if isSearching {
+                    ProgressView("Searching messages...")
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if searchText.isEmpty {
+                    emptySearchState
+                } else if searchResults.isEmpty {
+                    noResultsState
+                } else {
+                    searchResultsList
+                }
+            }
+            .background(Color(.systemGroupedBackground))
+            .navigationTitle("Search Messages")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") {
+                        searchTask?.cancel()
+                        dismiss()
+                    }
+                }
+            }
+            .onDisappear {
+                searchTask?.cancel()
+            }
+        }
+    }
+    
+    private var searchBar: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(.secondary)
+            
+            TextField("Search in all conversations", text: $searchText)
+                .font(.custom("OpenSans-Regular", size: 16))
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .submitLabel(.search)
+            
+            if !searchText.isEmpty {
+                Button {
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        searchText = ""
+                        searchResults = []
+                        searchTask?.cancel()
+                    }
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.secondary)
+                }
+            }
+            
+            if isSearching {
+                ProgressView()
+                    .scaleEffect(0.8)
+            }
+        }
+        .padding()
+        .background(Color(.systemBackground))
+        .cornerRadius(12)
+        .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
+        .padding()
+        .onChange(of: searchText) { _, newValue in
+            performSearch(query: newValue)
+        }
+    }
+    
+    private var filterTabs: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 12) {
+                ForEach(SearchFilter.allCases, id: \.self) { filter in
+                    Button {
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            selectedFilter = filter
+                        }
+                    } label: {
+                        Text(filter.rawValue)
+                            .font(.custom("OpenSans-SemiBold", size: 14))
+                            .foregroundStyle(selectedFilter == filter ? .white : .primary)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(
+                                Capsule()
+                                    .fill(selectedFilter == filter ? Color.blue : Color(.systemGray5))
+                            )
+                    }
+                }
+            }
+            .padding(.horizontal)
+        }
+        .padding(.bottom, 12)
+    }
+    
+    private var emptySearchState: some View {
+        VStack(spacing: 24) {
+            Spacer()
+            
+            Image(systemName: "text.magnifyingglass")
+                .font(.system(size: 60))
+                .foregroundStyle(.secondary)
+            
+            VStack(spacing: 8) {
+                Text("Search all your messages")
+                    .font(.custom("OpenSans-Bold", size: 20))
+                    .foregroundStyle(.primary)
+                
+                Text("Find messages, photos, and links\nacross all conversations")
+                    .font(.custom("OpenSans-Regular", size: 15))
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            
+            Spacer()
+        }
+    }
+    
+    private var noResultsState: some View {
+        VStack(spacing: 24) {
+            Spacer()
+            
+            Image(systemName: "doc.text.magnifyingglass")
+                .font(.system(size: 60))
+                .foregroundStyle(.secondary)
+            
+            VStack(spacing: 8) {
+                Text("No results found")
+                    .font(.custom("OpenSans-Bold", size: 20))
+                    .foregroundStyle(.primary)
+                
+                Text("Try different keywords")
+                    .font(.custom("OpenSans-Regular", size: 15))
+                    .foregroundStyle(.secondary)
+            }
+            
+            Spacer()
+        }
+    }
+    
+    private var searchResultsList: some View {
+        ScrollView {
+            LazyVStack(spacing: 0) {
+                ForEach(searchResults) { result in
+                    MessageSearchResultRow(result: result) {
+                        // Open conversation
+                        dismiss()
+                        MessagingCoordinator.shared.openConversation(result.conversationId)
+                    }
+                    
+                    if result.id != searchResults.last?.id {
+                        Divider()
+                            .padding(.leading, 80)
+                    }
+                }
+            }
+            .background(Color(.systemBackground))
+            .cornerRadius(12)
+            .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
+            .padding()
+        }
+    }
+    
+    private func performSearch(query: String) {
+        guard !query.isEmpty, query.count >= 2 else {
+            searchResults = []
+            return
+        }
+        
+        searchTask?.cancel()
+        isSearching = true
+        
+        searchTask = Task {
+            // Debounce
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            
+            guard !Task.isCancelled else { return }
+            
+            do {
+                print("🔍 Searching messages across all conversations for: '\(query)'")
+                
+                // Get all conversations the user is part of
+                let allConversations = FirebaseMessagingService.shared.conversations
+                var foundResults: [MessageSearchResult] = []
+                
+                // Search through each conversation's messages
+                for conversation in allConversations {
+                    // Search messages in this conversation
+                    let messages = try await FirebaseMessagingService.shared.searchMessagesInConversation(
+                        conversationId: conversation.id,
+                        query: query
+                    )
+                    
+                    // Convert to search results
+                    for message in messages {
+                        let result = MessageSearchResult(
+                            conversationId: conversation.id,
+                            conversationName: conversation.name,
+                            messageText: message.text,
+                            timestamp: message.timestamp,
+                            senderName: message.senderName ?? "Unknown",
+                            hasAttachment: !message.attachments.isEmpty
+                        )
+                        foundResults.append(result)
+                    }
+                }
+                
+                // Sort by timestamp (most recent first)
+                foundResults.sort { $0.timestamp > $1.timestamp }
+                
+                // Apply filter
+                let filteredResults = filterResults(foundResults, by: selectedFilter)
+                
+                guard !Task.isCancelled else { return }
+                
+                await MainActor.run {
+                    searchResults = filteredResults
+                    isSearching = false
+                    print("✅ Found \(filteredResults.count) matching messages")
+                }
+                
+            } catch {
+                guard !Task.isCancelled else { return }
+                
+                print("❌ Error searching messages: \(error)")
+                await MainActor.run {
+                    searchResults = []
+                    isSearching = false
+                }
+            }
+        }
+    }
+    
+    private func filterResults(_ results: [MessageSearchResult], by filter: SearchFilter) -> [MessageSearchResult] {
+        switch filter {
+        case .all:
+            return results
+        case .photos:
+            // Filter for messages with photo attachments
+            return results.filter { $0.hasAttachment && $0.messageText.contains("📷") }
+        case .links:
+            // Filter for messages with links
+            return results.filter { $0.messageText.contains("http") }
+        case .people:
+            // Show grouped by sender (keep first message from each sender)
+            var seenSenders = Set<String>()
+            return results.filter { result in
+                if seenSenders.contains(result.senderName) {
+                    return false
+                } else {
+                    seenSenders.insert(result.senderName)
+                    return true
+                }
+            }
+        }
+    }
+}
+
+struct MessageSearchResult: Identifiable {
+    let id = UUID()
+    let conversationId: String
+    let conversationName: String
+    let messageText: String
+    let timestamp: Date
+    let senderName: String
+    let hasAttachment: Bool
+}
+
+struct MessageSearchResultRow: View {
+    let result: MessageSearchResult
+    let onTap: () -> Void
+    
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 14) {
+                // Conversation avatar
+                Circle()
+                    .fill(Color.blue.opacity(0.15))
+                    .frame(width: 50, height: 50)
+                    .overlay(
+                        Text(result.conversationName.prefix(2).uppercased())
+                            .font(.custom("OpenSans-Bold", size: 16))
+                            .foregroundStyle(.blue)
+                    )
+                
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text(result.conversationName)
+                            .font(.custom("OpenSans-Bold", size: 15))
+                            .foregroundStyle(.primary)
+                        
+                        Spacer()
+                        
+                        Text(result.timestamp.smartTimestamp)
+                            .font(.custom("OpenSans-Regular", size: 12))
+                            .foregroundStyle(.secondary)
+                    }
+                    
+                    Text(result.messageText)
+                        .font(.custom("OpenSans-Regular", size: 14))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                    
+                    Text(result.senderName)
+                        .font(.custom("OpenSans-SemiBold", size: 12))
+                        .foregroundStyle(.blue)
+                }
+                
+                if result.hasAttachment {
+                    Image(systemName: "paperclip")
+                        .font(.system(size: 14))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding()
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+}
+
+// MARK: - Smart Conversation Row with Preview (Compact & Enhanced)
+
+struct SmartConversationRow: View {
+    let conversation: ChatConversation
+    @State private var isPressed = false
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            // Profile Photo or Avatar (Compact - 48x48)
+            ZStack {
+                // Outer glow for unread (smaller)
+                if conversation.unreadCount > 0 {
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [
+                                    Color.blue.opacity(0.25),
+                                    Color.clear
+                                ],
+                                center: .center,
+                                startRadius: 0,
+                                endRadius: 28
+                            )
+                        )
+                        .frame(width: 56, height: 56)
+                        .blur(radius: 6)
+                }
+                
+                // Profile photo if available, otherwise gradient avatar
+                if let photoURL = conversation.profilePhotoURL, !photoURL.isEmpty {
+                    CachedAsyncImage(
+                        url: URL(string: photoURL),
+                        content: { image in
+                            image
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 48, height: 48)
+                                .clipShape(Circle())
+                                .overlay(
+                                    Circle()
+                                        .strokeBorder(
+                                            LinearGradient(
+                                                colors: [
+                                                    Color.white.opacity(0.6),
+                                                    Color.white.opacity(0.2)
+                                                ],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            ),
+                                            lineWidth: 1.5
+                                        )
+                                )
+                        },
+                        placeholder: {
+                            fallbackAvatar
+                        }
+                    )
+                } else {
+                    fallbackAvatar
+                }
+                
+                // Pinned indicator
+                if conversation.isPinned {
+                    VStack {
+                        HStack {
+                            Spacer()
+                            Image(systemName: "pin.fill")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundStyle(.orange)
+                                .padding(4)
+                                .background(
+                                    Circle()
+                                        .fill(.ultraThinMaterial)
+                                        .shadow(color: .black.opacity(0.15), radius: 2)
+                                )
+                        }
+                        Spacer()
+                    }
+                    .frame(width: 48, height: 48)
+                }
+            }
+            .frame(width: 48, height: 48)
+            
+            // Content with smart preview (Compact)
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    // Name with optional muted indicator
+                    HStack(spacing: 4) {
+                        Text(conversation.name)
+                            .font(.custom("OpenSans-Bold", size: 15))
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                        
+                        if conversation.isMuted {
+                            Image(systemName: "bell.slash.fill")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.secondary.opacity(0.6))
+                        }
+                    }
+                    
+                    Spacer()
+                    
+                    // Timestamp
+                    Text(parseTimestamp(conversation.timestamp))
+                        .font(.custom("OpenSans-Regular", size: 11))
+                        .foregroundStyle(.secondary)
+                }
+                
+                HStack(alignment: .center, spacing: 6) {
+                    // Smart preview with icons
+                    smartMessagePreview
+                        .font(.custom("OpenSans-Regular", size: 13))
+                    
+                    Spacer()
+                    
+                    // Unread badge with animation
+                    if conversation.unreadCount > 0 {
+                        Text("\(conversation.unreadCount)")
+                            .font(.custom("OpenSans-Bold", size: 10))
+                            .foregroundStyle(.white)
+                            .frame(minWidth: 18, minHeight: 18)
+                            .padding(.horizontal, 5)
+                            .background(
+                                ZStack {
+                                    Capsule()
+                                        .fill(
+                                            LinearGradient(
+                                                colors: [Color.blue, Color.blue.opacity(0.8)],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            )
+                                        )
+                                    
+                                    Capsule()
+                                        .strokeBorder(
+                                            Color.white.opacity(0.3),
+                                            lineWidth: 0.5
+                                        )
+                                }
+                            )
+                            .shadow(color: .blue.opacity(0.4), radius: 4, y: 2)
+                            .transition(.scale.combined(with: .opacity))
+                    }
+                    
+                    // Message indicators
+                    HStack(spacing: 4) {
+                        // Delivery status for last message
+                        if conversation.lastMessage.hasPrefix("You: ") {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.blue.opacity(0.6))
+                        }
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(
+            ZStack {
+                // Glassmorphic background
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(.ultraThinMaterial)
+                
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.4),
+                                Color.white.opacity(0.1)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                
+                RoundedRectangle(cornerRadius: 20)
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.6),
+                                Color.white.opacity(0.2)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1.5
+                    )
+            }
+        )
+        .shadow(color: conversation.unreadCount > 0 ? .blue.opacity(0.15) : .black.opacity(0.08), radius: 12, y: 4)
+        .scaleEffect(isPressed ? 0.97 : 1.0)
+        .animation(.easeOut(duration: 0.15), value: isPressed)
+        .animation(.easeOut(duration: 0.2), value: conversation.unreadCount)
+        .onLongPressGesture(minimumDuration: .infinity, maximumDistance: .infinity, pressing: { pressing in
+            withAnimation(.easeOut(duration: 0.15)) {
+                isPressed = pressing
+            }
+        }, perform: {})
+    }
+    
+    // Fallback avatar when no profile photo
+    @ViewBuilder
+    private var fallbackAvatar: some View {
+        ZStack {
+            Circle()
+                .fill(.ultraThinMaterial)
+                .frame(width: 48, height: 48)
+            
+            Circle()
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            conversation.avatarColor.opacity(0.3),
+                            conversation.avatarColor.opacity(0.15)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: 48, height: 48)
+            
+            Circle()
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(0.5),
+                            Color.white.opacity(0.2)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1.5
+                )
+                .frame(width: 48, height: 48)
+            
+            if conversation.isGroup {
+                Image(systemName: "person.3.fill")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(conversation.avatarColor)
+                    .symbolEffect(.bounce, value: isPressed)
+            } else {
+                Text(conversation.initials)
+                    .font(.custom("OpenSans-Bold", size: 16))
+                    .foregroundStyle(conversation.avatarColor)
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private var smartMessagePreview: some View {
+        HStack(spacing: 4) {
+            // Icon based on message type
+            if conversation.lastMessage.contains("📷") || conversation.lastMessage.contains("Photo") {
+                Image(systemName: "photo.fill")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+            } else if conversation.lastMessage.contains("🎤") || conversation.lastMessage.contains("Voice") {
+                Image(systemName: "mic.fill")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+            } else if conversation.lastMessage.contains("📎") || conversation.lastMessage.contains("Attachment") {
+                Image(systemName: "paperclip")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+            } else if conversation.lastMessage.contains("❤️") || conversation.lastMessage.contains("Liked") {
+                Image(systemName: "heart.fill")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.red.opacity(0.8))
+            }
+            
+            Text(conversation.lastMessage)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+        }
+    }
+    
+    private func parseTimestamp(_ timestamp: String) -> String {
+        // Try to parse Firebase timestamp or use smart timestamp
+        if let date = parseFirebaseTimestamp(timestamp) {
+            return date.smartTimestamp
+        }
+        return timestamp
+    }
+    
+    private func parseFirebaseTimestamp(_ timestamp: String) -> Date? {
+        // Implement Firebase timestamp parsing if needed
+        return nil
+    }
+}
+
+// MARK: - Smart Timestamp Extension
+
+extension Date {
+    var smartTimestamp: String {
+        let calendar = Calendar.current
+        let now = Date()
+        
+        // Check if today
+        if calendar.isDateInToday(self) {
+            let formatter = DateFormatter()
+            formatter.timeStyle = .short
+            return formatter.string(from: self)
+        }
+        
+        // Check if yesterday
+        if calendar.isDateInYesterday(self) {
+            return "Yesterday"
+        }
+        
+        // Check if within this week
+        if let daysAgo = calendar.dateComponents([.day], from: self, to: now).day,
+           daysAgo < 7 {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "EEEE" // Day name
+            return formatter.string(from: self)
+        }
+        
+        // Check if this year
+        if calendar.component(.year, from: self) == calendar.component(.year, from: now) {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "MMM d" // Dec 25
+            return formatter.string(from: self)
+        }
+        
+        // Older than this year
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MM/dd/yy"
+        return formatter.string(from: self)
+    }
+}
+
+// MARK: - END TEMPORARY STUBS
+
 // MARK: - View Modifiers to Break Down Complexity
 
 struct LifecycleModifier: ViewModifier {
@@ -2540,9 +3719,20 @@ struct LifecycleModifier: ViewModifier {
     let startListeningToMessageRequests: () -> Void
     let stopListeningToMessageRequests: () -> Void
     
+    @State private var hasAppeared = false
+    
     func body(content: Content) -> some View {
         content
             .onAppear {
+                // Prevent duplicate initialization
+                guard !hasAppeared else {
+                    print("⚠️ MessagesView already initialized, skipping duplicate setup")
+                    return
+                }
+                hasAppeared = true
+                
+                print("🎬 MessagesView appearing - starting listeners")
+                
                 // Start listening to real-time conversations from Firebase
                 messagingService.startListeningToConversations()
                 messagingService.startListeningToArchivedConversations()
@@ -2554,9 +3744,41 @@ struct LifecycleModifier: ViewModifier {
                     
                     // Start listening for real-time message requests
                     startListeningToMessageRequests()
+                    
+                    // ✅ DEBUG: Show conversation breakdown after data loads
+                    try? await Task.sleep(nanoseconds: 1_000_000_000) // Wait 1 second for data
+                    
+                    await MainActor.run {
+                        let currentUserId = Auth.auth().currentUser?.uid ?? ""
+                        
+                        print("\n📊 CONVERSATION BREAKDOWN:")
+                        print("   Total: \(messagingService.conversations.count)")
+                        print("   Accepted: \(messagingService.conversations.filter { $0.status == "accepted" }.count)")
+                        print("   Pending (sent by you): \(messagingService.conversations.filter { $0.status == "pending" && $0.requesterId == currentUserId }.count)")
+                        print("   Pending (from others): \(messagingService.conversations.filter { $0.status == "pending" && $0.requesterId != currentUserId }.count)")
+                        print("   Archived: \(messagingService.archivedConversations.count)")
+                        
+                        print("\n💬 MESSAGES TAB will show:")
+                        print("   ✅ Accepted conversations:")
+                        for conv in messagingService.conversations.filter({ $0.status == "accepted" && !$0.isPinned }) {
+                            print("      - \(conv.name): \"\(conv.lastMessage)\"")
+                        }
+                        print("   📤 Your outgoing pending messages:")
+                        for conv in messagingService.conversations.filter({ $0.status == "pending" && $0.requesterId == currentUserId }) {
+                            print("      - \(conv.name): \"\(conv.lastMessage)\"")
+                        }
+                        
+                        print("\n📥 REQUESTS TAB will show:")
+                        for conv in messagingService.conversations.filter({ $0.status == "pending" && $0.requesterId != currentUserId }) {
+                            print("   - \(conv.name): \"\(conv.lastMessage)\"")
+                        }
+                    }
                 }
             }
             .onDisappear {
+                print("👋 MessagesView disappearing - stopping listeners")
+                hasAppeared = false
+                
                 // Stop listening when view disappears
                 messagingService.stopListeningToConversations()
                 messagingService.stopListeningToArchivedConversations()
@@ -2586,7 +3808,8 @@ struct DeleteConfirmationModifier: ViewModifier {
 }
 
 struct CoordinatorModifier: ViewModifier {
-    let messagingCoordinator: MessagingCoordinator
+    @ObservedObject var messagingCoordinator: MessagingCoordinator
+    let messagingService: FirebaseMessagingService
     let conversations: [ChatConversation]
     @Binding var activeSheet: MessageSheetType?
     @Binding var selectedTab: MessagesView.MessageTab
@@ -2601,14 +3824,9 @@ struct CoordinatorModifier: ViewModifier {
                 if let conversation = conversations.first(where: { $0.id == conversationId }) {
                     activeSheet = .chat(conversation)
                 } else {
-                    // Conversation might not be loaded yet, fetch it
-                    Task {
-                        // Give Firebase a moment to sync
-                        try? await Task.sleep(nanoseconds: 500_000_000)
-                        if let conversation = conversations.first(where: { $0.id == conversationId }) {
-                            await MainActor.run {
-                                activeSheet = .chat(conversation)
-                            }
+                    Task { @MainActor in
+                        if let fetchedConversation = await messagingService.fetchConversation(conversationId: conversationId) {
+                            activeSheet = .chat(fetchedConversation)
                         }
                     }
                 }
@@ -2616,7 +3834,7 @@ struct CoordinatorModifier: ViewModifier {
             .onReceive(messagingCoordinator.$shouldOpenMessageRequests) { shouldOpen in
                 // Switch to requests tab when coordinator signals
                 if shouldOpen {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    withAnimation(.easeOut(duration: 0.2)) {
                         selectedTab = .requests
                     }
                 }
@@ -2643,8 +3861,7 @@ struct ModernConversationDetailView: View {
     @State private var showErrorAlert = false
     @State private var errorMessage = ""
     
-    // Typing debounce timer
-    @State private var typingDebounceTimer: Timer?
+    @State private var typingTask: Task<Void, Never>?
     
     var body: some View {
         ZStack {
@@ -2734,15 +3951,14 @@ struct ModernConversationDetailView: View {
         }
         .onDisappear {
             // Clean up listeners to prevent memory leaks
-            // Call Firebase service's stop methods
             FirebaseMessagingService.shared.stopListeningToMessages(conversationId: conversation.id)
             
-            // Cancel typing debounce timer
-            typingDebounceTimer?.invalidate()
-            typingDebounceTimer = nil
+            // Cancel typing task
+            typingTask?.cancel()
+            typingTask = nil
             
             // Send typing stopped status
-            Task {
+            Task { @MainActor in
                 try? await FirebaseMessagingService.shared.updateTypingStatus(
                     conversationId: conversation.id,
                     isTyping: false
@@ -2934,7 +4150,7 @@ struct ModernConversationDetailView: View {
     private func sendMessage() {
         guard !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !selectedImages.isEmpty else { return }
         
-        let textToSend = messageText
+        let textToSend = messageText.trimmingCharacters(in: .whitespacesAndNewlines)
         let imagesToSend = selectedImages
         let replyToId = replyingTo?.id
         
@@ -2942,12 +4158,13 @@ struct ModernConversationDetailView: View {
         messageText = ""
         selectedImages = []
         replyingTo = nil
+        isInputFocused = false
         
         let haptic = UIImpactFeedbackGenerator(style: .light)
         haptic.impactOccurred()
         
         // Send to Firebase
-        Task {
+        Task { @MainActor in
             do {
                 if imagesToSend.isEmpty {
                     try await FirebaseMessagingService.shared.sendMessage(
@@ -2965,17 +4182,15 @@ struct ModernConversationDetailView: View {
             } catch {
                 print("❌ Error sending message: \(error)")
                 // Show error to user
-                await MainActor.run {
-                    errorMessage = "Failed to send message. Please check your connection and try again."
-                    showErrorAlert = true
-                    
-                    // Restore message text if send failed
-                    messageText = textToSend
-                    selectedImages = imagesToSend
-                    
-                    let errorHaptic = UINotificationFeedbackGenerator()
-                    errorHaptic.notificationOccurred(.error)
-                }
+                errorMessage = "Failed to send message. Please check your connection and try again."
+                showErrorAlert = true
+                
+                // Restore message text if send failed
+                messageText = textToSend
+                selectedImages = imagesToSend
+                
+                let errorHaptic = UINotificationFeedbackGenerator()
+                errorHaptic.notificationOccurred(.error)
             }
         }
     }
@@ -2998,12 +4213,12 @@ struct ModernConversationDetailView: View {
     }
     
     private func handleTypingIndicator(isTyping: Bool) {
-        // Cancel previous debounce timer
-        typingDebounceTimer?.invalidate()
+        // Cancel previous task
+        typingTask?.cancel()
         
         if isTyping {
             // Send typing started
-            Task {
+            Task { @MainActor in
                 try? await FirebaseMessagingService.shared.updateTypingStatus(
                     conversationId: conversation.id,
                     isTyping: true
@@ -3012,8 +4227,9 @@ struct ModernConversationDetailView: View {
             
             // Auto-stop typing after 5 seconds of no new input
             let conversationId = conversation.id
-            typingDebounceTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: false) { _ in
-                Task { @MainActor in
+            typingTask = Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 5_000_000_000)
+                if !Task.isCancelled {
                     try? await FirebaseMessagingService.shared.updateTypingStatus(
                         conversationId: conversationId,
                         isTyping: false
@@ -3022,7 +4238,7 @@ struct ModernConversationDetailView: View {
             }
         } else {
             // Send typing stopped immediately
-            Task {
+            Task { @MainActor in
                 try? await FirebaseMessagingService.shared.updateTypingStatus(
                     conversationId: conversation.id,
                     isTyping: false
@@ -3032,13 +4248,16 @@ struct ModernConversationDetailView: View {
     }
     
     private func addReaction(to message: AppMessage, emoji: String) {
-        guard let index = messages.firstIndex(where: { $0.id == message.id }) else { return }
+        guard messages.contains(where: { $0.id == message.id }) else {
+            print("⚠️ Message not found in list, skipping reaction")
+            return
+        }
         
         let haptic = UIImpactFeedbackGenerator(style: .light)
         haptic.impactOccurred()
         
         // Add reaction to Firebase
-        Task {
+        Task { @MainActor in
             do {
                 try await FirebaseMessagingService.shared.addReaction(
                     conversationId: conversation.id,

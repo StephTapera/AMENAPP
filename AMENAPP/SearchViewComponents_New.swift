@@ -167,7 +167,7 @@ struct DiscoverPeopleView: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 12) {
                 ForEach(DiscoveryFilter.allCases, id: \.self) { filter in
-                    FilterChip(
+                    DiscoveryFilterChip(
                         filter: filter,
                         isSelected: selectedFilter == filter
                     ) {
@@ -314,6 +314,8 @@ struct DiscoverPeopleView: View {
     // MARK: - Data Loading
     
     private func loadInitialData() async {
+        guard let currentUserId = Auth.auth().currentUser?.uid else { return }
+        
         do {
             // Load recent users (all users sorted by creation date)
             let snapshot = try await Firestore.firestore()
@@ -324,7 +326,7 @@ struct DiscoverPeopleView: View {
             
             recentUsers = snapshot.documents.compactMap { doc in
                 try? doc.data(as: FirebaseSearchUser.self)
-            }
+            }.filter { $0.id != currentUserId } // Don't show current user
             
             // Load new users (joined in last 7 days)
             let sevenDaysAgo = Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date()
@@ -337,7 +339,7 @@ struct DiscoverPeopleView: View {
             
             newUsers = newSnapshot.documents.compactMap { doc in
                 try? doc.data(as: FirebaseSearchUser.self)
-            }
+            }.filter { $0.id != currentUserId } // Don't show current user
             
             print("✅ Loaded \(recentUsers.count) recent users and \(newUsers.count) new users")
             
@@ -369,8 +371,10 @@ struct DiscoverPeopleView: View {
     }
     
     private func applyFilter(_ filter: DiscoveryFilter) async {
+        guard let currentUserId = Auth.auth().currentUser?.uid else { return }
+        
         do {
-            var query = Firestore.firestore().collection("users")
+            var query: Query = Firestore.firestore().collection("users")
             
             switch filter {
             case .all:
@@ -393,7 +397,7 @@ struct DiscoverPeopleView: View {
             
             let users = snapshot.documents.compactMap { doc in
                 try? doc.data(as: FirebaseSearchUser.self)
-            }
+            }.filter { $0.id != currentUserId } // Don't show current user
             
             await MainActor.run {
                 recentUsers = users
@@ -405,9 +409,9 @@ struct DiscoverPeopleView: View {
     }
 }
 
-// MARK: - Filter Chip
+// MARK: - Discovery Filter Chip
 
-struct FilterChip: View {
+struct DiscoveryFilterChip: View {
     let filter: DiscoverPeopleView.DiscoveryFilter
     let isSelected: Bool
     let action: () -> Void
@@ -423,7 +427,7 @@ struct FilterChip: View {
                 Text(filter.rawValue)
                     .font(.custom("OpenSans-Bold", size: 14))
             }
-            .foregroundStyle(isSelected ? .white : .primary)
+            .foregroundStyle(isSelected ? Color.white : Color.primary)
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
             .background(
@@ -518,8 +522,8 @@ struct ThreadsStyleUserCard: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                 
-                if !user.bio.isEmpty {
-                    Text(user.bio)
+                if let bio = user.bio, !bio.isEmpty {
+                    Text(bio)
                         .font(.custom("OpenSans-Regular", size: 13))
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
@@ -575,7 +579,7 @@ struct ThreadsFollowButton: View {
         } label: {
             Text(isFollowing ? "Following" : "Follow")
                 .font(.custom("OpenSans-Bold", size: 13))
-                .foregroundStyle(isFollowing ? .primary : .white)
+                .foregroundStyle(isFollowing ? Color.primary : Color.white)
                 .padding(.horizontal, 20)
                 .padding(.vertical, 8)
                 .background(
@@ -736,6 +740,8 @@ struct DiscoverPeopleSection: View {
     }
     
     private func loadSuggestedUsers() async {
+        guard let currentUserId = Auth.auth().currentUser?.uid else { return }
+        
         do {
             let snapshot = try await Firestore.firestore()
                 .collection("users")
@@ -745,7 +751,7 @@ struct DiscoverPeopleSection: View {
             
             suggestedUsers = snapshot.documents.compactMap { doc in
                 try? doc.data(as: FirebaseSearchUser.self)
-            }
+            }.filter { $0.id != currentUserId } // Don't show current user
             
         } catch {
             print("❌ Error loading suggested users: \(error)")
@@ -831,7 +837,7 @@ struct CompactUserCard: View {
                 } label: {
                     Text(isFollowing ? "Following" : "Follow")
                         .font(.custom("OpenSans-Bold", size: 12))
-                        .foregroundStyle(isFollowing ? .primary : .white)
+                        .foregroundStyle(isFollowing ? Color.primary : Color.white)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 6)
                         .background(

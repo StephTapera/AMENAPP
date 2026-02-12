@@ -6,6 +6,8 @@
 //
 
 import SwiftUI
+import FirebaseFirestore
+import FirebaseAuth
 
 // MARK: - Helper Functions Extension
 
@@ -39,9 +41,53 @@ extension AIBibleStudyView {
     func saveCurrentConversation() {
         if messages.count > 1 { // More than just the welcome message
             conversationHistory.append(messages)
-            // In production, save to UserDefaults or database
-            print("💾 Saved conversation with \(messages.count) messages")
+            
+            // Save to Firestore
+            Task {
+                do {
+                    try await saveConversationToFirestore(messages: messages)
+                    print("💾 Saved conversation with \(messages.count) messages to Firestore")
+                } catch {
+                    print("❌ Failed to save conversation: \(error)")
+                }
+            }
         }
+    }
+    
+    private func saveConversationToFirestore(messages: [AIStudyMessage]) async throws {
+        guard let userId = Auth.auth().currentUser?.uid else {
+            throw NSError(domain: "AIBibleStudy", code: -1, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
+        }
+        
+        let db = Firestore.firestore()
+        
+        // Create conversation document
+        let conversationData: [String: Any] = [
+            "userId": userId,
+            "createdAt": FieldValue.serverTimestamp(),
+            "updatedAt": FieldValue.serverTimestamp(),
+            "messageCount": messages.count,
+            "preview": messages.first(where: { $0.isUser })?.text.prefix(100) ?? "New conversation"
+        ]
+        
+        let conversationRef = try await db.collection("aiBibleStudyConversations")
+            .addDocument(data: conversationData)
+        
+        // Save messages as subcollection
+        let batch = db.batch()
+        for (index, message) in messages.enumerated() {
+            let messageRef = conversationRef.collection("messages").document("\(index)")
+            let messageData: [String: Any] = [
+                "text": message.text,
+                "isUser": message.isUser,
+                "timestamp": FieldValue.serverTimestamp(),
+                "index": index
+            ]
+            batch.setData(messageData, forDocument: messageRef)
+        }
+        
+        try await batch.commit()
+        print("✅ Saved conversation \(conversationRef.documentID) with \(messages.count) messages")
     }
     
     func loadConversation(_ conversation: [AIStudyMessage]) {
@@ -50,6 +96,55 @@ extension AIBibleStudyView {
             selectedTab = .chat
         }
         showHistory = false
+    }
+    
+    func loadConversationsFromFirestore() async {
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+        
+        do {
+            let db = Firestore.firestore()
+            let snapshot = try await db.collection("aiBibleStudyConversations")
+                .whereField("userId", isEqualTo: userId)
+                .order(by: "createdAt", descending: true)
+                .limit(to: 20)
+                .getDocuments()
+            
+            var loadedConversations: [[AIStudyMessage]] = []
+            
+            for document in snapshot.documents {
+                let conversationId = document.documentID
+                
+                // Load messages for this conversation
+                let messagesSnapshot = try await db.collection("aiBibleStudyConversations")
+                    .document(conversationId)
+                    .collection("messages")
+                    .order(by: "index")
+                    .getDocuments()
+                
+                let messages: [AIStudyMessage] = messagesSnapshot.documents.compactMap { doc in
+                    guard let text = doc.data()["text"] as? String,
+                          let isUser = doc.data()["isUser"] as? Bool else {
+                        return nil
+                    }
+
+                    return AIStudyMessage(
+                        text: text,
+                        isUser: isUser
+                    )
+                }
+                
+                if !messages.isEmpty {
+                    loadedConversations.append(messages)
+                }
+            }
+            
+            await MainActor.run {
+                conversationHistory = loadedConversations
+                print("✅ Loaded \(loadedConversations.count) conversations from Firestore")
+            }
+        } catch {
+            print("❌ Failed to load conversations: \(error)")
+        }
     }
 }
 

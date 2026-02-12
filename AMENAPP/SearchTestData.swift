@@ -11,7 +11,197 @@ import Foundation
 import SwiftUI
 import Combine
 
+// MARK: - Sample Data for AI Components
+// Note: BiblicalSearchResult and FilterSuggestion types are defined in BereanGenkitService.swift
+
+struct SampleData {
+    // MARK: - Biblical Search Results
+    
+    static let davidResult = BiblicalSearchResult(
+        query: "David",
+        summary: "David was the second king of Israel and Judah, known for his faith in God, his defeat of Goliath, and his authorship of many Psalms. Despite his sins, he was called 'a man after God's own heart' due to his genuine repentance and devotion.",
+        keyVerses: [
+            "1 Samuel 17:45",
+            "Psalm 23:1",
+            "Acts 13:22",
+            "2 Samuel 7:16"
+        ],
+        relatedPeople: [
+            "Goliath",
+            "Saul",
+            "Jonathan",
+            "Bathsheba",
+            "Solomon",
+            "Samuel"
+        ],
+        funFacts: [
+            "David wrote approximately 73 of the 150 Psalms",
+            "He was a skilled musician who played the harp for King Saul",
+            "Jesus is referred to as the 'Son of David' throughout the New Testament",
+            "David's reign lasted 40 years, from approximately 1010-970 BC"
+        ]
+    )
+    
+    static let paulResult = BiblicalSearchResult(
+        query: "Paul",
+        summary: "The Apostle Paul, originally named Saul of Tarsus, was a former persecutor of Christians who became one of the most influential missionaries and writers in early Christianity. He wrote 13 books of the New Testament and spread the Gospel throughout the Mediterranean world.",
+        keyVerses: [
+            "Acts 9:3-6",
+            "Philippians 4:13",
+            "Romans 8:28",
+            "2 Corinthians 12:9"
+        ],
+        relatedPeople: [
+            "Barnabas",
+            "Timothy",
+            "Silas",
+            "Luke",
+            "Priscilla",
+            "Aquila"
+        ],
+        funFacts: [
+            "Paul traveled over 10,000 miles on his missionary journeys",
+            "He wrote many of his letters while imprisoned",
+            "Paul was both a Roman citizen and a Pharisee",
+            "He established churches in major cities like Corinth, Ephesus, and Philippi"
+        ]
+    )
+    
+    static let jerusalemResult = BiblicalSearchResult(
+        query: "Jerusalem",
+        summary: "Jerusalem is one of the oldest and most significant cities in biblical history, serving as the capital of ancient Israel and the location of Solomon's Temple. It's considered holy by Judaism, Christianity, and Islam, and plays a central role in biblical prophecy.",
+        keyVerses: [
+            "Psalm 122:6",
+            "2 Chronicles 6:6",
+            "Luke 19:41",
+            "Revelation 21:2"
+        ],
+        relatedPeople: [
+            "David",
+            "Solomon",
+            "Jesus",
+            "Nehemiah",
+            "Melchizedek"
+        ],
+        funFacts: [
+            "Jerusalem has been destroyed and rebuilt at least twice",
+            "The city sits at 2,500 feet above sea level",
+            "It's mentioned over 800 times in the Bible",
+            "Three major world religions consider it a holy city"
+        ]
+    )
+    
+    // MARK: - Search Suggestions
+    
+    static func getSuggestions(for query: String) -> [String] {
+        let lowercased = query.lowercased()
+        
+        if lowercased.contains("david") {
+            return [
+                "King David's life story",
+                "David and Goliath battle",
+                "Psalms written by David",
+                "David and Jonathan friendship"
+            ]
+        } else if lowercased.contains("paul") {
+            return [
+                "Paul's conversion story",
+                "Paul's missionary journeys",
+                "Letters written by Paul",
+                "Paul and Barnabas ministry"
+            ]
+        } else if lowercased.contains("jerusalem") {
+            return [
+                "History of Jerusalem",
+                "Jerusalem in prophecy",
+                "Temple of Jerusalem",
+                "Jesus in Jerusalem"
+            ]
+        } else if lowercased.contains("prayer") {
+            return [
+                "Prayer meeting groups near me",
+                "Weekly prayer gatherings",
+                "Morning prayer circles",
+                "Prayer warrior communities"
+            ]
+        } else if lowercased.contains("worship") {
+            return [
+                "Worship night events",
+                "Contemporary worship services",
+                "Worship team opportunities",
+                "Sunday worship gatherings"
+            ]
+        } else if lowercased.contains("bible") || lowercased.contains("study") {
+            return [
+                "Bible study groups in my area",
+                "Online Bible studies",
+                "Women's Bible study",
+                "Men's Bible study fellowship"
+            ]
+        } else {
+            return [
+                "Christian fellowship groups",
+                "Local church events",
+                "Youth ministry activities",
+                "Small group gatherings"
+            ]
+        }
+    }
+    
+    static func getRelatedTopics(for query: String) -> [String] {
+        let lowercased = query.lowercased()
+        
+        if lowercased.contains("david") {
+            return ["Psalms", "King Saul", "Solomon", "Israel", "Shepherd", "Temple"]
+        } else if lowercased.contains("paul") {
+            return ["Acts", "Romans", "Corinthians", "Missionary", "Grace", "Faith"]
+        } else if lowercased.contains("jerusalem") {
+            return ["Temple", "Zion", "Holy City", "Bethlehem", "Mount of Olives"]
+        } else if lowercased.contains("prayer") {
+            return ["Intercession", "Worship", "Fellowship", "Devotional", "Meditation"]
+        } else if lowercased.contains("worship") {
+            return ["Praise", "Music", "Liturgy", "Church", "Hymns", "Devotion"]
+        } else if lowercased.contains("bible") || lowercased.contains("study") {
+            return ["Scripture", "Teaching", "Discipleship", "Small Groups", "Commentary"]
+        } else {
+            return ["Community", "Faith", "Church", "Fellowship", "Ministry"]
+        }
+    }
+    
+    // MARK: - Filter Suggestions
+    
+    static let filterSuggestion = FilterSuggestion(
+        filters: ["groups", "events"],
+        explanation: "Based on your search for prayer-related content, we recommend filtering by Groups and Events to find prayer meetings, gatherings, and community groups in your area."
+    )
+}
+
+// MARK: - Soft Search Filter Chip Component
+// Note: Uses SearchFilter from SearchService.swift
+
+struct SoftSearchFilterChip: View {
+    let filter: SearchFilter  // Defined in SearchService.swift
+    let isSelected: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            Text(filter.rawValue)
+                .font(.custom("OpenSans-Bold", size: 14))
+                .foregroundStyle(isSelected ? .white : .primary)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(
+                    Capsule()
+                        .fill(isSelected ? Color.purple : Color(.systemGray6))
+                )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 // MARK: - Mock Search Service (For Testing)
+// Note: FlowLayout is defined in FlowLayout.swift
 
 @MainActor
 class MockSearchService: ObservableObject {
@@ -25,7 +215,7 @@ class MockSearchService: ObservableObject {
     
     // MARK: - Mock Search
     
-    func search(query: String, filter: SearchViewTypes.SearchFilter = .all) async throws -> [AppSearchResult] {
+    func search(query: String, filter: SearchFilter = .all) async throws -> [AppSearchResult] {
         guard !query.isEmpty else { return [] }
         
         print("🔍 Mock searching for: '\(query)'")
@@ -322,7 +512,7 @@ struct TestSearchView: View {
 
 struct SearchViewWithMockData: View {
     @State private var searchText = ""
-    @State private var selectedFilter: SearchViewTypes.SearchFilter = .all
+    @State private var selectedFilter: SearchFilter = .all
     @State private var searchResults: [AppSearchResult] = []
     @State private var isSearching = false
     
@@ -353,7 +543,7 @@ struct SearchViewWithMockData: View {
                 if !searchText.isEmpty {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 12) {
-                            ForEach(SearchViewTypes.SearchFilter.allCases, id: \.self) { filter in
+                            ForEach(SearchFilter.allCases, id: \.self) { filter in
                                 SoftSearchFilterChip(
                                     filter: filter,
                                     isSelected: selectedFilter == filter,

@@ -7,9 +7,12 @@
 
 import SwiftUI
 import FirebaseAuth
+import FirebaseFirestore
 
 struct TestimoniesView: View {
     @StateObject private var postsManager = PostsManager.shared
+    @StateObject private var realtimeService = RealtimePostService.shared
+    @StateObject private var testimonyAlgorithm = TestimoniesAlgorithm.shared
     @State private var selectedFilter: TestimonyFilter = .all
     @State private var selectedCategory: TestimonyCategory? = nil
     @State private var isCategoryBrowseExpanded = false
@@ -17,6 +20,17 @@ struct TestimoniesView: View {
     @State private var showEditSheet = false
     @State private var editingPost: Post? = nil
     @State private var editedContent = ""
+    @State private var currentToast: Toast? = nil
+    @State private var errorMessage: String? = nil
+    @State private var isInitialLoad = true
+    @State private var personalizedPosts: [Post] = []
+    @State private var hasPersonalized = false
+    
+    // Animation timing constants
+    private let fastAnimationDuration: Double = 0.15
+    private let standardAnimationDuration: Double = 0.2
+    private let springResponse: Double = 0.3
+    private let springDamping: Double = 0.7
     
     enum TestimonyFilter: String, CaseIterable {
         case all = "All"
@@ -25,30 +39,34 @@ struct TestimoniesView: View {
         case following = "Following"
     }
     
-    // Computed property to get filtered posts from PostsManager
+    // ✅ Use PostsManager for consistent data source with intelligent algorithm
     var filteredPosts: [Post] {
         var posts = postsManager.testimoniesPosts
-        
+
         // Apply category filter if selected
         if let category = selectedCategory {
             posts = posts.filter { post in
                 post.topicTag?.lowercased() == category.title.lowercased()
             }
         }
-        
-        // Apply sorting based on filter (client-side to ensure consistency)
+
+        // Apply sorting based on filter
         switch selectedFilter {
-        case .all, .recent:
-            // Already sorted by timestamp in PostsManager
+        case .all:
+            // Use personalized ranking if available
+            posts = hasPersonalized && !personalizedPosts.isEmpty ? personalizedPosts : posts
+        case .recent:
+            // Already sorted by timestamp in RealtimePostService
             break
         case .popular:
-            posts.sort { $0.amenCount + $0.commentCount > $1.amenCount + $1.commentCount }
+            // Intelligent popularity scoring (not just sum)
+            posts = testimonyAlgorithm.rankTestimonies(posts, for: testimonyAlgorithm.userPreferences)
         case .following:
             // TODO: Filter by following status when implemented
             // For now, show all posts
             break
         }
-        
+
         return posts
     }
     
@@ -77,10 +95,7 @@ struct TestimoniesView: View {
                         // Clear category filter if selected
                         if selectedCategory != nil {
                             Button {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                    selectedCategory = nil
-                                    // Don't refetch - computed property will handle filtering
-                                }
+                                selectedCategory = nil
                             } label: {
                                 HStack(spacing: 4) {
                                     Text("Clear filter")
@@ -90,34 +105,81 @@ struct TestimoniesView: View {
                                 }
                                 .foregroundStyle(.blue)
                             }
+                            .buttonStyle(.plain)
+                            .animation(.easeOut(duration: fastAnimationDuration), value: selectedCategory)
+                        }
+                    }
+                }
+                .padding(.horizontal)
+                
+                // Error banner (if any)
+                if let errorMessage = errorMessage {
+                    InlineErrorBanner(message: errorMessage) {
+                        Task {
+                            await refreshTestimonies()
                         }
                     }
                 }
                 
-                // Show selected category or default text
-                if let category = selectedCategory {
-                    HStack(spacing: 6) {
-                        Image(systemName: category.icon)
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(category.color)
-                        
-                        Text(category.title)
-                            .font(.custom("OpenSans-SemiBold", size: 12))
-                            .foregroundStyle(category.color)
-                    }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .background(
-                        Capsule()
-                            .fill(category.backgroundColor)
-                    )
-                } else {
-                    Text("Healing • Career • Faith • Family")
-                        .font(.custom("OpenSans-Regular", size: 12))
-                        .foregroundStyle(.secondary)
+                // Loading state - show skeletons on initial load
+                if isInitialLoad && isLoadingPosts {
+                    PostListSkeletonView(count: 3)
+                }
+                // Empty state - no testimonies
+                else if !isLoadingPosts && filteredPosts.isEmpty {
+                    EmptyPostsView(category: "testimonies")
+                        .padding(.top, 40)
+                }
+                // Content - show posts
+                else {
+                    contentView
                 }
             }
-            .padding(.horizontal)
+        }
+        .refreshable {
+            await refreshTestimonies()
+        }
+        .toast($currentToast)
+        .task {
+            if isInitialLoad {
+                await loadInitialTestimonies()
+            }
+            // ✅ Start real-time listener for testimonies (INSTANT UPDATES)
+            FirebasePostService.shared.startListening(category: .testimonies)
+        }
+        .onDisappear {
+            // ✅ Stop listener when view disappears (memory efficient)
+            // Note: Listeners are managed by RealtimePostService
+        }
+    }
+    
+    @ViewBuilder
+    private var contentView: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            // Show selected category or default text
+            if let category = selectedCategory {
+                HStack(spacing: 6) {
+                    Image(systemName: category.icon)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(category.color)
+                    
+                    Text(category.title)
+                        .font(.custom("OpenSans-SemiBold", size: 12))
+                        .foregroundStyle(category.color)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(
+                    Capsule()
+                        .fill(category.backgroundColor)
+                )
+                .padding(.horizontal)
+            } else {
+                Text("Healing • Career • Faith • Family")
+                    .font(.custom("OpenSans-Regular", size: 12))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal)
+            }
             
             // Filters - Center Aligned
             HStack {
@@ -125,11 +187,9 @@ struct TestimoniesView: View {
                 HStack(spacing: 8) {
                     ForEach(TestimonyFilter.allCases, id: \.self) { filter in
                         Button {
-                            withAnimation {
-                                selectedFilter = filter
-                                // Don't refetch - just rely on computed property filtering
-                                // This keeps newly created posts visible
-                            }
+                            selectedFilter = filter
+                            // Don't refetch - just rely on computed property filtering
+                            // This keeps newly created posts visible
                         } label: {
                             Text(filter.rawValue)
                                 .font(.custom("OpenSans-SemiBold", size: 14))
@@ -141,8 +201,10 @@ struct TestimoniesView: View {
                                         .fill(selectedFilter == filter ? Color.black : Color.gray.opacity(0.1))
                                 )
                         }
+                        .buttonStyle(.plain)
                     }
                 }
+                .animation(.easeOut(duration: fastAnimationDuration), value: selectedFilter)
                 Spacer()
             }
             .padding(.horizontal)
@@ -151,9 +213,7 @@ struct TestimoniesView: View {
             VStack(alignment: .leading, spacing: 12) {
                 // Category Header Button
                 Button {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                        isCategoryBrowseExpanded.toggle()
-                    }
+                    isCategoryBrowseExpanded.toggle()
                 } label: {
                     HStack {
                         Text("Browse by Category")
@@ -169,6 +229,8 @@ struct TestimoniesView: View {
                     }
                     .padding(.horizontal)
                 }
+                .buttonStyle(.plain)
+                .animation(.easeOut(duration: standardAnimationDuration), value: isCategoryBrowseExpanded)
                 
                 // Expandable Category Grid
                 if isCategoryBrowseExpanded {
@@ -177,53 +239,38 @@ struct TestimoniesView: View {
                         GridItem(.flexible(), spacing: 12)
                     ], spacing: 12) {
                         TestimonyCategoryCard(category: .healing, isSelected: selectedCategory?.title == TestimonyCategory.healing.title) {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                selectedCategory = .healing
-                                isCategoryBrowseExpanded = false
-                                // Don't refetch - computed property handles filtering
-                            }
+                            selectedCategory = .healing
+                            isCategoryBrowseExpanded = false
+                            // Don't refetch - computed property handles filtering
                         }
                         TestimonyCategoryCard(category: .career, isSelected: selectedCategory?.title == TestimonyCategory.career.title) {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                selectedCategory = .career
-                                isCategoryBrowseExpanded = false
-                                // Don't refetch - computed property handles filtering
-                            }
+                            selectedCategory = .career
+                            isCategoryBrowseExpanded = false
+                            // Don't refetch - computed property handles filtering
                         }
                         TestimonyCategoryCard(category: .relationship, isSelected: selectedCategory?.title == TestimonyCategory.relationship.title) {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                selectedCategory = .relationship
-                                isCategoryBrowseExpanded = false
-                                // Don't refetch - computed property handles filtering
-                            }
+                            selectedCategory = .relationship
+                            isCategoryBrowseExpanded = false
+                            // Don't refetch - computed property handles filtering
                         }
                         TestimonyCategoryCard(category: .financial, isSelected: selectedCategory?.title == TestimonyCategory.financial.title) {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                selectedCategory = .financial
-                                isCategoryBrowseExpanded = false
-                                // Don't refetch - computed property handles filtering
-                            }
+                            selectedCategory = .financial
+                            isCategoryBrowseExpanded = false
+                            // Don't refetch - computed property handles filtering
                         }
                         TestimonyCategoryCard(category: .spiritual, isSelected: selectedCategory?.title == TestimonyCategory.spiritual.title) {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                selectedCategory = .spiritual
-                                isCategoryBrowseExpanded = false
-                                // Don't refetch - computed property handles filtering
-                            }
+                            selectedCategory = .spiritual
+                            isCategoryBrowseExpanded = false
+                            // Don't refetch - computed property handles filtering
                         }
                         TestimonyCategoryCard(category: .family, isSelected: selectedCategory?.title == TestimonyCategory.family.title) {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                selectedCategory = .family
-                                isCategoryBrowseExpanded = false
-                                // Don't refetch - computed property handles filtering
-                            }
+                            selectedCategory = .family
+                            isCategoryBrowseExpanded = false
+                            // Don't refetch - computed property handles filtering
                         }
                     }
                     .padding(.horizontal)
-                    .transition(.asymmetric(
-                        insertion: .move(edge: .top).combined(with: .opacity),
-                        removal: .move(edge: .top).combined(with: .opacity)
-                    ))
+                    .transition(.opacity.combined(with: .move(edge: .top)).animation(.easeOut(duration: standardAnimationDuration)))
                 }
             }
             
@@ -234,6 +281,10 @@ struct TestimoniesView: View {
                         post: post,
                         isUserPost: post.authorId == Auth.auth().currentUser?.uid
                     )
+                    .onAppear {
+                        // Track view interaction for learning
+                        testimonyAlgorithm.recordInteraction(with: post, type: .view)
+                    }
                 }
                 
                 // Show empty state if no posts
@@ -267,52 +318,80 @@ struct TestimoniesView: View {
             }
             .padding(.horizontal)
         }
-        .refreshable {
-            await refreshTestimonies()
-        }
         .task {
             // Initial fetch when view appears - only fetch once
             if postsManager.testimoniesPosts.isEmpty {
                 fetchPosts()
             }
+
+            // Load algorithm preferences and personalize feed
+            if !hasPersonalized {
+                testimonyAlgorithm.loadPreferences()
+                personalizeTestimoniesFeed()
+                hasPersonalized = true
+            }
+        }
+        .onChange(of: postsManager.testimoniesPosts) { oldValue, newValue in
+            // Re-personalize when posts change
+            if oldValue.count != newValue.count {
+                personalizeTestimoniesFeed()
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: .newPostCreated)) { notification in
-            // Refresh when new post is created
+            // ✅ Handle new post creation with instant feedback
             if let userInfo = notification.userInfo,
                let category = userInfo["category"] as? String,
-               category == Post.PostCategory.testimonies.rawValue {
+               category == "testimonies" || category == Post.PostCategory.testimonies.rawValue {
+                
                 let haptic = UINotificationFeedbackGenerator()
                 haptic.notificationOccurred(.success)
                 
-                // The new post is already in postsManager.testimoniesPosts
-                // No need to refetch - the computed property will show it
+                // The new post is already in realtimeService.testimonies
+                // No need to refetch - the real-time listener handles it
                 print("✅ New testimony post received - already visible in feed")
+                
+                // Show success toast
+                currentToast = Toast(type: .success, message: "Testimony shared! 🙏")
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .newPostCreated)) { notification in
+            // ✅ Handle posts added by real-time listener
+            if let userInfo = notification.userInfo,
+               let post = userInfo["post"] as? Post,
+               post.category == .testimonies {
+                
+                // Subtle haptic for posts added by others
+                let haptic = UIImpactFeedbackGenerator(style: .light)
+                haptic.impactOccurred()
+                
+                print("✅ New testimony from \(post.authorName) added to feed")
             }
         }
     }
     
     // MARK: - Helper Functions
-    
-    /// Refresh testimonies with pull-to-refresh
-    private func refreshTestimonies() async {
-        isLoadingPosts = true
-        print("🔄 Refreshing Testimonies posts...")
-        
-        await postsManager.fetchFilteredPosts(
-            for: .testimonies,
-            filter: selectedFilter.rawValue.lowercased(),
-            topicTag: selectedCategory?.title
-        )
-        
-        // Haptic feedback on completion
-        await MainActor.run {
-            isLoadingPosts = false
-            let haptic = UINotificationFeedbackGenerator()
-            haptic.notificationOccurred(.success)
-            print("✅ Testimonies posts refreshed!")
+
+    /// Personalize testimonies feed using algorithm
+    private func personalizeTestimoniesFeed() {
+        guard !postsManager.testimoniesPosts.isEmpty else {
+            personalizedPosts = []
+            return
+        }
+
+        // Rank testimonies using algorithm (off main thread)
+        Task.detached(priority: .userInitiated) {
+            let ranked = await testimonyAlgorithm.rankTestimonies(
+                postsManager.testimoniesPosts,
+                for: testimonyAlgorithm.userPreferences
+            )
+
+            await MainActor.run {
+                personalizedPosts = ranked
+                print("✨ Testimonies personalized: \(personalizedPosts.count) posts ranked")
+            }
         }
     }
-    
+
     /// Fetch posts from backend with current filters applied
     private func fetchPosts() {
         // Don't show loading for filter changes to avoid flickering
@@ -358,14 +437,85 @@ struct TestimoniesView: View {
     }
     
     private func repostPost(_ post: Post) {
-        let haptic = UINotificationFeedbackGenerator()
-        haptic.notificationOccurred(.success)
+        Task {
+            let postId = post.id.uuidString
+            
+            do {
+                let isReposted = try await PostInteractionsService.shared.toggleRepost(postId: postId)
+                
+                await MainActor.run {
+                    let haptic = UINotificationFeedbackGenerator()
+                    haptic.notificationOccurred(.success)
+                    
+                    if isReposted {
+                        // Add to user's reposts for profile view
+                        postsManager.repostToProfile(originalPost: post)
+                        print("✅ Reposted: \(post.content)")
+                        
+                        // Show success toast
+                        currentToast = Toast(type: .success, message: "Testimony reposted!")
+                    } else {
+                        print("✅ Removed repost: \(post.content)")
+                        currentToast = Toast(type: .info, message: "Repost removed")
+                    }
+                }
+            } catch {
+                print("❌ Failed to repost: \(error.localizedDescription)")
+                
+                await MainActor.run {
+                    let haptic = UINotificationFeedbackGenerator()
+                    haptic.notificationOccurred(.error)
+                    
+                    // Show error toast
+                    currentToast = Toast(type: .error, message: "Failed to repost. Please try again.")
+                }
+            }
+        }
+    }
+    
+    // MARK: - Data Loading Functions
+    
+    private func loadInitialTestimonies() async {
+        isLoadingPosts = true
+        errorMessage = nil
         
-        // Add to user's reposts
-        print("🔄 Reposted: \(post.content)")
+        do {
+            // PostsManager already loads testimonies
+            // Just wait a moment to show loading state
+            try await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+            
+            await MainActor.run {
+                isLoadingPosts = false
+                isInitialLoad = false
+            }
+        } catch {
+            await MainActor.run {
+                isLoadingPosts = false
+                isInitialLoad = false
+                errorMessage = "Failed to load testimonies. Pull to refresh."
+            }
+        }
+    }
+    
+    /// Refresh testimonies with pull-to-refresh
+    private func refreshTestimonies() async {
+        isLoadingPosts = true
+        errorMessage = nil
+        print("🔄 Refreshing Testimonies posts...")
         
-        // TODO: Add to reposts collection
-        // postsManager.addRepost(post)
+        await postsManager.fetchFilteredPosts(
+            for: .testimonies,
+            filter: selectedFilter.rawValue.lowercased(),
+            topicTag: selectedCategory?.title
+        )
+        
+        // Haptic feedback on completion
+        await MainActor.run {
+            isLoadingPosts = false
+            let haptic = UINotificationFeedbackGenerator()
+            haptic.notificationOccurred(.success)
+            print("✅ Testimonies posts refreshed!")
+        }
     }
 }
 
@@ -465,7 +615,8 @@ struct TestimonyCategoryCard: View {
                     )
             )
         }
-        .buttonStyle(PlainButtonStyle())
+        .buttonStyle(.plain)
+        .animation(.easeOut(duration: 0.15), value: isSelected)
     }
 }
 
@@ -539,9 +690,7 @@ struct TestimonyPostCard: View {
             // Follow button - only show if not user's post
             if !isOwnPost {
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                        isFollowing.toggle()
-                    }
+                    isFollowing.toggle()
                     let haptic = UIImpactFeedbackGenerator(style: .medium)
                     haptic.impactOccurred()
                 } label: {
@@ -558,7 +707,9 @@ struct TestimonyPostCard: View {
                                 .stroke(Color.black.opacity(0.15), lineWidth: isFollowing ? 1 : 0)
                         )
                 }
+                .buttonStyle(.plain)
                 .symbolEffect(.bounce, value: isFollowing)
+                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isFollowing)
                 .offset(x: 2, y: 2)
             }
         }
@@ -717,6 +868,10 @@ struct TestimonyPostCard: View {
     }
     
     private func toggleAmen() async {
+        // Store previous state for rollback
+        let previousAmened = hasAmened
+        let previousCount = amenCount
+        
         // OPTIMISTIC UPDATE: Update UI immediately for instant feedback
         withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
             hasAmened.toggle()
@@ -728,31 +883,29 @@ struct TestimonyPostCard: View {
         
         // Background sync to Firebase
         let postId = post.id.uuidString
-        let currentAmenState = hasAmened
         
-        Task.detached(priority: .userInitiated) {
-            do {
-                let interactionsService = await PostInteractionsService.shared
-                try await interactionsService.toggleAmen(postId: postId)
-            } catch {
-                print("❌ Failed to toggle amen: \(error)")
-                
-                // On error, revert the optimistic update
-                await MainActor.run {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
-                        hasAmened = !currentAmenState
-                        amenCount += currentAmenState ? -1 : 1
-                    }
+        do {
+            let interactionsService = PostInteractionsService.shared
+            try await interactionsService.toggleAmen(postId: postId)
+        } catch {
+            print("❌ Failed to toggle amen: \(error)")
+            
+            // On error, revert the optimistic update
+            await MainActor.run {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                    hasAmened = previousAmened
+                    amenCount = previousCount
                 }
+                
+                let haptic = UINotificationFeedbackGenerator()
+                haptic.notificationOccurred(.error)
             }
         }
     }
     
     private var commentButton: some View {
         Button {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                showFullCommentSheet = true
-            }
+            showFullCommentSheet = true
             let haptic = UIImpactFeedbackGenerator(style: .light)
             haptic.impactOccurred()
         } label: {
@@ -775,6 +928,7 @@ struct TestimonyPostCard: View {
                     .stroke(Color.black.opacity(0.1), lineWidth: 1)
             )
         }
+        .buttonStyle(.plain)
     }
     
     private var repostButton: some View {
@@ -805,6 +959,10 @@ struct TestimonyPostCard: View {
     }
     
     private func toggleRepost() async {
+        // Store previous state for rollback
+        let previousReposted = hasReposted
+        let previousCount = repostCount
+        
         // OPTIMISTIC UPDATE: Update UI immediately
         withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
             hasReposted.toggle()
@@ -819,22 +977,22 @@ struct TestimonyPostCard: View {
         
         // Background sync to Firebase
         let postId = post.id.uuidString
-        let currentRepostState = hasReposted
         
-        Task.detached(priority: .userInitiated) {
-            do {
-                let interactionsService = await PostInteractionsService.shared
-                _ = try await interactionsService.toggleRepost(postId: postId)
-            } catch {
-                print("❌ Failed to toggle repost: \(error)")
-                
-                // On error, revert the optimistic update
-                await MainActor.run {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
-                        hasReposted = !currentRepostState
-                        repostCount += currentRepostState ? -1 : 1
-                    }
+        do {
+            let interactionsService = PostInteractionsService.shared
+            _ = try await interactionsService.toggleRepost(postId: postId)
+        } catch {
+            print("❌ Failed to toggle repost: \(error)")
+            
+            // On error, revert the optimistic update
+            await MainActor.run {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                    hasReposted = previousReposted
+                    repostCount = previousCount
                 }
+                
+                let haptic = UINotificationFeedbackGenerator()
+                haptic.notificationOccurred(.error)
             }
         }
     }
@@ -1043,10 +1201,11 @@ struct TestimonyCommentSection: View {
                                             )
                                     )
                             }
+                            .buttonStyle(.plain)
                         }
                     }
                 }
-                .transition(.move(edge: .top).combined(with: .opacity))
+                .transition(.opacity.combined(with: .move(edge: .top)).animation(.easeOut(duration: 0.15)))
             }
             
             if !showPreviewOnly {
@@ -1076,14 +1235,14 @@ struct TestimonyCommentSection: View {
                             }
                         } else {
                             Button {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                    showQuickResponses.toggle()
-                                }
+                                showQuickResponses.toggle()
                             } label: {
                                 Image(systemName: showQuickResponses ? "sparkles.square.filled.on.square" : "sparkles")
                                     .font(.system(size: 18))
                                     .foregroundStyle(.black.opacity(0.5))
                             }
+                            .buttonStyle(.plain)
+                            .animation(.easeOut(duration: 0.15), value: showQuickResponses)
                         }
                     }
                     .padding(.horizontal, 12)
@@ -1231,6 +1390,7 @@ struct TestimonyCommentRow: View {
                         }
                         .foregroundStyle(hasAmened ? .black : .black.opacity(0.5))
                     }
+                    .buttonStyle(.plain)
                     
                     Button {
                         // Reply to comment
@@ -1239,6 +1399,7 @@ struct TestimonyCommentRow: View {
                             .font(.custom("OpenSans-SemiBold", size: 11))
                             .foregroundStyle(.black.opacity(0.5))
                     }
+                    .buttonStyle(.plain)
                 }
                 .padding(.top, 4)
             }
@@ -1478,16 +1639,17 @@ struct TestimonyFullCommentSheet: View {
                     .font(.system(size: 28))
                     .foregroundStyle(.black)
             }
+            .buttonStyle(.plain)
         } else {
             Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                    showQuickResponses.toggle()
-                }
+                showQuickResponses.toggle()
             } label: {
                 Image(systemName: showQuickResponses ? "sparkles.square.filled.on.square" : "sparkles")
                     .font(.system(size: 20))
                     .foregroundStyle(.black.opacity(0.5))
             }
+            .buttonStyle(.plain)
+            .animation(.easeOut(duration: 0.15), value: showQuickResponses)
         }
     }
     
@@ -1599,11 +1761,12 @@ struct TestimonyFullCommentSheet: View {
                                                         )
                                                 )
                                         }
+                                        .buttonStyle(.plain)
                                     }
                                 }
                                 .padding(.horizontal)
                             }
-                            .transition(.move(edge: .top).combined(with: .opacity))
+                            .transition(.opacity.combined(with: .move(edge: .top)).animation(.easeOut(duration: 0.15)))
                         }
                         
                         // Comments or empty state
@@ -1733,6 +1896,10 @@ struct TestimonyFullCommentSheet: View {
         }
     }
 }
+
+
+// Note: Toast, InlineErrorBanner, EmptyPostsView, PostListSkeletonView, ToastModifier, and ReportPostSheet
+// are defined in ComponentsSharedUIComponents.swift and PostCard.swift and imported globally
 
 
 #Preview {

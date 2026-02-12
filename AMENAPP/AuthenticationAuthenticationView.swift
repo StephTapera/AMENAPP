@@ -425,7 +425,18 @@ struct AuthenticationView: View {
                     print("✅ Successfully created account with username: \(cleanUsername)")
                 }
                 
+                // ✅ NEW: Setup push notifications after successful auth
                 await MainActor.run {
+                    Task {
+                        let granted = await PushNotificationManager.shared.requestNotificationPermissions()
+                        if granted {
+                            print("✅ Notification permission granted, setting up FCM...")
+                            PushNotificationManager.shared.setupFCMToken()
+                        } else {
+                            print("⚠️ Notification permission denied")
+                        }
+                    }
+                    
                     isLoading = false
                     dismiss()
                 }

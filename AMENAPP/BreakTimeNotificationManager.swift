@@ -9,6 +9,7 @@
 
 import UserNotifications
 import SwiftUI
+import Combine
 
 /// Manages prayer break notifications with accurate timing based on user preferences
 @MainActor
@@ -112,7 +113,7 @@ class BreakTimeNotificationManager: ObservableObject {
     
     private func scheduleBreakNotification(for breakTime: BreakTime) async {
         let content = UNMutableNotificationContent()
-        content.title = "Time for a Break 🙏"
+        content.title = "Time for a Break"
         content.body = "Step away from the screen and spend time in prayer with God"
         content.sound = .default
         content.categoryIdentifier = "PRAYER_BREAK"
@@ -237,7 +238,7 @@ class BreakTimeNotificationManager: ObservableObject {
     /// Schedule a reminder for 15 minutes later
     func scheduleRemindLater() async {
         let content = UNMutableNotificationContent()
-        content.title = "Prayer Break Reminder 🙏"
+        content.title = "Prayer Break Reminder"
         content.body = "Here's your reminder to take a prayer break"
         content.sound = .default
         content.categoryIdentifier = "PRAYER_BREAK"

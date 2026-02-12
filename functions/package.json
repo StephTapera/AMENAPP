@@ -1,8 +1,8 @@
 {
-  "name": "amenapp-functions",
-  "description": "Cloud Functions for AMENAPP",
+  "name": "functions",
+  "description": "Cloud Functions for Firebase",
   "scripts": {
-    "build": "echo 'No build step required'",
+    "lint": "eslint index.js pushNotifications.js aiModeration.js",
     "serve": "firebase emulators:start --only functions",
     "shell": "firebase functions:shell",
     "start": "npm run shell",
@@ -10,15 +10,18 @@
     "logs": "firebase functions:log"
   },
   "engines": {
-    "node": "20"
+    "node": "24"
   },
   "main": "index.js",
   "dependencies": {
-    "firebase-admin": "^12.0.0",
-    "firebase-functions": "^5.0.0"
+    "@google-cloud/vertexai": "^1.10.0",
+    "firebase-admin": "^13.6.0",
+    "firebase-functions": "^7.0.0"
   },
   "devDependencies": {
-    "firebase-functions-test": "^3.1.0"
+    "eslint": "^8.57.1",
+    "eslint-config-google": "^0.14.0",
+    "firebase-functions-test": "^3.4.1"
   },
   "private": true
 }

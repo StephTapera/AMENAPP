@@ -9,7 +9,9 @@ import SwiftUI
 import FirebaseCore
 import FirebaseAuth
 import FirebaseFirestore
+import FirebaseDatabase  // ✅ Added for Realtime Database
 import GoogleSignIn
+import StoreKit  // ✅ Added for In-App Purchases
 // import FirebaseVertexAI  // TODO: Add Firebase VertexAI package later to enable AI features
 
 @main
@@ -17,19 +19,30 @@ struct AMENAPPApp: App {
     // Register AppDelegate to handle Firebase Messaging and notifications
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     
-    @State private var showWelcomeScreen = true  // Enabled to show on app launch
+    @State private var showWelcomeScreen = true  // Enabled - Show black AMEN welcome screen on app launch
     @State private var currentUser: UserModel? = nil  // Store user for personalized welcome
     
     // Initialize Firebase when app launches
     init() {
-        // Note: Firebase.configure() is called in AppDelegate first
         print("🚀 Initializing AMENAPPApp...")
+        // Note: Firebase.configure() is called in AppDelegate.didFinishLaunchingWithOptions
+        // Database persistence is also configured in AppDelegate after Firebase.configure()
         
-        // Run migration after a brief delay to ensure everything is ready
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            Task {
-                await Self.runAutomaticMigration()
-            }
+        // ✅ Force PostsManager initialization early (ensures posts load immediately)
+        Task { @MainActor in
+            _ = PostsManager.shared
+            print("✅ PostsManager initialized early")
+        }
+        
+        // ✅ Force PostInteractionsService initialization early (ensures reactions persist)
+        Task {
+            _ = PostInteractionsService.shared
+            print("✅ PostInteractionsService initialized early")
+        }
+        
+        // ✅ Initialize Premium Manager for In-App Purchases
+        Task {
+            await PremiumManager.shared.loadProducts()
         }
     }
     
@@ -86,6 +99,17 @@ struct AMENAPPApp: App {
                 
                 // ✅ START FOLLOW SERVICE LISTENERS
                 startFollowServiceListeners()
+                
+                // ✅ SETUP FCM TOKEN FOR LOGGED-IN USERS
+                setupFCMForExistingUser()
+                
+                // ✅ CACHE CURRENT USER PROFILE (for fast post creation)
+                cacheCurrentUserProfile()
+                
+                // ✅ RUN AUTOMATIC MIGRATION (after Firebase is configured in AppDelegate)
+                Task {
+                    await Self.runAutomaticMigration()
+                }
             }
             .onOpenURL { url in
                 // Handle Google Sign-In callback
@@ -137,6 +161,48 @@ struct AMENAPPApp: App {
             await FollowService.shared.startListening()
             
             print("✅ FollowService listeners started successfully!")
+        }
+    }
+    
+    // MARK: - Setup FCM Token for Existing Users
+    
+    private func setupFCMForExistingUser() {
+        // Only setup FCM if user is logged in
+        guard Auth.auth().currentUser != nil else {
+            print("⚠️ No user logged in, skipping FCM setup")
+            return
+        }
+        
+        Task {
+            print("🔔 Checking notification permissions for existing user...")
+            
+            let hasPermission = await PushNotificationManager.shared.checkNotificationPermissions()
+            
+            if hasPermission {
+                print("✅ User has notification permission, setting up FCM token...")
+                PushNotificationManager.shared.setupFCMToken()
+            } else {
+                print("⚠️ User has not granted notification permission")
+            }
+        }
+    }
+    
+    // MARK: - Cache Current User Profile
+    
+    private func cacheCurrentUserProfile() {
+        // Only cache if user is logged in
+        guard Auth.auth().currentUser != nil else {
+            print("⚠️ No user logged in, skipping profile cache")
+            return
+        }
+        
+        Task {
+            print("👤 Caching current user profile data...")
+            
+            // Cache current user's profile data for fast post creation
+            await UserProfileImageCache.shared.cacheCurrentUserProfile()
+            
+            print("✅ User profile cached!")
         }
     }
 }

@@ -744,6 +744,14 @@ struct ChangePasswordView: View {
     @State private var showError = false
     @State private var showSuccess = false
     
+    private var isPasswordlessUser: Bool {
+        authViewModel.isPasswordlessUser()
+    }
+    
+    private var authProviderName: String {
+        authViewModel.getAuthProviderName()
+    }
+    
     private var isValidPassword: Bool {
         newPassword.count >= 8 && newPassword == confirmPassword
     }
@@ -792,37 +800,69 @@ struct ChangePasswordView: View {
                 VStack(spacing: 24) {
                     // Header
                     VStack(spacing: 16) {
-                        Image(systemName: "lock.shield.fill")
+                        Image(systemName: isPasswordlessUser ? (authProviderName == "Apple ID" ? "apple.logo" : "globe") : "lock.shield.fill")
                             .font(.system(size: 60))
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(isPasswordlessUser ? .orange : .blue)
                             .padding(.top, 20)
                         
-                        Text("Change Password")
+                        Text(isPasswordlessUser ? "Password Not Available" : "Change Password")
                             .font(.custom("OpenSans-Bold", size: 24))
                         
-                        Text("Choose a strong password to keep your account secure")
+                        Text(isPasswordlessUser ? "You signed in with \(authProviderName)" : "Choose a strong password to keep your account secure")
                             .font(.custom("OpenSans-Regular", size: 14))
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 40)
                     }
                     
-                    // Password Fields
-                    VStack(spacing: 20) {
-                        // Current Password
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Current Password")
-                                .font(.custom("OpenSans-SemiBold", size: 14))
-                                .foregroundStyle(.secondary)
+                    // Show info card for passwordless users
+                    if isPasswordlessUser {
+                        VStack(alignment: .leading, spacing: 16) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "info.circle.fill")
+                                    .foregroundStyle(.blue)
+                                Text("About Your Account")
+                                    .font(.custom("OpenSans-Bold", size: 16))
+                            }
                             
-                            SecureField("Enter current password", text: $currentPassword)
-                                .font(.custom("OpenSans-Regular", size: 15))
-                                .padding()
-                                .background(
-                                    RoundedRectangle(cornerRadius: 10)
-                                        .stroke(Color.gray.opacity(0.2), lineWidth: 1)
-                                )
+                            VStack(alignment: .leading, spacing: 12) {
+                                InfoRow(icon: authProviderName == "Apple ID" ? "apple.logo" : "globe", text: "Your account is secured by \(authProviderName)")
+                                InfoRow(icon: "lock.shield", text: "\(authProviderName) manages your authentication")
+                                InfoRow(icon: "checkmark.shield", text: "No password needed - your account is secure")
+                            }
+                            
+                            Text("To change your authentication method, you would need to create a new account with email and password.")
+                                .font(.custom("OpenSans-Regular", size: 13))
+                                .foregroundStyle(.secondary)
+                                .padding(.top, 8)
                         }
+                        .padding()
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color.blue.opacity(0.05))
+                        )
+                        .padding(.horizontal)
+                        
+                        Spacer()
+                    }
+                    
+                    // Password Fields (only for email users)
+                    if !isPasswordlessUser {
+                        VStack(spacing: 20) {
+                            // Current Password
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Current Password")
+                                    .font(.custom("OpenSans-SemiBold", size: 14))
+                                    .foregroundStyle(.secondary)
+                                
+                                SecureField("Enter current password", text: $currentPassword)
+                                    .font(.custom("OpenSans-Regular", size: 15))
+                                    .padding()
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                                    )
+                            }
                         
                         // New Password
                         VStack(alignment: .leading, spacing: 8) {
@@ -903,32 +943,33 @@ struct ChangePasswordView: View {
                         RoundedRectangle(cornerRadius: 12)
                             .fill(Color.blue.opacity(0.05))
                     )
-                    .padding(.horizontal)
-                    
-                    // Change Button
-                    Button {
-                        changePassword()
-                    } label: {
-                        HStack {
-                            if isLoading {
-                                ProgressView()
-                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                            } else {
-                                Text("Change Password")
-                                    .font(.custom("OpenSans-Bold", size: 16))
+                        .padding(.horizontal)
+                        
+                        // Change Button (only for email users)
+                        Button {
+                            changePassword()
+                        } label: {
+                            HStack {
+                                if isLoading {
+                                    ProgressView()
+                                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                } else {
+                                    Text("Change Password")
+                                        .font(.custom("OpenSans-Bold", size: 16))
+                                }
                             }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .foregroundStyle(.white)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(isValidPassword && !currentPassword.isEmpty ? Color.blue : Color.gray)
+                            )
                         }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .foregroundStyle(.white)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(isValidPassword && !currentPassword.isEmpty ? Color.blue : Color.gray)
-                        )
-                    }
-                    .disabled(!isValidPassword || currentPassword.isEmpty || isLoading)
-                    .padding(.horizontal)
-                    .padding(.top)
+                        .disabled(!isValidPassword || currentPassword.isEmpty || isLoading)
+                        .padding(.horizontal)
+                        .padding(.top)
+                    } // End if !isPasswordlessUser
                 }
                 .padding(.bottom, 40)
             }
@@ -1022,8 +1063,21 @@ struct DeleteAccountView: View {
     
     private let requiredText = "DELETE MY ACCOUNT"
     
+    private var isPasswordlessUser: Bool {
+        authViewModel.isPasswordlessUser()
+    }
+    
+    private var authProviderName: String {
+        authViewModel.getAuthProviderName()
+    }
+    
     private var canDelete: Bool {
-        !password.isEmpty && confirmText == requiredText && agreedToTerms
+        // For passwordless users (Apple/Google), password is not required
+        if isPasswordlessUser {
+            return confirmText == requiredText && agreedToTerms
+        }
+        // For email users, password IS required
+        return !password.isEmpty && confirmText == requiredText && agreedToTerms
     }
     
     var body: some View {
@@ -1075,24 +1129,46 @@ struct DeleteAccountView: View {
                         Text("To confirm, please:")
                             .font(.custom("OpenSans-Bold", size: 16))
                         
-                        // Step 1: Password
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("1. Enter your password")
-                                .font(.custom("OpenSans-SemiBold", size: 14))
-                                .foregroundStyle(.secondary)
-                            
-                            SecureField("Password", text: $password)
-                                .font(.custom("OpenSans-Regular", size: 15))
-                                .padding()
-                                .background(
-                                    RoundedRectangle(cornerRadius: 10)
-                                        .stroke(Color.red.opacity(0.3), lineWidth: 1)
-                                )
+                        // Show authentication provider info for passwordless users
+                        if isPasswordlessUser {
+                            HStack(spacing: 12) {
+                                Image(systemName: authProviderName == "Apple ID" ? "apple.logo" : "globe")
+                                    .font(.system(size: 16))
+                                    .foregroundStyle(.blue)
+                                
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Signed in with \(authProviderName)")
+                                        .font(.custom("OpenSans-SemiBold", size: 14))
+                                    Text("No password required to delete your account")
+                                        .font(.custom("OpenSans-Regular", size: 12))
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            .padding()
+                            .background(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .fill(Color.blue.opacity(0.1))
+                            )
+                        } else {
+                            // Step 1: Password (only for email users)
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("1. Enter your password")
+                                    .font(.custom("OpenSans-SemiBold", size: 14))
+                                    .foregroundStyle(.secondary)
+                                
+                                SecureField("Password", text: $password)
+                                    .font(.custom("OpenSans-Regular", size: 15))
+                                    .padding()
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .stroke(Color.red.opacity(0.3), lineWidth: 1)
+                                    )
+                            }
                         }
                         
-                        // Step 2: Type confirmation
+                        // Step 2: Type confirmation (for all users)
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("2. Type '\(requiredText)' below")
+                            Text("\(isPasswordlessUser ? "1" : "2"). Type '\(requiredText)' below")
                                 .font(.custom("OpenSans-SemiBold", size: 14))
                                 .foregroundStyle(.secondary)
                             
@@ -1119,12 +1195,18 @@ struct DeleteAccountView: View {
                             }
                         }
                         
-                        // Step 3: Checkbox
-                        Toggle(isOn: $agreedToTerms) {
-                            Text("I understand this action is permanent and my data cannot be recovered")
-                                .font(.custom("OpenSans-Regular", size: 14))
+                        // Step 3: Checkbox (numbering adjusts based on passwordless status)
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("\(isPasswordlessUser ? "2" : "3"). Confirm you understand")
+                                .font(.custom("OpenSans-SemiBold", size: 14))
+                                .foregroundStyle(.secondary)
+                            
+                            Toggle(isOn: $agreedToTerms) {
+                                Text("I understand this action is permanent and my data cannot be recovered")
+                                    .font(.custom("OpenSans-Regular", size: 14))
+                            }
+                            .toggleStyle(CheckboxToggleStyle())
                         }
-                        .toggleStyle(CheckboxToggleStyle())
                     }
                     .padding(.horizontal)
                     
@@ -1178,7 +1260,9 @@ struct DeleteAccountView: View {
         
         Task {
             do {
-                try await authViewModel.deleteAccount(password: password)
+                // Pass password only for email users, nil for Apple/Google users
+                let passwordToPass = isPasswordlessUser ? nil : password
+                try await authViewModel.deleteAccount(password: passwordToPass)
                 
                 // Account deleted, user will be signed out automatically
                 await MainActor.run {

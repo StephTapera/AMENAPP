@@ -9,10 +9,12 @@ import Foundation
 import UIKit
 import UserNotifications
 import FirebaseMessaging
+import FirebaseFirestore
+import FirebaseAuth
+import Combine
 
-@MainActor
 class PushNotificationHandler: NSObject, ObservableObject {
-    static let shared = PushNotificationHandler()
+    @MainActor static let shared = PushNotificationHandler()
     
     @Published var pendingDeepLink: NotificationDeepLink?
     
@@ -90,7 +92,7 @@ class PushNotificationHandler: NSObject, ObservableObject {
         
         try await db.collection("users").document(userId).updateData([
             "fcmToken": token,
-            "fcmTokenUpdatedAt": FirebaseManager.shared.serverTimestamp
+            "fcmTokenUpdatedAt": FieldValue.serverTimestamp()
         ])
         
         print("✅ FCM token saved successfully")

@@ -313,7 +313,7 @@ struct ProductionChatView: View {
                 .animation(.spring(response: 0.3, dampingFraction: 0.7), value: canSend)
             }
             .padding(.horizontal, 14)
-            .padding(.vertical: 10)
+            .padding(.vertical, 10)
             .background(
                 RoundedRectangle(cornerRadius: 26)
                     .fill(.ultraThinMaterial)
@@ -427,10 +427,22 @@ struct ProductionChatView: View {
                 ) { fetchedMessages in
                     Task { @MainActor in
                         messages = fetchedMessages
+                        
+                        // Mark unread messages as read
+                        let unreadMessageIds = fetchedMessages
+                            .filter { !$0.isRead && !$0.isFromCurrentUser }
+                            .map { $0.id }
+                        
+                        if !unreadMessageIds.isEmpty {
+                            Task {
+                                try? await messagingService.markMessagesAsRead(
+                                    conversationId: conversation.id,
+                                    messageIds: unreadMessageIds
+                                )
+                            }
+                        }
                     }
                 }
-                
-                try await messagingService.markConversationAsRead(conversationId: conversation.id)
                 
                 print("✅ Messages loaded")
             } catch {
@@ -638,16 +650,19 @@ struct ChatMessageBubble: View {
                 
                 // Reactions
                 if !message.reactions.isEmpty {
+                    let groupedReactions = Dictionary(grouping: message.reactions, by: { $0.emoji })
                     HStack(spacing: 4) {
-                        ForEach(Array(message.reactions.keys), id: \.self) { emoji in
-                            Text("\(emoji) \(message.reactions[emoji]?.count ?? 0)")
-                                .font(.system(size: 12))
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(
-                                    Capsule()
-                                        .fill(.ultraThinMaterial)
-                                )
+                        ForEach(Array(groupedReactions.keys.sorted()), id: \.self) { emoji in
+                            if let reactions = groupedReactions[emoji] {
+                                Text("\(emoji) \(reactions.count)")
+                                    .font(.system(size: 12))
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(
+                                        Capsule()
+                                            .fill(.ultraThinMaterial)
+                                    )
+                            }
                         }
                     }
                 }
@@ -727,16 +742,6 @@ struct ChatTypingIndicator: View {
         .onAppear {
             animationPhase = 1
         }
-    }
-}
-
-// MARK: - Message Extension
-
-extension AppMessage {
-    var formattedTimestamp: String {
-        let formatter = DateFormatter()
-        formatter.timeStyle = .short
-        return formatter.string(from: timestamp)
     }
 }
 

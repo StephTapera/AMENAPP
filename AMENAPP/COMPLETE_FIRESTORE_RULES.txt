@@ -111,13 +111,23 @@ service cloud.firestore {
         return request.auth.uid in request.resource.data.participantIds;
       }
       
-      // Allow read if user is a participant
+      function isAcceptedConversation() {
+        return resource.data.conversationStatus == 'accepted';
+      }
+      
+      function isPendingForUser() {
+        return resource.data.conversationStatus == 'pending' && 
+               request.auth.uid in resource.data.participantIds;
+      }
+      
+      // Allow read if user is a participant (includes pending requests)
       allow read: if isSignedIn() && isParticipant();
       
       // Allow create if user is in the participant list
       allow create: if isSignedIn() && willBeParticipant();
       
-      // Allow update if user is a participant (for marking as read, archiving, etc.)
+      // Allow update if user is a participant
+      // This includes accepting requests, marking as read, updating unread counts
       allow update: if isSignedIn() && isParticipant();
       
       // Allow delete if user is a participant
@@ -145,24 +155,9 @@ service cloud.firestore {
       }
     }
     
-    // ===== MESSAGE REQUESTS =====
-    match /messageRequests/{requestId} {
-      // Allow read if user is the recipient
-      allow read: if isSignedIn() && 
-                     request.auth.uid == resource.data.toUserId;
-      
-      // Allow create for any authenticated user
-      allow create: if isSignedIn();
-      
-      // Allow update if user is the recipient (for marking as read)
-      allow update: if isSignedIn() && 
-                       request.auth.uid == resource.data.toUserId;
-      
-      // Allow delete if user is sender or recipient
-      allow delete: if isSignedIn() && 
-                       (request.auth.uid == resource.data.fromUserId || 
-                        request.auth.uid == resource.data.toUserId);
-    }
+    // Note: Message requests are now handled within conversations collection
+    // with conversationStatus field ('pending', 'accepted', 'blocked')
+    // No separate messageRequests collection needed
     
     // ===== BLOCKED USERS =====
     match /blockedUsers/{userId}/blocked/{blockedUserId} {
@@ -202,6 +197,14 @@ service cloud.firestore {
       allow create: if isSignedIn();
       allow delete: if isSignedIn() 
                    && request.auth.uid == resource.data.userId;
+    }
+    
+    // ===== USER REPOSTS (Subcollection) =====
+    match /user-reposts/{userId}/{document=**} {
+      // Allow anyone to read user's reposts (for profile view)
+      allow read: if isSignedIn();
+      // Allow user to write their own reposts
+      allow write: if isSignedIn() && isOwner(userId);
     }
     
     // ===== POST INTERACTIONS =====

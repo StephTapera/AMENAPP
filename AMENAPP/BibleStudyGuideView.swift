@@ -216,7 +216,7 @@ struct BibleStudyGuideView: View {
                     
                     // Study plans
                     if filteredPlans.isEmpty {
-                        EmptyStateView(searchTerm: searchText)
+                        BibleStudyEmptyStateView(searchTerm: searchText)
                     } else {
                         ForEach(filteredPlans) { plan in
                             EnhancedBibleStudyPlanCard(plan: plan)
@@ -369,8 +369,8 @@ struct StudyInsightsCard: View {
     }
 }
 
-// MARK: - Empty State
-struct EmptyStateView: View {
+// MARK: - Bible Study Empty State
+struct BibleStudyEmptyStateView: View {
     let searchTerm: String
     
     var body: some View {

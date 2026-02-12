@@ -2,8 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key></key>
+	<key>CFBundleGetInfoString</key>
 	<string></string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>en</string>
+	</array>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -17,10 +21,22 @@
 			</array>
 		</dict>
 	</array>
+	<key>Camera- Usage Description</key>
+	<string>Take a photo to personalize your AMEN profile</string>
+	<key>Location - When In Use Usage Description</key>
+	<string>We need your location to find churches near you and provide smart service reminders</string>
+	<key>Location Always And When In Use Usage Description</key>
+	<string>We need your location to send you reminders when you're near your saved churches</string>
+	<key>Photo - Library Usage Description</key>
+	<string>Choose a photo to personalize your AMEN profile</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
 		<string>fetch</string>
 	</array>
+	<key>NSUserNotificationsUsageDescription</key>
+	<string>We'll send you reminders about church service times and when you're near your saved churches</string>
+	<key>FirebaseAppDelegateProxyEnabled</key>
+	<false/>
 </dict>
 </plist>

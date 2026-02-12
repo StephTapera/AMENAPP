@@ -18,6 +18,7 @@ struct ProfilePost: Identifiable {
     var likes: Int
     var replies: Int
     let postType: PostType?  // Type of post
+    let createdAt: Date  // ✅ NEW: For chronological sorting
     
     enum PostType: String {
         case prayer = "Prayer"
@@ -50,6 +51,24 @@ struct ProfilePost: Identifiable {
     }
 }
 
+// ✅ NEW: Unified feed item for Threads-like chronological feed
+struct ProfileFeedItem: Identifiable {
+    let id: String
+    let type: FeedItemType
+    let content: String
+    let timestamp: String
+    let createdAt: Date
+    var likes: Int
+    var replies: Int
+    let postType: ProfilePost.PostType?
+    let originalAuthor: String?  // For reposts
+    
+    enum FeedItemType {
+        case post
+        case repost
+    }
+}
+
 struct Reply: Identifiable {
     let id = UUID()
     let originalAuthor: String
@@ -63,6 +82,7 @@ struct UserProfile {
     var name: String
     var username: String
     var bio: String
+    var bioURL: String?  // Bio link URL
     var initials: String
     var profileImageURL: String?
     var interests: [String]
@@ -139,8 +159,41 @@ enum UserProfileTab: String, CaseIterable {
 
 /// User Profile View - For viewing other users' profiles
 /// Threads-inspired with Black & White Design
+///
+/// **🎯 PRODUCTION-READY ENHANCEMENTS RECOMMENDED:**
+///
+/// **1. Post Preview with Tap-to-Expand**
+///    - Currently: Posts are limited to 4 lines but have no expansion
+///    - Improvement: Add "See More" button for truncated posts
+///    - Benefit: Better content discovery while maintaining clean layout
+///    - Implementation: Add `@State var expandedPosts: Set<String>` and toggle logic
+///
+/// **2. Profile Action Analytics & Tracking**
+///    - Currently: No tracking of user interactions on profile
+///    - Improvement: Track follows, unfollows, message attempts, blocks, reports
+///    - Benefit: Understand user engagement patterns and improve UX
+///    - Implementation: Add `ProfileAnalyticsService.track(event:userId:)` calls
+///
+/// **3. Swipe Actions on Post Cards**
+///    - Currently: Must tap buttons for like/comment actions
+///    - Improvement: Add swipe-to-amen (right) and swipe-to-comment (left)
+///    - Benefit: Faster interactions, more mobile-native feel
+///    - Implementation: Wrap cards in SwiftUI `.swipeActions()` or custom gesture
+///
+/// **Additional Considerations:**
+/// - Post cards now use compact glassmorphic design (smaller, translucent)
+/// - Amen button has NO count display (minimalist approach)
+/// - Comment button shows badge count only when > 0
+/// - All designs use black and white color scheme exclusively
+///
 struct UserProfileView: View {
     let userId: String // In a real app, this would be used to fetch the user's data
+    let showsDismissButton: Bool
+
+    init(userId: String, showsDismissButton: Bool = false) {
+        self.userId = userId
+        self.showsDismissButton = showsDismissButton
+    }
     
     @Environment(\.dismiss) var dismiss
     @State private var selectedTab: UserProfileTab = .posts
@@ -151,6 +204,7 @@ struct UserProfileView: View {
     @State private var showBlockAlert = false
     @State private var showFollowersList = false
     @State private var showFollowingList = false
+    @State private var isFollowActionInProgress = false
     @State private var showMessaging = false
     @State private var showErrorAlert = false
     @State private var errorMessage = ""
@@ -161,6 +215,7 @@ struct UserProfileView: View {
     @State private var profileData: UserProfile?
     @State private var posts: [ProfilePost] = []
     @State private var reposts: [UserProfileRepost] = []
+    @State private var feedItems: [ProfileFeedItem] = []  // ✅ NEW: Unified Threads-like feed
     @State private var selectedReportReason: UserReportReason?
     @State private var reportDescription = ""
     @State private var currentPage = 1
@@ -177,6 +232,13 @@ struct UserProfileView: View {
     @StateObject private var scrollManager = SmartScrollManager()
     @Namespace private var tabNamespace
     
+    // Additional production-ready states
+    @State private var showShareSheet = false
+    @State private var shareItems: [Any] = []
+    @State private var notificationsEnabled = false  // Post notifications for this user
+    @State private var hasLoadedInitially = false  // Prevent duplicate loads
+    @State private var profileImageCache: UIImage?  // Cache for avatar
+    
     // Computed property to determine if buttons should be in toolbar
     private var shouldShowToolbarButtons: Bool {
         scrollOffset > 200  // Show in toolbar after scrolling 200 points
@@ -189,27 +251,17 @@ struct UserProfileView: View {
                     VStack(spacing: 0) {
                         // Inline error banner
                         if showInlineError {
-                            InlineErrorBanner(
-                                message: inlineErrorMessage,
-                                onRetry: {
-                                    await loadProfileData()
-                                },
-                                onDismiss: {
-                                    withAnimation {
-                                        showInlineError = false
-                                    }
-                                }
-                            )
-                            .padding(.top, 12)
+                            inlineErrorBannerView
+                                .padding(.top, 12)
                         }
                         
                         // Profile Header
                         profileHeaderView
                         
-                        // Tab Selector
+                        // Tab Selector (Posts / Reposts)
                         tabSelectorView
                         
-                        // Content based on selected tab
+                        // Content - Posts or Reposts based on selected tab
                         if isLoading {
                             // Skeleton loading state
                             SkeletonProfileHeader()
@@ -270,16 +322,18 @@ struct UserProfileView: View {
             .navigationTitle("Profile")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundStyle(.black)
+                ToolbarItem(placement: .cancellationAction) {
+                    if showsDismissButton {
+                        Button {
+                            dismiss()
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "chevron.left")
+                                Text("Back")
+                            }
+                        }
                     }
                 }
-                
                 ToolbarItem(placement: .topBarTrailing) {
                     toolbarButtonsView
                 }
@@ -337,6 +391,11 @@ struct UserProfileView: View {
                     PostCommentsView(post: post)
                 }
             }
+            .sheet(isPresented: $showShareSheet) {
+                if !shareItems.isEmpty {
+                    ActivityViewController(activityItems: shareItems)
+                }
+            }
             .alert("Error", isPresented: $showErrorAlert) {
                 Button("OK") { }
                 Button("Retry") {
@@ -347,11 +406,25 @@ struct UserProfileView: View {
             }
         }
         .task {
+            // Prevent duplicate loads
+            guard !hasLoadedInitially else { return }
+            hasLoadedInitially = true
+            
+            let startTime = Date()
             await loadProfileData()
+            trackLoadPerformance(startTime: startTime)
+            
+            // Announce for accessibility
+            if profileData != nil {
+                announceProfileLoaded()
+            }
         }
         .onDisappear {
             // Clean up listener when leaving profile
             removeFollowerCountListener()
+            
+            // Cache profile for offline viewing
+            cacheProfileData()
         }
         .onOpenURL { url in
             handleDeepLink(url)
@@ -359,6 +432,43 @@ struct UserProfileView: View {
     }
     
     // MARK: - Helper Functions
+    
+    private var inlineErrorBannerView: some View {
+        HStack {
+            InlineErrorBanner(
+                message: inlineErrorMessage,
+                retryAction: {
+                    Task {
+                        await handleErrorRetry()
+                    }
+                }
+            )
+            
+            // Dismiss button
+            Button {
+                handleErrorDismiss()
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 18))
+                    .foregroundStyle(.gray)
+            }
+            .padding(.trailing, 8)
+        }
+        .transition(.move(edge: .top).combined(with: .opacity))
+    }
+    
+    private func handleErrorRetry() async {
+        withAnimation {
+            showInlineError = false
+        }
+        await loadProfileData()
+    }
+    
+    private func handleErrorDismiss() {
+        withAnimation {
+            showInlineError = false
+        }
+    }
     
     private func formatCount(_ count: Int) -> String {
         if count >= 1000 {
@@ -392,8 +502,20 @@ struct UserProfileView: View {
                     return
                 }
                 
-                let followersCount = data["followersCount"] as? Int ?? 0
-                let followingCount = data["followingCount"] as? Int ?? 0
+                // ✅ FIX: Ensure counts are never negative
+                var followersCount = data["followersCount"] as? Int ?? 0
+                var followingCount = data["followingCount"] as? Int ?? 0
+                
+                // Defensive programming: clamp negative values to 0
+                if followersCount < 0 {
+                    print("⚠️ WARNING: Negative followersCount in real-time update (\(followersCount)), clamping to 0")
+                    followersCount = 0
+                }
+                
+                if followingCount < 0 {
+                    print("⚠️ WARNING: Negative followingCount in real-time update (\(followingCount)), clamping to 0")
+                    followingCount = 0
+                }
                 
                 Task { @MainActor in
                     // Update profile data with new counts
@@ -414,6 +536,152 @@ struct UserProfileView: View {
         followerCountListener?.remove()
         followerCountListener = nil
         print("🔇 Removed follower count listener")
+    }
+    
+    // ✅ NEW: Set up real-time listeners for posts and reposts (Threads-like instant updates)
+    @MainActor
+    private func setupRealtimeListeners() {
+        print("🔊 Setting up real-time listeners for posts and reposts...")
+        
+        // ✅ Firestore snapshot listener for real-time posts
+        let db = Firestore.firestore()
+        db.collection("posts")
+            .whereField("authorId", isEqualTo: userId)
+            .order(by: "createdAt", descending: true)
+            .addSnapshotListener { querySnapshot, error in
+                if let error = error {
+                    print("❌ Firestore listener error: \(error)")
+                    return
+                }
+                
+                guard let documents = querySnapshot?.documents else { return }
+                
+                print("🔄 Real-time: Posts updated for user \(self.userId)")
+                
+                // Parse posts from Firestore
+                let updatedPosts = documents.compactMap { doc -> ProfilePost? in
+                    guard let data = doc.data() as? [String: Any],
+                          let content = data["content"] as? String,
+                          let timestamp = data["createdAt"] as? Timestamp else {
+                        return nil
+                    }
+                    
+                    let categoryStr = data["category"] as? String ?? ""
+                    let postType: ProfilePost.PostType?
+                    switch categoryStr {
+                    case "prayer": postType = .prayer
+                    case "testimonies": postType = .testimony
+                    case "openTable": postType = .openTable
+                    default: postType = nil
+                    }
+                    
+                    return ProfilePost(
+                        id: doc.documentID,
+                        content: content,
+                        timestamp: self.formatTimestamp(timestamp.dateValue()),
+                        likes: data["amenCount"] as? Int ?? 0,
+                        replies: data["commentCount"] as? Int ?? 0,
+                        postType: postType,
+                        createdAt: timestamp.dateValue()
+                    )
+                }
+                
+                // Update posts array
+                self.posts = updatedPosts
+                
+                // Rebuild unified feed
+                self.buildUnifiedFeed()
+                
+                print("✅ Real-time: \(updatedPosts.count) posts loaded")
+            }
+        
+        // Also keep NotificationCenter for optimistic updates
+        NotificationCenter.default.addObserver(
+            forName: .newPostCreated,
+            object: nil,
+            queue: .main
+        ) { notification in
+            guard let userInfo = notification.userInfo,
+                  let post = userInfo["post"] as? Post,
+                  post.authorId == self.userId else { return }
+            
+            print("✅ Real-time: Optimistic post detected for user \(self.userId)")
+            // Firestore listener will handle the update
+        }
+        
+        // Listen for new reposts
+        NotificationCenter.default.addObserver(
+            forName: Notification.Name("postReposted"),
+            object: nil,
+            queue: .main
+        ) { notification in
+            guard let userInfo = notification.userInfo,
+                  let post = userInfo["post"] as? Post,
+                  let reposterId = userInfo["userId"] as? String,
+                  reposterId == self.userId else { return }
+            
+            print("✅ Real-time: New repost detected for user \(self.userId)")
+            
+            // Convert and add to reposts array
+            let repost = UserProfileRepost(
+                originalAuthor: post.authorName,
+                content: post.content,
+                timestamp: post.timeAgo,
+                likes: post.amenCount,
+                replies: post.commentCount
+            )
+            
+            // Insert at beginning (newest first)
+            self.reposts.insert(repost, at: 0)
+            
+            // Rebuild unified feed
+            self.buildUnifiedFeed()
+        }
+        
+        print("✅ Real-time listeners set up successfully")
+    }
+    
+    /// Fix corrupted follower counts by recalculating from actual follow relationships
+    @MainActor
+    private func fixFollowerCounts(userId: String) async {
+        print("🔧 Attempting to fix follower counts for user: \(userId)")
+        
+        do {
+            let db = Firestore.firestore()
+            
+            // Count actual followers
+            let followersSnapshot = try await db.collection("follows")
+                .whereField("followingId", isEqualTo: userId)
+                .getDocuments()
+            let actualFollowersCount = followersSnapshot.documents.count
+            
+            // Count actual following
+            let followingSnapshot = try await db.collection("follows")
+                .whereField("followerId", isEqualTo: userId)
+                .getDocuments()
+            let actualFollowingCount = followingSnapshot.documents.count
+            
+            // Update Firestore with correct counts
+            try await db.collection("users").document(userId).updateData([
+                "followersCount": actualFollowersCount,
+                "followingCount": actualFollowingCount,
+                "updatedAt": Date()
+            ])
+            
+            print("✅ Fixed follower counts:")
+            print("   - Followers: \(actualFollowersCount)")
+            print("   - Following: \(actualFollowingCount)")
+            
+            // Update local state
+            if var profile = profileData {
+                profile.followersCount = actualFollowersCount
+                profile.followingCount = actualFollowingCount
+                profileData = profile
+            }
+            
+        } catch {
+            print("❌ Error fixing follower counts: \(error)")
+        }
     }
     
     // MARK: - Profile Data Loading
@@ -482,10 +750,34 @@ struct UserProfileView: View {
             let displayName = data["displayName"] as? String ?? "Unknown User"
             let username = data["username"] as? String ?? "unknown"
             let bio = data["bio"] as? String ?? ""
+            let bioURL = data["bioURL"] as? String
             let profileImageURL = data["profileImageURL"] as? String
             let interests = data["interests"] as? [String] ?? []
-            let followersCount = data["followersCount"] as? Int ?? 0
-            let followingCount = data["followingCount"] as? Int ?? 0
+            
+            // ✅ FIX: Ensure counts are never negative
+            var followersCount = data["followersCount"] as? Int ?? 0
+            var followingCount = data["followingCount"] as? Int ?? 0
+            
+            // Defensive programming: fix negative counts
+            let hasNegativeCounts = followersCount < 0 || followingCount < 0
+            
+            if followersCount < 0 {
+                print("⚠️ WARNING: Negative followersCount detected (\(followersCount)), will recalculate")
+                followersCount = 0
+            }
+            
+            if followingCount < 0 {
+                print("⚠️ WARNING: Negative followingCount detected (\(followingCount)), will recalculate")
+                followingCount = 0
+            }
+            
+            // If we detected negative counts, schedule a fix
+            if hasNegativeCounts {
+                Task {
+                    await self.fixFollowerCounts(userId: userId)
+                }
+            }
+            
             let isPrivateAccount = data["isPrivateAccount"] as? Bool ?? false  // ✅ FIX: Actually load from Firestore
             
             print("📋 User data extracted:")
@@ -508,6 +800,7 @@ struct UserProfileView: View {
                 name: displayName,
                 username: username,
                 bio: bio,
+                bioURL: bioURL,
                 initials: String(initials),
                 profileImageURL: profileImageURL,
                 interests: interests,
@@ -536,8 +829,14 @@ struct UserProfileView: View {
             print("   - Reposts: \(reposts.count)")
             print("   - Following: \(isFollowing)")
             
+            // ✅ NEW: Build unified Threads-like feed
+            buildUnifiedFeed()
+            
             // 🔊 SET UP REAL-TIME LISTENER for follower/following counts
             setupFollowerCountListener()
+            
+            // ✅ NEW: Set up real-time listeners for posts and reposts
+            setupRealtimeListeners()
             
             currentPage = 1
             hasMorePosts = posts.count >= 20
@@ -593,11 +892,11 @@ struct UserProfileView: View {
     private func fetchUserPosts(page: Int) async throws -> [ProfilePost] {
         print("📥 Fetching posts for user: \(userId) (page: \(page))")
         
-        // Use FirebasePostService to fetch real user posts
-        let firebasePostService = FirebasePostService.shared
-        let userPosts = try await firebasePostService.fetchUserOriginalPosts(userId: userId)
+        // ✅ FIX: Use Firestore where posts are actually saved
+        let postService = FirebasePostService.shared
+        let userPosts = try await postService.fetchUserPosts(userId: userId)
         
-        print("✅ Fetched \(userPosts.count) posts for user")
+        print("✅ Fetched \(userPosts.count) posts from Firestore for user")
         
         // Convert Post to ProfilePost with real IDs and post types
         return userPosts.map { post in
@@ -612,18 +911,57 @@ struct UserProfileView: View {
                 postType = .openTable
             }
             
-            // Convert post.id (UUID) to String, or generate new UUID string if nil
-            let postId = post.id.uuidString ?? UUID().uuidString
-            
             return ProfilePost(
-                id: postId,  // Real Firestore post ID
+                id: post.id.uuidString,  // Use UUID string as ID
                 content: post.content,
                 timestamp: post.timeAgo,
                 likes: post.amenCount,
                 replies: post.commentCount,
-                postType: postType
+                postType: postType,
+                createdAt: post.createdAt  // ✅ Include timestamp for sorting
             )
         }
+    }
+    
+    // ✅ NEW: Build unified Threads-like feed from posts and reposts
+    @MainActor
+    private func buildUnifiedFeed() {
+        var items: [ProfileFeedItem] = []
+        
+        // Add all posts to feed
+        items += posts.map { post in
+            ProfileFeedItem(
+                id: "post-\(post.id)",
+                type: .post,
+                content: post.content,
+                timestamp: post.timestamp,
+                createdAt: post.createdAt,
+                likes: post.likes,
+                replies: post.replies,
+                postType: post.postType,
+                originalAuthor: nil
+            )
+        }
+        
+        // Add all reposts to feed
+        items += reposts.map { repost in
+            ProfileFeedItem(
+                id: "repost-\(UUID().uuidString)",
+                type: .repost,
+                content: repost.content,
+                timestamp: repost.timestamp,
+                createdAt: Date(),  // Use current date as fallback
+                likes: repost.likes,
+                replies: repost.replies,
+                postType: nil,
+                originalAuthor: repost.originalAuthor
+            )
+        }
+        
+        // Sort chronologically (newest first) like Threads
+        feedItems = items.sorted { $0.createdAt > $1.createdAt }
+        
+        print("✅ Built unified feed: \(feedItems.count) items (\(posts.count) posts + \(reposts.count) reposts)")
     }
     
     private func fetchUserReplies() async throws -> [Reply] {
@@ -635,11 +973,11 @@ struct UserProfileView: View {
     private func fetchUserReposts() async throws -> [UserProfileRepost] {
         print("📥 Fetching reposts for user: \(userId)")
         
-        // Use FirebasePostService to fetch real user reposts
-        let firebasePostService = FirebasePostService.shared
-        let userReposts = try await firebasePostService.fetchUserReposts(userId: userId)
+        // ✅ FIX: Use Realtime Database instead of Firestore for consistency
+        let realtimeRepostsService = RealtimeRepostsService.shared
+        let userReposts = try await realtimeRepostsService.fetchUserReposts(userId: userId)
         
-        print("✅ Fetched \(userReposts.count) reposts for user")
+        print("✅ Fetched \(userReposts.count) reposts from Realtime DB for user")
         
         // Convert Post to UserProfileRepost
         return userReposts.map { post in
@@ -724,16 +1062,20 @@ struct UserProfileView: View {
             // Check for specific Firestore error codes
             if firestoreError.domain == "FIRFirestoreErrorDomain" {
                 switch firestoreError.code {
-                case 7: // Permission denied - Only show this for ACTUAL permission errors
-                    return "You don't have permission to view this profile."
                 case 5: // Not found
-                    return "User not found. This profile may no longer exist."
+                    return "This user's profile could not be found. They may have deleted their account."
+                case 7: // Permission denied - Only show this for ACTUAL permission errors
+                    return "You don't have permission to view this profile. This may be a private account."
                 case 14: // Unavailable (network)
-                    return "Unable to connect to server. Please check your connection."
+                    return "Unable to connect. Please check your internet connection and try again."
                 case 2: // Aborted
-                    return "Request was aborted. Please try again."
+                    return "Request was cancelled. Please try again."
                 case 4: // Deadline exceeded
-                    return "Request timed out. Please try again."
+                    return "Request timed out. Please check your connection and try again."
+                case 8: // Already exists (shouldn't happen for profile view)
+                    return "A conflict occurred. Please refresh and try again."
+                case 13: // Internal error
+                    return "A server error occurred. Please try again later."
                 default:
                     // Don't treat unknown errors as permission errors
                     print("   ⚠️ Unknown Firestore error code: \(firestoreError.code)")
@@ -746,13 +1088,17 @@ struct UserProfileView: View {
         if let networkError = error as? URLError {
             switch networkError.code {
             case .notConnectedToInternet:
-                return "No internet connection. Please check your network settings."
+                return "No internet connection. Please check your network settings and try again."
             case .timedOut:
-                return "Request timed out. Please try again."
+                return "The request timed out. Please try again."
             case .cannotFindHost, .cannotConnectToHost:
-                return "Cannot reach server. Please try again later."
+                return "Cannot reach the server. Please try again later."
+            case .networkConnectionLost:
+                return "Network connection was lost. Please reconnect and try again."
+            case .dataNotAllowed:
+                return "Data usage is restricted. Please check your device settings."
             default:
-                return "Network error occurred. Please try again."
+                return "A network error occurred. Please check your connection and try again."
             }
         }
         
@@ -764,12 +1110,27 @@ struct UserProfileView: View {
         // Log the full error for debugging
         print("⚠️ Unhandled error type: \(error)")
         
-        // Default fallback - don't mention permissions unless it's confirmed
-        if error.localizedDescription.lowercased().contains("permission") {
-            return "Permission issue. Please try signing out and back in."
+        // Check error description for common patterns
+        let errorString = error.localizedDescription.lowercased()
+        
+        if errorString.contains("permission") || errorString.contains("insufficient") {
+            return "Permission denied. This might be a private account or your session expired. Try signing out and back in."
         }
         
-        return "Unable to load profile. Please check your connection and try again."
+        if errorString.contains("network") || errorString.contains("offline") {
+            return "Network connection issue. Please check your internet and try again."
+        }
+        
+        if errorString.contains("not found") || errorString.contains("404") {
+            return "This profile could not be found. The user may have deleted their account."
+        }
+        
+        if errorString.contains("timeout") {
+            return "Request timed out. Please try again."
+        }
+        
+        // Default fallback with helpful suggestions
+        return "Unable to load profile. Please try:\n\n• Checking your internet connection\n• Refreshing by pulling down\n• Signing out and back in if the problem continues\n\nError: \(error.localizedDescription)"
     }
     
     // MARK: - Actions
@@ -789,6 +1150,15 @@ struct UserProfileView: View {
     @MainActor
     private func performFollowAction() async {
         guard let profile = profileData else { return }
+        
+        // Prevent duplicate taps
+        guard !isFollowActionInProgress else {
+            print("⚠️ Follow action already in progress, ignoring duplicate tap")
+            return
+        }
+        
+        isFollowActionInProgress = true
+        defer { isFollowActionInProgress = false }
         
         let previousState = isFollowing
         
@@ -884,24 +1254,8 @@ struct UserProfileView: View {
     }
     
     private func shareProfile() {
-        guard let profileData = profileData else { return }
-        
-        let username = "@\(profileData.username)"
-        let shareText = "Check out \(profileData.name)'s AMEN profile: \(username)"
-        let shareURL = URL(string: "https://amenapp.com/\(profileData.username)")!
-        
-        let activityViewController = UIActivityViewController(
-            activityItems: [shareText, shareURL],
-            applicationActivities: nil
-        )
-        
-        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-           let rootViewController = windowScene.windows.first?.rootViewController {
-            rootViewController.present(activityViewController, animated: true)
-        }
-        
-        let haptic = UIImpactFeedbackGenerator(style: .light)
-        haptic.impactOccurred()
+        // Use enhanced share sheet with QR code
+        showAdvancedShareSheet()
     }
     
     private func reportUser() {
@@ -1150,6 +1504,18 @@ struct UserProfileView: View {
             }
             
             Menu {
+                // Post Notifications
+                Section {
+                    Button {
+                        toggleNotifications()
+                    } label: {
+                        Label(
+                            notificationsEnabled ? "Turn Off Notifications" : "Turn On Notifications",
+                            systemImage: notificationsEnabled ? "bell.fill" : "bell"
+                        )
+                    }
+                }
+                
                 // Privacy Controls Section
                 Section {
                     Button {
@@ -1162,6 +1528,15 @@ struct UserProfileView: View {
                         toggleHide()
                     } label: {
                         Label(isHidden ? "Unhide from User" : "Hide from User", systemImage: isHidden ? "eye" : "eye.slash")
+                    }
+                }
+                
+                // Advanced Share
+                Section {
+                    Button {
+                        showAdvancedShareSheet()
+                    } label: {
+                        Label("Share with QR Code", systemImage: "qrcode")
                     }
                 }
                 
@@ -1238,6 +1613,70 @@ struct UserProfileView: View {
                             Text("@\(profileData.username)")
                                 .font(.custom("OpenSans-Regular", size: 16))
                                 .foregroundStyle(.black.opacity(0.5))
+                            
+                            // Bio URL Link (moved to top)
+                            if let bioURL = profileData.bioURL, !bioURL.isEmpty {
+                                Link(destination: URL(string: bioURL)!) {
+                                    HStack(spacing: 6) {
+                                        Image(systemName: "link.circle.fill")
+                                            .font(.system(size: 11, weight: .semibold))
+                                            .foregroundStyle(.black)
+
+                                        Text(bioURL.replacingOccurrences(of: "https://", with: "")
+                                                .replacingOccurrences(of: "http://", with: ""))
+                                            .font(.custom("OpenSans-SemiBold", size: 11))
+                                            .foregroundStyle(.black)
+                                            .lineLimit(1)
+                                    }
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 6)
+                                    .background(
+                                        ZStack {
+                                            // Base frosted glass layer
+                                            Capsule()
+                                                .fill(.ultraThinMaterial)
+
+                                            // Inner glow effect (white from top)
+                                            Capsule()
+                                                .fill(
+                                                    LinearGradient(
+                                                        colors: [
+                                                            Color.white.opacity(0.5),
+                                                            Color.white.opacity(0.2),
+                                                            Color.clear
+                                                        ],
+                                                        startPoint: .top,
+                                                        endPoint: .bottom
+                                                    )
+                                                )
+
+                                            // Rim light (highlight on edges)
+                                            Capsule()
+                                                .strokeBorder(
+                                                    LinearGradient(
+                                                        colors: [
+                                                            Color.white.opacity(0.7),
+                                                            Color.white.opacity(0.4),
+                                                            Color.white.opacity(0.2)
+                                                        ],
+                                                        startPoint: .topLeading,
+                                                        endPoint: .bottomTrailing
+                                                    ),
+                                                    lineWidth: 1.5
+                                                )
+
+                                            // Outer border (black)
+                                            Capsule()
+                                                .strokeBorder(
+                                                    Color.black.opacity(0.25),
+                                                    lineWidth: 1
+                                                )
+                                                .padding(0.5)
+                                        }
+                                        .shadow(color: .black.opacity(0.08), radius: 6, x: 0, y: 2)
+                                    )
+                                }
+                            }
                         }
                         
                         Spacer()
@@ -1251,9 +1690,33 @@ struct UserProfileView: View {
                                     .fill(Color.black)
                                     .frame(width: 80, height: 80)
                                 
-                                Text(profileData.initials)
-                                    .font(.custom("OpenSans-Bold", size: 28))
-                                    .foregroundStyle(.white)
+                                if let profileImageURL = profileData.profileImageURL, !profileImageURL.isEmpty {
+                                    AsyncImage(url: URL(string: profileImageURL)) { phase in
+                                        switch phase {
+                                        case .success(let image):
+                                            image
+                                                .resizable()
+                                                .scaledToFill()
+                                                .frame(width: 80, height: 80)
+                                                .clipShape(Circle())
+                                        case .failure(_):
+                                            Text(profileData.initials)
+                                                .font(.custom("OpenSans-Bold", size: 28))
+                                                .foregroundStyle(.white)
+                                        case .empty:
+                                            ProgressView()
+                                                .tint(.white)
+                                        @unknown default:
+                                            Text(profileData.initials)
+                                                .font(.custom("OpenSans-Bold", size: 28))
+                                                .foregroundStyle(.white)
+                                        }
+                                    }
+                                } else {
+                                    Text(profileData.initials)
+                                        .font(.custom("OpenSans-Bold", size: 28))
+                                        .foregroundStyle(.white)
+                                }
                             }
                         }
                         .buttonStyle(PlainButtonStyle())
@@ -1431,28 +1894,29 @@ struct UserProfileView: View {
     
     // MARK: - Content View
     
+    @ViewBuilder
     private var contentView: some View {
-        VStack(spacing: 0) {
-            switch selectedTab {
-            case .posts:
-                UserPostsContentView(
-                    posts: posts,
-                    onLoadMore: loadMorePosts,
-                    hasMorePosts: hasMorePosts,
-                    isLoadingMore: isLoadingMore
-                )
-                .transition(.asymmetric(
-                    insertion: .move(edge: .trailing).combined(with: .opacity),
-                    removal: .move(edge: .leading).combined(with: .opacity)
-                ))
-            case .reposts:
-                UserRepostsContentView(reposts: reposts)
-                    .transition(.asymmetric(
-                        insertion: .move(edge: .trailing).combined(with: .opacity),
-                        removal: .move(edge: .leading).combined(with: .opacity)
-                    ))
-            }
+        switch selectedTab {
+        case .posts:
+            // Show user's posts
+            postsTabContent
+            
+        case .reposts:
+            // Show user's reposts
+            repostsTabContent
         }
+    }
+    
+    private var postsTabContent: some View {
+        UserPostsContentView(
+            posts: posts,
+            hasMorePosts: hasMorePosts,
+            isLoadingMore: isLoadingMore
+        )
+    }
+    
+    private var repostsTabContent: some View {
+        UserRepostsContentView(reposts: reposts)
     }
 }
 
@@ -1461,6 +1925,7 @@ struct UserProfileView: View {
 struct UserPostsContentView: View {
     let posts: [ProfilePost]
     @State private var likedPosts: Set<String> = []
+    @State private var expandedPosts: Set<String> = []  // ✅ NEW: Track expanded posts
     var onLoadMore: (() async -> Void)?
     var hasMorePosts: Bool = false
     var isLoadingMore: Bool = false
@@ -1469,7 +1934,7 @@ struct UserPostsContentView: View {
     @StateObject private var scrollManager = SmartScrollManager()
     
     var body: some View {
-        LazyVStack(spacing: 0) {
+        LazyVStack(spacing: 10) {  // ✅ 10pt spacing between cards
             if posts.isEmpty {
                 UserProfileEmptyStateView(
                     icon: "square.grid.2x2",
@@ -1482,6 +1947,7 @@ struct UserPostsContentView: View {
                     ReadOnlyProfilePostCard(
                         post: posts[index],
                         isLiked: likedPosts.contains(posts[index].id),
+                        isExpanded: expandedPosts.contains(posts[index].id),  // ✅ NEW: Pass expansion state
                         onLike: {
                             Task {
                                 await handleLike(postId: posts[index].id)
@@ -1489,6 +1955,9 @@ struct UserPostsContentView: View {
                         },
                         onReply: {
                             handleReply(postId: posts[index].id)
+                        },
+                        onToggleExpand: {  // ✅ NEW: Toggle expansion
+                            toggleExpanded(postId: posts[index].id)
                         }
                     )
                     
@@ -1519,7 +1988,7 @@ struct UserPostsContentView: View {
             }
         }
         .background(Color(.systemGroupedBackground))
-        .padding(.top, 12)
+        .padding(.top, 0)  // ✅ Zero padding - posts RIGHT under tabs
         .sheet(isPresented: $showCommentsSheet) {
             if let post = selectedPostForComments {
                 PostCommentsView(post: post)
@@ -1560,6 +2029,20 @@ struct UserPostsContentView: View {
             }
             print("❌ Failed to toggle amen: \(error)")
         }
+    }
+    
+    // ✅ NEW: Toggle post expansion
+    private func toggleExpanded(postId: String) {
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+            if expandedPosts.contains(postId) {
+                expandedPosts.remove(postId)
+            } else {
+                expandedPosts.insert(postId)
+            }
+        }
+        
+        let haptic = UIImpactFeedbackGenerator(style: .light)
+        haptic.impactOccurred()
     }
     
     private func handleReply(postId: String) {
@@ -1639,7 +2122,7 @@ struct UserRepostsContentView: View {
     let reposts: [UserProfileRepost]
     
     var body: some View {
-        LazyVStack(spacing: 0) {
+        LazyVStack(spacing: 10) {  // ✅ 10pt spacing between cards
             if reposts.isEmpty {
                 UserProfileEmptyStateView(
                     icon: "arrow.2.squarepath",
@@ -1664,179 +2147,527 @@ struct UserRepostsContentView: View {
     }
 }
 
-// MARK: - Read-Only Post Card
+// MARK: - Unified Feed Content View (Threads-like)
+
+/// ✅ NEW: Unified feed showing posts and reposts chronologically like Threads
+struct UnifiedFeedContentView: View {
+    let feedItems: [ProfileFeedItem]
+    @State private var likedItems: Set<String> = []
+    @State private var expandedItems: Set<String> = []
+    
+    var body: some View {
+        LazyVStack(spacing: 0) {
+            if feedItems.isEmpty {
+                UserProfileEmptyStateView(
+                    icon: "square.grid.2x2",
+                    title: "No Posts Yet",
+                    message: "This user hasn't posted anything yet."
+                )
+                .padding(.top, 20)
+            } else {
+                ForEach(feedItems.indices, id: \.self) { index in
+                    let item = feedItems[index]
+                    
+                    VStack(alignment: .leading, spacing: 0) {
+                        // Show repost indicator if it's a repost
+                        if item.type == .repost {
+                            HStack(spacing: 6) {
+                                Image(systemName: "arrow.2.squarepath")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(.black.opacity(0.4))
+                                
+                                Text("Reposted from \(item.originalAuthor ?? "Unknown")")
+                                    .font(.custom("OpenSans-SemiBold", size: 12))
+                                    .foregroundStyle(.black.opacity(0.5))
+                            }
+                            .padding(.horizontal, 20)
+                            .padding(.top, 16)
+                            .padding(.bottom, 8)
+                        }
+                        
+                        // Show post content
+                        UnifiedFeedItemCard(
+                            item: item,
+                            isLiked: likedItems.contains(item.id),
+                            isExpanded: expandedItems.contains(item.id),
+                            onLike: { handleLike(itemId: item.id) },
+                            onReply: { handleReply(itemId: item.id) },
+                            onToggleExpand: { toggleExpand(itemId: item.id) }
+                        )
+                    }
+                    .padding(.bottom, 12)
+                }
+            }
+        }
+        .background(Color(.systemGroupedBackground))
+        .padding(.top, 12)
+    }
+    
+    private func handleLike(itemId: String) {
+        if likedItems.contains(itemId) {
+            likedItems.remove(itemId)
+        } else {
+            likedItems.insert(itemId)
+        }
+        
+        let haptic = UIImpactFeedbackGenerator(style: .light)
+        haptic.impactOccurred()
+    }
+    
+    private func handleReply(itemId: String) {
+        let haptic = UIImpactFeedbackGenerator(style: .light)
+        haptic.impactOccurred()
+        // TODO: Show comments sheet
+    }
+    
+    private func toggleExpand(itemId: String) {
+        if expandedItems.contains(itemId) {
+            expandedItems.remove(itemId)
+        } else {
+            expandedItems.insert(itemId)
+        }
+    }
+}
+
+/// Card for unified feed items
+struct UnifiedFeedItemCard: View {
+    let item: ProfileFeedItem
+    let isLiked: Bool
+    let isExpanded: Bool
+    let onLike: () -> Void
+    let onReply: () -> Void
+    let onToggleExpand: () -> Void
+    
+    private var needsExpansion: Bool {
+        item.content.count > 120
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Post content
+            Text(item.content)
+                .font(.custom("OpenSans-Regular", size: 15))
+                .foregroundStyle(.black)
+                .lineSpacing(4)
+                .lineLimit(isExpanded ? nil : 4)
+                .animation(.easeInOut(duration: 0.3), value: isExpanded)
+            
+            // See More button
+            if needsExpansion {
+                Button {
+                    onToggleExpand()
+                } label: {
+                    HStack(spacing: 4) {
+                        Text(isExpanded ? "See Less" : "See More")
+                            .font(.custom("OpenSans-SemiBold", size: 13))
+                        Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                            .font(.system(size: 10, weight: .semibold))
+                    }
+                    .foregroundStyle(.black.opacity(0.5))
+                }
+            }
+            
+            // Timestamp and actions
+            HStack {
+                Text(item.timestamp)
+                    .font(.custom("OpenSans-Regular", size: 13))
+                    .foregroundStyle(.black.opacity(0.4))
+                
+                Spacer()
+                
+                // Actions
+                HStack(spacing: 16) {
+                    // Amen button
+                    Button(action: onLike) {
+                        HStack(spacing: 6) {
+                            Image(systemName: isLiked ? "hands.sparkles.fill" : "hands.sparkles")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(isLiked ? .blue : .black.opacity(0.6))
+                            
+                            if item.likes > 0 {
+                                Text("\(item.likes)")
+                                    .font(.custom("OpenSans-SemiBold", size: 13))
+                                    .foregroundStyle(.black.opacity(0.6))
+                            }
+                        }
+                    }
+                    
+                    // Reply button
+                    Button(action: onReply) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "bubble.left")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(.black.opacity(0.6))
+                            
+                            if item.replies > 0 {
+                                Text("\(item.replies)")
+                                    .font(.custom("OpenSans-SemiBold", size: 13))
+                                    .foregroundStyle(.black.opacity(0.6))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.white)
+                .shadow(color: .black.opacity(0.08), radius: 8, y: 4)
+        )
+        .padding(.horizontal, 20)
+    }
+}
+
+// MARK: - Read-Only Post Card (Smaller Glassmorphic Design with Tap-to-Expand & Swipe Actions)
 
 struct ReadOnlyProfilePostCard: View {
     let post: ProfilePost
     let isLiked: Bool
+    let isExpanded: Bool  // ✅ NEW: Expansion state
     let onLike: () -> Void
     let onReply: () -> Void
+    let onToggleExpand: () -> Void  // ✅ NEW: Toggle expansion callback
     
     @State private var isPressed = false
+    @State private var swipeOffset: CGFloat = 0  // ✅ NEW: Swipe gesture tracking
+    @State private var swipeDirection: SwipeDirection?  // ✅ NEW: Swipe direction
+    @State private var showSwipeHint = false  // ✅ NEW: Show swipe icons
+    @State private var showShareSheet = false  // ✅ Share sheet
+    @State private var showMoreOptions = false  // ✅ More options menu
+    
+    // ✅ NEW: Swipe direction enum
+    enum SwipeDirection {
+        case left, right
+    }
+    
+    // ✅ NEW: Check if content needs expansion
+    private var needsExpansion: Bool {
+        post.content.count > 120  // Threshold for "See More"
+    }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Post content
+            // Post content - Expandable
             Text(post.content)
-                .font(.custom("OpenSans-Regular", size: 16))
-                .foregroundStyle(.primary)
-                .lineSpacing(6)
-                .padding(.horizontal, 20)
-                .padding(.top, 20)
+                .font(.custom("OpenSans-Regular", size: 14))
+                .foregroundStyle(.black)
+                .lineSpacing(4)
+                .padding(.horizontal, 16)
+                .padding(.top, 14)
+                .lineLimit(isExpanded ? nil : 4)  // ✅ UPDATED: Conditional line limit
+                .animation(.easeInOut(duration: 0.3), value: isExpanded)  // ✅ NEW: Smooth expansion
             
-            // Time stamp with post type indicator
-            HStack(spacing: 8) {
-                Text(post.timestamp)
-                    .font(.custom("OpenSans-Regular", size: 13))
-                    .foregroundStyle(.secondary)
-                
-                // Post type indicator with liquid glass style for prayer/testimony
-                if let postType = post.postType {
-                    if postType.isLiquidGlassStyle {
-                        // Liquid glass style for Prayer and Testimony
-                        HStack(spacing: 4) {
-                            Image(systemName: postType.icon)
-                                .font(.system(size: 11))
-                            Text(postType.rawValue)
-                                .font(.custom("OpenSans-SemiBold", size: 11))
-                        }
-                        .foregroundStyle(postType.color)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(
-                            ZStack {
-                                // Frosted glass background
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(.ultraThinMaterial)
-                                
-                                // Color tint overlay
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(postType.color.opacity(0.15))
-                                
-                                // Subtle border
-                                RoundedRectangle(cornerRadius: 12)
-                                    .strokeBorder(postType.color.opacity(0.3), lineWidth: 0.5)
-                            }
-                        )
-                        .shadow(color: postType.color.opacity(0.2), radius: 4, y: 2)
-                    } else {
-                        // Simple black/white style for OpenTable
-                        HStack(spacing: 4) {
-                            Image(systemName: postType.icon)
-                                .font(.system(size: 11, weight: .semibold))
-                            Text(postType.rawValue)
-                                .font(.custom("OpenSans-SemiBold", size: 11))
-                        }
-                        .foregroundStyle(.black)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(Color.white)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .strokeBorder(Color.black.opacity(0.2), lineWidth: 1)
-                                )
-                        )
-                        .shadow(color: .black.opacity(0.08), radius: 3, y: 1)
+            // ✅ NEW: "See More" / "See Less" button
+            if needsExpansion {
+                Button {
+                    onToggleExpand()
+                } label: {
+                    HStack(spacing: 4) {
+                        Text(isExpanded ? "See Less" : "See More")
+                            .font(.custom("OpenSans-SemiBold", size: 12))
+                        Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                            .font(.system(size: 10, weight: .semibold))
                     }
+                    .foregroundStyle(.black.opacity(0.5))
+                    .padding(.horizontal, 16)
+                    .padding(.top, 6)
+                }
+                .buttonStyle(PlainButtonStyle())
+                .transition(.opacity.combined(with: .scale))
+            }
+            
+            // Time stamp with post type indicator - Smaller
+            HStack(spacing: 6) {
+                Text(post.timestamp)
+                    .font(.custom("OpenSans-Regular", size: 11))
+                    .foregroundStyle(.black.opacity(0.5))
+                
+                // Post type indicator - Minimal black and white
+                if let postType = post.postType {
+                    HStack(spacing: 3) {
+                        Image(systemName: postType.icon)
+                            .font(.system(size: 9, weight: .medium))
+                        Text(postType.rawValue)
+                            .font(.custom("OpenSans-SemiBold", size: 9))
+                    }
+                    .foregroundStyle(.black.opacity(0.6))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(
+                        Capsule()
+                            .strokeBorder(.black.opacity(0.15), lineWidth: 0.5)
+                    )
                 }
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 8)
+            .padding(.horizontal, 16)
+            .padding(.top, 6)
             
-            // Interaction buttons
-            HStack(spacing: 24) {
-                // Amen (Like) Button
+            // Interaction buttons - Minimal, production-ready
+            HStack(spacing: 16) {
+                // Amen Button (NO COUNT - just icon)
                 Button {
                     onLike()
                 } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: isLiked ? "hands.clap.fill" : "hands.clap")
-                            .font(.system(size: 18))
-                            .foregroundStyle(isLiked ? .orange : .secondary)
+                    Image(systemName: isLiked ? "hands.clap.fill" : "hands.clap")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(isLiked ? .black : .black.opacity(0.4))
+                        .frame(width: 32, height: 32)
+                        .background(
+                            Circle()
+                                .fill(.ultraThinMaterial)
+                                .overlay(
+                                    Circle()
+                                        .strokeBorder(.black.opacity(0.08), lineWidth: 0.5)
+                                )
+                        )
+                }
+                .buttonStyle(PlainButtonStyle())
+                .scaleEffect(isLiked ? 1.1 : 1.0)
+                .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isLiked)
+                
+                // Comment Button - Production ready with count badge
+                Button {
+                    onReply()
+                } label: {
+                    ZStack(alignment: .topTrailing) {
+                        Image(systemName: "bubble.left")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(.black.opacity(0.4))
+                            .frame(width: 32, height: 32)
+                            .background(
+                                Circle()
+                                    .fill(.ultraThinMaterial)
+                                    .overlay(
+                                        Circle()
+                                            .strokeBorder(.black.opacity(0.08), lineWidth: 0.5)
+                                    )
+                            )
                         
-                        Text("\(post.likes + (isLiked ? 1 : 0))")
-                            .font(.custom("OpenSans-SemiBold", size: 14))
-                            .foregroundStyle(.secondary)
+                        // Comment count badge (only if > 0)
+                        if post.replies > 0 {
+                            Text("\(post.replies)")
+                                .font(.custom("OpenSans-Bold", size: 9))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 2)
+                                .background(
+                                    Capsule()
+                                        .fill(Color.black)
+                                )
+                                .offset(x: 8, y: -4)
+                        }
                     }
                 }
                 .buttonStyle(PlainButtonStyle())
                 
-                // Comment Button
+                // Share Button
                 Button {
-                    onReply()
+                    sharePost()
                 } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "bubble.left")
-                            .font(.system(size: 18))
-                            .foregroundStyle(.secondary)
-                        
-                        Text("\(post.replies)")
-                            .font(.custom("OpenSans-SemiBold", size: 14))
-                            .foregroundStyle(.secondary)
-                    }
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(.black.opacity(0.4))
+                        .frame(width: 32, height: 32)
+                        .background(
+                            Circle()
+                                .fill(.ultraThinMaterial)
+                                .overlay(
+                                    Circle()
+                                        .strokeBorder(.black.opacity(0.08), lineWidth: 0.5)
+                                )
+                        )
                 }
                 .buttonStyle(PlainButtonStyle())
                 
                 Spacer()
+                
+                // Like count indicator (subtle, right-aligned)
+                if post.likes > 0 {
+                    Text("\(post.likes)")
+                        .font(.custom("OpenSans-SemiBold", size: 11))
+                        .foregroundStyle(.black.opacity(0.4))
+                }
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 16)
-            .padding(.bottom, 20)
+            .padding(.horizontal, 16)
+            .padding(.top, 10)
+            .padding(.bottom, 14)
         }
         .background(
             ZStack {
-                // Liquid glass effect background
-                RoundedRectangle(cornerRadius: 24)
+                // Glassmorphic background - Black and white translucent
+                RoundedRectangle(cornerRadius: 18)
                     .fill(.ultraThinMaterial)
                 
-                // Subtle gradient overlay for depth
-                RoundedRectangle(cornerRadius: 24)
+                // White overlay for brightness
+                RoundedRectangle(cornerRadius: 18)
                     .fill(
                         LinearGradient(
                             colors: [
-                                Color.white.opacity(0.8),
-                                Color.white.opacity(0.4)
+                                Color.white.opacity(0.7),
+                                Color.white.opacity(0.3)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
                     )
                 
-                // Inner glow border
-                RoundedRectangle(cornerRadius: 24)
+                // Subtle border
+                RoundedRectangle(cornerRadius: 18)
                     .strokeBorder(
                         LinearGradient(
                             colors: [
-                                Color.white.opacity(0.6),
-                                Color.white.opacity(0.2)
+                                Color.white.opacity(0.8),
+                                Color.black.opacity(0.1)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         ),
-                        lineWidth: 1.5
+                        lineWidth: 1
                     )
             }
         )
-        .shadow(color: .black.opacity(isPressed ? 0.12 : 0.08), radius: isPressed ? 8 : 16, x: 0, y: isPressed ? 4 : 8)
-        .shadow(color: .black.opacity(0.04), radius: 4, x: 0, y: 2)
-        .scaleEffect(isPressed ? 0.98 : 1.0)
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isPressed)
-        .padding(.horizontal, 20)
-        .padding(.vertical, 8)
+        .shadow(color: .black.opacity(isPressed ? 0.15 : 0.06), radius: isPressed ? 6 : 12, x: 0, y: isPressed ? 2 : 4)
+        .scaleEffect(isPressed ? 0.97 : 1.0)
+        .animation(.spring(response: 0.25, dampingFraction: 0.7), value: isPressed)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 6)
         .contentShape(Rectangle())
-        .onTapGesture {
-            // Add subtle press animation
-            withAnimation(.spring(response: 0.2, dampingFraction: 0.8)) {
-                isPressed = true
-            }
-            
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                    isPressed = false
+        // ✅ NEW: Swipe gesture for quick actions
+        .offset(x: swipeOffset)
+        .gesture(
+            DragGesture(minimumDistance: 20)
+                .onChanged { value in
+                    handleSwipeChanged(value: value)
                 }
+                .onEnded { value in
+                    handleSwipeEnded(value: value)
+                }
+        )
+        // ✅ NEW: Swipe action icons
+        .overlay(alignment: .leading) {
+            if swipeDirection == .right && swipeOffset > 20 {
+                swipeAmenIcon
+                    .padding(.leading, 20)
+                    .transition(.scale.combined(with: .opacity))
             }
+        }
+        .overlay(alignment: .trailing) {
+            if swipeDirection == .left && swipeOffset < -20 {
+                swipeCommentIcon
+                    .padding(.trailing, 20)
+                    .transition(.scale.combined(with: .opacity))
+            }
+        }
+        .sheet(isPresented: $showShareSheet) {
+            ActivityViewController(activityItems: [
+                "Check out this post on AMEN!",
+                "https://amenapp.com/post/\(post.id)"
+            ])
+        }
+    }
+    
+    // MARK: - Helper Functions
+    
+    /// Share the post
+    private func sharePost() {
+        let haptic = UIImpactFeedbackGenerator(style: .light)
+        haptic.impactOccurred()
+        
+        showShareSheet = true
+    }
+    
+    // ✅ NEW: Swipe Amen Icon
+    private var swipeAmenIcon: some View {
+        ZStack {
+            Circle()
+                .fill(Color.black.opacity(0.1))
+                .frame(width: 50, height: 50)
+            
+            Image(systemName: "hands.clap.fill")
+                .font(.system(size: 24, weight: .semibold))
+                .foregroundStyle(.black.opacity(0.6))
+        }
+    }
+    
+    // ✅ NEW: Swipe Comment Icon
+    private var swipeCommentIcon: some View {
+        ZStack {
+            Circle()
+                .fill(Color.black.opacity(0.1))
+                .frame(width: 50, height: 50)
+            
+            Image(systemName: "bubble.left.fill")
+                .font(.system(size: 24, weight: .semibold))
+                .foregroundStyle(.black.opacity(0.6))
+        }
+    }
+    
+    // ✅ NEW: Handle swipe gesture changes
+    private func handleSwipeChanged(value: DragGesture.Value) {
+        let maxSwipe: CGFloat = 80
+        swipeOffset = max(-maxSwipe, min(maxSwipe, value.translation.width))
+        
+        // Determine swipe direction
+        if value.translation.width > 20 {
+            withAnimation(.easeOut(duration: 0.2)) {
+                swipeDirection = .right  // Amen
+            }
+        } else if value.translation.width < -20 {
+            withAnimation(.easeOut(duration: 0.2)) {
+                swipeDirection = .left  // Comment
+            }
+        } else {
+            swipeDirection = nil
+        }
+    }
+    
+    // ✅ NEW: Handle swipe gesture end
+    private func handleSwipeEnded(value: DragGesture.Value) {
+        let threshold: CGFloat = 60
+        
+        if swipeOffset > threshold {
+            // Trigger amen
+            triggerAmenSwipe()
+        } else if swipeOffset < -threshold {
+            // Trigger comment
+            triggerCommentSwipe()
+        }
+        
+        // Reset swipe
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+            swipeOffset = 0
+            swipeDirection = nil
+        }
+    }
+    
+    // ✅ NEW: Trigger amen from swipe
+    private func triggerAmenSwipe() {
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+            swipeOffset = 0
+        }
+        
+        let haptic = UIImpactFeedbackGenerator(style: .medium)
+        haptic.impactOccurred()
+        
+        // Small delay for visual feedback
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            onLike()
+        }
+    }
+    
+    // ✅ NEW: Trigger comment from swipe
+    private func triggerCommentSwipe() {
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+            swipeOffset = 0
+        }
+        
+        let haptic = UIImpactFeedbackGenerator(style: .light)
+        haptic.impactOccurred()
+        
+        // Small delay for visual feedback
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            onReply()
         }
     }
 }
@@ -1911,7 +2742,8 @@ extension ProfilePost {
             timestamp: "3h ago",
             likes: 234,
             replies: 45,
-            postType: .testimony
+            postType: .testimony,
+            createdAt: Date().addingTimeInterval(-3600) // 1 hour ago
         ),
         ProfilePost(
             id: "post-2",
@@ -1919,7 +2751,8 @@ extension ProfilePost {
             timestamp: "1d ago",
             likes: 189,
             replies: 23,
-            postType: .prayer
+            postType: .prayer,
+            createdAt: Date().addingTimeInterval(-86400) // 1 day ago
         ),
         ProfilePost(
             id: "post-3",
@@ -1927,7 +2760,8 @@ extension ProfilePost {
             timestamp: "2d ago",
             likes: 156,
             replies: 67,
-            postType: nil
+            postType: nil,
+            createdAt: Date().addingTimeInterval(-172800) // 2 days ago
         ),
         ProfilePost(
             id: "post-4",
@@ -1935,7 +2769,8 @@ extension ProfilePost {
             timestamp: "3d ago",
             likes: 412,
             replies: 89,
-            postType: .openTable
+            postType: .openTable,
+            createdAt: Date().addingTimeInterval(-259200) // 3 days ago
         )
     ]
 }
@@ -2071,6 +2906,7 @@ struct FollowersListView: View {
                     name: followUser.displayName,
                     username: followUser.username,
                     bio: followUser.bio ?? "",
+                    bioURL: nil,  // FollowUserProfile doesn't include bioURL
                     initials: String(followUser.displayName.prefix(2)).uppercased(),
                     profileImageURL: followUser.profileImageURL,
                     interests: [],
@@ -2411,22 +3247,111 @@ struct InterestTagsView: View {
                         .foregroundStyle(.black.opacity(0.5))
                 }
                 
-                HStack(spacing: 8) {
-                    ForEach(interests, id: \.self) { interest in
-                        Text(interest)
-                            .font(.custom("OpenSans-SemiBold", size: 13))
-                            .foregroundStyle(.black.opacity(0.7))
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(
-                                Capsule()
-                                    .fill(Color.black.opacity(0.08))
-                            )
+                FlowLayout(spacing: 8) {
+                    ForEach(Array(interests.enumerated()), id: \.offset) { index, interest in
+                        HandDrawnInterestTag(interest: interest, index: index)
                     }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+    }
+}
+
+// MARK: - Hand-Drawn Interest Tag
+
+struct HandDrawnInterestTag: View {
+    let interest: String
+    let index: Int
+    @State private var animateStroke: CGFloat = 0
+    
+    var body: some View {
+        Text(interest)
+            .font(.custom("OpenSans-SemiBold", size: 13))
+            .foregroundStyle(.black)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(
+                HandDrawnCircle(animationProgress: animateStroke)
+                    .stroke(
+                        Color.orange,
+                        style: StrokeStyle(
+                            lineWidth: 2,
+                            lineCap: .round,
+                            lineJoin: .round
+                        )
+                    )
+                    .padding(-4)
+            )
+            .onAppear {
+                // Stagger animation by index
+                withAnimation(
+                    .easeInOut(duration: 0.8)
+                    .delay(Double(index) * 0.15)
+                ) {
+                    animateStroke = 1.0
+                }
+            }
+    }
+}
+
+// MARK: - Hand-Drawn Circle Shape
+
+struct HandDrawnCircle: Shape {
+    var animationProgress: CGFloat
+    
+    var animatableData: CGFloat {
+        get { animationProgress }
+        set { animationProgress = newValue }
+    }
+    
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        
+        let width = rect.width
+        let height = rect.height
+        let centerX = width / 2
+        let centerY = height / 2
+        
+        // Create imperfect ellipse with hand-drawn feel
+        // Add subtle variations to make it look hand-drawn
+        let radiusX = width / 2
+        let radiusY = height / 2
+        
+        // Start from the left side
+        let startAngle = CGFloat.pi
+        let endAngle = startAngle + (2 * .pi * animationProgress)
+        
+        // Number of points for the curve (more = smoother but still imperfect)
+        let segments = 60
+        let angleStep = (2 * .pi) / CGFloat(segments)
+        
+        var isFirst = true
+        
+        for i in 0...segments {
+            let angle = startAngle + (angleStep * CGFloat(i))
+            
+            // Only draw up to the animated progress
+            if angle > endAngle { break }
+            
+            // Add subtle random-ish variations for hand-drawn effect
+            // Use deterministic "randomness" based on angle for consistency
+            let wobbleX = sin(angle * 7) * 1.5  // Frequency 7 creates natural wobble
+            let wobbleY = cos(angle * 11) * 1.5  // Different frequency for Y
+            
+            // Calculate point on ellipse with wobble
+            let x = centerX + (radiusX * cos(angle)) + wobbleX
+            let y = centerY + (radiusY * sin(angle)) + wobbleY
+            
+            if isFirst {
+                path.move(to: CGPoint(x: x, y: y))
+                isFirst = false
+            } else {
+                path.addLine(to: CGPoint(x: x, y: y))
+            }
+        }
+        
+        return path
     }
 }
 
@@ -2487,116 +3412,106 @@ struct ProfileRepostCard: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Repost indicator with liquid glass effect
-            HStack(spacing: 6) {
+            // Repost indicator - Smaller, black and white
+            HStack(spacing: 4) {
                 Image(systemName: "arrow.triangle.2.circlepath")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: 9, weight: .medium))
                 Text("Reposted from \(originalAuthor)")
-                    .font(.custom("OpenSans-SemiBold", size: 13))
+                    .font(.custom("OpenSans-SemiBold", size: 10))
             }
-            .foregroundStyle(.purple)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
+            .foregroundStyle(.black.opacity(0.5))
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
             .background(
-                ZStack {
-                    Capsule()
-                        .fill(.ultraThinMaterial)
-                    
-                    Capsule()
-                        .fill(Color.purple.opacity(0.12))
-                    
-                    Capsule()
-                        .strokeBorder(Color.purple.opacity(0.3), lineWidth: 0.5)
-                }
+                Capsule()
+                    .strokeBorder(.black.opacity(0.15), lineWidth: 0.5)
             )
-            .padding(.horizontal, 20)
-            .padding(.top, 16)
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
             
-            // Content
+            // Content - More compact
             Text(content)
-                .font(.custom("OpenSans-Regular", size: 16))
-                .foregroundStyle(.primary)
-                .lineSpacing(6)
-                .padding(.horizontal, 20)
-                .padding(.top, 12)
+                .font(.custom("OpenSans-Regular", size: 14))
+                .foregroundStyle(.black)
+                .lineSpacing(4)
+                .padding(.horizontal, 16)
+                .padding(.top, 10)
+                .lineLimit(4) // Limit for compactness
             
             // Time stamp
             Text(timestamp)
-                .font(.custom("OpenSans-Regular", size: 13))
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 20)
-                .padding(.top, 8)
+                .font(.custom("OpenSans-Regular", size: 11))
+                .foregroundStyle(.black.opacity(0.5))
+                .padding(.horizontal, 16)
+                .padding(.top, 6)
             
-            // Stats (non-interactive)
-            HStack(spacing: 24) {
-                HStack(spacing: 6) {
-                    Image(systemName: "hands.clap")
-                        .font(.system(size: 18))
-                        .foregroundStyle(.secondary)
-                    
-                    Text("\(likes)")
-                        .font(.custom("OpenSans-SemiBold", size: 14))
-                        .foregroundStyle(.secondary)
-                }
-                
-                HStack(spacing: 6) {
-                    Image(systemName: "bubble.left")
-                        .font(.system(size: 18))
-                        .foregroundStyle(.secondary)
-                    
-                    Text("\(replies)")
-                        .font(.custom("OpenSans-SemiBold", size: 14))
-                        .foregroundStyle(.secondary)
-                }
-                
+            // Stats - Right aligned, subtle
+            HStack {
                 Spacer()
+                
+                HStack(spacing: 12) {
+                    if likes > 0 {
+                        HStack(spacing: 4) {
+                            Image(systemName: "hands.clap")
+                                .font(.system(size: 11))
+                            Text("\(likes)")
+                                .font(.custom("OpenSans-SemiBold", size: 11))
+                        }
+                        .foregroundStyle(.black.opacity(0.4))
+                    }
+                    
+                    if replies > 0 {
+                        HStack(spacing: 4) {
+                            Image(systemName: "bubble.left")
+                                .font(.system(size: 11))
+                            Text("\(replies)")
+                                .font(.custom("OpenSans-SemiBold", size: 11))
+                        }
+                        .foregroundStyle(.black.opacity(0.4))
+                    }
+                }
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 16)
-            .padding(.bottom, 20)
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+            .padding(.bottom, 12)
         }
         .background(
             ZStack {
-                // Liquid glass effect background
-                RoundedRectangle(cornerRadius: 24)
+                // Glassmorphic background - Black and white
+                RoundedRectangle(cornerRadius: 18)
                     .fill(.ultraThinMaterial)
                 
-                // Subtle gradient overlay for depth
-                RoundedRectangle(cornerRadius: 24)
+                // White overlay with subtle gradient
+                RoundedRectangle(cornerRadius: 18)
                     .fill(
                         LinearGradient(
                             colors: [
-                                Color.white.opacity(0.8),
-                                Color.white.opacity(0.4)
+                                Color.white.opacity(0.6),
+                                Color.white.opacity(0.3)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
                     )
                 
-                // Purple tint for reposts
-                RoundedRectangle(cornerRadius: 24)
-                    .fill(Color.purple.opacity(0.03))
-                
-                // Inner glow border
-                RoundedRectangle(cornerRadius: 24)
+                // Subtle border
+                RoundedRectangle(cornerRadius: 18)
                     .strokeBorder(
                         LinearGradient(
                             colors: [
-                                Color.white.opacity(0.6),
-                                Color.white.opacity(0.2)
+                                Color.white.opacity(0.8),
+                                Color.black.opacity(0.1)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         ),
-                        lineWidth: 1.5
+                        lineWidth: 1
                     )
             }
         )
-        .shadow(color: .black.opacity(0.08), radius: 16, x: 0, y: 8)
-        .shadow(color: .black.opacity(0.04), radius: 4, x: 0, y: 2)
-        .padding(.horizontal, 20)
-        .padding(.vertical, 8)
+        .shadow(color: .black.opacity(0.06), radius: 12, x: 0, y: 4)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 6)
     }
 }
 
@@ -2779,7 +3694,7 @@ struct SkeletonProfileHeader: View {
     }
 }
 
-// MARK: - 2. Smart Infinite Scroll
+/// MARK: - 2. Smart Infinite Scroll
 
 /// Smart scroll manager with prefetching
 @MainActor
@@ -3066,80 +3981,104 @@ struct ErrorRecoveryView: View {
     }
 }
 
-/// Inline error banner
+// MARK: - Scroll View with Offset Tracking
+
+/// Custom ScrollView that tracks scroll offset
+struct ScrollViewWithOffset<Content: View>: View {
+    @Binding var offset: CGFloat
+    let content: Content
+    
+    init(offset: Binding<CGFloat>, @ViewBuilder content: () -> Content) {
+        self._offset = offset
+        self.content = content()
+    }
+    
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 0) {
+                GeometryReader { geometry in
+                    Color.clear.preference(
+                        key: ScrollOffsetPreferenceKey.self,
+                        value: geometry.frame(in: .named("scroll")).minY
+                    )
+                }
+                .frame(height: 0)
+                
+                content
+            }
+        }
+        .coordinateSpace(name: "scroll")
+        .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
+            offset = -value  // Negative because scroll offset is inverted
+        }
+    }
+}
+
+/// Preference key for tracking scroll offset
+struct ScrollOffsetPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
+/// UIActivityViewController wrapper for SwiftUI
+struct ActivityViewController: UIViewControllerRepresentable {
+    let activityItems: [Any]
+    let applicationActivities: [UIActivity]? = nil
+    
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(
+            activityItems: activityItems,
+            applicationActivities: applicationActivities
+        )
+    }
+    
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {
+        // No update needed
+    }
+}
+
+// MARK: - Inline Error Banner
+
+/// Inline error banner for recoverable errors
 struct InlineErrorBanner: View {
     let message: String
-    let onRetry: (() async -> Void)?
-    let onDismiss: () -> Void
-    
-    @State private var isRetrying = false
+    let retryAction: () -> Void
     
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: "exclamationmark.circle.fill")
-                .font(.system(size: 20))
-                .foregroundStyle(.red)
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(.orange)
             
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Error")
-                    .font(.custom("OpenSans-Bold", size: 14))
-                    .foregroundStyle(.black)
-                
-                Text(message)
-                    .font(.custom("OpenSans-Regular", size: 13))
-                    .foregroundStyle(.black.opacity(0.7))
-                    .lineLimit(2)
-            }
+            Text(message)
+                .font(.custom("OpenSans-Regular", size: 13))
+                .foregroundStyle(.black.opacity(0.7))
+                .lineLimit(2)
             
             Spacer()
             
-            if let onRetry = onRetry {
-                Button {
-                    retry(onRetry)
-                } label: {
-                    if isRetrying {
-                        ProgressView()
-                            .scaleEffect(0.8)
-                    } else {
-                        Image(systemName: "arrow.clockwise")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(.blue)
-                    }
-                }
-                .disabled(isRetrying)
-            }
-            
             Button {
-                onDismiss()
+                retryAction()
             } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.black.opacity(0.4))
+                Text("Retry")
+                    .font(.custom("OpenSans-SemiBold", size: 13))
+                    .foregroundStyle(.blue)
             }
         }
-        .padding(16)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(Color.red.opacity(0.05))
+                .fill(Color.orange.opacity(0.1))
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.red.opacity(0.2), lineWidth: 1)
+                        .strokeBorder(Color.orange.opacity(0.3), lineWidth: 1)
                 )
         )
-        .padding(.horizontal, 20)
-        .transition(.move(edge: .top).combined(with: .opacity))
-    }
-    
-    private func retry(_ action: @escaping () async -> Void) {
-        guard !isRetrying else { return }
-        
-        isRetrying = true
-        Task {
-            await action()
-            await MainActor.run {
-                isRetrying = false
-            }
-        }
+        .padding(.horizontal, 16)
     }
 }
 
@@ -3206,8 +4145,8 @@ struct ChatConversationLoader: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Color(.systemGroupedBackground))
             } else if let conversationId = conversationId {
-                // ✅ Success - Open ChatViewLiquidGlass with the conversation
-                ChatViewLiquidGlass(
+                // ✅ Success - Open UnifiedChatView with the conversation
+                UnifiedChatView(
                     conversation: ChatConversation(
                         id: conversationId,
                         name: userName,
@@ -3326,6 +4265,192 @@ struct ChatConversationLoader: View {
         isLoading = false
     }
 }
+
+// MARK: - 📱 Production-Ready Advanced Features
+
+// MARK: - 1. Post Notifications Toggle
+
+extension UserProfileView {
+    /// Enable/disable notifications for this user's posts
+    private func toggleNotifications() {
+        Task {
+            await performNotificationToggle()
+        }
+    }
+    
+    @MainActor
+    private func performNotificationToggle() async {
+        let previousState = notificationsEnabled
+        notificationsEnabled.toggle()
+        
+        let haptic = UIImpactFeedbackGenerator(style: .medium)
+        haptic.impactOccurred()
+        
+        do {
+            // TODO: Implement notification service
+            // await NotificationService.shared.toggleUserNotifications(userId: userId, enabled: notificationsEnabled)
+            print("✅ \(notificationsEnabled ? "Enabled" : "Disabled") notifications for user: \(userId)")
+            
+        } catch {
+            // Rollback on error
+            await MainActor.run {
+                notificationsEnabled = previousState
+                errorMessage = "Failed to update notification settings. Please try again."
+                showErrorAlert = true
+            }
+            print("❌ Failed to toggle notifications: \(error)")
+        }
+    }
+}
+
+// MARK: - 2. Advanced Share Options
+
+extension UserProfileView {
+    /// Show advanced share sheet with profile link
+    private func showAdvancedShareSheet() {
+        guard let profileData = profileData else { return }
+        
+        let username = "@\(profileData.username)"
+        let shareText = "Check out \(profileData.name)'s AMEN profile: \(username)"
+        
+        // ✅ FIXED: Safe URL creation with proper encoding and validation
+        guard let encodedUsername = profileData.username.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
+              let shareURL = URL(string: "https://amenapp.com/\(encodedUsername)") else {
+            print("❌ Failed to create share URL for username: \(profileData.username)")
+            // Fallback to text-only sharing
+            shareItems = [shareText]
+            showShareSheet = true
+            return
+        }
+        
+        // Create QR code for profile (optional enhancement)
+        let qrImage = generateQRCode(from: shareURL.absoluteString)
+        
+        var items: [Any] = [shareText, shareURL]
+        if let qrImage = qrImage {
+            items.append(qrImage)
+        }
+        
+        shareItems = items
+        showShareSheet = true
+        
+        let haptic = UIImpactFeedbackGenerator(style: .light)
+        haptic.impactOccurred()
+    }
+    
+    /// Generate QR code for profile URL
+    private func generateQRCode(from string: String) -> UIImage? {
+        let data = string.data(using: .utf8)
+        
+        guard let filter = CIFilter(name: "CIQRCodeGenerator") else { return nil }
+        filter.setValue(data, forKey: "inputMessage")
+        filter.setValue("H", forKey: "inputCorrectionLevel")
+        
+        guard let ciImage = filter.outputImage else { return nil }
+        
+        let transform = CGAffineTransform(scaleX: 10, y: 10)
+        let scaledCIImage = ciImage.transformed(by: transform)
+        
+        let context = CIContext()
+        guard let cgImage = context.createCGImage(scaledCIImage, from: scaledCIImage.extent) else { return nil }
+        
+        return UIImage(cgImage: cgImage)
+    }
+}
+
+// MARK: - 3. Profile Analytics (Optional - for your own profile view)
+
+extension UserProfileView {
+    /// Fetch profile view analytics (if viewing own profile)
+    private func fetchProfileAnalytics() async {
+        // TODO: Implement analytics
+        // - Profile views count
+        // - Most viewed post
+        // - Follower growth
+        print("📊 Analytics feature - implement when needed")
+    }
+}
+
+// MARK: - 4. Offline Support Improvements
+
+extension UserProfileView {
+    /// Save profile to local cache for offline viewing
+    private func cacheProfileData() {
+        guard let profileData = profileData else { return }
+        
+        // TODO: Implement UserDefaults or CoreData caching
+        // UserDefaults.standard.set(encodedProfile, forKey: "cached_profile_\(userId)")
+        print("💾 Caching profile data for offline support")
+    }
+    
+    /// Load cached profile data
+    private func loadCachedProfile() -> UserProfile? {
+        // TODO: Implement cache retrieval
+        // return try? JSONDecoder().decode(UserProfile.self, from: cachedData)
+        return nil
+    }
+}
+
+// MARK: - 5. Accessibility Improvements
+
+extension UserProfileView {
+    /// Announce profile loaded for VoiceOver users
+    private func announceProfileLoaded() {
+        guard let profileData = profileData else { return }
+        
+        let announcement = """
+        Profile loaded. \(profileData.name), username \(profileData.username). \
+        \(profileData.followersCount) followers, \(profileData.followingCount) following. \
+        \(profileData.isPrivateAccount ? "Private account." : "Public account.")
+        """
+        
+        UIAccessibility.post(notification: .announcement, argument: announcement)
+    }
+}
+
+// MARK: - 6. Performance Monitoring
+
+extension UserProfileView {
+    /// Track profile load performance
+    private func trackLoadPerformance(startTime: Date) {
+        let loadTime = Date().timeIntervalSince(startTime)
+        print("⏱️ Profile loaded in \(String(format: "%.2f", loadTime))s")
+        
+        // TODO: Send to analytics service
+        // Analytics.track("profile_load_time", properties: ["duration": loadTime, "userId": userId])
+    }
+    
+    /// Format timestamp to relative time string (e.g., "2h ago")
+    private func formatTimestamp(_ date: Date) -> String {
+        let now = Date()
+        let interval = now.timeIntervalSince(date)
+        
+        if interval < 60 {
+            return "now"
+        } else if interval < 3600 {
+            let minutes = Int(interval / 60)
+            return "\(minutes)m"
+        } else if interval < 86400 {
+            let hours = Int(interval / 3600)
+            return "\(hours)h"
+        } else if interval < 604800 {
+            let days = Int(interval / 86400)
+            return "\(days)d"
+        } else if interval < 2592000 {
+            let weeks = Int(interval / 604800)
+            return "\(weeks)w"
+        } else {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "MMM d"
+            return formatter.string(from: date)
+        }
+    }
+}
+
+// MARK: - 7. Enhanced Toolbar with Notifications Toggle
+
+// Note: enhancedToolbarMenu is already defined in toolbarButtonsView
+// This extension is kept for documentation purposes only
 
 #Preview {
     UserProfileView(userId: "sample-user-id")

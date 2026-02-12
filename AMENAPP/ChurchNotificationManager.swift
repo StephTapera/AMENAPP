@@ -28,6 +28,64 @@ class ChurchNotificationManager: NSObject, ObservableObject {
         }
     }
     
+    func setupNotificationCategories() {
+        // Define notification actions
+        let getDirectionsAction = UNNotificationAction(
+            identifier: "GET_DIRECTIONS",
+            title: "Get Directions",
+            options: .foreground
+        )
+        
+        let dismissAction = UNNotificationAction(
+            identifier: "DISMISS",
+            title: "Dismiss",
+            options: .destructive
+        )
+        
+        let viewDetailsAction = UNNotificationAction(
+            identifier: "VIEW_DETAILS",
+            title: "View Details",
+            options: .foreground
+        )
+        
+        let checkInAction = UNNotificationAction(
+            identifier: "CHECK_IN",
+            title: "Check In",
+            options: .foreground
+        )
+        
+        // Define notification categories
+        let serviceReminderCategory = UNNotificationCategory(
+            identifier: "SERVICE_REMINDER",
+            actions: [getDirectionsAction, dismissAction],
+            intentIdentifiers: [],
+            options: []
+        )
+        
+        let morningReminderCategory = UNNotificationCategory(
+            identifier: "MORNING_REMINDER",
+            actions: [viewDetailsAction, dismissAction],
+            intentIdentifiers: [],
+            options: []
+        )
+        
+        let arrivalCategory = UNNotificationCategory(
+            identifier: "ARRIVAL",
+            actions: [checkInAction, dismissAction],
+            intentIdentifiers: [],
+            options: []
+        )
+        
+        // Register all categories
+        UNUserNotificationCenter.current().setNotificationCategories([
+            serviceReminderCategory,
+            morningReminderCategory,
+            arrivalCategory
+        ])
+        
+        print("✅ Church notification categories registered")
+    }
+    
     func checkAuthorizationStatus() async -> Bool {
         let settings = await UNUserNotificationCenter.current().notificationSettings()
         let authorized = settings.authorizationStatus == .authorized
@@ -61,28 +119,6 @@ class ChurchNotificationManager: NSObject, ObservableObject {
         content.body = "\(church.name) service starts in \(beforeMinutes) minutes"
         content.sound = .default
         content.categoryIdentifier = "SERVICE_REMINDER"
-        
-        // Add action buttons
-        let getDirectionsAction = UNNotificationAction(
-            identifier: "GET_DIRECTIONS",
-            title: "Get Directions",
-            options: .foreground
-        )
-        
-        let dismissAction = UNNotificationAction(
-            identifier: "DISMISS",
-            title: "Dismiss",
-            options: .destructive
-        )
-        
-        let category = UNNotificationCategory(
-            identifier: "SERVICE_REMINDER",
-            actions: [getDirectionsAction, dismissAction],
-            intentIdentifiers: [],
-            options: []
-        )
-        
-        UNUserNotificationCenter.current().setNotificationCategories([category])
         
         // Calculate trigger time (for demo, we'll use 1 hour before next Sunday)
         let trigger = createServiceTrigger(serviceTime: church.serviceTime, beforeMinutes: beforeMinutes)

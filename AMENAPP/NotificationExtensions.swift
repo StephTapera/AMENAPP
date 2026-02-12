@@ -32,4 +32,11 @@ extension Notification.Name {
     
     /// Posted when a post is reposted
     static let postReposted = Notification.Name("postReposted")
+    
+    /// Posted when a follow state changes
+    /// UserInfo should contain: ["userId": String, "isFollowing": Bool]
+    static let followStateChanged = Notification.Name("followStateChanged")
+
+    /// Posted to open the create post sheet from anywhere in the app
+    static let openCreatePost = Notification.Name("openCreatePost")
 }

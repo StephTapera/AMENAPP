@@ -71,24 +71,23 @@ extension FirebaseMessagingService {
         
         // Check follow status
         let followStatus = try await checkFollowStatus(userId1: currentUserId, userId2: userId)
-        
+
         // If recipient requires follow and current user doesn't follow them
         if recipientSettings.requireFollowToMessage && !followStatus.user1FollowsUser2 {
             return (false, false, "You must follow this user to message them")
         }
-        
-        // If they follow each other, can message directly
+
+        // ✅ MUTUAL FOLLOWS → Direct messaging (no request needed)
         if followStatus.user1FollowsUser2 && followStatus.user2FollowsUser1 {
-            return (true, false, nil) // Direct messaging allowed
+            return (true, false, nil) // Direct messaging allowed - both follow each other
         }
-        
-        // If current user follows them but not vice versa
-        if followStatus.user1FollowsUser2 {
-            return (true, false, nil) // Can message directly (one-way follow)
-        }
-        
-        // Otherwise, requires message request
-        return (true, true, nil)
+
+        // ✅ NOT MUTUAL → Message Request (gated)
+        // This includes:
+        // - A follows B, but B doesn't follow A → Request
+        // - Neither follows the other → Request
+        // - B follows A, but A doesn't follow B → Request
+        return (true, true, nil) // Requires message request for non-mutual follows
     }
     
     /// Get user's privacy settings
@@ -116,13 +115,32 @@ extension FirebaseMessagingService {
             .getDocuments()
         
         var requests: [MessagingRequest] = []
+        var seenConversationIds = Set<String>() // Prevent duplicates
         
         for doc in snapshot.documents {
             guard let conversation = try? doc.data(as: FirebaseConversation.self) else { continue }
             
+            // Prevent duplicate entries
+            guard !seenConversationIds.contains(doc.documentID) else {
+                print("⚠️ Skipping duplicate conversation: \(doc.documentID)")
+                continue
+            }
+            
             // Only show requests where current user is the recipient (not sender)
+            // AND ensure there's at least one message or a clear requester
             guard let requesterId = conversation.requesterId,
-                  requesterId != currentUserId else { continue }
+                  requesterId != currentUserId else {
+                print("⚠️ Skipping conversation with no requester or user is requester: \(doc.documentID)")
+                continue
+            }
+            
+            // Skip empty conversations with no messages (not real requests yet)
+            guard !conversation.lastMessageText.isEmpty else {
+                print("⚠️ Skipping empty conversation (no messages): \(doc.documentID)")
+                continue
+            }
+            
+            seenConversationIds.insert(doc.documentID)
             
             let isRead = conversation.requestReadBy?.contains(currentUserId) ?? false
             
@@ -141,6 +159,7 @@ extension FirebaseMessagingService {
             requests.append(request)
         }
         
+        print("📬 Loaded \(requests.count) message requests (filtered from \(snapshot.documents.count) pending conversations)")
         return requests
     }
     
@@ -213,13 +232,29 @@ extension FirebaseMessagingService {
                 }
                 
                 var requests: [MessagingRequest] = []
+                var seenConversationIds = Set<String>() // Prevent duplicates
                 
                 for doc in snapshot.documents {
                     guard let conversation = try? doc.data(as: FirebaseConversation.self) else { continue }
                     
+                    // Prevent duplicate entries
+                    guard !seenConversationIds.contains(doc.documentID) else {
+                        continue
+                    }
+                    
                     // Only show requests where current user is the recipient (not sender)
+                    // AND ensure there's at least one message
                     guard let requesterId = conversation.requesterId,
-                          requesterId != userId else { continue }
+                          requesterId != userId else {
+                        continue
+                    }
+                    
+                    // Skip empty conversations with no messages (not real requests yet)
+                    guard !conversation.lastMessageText.isEmpty else {
+                        continue
+                    }
+                    
+                    seenConversationIds.insert(doc.documentID)
                     
                     let isRead = conversation.requestReadBy?.contains(userId) ?? false
                     
@@ -238,6 +273,7 @@ extension FirebaseMessagingService {
                     requests.append(request)
                 }
                 
+                print("📬 Real-time: \(requests.count) message requests")
                 onChange(requests)
             }
         

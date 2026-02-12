@@ -1,0 +1,32 @@
+import express from 'express';
+
+const app = express();
+app.use(express.json());
+
+// Health check endpoint
+app.get('/', (req, res) => {
+  res.json({
+    status: 'healthy',
+    service: 'AMEN Genkit AI',
+    version: '1.0.0',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Simple test endpoint
+app.post('/bibleChat', (req, res) => {
+  const { message } = req.body;
+  res.json({
+    result: {
+      response: `You asked: "${message}". AI features will be enhanced with Google AI API key.`
+    }
+  });
+});
+
+// IMPORTANT: Use PORT from environment (Cloud Run provides this)
+const PORT = process.env.PORT || 8080;
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🔥 AMEN Genkit Server running on port ${PORT}`);
+  console.log(`📍 Health check: http://localhost:${PORT}/`);
+});
