@@ -20,8 +20,8 @@ class AuthenticationViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String?
     @Published var showError = false
-    @Published var showWelcomeValues = false
-    @Published var showAppTutorial = false
+    @Published var showWelcomeToAMEN = false  // NEW: Exciting welcome screen
+    // @Published var showAppTutorial = false  // DISABLED - App tutorial removed
     
     // MARK: - Private Properties
     
@@ -253,25 +253,48 @@ class AuthenticationViewModel: ObservableObject {
     
     // MARK: - Delete Account
     
-    func deleteAccount(password: String) async throws {
+    /// Delete account - works for both password-based and Apple/Google Sign-In users
+    func deleteAccount(password: String?) async throws {
         print("🗑️ Deleting account")
         
         guard let user = Auth.auth().currentUser else {
             throw NSError(domain: "AuthError", code: -1, userInfo: [NSLocalizedDescriptionKey: "No user is currently signed in"])
         }
         
-        guard let email = user.email else {
-            throw NSError(domain: "AuthError", code: -1, userInfo: [NSLocalizedDescriptionKey: "User email not found"])
-        }
-        
         let userId = user.uid
         
-        // Re-authenticate user with password
-        let credential = EmailAuthProvider.credential(withEmail: email, password: password)
+        // Determine authentication provider
+        let isAppleSignIn = user.providerData.contains { $0.providerID == "apple.com" }
+        let isGoogleSignIn = user.providerData.contains { $0.providerID == "google.com" }
+        let isEmailSignIn = user.providerData.contains { $0.providerID == "password" }
         
         do {
-            try await user.reauthenticate(with: credential)
-            print("✅ Re-authentication successful")
+            // Re-authenticate based on provider
+            if isAppleSignIn {
+                print("🍎 Apple Sign-In user - re-authentication not required for deletion")
+                // Apple Sign-In users can delete without re-authentication
+                // The user already confirmed with multiple steps in the UI
+            } else if isGoogleSignIn {
+                print("🔍 Google Sign-In user - re-authentication not required for deletion")
+                // Google Sign-In users can delete without re-authentication
+                // The user already confirmed with multiple steps in the UI
+            } else if isEmailSignIn {
+                // Email/password users must re-authenticate
+                guard let password = password, !password.isEmpty else {
+                    throw NSError(domain: "AuthError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Password is required for email users"])
+                }
+                
+                guard let email = user.email else {
+                    throw NSError(domain: "AuthError", code: -1, userInfo: [NSLocalizedDescriptionKey: "User email not found"])
+                }
+                
+                print("📧 Email user - re-authenticating with password")
+                let credential = EmailAuthProvider.credential(withEmail: email, password: password)
+                try await user.reauthenticate(with: credential)
+                print("✅ Re-authentication successful")
+            } else {
+                throw NSError(domain: "AuthError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Unknown authentication provider"])
+            }
             
             // Delete user data from Firestore
             try await firebaseManager.deleteUserData(userId: userId)
@@ -293,6 +316,31 @@ class AuthenticationViewModel: ObservableObject {
         }
     }
     
+    /// Check if current user signed in with Apple/Google (passwordless)
+    func isPasswordlessUser() -> Bool {
+        guard let user = Auth.auth().currentUser else { return false }
+        
+        let isAppleSignIn = user.providerData.contains { $0.providerID == "apple.com" }
+        let isGoogleSignIn = user.providerData.contains { $0.providerID == "google.com" }
+        
+        return isAppleSignIn || isGoogleSignIn
+    }
+    
+    /// Get the authentication provider name for display
+    func getAuthProviderName() -> String {
+        guard let user = Auth.auth().currentUser else { return "Unknown" }
+        
+        if user.providerData.contains(where: { $0.providerID == "apple.com" }) {
+            return "Apple ID"
+        } else if user.providerData.contains(where: { $0.providerID == "google.com" }) {
+            return "Google"
+        } else if user.providerData.contains(where: { $0.providerID == "password" }) {
+            return "Email"
+        }
+        
+        return "Unknown"
+    }
+    
     // MARK: - Complete Onboarding
     
     func completeOnboarding() {
@@ -307,18 +355,21 @@ class AuthenticationViewModel: ObservableObject {
         print("✅ Username selection completed")
     }
     
-    // MARK: - Welcome Values
+    // MARK: - Welcome to AMEN
     
-    func showWelcomeValuesScreen() {
-        showWelcomeValues = true
+    func showWelcomeToAMENScreen() {
+        showWelcomeToAMEN = true
     }
     
-    func dismissWelcomeValues() {
-        showWelcomeValues = false
+    func dismissWelcomeToAMEN() {
+        showWelcomeToAMEN = false
+        // Now goes directly to main app
     }
     
-    // MARK: - App Tutorial
+    // MARK: - App Tutorial (DISABLED)
     
+    // Tutorial feature removed - users go directly to main app after onboarding
+    /*
     func showAppTutorialScreen() {
         showAppTutorial = true
     }
@@ -326,6 +377,7 @@ class AuthenticationViewModel: ObservableObject {
     func dismissAppTutorial() {
         showAppTutorial = false
     }
+    */
     
     // MARK: - Error Handling
     

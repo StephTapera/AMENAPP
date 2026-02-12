@@ -377,12 +377,12 @@ struct MessagesScrollViewWithUnread: View {
                     GeometryReader { geo in
                         Color.clear
                             .preference(
-                                key: ScrollOffsetPreferenceKey.self,
+                                key: MessageScrollOffsetKey.self,
                                 value: geo.frame(in: .named("scroll")).minY
                             )
                     }
                 )
-                .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
+                .onPreferenceChange(MessageScrollOffsetKey.self) { value in
                     // Update isAtBottom based on scroll position
                     isAtBottom = value > -50
                 }
@@ -433,11 +433,67 @@ struct MessagesScrollViewWithUnread: View {
 
 // MARK: - Scroll Offset Preference Key
 
-struct ScrollOffsetPreferenceKey: PreferenceKey {
+struct MessageScrollOffsetKey: PreferenceKey {
     static var defaultValue: CGFloat = 0
     
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         value = nextValue()
+    }
+}
+
+// MARK: - Who Reacted Details Sheet
+
+struct WhoReactedSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let reactions: [MessageReaction]
+    let emoji: String
+    
+    private var filteredReactions: [MessageReaction] {
+        reactions.filter { $0.emoji == emoji }
+    }
+    
+    var body: some View {
+        NavigationStack {
+            List {
+                ForEach(filteredReactions) { reaction in
+                    HStack(spacing: 12) {
+                        // User avatar placeholder
+                        Circle()
+                            .fill(Color.black.opacity(0.1))
+                            .frame(width: 40, height: 40)
+                            .overlay(
+                                Text(reaction.username.prefix(2).uppercased())
+                                    .font(.custom("OpenSans-Bold", size: 14))
+                                    .foregroundStyle(.black.opacity(0.6))
+                            )
+                        
+                        Text(reaction.username)
+                            .font(.custom("OpenSans-SemiBold", size: 15))
+                            .foregroundStyle(.primary)
+                        
+                        Spacer()
+                        
+                        Text(emoji)
+                            .font(.system(size: 24))
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+            .listStyle(.plain)
+            .navigationTitle("Reactions")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 24))
+                            .foregroundStyle(.black.opacity(0.3))
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -491,3 +547,66 @@ struct ScrollOffsetPreferenceKey: PreferenceKey {
     UnreadMessageDivider()
         .background(Color(.systemGroupedBackground))
 }
+#Preview("Who Reacted Sheet") {
+    WhoReactedSheet(
+        reactions: [
+            MessageReaction(emoji: "👍", userId: "1", username: "John Doe"),
+            MessageReaction(emoji: "👍", userId: "2", username: "Jane Smith"),
+            MessageReaction(emoji: "👍", userId: "3", username: "Mike Johnson")
+        ],
+        emoji: "👍"
+    )
+}
+
+#Preview("Full Chat with Features") {
+    MessagesScrollViewWithUnread(
+        messages: [
+            AppMessage(
+                id: "1",
+                text: "Hey! How are you?",
+                isFromCurrentUser: false,
+                timestamp: Date().addingTimeInterval(-3600),
+                senderId: "user1",
+                senderName: "John",
+                isRead: true
+            ),
+            AppMessage(
+                id: "2",
+                text: "I'm good! Working on the app.",
+                isFromCurrentUser: true,
+                timestamp: Date().addingTimeInterval(-3500),
+                senderId: "currentUser",
+                senderName: "You",
+                isRead: true
+            ),
+            AppMessage(
+                id: "3",
+                text: "That's awesome! Let me know if you need help.",
+                isFromCurrentUser: false,
+                timestamp: Date().addingTimeInterval(-3400),
+                senderId: "user1",
+                senderName: "John",
+                reactions: [
+                    MessageReaction(emoji: "👍", userId: "currentUser", username: "You"),
+                    MessageReaction(emoji: "🙏", userId: "user2", username: "Jane")
+                ],
+                isRead: false
+            ),
+            AppMessage(
+                id: "4",
+                text: "Thanks! I'll let you know.",
+                isFromCurrentUser: true,
+                timestamp: Date().addingTimeInterval(-3300),
+                senderId: "currentUser",
+                senderName: "You",
+                isRead: false
+            )
+        ],
+        firstUnreadMessageId: "3",
+        showJumpToUnread: .constant(true),
+        onReact: { _, _ in },
+        onReactionTap: { _, _ in }
+    )
+    .background(Color(.systemGroupedBackground))
+}
+

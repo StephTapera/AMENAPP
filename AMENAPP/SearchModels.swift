@@ -45,5 +45,14 @@ struct AppSearchResult: Identifiable {
             case .event: return "calendar.circle.fill"
             }
         }
+        
+        var color: Color {
+            switch self {
+            case .person: return .blue
+            case .group: return .purple
+            case .post: return .orange
+            case .event: return .green
+            }
+        }
     }
 }

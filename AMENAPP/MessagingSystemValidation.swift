@@ -61,25 +61,25 @@ struct MessagingSystemValidator {
         ))
         
         // Validate MessageDeliveryStatus
-        let deliveryStatus = MessageDeliveryStatus.sent
+        let deliveryStatus: MessageDeliveryStatus = .sent
         results.append(ValidationResult(
             component: "MessageDeliveryStatus Enum",
             isValid: deliveryStatus.icon == "checkmark",
             message: "MessageDeliveryStatus has correct icon mapping"
         ))
         
-        // Validate LinkPreview
+        // Validate MessageLinkPreview
         let testURL = URL(string: "https://example.com")!
-        let linkPreview = LinkPreview(
+        let linkPreview = MessageLinkPreview(
             url: testURL,
             title: "Example",
             description: "Example description",
-            imageURL: nil
+            imageUrl: nil as String?
         )
         results.append(ValidationResult(
-            component: "LinkPreview Model",
+            component: "MessageLinkPreview Model",
             isValid: linkPreview.url == testURL,
-            message: "LinkPreview initializes correctly"
+            message: "MessageLinkPreview initializes correctly"
         ))
         
         // Validate ChatConversation

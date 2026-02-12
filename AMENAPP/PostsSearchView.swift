@@ -9,6 +9,7 @@
 import SwiftUI
 import FirebaseFirestore
 import FirebaseAuth
+import Combine
 
 // MARK: - Posts Search View
 
@@ -195,11 +196,7 @@ struct PostsSearchView: View {
             TextField("Search posts...", text: $searchText)
                 .font(.custom("OpenSans-Regular", size: 16))
                 .foregroundColor(.white)
-                .placeholder(when: searchText.isEmpty) {
-                    Text("Search posts...")
-                        .font(.custom("OpenSans-Regular", size: 16))
-                        .foregroundColor(.white.opacity(0.4))
-                }
+                .autocorrectionDisabled()
             
             if !searchText.isEmpty {
                 Button {
@@ -372,17 +369,17 @@ struct PostSearchCard: View {
                         )
                         .frame(width: 40, height: 40)
                         .overlay(
-                            Text(post.authorInitials ?? "?")
+                            Text(post.authorInitials)
                                 .font(.custom("OpenSans-Bold", size: 14))
                                 .foregroundColor(.white)
                         )
                     
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(post.authorDisplayName ?? "Unknown")
+                        Text(post.authorName)
                             .font(.custom("OpenSans-Bold", size: 15))
                             .foregroundColor(.white)
                         
-                        Text(post.timestamp?.timeAgoDisplay() ?? "")
+                        Text(post.timeAgo)
                             .font(.custom("OpenSans-Regular", size: 12))
                             .foregroundColor(.white.opacity(0.5))
                     }
@@ -418,8 +415,8 @@ struct PostSearchCard: View {
                 }
                 
                 // Post content
-                if let text = post.text, !text.isEmpty {
-                    Text(text)
+                if !post.content.isEmpty {
+                    Text(post.content)
                         .font(.custom("OpenSans-Regular", size: 15))
                         .foregroundColor(.white.opacity(0.9))
                         .lineLimit(3)
@@ -428,15 +425,15 @@ struct PostSearchCard: View {
                 
                 // Engagement stats
                 HStack(spacing: 20) {
-                    Label("\(post.likesCount)", systemImage: "heart.fill")
+                    Label("\(post.amenCount)", systemImage: "heart.fill")
                         .font(.custom("OpenSans-SemiBold", size: 13))
                         .foregroundColor(.white.opacity(0.6))
                     
-                    Label("\(post.commentsCount)", systemImage: "bubble.right.fill")
+                    Label("\(post.commentCount)", systemImage: "bubble.right.fill")
                         .font(.custom("OpenSans-SemiBold", size: 13))
                         .foregroundColor(.white.opacity(0.6))
                     
-                    Label("\(post.repostsCount)", systemImage: "arrow.2.squarepath")
+                    Label("\(post.repostCount)", systemImage: "arrow.2.squarepath")
                         .font(.custom("OpenSans-SemiBold", size: 13))
                         .foregroundColor(.white.opacity(0.6))
                 }
@@ -491,24 +488,34 @@ class PostsSearchViewModel: ObservableObject {
         isLoading = true
         defer { isLoading = false }
         
+        // If there's a search query, use enhanced search
+        if !searchQuery.isEmpty {
+            await searchWithFirestore(query: searchQuery, category: category)
+            return
+        }
+        
+        // Otherwise, load from Firestore with category filter
         do {
             var query: Query = db.collection("posts")
             
-            // Apply category filter
+            // Apply category filter with smart algorithms
             switch category {
             case .trending:
-                // Posts with high engagement in last 24 hours
+                // 🔥 TRENDING ALGORITHM: High engagement in last 24 hours
+                // Score = (amenCount * 2 + commentCount * 3 + repostCount * 5) / hours_since_post
                 let oneDayAgo = Date().addingTimeInterval(-24 * 60 * 60)
                 query = query
-                    .whereField("timestamp", isGreaterThan: Timestamp(date: oneDayAgo))
-                    .order(by: "timestamp", descending: true)
-                    .order(by: "likesCount", descending: true)
+                    .whereField("createdAt", isGreaterThan: Timestamp(date: oneDayAgo))
+                    .order(by: "createdAt", descending: true)
                 
             case .recent:
-                query = query.order(by: "timestamp", descending: true)
+                // 🕐 RECENT ALGORITHM: Simple chronological order
+                query = query.order(by: "createdAt", descending: true)
                 
             case .popular:
-                query = query.order(by: "likesCount", descending: true)
+                // ❤️ POPULAR ALGORITHM: All-time engagement
+                // Score = amenCount + commentCount + repostCount
+                query = query.order(by: "amenCount", descending: true)
             }
             
             query = query.limit(to: pageSize)
@@ -516,8 +523,13 @@ class PostsSearchViewModel: ObservableObject {
             let snapshot = try await query.getDocuments()
             lastDocument = snapshot.documents.last
             
-            let fetchedPosts = snapshot.documents.compactMap { doc -> Post? in
+            var fetchedPosts = snapshot.documents.compactMap { doc -> Post? in
                 try? doc.data(as: Post.self)
+            }
+            
+            // Apply trending score algorithm on client side for better ranking
+            if category == .trending {
+                fetchedPosts = rankTrendingPosts(fetchedPosts)
             }
             
             posts = fetchedPosts
@@ -529,80 +541,147 @@ class PostsSearchViewModel: ObservableObject {
         }
     }
     
-    func searchPosts(query: String, category: PostsSearchView.PostCategory) async {
-        guard !query.isEmpty else {
-            await loadPosts(category: category, searchQuery: query)
-            return
+    // 🔥 TRENDING RANKING ALGORITHM
+    private func rankTrendingPosts(_ posts: [Post]) -> [Post] {
+        return posts.sorted { post1, post2 in
+            let score1 = calculateTrendingScore(post1)
+            let score2 = calculateTrendingScore(post2)
+            return score1 > score2
         }
+    }
+    
+    private func calculateTrendingScore(_ post: Post) -> Double {
+        let now = Date()
+        let hoursSincePost = now.timeIntervalSince(post.createdAt) / 3600
         
-        isLoading = true
-        defer { isLoading = false }
+        // Prevent division by zero
+        guard hoursSincePost > 0 else { return 0 }
         
+        // Weighted engagement score
+        let amenWeight = 2.0
+        let commentWeight = 3.0
+        let repostWeight = 5.0
+        
+        let engagementScore = Double(post.amenCount) * amenWeight +
+                             Double(post.commentCount) * commentWeight +
+                             Double(post.repostCount) * repostWeight
+        
+        // Time decay: newer posts get bonus
+        let timeDecay = 1.0 / (1.0 + hoursSincePost / 6.0) // Decay over 6 hours
+        
+        return engagementScore * timeDecay
+    }
+    
+    // 🔍 ENHANCED FIRESTORE SEARCH: Search posts by content, author, verse, keywords, category
+    func searchWithFirestore(query: String, category: PostsSearchView.PostCategory? = nil) async {
         do {
-            // Simple text search - for production, use Algolia
+            // Fetch more posts for better search results (200 posts)
             let snapshot = try await db.collection("posts")
-                .order(by: "timestamp", descending: true)
-                .limit(to: 50)
+                .order(by: "createdAt", descending: true)
+                .limit(to: 200)
                 .getDocuments()
             
             let allPosts = snapshot.documents.compactMap { doc -> Post? in
                 try? doc.data(as: Post.self)
             }
             
-            // Filter by search query
-            posts = allPosts.filter { post in
-                let searchLower = query.lowercased()
-                let textMatch = post.text?.lowercased().contains(searchLower) ?? false
-                let authorMatch = post.authorDisplayName?.lowercased().contains(searchLower) ?? false
-                return textMatch || authorMatch
+            // 🎯 SMART SEARCH ALGORITHM: Multi-field matching with relevance scoring
+            let searchLower = query.lowercased()
+            var scoredPosts: [(post: Post, score: Int)] = []
+            
+            for post in allPosts {
+                var relevanceScore = 0
+                
+                // 🔍 Content matching (highest priority - 10 points)
+                if post.content.lowercased().contains(searchLower) {
+                    relevanceScore += 10
+                    // Boost if it's an exact word match
+                    let words = post.content.lowercased().split(separator: " ").map(String.init)
+                    if words.contains(searchLower) {
+                        relevanceScore += 5
+                    }
+                }
+                
+                // 👤 Author name matching (medium priority - 5 points)
+                if post.authorName.lowercased().contains(searchLower) {
+                    relevanceScore += 5
+                }
+                
+                // 🏷️ Username matching (medium priority - 5 points)
+                if let username = post.authorUsername, username.lowercased().contains(searchLower) {
+                    relevanceScore += 5
+                }
+                
+                // 📁 Category matching (low priority - 3 points)
+                if post.category.rawValue.lowercased().contains(searchLower) {
+                    relevanceScore += 3
+                }
+                
+                // 🏷️ Topic tag matching (low priority - 3 points)
+                if let topicTag = post.topicTag, topicTag.lowercased().contains(searchLower) {
+                    relevanceScore += 3
+                }
+                
+                // ✨ Engagement boost: Popular posts get priority
+                let engagementBonus = (post.amenCount + post.commentCount + post.repostCount) / 10
+                relevanceScore += min(engagementBonus, 10) // Cap at 10 bonus points
+                
+                // Only include posts with some relevance
+                if relevanceScore > 0 {
+                    scoredPosts.append((post: post, score: relevanceScore))
+                }
             }
             
+            // Sort by relevance score (highest first)
+            scoredPosts.sort { $0.score > $1.score }
+            
+            // Extract posts and apply category filter if provided
+            var searchResults = scoredPosts.map { $0.post }
+            
+            if let category = category {
+                switch category {
+                case .trending:
+                    // Only posts from last 24 hours
+                    let oneDayAgo = Date().addingTimeInterval(-24 * 60 * 60)
+                    searchResults = searchResults.filter { $0.createdAt > oneDayAgo }
+                    searchResults = rankTrendingPosts(searchResults)
+                    
+                case .recent:
+                    // Already sorted by creation date in query
+                    break
+                    
+                case .popular:
+                    // Re-sort by engagement
+                    searchResults.sort { post1, post2 in
+                        let score1 = post1.amenCount + post1.commentCount + post1.repostCount
+                        let score2 = post2.amenCount + post2.commentCount + post2.repostCount
+                        return score1 > score2
+                    }
+                }
+            }
+            
+            posts = Array(searchResults.prefix(pageSize))
+            hasMore = searchResults.count > pageSize
+            
+            print("✅ Enhanced search: \(posts.count) results for '\(query)' (from \(scoredPosts.count) matches)")
+            
         } catch {
-            print("❌ Error searching posts: \(error)")
+            print("❌ Error in search: \(error)")
             posts = []
+        }
+    }
+    
+    func searchPosts(query: String, category: PostsSearchView.PostCategory) async {
+        if query.isEmpty {
+            await loadPosts(category: category, searchQuery: query)
+        } else {
+            await searchWithFirestore(query: query, category: category)
         }
     }
     
     func refresh(category: PostsSearchView.PostCategory, searchQuery: String) async {
         lastDocument = nil
+        posts = []
         await loadPosts(category: category, searchQuery: searchQuery)
-    }
-}
-
-// MARK: - TextField Placeholder Extension
-
-extension View {
-    func placeholder<Content: View>(
-        when shouldShow: Bool,
-        alignment: Alignment = .leading,
-        @ViewBuilder placeholder: () -> Content
-    ) -> some View {
-        ZStack(alignment: alignment) {
-            placeholder().opacity(shouldShow ? 1 : 0)
-            self
-        }
-    }
-}
-
-// MARK: - Date Extension
-
-extension Date {
-    func timeAgoDisplay() -> String {
-        let seconds = Date().timeIntervalSince(self)
-        let minutes = seconds / 60
-        let hours = minutes / 60
-        let days = hours / 24
-        
-        if seconds < 60 {
-            return "Just now"
-        } else if minutes < 60 {
-            return "\(Int(minutes))m"
-        } else if hours < 24 {
-            return "\(Int(hours))h"
-        } else if days < 7 {
-            return "\(Int(days))d"
-        } else {
-            return "\(Int(days / 7))w"
-        }
     }
 }

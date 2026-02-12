@@ -89,7 +89,7 @@ struct UsernameSelectionView: View {
                                 .foregroundStyle(.black.opacity(0.7))
                                 .padding(.horizontal, 4)
                             
-                            CleanTextField(
+                            SimpleCleanTextField(
                                 icon: "person.fill",
                                 placeholder: "Your Name",
                                 text: $displayName,
@@ -417,45 +417,7 @@ struct UsernameSelectionView: View {
 }
 
 // MARK: - Supporting Views (Reused from SignInView)
-
-private struct CleanTextField: View {
-    let icon: String
-    let placeholder: String
-    @Binding var text: String
-    var keyboardType: UIKeyboardType = .default
-    
-    @FocusState private var isFocused: Bool
-    
-    var body: some View {
-        HStack(spacing: 14) {
-            Image(systemName: icon)
-                .font(.system(size: 16, weight: .regular))
-                .foregroundStyle(.black.opacity(0.4))
-                .frame(width: 20)
-            
-            TextField(placeholder, text: $text)
-                .font(.custom("OpenSans-Regular", size: 15))
-                .foregroundStyle(.black)
-                .autocorrectionDisabled()
-                .textInputAutocapitalization(keyboardType == .default ? .words : .never)
-                .keyboardType(keyboardType)
-                .focused($isFocused)
-        }
-        .padding(.vertical, 16)
-        .padding(.horizontal, 18)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(.white.opacity(0.8))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(
-                    isFocused ? Color.black.opacity(0.3) : Color.black.opacity(0.1),
-                    lineWidth: 1
-                )
-        )
-    }
-}
+// CleanTextField is now available from CleanTextField.swift
 
 private struct UsernameTextField: View {
     @Binding var text: String

@@ -29,19 +29,22 @@ class DailyVerseGenkitService: ObservableObject {
     nonisolated private let cacheDate = "cachedVerseDate"
     
     init() {
-        if let endpoint = Bundle.main.object(forInfoDictionaryKey: "GENKIT_ENDPOINT") as? String {
+        // Configure endpoint: Info.plist > Cloud Run (default)
+        if let endpoint = Bundle.main.object(forInfoDictionaryKey: "GENKIT_ENDPOINT") as? String, !endpoint.isEmpty {
             self.genkitEndpoint = endpoint
+            print("✅ DailyVerseGenkitService initialized with endpoint: \(endpoint)")
         } else {
-            self.genkitEndpoint = "http://localhost:3400"
-            print("⚠️ Using default Genkit endpoint for daily verse: \(self.genkitEndpoint)")
+            // Production & TestFlight: Use Cloud Run
+            self.genkitEndpoint = "https://genkit-amen-78278013543.us-central1.run.app"
+            print("✅ DailyVerseGenkitService initialized with Cloud Run endpoint")
+            
+            // 💡 For local development, you can override this in Info.plist:
+            // <key>GENKIT_ENDPOINT</key>
+            // <string>http://localhost:3400</string>
         }
         
-        print("✅ DailyVerseGenkitService initialized")
-        
-        // Load cached verse asynchronously on the main actor
-        Task {
-            await self.loadCachedVerse()
-        }
+        // ✅ FIXED: Don't call async methods in init()
+        // The view's .task modifier will handle loading
     }
     
     // MARK: - Generate Personalized Daily Verse
@@ -50,7 +53,7 @@ class DailyVerseGenkitService: ObservableObject {
     func generatePersonalizedDailyVerse(
         userContext: UserVerseContext? = nil,
         forceRefresh: Bool = false
-    ) async throws -> PersonalizedDailyVerse {
+    ) async -> PersonalizedDailyVerse {
         
         // Check cache first (only fetch once per day)
         if !forceRefresh, let cached = todayVerse, isSameDay(cached.date, Date()) {
@@ -58,11 +61,46 @@ class DailyVerseGenkitService: ObservableObject {
             return cached
         }
         
-        isGenerating = true
-        defer { isGenerating = false }
+        await MainActor.run {
+            isGenerating = true
+        }
+        
+        defer {
+            Task { @MainActor in
+                isGenerating = false
+            }
+        }
         
         print("🤖 Generating personalized daily verse...")
         
+        // ⚠️ TEMPORARY: Use fallback verse instead of calling Genkit
+        // TODO: Set up Genkit server or configure proper endpoint
+        print("⚠️ Using fallback verse (Genkit server not available)")
+        let fallbackData = createFallbackVerse()
+        
+        let verse = PersonalizedDailyVerse(
+            reference: fallbackData["reference"] as? String ?? "Philippians 4:13",
+            text: fallbackData["text"] as? String ?? "I can do all things through Christ who strengthens me.",
+            theme: fallbackData["theme"] as? String ?? "Strength",
+            reflection: fallbackData["reflection"] as? String ?? "God's strength is always available.",
+            actionPrompt: fallbackData["actionPrompt"] as? String ?? "Trust God today.",
+            relatedVerses: fallbackData["relatedVerses"] as? [String] ?? [],
+            prayerPrompt: fallbackData["prayerPrompt"] as? String ?? "Lord, strengthen me.",
+            personalizedFor: nil,
+            date: Date()
+        )
+        
+        // Cache it
+        await MainActor.run {
+            self.todayVerse = verse
+        }
+        cacheVerse(verse)
+        
+        print("✅ Fallback verse generated: \(verse.reference)")
+        
+        return verse
+        
+        /* ORIGINAL GENKIT CODE - Uncomment when Genkit server is ready
         // Get user context if not provided
         var context = userContext
         if context == nil {
@@ -82,78 +120,43 @@ class DailyVerseGenkitService: ObservableObject {
             ]
         )
         
-        guard let reference = response["reference"] as? String,
-              let text = response["text"] as? String,
-              let theme = response["theme"] as? String,
-              let reflection = response["reflection"] as? String,
-              let actionPrompt = response["actionPrompt"] as? String else {
-            throw VerseError.invalidResponse
-        }
-        
-        let relatedVerses = response["relatedVerses"] as? [String] ?? []
-        let prayerPrompt = response["prayerPrompt"] as? String ?? ""
-        
-        let verse = PersonalizedDailyVerse(
-            reference: reference,
-            text: text,
-            theme: theme,
-            reflection: reflection,
-            actionPrompt: actionPrompt,
-            relatedVerses: relatedVerses,
-            prayerPrompt: prayerPrompt,
-            personalizedFor: context,
-            date: Date()
-        )
-        
-        // Cache it
-        self.todayVerse = verse
-        cacheVerse(verse)
-        
-        print("✅ Personalized daily verse generated:")
-        print("   Reference: \(reference)")
-        print("   Theme: \(theme)")
-        
         return verse
+        */
     }
     
     // MARK: - Generate Themed Verse
     
     /// Generate verse for a specific theme or need
-    func generateThemedVerse(theme: VerseTheme) async throws -> PersonalizedDailyVerse {
+    func generateThemedVerse(theme: VerseTheme) async -> PersonalizedDailyVerse {
         
-        isGenerating = true
-        defer { isGenerating = false }
+        await MainActor.run {
+            isGenerating = true
+        }
+        
+        defer {
+            Task { @MainActor in
+                isGenerating = false
+            }
+        }
         
         print("🤖 Generating verse for theme: \(theme.rawValue)")
         
-        let response = try await callGenkitFlow(
-            flowName: "generateThemedVerse",
-            input: [
-                "theme": theme.rawValue,
-                "description": theme.description
-            ]
-        )
-        
-        guard let reference = response["reference"] as? String,
-              let text = response["text"] as? String,
-              let reflection = response["reflection"] as? String,
-              let actionPrompt = response["actionPrompt"] as? String else {
-            throw VerseError.invalidResponse
-        }
+        // Use fallback themed verses
+        let fallbackData = createThemedFallbackVerse(theme: theme)
         
         let verse = PersonalizedDailyVerse(
-            reference: reference,
-            text: text,
+            reference: fallbackData["reference"] as? String ?? "Psalm 23:1",
+            text: fallbackData["text"] as? String ?? "The Lord is my shepherd; I shall not want.",
             theme: theme.rawValue,
-            reflection: reflection,
-            actionPrompt: actionPrompt,
-            relatedVerses: response["relatedVerses"] as? [String] ?? [],
-            prayerPrompt: response["prayerPrompt"] as? String ?? "",
+            reflection: fallbackData["reflection"] as? String ?? "God provides for us.",
+            actionPrompt: fallbackData["actionPrompt"] as? String ?? "Trust in God's provision.",
+            relatedVerses: fallbackData["relatedVerses"] as? [String] ?? [],
+            prayerPrompt: fallbackData["prayerPrompt"] as? String ?? "Lord, I trust you.",
             personalizedFor: nil,
             date: Date()
         )
         
-        print("✅ Themed verse generated: \(reference)")
+        print("✅ Themed verse generated: \(verse.reference)")
         
         return verse
     }
@@ -171,6 +174,20 @@ class DailyVerseGenkitService: ObservableObject {
         defer { isGenerating = false }
         
         print("🤖 Generating reflection for: \(reference)")
+        
+        // If no endpoint, return a fallback reflection
+        guard !genkitEndpoint.isEmpty else {
+            print("⚠️ No Genkit endpoint - returning fallback reflection")
+            return VerseReflection(
+                verse: verse,
+                reference: reference,
+                reflection: "This verse reminds us of God's faithfulness and His promises to us. Take time to meditate on these words and let them speak to your heart.",
+                keyInsight: "God's Word is living and active, offering guidance and comfort for every season of life.",
+                practicalApplication: "Reflect on how this verse applies to your current situation. Write down one way you can live out this truth today.",
+                prayerPrompt: "Lord, help me understand and apply Your Word to my life. Open my heart to receive what You want to teach me through this verse.",
+                relatedVerses: []
+            )
+        }
         
         let response = try await callGenkitFlow(
             flowName: "generateVerseReflection",
@@ -205,6 +222,12 @@ class DailyVerseGenkitService: ObservableObject {
         flowName: String,
         input: [String: Any]
     ) async throws -> [String: Any] {
+        
+        // If no endpoint configured, immediately return fallback
+        guard !genkitEndpoint.isEmpty else {
+            print("⚠️ No Genkit endpoint - using fallback")
+            throw VerseError.invalidEndpoint
+        }
         
         guard let url = URL(string: "\(genkitEndpoint)/\(flowName)") else {
             throw VerseError.invalidEndpoint
@@ -303,6 +326,131 @@ class DailyVerseGenkitService: ObservableObject {
         ]
         
         return fallbackVerses.randomElement() ?? fallbackVerses[0]
+    }
+    
+    nonisolated private func createThemedFallbackVerse(theme: VerseTheme) -> [String: Any] {
+        switch theme {
+        case .strength:
+            return [
+                "reference": "Philippians 4:13",
+                "text": "I can do all things through Christ who strengthens me.",
+                "theme": "Strength",
+                "reflection": "God's strength is made perfect in our weakness. When we feel inadequate, that's when His power shines through us most clearly.",
+                "actionPrompt": "Identify one challenge today and ask God for His strength to face it.",
+                "relatedVerses": ["2 Corinthians 12:9", "Isaiah 40:31", "Psalm 18:32"],
+                "prayerPrompt": "Lord, strengthen me today. I rely on Your power, not my own."
+            ]
+        case .peace:
+            return [
+                "reference": "Philippians 4:6-7",
+                "text": "Do not be anxious about anything, but in every situation, by prayer and petition, with thanksgiving, present your requests to God. And the peace of God, which transcends all understanding, will guard your hearts and your minds in Christ Jesus.",
+                "theme": "Peace",
+                "reflection": "God's peace isn't about the absence of problems, but the presence of God in the midst of them.",
+                "actionPrompt": "Write down your worries and pray about each one, then release them to God.",
+                "relatedVerses": ["John 14:27", "Psalm 29:11", "Isaiah 26:3"],
+                "prayerPrompt": "Prince of Peace, calm my anxious heart. Give me Your perfect peace."
+            ]
+        case .hope:
+            return [
+                "reference": "Romans 15:13",
+                "text": "May the God of hope fill you with all joy and peace as you trust in him, so that you may overflow with hope by the power of the Holy Spirit.",
+                "theme": "Hope",
+                "reflection": "Hope in God is not wishful thinking—it's confident expectation based on His promises.",
+                "actionPrompt": "Find one promise in Scripture today and claim it as your own.",
+                "relatedVerses": ["Jeremiah 29:11", "Psalm 42:5", "Hebrews 6:19"],
+                "prayerPrompt": "God of hope, fill me with joy and peace as I trust in You."
+            ]
+        case .love:
+            return [
+                "reference": "1 John 4:19",
+                "text": "We love because he first loved us.",
+                "theme": "Love",
+                "reflection": "God's love for us enables us to love others. His love is the source and power for all our relationships.",
+                "actionPrompt": "Show God's love to someone today through a specific act of kindness.",
+                "relatedVerses": ["John 3:16", "Romans 8:38-39", "1 Corinthians 13:4-7"],
+                "prayerPrompt": "Father, help me love others as You have loved me."
+            ]
+        case .faith:
+            return [
+                "reference": "Hebrews 11:1",
+                "text": "Now faith is confidence in what we hope for and assurance about what we do not see.",
+                "theme": "Faith",
+                "reflection": "Faith isn't blind—it's choosing to trust God's character even when we can't see His hand.",
+                "actionPrompt": "Take one step of faith today in an area where you've been hesitating.",
+                "relatedVerses": ["Romans 10:17", "James 2:17", "Mark 11:22-24"],
+                "prayerPrompt": "Lord, increase my faith. Help me trust You more deeply."
+            ]
+        case .courage:
+            return [
+                "reference": "Joshua 1:9",
+                "text": "Have I not commanded you? Be strong and courageous. Do not be afraid; do not be discouraged, for the Lord your God will be with you wherever you go.",
+                "theme": "Courage",
+                "reflection": "Courage isn't the absence of fear, but moving forward despite fear because God is with us.",
+                "actionPrompt": "Face one fear today, knowing God goes before you.",
+                "relatedVerses": ["Psalm 27:1", "2 Timothy 1:7", "Deuteronomy 31:6"],
+                "prayerPrompt": "God, give me courage to face today's challenges knowing You are with me."
+            ]
+        case .forgiveness:
+            return [
+                "reference": "Colossians 3:13",
+                "text": "Bear with each other and forgive one another if any of you has a grievance against someone. Forgive as the Lord forgave you.",
+                "theme": "Forgiveness",
+                "reflection": "Forgiveness is releasing our right to hurt someone who has hurt us, just as God forgave us.",
+                "actionPrompt": "Ask God to help you forgive someone who has wronged you.",
+                "relatedVerses": ["Matthew 6:14-15", "Ephesians 4:32", "Luke 6:37"],
+                "prayerPrompt": "Father, help me forgive as You have forgiven me."
+            ]
+        case .gratitude:
+            return [
+                "reference": "1 Thessalonians 5:18",
+                "text": "Give thanks in all circumstances; for this is God's will for you in Christ Jesus.",
+                "theme": "Gratitude",
+                "reflection": "Gratitude shifts our focus from what's missing to what's present, from problems to blessings.",
+                "actionPrompt": "List three things you're grateful for today and thank God for each one.",
+                "relatedVerses": ["Psalm 100:4", "Colossians 3:17", "Philippians 4:6"],
+                "prayerPrompt": "Thank You, Lord, for Your countless blessings in my life."
+            ]
+        case .guidance:
+            return [
+                "reference": "Proverbs 3:5-6",
+                "text": "Trust in the Lord with all your heart and lean not on your own understanding; in all your ways submit to him, and he will make your paths straight.",
+                "theme": "Guidance",
+                "reflection": "God's guidance comes as we trust Him, not as we figure everything out on our own.",
+                "actionPrompt": "Ask God for direction in one specific decision you need to make.",
+                "relatedVerses": ["Psalm 32:8", "James 1:5", "Isaiah 30:21"],
+                "prayerPrompt": "Lord, guide my steps today. Show me Your path."
+            ]
+        case .healing:
+            return [
+                "reference": "Psalm 147:3",
+                "text": "He heals the brokenhearted and binds up their wounds.",
+                "theme": "Healing",
+                "reflection": "God is near to the brokenhearted and brings healing to our deepest wounds, both physical and emotional.",
+                "actionPrompt": "Bring your pain to God in prayer and ask for His healing touch.",
+                "relatedVerses": ["Jeremiah 17:14", "1 Peter 2:24", "Psalm 30:2"],
+                "prayerPrompt": "Great Physician, heal my heart and restore my soul."
+            ]
+        case .patience:
+            return [
+                "reference": "Romans 12:12",
+                "text": "Be joyful in hope, patient in affliction, faithful in prayer.",
+                "theme": "Patience",
+                "reflection": "Patience is not passive waiting, but active trust in God's perfect timing.",
+                "actionPrompt": "Practice patience in one frustrating situation today.",
+                "relatedVerses": ["James 1:2-4", "Galatians 6:9", "Psalm 37:7"],
+                "prayerPrompt": "Lord, teach me to wait on Your timing with patience and trust."
+            ]
+        case .wisdom:
+            return [
+                "reference": "James 1:5",
+                "text": "If any of you lacks wisdom, you should ask God, who gives generously to all without finding fault, and it will be given to you.",
+                "theme": "Wisdom",
+                "reflection": "True wisdom comes from God and leads us to make choices that honor Him and benefit others.",
+                "actionPrompt": "Ask God for wisdom in one decision you're facing today.",
+                "relatedVerses": ["Proverbs 2:6", "Colossians 3:16", "Proverbs 9:10"],
+                "prayerPrompt": "Lord, grant me wisdom to navigate life's challenges according to Your will."
+            ]
+        }
     }
     
     nonisolated private func isSameDay(_ date1: Date, _ date2: Date) -> Bool {

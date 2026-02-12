@@ -473,6 +473,12 @@ class RealtimeDatabaseService: ObservableObject {
     
     /// Observe recent posts in real-time
     func observeRecentPosts(limit: Int = 50, onUpdate: @escaping ([String]) -> Void) {
+        // Skip observing if user is not authenticated
+        guard Auth.auth().currentUser != nil else {
+            print("⏭️ Skipping observeRecentPosts - user not authenticated")
+            return
+        }
+        
         let postsRef = ref.child("posts").child("recent").queryLimited(toLast: UInt(limit))
         
         postsRef.observe(.value) { snapshot in

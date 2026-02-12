@@ -296,14 +296,25 @@ class FollowRequestsViewModel: ObservableObject {
                 .order(by: "createdAt", descending: true)
                 .getDocuments()
             
-            requests = snapshot.documents.compactMap { try? $0.data(as: FollowRequest.self) }
+            requests = snapshot.documents.compactMap { doc in
+                do {
+                    return try doc.data(as: FollowRequest.self)
+                } catch {
+                    print("⚠️ Failed to parse follow request \(doc.documentID): \(error)")
+                    return nil
+                }
+            }
             
             print("✅ Loaded \(requests.count) follow requests")
             
-            // Fetch user data for each request
-            for request in requests {
-                if requestUsers[request.fromUserId] == nil {
-                    await fetchUserData(userId: request.fromUserId)
+            // Fetch user data for each request with concurrency limiting
+            await withTaskGroup(of: Void.self) { group in
+                for request in requests {
+                    if requestUsers[request.fromUserId] == nil {
+                        group.addTask {
+                            await self.fetchUserData(userId: request.fromUserId)
+                        }
+                    }
                 }
             }
             

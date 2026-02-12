@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import Combine
 import FirebaseDatabase
 import FirebaseAuth
 
@@ -165,6 +166,12 @@ class BereanDataManager: ObservableObject {
         issueType: BereanIssueReport.IssueType,
         description: String
     ) async throws {
+        // Check network connectivity first
+        guard AMENNetworkMonitor.shared.isConnected else {
+            print("❌ Cannot report issue - no network connection")
+            throw BereanError.networkUnavailable
+        }
+        
         let report = BereanIssueReport(
             id: UUID(),
             messageId: message.id,
@@ -209,6 +216,12 @@ class BereanDataManager: ObservableObject {
         personalNote: String? = nil,
         communityId: String? = nil
     ) async throws {
+        // Check network connectivity first
+        guard AMENNetworkMonitor.shared.isConnected else {
+            print("❌ Cannot share to feed - no network connection")
+            throw BereanError.networkUnavailable
+        }
+        
         let postId = UUID().uuidString
         
         // Combine personal note with AI response

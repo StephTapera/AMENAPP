@@ -13,7 +13,10 @@ import FirebaseFirestore
 import FirebaseAuth
 
 // MARK: - Extension to Notification Settings
+// NOTE: This extension will work once duplicate NotificationSettingsView files are removed
 
+// Uncomment this extension after removing duplicate NotificationSettingsView files:
+/*
 extension NotificationSettingsView {
     /// Add this to your notification types section in NotificationSettingsView.swift
     /// Insert after prayerReminderNotifications toggle
@@ -37,6 +40,7 @@ extension NotificationSettingsView {
         .tint(.blue)
     }
 }
+*/
 
 // MARK: - Extension to SavedSearchService
 // NOTE: SavedSearchService already has a private sendNotificationForSearchAlert method

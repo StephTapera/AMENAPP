@@ -148,6 +148,8 @@ struct BlockedUsersView: View {
     }
 }
 
-#Preview {
-    BlockedUsersView()
+#Preview("Blocked Users") {
+    NavigationStack {
+        BlockedUsersView()
+    }
 }

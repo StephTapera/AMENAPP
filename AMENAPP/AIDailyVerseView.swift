@@ -1,5 +1,5 @@
 //
-//  AIDaily VerseView.swift
+//  AIDailyVerseView.swift
 //  AMENAPP
 //
 //  Created by AI Assistant on 1/23/26.
@@ -13,40 +13,35 @@ import SwiftUI
 
 struct AIDailyVerseCard: View {
     @StateObject private var verseService = DailyVerseGenkitService.shared
-    @State private var isExpanded = false
-    @State private var showThemePicker = false
     
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Header
+            // Header - simple black and white
             HStack {
-                HStack(spacing: 8) {
+                HStack(spacing: 6) {
                     Image(systemName: "book.closed.fill")
-                        .foregroundStyle(.blue)
-                    
-                    Text("Your Daily Verse")
-                        .font(.custom("OpenSans-Bold", size: 18))
-                    
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.purple)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .padding(6)
+                        .background(
+                            Circle()
+                                .fill(.white.opacity(0.2))
+                        )
+
+                    Text("Daily Verse")
+                        .font(.custom("OpenSans-Bold", size: 13))
+                        .foregroundStyle(.white)
                 }
-                
+
                 Spacer()
-                
+
                 Menu {
                     Button {
                         refreshVerse()
                     } label: {
                         Label("Refresh", systemImage: "arrow.clockwise")
                     }
-                    
-                    Button {
-                        showThemePicker = true
-                    } label: {
-                        Label("Choose Theme", systemImage: "list.bullet")
-                    }
-                    
+
                     Button {
                         shareVerse()
                     } label: {
@@ -54,13 +49,16 @@ struct AIDailyVerseCard: View {
                     }
                 } label: {
                     Image(systemName: "ellipsis.circle")
-                        .font(.system(size: 20))
-                        .foregroundStyle(.secondary)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .padding(6)
+                        .background(
+                            Circle()
+                                .fill(.white.opacity(0.15))
+                        )
                 }
             }
-            .padding()
-            
-            Divider()
+            .padding(12)
             
             // Verse Content
             if let verse = verseService.todayVerse {
@@ -72,267 +70,159 @@ struct AIDailyVerseCard: View {
             }
         }
         .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color(.systemBackground))
-                .shadow(color: .black.opacity(0.05), radius: 10, y: 3)
-        )
-        .padding(.horizontal)
-        .sheet(isPresented: $showThemePicker) {
-            ThemePickerSheet { theme in
-                loadThemedVerse(theme: theme)
+            ZStack {
+                // Black and white liquid glass base
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(.ultraThinMaterial)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14)
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        Color.black.opacity(0.6),
+                                        Color.black.opacity(0.5)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                    )
+
+                // Subtle white glass overlay
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.08),
+                                Color.clear
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .center
+                        )
+                    )
+
+                // Glass border
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.2),
+                                Color.white.opacity(0.1)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
             }
-        }
+        )
+        .shadow(color: .black.opacity(0.3), radius: 12, x: 0, y: 6)
+        .shadow(color: .black.opacity(0.15), radius: 4, x: 0, y: 2)
+        .padding(.horizontal)
         .task {
+            // ✅ FIXED: Load cached verse first to prevent crash
+            // Try to load from cache
             if verseService.todayVerse == nil {
-                await loadDailyVerse()
+                // First attempt to load from UserDefaults cache
+                if let data = UserDefaults.standard.data(forKey: "cachedDailyVerse"),
+                   let date = UserDefaults.standard.object(forKey: "cachedVerseDate") as? Date,
+                   Calendar.current.isDate(date, inSameDayAs: Date()),
+                   let verse = try? JSONDecoder().decode(PersonalizedDailyVerse.self, from: data) {
+                    await MainActor.run {
+                        verseService.todayVerse = verse
+                        print("📖 Loaded cached verse from UserDefaults")
+                    }
+                } else {
+                    // No cache, load fresh verse
+                    await loadDailyVerse()
+                }
             }
         }
     }
     
     // MARK: - Verse Content
-    
+
     @ViewBuilder
     private func verseContent(_ verse: PersonalizedDailyVerse) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
-            // Theme Tag
-            HStack(spacing: 8) {
-                Image(systemName: "tag.fill")
-                    .font(.system(size: 10))
-                    .foregroundStyle(.purple)
-                
-                Text(verse.theme)
-                    .font(.custom("OpenSans-Bold", size: 12))
-                    .foregroundStyle(.purple)
-                
-                Spacer()
-                
-                Text(verse.date, style: .date)
-                    .font(.custom("OpenSans-Regular", size: 11))
-                    .foregroundStyle(.secondary)
-            }
-            .padding(.horizontal)
-            .padding(.top, 8)
-            
-            // Verse Text
-            VStack(alignment: .leading, spacing: 8) {
-                Text(verse.text)
-                    .font(.custom("OpenSans-SemiBold", size: 17))
-                    .foregroundStyle(.primary)
-                    .lineSpacing(6)
-                
-                Text("— \(verse.reference)")
-                    .font(.custom("OpenSans-SemiBold", size: 14))
-                    .foregroundStyle(.blue)
-            }
-            .padding(.horizontal)
-            .padding(.vertical, 8)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.blue.opacity(0.05))
-            )
-            .padding(.horizontal)
-            
-            // Reflection Section
-            if isExpanded {
-                expandedContent(verse)
-            } else {
-                // Show More Button
-                Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                        isExpanded = true
-                    }
-                } label: {
-                    HStack {
-                        Image(systemName: "sparkles")
-                        Text("See AI Reflection & Action")
-                        Spacer()
-                        Image(systemName: "chevron.down")
-                    }
-                    .font(.custom("OpenSans-SemiBold", size: 14))
-                    .foregroundStyle(.purple)
-                    .padding()
-                    .background(
-                        RoundedRectangle(cornerRadius: 10)
-                            .fill(Color.purple.opacity(0.05))
-                    )
-                }
-                .padding(.horizontal)
-            }
+        VStack(alignment: .leading, spacing: 8) {
+            // Verse Text - simple and clean
+            Text(verse.text)
+                .font(.custom("OpenSans-Regular", size: 13))
+                .foregroundStyle(.white)
+                .lineSpacing(4)
+                .fixedSize(horizontal: false, vertical: true)
+
+            // Reference
+            Text("— \(verse.reference)")
+                .font(.custom("OpenSans-SemiBold", size: 12))
+                .foregroundStyle(.white.opacity(0.8))
         }
-        .padding(.bottom)
+        .padding(.horizontal, 12)
+        .padding(.bottom, 12)
     }
     
-    @ViewBuilder
-    private func expandedContent(_ verse: PersonalizedDailyVerse) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Divider()
-                .padding(.horizontal)
-            
-            // AI Reflection
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 6) {
-                    Image(systemName: "brain")
-                        .foregroundStyle(.purple)
-                    Text("AI Reflection")
-                        .font(.custom("OpenSans-Bold", size: 14))
-                }
-                
-                Text(verse.reflection)
-                    .font(.custom("OpenSans-Regular", size: 14))
-                    .foregroundStyle(.primary)
-                    .lineSpacing(4)
-            }
-            .padding(.horizontal)
-            
-            // Action Prompt
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 6) {
-                    Image(systemName: "target")
-                        .foregroundStyle(.orange)
-                    Text("Today's Action")
-                        .font(.custom("OpenSans-Bold", size: 14))
-                }
-                
-                Text(verse.actionPrompt)
-                    .font(.custom("OpenSans-SemiBold", size: 14))
-                    .foregroundStyle(.orange)
-            }
-            .padding()
-            .background(
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(Color.orange.opacity(0.05))
-            )
-            .padding(.horizontal)
-            
-            // Prayer Prompt
-            if !verse.prayerPrompt.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "hands.sparkles.fill")
-                            .foregroundStyle(.green)
-                        Text("Prayer Prompt")
-                            .font(.custom("OpenSans-Bold", size: 14))
-                    }
-                    
-                    Text(verse.prayerPrompt)
-                        .font(.custom("OpenSans-Regular", size: 14))
-                        .foregroundStyle(.primary)
-                        .italic()
-                }
-                .padding()
-                .background(
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(Color.green.opacity(0.05))
-                )
-                .padding(.horizontal)
-            }
-            
-            // Related Verses
-            if !verse.relatedVerses.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Related Verses")
-                        .font(.custom("OpenSans-Bold", size: 14))
-                    
-                    FlowLayout(spacing: 8) {
-                        ForEach(verse.relatedVerses, id: \.self) { ref in
-                            RelatedVerseChip(reference: ref)
-                        }
-                    }
-                }
-                .padding(.horizontal)
-            }
-            
-            // Collapse Button
-            Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                    isExpanded = false
-                }
-            } label: {
-                HStack {
-                    Text("Show Less")
-                    Spacer()
-                    Image(systemName: "chevron.up")
-                }
-                .font(.custom("OpenSans-SemiBold", size: 14))
-                .foregroundStyle(.secondary)
-                .padding()
-            }
-            .padding(.horizontal)
-        }
-    }
     
     // MARK: - Loading View
-    
+
     private var loadingView: some View {
-        VStack(spacing: 16) {
+        HStack(spacing: 12) {
             ProgressView()
-                .scaleEffect(1.2)
-                .tint(.blue)
-            
-            Text("Generating your personalized verse...")
-                .font(.custom("OpenSans-Regular", size: 14))
-                .foregroundStyle(.secondary)
+                .scaleEffect(0.9)
+                .tint(.white)
+
+            Text("Loading verse...")
+                .font(.custom("OpenSans-Regular", size: 12))
+                .foregroundStyle(.white.opacity(0.8))
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 40)
+        .padding(.vertical, 20)
     }
-    
+
     // MARK: - Empty State
-    
+
     private var emptyStateView: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 12) {
             Image(systemName: "book.closed")
-                .font(.system(size: 50))
-                .foregroundStyle(.blue.opacity(0.3))
-            
+                .font(.system(size: 32))
+                .foregroundStyle(.white.opacity(0.4))
+
             Text("No verse loaded")
-                .font(.custom("OpenSans-Bold", size: 16))
-            
-            Button("Load Today's Verse") {
+                .font(.custom("OpenSans-SemiBold", size: 13))
+                .foregroundStyle(.white)
+
+            Button("Load Verse") {
                 Task {
                     await loadDailyVerse()
                 }
             }
-            .font(.custom("OpenSans-SemiBold", size: 14))
+            .font(.custom("OpenSans-SemiBold", size: 12))
             .foregroundStyle(.white)
-            .padding(.horizontal, 24)
-            .padding(.vertical, 12)
-            .background(Color.blue)
-            .cornerRadius(10)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .background(Color.white.opacity(0.2))
+            .cornerRadius(8)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 40)
+        .padding(.vertical, 24)
     }
     
     // MARK: - Actions
     
     private func loadDailyVerse() async {
-        do {
-            _ = try await verseService.generatePersonalizedDailyVerse()
-        } catch {
-            print("❌ Error loading daily verse: \(error)")
-        }
+        _ = await verseService.generatePersonalizedDailyVerse()
     }
     
     private func refreshVerse() {
         Task {
-            do {
-                _ = try await verseService.generatePersonalizedDailyVerse(forceRefresh: true)
-            } catch {
-                print("❌ Error refreshing verse: \(error)")
-            }
+            _ = await verseService.generatePersonalizedDailyVerse(forceRefresh: true)
         }
     }
     
     private func loadThemedVerse(theme: VerseTheme) {
         Task {
-            do {
-                let verse = try await verseService.generateThemedVerse(theme: theme)
-                await MainActor.run {
-                    verseService.todayVerse = verse
-                }
-            } catch {
-                print("❌ Error loading themed verse: \(error)")
+            let verse = await verseService.generateThemedVerse(theme: theme)
+            await MainActor.run {
+                verseService.todayVerse = verse
             }
         }
     }
@@ -425,15 +315,17 @@ struct RelatedVerseChip: View {
     var body: some View {
         Text(reference)
             .font(.custom("OpenSans-SemiBold", size: 12))
-            .foregroundStyle(.blue)
+            .foregroundStyle(.white)
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
             .background(
                 Capsule()
-                    .fill(Color.blue.opacity(0.1))
+                    .fill(Color.white.opacity(0.15))
             )
     }
 }
+
+
 
 // MARK: - Preview
 

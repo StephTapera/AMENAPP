@@ -222,7 +222,7 @@ public enum SearchType {
 
 /// Canonical definition of FirebaseSearchUser for user search
 /// This is the ONLY definition - if you see ambiguity errors, search for other definitions and remove them
-public struct FirebaseSearchUser: Identifiable, Hashable {
+public struct FirebaseSearchUser: Identifiable, Hashable, Codable {
     public let id: String
     public let username: String
     public let displayName: String

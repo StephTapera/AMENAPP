@@ -132,6 +132,14 @@ class RealtimeCommentsService: ObservableObject {
             replyCount: 0
         )
         
+        // ✅ Send notification so ProfileView can update replies tab
+        NotificationCenter.default.post(
+            name: Notification.Name("newCommentCreated"),
+            object: nil,
+            userInfo: ["comment": comment]
+        )
+        print("📬 Sent newCommentCreated notification")
+        
         return comment
     }
     
@@ -209,17 +217,138 @@ class RealtimeCommentsService: ObservableObject {
         
         var comments: [Comment] = []
         
-        for (commentId, _) in commentDict {
-            // Find the comment in the comments tree
-            // This requires iterating through all posts (not ideal, but necessary)
-            // Alternative: Store postId in user_comments as well
-            
-            // For now, we'll need to add postId to user_comments structure
-            // Skipping detailed implementation here
+        // ✅ FIX: Properly fetch each comment with its data
+        for (commentId, commentData) in commentDict {
+            // If commentData contains postId, use it to fetch the full comment
+            if let data = commentData as? [String: Any],
+               let postId = data["postId"] as? String {
+                
+                // Fetch the full comment from the comments tree
+                let commentSnapshot = try await database.child("comments").child(postId).child(commentId).getData()
+                
+                if commentSnapshot.exists(), let fullCommentData = commentSnapshot.value as? [String: Any] {
+                    // Parse the comment
+                    if let comment = parseComment(from: fullCommentData, commentId: commentId, postId: postId) {
+                        comments.append(comment)
+                    }
+                }
+            }
         }
+        
+        // Sort by timestamp (newest first)
+        comments.sort { $0.createdAt > $1.createdAt }
         
         print("✅ Fetched \(comments.count) user comments")
         return comments
+    }
+    
+    // MARK: - Fetch User Comment Interactions (Comments + Replies Received)
+    
+    /// Fetches ALL comments where user is involved:
+    /// 1. Comments the user made (from user_comments)
+    /// 2. Replies others made to the user's comments (by checking parentCommentId)
+    func fetchUserCommentInteractions(userId: String) async throws -> [Comment] {
+        print("📥 Fetching ALL comment interactions for user: \(userId)")
+        
+        var allComments: [Comment] = []
+        var commentIds = Set<String>() // Track to avoid duplicates
+        
+        // 1. Fetch comments the user made
+        let userComments = try await fetchUserComments(userId: userId)
+        for comment in userComments {
+            guard let commentId = comment.id else { continue }
+            if !commentIds.contains(commentId) {
+                allComments.append(comment)
+                commentIds.insert(commentId)
+            }
+        }
+        print("   ✅ User's own comments: \(userComments.count)")
+        
+        // 2. Fetch replies to the user's comments
+        // For each comment the user made, check if there are replies to it
+        for userComment in userComments {
+            guard let userCommentId = userComment.id else { continue }
+            
+            // Get all comments on the same post
+            let postCommentsSnapshot = try await database.child("comments").child(userComment.postId).getData()
+            
+            guard postCommentsSnapshot.exists(), 
+                  let postCommentsDict = postCommentsSnapshot.value as? [String: Any] else {
+                continue
+            }
+            
+            // Find comments where parentCommentId matches this user's comment
+            for (replyId, replyData) in postCommentsDict {
+                guard let replyDict = replyData as? [String: Any],
+                      let parentId = replyDict["parentCommentId"] as? String,
+                      parentId == userCommentId else {
+                    continue
+                }
+                
+                // This is a reply to the user's comment
+                if let reply = parseComment(from: replyDict, commentId: replyId, postId: userComment.postId),
+                   let replyIdUnwrapped = reply.id,
+                   !commentIds.contains(replyIdUnwrapped) {
+                    allComments.append(reply)
+                    commentIds.insert(replyIdUnwrapped)
+                    print("   💬 Found reply from \(reply.authorName) to user's comment")
+                }
+            }
+        }
+        
+        // Sort by newest first
+        allComments.sort { $0.createdAt > $1.createdAt }
+        
+        print("✅ Fetched \(allComments.count) total comment interactions (\(userComments.count) own + \(allComments.count - userComments.count) replies received)")
+        return allComments
+    }
+    
+    /// Helper to parse comment data into Comment object
+    private func parseComment(from data: [String: Any], commentId: String, postId: String) -> Comment? {
+        guard let authorId = data["authorId"] as? String,
+              let authorName = data["authorName"] as? String,
+              let content = data["content"] as? String,
+              let timestampDouble = data["createdAt"] as? Double else {
+            print("⚠️ Invalid comment data for ID: \(commentId)")
+            return nil
+        }
+        
+        let authorInitials = data["authorInitials"] as? String ?? "?"
+        let authorUsername = data["authorUsername"] as? String ?? ""
+        let authorProfileImageURL = data["authorProfileImageURL"] as? String
+        let amenCount = data["amenCount"] as? Int ?? 0
+        let lightbulbCount = data["lightbulbCount"] as? Int ?? 0
+        let replyCount = data["replyCount"] as? Int ?? 0
+        let amenUserIds = data["amenUserIds"] as? [String] ?? []
+        let parentCommentId = data["parentCommentId"] as? String
+        let isEdited = data["isEdited"] as? Bool ?? false
+        let createdAt = Date(timeIntervalSince1970: timestampDouble)
+        
+        let updatedAt: Date
+        if let updatedTimestamp = data["updatedAt"] as? Double {
+            updatedAt = Date(timeIntervalSince1970: updatedTimestamp)
+        } else {
+            updatedAt = createdAt
+        }
+        
+        return Comment(
+            id: commentId,
+            postId: postId,
+            authorId: authorId,
+            authorName: authorName,
+            authorUsername: authorUsername,
+            authorInitials: authorInitials,
+            authorProfileImageURL: authorProfileImageURL,
+            content: content,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+            isEdited: isEdited,
+            amenCount: amenCount,
+            lightbulbCount: lightbulbCount,
+            replyCount: replyCount,
+            amenUserIds: amenUserIds,
+            parentCommentId: parentCommentId
+        )
     }
     
     // MARK: - Delete Comment

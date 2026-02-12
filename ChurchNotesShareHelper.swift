@@ -7,6 +7,7 @@
 
 import SwiftUI
 import PDFKit
+import FirebaseAuth
 
 struct ChurchNotesShareHelper {
     
@@ -204,9 +205,6 @@ struct ChurchNotesShareHelper {
     
     /// Share to community (posts note to community feed)
     static func shareToCommunit(_ note: ChurchNote, completion: @escaping (Bool) -> Void) {
-        // This will integrate with your existing PostsManager
-        // Create a post from the note content
-        
         guard let userId = FirebaseManager.shared.currentUser?.uid else {
             completion(false)
             return
@@ -222,10 +220,29 @@ struct ChurchNotesShareHelper {
                 if let pastor = note.pastor {
                     postContent += "Pastor: \(pastor)\n"
                 }
+                if let churchName = note.churchName {
+                    postContent += "Church: \(churchName)\n"
+                }
+                if !note.scriptureReferences.isEmpty {
+                    postContent += "Scripture: \(note.scriptureReferences.joined(separator: ", "))\n"
+                }
                 postContent += "\n\(note.content)"
                 
-                // You'll need to integrate with your PostsManager here
-                print("Would share to community: \(postContent)")
+                // Create post using PostsManager with churchNoteId
+                await MainActor.run {
+                    PostsManager.shared.createPost(
+                        content: postContent,
+                        category: .openTable,
+                        topicTag: "Church Notes",
+                        visibility: .everyone,
+                        allowComments: true,
+                        imageURLs: nil,
+                        linkURL: nil,
+                        churchNoteId: note.id
+                    )
+                }
+                
+                print("✅ Church note shared to community successfully")
                 completion(true)
             }
         }

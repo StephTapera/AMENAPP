@@ -62,6 +62,67 @@ userData.id = userId  // ✅ Set from document ID
 
 ---
 
+### 3. ✅ **Muted Users Permission Error**
+**Error**: `Write at mutedUsers/... failed: Missing or insufficient permissions.`
+
+**Root Cause**:
+- The `mutedUsers` collection didn't exist in Firestore security rules
+
+**Solution**:
+Added new security rules for `mutedUsers` collection:
+```rules
+match /mutedUsers/{muteId} {
+  // Users can read their own muted list
+  allow read: if isAuthenticated()
+    && resource.data.userId == request.auth.uid;
+  
+  // Users can create their own mutes
+  allow create: if isAuthenticated()
+    && request.resource.data.userId == request.auth.uid;
+  
+  // Users can delete their own mutes
+  allow delete: if isAuthenticated()
+    && resource.data.userId == request.auth.uid;
+}
+```
+
+---
+
+### 4. ✅ **Ambiguous Type Errors (Swift Compilation)**
+**Error**: `Ambiguous use of 'unauthorized'`, `Type 'User.CodingKeys' has no member 'id'`
+
+**Root Cause**:
+- Multiple `FirebaseError` enums existed (in FirebaseManager and potentially elsewhere)
+- Compiler couldn't determine which error type to use
+
+**Solution**:
+Created dedicated `UserServiceError` enum in `UserService.swift`:
+```swift
+enum UserServiceError: LocalizedError {
+    case unauthorized
+    case documentNotFound
+    case imageCompressionFailed
+    case invalidData
+    
+    var errorDescription: String? {
+        switch self {
+        case .unauthorized:
+            return "You must be signed in to perform this action."
+        case .documentNotFound:
+            return "The requested user profile was not found."
+        case .imageCompressionFailed:
+            return "Failed to compress the profile image."
+        case .invalidData:
+            return "The user data is invalid or incomplete."
+        }
+    }
+}
+```
+
+All `FirebaseError` references in UserService replaced with `UserServiceError`.
+
+---
+
 ## Updated Firestore Rules
 
 ### Conversations Collection

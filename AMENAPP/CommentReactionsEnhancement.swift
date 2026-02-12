@@ -7,6 +7,7 @@
 
 import SwiftUI
 import FirebaseFirestore
+import FirebaseAuth
 
 // MARK: - Reaction Types
 
@@ -298,7 +299,7 @@ struct ReactionPicker: View {
             for (index, reaction) in CommentReaction.allCases.enumerated() {
                 DispatchQueue.main.asyncAfter(deadline: .now() + Double(index) * 0.05) {
                     withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
-                        appearedReactions.insert(reaction)
+                        _ = appearedReactions.insert(reaction)
                     }
                 }
             }

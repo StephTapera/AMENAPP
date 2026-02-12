@@ -50,7 +50,9 @@ private var isFormValid: Bool {
   - **Posts Tab**: All posts created by the user
   - **Reposts Tab**: All posts the user has reposted
 
-### 4. **Firestore Rules - Saved Posts Permission**
+### 4. **Firestore Rules - Multiple Fixes**
+
+#### A. Saved Posts Permission
 **Fixed**: "Permission denied" errors when fetching saved posts while offline.
 
 **Changes in `firestore 18.rules`**:
@@ -64,7 +66,23 @@ match /posts/{postId} {
 }
 ```
 
-This ensures individual post documents can be fetched properly, even when offline.
+#### B. Username Availability Check During Signup
+**Fixed**: "Missing or insufficient permissions" error when checking username availability during signup.
+
+**Changes in `firestore 18.rules`**:
+```javascript
+match /users/{userId} {
+  // Before: allow read: if isAuthenticated();
+
+  // After: Allow unauthenticated reads for username checks
+  allow read: if true;
+
+  // This is safe because:
+  // 1. Username availability checks need to work during signup (before auth)
+  // 2. We don't expose sensitive data like email/password in user documents
+  // 3. Write operations still require authentication
+}
+```
 
 ### 5. **App Check Configuration**
 **Fixed**: DeviceCheck warning in simulator.

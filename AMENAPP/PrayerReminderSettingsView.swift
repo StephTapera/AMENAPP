@@ -396,10 +396,10 @@ struct PrayerReminderSettingsView: View {
             }
             
             VStack(alignment: .leading, spacing: 8) {
-                InfoRow(icon: "bell.fill", text: "Reminders include inspirational Bible verses")
-                InfoRow(icon: "calendar", text: "Verses rotate daily based on a 30-day cycle")
-                InfoRow(icon: "moon.zzz.fill", text: "Do Not Disturb respects your device settings")
-                InfoRow(icon: "gear", text: "Manage notification settings in iOS Settings")
+                ReminderInfoRow(icon: "bell.fill", text: "Reminders include inspirational Bible verses")
+                ReminderInfoRow(icon: "calendar", text: "Verses rotate daily based on a 30-day cycle")
+                ReminderInfoRow(icon: "moon.zzz.fill", text: "Do Not Disturb respects your device settings")
+                ReminderInfoRow(icon: "gear", text: "Manage notification settings in iOS Settings")
             }
         }
         .padding()
@@ -598,7 +598,7 @@ struct ReminderTimeRow: View {
     }
 }
 
-struct InfoRow: View {
+struct ReminderInfoRow: View {
     let icon: String
     let text: String
     

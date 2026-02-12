@@ -7,6 +7,13 @@
 
 import Foundation
 
+// MARK: - Data Models
+
+struct DailyVerse: Codable {
+    let text: String
+    let reference: String
+}
+
 // MARK: - Cache Manager
 
 class CacheManager {
@@ -167,22 +174,3 @@ extension BookResult: Codable {
     }
 }
 
-// MARK: - Make DailyVerse Codable
-
-extension DailyVerse: Codable {
-    enum CodingKeys: String, CodingKey {
-        case text, reference
-    }
-    
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.text = try container.decode(String.self, forKey: .text)
-        self.reference = try container.decode(String.self, forKey: .reference)
-    }
-    
-    func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(self.text, forKey: .text)
-        try container.encode(self.reference, forKey: .reference)
-    }
-}

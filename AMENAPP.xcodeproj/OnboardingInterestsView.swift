@@ -44,17 +44,21 @@ struct OnboardingInterestsView: View {
                 .padding(.horizontal, 40)
                 
                 // Hint
-                Text("Select at least 3 interests")
+                Text("Select exactly 3 interests (\(coordinator.userData.selectedInterests.count)/3)")
                     .font(.custom("OpenSans-SemiBold", size: 13))
-                    .foregroundStyle(.black.opacity(0.5))
+                    .foregroundStyle(coordinator.userData.selectedInterests.count == 3 ? .green : .black.opacity(0.5))
                     .padding(.top, 8)
                 
                 // Interest grid
                 LazyVGrid(columns: columns, spacing: 12) {
                     ForEach(OnboardingUserData.availableInterests, id: \.self) { interest in
+                        let isSelected = coordinator.userData.selectedInterests.contains(interest)
+                        let isDisabled = !isSelected && coordinator.userData.selectedInterests.count >= 3
+
                         InterestButton(
                             interest: interest,
-                            isSelected: coordinator.userData.selectedInterests.contains(interest)
+                            isSelected: isSelected,
+                            isDisabled: isDisabled
                         ) {
                             toggleInterest(interest)
                         }
@@ -70,12 +74,21 @@ struct OnboardingInterestsView: View {
     
     private func toggleInterest(_ interest: String) {
         let haptic = UIImpactFeedbackGenerator(style: .light)
-        haptic.impactOccurred()
-        
+
         if coordinator.userData.selectedInterests.contains(interest) {
+            // Always allow deselection
+            haptic.impactOccurred()
             coordinator.userData.selectedInterests.removeAll { $0 == interest }
         } else {
-            coordinator.userData.selectedInterests.append(interest)
+            // Only allow selection if less than 3 interests are selected
+            if coordinator.userData.selectedInterests.count < 3 {
+                haptic.impactOccurred()
+                coordinator.userData.selectedInterests.append(interest)
+            } else {
+                // Play error haptic when limit is reached
+                let errorHaptic = UINotificationFeedbackGenerator()
+                errorHaptic.notificationOccurred(.error)
+            }
         }
     }
 }
@@ -83,8 +96,9 @@ struct OnboardingInterestsView: View {
 struct InterestButton: View {
     let interest: String
     let isSelected: Bool
+    let isDisabled: Bool
     let action: () -> Void
-    
+
     var body: some View {
         Button(action: action) {
             HStack(spacing: 8) {
@@ -93,11 +107,11 @@ struct InterestButton: View {
                         .font(.system(size: 16))
                         .foregroundStyle(.white)
                 }
-                
+
                 Text(interest)
                     .font(.custom("OpenSans-SemiBold", size: 14))
-                    .foregroundStyle(isSelected ? .white : .black)
-                
+                    .foregroundStyle(isSelected ? .white : (isDisabled ? .black.opacity(0.3) : .black))
+
                 Spacer()
             }
             .padding(.horizontal, 16)
@@ -112,7 +126,7 @@ struct InterestButton: View {
                                 endPoint: .trailing
                             )
                             : LinearGradient(
-                                colors: [Color.white],
+                                colors: [isDisabled ? Color.gray.opacity(0.1) : Color.white],
                                 startPoint: .leading,
                                 endPoint: .trailing
                             )
@@ -128,12 +142,14 @@ struct InterestButton: View {
                     .stroke(
                         isSelected
                             ? Color.clear
-                            : Color.black.opacity(0.1),
+                            : Color.black.opacity(isDisabled ? 0.05 : 0.1),
                         lineWidth: 1
                     )
             )
         }
         .buttonStyle(PlainButtonStyle())
+        .disabled(isDisabled)
+        .opacity(isDisabled ? 0.5 : 1.0)
     }
 }
 

@@ -9,15 +9,16 @@ import Foundation
 import FirebaseFirestore
 import FirebaseAuth
 import UIKit
+import Combine
 
-// MARK: - Quick Reply Service
+// MARK: - Quick Reply Service for Notifications
 
 @MainActor
-class QuickReplyService: ObservableObject {
-    static let shared = QuickReplyService()
+class NotificationQuickReplyService: ObservableObject {
+    static let shared = NotificationQuickReplyService()
     
     @Published var isPosting = false
-    @Published var error: QuickReplyError?
+    @Published var error: NotificationQuickReplyError?
     
     private let db = Firestore.firestore()
     private let interactionsService = PostInteractionsService.shared
@@ -27,11 +28,11 @@ class QuickReplyService: ObservableObject {
     /// Post a quick reply comment to a post
     func postQuickReply(postId: String, text: String, authorUsername: String) async throws {
         guard !text.isEmpty else {
-            throw QuickReplyError.emptyText
+            throw NotificationQuickReplyError.emptyText
         }
         
         guard let currentUser = Auth.auth().currentUser else {
-            throw QuickReplyError.notAuthenticated
+            throw NotificationQuickReplyError.notAuthenticated
         }
         
         isPosting = true
@@ -59,9 +60,15 @@ class QuickReplyService: ObservableObject {
             print("✅ Quick reply posted: \(commentId)")
             
             // Also increment comment count in Firestore post document
-            try await db.collection("posts").document(postId).updateData([
-                "commentCount": FieldValue.increment(Int64(1))
-            ])
+            // Note: This uses eventual consistency - if post doesn't exist, it will fail silently
+            do {
+                try await db.collection("posts").document(postId).updateData([
+                    "commentCount": FieldValue.increment(Int64(1))
+                ])
+            } catch {
+                // Post may have been deleted - log but don't fail the comment operation
+                print("⚠️ Failed to increment comment count on post \(postId): \(error.localizedDescription)")
+            }
             
         } catch {
             self.error = .postFailed(error)
@@ -78,7 +85,7 @@ class QuickReplyService: ObservableObject {
     }
 }
 
-enum QuickReplyError: LocalizedError {
+enum NotificationQuickReplyError: LocalizedError {
     case emptyText
     case notAuthenticated
     case postFailed(Error)
@@ -95,11 +102,11 @@ enum QuickReplyError: LocalizedError {
     }
 }
 
-// MARK: - Deep Link Handler
+// MARK: - Deep Link Handler (Legacy - Consider removing)
 
 @MainActor
-class NotificationDeepLinkHandler: ObservableObject {
-    static let shared = NotificationDeepLinkHandler()
+class LegacyNotificationDeepLinkHandler: ObservableObject {
+    static let shared = LegacyNotificationDeepLinkHandler()
     
     @Published var activeDeepLink: NotificationDeepLink?
     
@@ -128,7 +135,7 @@ class NotificationDeepLinkHandler: ObservableObject {
             
         case "message":
             if let conversationId = userInfo["conversationId"] as? String {
-                activeDeepLink = .conversation(conversationId: conversationId)
+                activeDeepLink = .conversation(userId: conversationId)
             }
             
         default:
@@ -156,7 +163,7 @@ class NotificationDeepLinkHandler: ObservableObject {
             
         case "conversation":
             if let conversationId = components?.queryItems?.first(where: { $0.name == "id" })?.value {
-                activeDeepLink = .conversation(conversationId: conversationId)
+                activeDeepLink = .conversation(userId: conversationId)
             }
             
         default:
@@ -170,22 +177,7 @@ class NotificationDeepLinkHandler: ObservableObject {
     }
 }
 
-enum NotificationDeepLink: Equatable {
-    case profile(userId: String)
-    case post(postId: String)
-    case conversation(conversationId: String)
-    
-    var navigationPath: String {
-        switch self {
-        case .profile(let userId):
-            return "profile_\(userId)"
-        case .post(let postId):
-            return "post_\(postId)"
-        case .conversation(let conversationId):
-            return "conversation_\(conversationId)"
-        }
-    }
-}
+// NotificationDeepLink enum is defined in PushNotificationHandler.swift
 
 // MARK: - App Delegate Integration Helper
 
@@ -194,14 +186,14 @@ class NotificationAppDelegateHelper {
     /// Call this from your AppDelegate's didReceiveRemoteNotification
     static func handleRemoteNotification(_ userInfo: [AnyHashable: Any]) {
         Task { @MainActor in
-            NotificationDeepLinkHandler.shared.handleNotificationTap(userInfo: userInfo)
+            LegacyNotificationDeepLinkHandler.shared.handleNotificationTap(userInfo: userInfo)
         }
     }
     
     /// Call this from your SceneDelegate's scene(_:openURLContexts:)
     static func handleURL(_ url: URL) {
         Task { @MainActor in
-            NotificationDeepLinkHandler.shared.handleDeepLink(url: url)
+            LegacyNotificationDeepLinkHandler.shared.handleDeepLink(url: url)
         }
     }
 }

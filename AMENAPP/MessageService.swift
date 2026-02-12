@@ -99,14 +99,26 @@ class MessageService: ObservableObject {
                     do {
                         // ✅ Filter OUT:
                         // 1. Archived conversations
-                        // 2. Pending message requests (handled separately)
+                        // 2. Pending message requests WHERE current user is NOT the requester
+                        //    (if you sent the request, you should see it in main tab)
                         // 3. Blocked conversations
                         self.conversations = try snapshot.documents.compactMap { doc in
                             try doc.data(as: Conversation.self)
                         }.filter { conversation in
-                            !conversation.isArchivedByUser(currentUserId) &&
-                            !conversation.isPending &&
-                            !conversation.isBlocked
+                            // Don't show archived
+                            guard !conversation.isArchivedByUser(currentUserId) else { return false }
+                            
+                            // Don't show blocked
+                            guard !conversation.isBlocked else { return false }
+                            
+                            // ✅ FIX: Show pending conversations ONLY if current user is the requester
+                            // (i.e., they sent the first message)
+                            if conversation.isPending {
+                                return conversation.requesterId == currentUserId
+                            }
+                            
+                            // Show all accepted conversations
+                            return true
                         }
                         
                         // Update unread count
@@ -179,6 +191,43 @@ class MessageService: ObservableObject {
             return
         }
         
+        // ============================================================================
+        // ✅ STEP 1: AI CONTENT MODERATION
+        // ============================================================================
+        print("🛡️ Running AI moderation check for message...")
+        let moderationResult = try await ContentModerationService.shared.moderateContent(
+            content,
+            type: .message,
+            userId: currentUserId
+        )
+        
+        // Block message if moderation fails
+        if !moderationResult.isApproved {
+            let reasons = moderationResult.flaggedReasons.joined(separator: ", ")
+            print("❌ Message blocked by moderation: \(reasons)")
+            throw NSError(
+                domain: "MessageService",
+                code: -2,
+                userInfo: [NSLocalizedDescriptionKey: "Your message was flagged for: \(reasons). Please review and edit your content."]
+            )
+        }
+        
+        // ============================================================================
+        // ✅ STEP 2: CRISIS DETECTION (in private messages)
+        // ============================================================================
+        print("🚨 Running crisis detection for message...")
+        let crisisResult = try await CrisisDetectionService.shared.detectCrisis(
+            in: content,
+            userId: currentUserId
+        )
+        
+        if crisisResult.isCrisis {
+            print("🚨 Crisis detected in message: \(crisisResult.crisisTypes.map { $0.displayName })")
+            // Log crisis detection but don't block message (user can still communicate)
+            // Crisis resources will be shown in UI by calling code if needed
+        }
+        
+        print("✅ Message passed safety checks")
         print("📤 Sending message to: \(recipientId)")
         
         // Get sender info
@@ -207,7 +256,12 @@ class MessageService: ObservableObject {
         )
         
         // Save message to Firestore
-        let messageRef = try db.collection("messages").addDocument(from: message)
+        // ✅ FIXED: Save to nested path so Cloud Function onMessageSent can trigger properly
+        // Path: conversations/{conversationId}/messages/{messageId}
+        let messageRef = try db.collection("conversations")
+            .document(conversationId)
+            .collection("messages")
+            .addDocument(from: message)
         
         // Update conversation
         var unreadCount = conversation.unreadCount
@@ -221,8 +275,10 @@ class MessageService: ObservableObject {
             "updatedAt": Date()
         ])
         
-        // Send push notification to recipient
-        try? await sendPushNotification(to: recipientId, from: currentUser.displayName, message: content)
+        // ❌ REMOVED: Duplicate notification prevention
+        // Cloud Function `onMessageSent` already handles notifications when message is created
+        // Uncommenting this line will cause duplicate notifications
+        // try? await sendPushNotification(to: recipientId, from: currentUser.displayName, message: content)
         
         print("✅ Message sent: \(messageRef.documentID)")
     }
@@ -235,8 +291,10 @@ class MessageService: ObservableObject {
         isLoading = true
         
         do {
-            let snapshot = try await db.collection("messages")
-                .whereField("conversationId", isEqualTo: conversationId)
+            // ✅ FIXED: Fetch from nested path to match where messages are saved
+            let snapshot = try await db.collection("conversations")
+                .document(conversationId)
+                .collection("messages")
                 .order(by: "timestamp", descending: false)
                 .getDocuments()
             
@@ -263,8 +321,10 @@ class MessageService: ObservableObject {
         
         print("🔊 Starting messages listener for: \(conversationId)")
         
-        messageListener = db.collection("messages")
-            .whereField("conversationId", isEqualTo: conversationId)
+        // ✅ FIXED: Listen to nested path to match where messages are saved
+        messageListener = db.collection("conversations")
+            .document(conversationId)
+            .collection("messages")
             .order(by: "timestamp", descending: false)
             .addSnapshotListener { [weak self] snapshot, error in
                 guard let self = self else { return }
@@ -307,9 +367,10 @@ class MessageService: ObservableObject {
         guard let currentUserId = firebaseManager.currentUser?.uid else { return }
         
         do {
-            // Get unread messages
-            let snapshot = try await db.collection("messages")
-                .whereField("conversationId", isEqualTo: conversationId)
+            // ✅ FIXED: Get unread messages from nested path
+            let snapshot = try await db.collection("conversations")
+                .document(conversationId)
+                .collection("messages")
                 .whereField("senderId", isNotEqualTo: currentUserId)
                 .whereField("isRead", isEqualTo: false)
                 .getDocuments()
@@ -365,11 +426,12 @@ class MessageService: ObservableObject {
         }
         
         // Create new conversation
-        print("📝 Creating new conversation")
+        print("📝 Creating new conversation as pending message request")
         
         let currentUser = try await getUserInfo(userId: currentUserId)
         let otherUser = try await getUserInfo(userId: userId)
         
+        // ✅ NEW: Create conversation as pending request
         var conversation = Conversation(
             participants: [currentUserId, userId].sorted(),
             participantNames: [
@@ -383,7 +445,9 @@ class MessageService: ObservableObject {
             unreadCount: [
                 currentUserId: 0,
                 userId: 0
-            ]
+            ],
+            conversationStatus: "pending",  // ✅ Start as pending
+            requesterId: currentUserId      // ✅ Track who initiated
         )
         
         let docRef = try db.collection("conversations").addDocument(from: conversation)
@@ -562,9 +626,10 @@ class MessageService: ObservableObject {
     // MARK: - Delete Conversation
     
     func deleteConversation(_ conversationId: String) async throws {
-        // Delete all messages
-        let messagesSnapshot = try await db.collection("messages")
-            .whereField("conversationId", isEqualTo: conversationId)
+        // ✅ FIXED: Delete all messages from nested path
+        let messagesSnapshot = try await db.collection("conversations")
+            .document(conversationId)
+            .collection("messages")
             .getDocuments()
         
         let batch = db.batch()
@@ -657,28 +722,38 @@ class MessageService: ObservableObject {
         
         print("📌 Pinning message: \(messageId)")
         
-        try await db.collection("messages").document(messageId).updateData([
-            "isPinned": true,
-            "pinnedBy": currentUserId,
-            "pinnedAt": Date()
-        ])
+        // ✅ FIXED: Update message in nested path
+        try await db.collection("conversations")
+            .document(conversationId)
+            .collection("messages")
+            .document(messageId)
+            .updateData([
+                "isPinned": true,
+                "pinnedBy": currentUserId,
+                "pinnedAt": Date()
+            ])
         
         print("✅ Message pinned")
     }
     
     /// Unpin a message
-    func unpinMessage(_ messageId: String) async throws {
+    func unpinMessage(_ messageId: String, in conversationId: String) async throws {
         guard let currentUserId = firebaseManager.currentUser?.uid else {
             throw FirebaseError.unauthorized
         }
         
         print("📌 Unpinning message: \(messageId)")
         
-        try await db.collection("messages").document(messageId).updateData([
-            "isPinned": false,
-            "pinnedBy": FieldValue.delete(),
-            "pinnedAt": FieldValue.delete()
-        ])
+        // ✅ FIXED: Update message in nested path
+        try await db.collection("conversations")
+            .document(conversationId)
+            .collection("messages")
+            .document(messageId)
+            .updateData([
+                "isPinned": false,
+                "pinnedBy": FieldValue.delete(),
+                "pinnedAt": FieldValue.delete()
+            ])
         
         print("✅ Message unpinned")
     }
@@ -688,9 +763,10 @@ class MessageService: ObservableObject {
         print("📥 Fetching pinned messages for: \(conversationId)")
         
         do {
-            // This query will trigger an index creation prompt on first use
-            let snapshot = try await db.collection("messages")
-                .whereField("conversationId", isEqualTo: conversationId)
+            // ✅ FIXED: Fetch from nested path
+            let snapshot = try await db.collection("conversations")
+                .document(conversationId)
+                .collection("messages")
                 .whereField("isPinned", isEqualTo: true)
                 .order(by: "pinnedAt", descending: true)
                 .getDocuments()

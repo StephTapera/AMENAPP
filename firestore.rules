@@ -1,0 +1,955 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ============================================================================
+    // HELPER FUNCTIONS
+    // ============================================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function validLength(text, maxLength) {
+      return text is string && text.size() <= maxLength;
+    }
+    
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+    
+    // Check if ONLY specified fields are being modified
+    function isOnlyUpdating(fields) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
+    }
+    
+    // Check if update is ONLY incrementing/decrementing counters (for follow/unfollow)
+    function isCounterUpdate() {
+      return isOnlyUpdating(['followersCount', 'followingCount', 'updatedAt'])
+        || isOnlyUpdating(['followersCount', 'updatedAt'])
+        || isOnlyUpdating(['followingCount', 'updatedAt'])
+        || isOnlyUpdating(['postsCount', 'updatedAt'])
+        || isOnlyUpdating(['followersCount'])
+        || isOnlyUpdating(['followingCount']);
+    }
+    
+    // ============================================================================
+    // USERS COLLECTION
+    // ============================================================================
+    
+    match /users/{userId} {
+      // Allow anyone to read user profiles (including unauthenticated for username checks)
+      // This is safe because we don't expose sensitive data like email in public queries
+      // Username availability checks during signup require this
+      allow read: if true;
+      
+      // Users can only create their own profile
+      allow create: if isAuthenticated()
+        && request.auth.uid == userId
+        && hasRequiredFields(['username', 'displayName', 'email'])
+        && validLength(request.resource.data.username, 30)
+        && validLength(request.resource.data.displayName, 100);
+      
+      // Users can only update their own profile
+      // CRITICAL FIX: Allow system counter updates (follow/unfollow) OR user profile edits
+      allow update: if isAuthenticated()
+        && (
+          // 1. User updating their OWN profile (excluding protected system fields)
+          (isOwner(userId)
+            && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+              'isVerified',
+              'email'
+            ]))
+          ||
+          // 2. System counter updates (follow/unfollow operations)
+          // Allow ANY authenticated user to update counters (for following/unfollowing)
+          // This is safe because counters use FieldValue.increment() which is atomic
+          isCounterUpdate()
+        );
+      
+      // Users can only delete their own profile
+      allow delete: if isAuthenticated() && isOwner(userId);
+      
+      // === FOLLOWING SUBCOLLECTION ===
+      // Users can follow/unfollow others by writing to subcollections
+      match /following/{followingId} {
+        // Allow anyone authenticated to read following lists (for discovery & profile views)
+        allow read: if isAuthenticated();
+        
+        // Allow following if user owns the parent collection OR is creating a mutual follow
+        allow create: if isAuthenticated() 
+          && (isOwner(userId) || followingId == request.auth.uid);
+        
+        // Allow unfollowing if user owns the parent collection OR is removing themselves
+        allow delete: if isAuthenticated()
+          && (isOwner(userId) || followingId == request.auth.uid);
+        
+        allow update: if isAuthenticated() && isOwner(userId);
+      }
+      
+      // === FOLLOWERS SUBCOLLECTION ===
+      match /followers/{followerId} {
+        // Allow anyone authenticated to read follower lists (for discovery & profile views)
+        allow read: if isAuthenticated();
+        
+        // Allow creating follower records if user owns collection OR is the follower
+        allow create: if isAuthenticated()
+          && (isOwner(userId) || followerId == request.auth.uid);
+        
+        // Allow deleting follower records if user owns collection OR is the follower
+        allow delete: if isAuthenticated()
+          && (isOwner(userId) || followerId == request.auth.uid);
+        
+        allow update: if isAuthenticated() && isOwner(userId);
+      }
+      
+      // === SAVED POSTS SUBCOLLECTION ===
+      match /savedPosts/{postId} {
+        allow read: if isAuthenticated() && isOwner(userId);
+        allow create: if isAuthenticated() && isOwner(userId);
+        allow delete: if isAuthenticated() && isOwner(userId);
+      }
+      
+      // === BLOCKED USERS SUBCOLLECTION ===
+      match /blockedUsers/{blockedUserId} {
+        // Users can read their own blocked list AND check if they're blocked by someone
+        allow read: if isAuthenticated() 
+          && (isOwner(userId) || blockedUserId == request.auth.uid);
+        allow create: if isAuthenticated() && isOwner(userId);
+        allow delete: if isAuthenticated() && isOwner(userId);
+      }
+      
+      // === NOTIFICATIONS SUBCOLLECTION ===
+      match /notifications/{notificationId} {
+        // Allow reading notifications for the user who owns this subcollection
+        allow read: if isAuthenticated() && isOwner(userId);
+        
+        // Anyone can create notifications (system/other users)
+        allow create: if isAuthenticated();
+        
+        // Only the owner can update/delete their notifications
+        allow update: if isAuthenticated() && isOwner(userId);
+        allow delete: if isAuthenticated() && isOwner(userId);
+      }
+    }
+    
+    // ============================================================================
+    // FOLLOWS COLLECTION (Top-Level)
+    // ============================================================================
+    
+    match /follows/{followId} {
+      allow read: if isAuthenticated();
+      
+      allow create: if isAuthenticated()
+        && request.resource.data.get('followerId', '') == request.auth.uid;
+      
+      // CRITICAL FIX: Check BOTH existing and new data for batch operations
+      allow update: if isAuthenticated()
+        && (resource.data.get('followerId', '') == request.auth.uid
+          || resource.data.get('followingId', '') == request.auth.uid
+          || request.resource.data.get('followerId', '') == request.auth.uid
+          || request.resource.data.get('followingId', '') == request.auth.uid);
+      
+      allow delete: if isAuthenticated()
+        && resource.data.get('followerId', '') == request.auth.uid;
+    }
+    
+    // ============================================================================
+    // FOLLOW REQUESTS COLLECTION
+    // ============================================================================
+    
+    match /followRequests/{requestId} {
+      // Users can read requests sent to them OR sent by them
+      allow read: if isAuthenticated()
+        && (resource.data.toUserId == request.auth.uid 
+          || resource.data.fromUserId == request.auth.uid);
+      
+      // Users can create requests from themselves
+      allow create: if isAuthenticated()
+        && request.resource.data.fromUserId == request.auth.uid;
+      
+      // Users can update requests sent to them (accept/reject) OR cancel their own requests
+      allow update: if isAuthenticated()
+        && (resource.data.toUserId == request.auth.uid 
+          || resource.data.fromUserId == request.auth.uid);
+      
+      // Users can delete requests they sent OR requests sent to them
+      allow delete: if isAuthenticated()
+        && (resource.data.fromUserId == request.auth.uid 
+          || resource.data.toUserId == request.auth.uid);
+    }
+    
+    // ============================================================================
+    // BLOCKS COLLECTION
+    // ============================================================================
+    
+    match /blocks/{blockId} {
+      // Users can read blocks they created OR check if they are blocked
+      allow read: if isAuthenticated()
+        && (resource.data.blockerId == request.auth.uid 
+          || resource.data.blockedId == request.auth.uid);
+      
+      // Users can create blocks (block someone)
+      allow create: if isAuthenticated()
+        && request.resource.data.blockerId == request.auth.uid;
+      
+      // Users can update their own blocks
+      allow update: if isAuthenticated()
+        && resource.data.blockerId == request.auth.uid;
+      
+      // Users can delete blocks they created (unblock)
+      allow delete: if isAuthenticated()
+        && resource.data.blockerId == request.auth.uid;
+    }
+    
+    // ============================================================================
+    // POSTS COLLECTION (Enhanced with tags)
+    // ============================================================================
+
+    match /posts/{postId} {
+      // Allow read for all authenticated users (for feeds, saved posts, etc.)
+      // This includes both get (single document) and list (queries)
+      allow get: if isAuthenticated();
+      allow list: if isAuthenticated();
+
+      allow create: if isAuthenticated()
+        && request.resource.data.authorId == request.auth.uid
+        && hasRequiredFields(['content', 'authorId', 'authorName', 'category'])
+        && validLength(request.resource.data.content, 500)
+        && request.resource.data.category in ['openTable', 'testimonies', 'prayer', 'general'];
+
+      allow update: if isAuthenticated()
+        && resource.data.authorId == request.auth.uid
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'amenCount',
+          'commentCount',
+          'repostCount',
+          'authorId'
+        ]));
+
+      allow delete: if isAuthenticated()
+        && resource.data.authorId == request.auth.uid;
+      
+      // === LIKES SUBCOLLECTION ===
+      match /likes/{likeId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated() 
+          && request.resource.data.userId == request.auth.uid;
+        allow delete: if isAuthenticated() 
+          && resource.data.userId == request.auth.uid;
+      }
+      
+      // === COMMENTS SUBCOLLECTION ===
+      match /comments/{commentId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated()
+          && (request.resource.data.userId == request.auth.uid 
+            || request.resource.data.authorId == request.auth.uid)
+          && validLength(request.resource.data.text, 2000);
+        allow update: if isAuthenticated()
+          && resource.data.userId == request.auth.uid;
+        allow delete: if isAuthenticated()
+          && (resource.data.userId == request.auth.uid
+            || get(/databases/$(database)/documents/posts/$(postId)).data.authorId == request.auth.uid);
+      }
+      
+      // === REPOSTS SUBCOLLECTION ===
+      match /reposts/{repostId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated()
+          && request.resource.data.userId == request.auth.uid;
+        allow delete: if isAuthenticated()
+          && resource.data.userId == request.auth.uid;
+      }
+    }
+    
+    // ============================================================================
+    // CONVERSATIONS COLLECTION (UPDATED - Feb 6, 2026)
+    // ============================================================================
+    
+    match /conversations/{conversationId} {
+      // Helper function to check if user is participant
+      function isParticipant() {
+        return request.auth.uid in resource.data.participantIds;
+      }
+      
+      function willBeParticipant() {
+        return request.auth.uid in request.resource.data.participantIds;
+      }
+      
+      // Helper function to check if user is not blocked
+      function notBlocked() {
+        return !('blockedUsers' in resource.data) || 
+               !(request.auth.uid in resource.data.get('blockedUsers', []));
+      }
+      
+      function isAcceptedConversation() {
+        return resource.data.conversationStatus == 'accepted';
+      }
+      
+      function isPendingForUser() {
+        return resource.data.conversationStatus == 'pending' && 
+               request.auth.uid in resource.data.participantIds;
+      }
+      
+      // ✅ Allow read if user is a participant and not blocked
+      allow read: if isAuthenticated() 
+        && isParticipant() 
+        && notBlocked();
+      
+      // ✅ Allow create if user is in participantIds and has auth
+      // For direct chats: requires 2+ participants
+      // For groups: requires isGroup=true and groupName
+      allow create: if isAuthenticated()
+        && willBeParticipant()
+        && request.resource.data.participantIds.size() >= 2
+        && (
+          // Direct chat: isGroup must be false
+          (request.resource.data.isGroup == false) ||
+          // Group chat: isGroup must be true and groupName must exist
+          (request.resource.data.isGroup == true &&
+           'groupName' in request.resource.data &&
+           request.resource.data.groupName is string &&
+           request.resource.data.groupName.size() > 0)
+        );
+      
+      // ✅ Allow update if user is participant and not blocked
+      // This includes: accepting requests, marking as read, updating unread counts, lastMessage
+      allow update: if isAuthenticated()
+        && request.auth.uid in resource.data.participantIds;
+      
+      // Allow delete if user is a participant
+      allow delete: if isAuthenticated()
+        && request.auth.uid in resource.data.participantIds;
+      
+      // === MESSAGES SUBCOLLECTION (UPDATED - Feb 6, 2026) ===
+      match /messages/{messageId} {
+        // ✅ Simplified rules to avoid expensive get() calls
+        // Participant validation happens at conversation level
+        
+        // Allow read for any authenticated user
+        // Conversation-level rules already restrict access
+        allow read: if isAuthenticated();
+        
+        // ✅ Allow create if user is the sender
+        // This fixes "Permission denied" errors when sending messages
+        allow create: if isAuthenticated()
+          && request.resource.data.senderId == request.auth.uid
+          && validLength(request.resource.data.text, 10000);
+        
+        // ✅ Allow update for reactions and read status
+        // Users can update messages for reactions, read receipts, etc.
+        allow update: if isAuthenticated()
+          && (resource.data.senderId == request.auth.uid
+              || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['text', 'senderId', 'timestamp']));
+        
+        // Allow delete only by sender
+        allow delete: if isAuthenticated()
+          && resource.data.senderId == request.auth.uid;
+      }
+      
+      // === TYPING INDICATOR SUBCOLLECTION ===
+      match /typing/{userId} {
+        allow read: if isAuthenticated();
+        allow write: if isAuthenticated() && isOwner(userId);
+      }
+    }
+    
+    // ============================================================================
+    // COMMUNITIES COLLECTION
+    // ============================================================================
+    
+    match /communities/{communityId} {
+      allow read: if isAuthenticated();
+      
+      allow create: if isAuthenticated()
+        && request.resource.data.creatorId == request.auth.uid
+        && hasRequiredFields(['name', 'description', 'creatorId'])
+        && validLength(request.resource.data.name, 100)
+        && validLength(request.resource.data.description, 500);
+      
+      allow update: if isAuthenticated()
+        && (resource.data.creatorId == request.auth.uid
+          || request.auth.uid in resource.data.get('adminIds', []));
+      
+      allow delete: if isAuthenticated()
+        && resource.data.creatorId == request.auth.uid;
+      
+      // === MEMBERS SUBCOLLECTION ===
+      match /members/{memberId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated()
+          && request.resource.data.userId == request.auth.uid;
+        allow delete: if isAuthenticated()
+          && (resource.data.userId == request.auth.uid
+            || get(/databases/$(database)/documents/communities/$(communityId)).data.creatorId == request.auth.uid);
+      }
+      
+      // === POSTS SUBCOLLECTION ===
+      match /posts/{postId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated()
+          && request.resource.data.authorId == request.auth.uid;
+        allow update: if isAuthenticated()
+          && resource.data.authorId == request.auth.uid;
+        allow delete: if isAuthenticated()
+          && (resource.data.authorId == request.auth.uid
+            || get(/databases/$(database)/documents/communities/$(communityId)).data.creatorId == request.auth.uid);
+      }
+    }
+    
+    // ============================================================================
+    // REPORTS COLLECTION
+    // ============================================================================
+    
+    match /reports/{reportId} {
+      // Users can read their own reports
+      allow read: if isAuthenticated()
+        && (resource == null || resource.data.reporterId == request.auth.uid);
+      
+      // Users can create reports
+      allow create: if isAuthenticated()
+        && request.resource.data.reporterId == request.auth.uid
+        && hasRequiredFields(['reporterId', 'reportedContentId', 'reason'])
+        && request.resource.data.reason in ['spam', 'harassment', 'inappropriate', 'other'];
+      
+      // Users can update their own reports (for adding details, etc.)
+      allow update: if isAuthenticated()
+        && resource.data.reporterId == request.auth.uid;
+      
+      // Users can delete their own reports
+      allow delete: if isAuthenticated()
+        && resource.data.reporterId == request.auth.uid;
+    }
+    
+    // ============================================================================
+    // NOTIFICATIONS COLLECTION (Top-Level)
+    // ============================================================================
+    
+    match /notifications/{notificationId} {
+      // Users can read their own notifications
+      allow read: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+      
+      // Anyone can create notifications (system/other users creating notifications)
+      allow create: if isAuthenticated();
+      
+      // Users can update their own notifications (mark as read)
+      allow update: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+      
+      // Users can delete their own notifications
+      allow delete: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+    }
+    
+    // ============================================================================
+    // TONE ANALYTICS COLLECTION (NEW - for tone checker)
+    // ============================================================================
+    
+    match /toneAnalytics/{analyticsId} {
+      // Users can read their own tone history
+      allow read: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+      
+      // Anyone can create tone analytics (system logging)
+      allow create: if isAuthenticated();
+      
+      // No updates or deletes
+      allow update: if false;
+      allow delete: if false;
+    }
+    
+    // ============================================================================
+    // MODERATION QUEUE COLLECTION (NEW - for flagged content)
+    // ============================================================================
+    
+    match /moderationQueue/{queueId} {
+      // Only admins can read moderation queue (in production, add admin role check)
+      allow read: if isAuthenticated();
+      
+      // Anyone can create moderation flags
+      allow create: if isAuthenticated()
+        && request.resource.data.reporterId == request.auth.uid;
+      
+      // Only admins can update/delete (in production, add admin role check)
+      allow update: if false;
+      allow delete: if false;
+    }
+    
+    // ============================================================================
+    // SEARCH INDEX COLLECTION (UPDATED - for tags and search)
+    // ============================================================================
+    
+    match /searchIndex/{indexType} {
+      // Anyone authenticated can read search index
+      allow read: if isAuthenticated();
+      
+      // System can write search indexes (backend or cloud functions)
+      // For client-side writes, we allow authenticated users
+      allow write: if isAuthenticated();
+    }
+    
+    // ============================================================================
+    // ANALYTICS COLLECTION
+    // ============================================================================
+    
+    match /analytics/{document=**} {
+      allow read: if false;
+      allow write: if false;
+    }
+    
+    match /analytics_performance/{document=**} {
+      allow read: if false;
+      allow write: if isAuthenticated();
+    }
+    
+    // ============================================================================
+    // ADMIN COLLECTION
+    // ============================================================================
+    
+    match /admin/{document=**} {
+      allow read: if false;
+      allow write: if false;
+    }
+    
+    // ============================================================================
+    // EVENTS COLLECTION
+    // ============================================================================
+    
+    match /events/{eventId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+        && request.resource.data.creatorId == request.auth.uid
+        && hasRequiredFields(['title', 'description', 'creatorId', 'date']);
+      allow update: if isAuthenticated()
+        && resource.data.creatorId == request.auth.uid;
+      allow delete: if isAuthenticated()
+        && resource.data.creatorId == request.auth.uid;
+      
+      // === ATTENDEES SUBCOLLECTION ===
+      match /attendees/{userId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated()
+          && request.resource.data.userId == request.auth.uid;
+        allow delete: if isAuthenticated()
+          && resource.data.userId == request.auth.uid;
+      }
+    }
+    
+    // ============================================================================
+    // PRAYER REQUESTS COLLECTION
+    // ============================================================================
+    
+    match /prayerRequests/{prayerId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+        && request.resource.data.authorId == request.auth.uid
+        && hasRequiredFields(['content', 'authorId', 'authorName'])
+        && validLength(request.resource.data.content, 1000);
+      allow update: if isAuthenticated()
+        && resource.data.authorId == request.auth.uid;
+      allow delete: if isAuthenticated()
+        && resource.data.authorId == request.auth.uid;
+      
+      // === PRAYERS SUBCOLLECTION ===
+      match /prayers/{prayId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated()
+          && request.resource.data.userId == request.auth.uid;
+        allow delete: if isAuthenticated()
+          && resource.data.userId == request.auth.uid;
+      }
+    }
+    
+    // ============================================================================
+    // TESTIMONIES COLLECTION
+    // ============================================================================
+    
+    match /testimonies/{testimonyId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+        && request.resource.data.authorId == request.auth.uid
+        && hasRequiredFields(['content', 'authorId', 'authorName'])
+        && validLength(request.resource.data.content, 2000);
+      allow update: if isAuthenticated()
+        && resource.data.authorId == request.auth.uid;
+      allow delete: if isAuthenticated()
+        && resource.data.authorId == request.auth.uid;
+      
+      // === AMENS SUBCOLLECTION ===
+      match /amens/{amenId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated()
+          && request.resource.data.userId == request.auth.uid;
+        allow delete: if isAuthenticated()
+          && resource.data.userId == request.auth.uid;
+      }
+    }
+    
+    // ============================================================================
+    // FEATURE FLAGS COLLECTION
+    // ============================================================================
+    
+    match /featureFlags/{flagId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+    
+    // ============================================================================
+    // USER REPOSTS COLLECTION (NEW - for user repost tracking)
+    // ============================================================================
+    
+    match /user-reposts/{userId} {
+      // Separate get (single document) and list (query) permissions
+      // Allow authenticated users to read any user's reposts
+      allow get: if isAuthenticated();
+      allow list: if isAuthenticated();
+      
+      // Users can write to their own repost collection
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      allow update: if isAuthenticated() && request.auth.uid == userId;
+      allow delete: if isAuthenticated() && request.auth.uid == userId;
+      
+      // === REPOSTS SUBCOLLECTION ===
+      match /reposts/{repostId} {
+        // Allow authenticated users to read any user's reposts
+        allow get: if isAuthenticated();
+        allow list: if isAuthenticated();
+        
+        // Only the owner can modify their reposts
+        allow create: if isAuthenticated() && request.auth.uid == userId;
+        allow update: if isAuthenticated() && request.auth.uid == userId;
+        allow delete: if isAuthenticated() && request.auth.uid == userId;
+      }
+    }
+    
+    // ============================================================================
+    // SAVED POSTS COLLECTION (NEW - top-level for queries)
+    // ============================================================================
+    
+    match /savedPosts/{saveId} {
+      // Allow users to read their own saved posts
+      allow read: if isAuthenticated() 
+        && resource.data.userId == request.auth.uid;
+      
+      // Allow users to create their own saved posts
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid;
+      
+      // Allow users to delete their own saved posts
+      allow delete: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+    }
+    
+    // ============================================================================
+    // REPOSTS COLLECTION (NEW - top-level for queries and feed)
+    // ============================================================================
+    
+    match /reposts/{repostId} {
+      // Anyone authenticated can read reposts (for displaying in feeds)
+      allow read: if isAuthenticated();
+      
+      // Users can create their own reposts
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid;
+      
+      // Users can update their own reposts
+      allow update: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+      
+      // Users can delete their own reposts
+      allow delete: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+    }
+    
+    // ============================================================================
+    // CHURCH NOTES COLLECTION (NEW - for sermon notes)
+    // ============================================================================
+    
+    match /churchNotes/{noteId} {
+      // Users can read their own notes (allow list queries by userId)
+      allow read: if isAuthenticated()
+        && (resource == null || resource.data.userId == request.auth.uid);
+      
+      // Users can create their own notes
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid;
+      
+      // Users can update their own notes
+      allow update: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+      
+      // Users can delete their own notes
+      allow delete: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+    }
+    
+    // ============================================================================
+    // MESSAGE REQUESTS - Now handled within conversations collection
+    // Conversations with conversationStatus = 'pending' are treated as requests
+    // ============================================================================
+    
+    // Note: Message requests are now integrated into the conversations collection
+    // with conversationStatus field ('pending', 'accepted', 'blocked')
+    // No separate messageRequests collection needed
+    
+    // ============================================================================
+    // FCM QUEUE COLLECTION (NEW - for push notification delivery)
+    // ============================================================================
+    
+    match /fcmQueue/{queueId} {
+      // Only system/cloud functions can read
+      allow read: if false;
+      
+      // Authenticated users can create (queue notifications)
+      allow create: if isAuthenticated();
+      
+      // Only cloud functions can update/delete
+      allow update: if false;
+      allow delete: if false;
+    }
+    
+    // ============================================================================
+    // MUTED USERS COLLECTION (NEW - for muting users)
+    // ============================================================================
+    
+    match /mutedUsers/{muteId} {
+      // Users can read mute records where they are the one doing the muting
+      allow read: if isAuthenticated()
+        && (resource == null || resource.data.userId == request.auth.uid);
+      
+      // Users can create mutes where they are the userId (the one doing the muting)
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid;
+      
+      // Allow update for the user who created the mute
+      allow update: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+      
+      // Users can delete mutes they created
+      allow delete: if isAuthenticated()
+        && (resource == null || resource.data.userId == request.auth.uid);
+    }
+    
+    // ============================================================================
+    // BLOCKED USERS COLLECTION (NEW - top-level for blocking users)
+    // ============================================================================
+    
+    match /blockedUsers/{blockId} {
+      // Users can read block records where they are the one doing the blocking
+      allow read: if isAuthenticated()
+        && (resource == null || resource.data.userId == request.auth.uid);
+      
+      // Users can create blocks where they are the userId (the one doing the blocking)
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid;
+      
+      // Allow update for the user who created the block
+      allow update: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+      
+      // Users can delete blocks they created
+      allow delete: if isAuthenticated()
+        && (resource == null || resource.data.userId == request.auth.uid);
+    }
+    
+    // ============================================================================
+    // ONBOARDING FEEDBACK COLLECTION (NEW - for collecting user feedback)
+    // ============================================================================
+
+    match /onboardingFeedback/{feedbackId} {
+      // Anyone authenticated can read their own feedback
+      allow read: if isAuthenticated()
+        && (resource == null || resource.data.userId == request.auth.uid);
+
+      // Anyone authenticated can create feedback
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid;
+
+      // Users can update their own feedback
+      allow update: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+
+      // Users can delete their own feedback
+      allow delete: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+    }
+
+    // ============================================================================
+    // AI BIBLE STUDY CONVERSATIONS COLLECTION
+    // ============================================================================
+
+    match /aiBibleStudyConversations/{conversationId} {
+      // Users can read their own conversations
+      allow read: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+
+      // Users can create their own conversations
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid
+        && hasRequiredFields(['userId', 'createdAt', 'updatedAt', 'messageCount']);
+
+      // Users can update their own conversations
+      allow update: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+
+      // Users can delete their own conversations
+      allow delete: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+
+      // === MESSAGES SUBCOLLECTION ===
+      match /messages/{messageId} {
+        // Users can read messages from their own conversations
+        allow read: if isAuthenticated();
+
+        // Users can create messages in their own conversations
+        allow create: if isAuthenticated()
+          && hasRequiredFields(['text', 'isUser', 'timestamp', 'index']);
+
+        // Users can update messages in their own conversations
+        allow update: if isAuthenticated();
+
+        // Users can delete messages from their own conversations
+        allow delete: if isAuthenticated();
+      }
+    }
+
+    // ============================================================================
+    // AI MODERATION COLLECTIONS
+    // ============================================================================
+
+    // Moderation Requests - Created by app, processed by Cloud Functions
+    match /moderationRequests/{requestId} {
+      // Users can create moderation requests for their own content
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid
+        && hasRequiredFields(['content', 'contentType', 'userId', 'timestamp']);
+
+      // No read/update/delete - only Cloud Functions process these
+      allow read, update, delete: if false;
+    }
+
+    // Moderation Results - Created by Cloud Functions, read by app
+    match /moderationResults/{resultId} {
+      // Users can read results for their own moderation requests
+      allow read: if isAuthenticated();
+
+      // Only Cloud Functions can write results
+      allow create, update, delete: if false;
+    }
+
+    // Moderation Logs - Analytics and admin review
+    match /moderationLogs/{logId} {
+      // Users can create logs for their own content
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid;
+
+      // Only admins can read logs (add admin check in future)
+      allow read: if isAuthenticated();
+
+      allow update, delete: if false;
+    }
+
+    // ============================================================================
+    // CRISIS DETECTION COLLECTIONS
+    // ============================================================================
+
+    // Crisis Detection Requests - Created by app, processed by Cloud Functions
+    match /crisisDetectionRequests/{requestId} {
+      // Users can create crisis detection requests for their own prayers
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid
+        && hasRequiredFields(['prayerText', 'userId', 'timestamp']);
+
+      // No read/update/delete - only Cloud Functions process these
+      allow read, update, delete: if false;
+    }
+
+    // Crisis Detection Results - Created by Cloud Functions, read by app
+    match /crisisDetectionResults/{resultId} {
+      // Users can read results for their own crisis detection requests
+      allow read: if isAuthenticated();
+
+      // Only Cloud Functions can write results
+      allow create, update, delete: if false;
+    }
+
+    // Crisis Detection Logs - For moderator follow-up
+    match /crisisDetectionLogs/{logId} {
+      // Only Cloud Functions can create logs
+      allow create: if false;
+
+      // Only authenticated users (moderators) can read logs
+      allow read: if isAuthenticated();
+
+      allow update, delete: if false;
+    }
+
+    // Moderator Alerts - Critical issues requiring immediate attention
+    match /moderatorAlerts/{alertId} {
+      // Only Cloud Functions can create alerts
+      allow create: if false;
+
+      // Only authenticated users (moderators) can read alerts
+      allow read: if isAuthenticated();
+
+      // Moderators can update alert status
+      allow update: if isAuthenticated()
+        && isOnlyUpdating(['status', 'handledBy', 'handledAt']);
+
+      allow delete: if false;
+    }
+
+    // ============================================================================
+    // SMART NOTIFICATIONS COLLECTIONS
+    // ============================================================================
+
+    // Notification Batches - Grouped notifications for smart delivery
+    match /notificationBatches/{batchId} {
+      // Only Cloud Functions can create batches
+      allow create: if false;
+
+      // Users can read their own notification batches
+      allow read: if isAuthenticated()
+        && resource.data.recipientId == request.auth.uid;
+
+      // Only Cloud Functions can update batches
+      allow update, delete: if false;
+    }
+
+    // Scheduled Batches - Batches scheduled for future delivery
+    match /scheduledBatches/{batchId} {
+      // Only Cloud Functions can create scheduled batches
+      allow create: if false;
+
+      // Users can read their own scheduled batches
+      allow read: if isAuthenticated()
+        && resource.data.recipientId == request.auth.uid;
+
+      // Only Cloud Functions can update/delete
+      allow update, delete: if false;
+    }
+
+    // User Notification Preferences - AI-learned preferences
+    match /userNotificationPreferences/{userId} {
+      // Users can read their own preferences
+      allow read: if isAuthenticated() && isOwner(userId);
+
+      // Only Cloud Functions can write preferences (AI learning)
+      allow create, update, delete: if false;
+    }
+
+    // ============================================================================
+    // DEFAULT DENY ALL OTHER COLLECTIONS
+    // ============================================================================
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

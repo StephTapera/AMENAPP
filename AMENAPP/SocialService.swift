@@ -28,125 +28,53 @@ class SocialService: ObservableObject {
     
     // MARK: - Follow/Unfollow Actions
     
-    /// Follow a user
-    func followUser(userId: String) async throws {
-        guard let currentUserId = firebaseManager.currentUser?.uid else {
-            throw SocialServiceError.notAuthenticated
+    // ⚠️ DEPRECATED: Use FollowService.shared instead
+    // These methods have been moved to FollowService to avoid duplicate follow logic
+    
+    // MARK: - Mute Accounts
+    
+    /// Mute a user for a specified duration
+    func muteUser(_ userId: String, duration: TimeInterval) async throws {
+        guard let currentUserId = Auth.auth().currentUser?.uid else {
+            throw NSError(domain: "SocialService", code: -1, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
         }
         
-        guard currentUserId != userId else {
-            throw SocialServiceError.cannotFollowSelf
-        }
+        let muteUntil = Date().addingTimeInterval(duration)
         
-        isLoading = true
-        defer { isLoading = false }
+        try await Firestore.firestore()
+            .collection("users")
+            .document(currentUserId)
+            .updateData([
+                "mutedUsers.\(userId)": Timestamp(date: muteUntil)
+            ])
         
-        print("👥 Following user: \(userId)")
-        
-        let db = Firestore.firestore()
-        
-        // ⚠️ FIX: Check if relationship already exists to prevent duplicates
-        let existingQuery = db.collection("follows")
-            .whereField("followerId", isEqualTo: currentUserId)
-            .whereField("followingId", isEqualTo: userId)
-            .limit(to: 1)
-        
-        let existingSnapshot = try await existingQuery.getDocuments()
-        
-        if !existingSnapshot.documents.isEmpty {
-            print("⚠️ Already following user: \(userId)")
-            return // Already following, don't create duplicate
-        }
-        
-        // Create the follow relationship
-        let relationship = FollowRelationship(
-            followerId: currentUserId,
-            followingId: userId
-        )
-        
-        // Use a batch write to ensure atomicity
-        let batch = db.batch()
-        
-        // 1. Create the follow relationship document
-        let followRef = db.collection("follows").document()
-        batch.setData(try Firestore.Encoder().encode(relationship), forDocument: followRef)
-        
-        // 2. Increment the current user's following count
-        let currentUserRef = db.collection("users").document(currentUserId)
-        batch.updateData(["followingCount": FieldValue.increment(Int64(1))], forDocument: currentUserRef)
-        
-        // 3. Increment the target user's followers count
-        let targetUserRef = db.collection("users").document(userId)
-        batch.updateData(["followersCount": FieldValue.increment(Int64(1))], forDocument: targetUserRef)
-        
-        // Commit the batch
-        try await batch.commit()
-        
-        print("✅ Successfully followed user: \(userId)")
-        
-        // Create a notification for the followed user
-        try? await createFollowNotification(followerId: currentUserId, followedUserId: userId)
+        print("🔇 Muted user \(userId) until \(muteUntil)")
     }
     
-    /// Unfollow a user
-    func unfollowUser(userId: String) async throws {
-        guard let currentUserId = firebaseManager.currentUser?.uid else {
-            throw SocialServiceError.notAuthenticated
+    /// Unmute a user
+    func unmuteUser(_ userId: String) async throws {
+        guard let currentUserId = Auth.auth().currentUser?.uid else {
+            throw NSError(domain: "SocialService", code: -1, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
         }
         
-        isLoading = true
-        defer { isLoading = false }
+        try await Firestore.firestore()
+            .collection("users")
+            .document(currentUserId)
+            .updateData([
+                "mutedUsers.\(userId)": FieldValue.delete()
+            ])
         
-        print("👥 Unfollowing user: \(userId)")
-        
-        let db = Firestore.firestore()
-        
-        // Find the follow relationship document
-        let followsQuery = db.collection("follows")
-            .whereField("followerId", isEqualTo: currentUserId)
-            .whereField("followingId", isEqualTo: userId)
-            .limit(to: 1)
-        
-        let snapshot = try await followsQuery.getDocuments()
-        
-        guard let followDoc = snapshot.documents.first else {
-            throw SocialServiceError.relationshipNotFound
-        }
-        
-        // Use a batch write to ensure atomicity
-        let batch = db.batch()
-        
-        // 1. Delete the follow relationship
-        batch.deleteDocument(followDoc.reference)
-        
-        // 2. Decrement the current user's following count
-        let currentUserRef = db.collection("users").document(currentUserId)
-        batch.updateData(["followingCount": FieldValue.increment(Int64(-1))], forDocument: currentUserRef)
-        
-        // 3. Decrement the target user's followers count
-        let targetUserRef = db.collection("users").document(userId)
-        batch.updateData(["followersCount": FieldValue.increment(Int64(-1))], forDocument: targetUserRef)
-        
-        // Commit the batch
-        try await batch.commit()
-        
-        print("✅ Successfully unfollowed user: \(userId)")
+        print("🔊 Unmuted user \(userId)")
     }
     
-    /// Check if current user is following a specific user
-    func isFollowing(userId: String) async throws -> Bool {
-        guard let currentUserId = firebaseManager.currentUser?.uid else {
+    /// Check if a user is muted
+    func isUserMuted(_ userId: String, mutedUsers: [String: Timestamp]) -> Bool {
+        guard let muteTimestamp = mutedUsers[userId] else {
             return false
         }
         
-        let db = Firestore.firestore()
-        let query = db.collection("follows")
-            .whereField("followerId", isEqualTo: currentUserId)
-            .whereField("followingId", isEqualTo: userId)
-            .limit(to: 1)
-        
-        let snapshot = try await query.getDocuments()
-        return !snapshot.documents.isEmpty
+        let muteUntil = muteTimestamp.dateValue()
+        return Date() < muteUntil
     }
     
     // MARK: - Fetch Followers/Following
@@ -327,29 +255,6 @@ class SocialService: ObservableObject {
             return nil
         }
         return encodedPath.removingPercentEncoding
-    }
-    
-    private func createFollowNotification(followerId: String, followedUserId: String) async throws {
-        // Get follower info
-        let follower = try await firebaseManager.fetchDocument(
-            from: "users/\(followerId)",
-            as: UserModel.self
-        )
-        
-        // Create notification document
-        let notification: [String: Any] = [
-            "userId": followedUserId,
-            "type": "follow",
-            "fromUserId": followerId,
-            "fromUserName": follower.displayName,
-            "fromUserUsername": follower.username,
-            "message": "\(follower.displayName) started following you",
-            "createdAt": Date(),
-            "isRead": false
-        ]
-        
-        let db = Firestore.firestore()
-        try await db.collection("notifications").addDocument(data: notification)
     }
 }
 

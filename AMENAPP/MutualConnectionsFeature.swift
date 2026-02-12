@@ -23,7 +23,7 @@ struct MutualConnection: Identifiable {
 // MARK: - Mutual Connections Service
 
 @MainActor
-class MutualConnectionsService: ObservableObject {
+class MutualConnectionsService {
     static let shared = MutualConnectionsService()
 
     private let db = Firestore.firestore()

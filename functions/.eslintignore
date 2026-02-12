@@ -1,10 +1,17 @@
+# Dependencies
 node_modules/
+
+# Project files to ignore
 *.swift
 *.md
 *.json
 *.lock
-.git/
+*.xcodeproj
+*.xcworkspace
+
+# Parent directory files
+../**/*.swift
+../**/*.md
 ../AMENAPP/
 ../AMENAPP.xcodeproj/
-../*.md
-../*.swift
+../.git/

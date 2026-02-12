@@ -12,6 +12,8 @@ import FirebaseMessaging
 import FirebaseFirestore
 import UserNotifications
 
+#if canImport(FCMGuideNeverImport)
+
 // ============================================================================
 // MARK: - STEP 1: Request Permissions & Setup FCM on Login
 // ============================================================================
@@ -407,7 +409,7 @@ func testPushNotificationSetup() async {
 // ============================================================================
 
 /// Complete example showing FCM integration in authentication
-class AuthenticationViewModel: ObservableObject {
+class AuthenticationViewModelFCMGuide: ObservableObject {
     @Published var isAuthenticated = false
     @Published var errorMessage: String?
     
@@ -542,3 +544,5 @@ class AuthenticationViewModel: ObservableObject {
 
 // This file is for reference only - DO NOT add to your Xcode project
 // Copy the relevant code snippets to your existing files
+
+#endif

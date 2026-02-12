@@ -1,5 +1,34 @@
 # Required Firestore Indexes
 
+## CRITICAL: Trending Posts Index (MUST CREATE)
+
+### 0. Posts Collection - Trending Query with Multiple Range Fields
+**Collection ID:** `posts`
+
+**Direct Index Creation URL:**
+```
+https://console.firebase.google.com/v1/r/project/amen-5e359/firestore/indexes?create_composite=Ckhwcm9qZWN0cy9hbWVuLTVlMzU5L2RhdGFiYXNlcy8oZGVmYXVsdCkvY29sbGVjdGlvbkdyb3Vwcy9wb3N0cy9pbmRleGVzL18QARoMCghjYXRlZ29yeRABGg0KCWNyZWF0ZWRBdBABGhIKDmxpZ2h0YnVsYkNvdW50EAEaDAoIX19uYW1lX18QAQ
+```
+
+**Fields to index:**
+- `category` (Ascending)
+- `createdAt` (Ascending)
+- `lightbulbCount` (Ascending)
+- `__name__` (Ascending)
+
+**Query being used:**
+```swift
+.whereField("category", isEqualTo: "openTable")
+.whereField("createdAt", isGreaterThan: weekAgo)
+.whereField("lightbulbCount", isGreaterThan: 2)
+.order(by: "createdAt", descending: false)
+.order(by: "lightbulbCount", descending: false)
+```
+
+**Why it's needed:** This query has multiple range/inequality filters (createdAt, lightbulbCount), which requires a composite index according to Firestore rules.
+
+---
+
 ## For Comments Queries
 
 ### 1. Posts Collection - Comments Subcollection

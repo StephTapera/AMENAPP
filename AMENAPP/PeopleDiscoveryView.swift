@@ -595,11 +595,11 @@ struct PeopleDiscoveryView: View {
                             .navigationBarBackButtonHidden(false)
                             .toolbar(.visible, for: .navigationBar)
                     } label: {
-                        CompactUserCard(user: user)
+                        DiscoveryUserCard(user: user)
                     }
                     .buttonStyle(PlainButtonStyle())
                 } else {
-                    CompactUserCard(user: user)
+                    DiscoveryUserCard(user: user)
                         .opacity(0.6)
                 }
             }
@@ -797,9 +797,9 @@ struct PeopleFilterChip: View {
     }
 }
 
-// MARK: - Compact User Card (Smaller Design)
+// MARK: - Discovery User Card (Smaller Design)
 
-struct CompactUserCard: View {
+struct DiscoveryUserCard: View {
     let user: UserModel
     @State private var isFollowing = false
     @State private var optimisticFollowState: Bool?
@@ -986,7 +986,7 @@ struct FastProfileImage: View {
 
         Task {
             // Check cache first
-            if let cached = await ProfileImageCache.shared.get(forKey: urlString) {
+            if let cached = await DiscoveryProfileImageCache.shared.getCachedImage(forKey: urlString) {
                 await MainActor.run {
                     cachedImage = cached
                     isLoading = false
@@ -999,7 +999,7 @@ struct FastProfileImage: View {
 
                 if let downloadedImage = UIImage(data: data) {
                     let resizedImage = await resizeImage(downloadedImage, targetSize: CGSize(width: size * 2, height: size * 2))
-                    await ProfileImageCache.shared.set(resizedImage, forKey: urlString)
+                    await DiscoveryProfileImageCache.shared.setCachedImage(resizedImage, forKey: urlString)
 
                     await MainActor.run {
                         cachedImage = resizedImage
@@ -1379,24 +1379,10 @@ struct ErrorBanner: View {
     }
 }
 
-// MARK: - Blur View Helper
+// MARK: - Discovery Profile Image Cache
 
-struct BlurView: UIViewRepresentable {
-    let style: UIBlurEffect.Style
-
-    func makeUIView(context: Context) -> UIVisualEffectView {
-        UIVisualEffectView(effect: UIBlurEffect(style: style))
-    }
-
-    func updateUIView(_ uiView: UIVisualEffectView, context: Context) {
-        uiView.effect = UIBlurEffect(style: style)
-    }
-}
-
-// MARK: - Profile Image Cache
-
-actor ProfileImageCache {
-    static let shared = ProfileImageCache()
+actor DiscoveryProfileImageCache {
+    static let shared = DiscoveryProfileImageCache()
 
     private var cache: [String: UIImage] = [:]
     private let maxCacheSize = 100
@@ -1404,7 +1390,7 @@ actor ProfileImageCache {
 
     private init() {}
 
-    func get(forKey key: String) -> UIImage? {
+    func getCachedImage(forKey key: String) -> UIImage? {
         if let index = accessOrder.firstIndex(of: key) {
             accessOrder.remove(at: index)
             accessOrder.append(key)
@@ -1412,7 +1398,7 @@ actor ProfileImageCache {
         return cache[key]
     }
 
-    func set(_ image: UIImage, forKey key: String) {
+    func setCachedImage(_ image: UIImage, forKey key: String) {
         if cache.count >= maxCacheSize, let oldestKey = accessOrder.first {
             cache.removeValue(forKey: oldestKey)
             accessOrder.removeFirst()
@@ -1439,7 +1425,7 @@ func prefetchProfileImages(for users: [UserModel]) {
                 continue
             }
 
-            if await ProfileImageCache.shared.get(forKey: urlString) != nil {
+            if await DiscoveryProfileImageCache.shared.getCachedImage(forKey: urlString) != nil {
                 continue
             }
 
@@ -1452,9 +1438,72 @@ func prefetchProfileImages(for users: [UserModel]) {
                         image.draw(in: CGRect(origin: .zero, size: targetSize))
                     }
 
-                    await ProfileImageCache.shared.set(resizedImage, forKey: urlString)
+                    await DiscoveryProfileImageCache.shared.setCachedImage(resizedImage, forKey: urlString)
                 }
             } catch {}
+        }
+    }
+}
+
+// MARK: - Safe Profile Wrapper
+
+struct SafeUserProfileWrapper: View {
+    let userId: String
+    @State private var loadFailed = false
+    @State private var isLoading = true
+    @Environment(\.dismiss) var dismiss
+
+    var body: some View {
+        Group {
+            if loadFailed {
+                VStack(spacing: 20) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.system(size: 48))
+                        .foregroundStyle(.orange)
+
+                    Text("Unable to Load Profile")
+                        .font(.custom("OpenSans-Bold", size: 20))
+
+                    Text("This profile could not be loaded. Please try again later.")
+                        .font(.custom("OpenSans-Regular", size: 14))
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 40)
+
+                    Button {
+                        dismiss()
+                    } label: {
+                        Text("Close")
+                            .font(.custom("OpenSans-SemiBold", size: 16))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 32)
+                            .padding(.vertical, 12)
+                            .background(
+                                RoundedRectangle(cornerRadius: 24)
+                                    .fill(.black)
+                            )
+                    }
+                }
+                .padding()
+            } else {
+                UserProfileView(userId: userId, showsDismissButton: true)
+                    .task {
+                        // Add timeout to detect crashes
+                        try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 second
+                        isLoading = false
+                    }
+                    .onDisappear {
+                        // Clean up if needed
+                        isLoading = false
+                    }
+            }
+        }
+        .task {
+            // Watchdog timer - if view doesn't load in 10 seconds, show error
+            try? await Task.sleep(nanoseconds: 10_000_000_000) // 10 seconds
+            if isLoading {
+                loadFailed = true
+            }
         }
     }
 }

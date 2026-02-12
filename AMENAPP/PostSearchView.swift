@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Combine
 
 // MARK: - Post Search View
 
@@ -178,7 +179,6 @@ struct PostSearchView: View {
         ], spacing: 2) {
             ForEach(viewModel.posts) { post in
                 PostThumbnailView(post: post)
-                    .aspectRatio(1, contentMode: .fill)
             }
         }
         .padding(.top, 12)
@@ -248,55 +248,71 @@ struct PostThumbnailView: View {
     let post: AlgoliaPost
     
     var body: some View {
-        ZStack(alignment: .bottomTrailing) {
-            // Post image/video
-            if let firstMedia = post.mediaURLs.first,
-               let url = URL(string: firstMedia) {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .scaledToFill()
-                    case .failure(_), .empty:
-                        Rectangle()
-                            .fill(Color.gray.opacity(0.3))
-                    @unknown default:
-                        Rectangle()
-                            .fill(Color.gray.opacity(0.3))
+        GeometryReader { geometry in
+            ZStack(alignment: .bottomTrailing) {
+                // Post image/video
+                if let firstMedia = post.mediaURLs.first,
+                   let url = URL(string: firstMedia) {
+                    AsyncImage(url: url) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: geometry.size.width, height: geometry.size.height)
+                        case .failure(_):
+                            Rectangle()
+                                .fill(Color.gray.opacity(0.3))
+                                .frame(width: geometry.size.width, height: geometry.size.height)
+                        case .empty:
+                            ZStack {
+                                Rectangle()
+                                    .fill(Color.gray.opacity(0.2))
+                                ProgressView()
+                                    .tint(.gray)
+                            }
+                            .frame(width: geometry.size.width, height: geometry.size.height)
+                        @unknown default:
+                            Rectangle()
+                                .fill(Color.gray.opacity(0.3))
+                                .frame(width: geometry.size.width, height: geometry.size.height)
+                        }
                     }
+                } else {
+                    Rectangle()
+                        .fill(Color.gray.opacity(0.3))
+                        .frame(width: geometry.size.width, height: geometry.size.height)
                 }
-            } else {
-                Rectangle()
-                    .fill(Color.gray.opacity(0.3))
+                
+                // Engagement indicator
+                HStack(spacing: 4) {
+                    Image(systemName: "heart.fill")
+                        .font(.system(size: 10))
+                    Text("\(post.likesCount)")
+                        .font(.custom("OpenSans-Bold", size: 11))
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(
+                    Capsule()
+                        .fill(Color.black.opacity(0.6))
+                )
+                .padding(8)
             }
-            
-            // Engagement indicator
-            HStack(spacing: 4) {
-                Image(systemName: "heart.fill")
-                    .font(.system(size: 10))
-                Text("\(post.likesCount)")
-                    .font(.custom("OpenSans-Bold", size: 11))
-            }
-            .foregroundStyle(.white)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(
-                Capsule()
-                    .fill(Color.black.opacity(0.6))
-            )
-            .padding(8)
+            .frame(width: geometry.size.width, height: geometry.size.height)
+            .clipped()
         }
-        .clipped()
+        .aspectRatio(1, contentMode: .fit)
     }
 }
 
 // MARK: - View Model
 
 @MainActor
-final class PostSearchViewModel: ObservableObject {
-    @Published private(set) var posts: [AlgoliaPost] = []
-    @Published private(set) var isLoading = false
+class PostSearchViewModel: ObservableObject {
+    @Published var posts: [AlgoliaPost] = []
+    @Published var isLoading = false
     @Published var error: String?
     
     private let searchService = AlgoliaSearchService.shared

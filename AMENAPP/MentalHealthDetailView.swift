@@ -230,7 +230,7 @@ struct MentalHealthDetailView: View {
 
 // MARK: - Mental Health Resource Card
 
-struct MentalHealthResourceCard: View {
+private struct MentalHealthResourceCard: View {
     let resource: MentalHealthResource
     
     var body: some View {

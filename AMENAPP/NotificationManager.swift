@@ -112,7 +112,7 @@ class NotificationManager: ObservableObject {
         
         for (index, timeSlot) in timeSlots.enumerated() {
             let content = UNMutableNotificationContent()
-            content.title = "Time for Prayer 🙏"
+            content.title = "Time for Prayer"
             content.body = "Take a moment to connect with God through prayer."
             content.sound = .default
             content.categoryIdentifier = "PRAYER_REMINDER"

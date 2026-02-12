@@ -9,33 +9,12 @@ import SwiftUI
 
 struct SpotlightView: View {
     @Environment(\.dismiss) var dismiss
-    @State private var selectedCategory: SpotlightCategory = .all
+    @StateObject private var trendingService = TrendingService.shared
+    @State private var selectedCategory: SpotlightUser.SpotlightCategory = .all
     
-    enum SpotlightCategory: String, CaseIterable {
-        case all = "All"
-        case creators = "Creators"
-        case innovators = "Innovators"
-        case leaders = "Leaders"
-        case newcomers = "Newcomers"
-        
-        var icon: String {
-            switch self {
-            case .all: return "star.fill"
-            case .creators: return "paintbrush.fill"
-            case .innovators: return "lightbulb.fill"
-            case .leaders: return "crown.fill"
-            case .newcomers: return "sparkles"
-            }
-        }
-        
-        var color: Color {
-            switch self {
-            case .all: return .yellow
-            case .creators: return .purple
-            case .innovators: return .orange
-            case .leaders: return .blue
-            case .newcomers: return .green
-            }
+    var filteredUsers: [SpotlightUser] {
+        trendingService.spotlightUsers.filter { user in
+            selectedCategory == .all || user.category == selectedCategory
         }
     }
     
@@ -88,10 +67,13 @@ struct SpotlightView: View {
                         // Category filter
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 8) {
-                                ForEach(SpotlightCategory.allCases, id: \.self) { category in
+                                ForEach(SpotlightUser.SpotlightCategory.allCases, id: \.self) { category in
                                     Button {
                                         withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                                             selectedCategory = category
+                                        }
+                                        Task {
+                                            try? await trendingService.fetchSpotlightUsers(category: category)
                                         }
                                     } label: {
                                         HStack(spacing: 6) {
@@ -125,44 +107,37 @@ struct SpotlightView: View {
                     .padding(.horizontal)
                     
                     // Spotlighted members
-                    VStack(spacing: 16) {
-                        SpotlightMemberCard(
-                            name: "Dr. Sarah Chen",
-                            handle: "@sarahchen",
-                            bio: "AI researcher exploring the intersection of faith and technology. Building ethical AI solutions.",
-                            category: .innovators,
-                            stats: (posts: 156, followers: "2.3K", engagement: "94%"),
-                            avatarColor: .blue
-                        )
-                        
-                        SpotlightMemberCard(
-                            name: "Pastor David Martinez",
-                            handle: "@pastordavid",
-                            bio: "Leading digital ministry initiatives. Helping churches embrace technology while staying rooted in faith.",
-                            category: .leaders,
-                            stats: (posts: 234, followers: "5.1K", engagement: "98%"),
-                            avatarColor: .purple
-                        )
-                        
-                        SpotlightMemberCard(
-                            name: "Emily Rodriguez",
-                            handle: "@emilyrodriguez",
-                            bio: "Content creator sharing daily devotionals and testimonies. Passionate about encouraging others.",
-                            category: .creators,
-                            stats: (posts: 412, followers: "8.7K", engagement: "96%"),
-                            avatarColor: .pink
-                        )
-                        
-                        SpotlightMemberCard(
-                            name: "Michael Thompson",
-                            handle: "@mikethompson",
-                            bio: "Just joined! Software engineer looking to connect faith and code. Learning and growing.",
-                            category: .newcomers,
-                            stats: (posts: 12, followers: "48", engagement: "89%"),
-                            avatarColor: .green
-                        )
+                    if trendingService.isLoading {
+                        VStack(spacing: 12) {
+                            ProgressView()
+                                .scaleEffect(1.2)
+                            Text("Finding amazing community members...")
+                                .font(.custom("OpenSans-Regular", size: 14))
+                                .foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 40)
+                    } else if filteredUsers.isEmpty {
+                        VStack(spacing: 12) {
+                            Image(systemName: "person.3.fill")
+                                .font(.system(size: 48))
+                                .foregroundStyle(.secondary)
+                            Text("No spotlight users yet")
+                                .font(.custom("OpenSans-Bold", size: 18))
+                            Text("Be active in the community to get featured!")
+                                .font(.custom("OpenSans-Regular", size: 14))
+                                .foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 40)
+                    } else {
+                        VStack(spacing: 16) {
+                            ForEach(filteredUsers) { user in
+                                SpotlightMemberCard(user: user)
+                            }
+                        }
+                        .padding(.horizontal)
                     }
-                    .padding(.horizontal)
                 }
                 .padding(.vertical)
             }
@@ -178,70 +153,100 @@ struct SpotlightView: View {
                     }
                 }
             }
+            .task {
+                // Fetch spotlight users when view appears
+                try? await trendingService.fetchSpotlightUsers(category: selectedCategory)
+            }
         }
     }
 }
 
 struct SpotlightMemberCard: View {
-    let name: String
-    let handle: String
-    let bio: String
-    let category: SpotlightView.SpotlightCategory
-    let stats: (posts: Int, followers: String, engagement: String)
-    let avatarColor: Color
+    let user: SpotlightUser
     
     @State private var isFollowing = false
+    
+    private var avatarColor: Color {
+        user.category.color
+    }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             // Header
             HStack(spacing: 12) {
-                // Avatar
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [avatarColor, avatarColor.opacity(0.7)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
+                // Avatar with profile image or initials
+                if let profileImageURL = user.profileImageURL, let url = URL(string: profileImageURL) {
+                    CachedAsyncImage(url: url) { image in
+                        image
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 64, height: 64)
+                            .clipShape(Circle())
+                    } placeholder: {
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [avatarColor, avatarColor.opacity(0.7)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 64, height: 64)
+                            .overlay(
+                                Text(String(user.name.prefix(2)))
+                                    .font(.custom("OpenSans-Bold", size: 22))
+                                    .foregroundStyle(.white)
+                            )
+                    }
+                } else {
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [avatarColor, avatarColor.opacity(0.7)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
                         )
-                    )
-                    .frame(width: 64, height: 64)
-                    .overlay(
-                        Text(String(name.prefix(2)))
-                            .font(.custom("OpenSans-Bold", size: 22))
-                            .foregroundStyle(.white)
-                    )
+                        .frame(width: 64, height: 64)
+                        .overlay(
+                            Text(String(user.name.prefix(2)))
+                                .font(.custom("OpenSans-Bold", size: 22))
+                                .foregroundStyle(.white)
+                        )
+                }
                 
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 6) {
-                        Text(name)
+                        Text(user.name)
                             .font(.custom("OpenSans-Bold", size: 18))
                             .foregroundStyle(.primary)
                         
                         // Verified badge
-                        Image(systemName: "checkmark.seal.fill")
-                            .font(.system(size: 16))
-                            .foregroundStyle(.blue)
+                        if user.isVerified {
+                            Image(systemName: "checkmark.seal.fill")
+                                .font(.system(size: 16))
+                                .foregroundStyle(.blue)
+                        }
                     }
                     
-                    Text(handle)
+                    Text(user.username)
                         .font(.custom("OpenSans-Regular", size: 14))
                         .foregroundStyle(.secondary)
                     
                     // Category badge
                     HStack(spacing: 4) {
-                        Image(systemName: category.icon)
+                        Image(systemName: user.category.icon)
                             .font(.system(size: 10, weight: .bold))
                         
-                        Text(category.rawValue)
+                        Text(user.category.rawValue)
                             .font(.custom("OpenSans-Bold", size: 11))
                     }
-                    .foregroundStyle(category.color)
+                    .foregroundStyle(user.category.color)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .background(
                         Capsule()
-                            .fill(category.color.opacity(0.15))
+                            .fill(user.category.color.opacity(0.15))
                     )
                 }
                 
@@ -249,16 +254,16 @@ struct SpotlightMemberCard: View {
             }
             
             // Bio
-            Text(bio)
+            Text(user.bio)
                 .font(.custom("OpenSans-Regular", size: 14))
                 .foregroundStyle(.primary)
                 .lineSpacing(4)
             
             // Stats
             HStack(spacing: 24) {
-                StatItem(label: "Posts", value: "\(stats.posts)")
-                StatItem(label: "Followers", value: stats.followers)
-                StatItem(label: "Engagement", value: stats.engagement)
+                StatItem(label: "Posts", value: "\(user.stats.posts)")
+                StatItem(label: "Followers", value: user.stats.followers)
+                StatItem(label: "Engagement", value: user.stats.engagement)
             }
             
             // Action buttons

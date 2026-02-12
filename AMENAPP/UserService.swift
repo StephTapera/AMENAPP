@@ -12,10 +12,32 @@ import FirebaseStorage
 import Combine
 import UIKit
 
+// MARK: - User Service Errors
+
+enum UserServiceError: LocalizedError {
+    case unauthorized
+    case documentNotFound
+    case imageCompressionFailed
+    case invalidData
+    
+    var errorDescription: String? {
+        switch self {
+        case .unauthorized:
+            return "You must be signed in to perform this action."
+        case .documentNotFound:
+            return "The requested user profile was not found."
+        case .imageCompressionFailed:
+            return "Failed to compress the profile image."
+        case .invalidData:
+            return "The user data is invalid or incomplete."
+        }
+    }
+}
+
 // MARK: - User Model
 
 struct User: Codable, Identifiable {
-    var id: String // Firebase Auth UID
+    var id: String // Firebase Auth UID (set manually after decoding)
     var email: String
     var displayName: String
     var displayNameLowercase: String
@@ -64,7 +86,8 @@ struct User: Codable, Identifiable {
     var hasCompletedOnboarding: Bool
     
     enum CodingKeys: String, CodingKey {
-        case id
+        // NOTE: 'id' is intentionally excluded from CodingKeys
+        // It's set manually from the document ID after decoding
         case email
         case displayName
         case displayNameLowercase
@@ -101,11 +124,15 @@ struct User: Codable, Identifiable {
         case hasCompletedOnboarding
     }
     
-    // Default initializer for missing values
+    // Custom decoder that handles missing 'id' field
+    // The 'id' should be set manually from the document ID after decoding
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         
-        id = try container.decode(String.self, forKey: .id)
+        // IMPORTANT: id is NOT decoded from Firestore data
+        // It must be set manually from the document ID
+        id = "" // Temporary value, will be set by caller
+        
         email = try container.decode(String.self, forKey: .email)
         displayName = try container.decode(String.self, forKey: .displayName)
         displayNameLowercase = try container.decodeIfPresent(String.self, forKey: .displayNameLowercase) ?? displayName.lowercased()
@@ -151,7 +178,7 @@ struct User: Codable, Identifiable {
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         
-        try container.encode(id, forKey: .id)
+        // NOTE: 'id' is NOT encoded - it's stored as the document ID in Firestore
         try container.encode(email, forKey: .email)
         try container.encode(displayName, forKey: .displayName)
         try container.encode(displayNameLowercase, forKey: .displayNameLowercase)
@@ -241,11 +268,24 @@ class LegacyUserService: ObservableObject {
             
             currentUser = userData
             
+            // ✅ Cache user data to UserDefaults for offline access and post creation
+            UserDefaults.standard.set(userData.displayName, forKey: "currentUserDisplayName")
+            UserDefaults.standard.set(userData.username, forKey: "currentUserUsername")
+            UserDefaults.standard.set(userData.initials, forKey: "currentUserInitials")
+            if let profileImageURL = userData.profileImageURL {
+                UserDefaults.standard.set(profileImageURL, forKey: "currentUserProfileImageURL")
+                print("   ✅ Cached profile image URL: \(profileImageURL)")
+            } else {
+                // Clear cached URL if user removed their profile photo
+                UserDefaults.standard.removeObject(forKey: "currentUserProfileImageURL")
+            }
+            
             print("✅ UserService: User profile loaded successfully")
             print("   Name: \(userData.displayName)")
             print("   Username: @\(userData.username)")
             print("   Bio: \(userData.bio)")
             print("   Interests: \(userData.interests)")
+            print("   Profile Image: \(userData.profileImageURL ?? "none")")
             
             isLoading = false
             
@@ -289,6 +329,18 @@ class LegacyUserService: ObservableObject {
                 
                 Task { @MainActor in
                     self.currentUser = userData
+                    
+                    // ✅ Update cached user data in UserDefaults when profile changes
+                    UserDefaults.standard.set(userData.displayName, forKey: "currentUserDisplayName")
+                    UserDefaults.standard.set(userData.username, forKey: "currentUserUsername")
+                    UserDefaults.standard.set(userData.initials, forKey: "currentUserInitials")
+                    if let profileImageURL = userData.profileImageURL {
+                        UserDefaults.standard.set(profileImageURL, forKey: "currentUserProfileImageURL")
+                        print("   ✅ Updated cached profile image URL: \(profileImageURL)")
+                    } else {
+                        UserDefaults.standard.removeObject(forKey: "currentUserProfileImageURL")
+                    }
+                    
                     print("🔄 UserService: User profile updated via listener")
                 }
             } catch {
@@ -309,7 +361,7 @@ class LegacyUserService: ObservableObject {
     /// Update user's display name and bio
     func updateProfile(displayName: String, bio: String) async throws {
         guard let userId = firebaseManager.currentUser?.uid else {
-            throw FirebaseError.unauthorized
+            throw UserServiceError.unauthorized
         }
         
         print("💾 UserService: Updating profile...")
@@ -362,14 +414,14 @@ class LegacyUserService: ObservableObject {
     /// Upload profile image to Firebase Storage and update Firestore
     func uploadProfileImage(_ image: UIImage, compressionQuality: CGFloat = 0.7) async throws -> String {
         guard let userId = firebaseManager.currentUser?.uid else {
-            throw FirebaseError.unauthorized
+            throw UserServiceError.unauthorized
         }
         
         print("📤 UserService: Uploading profile image...")
         
         // Compress image
         guard let imageData = image.jpegData(compressionQuality: compressionQuality) else {
-            throw FirebaseError.imageCompressionFailed
+            throw UserServiceError.imageCompressionFailed
         }
         
         // Upload to Storage
@@ -394,6 +446,9 @@ class LegacyUserService: ObservableObject {
         
         print("✅ UserService: Profile image URL updated in Firestore")
         
+        // Update profile photos in all conversations
+        await updateProfilePhotoInConversations(userId: userId, photoURL: downloadURL.absoluteString)
+        
         // Update local cache
         if var user = currentUser {
             user.profileImageURL = downloadURL.absoluteString
@@ -410,7 +465,7 @@ class LegacyUserService: ObservableObject {
     /// Update profile image URL in Firestore (without uploading)
     func updateProfileImage(_ imageURL: String) async throws {
         guard let userId = firebaseManager.currentUser?.uid else {
-            throw FirebaseError.unauthorized
+            throw UserServiceError.unauthorized
         }
         
         print("💾 UserService: Updating profile image URL...")
@@ -423,6 +478,9 @@ class LegacyUserService: ObservableObject {
         try await db.collection("users").document(userId).updateData(updateData)
         
         print("✅ UserService: Profile image URL updated")
+        
+        // Update profile photos in all conversations
+        await updateProfilePhotoInConversations(userId: userId, photoURL: imageURL)
         
         // Update local cache
         if var user = currentUser {
@@ -439,7 +497,7 @@ class LegacyUserService: ObservableObject {
     /// Remove profile image from Storage and Firestore
     func removeProfileImage() async throws {
         guard let userId = firebaseManager.currentUser?.uid else {
-            throw FirebaseError.unauthorized
+            throw UserServiceError.unauthorized
         }
         
         print("🗑️ UserService: Removing profile image...")
@@ -451,6 +509,9 @@ class LegacyUserService: ObservableObject {
         ]
         
         try await db.collection("users").document(userId).updateData(updateData)
+        
+        // Update profile photos in all conversations (set to empty)
+        await updateProfilePhotoInConversations(userId: userId, photoURL: "")
         
         // Try to delete from Storage (non-critical if fails)
         let path = "profile_images/\(userId)/profile.jpg"
@@ -475,7 +536,7 @@ class LegacyUserService: ObservableObject {
     /// Save onboarding preferences (interests, goals, prayer time)
     func saveOnboardingPreferences(interests: [String], goals: [String], prayerTime: String) async throws {
         guard let userId = firebaseManager.currentUser?.uid else {
-            throw FirebaseError.unauthorized
+            throw UserServiceError.unauthorized
         }
         
         print("💾 UserService: Saving onboarding preferences...")
@@ -491,7 +552,8 @@ class LegacyUserService: ObservableObject {
             "updatedAt": Timestamp(date: Date())
         ]
         
-        try await db.collection("users").document(userId).updateData(updateData)
+        // Use setData with merge to create document if it doesn't exist
+        try await db.collection("users").document(userId).setData(updateData, merge: true)
         
         print("✅ UserService: Preferences saved successfully")
         
@@ -515,7 +577,7 @@ class LegacyUserService: ObservableObject {
         requirePasswordForPurchases: Bool
     ) async throws {
         guard let userId = firebaseManager.currentUser?.uid else {
-            throw FirebaseError.unauthorized
+            throw UserServiceError.unauthorized
         }
         
         print("🔒 UserService: Updating security settings...")
@@ -554,7 +616,7 @@ class LegacyUserService: ObservableObject {
         notifyOnPrayerRequests: Bool
     ) async throws {
         guard let userId = firebaseManager.currentUser?.uid else {
-            throw FirebaseError.unauthorized
+            throw UserServiceError.unauthorized
         }
         
         print("🔔 UserService: Updating notification settings...")
@@ -597,7 +659,7 @@ class LegacyUserService: ObservableObject {
         let document = try await db.collection("users").document(userId).getDocument()
         
         guard document.exists else {
-            throw FirebaseError.documentNotFound
+            throw UserServiceError.documentNotFound
         }
         
         var userData = try document.data(as: User.self)
@@ -650,6 +712,36 @@ class LegacyUserService: ObservableObject {
     }
     
     // MARK: - Helper Methods
+    
+    /// Update profile photo in all conversations the user is part of
+    private func updateProfilePhotoInConversations(userId: String, photoURL: String) async {
+        do {
+            print("🔄 Updating profile photo in conversations for user: \(userId)")
+            
+            // Find all conversations where user is a participant
+            let conversationsSnapshot = try await db.collection("conversations")
+                .whereField("participantIds", arrayContains: userId)
+                .getDocuments()
+            
+            print("📝 Found \(conversationsSnapshot.documents.count) conversations to update")
+            
+            // Update each conversation's participantPhotoURLs map
+            for document in conversationsSnapshot.documents {
+                let conversationRef = db.collection("conversations").document(document.documentID)
+                
+                try await conversationRef.updateData([
+                    "participantPhotoURLs.\(userId)": photoURL,
+                    "updatedAt": Timestamp(date: Date())
+                ])
+                
+                print("✅ Updated profile photo in conversation: \(document.documentID)")
+            }
+            
+            print("🎉 Profile photo updated in all conversations")
+        } catch {
+            print("❌ Error updating profile photo in conversations: \(error)")
+        }
+    }
     
     /// Generate searchable keywords from name
     private func createNameKeywords(from displayName: String) -> [String] {

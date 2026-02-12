@@ -6,150 +6,185 @@
 //
 
 import SwiftUI
+import FirebaseAuth
 
 struct SettingsView: View {
     @Environment(\.dismiss) var dismiss
-    @EnvironmentObject var authViewModel: AuthenticationViewModel
+    @State private var showSignOutConfirmation = false
     
     var body: some View {
         NavigationStack {
             List {
-                // Account Section
-                Section("Account") {
-                    NavigationLink(destination: AccountSettingsView()) {
-                        Label {
-                            Text("Account Settings")
-                                .font(.custom("OpenSans-SemiBold", size: 15))
-                        } icon: {
-                            Image(systemName: "person.circle")
-                                .foregroundStyle(.blue)
-                        }
-                    }
-                    
-                    NavigationLink(destination: PrivacySettingsView()) {
-                        Label {
-                            Text("Privacy")
-                                .font(.custom("OpenSans-SemiBold", size: 15))
-                        } icon: {
-                            Image(systemName: "lock.shield")
-                                .foregroundStyle(.green)
-                        }
-                    }
-                    
-                    NavigationLink(destination: NotificationSettingsView()) {
-                        Label {
-                            Text("Notifications")
-                                .font(.custom("OpenSans-SemiBold", size: 15))
-                        } icon: {
-                            Image(systemName: "bell.badge")
-                                .foregroundStyle(.orange)
-                        }
-                    }
-                }
+            // Account Section
+            Section {
+                settingsNavigationLink(
+                    destination: AccountSettingsView(),
+                    icon: "person.circle.fill",
+                    iconColor: .blue,
+                    title: "Account Settings"
+                )
                 
-                // Social & Connections Section
-                Section {
-                    NavigationLink(destination: PeopleDiscoveryView()) {
-                        Label {
-                            Text("Discover People")
-                                .font(.custom("OpenSans-SemiBold", size: 15))
-                        } icon: {
-                            Image(systemName: "person.2.fill")
-                                .foregroundStyle(.blue)
-                        }
-                    }
-                    
-                    NavigationLink(destination: FollowersAnalyticsView()) {
-                        Label {
-                            Text("Follower Analytics")
-                                .font(.custom("OpenSans-SemiBold", size: 15))
-                        } icon: {
-                            Image(systemName: "chart.line.uptrend.xyaxis")
-                                .foregroundStyle(.green)
-                        }
-                    }
-                } header: {
-                    Text("SOCIAL & CONNECTIONS")
-                }
+                settingsNavigationLink(
+                    destination: PrivacySettingsView(),
+                    icon: "lock.shield.fill",
+                    iconColor: .green,
+                    title: "Privacy & Security"
+                )
                 
-                // App Section
-                Section("App") {
-                    NavigationLink(destination: HelpSupportView()) {
-                        Label {
-                            Text("Help & Support")
-                                .font(.custom("OpenSans-SemiBold", size: 15))
-                        } icon: {
-                            Image(systemName: "questionmark.circle")
-                                .foregroundStyle(.purple)
-                        }
-                    }
-                    
-                    NavigationLink(destination: AboutAmenView()) {
-                        Label {
-                            Text("About AMEN")
-                                .font(.custom("OpenSans-SemiBold", size: 15))
-                        } icon: {
-                            Image(systemName: "info.circle")
-                                .foregroundStyle(.gray)
-                        }
-                    }
-                }
-                
-                // Developer Tools (Debug only)
-                #if DEBUG
-                Section("Developer Tools") {
-                    NavigationLink {
-                        AlgoliaSyncDebugView()
-                    } label: {
-                        Label {
-                            Text("Algolia Sync")
-                                .font(.custom("OpenSans-SemiBold", size: 15))
-                        } icon: {
-                            Image(systemName: "arrow.triangle.2.circlepath.circle.fill")
-                                .foregroundStyle(.indigo)
-                        }
-                    }
-                }
-                #endif
-                
-                // Sign Out
-                Section {
-                    Button(role: .destructive) {
-                        signOut()
-                    } label: {
-                        HStack {
-                            Spacer()
-                            Label {
-                                Text("Sign Out")
-                                    .font(.custom("OpenSans-SemiBold", size: 15))
-                            } icon: {
-                                Image(systemName: "rectangle.portrait.and.arrow.right")
-                            }
-                            Spacer()
-                        }
-                    }
-                }
+                settingsNavigationLink(
+                    destination: NotificationSettingsView(),
+                    icon: "bell.badge.fill",
+                    iconColor: .orange,
+                    title: "Notifications"
+                )
+            } header: {
+                Text("ACCOUNT")
+                    .font(.custom("OpenSans-Bold", size: 12))
             }
-            .navigationTitle("Settings")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") {
-                        dismiss()
+            
+            // Social & Connections Section
+            Section {
+                settingsNavigationLink(
+                    destination: BlockedUsersView(),
+                    icon: "hand.raised.fill",
+                    iconColor: .red,
+                    title: "Blocked Users"
+                )
+            } header: {
+                Text("SOCIAL & CONNECTIONS")
+                    .font(.custom("OpenSans-Bold", size: 12))
+            }
+            
+            // App Section
+            Section {
+                settingsNavigationLink(
+                    destination: HelpSupportView(),
+                    icon: "questionmark.circle.fill",
+                    iconColor: .purple,
+                    title: "Help & Support"
+                )
+                
+                settingsNavigationLink(
+                    destination: AboutAmenView(),
+                    icon: "info.circle.fill",
+                    iconColor: .gray,
+                    title: "About AMEN"
+                )
+            } header: {
+                Text("APP")
+                    .font(.custom("OpenSans-Bold", size: 12))
+            }
+            
+            // Sign Out
+            Section {
+                Button(role: .destructive) {
+                    HapticManager.impact(style: .medium)
+                    showSignOutConfirmation = true
+                } label: {
+                    HStack {
+                        Spacer()
+                        Label {
+                            Text("Sign Out")
+                                .font(.custom("OpenSans-SemiBold", size: 16))
+                        } icon: {
+                            Image(systemName: "rectangle.portrait.and.arrow.right")
+                        }
+                        Spacer()
                     }
-                    .font(.custom("OpenSans-SemiBold", size: 16))
                 }
             }
         }
+        .listStyle(.insetGrouped)
+        .scrollContentBackground(.visible)
+        .navigationTitle("Settings")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Done") {
+                    HapticManager.impact(style: .light)
+                    dismiss()
+                }
+                .font(.custom("OpenSans-SemiBold", size: 16))
+            }
+        }
+        .confirmationDialog("Sign Out", isPresented: $showSignOutConfirmation, titleVisibility: .visible) {
+            Button("Sign Out", role: .destructive) {
+                signOut()
+            }
+            Button("Cancel", role: .cancel) {
+                HapticManager.impact(style: .light)
+            }
+        } message: {
+            Text("Are you sure you want to sign out?")
+        }
+        } // NavigationStack
+    }
+    
+    @ViewBuilder
+    private func settingsNavigationLink<Destination: View>(
+        destination: Destination,
+        icon: String,
+        iconColor: Color,
+        title: String
+    ) -> some View {
+        NavigationLink(destination: destination) {
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .font(.system(size: 18))
+                    .foregroundStyle(iconColor)
+                    .frame(width: 28)
+                
+                Text(title)
+                    .font(.custom("OpenSans-SemiBold", size: 16))
+                    .foregroundStyle(.primary)
+            }
+        }
+        .listRowBackground(Color(.systemBackground))
     }
     
     private func signOut() {
-        authViewModel.signOut()
-        dismiss()
+        HapticManager.notification(type: .success)
+        
+        // ✅ NEW: Clean up FCM token before signing out
+        Task {
+            await PushNotificationManager.shared.removeFCMTokenFromFirestore()
+            PushNotificationManager.shared.clearBadge()
+            
+            // Sign out after FCM cleanup
+            await MainActor.run {
+                do {
+                    try Auth.auth().signOut()
+                    print("✅ Successfully signed out")
+                } catch {
+                    print("❌ Error signing out: \(error.localizedDescription)")
+                }
+                dismiss()
+            }
+        }
+    }
+}
+
+// MARK: - Haptic Manager
+
+class HapticManager {
+    static func impact(style: UIImpactFeedbackGenerator.FeedbackStyle) {
+        let generator = UIImpactFeedbackGenerator(style: style)
+        generator.impactOccurred()
+    }
+    
+    static func notification(type: UINotificationFeedbackGenerator.FeedbackType) {
+        let generator = UINotificationFeedbackGenerator()
+        generator.notificationOccurred(type)
+    }
+    
+    static func selection() {
+        let generator = UISelectionFeedbackGenerator()
+        generator.selectionChanged()
     }
 }
 
 #Preview {
-    SettingsView()
-        .environmentObject(AuthenticationViewModel())
+    NavigationStack {
+        SettingsView()
+    }
 }

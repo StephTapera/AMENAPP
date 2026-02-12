@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import FirebaseAuth
 
 // MARK: - Comment Sort Option
 
@@ -49,15 +50,23 @@ struct ThreadedCommentsView: View {
     private var sortedComments: [CommentWithReplies] {
         switch sortOption {
         case .newest:
-            return commentsWithReplies.sorted { $0.comment.timestamp > $1.comment.timestamp }
+            return commentsWithReplies.sorted { (a: CommentWithReplies, b: CommentWithReplies) in
+                a.comment.createdAt > b.comment.createdAt
+            }
         case .oldest:
-            return commentsWithReplies.sorted { $0.comment.timestamp < $1.comment.timestamp }
+            return commentsWithReplies.sorted { (a: CommentWithReplies, b: CommentWithReplies) in
+                a.comment.createdAt < b.comment.createdAt
+            }
         case .mostReactions:
-            return commentsWithReplies.sorted { $0.comment.amenCount > $1.comment.amenCount }
+            return commentsWithReplies.sorted { (a: CommentWithReplies, b: CommentWithReplies) in
+                a.comment.amenCount > b.comment.amenCount
+            }
         case .authorFirst:
             let opComments = commentsWithReplies.filter { $0.comment.authorId == post.authorId }
             let otherComments = commentsWithReplies.filter { $0.comment.authorId != post.authorId }
-            return opComments + otherComments.sorted { $0.comment.timestamp > $1.comment.timestamp }
+            return opComments + otherComments.sorted { (a: CommentWithReplies, b: CommentWithReplies) in
+                a.comment.createdAt > b.comment.createdAt
+            }
         }
     }
     
@@ -250,7 +259,7 @@ struct ThreadedCommentsView: View {
     private func toggleAmen(comment: Comment) {
         Task {
             do {
-                try await commentService.toggleAmen(commentId: comment.id ?? "")
+                try await commentService.toggleAmen(commentId: comment.id ?? "", postId: post.id.uuidString)
                 await loadComments()
             } catch {
                 errorMessage = error.localizedDescription
@@ -607,3 +616,40 @@ struct CommentInputBar: View {
         }
     }
 }
+// MARK: - Comment Avatar
+
+private struct CommentAvatar: View {
+    let comment: Comment
+    let isReply: Bool
+    
+    var body: some View {
+        if let imageURL = comment.authorProfileImageURL,
+           let url = URL(string: imageURL) {
+            AsyncImage(url: url) { image in
+                image
+                    .resizable()
+                    .scaledToFill()
+            } placeholder: {
+                Circle()
+                    .fill(.black.opacity(0.1))
+                    .overlay(
+                        Text(comment.authorInitials)
+                            .font(.custom("OpenSans-SemiBold", size: isReply ? 10 : 12))
+                            .foregroundStyle(.black.opacity(0.6))
+                    )
+            }
+            .frame(width: isReply ? 28 : 36, height: isReply ? 28 : 36)
+            .clipShape(Circle())
+        } else {
+            Circle()
+                .fill(.black.opacity(0.1))
+                .frame(width: isReply ? 28 : 36, height: isReply ? 28 : 36)
+                .overlay(
+                    Text(comment.authorInitials)
+                        .font(.custom("OpenSans-SemiBold", size: isReply ? 10 : 12))
+                        .foregroundStyle(.black.opacity(0.6))
+                )
+        }
+    }
+}
+

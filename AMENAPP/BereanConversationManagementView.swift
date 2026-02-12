@@ -572,18 +572,7 @@ struct ExportConversationSheet: View {
     }
 }
 
-// MARK: - Share Sheet (UIKit Wrapper)
-
-struct ShareSheet: UIViewControllerRepresentable {
-    let items: [Any]
-    
-    func makeUIViewController(context: Context) -> UIActivityViewController {
-        let controller = UIActivityViewController(activityItems: items, applicationActivities: nil)
-        return controller
-    }
-    
-    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
-}
+// Note: ShareSheet is already defined in ShareSheet.swift
 
 #Preview {
     BereanConversationManagementView(

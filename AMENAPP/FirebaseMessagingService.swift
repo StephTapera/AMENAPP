@@ -35,7 +35,8 @@ public enum FirebaseMessagingError: LocalizedError {
     case userBlocked
     case followRequired
     case messagesNotAllowed
-    
+    case customError(String)
+
     public var errorDescription: String? {
         switch self {
         case .notAuthenticated:
@@ -62,14 +63,16 @@ public enum FirebaseMessagingError: LocalizedError {
             return "You must follow this user to message them"
         case .messagesNotAllowed:
             return "This user doesn't accept messages"
+        case .customError(let message):
+            return message
         }
     }
 }
 
 // MARK: - Firebase Messaging Service
 
-class FirebaseMessagingService: ObservableObject {
-    static let shared = FirebaseMessagingService()
+public class FirebaseMessagingService: ObservableObject {
+    public static let shared = FirebaseMessagingService()
     
     internal let db = Firestore.firestore()
     internal let storage = Storage.storage()
@@ -78,6 +81,10 @@ class FirebaseMessagingService: ObservableObject {
     @Published var archivedConversations: [ChatConversation] = []
     @Published var isLoading = false
     @Published var lastError: FirebaseMessagingError?
+    
+    // Error tracking for failed messages
+    @Published var failedMessages: [String: (text: String, error: FirebaseMessagingError)] = [:]
+    @Published var isOffline = false
     
     private var conversationsListener: ListenerRegistration?
     private var archivedConversationsListener: ListenerRegistration?
@@ -99,7 +106,7 @@ class FirebaseMessagingService: ObservableObject {
         return Auth.auth().currentUser?.uid ?? "anonymous"
     }
     
-    internal var isAuthenticated: Bool {
+    public var isAuthenticated: Bool {
         return Auth.auth().currentUser != nil
     }
     
@@ -180,6 +187,9 @@ class FirebaseMessagingService: ObservableObject {
             return
         }
         
+        // Stop existing listener to prevent duplicates
+        stopListeningToConversations()
+        
         isLoading = true
         lastError = nil
         
@@ -201,25 +211,99 @@ class FirebaseMessagingService: ObservableObject {
                     return
                 }
                 
+                print("📥 Received \(documents.count) total conversation documents from Firestore")
+                
+                // Use a dictionary to deduplicate by ID
+                var conversationsDict: [String: ChatConversation] = [:]
+                
                 // Filter out archived and deleted conversations
-                self.conversations = documents.compactMap { doc -> ChatConversation? in
-                    guard let firebaseConv = try? doc.data(as: FirebaseConversation.self) else {
-                        return nil
+                for doc in documents {
+                    // 🔍 DEBUG: Try to decode and log any errors
+                    var firebaseConv: FirebaseConversation
+                    do {
+                        firebaseConv = try doc.data(as: FirebaseConversation.self)
+                    } catch {
+                        print("   ❌ DECODING ERROR for document \(doc.documentID):")
+                        print("      Error: \(error)")
+                        let data = doc.data()
+                        print("      Data keys: \(data.keys.joined(separator: ", "))")
+                        continue
                     }
+                    
+                    // ✅ FIX: Use document ID if @DocumentID didn't populate
+                    let convId: String
+                    if let id = firebaseConv.id {
+                        convId = id
+                    } else {
+                        convId = doc.documentID
+                        firebaseConv.id = doc.documentID  // Manually set the ID
+                    }
+                    
+                    // Debug: Log each conversation
+                    print("   📋 Conv ID: \(convId), isGroup: \(firebaseConv.isGroup), name: \(firebaseConv.groupName ?? "N/A")")
                     
                     // Check if conversation is archived for current user (array-based)
                     if let archivedBy = firebaseConv.archivedByArray,
                        archivedBy.contains(self.currentUserId) {
-                        return nil
+                        print("   ⏭️ Skipping archived conversation: \(convId)")
+                        continue
                     }
                     
                     // Check if conversation is deleted for current user
                     if let deletedBy = firebaseConv.deletedBy,
                        deletedBy[self.currentUserId] == true {
-                        return nil
+                        print("   ⏭️ Skipping deleted conversation: \(convId)")
+                        continue
                     }
                     
-                    return firebaseConv.toConversation()
+                    // ✅ FIX: Skip pending conversations where current user is NOT the requester
+                    // (Those should appear in Message Requests, not main Messages tab)
+                    
+                    // 🔍 DEBUG: Log conversation status details
+                    print("   📊 Conversation \(convId):")
+                    print("      Status: \(firebaseConv.conversationStatus ?? "nil")")
+                    print("      RequesterID: \(firebaseConv.requesterId ?? "nil")")
+                    print("      CurrentUserID: \(self.currentUserId)")
+                    
+                    if let status = firebaseConv.conversationStatus,
+                       status == "pending" {
+                        if let requesterId = firebaseConv.requesterId {
+                            if requesterId != self.currentUserId {
+                                print("      ❌ FILTERING OUT: Pending request from someone else (should be in requests tab)")
+                                continue
+                            } else {
+                                print("      ✅ KEEPING: Pending request sent by current user")
+                            }
+                        } else {
+                            print("      ⚠️ WARNING: Pending conversation missing requesterId!")
+                        }
+                    } else {
+                        print("      ✅ KEEPING: Accepted conversation or nil status")
+                    }
+                    
+                    let conversation = firebaseConv.toConversation()
+                    conversationsDict[convId] = conversation
+                    print("      ➕ Added to conversations list")
+                }
+                
+                // Convert back to array and sort by timestamp
+                self.conversations = Array(conversationsDict.values)
+                    .sorted { conv1, conv2 in
+                        // Sort by timestamp (most recent first)
+                        // Since timestamp is a string, this is a simple comparison
+                        return conv1.timestamp > conv2.timestamp
+                    }
+                
+                print("✅ Loaded \(self.conversations.count) unique conversations")
+                
+                // ✅ Log groups specifically
+                let groupCount = self.conversations.filter { $0.isGroup }.count
+                print("   🎨 Groups: \(groupCount)")
+                
+                // 🔍 DEBUG: Log breakdown of conversations
+                print("   📊 Final conversations breakdown:")
+                for conv in self.conversations {
+                    print("      - \(conv.id ?? "no-id"): name=\(conv.name)")
                 }
                 
                 self.isLoading = false
@@ -248,6 +332,9 @@ class FirebaseMessagingService: ObservableObject {
             return
         }
         
+        // Stop existing listener to prevent duplicates
+        stopListeningToArchivedConversations()
+        
         print("👂 Starting real-time listener for archived conversations")
         
         archivedConversationsListener = db.collection("conversations")
@@ -265,48 +352,53 @@ class FirebaseMessagingService: ObservableObject {
                     return
                 }
                 
+                print("📥 Received \(documents.count) total documents for archived check")
+                
+                // Use a dictionary to deduplicate by ID
+                var archivedDict: [String: ChatConversation] = [:]
+                
                 // Filter archived conversations in memory
-                self.archivedConversations = documents.compactMap { doc -> ChatConversation? in
-                    guard let firebaseConv = try? doc.data(as: FirebaseConversation.self) else {
-                        return nil
+                for doc in documents {
+                    guard let firebaseConv = try? doc.data(as: FirebaseConversation.self),
+                          let convId = firebaseConv.id else {
+                        continue
                     }
                     
-                    // Only include if archived by current user
+                    // ✅ Only include if archived by current user
                     guard let archivedBy = firebaseConv.archivedByArray,
                           archivedBy.contains(self.currentUserId) else {
-                        return nil
+                        continue
                     }
                     
-                    return firebaseConv.toConversation()
-                }
-                
-                print("📦 Archived conversations updated: \(self.archivedConversations.count)")
-                
-                if let error = error {
-                    print("❌ Error fetching archived conversations: \(error)")
-                    return
-                }
-                
-                guard let documents = snapshot?.documents else {
-                    return
-                }
-                
-                // Filter out deleted conversations
-                self.archivedConversations = documents.compactMap { doc -> ChatConversation? in
-                    guard let firebaseConv = try? doc.data(as: FirebaseConversation.self) else {
-                        return nil
-                    }
+                    print("   📦 Found archived: \(convId), name: \(firebaseConv.groupName ?? firebaseConv.participantNames.values.first ?? "Unknown")")
                     
-                    // Don't include deleted conversations
+                    // Don't include deleted conversations in archived list
                     if let deletedBy = firebaseConv.deletedBy,
                        deletedBy[self.currentUserId] == true {
-                        return nil
+                        print("   ⏭️ Skipping deleted archived conversation: \(convId)")
+                        continue
                     }
                     
-                    return firebaseConv.toConversation()
+                    let conversation = firebaseConv.toConversation()
+                    archivedDict[convId] = conversation
                 }
                 
-                print("📦 Updated archived conversations: \(self.archivedConversations.count)")
+                // Convert back to array and sort
+                self.archivedConversations = Array(archivedDict.values)
+                    .sorted { conv1, conv2 in
+                        return conv1.timestamp > conv2.timestamp
+                    }
+                
+                print("✅ Loaded \(self.archivedConversations.count) unique archived conversations")
+                
+                // Log offline status
+                if let metadata = snapshot?.metadata {
+                    if metadata.isFromCache {
+                        print("📦 Archived conversations loaded from cache (offline mode)")
+                    } else {
+                        print("🌐 Archived conversations loaded from server")
+                    }
+                }
             }
     }
     
@@ -323,44 +415,80 @@ class FirebaseMessagingService: ObservableObject {
         participantNames: [String: String],
         isGroup: Bool,
         groupName: String? = nil,
-        conversationStatus: String? = "accepted"
+        conversationStatus: String? = nil  // ✅ Changed from "accepted" to nil - will be set based on context
     ) async throws -> String {
         guard isAuthenticated else {
             throw FirebaseMessagingError.notAuthenticated
         }
-        
+
         if participantIds.isEmpty {
             throw FirebaseMessagingError.invalidInput("At least one participant is required")
         }
-        
+
         let conversationRef = db.collection("conversations").document()
-        
+
         var allParticipantIds = participantIds
         if !allParticipantIds.contains(currentUserId) {
             allParticipantIds.append(currentUserId)
         }
+
+        // Fetch profile photos for all participants
+        var participantPhotoURLs: [String: String] = [:]
+        for userId in allParticipantIds {
+            do {
+                let userDoc = try await db.collection("users").document(userId).getDocument()
+                // Check both possible field names for profile photo
+                let photoURL = userDoc.data()?["profilePhotoURL"] as? String ?? userDoc.data()?["profileImageURL"] as? String
+                if let photoURL = photoURL, !photoURL.isEmpty {
+                    participantPhotoURLs[userId] = photoURL
+                }
+            } catch {
+                print("⚠️ Failed to fetch profile photo for user \(userId): \(error)")
+                // Continue - missing photo URLs are optional
+            }
+        }
+
+        // ✅ NEW: For 1-on-1 conversations, default to "pending" (message request)
+        // For group conversations, default to "accepted" (immediate access)
+        let finalStatus: String
+        if let providedStatus = conversationStatus {
+            finalStatus = providedStatus
+        } else {
+            finalStatus = isGroup ? "accepted" : "pending"
+        }
+
+        let conversationData: [String: Any] = [
+            "participantIds": allParticipantIds,
+            "participantNames": participantNames,
+            "participantPhotoURLs": participantPhotoURLs,
+            "isGroup": isGroup,
+            "groupName": groupName as Any,
+            "groupAvatarUrl": NSNull(),
+            "lastMessage": NSNull(),
+            "lastMessageText": "",
+            "lastMessageTimestamp": Timestamp(date: Date()),
+            "unreadCounts": [:],
+            "createdAt": Timestamp(date: Date()),
+            "updatedAt": Timestamp(date: Date()),
+            "conversationStatus": finalStatus,
+            "requesterId": currentUserId,
+            "requestReadBy": []
+        ]
         
-        let conversation = FirebaseConversation(
-            id: conversationRef.documentID,
-            participantIds: allParticipantIds,
-            participantNames: participantNames,
-            isGroup: isGroup,
-            groupName: groupName,
-            groupAvatarUrl: nil,
-            lastMessage: nil,
-            lastMessageText: "",
-            lastMessageTimestamp: Date(),
-            unreadCounts: [:],
-            createdAt: Date(),
-            updatedAt: Date(),
-            conversationStatus: conversationStatus,
-            requesterId: currentUserId,
-            requestReadBy: []
-        )
-        
+        // 🔍 DEBUG: Log conversation creation details
+        print("📝 Creating conversation:")
+        print("   ID: \(conversationRef.documentID)")
+        print("   Participants: \(allParticipantIds)")
+        print("   Status: \(finalStatus)")
+        print("   RequesterID: \(currentUserId)")
+        print("   IsGroup: \(isGroup)")
+        print("   Profile Photos: \(participantPhotoURLs.count) fetched")
+
         do {
-            try conversationRef.setData(from: conversation)
-            print("✅ Conversation created: \(conversationRef.documentID)")
+            try await conversationRef.setData(conversationData)
+            print("✅ Conversation created successfully: \(conversationRef.documentID)")
+            print("   Status saved: \(finalStatus)")
+            print("   RequesterID saved: \(currentUserId)")
             return conversationRef.documentID
         } catch {
             print("❌ Error creating conversation: \(error)")
@@ -368,8 +496,77 @@ class FirebaseMessagingService: ObservableObject {
         }
     }
     
+    /// Get existing conversation or create new one (prevents duplicates)
+    /// ✅ FIX: This ensures messages are always sent to the same conversation
+    func getOrCreateConversation(
+        with userId: String,
+        participantName: String
+    ) async throws -> String {
+        guard isAuthenticated else {
+            throw FirebaseMessagingError.notAuthenticated
+        }
+        
+        print("🔍 Searching for existing conversation with user: \(userId)")
+        
+        // ✅ STEP 1: Check if conversation already exists
+        let conversationsRef = db.collection("conversations")
+        
+        // Query for existing 1-on-1 conversation with this user
+        let snapshot = try await conversationsRef
+            .whereField("participantIds", arrayContains: currentUserId)
+            .whereField("isGroup", isEqualTo: false)
+            .getDocuments()
+        
+        // Find matching conversation (1-on-1 with both users)
+        for doc in snapshot.documents {
+            if let conversation = try? doc.data(as: FirebaseConversation.self),
+               conversation.participantIds.contains(userId),
+               conversation.participantIds.count == 2 {
+                print("✅ Found existing conversation: \(doc.documentID)")
+                return doc.documentID
+            }
+        }
+        
+        // ✅ STEP 2: No existing conversation - create new one
+        print("📝 Creating new conversation with \(userId)")
+        return try await createConversation(
+            participantIds: [userId],
+            participantNames: [
+                currentUserId: currentUserName,
+                userId: participantName
+            ],
+            isGroup: false,
+            conversationStatus: nil  // Will auto-set to "pending" for 1-on-1
+        )
+    }
+
+    /// Fetch a conversation by ID (cache-first for speed)
+    func fetchConversation(conversationId: String) async -> ChatConversation? {
+        guard isAuthenticated else { return nil }
+
+        let conversationRef = db.collection("conversations").document(conversationId)
+
+        if let cachedDoc = try? await conversationRef.getDocument(source: .cache),
+           cachedDoc.exists,
+           let cachedConversation = try? cachedDoc.data(as: FirebaseConversation.self) {
+            return cachedConversation.toConversation()
+        }
+
+        do {
+            let doc = try await conversationRef.getDocument()
+            guard doc.exists,
+                  let conversation = try? doc.data(as: FirebaseConversation.self) else {
+                return nil
+            }
+            return conversation.toConversation()
+        } catch {
+            print("❌ Error fetching conversation: \(error)")
+            return nil
+        }
+    }
+    
     /// Get or create a direct conversation with a user
-    func getOrCreateDirectConversation(
+    public func getOrCreateDirectConversation(
         withUserId userId: String,
         userName: String
     ) async throws -> String {
@@ -414,19 +611,23 @@ class FirebaseMessagingService: ObservableObject {
             let allowMessages = userDoc.data()?["allowMessagesFromEveryone"] as? Bool ?? true
             let requireFollow = userDoc.data()?["requireFollowToMessage"] as? Bool ?? false
             
-            // Determine conversation status
+            // Determine conversation status based on mutual follow relationship
             let conversationStatus: String
-            
+
             if !allowMessages {
                 throw FirebaseMessagingError.messagesNotAllowed
-            } else if requireFollow && !followStatus.user2FollowsUser1 {
-                // Recipient requires follow, and they don't follow sender
-                conversationStatus = "pending"
+            } else if requireFollow && !followStatus.user1FollowsUser2 {
+                // Recipient requires follow, and sender doesn't follow them
+                throw FirebaseMessagingError.followRequired
             } else if followStatus.user1FollowsUser2 && followStatus.user2FollowsUser1 {
-                // Mutual follow
+                // ✅ MUTUAL FOLLOWS → Direct messaging (accepted)
                 conversationStatus = "accepted"
             } else {
-                // Not following, create as request
+                // ✅ NOT MUTUAL → Message Request (pending)
+                // This includes:
+                // - A follows B, but B doesn't follow A → pending
+                // - Neither follows → pending
+                // - B follows A, but A doesn't follow B → pending
                 conversationStatus = "pending"
             }
             
@@ -497,7 +698,7 @@ class FirebaseMessagingService: ObservableObject {
                 // Check if there might be more messages
                 self.hasMoreMessages[conversationId] = documents.count >= limit
                 
-                let messages = documents.compactMap { doc -> AppMessage? in
+                let messages: [AppMessage] = documents.compactMap { doc -> AppMessage? in
                     guard let firebaseMessage = try? doc.data(as: FirebaseMessage.self) else {
                         return nil
                     }
@@ -558,7 +759,7 @@ class FirebaseMessagingService: ObservableObject {
             // Check if there are more messages
             hasMoreMessages[conversationId] = snapshot.documents.count >= limit
             
-            let messages = snapshot.documents.compactMap { doc -> AppMessage? in
+            let messages: [AppMessage] = snapshot.documents.compactMap { doc -> AppMessage? in
                 guard let firebaseMessage = try? doc.data(as: FirebaseMessage.self) else {
                     return nil
                 }
@@ -593,7 +794,8 @@ class FirebaseMessagingService: ObservableObject {
     func sendMessage(
         conversationId: String,
         text: String,
-        replyToMessageId: String? = nil
+        replyToMessageId: String? = nil,
+        clientMessageId: String? = nil
     ) async throws {
         guard isAuthenticated else {
             throw FirebaseMessagingError.notAuthenticated
@@ -603,11 +805,22 @@ class FirebaseMessagingService: ObservableObject {
             throw FirebaseMessagingError.invalidInput("Message cannot be empty")
         }
         
+        // ✅ NEW: Check if user can send message (Instagram/Threads style limit)
+        let (canSend, reason) = try await canSendMessage(conversationId: conversationId)
+        guard canSend else {
+            throw FirebaseMessagingError.invalidInput(reason ?? "Cannot send message")
+        }
+        
         do {
-            let messageRef = db.collection("conversations")
+            let messageId = clientMessageId ?? db.collection("conversations")
                 .document(conversationId)
                 .collection("messages")
                 .document()
+                .documentID
+            let messageRef = db.collection("conversations")
+                .document(conversationId)
+                .collection("messages")
+                .document(messageId)
             
             var replyToMessage: FirebaseMessage.ReplyInfo? = nil
             
@@ -630,11 +843,15 @@ class FirebaseMessagingService: ObservableObject {
                 }
             }
             
+            // ✅ Get sender's profile image URL from UserDefaults cache
+            let senderProfileImageURL = UserDefaults.standard.string(forKey: "currentUserProfileImageURL")
+            
             let message = FirebaseMessage(
-                id: messageRef.documentID,
+                id: messageId,
                 conversationId: conversationId,
                 senderId: currentUserId,
                 senderName: currentUserName,
+                senderProfileImageURL: senderProfileImageURL, // ✅ Include profile image
                 text: text,
                 attachments: [],
                 reactions: [],
@@ -643,7 +860,7 @@ class FirebaseMessagingService: ObservableObject {
                 readBy: [currentUserId]
             )
             
-            // Fetch conversation to get participants
+            // Fetch conversation to get participants and status
             let conversationRef = db.collection("conversations").document(conversationId)
             let conversationDoc = try await conversationRef.getDocument()
             
@@ -651,19 +868,34 @@ class FirebaseMessagingService: ObservableObject {
                 throw FirebaseMessagingError.conversationNotFound
             }
             
-            let participantIds = conversationDoc.data()?["participantIds"] as? [String] ?? []
+            guard let conversation = try? conversationDoc.data(as: FirebaseConversation.self) else {
+                throw FirebaseMessagingError.conversationNotFound
+            }
+            
+            let participantIds = conversation.participantIds
+            let status = conversation.conversationStatus ?? "accepted"
+            let requesterId = conversation.requesterId
             
             // Use batch to update both message and conversation
             let batch = db.batch()
             
             try batch.setData(from: message, forDocument: messageRef)
             
-            // Build unread count updates for other participants
+            // Build conversation updates
             var updates: [String: Any] = [
                 "lastMessageText": text,
                 "lastMessageTimestamp": Timestamp(date: Date()),
                 "updatedAt": Timestamp(date: Date())
             ]
+            
+            // ✅ NEW: Increment message count for sender (Instagram/Threads style tracking)
+            updates["messageCount.\(currentUserId)"] = FieldValue.increment(Int64(1))
+            
+            // ✅ NEW: Auto-accept if recipient sends a message (Instagram/Threads style)
+            if status == "pending" && requesterId != currentUserId {
+                updates["conversationStatus"] = "accepted"
+                print("✅ Conversation auto-accepted (recipient replied)")
+            }
             
             // Increment unread count for all participants except sender
             for participantId in participantIds where participantId != currentUserId {
@@ -688,7 +920,8 @@ class FirebaseMessagingService: ObservableObject {
     func sendMessageWithPhotos(
         conversationId: String,
         text: String,
-        images: [UIImage]
+        images: [UIImage],
+        clientMessageId: String? = nil
     ) async throws {
         guard isAuthenticated else {
             throw FirebaseMessagingError.notAuthenticated
@@ -702,16 +935,25 @@ class FirebaseMessagingService: ObservableObject {
             // Upload images first
             let attachments = try await uploadImages(images, conversationId: conversationId)
             
-            let messageRef = db.collection("conversations")
+            let messageId = clientMessageId ?? db.collection("conversations")
                 .document(conversationId)
                 .collection("messages")
                 .document()
+                .documentID
+            let messageRef = db.collection("conversations")
+                .document(conversationId)
+                .collection("messages")
+                .document(messageId)
+            
+            // ✅ Get sender's profile image URL from UserDefaults cache
+            let senderProfileImageURL = UserDefaults.standard.string(forKey: "currentUserProfileImageURL")
             
             let message = FirebaseMessage(
-                id: messageRef.documentID,
+                id: messageId,
                 conversationId: conversationId,
                 senderId: currentUserId,
                 senderName: currentUserName,
+                senderProfileImageURL: senderProfileImageURL, // ✅ Include profile image
                 text: text,
                 attachments: attachments,
                 reactions: [],
@@ -824,18 +1066,32 @@ class FirebaseMessagingService: ObservableObject {
             .document(conversationId)
             .collection("messages")
             .document(messageId)
-        
+
+        let reactionId = UUID().uuidString
+
         let reaction = FirebaseMessage.Reaction(
-            id: UUID().uuidString,
+            id: reactionId,
             emoji: emoji,
             userId: currentUserId,
             userName: currentUserName,
             timestamp: Date()
         )
-        
+
+        // 1. Add to message's reactions array (for display in UI)
         try await messageRef.updateData([
             "reactions": FieldValue.arrayUnion([try Firestore.Encoder().encode(reaction)])
         ])
+
+        // 2. Create reaction document in subcollection (triggers Cloud Function for notifications)
+        let reactionRef = messageRef.collection("reactions").document(reactionId)
+        try await reactionRef.setData([
+            "emoji": emoji,
+            "userId": currentUserId,
+            "userName": currentUserName,
+            "timestamp": Timestamp(date: Date())
+        ])
+
+        print("✅ Reaction added to message and notification triggered")
     }
     
     /// Remove reaction from a message
@@ -1118,6 +1374,34 @@ class FirebaseMessagingService: ObservableObject {
         }
         
         return messages
+    }
+    
+    /// Search messages within a specific conversation
+    func searchMessagesInConversation(conversationId: String, query: String) async throws -> [AppMessage] {
+        print("🔍 Searching messages in conversation: \(conversationId) for: '\(query)'")
+        
+        let snapshot = try await db.collection("conversations")
+            .document(conversationId)
+            .collection("messages")
+            .order(by: "timestamp", descending: true)
+            .limit(to: 100)  // Limit to recent 100 messages for performance
+            .getDocuments()
+        
+        let allMessages: [AppMessage] = snapshot.documents.compactMap { doc in
+            guard let firebaseMessage = try? doc.data(as: FirebaseMessage.self) else {
+                return nil
+            }
+            return firebaseMessage.toMessage(currentUserId: self.currentUserId)
+        }
+        
+        // Filter messages that contain the query (case-insensitive)
+        let lowercaseQuery = query.lowercased()
+        let matchingMessages = allMessages.filter { message in
+            message.text.lowercased().contains(lowercaseQuery)
+        }
+        
+        print("✅ Found \(matchingMessages.count) matching messages in conversation")
+        return matchingMessages
     }
     
     /// Fetch starred messages for current user
@@ -1469,7 +1753,7 @@ class FirebaseMessagingService: ObservableObject {
     // MARK: - Search
     
     /// Search users by display name or username
-    func searchUsers(query: String) async throws -> [ContactUser] {
+    public func searchUsers(query: String) async throws -> [ContactUser] {
         guard !query.isEmpty else { return [] }
         
         let lowercaseQuery = query.lowercased()
@@ -1559,31 +1843,190 @@ class FirebaseMessagingService: ObservableObject {
     
     // MARK: - Conversation Management
     
-    /// Mute or unmute a conversation
-    func muteConversation(conversationId: String, muted: Bool) async throws {
-        try await db.collection("conversations")
-            .document(conversationId)
-            .updateData([
-                "mutedBy.\(currentUserId)": muted
-            ])
-        
-        print("🔕 Conversation \(conversationId) \(muted ? "muted" : "unmuted")")
+    /// Pin a conversation (max 3 pins)
+    public func pinConversation(_ conversationId: String) async throws {
+        guard isAuthenticated else {
+            throw FirebaseMessagingError.notAuthenticated
+        }
+
+        // Check current pin count
+        let pinnedCount = await MainActor.run {
+            conversations.filter { $0.isPinned }.count
+        }
+
+        guard pinnedCount < 3 else {
+            throw FirebaseMessagingError.customError("You can only pin up to 3 conversations. Unpin one first.")
+        }
+
+        let convRef = db.collection("conversations").document(conversationId)
+
+        try await convRef.updateData([
+            "pinnedBy": FieldValue.arrayUnion([currentUserId]),
+            "pinnedAt.\(currentUserId)": Timestamp(date: Date())
+        ])
+
+        // Update local state
+        await MainActor.run {
+            if let index = conversations.firstIndex(where: { $0.id == conversationId }) {
+                var updated = conversations[index]
+                updated = ChatConversation(
+                    id: updated.id,
+                    name: updated.name,
+                    lastMessage: updated.lastMessage,
+                    timestamp: updated.timestamp,
+                    isGroup: updated.isGroup,
+                    unreadCount: updated.unreadCount,
+                    avatarColor: updated.avatarColor,
+                    status: updated.status,
+                    profilePhotoURL: updated.profilePhotoURL,
+                    isPinned: true,
+                    isMuted: updated.isMuted
+                )
+                conversations[index] = updated
+            }
+        }
+
+        print("📌 Conversation \(conversationId) pinned")
     }
-    
-    /// Pin or unpin a conversation
-    func pinConversation(conversationId: String, pinned: Bool) async throws {
-        try await db.collection("conversations")
-            .document(conversationId)
-            .updateData([
-                "pinnedBy.\(currentUserId)": pinned,
-                "pinnedAt.\(currentUserId)": pinned ? Timestamp(date: Date()) : FieldValue.delete()
-            ])
-        
-        print("📌 Conversation \(conversationId) \(pinned ? "pinned" : "unpinned")")
+
+    /// Unpin a conversation
+    public func unpinConversation(_ conversationId: String) async throws {
+        guard isAuthenticated else {
+            throw FirebaseMessagingError.notAuthenticated
+        }
+
+        let convRef = db.collection("conversations").document(conversationId)
+
+        try await convRef.updateData([
+            "pinnedBy": FieldValue.arrayRemove([currentUserId]),
+            "pinnedAt.\(currentUserId)": FieldValue.delete()
+        ])
+
+        // Update local state
+        await MainActor.run {
+            if let index = conversations.firstIndex(where: { $0.id == conversationId }) {
+                var updated = conversations[index]
+                updated = ChatConversation(
+                    id: updated.id,
+                    name: updated.name,
+                    lastMessage: updated.lastMessage,
+                    timestamp: updated.timestamp,
+                    isGroup: updated.isGroup,
+                    unreadCount: updated.unreadCount,
+                    avatarColor: updated.avatarColor,
+                    status: updated.status,
+                    profilePhotoURL: updated.profilePhotoURL,
+                    isPinned: false,
+                    isMuted: updated.isMuted
+                )
+                conversations[index] = updated
+            }
+        }
+
+        print("📌 Conversation \(conversationId) unpinned")
+    }
+
+    /// Mute a conversation
+    public func muteConversation(_ conversationId: String) async throws {
+        guard isAuthenticated else {
+            throw FirebaseMessagingError.notAuthenticated
+        }
+
+        let convRef = db.collection("conversations").document(conversationId)
+
+        try await convRef.updateData([
+            "mutedBy": FieldValue.arrayUnion([currentUserId])
+        ])
+
+        // Update local state
+        await MainActor.run {
+            if let index = conversations.firstIndex(where: { $0.id == conversationId }) {
+                var updated = conversations[index]
+                updated = ChatConversation(
+                    id: updated.id,
+                    name: updated.name,
+                    lastMessage: updated.lastMessage,
+                    timestamp: updated.timestamp,
+                    isGroup: updated.isGroup,
+                    unreadCount: updated.unreadCount,
+                    avatarColor: updated.avatarColor,
+                    status: updated.status,
+                    profilePhotoURL: updated.profilePhotoURL,
+                    isPinned: updated.isPinned,
+                    isMuted: true
+                )
+                conversations[index] = updated
+            }
+        }
+
+        print("🔕 Conversation \(conversationId) muted")
+    }
+
+    /// Unmute a conversation
+    public func unmuteConversation(_ conversationId: String) async throws {
+        guard isAuthenticated else {
+            throw FirebaseMessagingError.notAuthenticated
+        }
+
+        let convRef = db.collection("conversations").document(conversationId)
+
+        try await convRef.updateData([
+            "mutedBy": FieldValue.arrayRemove([currentUserId])
+        ])
+
+        // Update local state
+        await MainActor.run {
+            if let index = conversations.firstIndex(where: { $0.id == conversationId }) {
+                var updated = conversations[index]
+                updated = ChatConversation(
+                    id: updated.id,
+                    name: updated.name,
+                    lastMessage: updated.lastMessage,
+                    timestamp: updated.timestamp,
+                    isGroup: updated.isGroup,
+                    unreadCount: updated.unreadCount,
+                    avatarColor: updated.avatarColor,
+                    status: updated.status,
+                    profilePhotoURL: updated.profilePhotoURL,
+                    isPinned: updated.isPinned,
+                    isMuted: false
+                )
+                conversations[index] = updated
+            }
+        }
+
+        print("🔕 Conversation \(conversationId) unmuted")
+    }
+
+    /// Report a conversation as spam
+    public func reportSpam(_ conversationId: String, reason: String) async throws {
+        guard isAuthenticated else {
+            throw FirebaseMessagingError.notAuthenticated
+        }
+
+        // Create spam report document
+        let reportData: [String: Any] = [
+            "conversationId": conversationId,
+            "reportedBy": currentUserId,
+            "reason": reason,
+            "timestamp": FieldValue.serverTimestamp(),
+            "status": "pending"
+        ]
+
+        try await db.collection("spamReports").addDocument(data: reportData)
+
+        // Automatically archive the conversation for the reporter
+        try await archiveConversation(conversationId: conversationId)
+
+        print("⚠️ Conversation \(conversationId) reported as spam")
     }
     
     /// Delete a conversation for current user (soft delete)
-    func deleteConversation(conversationId: String) async throws {
+    public func deleteConversation(conversationId: String) async throws {
+        guard isAuthenticated else {
+            throw FirebaseMessagingError.notAuthenticated
+        }
+        
         try await db.collection("conversations")
             .document(conversationId)
             .updateData([
@@ -1595,7 +2038,11 @@ class FirebaseMessagingService: ObservableObject {
     }
     
     /// Delete all conversations with a specific user
-    func deleteConversationsWithUser(userId: String) async throws {
+    public func deleteConversationsWithUser(userId: String) async throws {
+        guard isAuthenticated else {
+            throw FirebaseMessagingError.notAuthenticated
+        }
+        
         let snapshot = try await db.collection("conversations")
             .whereField("participantIds", arrayContains: currentUserId)
             .getDocuments()
@@ -1616,7 +2063,11 @@ class FirebaseMessagingService: ObservableObject {
     }
     
     /// Archive a conversation
-    func archiveConversation(conversationId: String) async throws {
+    public func archiveConversation(conversationId: String) async throws {
+        guard isAuthenticated else {
+            throw FirebaseMessagingError.notAuthenticated
+        }
+        
         try await db.collection("conversations")
             .document(conversationId)
             .updateData([
@@ -1624,11 +2075,24 @@ class FirebaseMessagingService: ObservableObject {
                 "updatedAt": Timestamp(date: Date())
             ])
         
+        await MainActor.run {
+            if let index = conversations.firstIndex(where: { $0.id == conversationId }) {
+                let conversation = conversations.remove(at: index)
+                if !archivedConversations.contains(where: { $0.id == conversationId }) {
+                    archivedConversations.insert(conversation, at: 0)
+                }
+            }
+        }
+        
         print("📦 Conversation \(conversationId) archived")
     }
     
     /// Unarchive a conversation
-    func unarchiveConversation(conversationId: String) async throws {
+    public func unarchiveConversation(conversationId: String) async throws {
+        guard isAuthenticated else {
+            throw FirebaseMessagingError.notAuthenticated
+        }
+        
         try await db.collection("conversations")
             .document(conversationId)
             .updateData([
@@ -1636,11 +2100,20 @@ class FirebaseMessagingService: ObservableObject {
                 "updatedAt": Timestamp(date: Date())
             ])
         
+        await MainActor.run {
+            if let index = archivedConversations.firstIndex(where: { $0.id == conversationId }) {
+                let conversation = archivedConversations.remove(at: index)
+                if !conversations.contains(where: { $0.id == conversationId }) {
+                    conversations.insert(conversation, at: 0)
+                }
+            }
+        }
+        
         print("📬 Conversation \(conversationId) unarchived")
     }
     
-    /// Get archived conversations
-    func getArchivedConversations() async throws -> [ChatConversation] {
+    /// Get archived conversations (internal use)
+    internal func getArchivedConversations() async throws -> [ChatConversation] {
         let snapshot = try await db.collection("conversations")
             .whereField("participantIds", arrayContains: currentUserId)
             .order(by: "updatedAt", descending: true)
@@ -1683,6 +2156,145 @@ class FirebaseMessagingService: ObservableObject {
     // MARK: - Message Requests
     // Note: fetchMessageRequests, acceptMessageRequest, declineMessageRequest, and 
     // markMessageRequestAsRead methods are defined in a separate extension file
+    
+    // MARK: - Instagram-Style Message Limits & Requests
+    
+    /// Check if user can send a message in this conversation (Instagram/Threads style)
+    /// Returns: (canSend: Bool, reason: String?)
+    public func canSendMessage(conversationId: String) async throws -> (canSend: Bool, reason: String?) {
+        guard isAuthenticated else {
+            return (false, "Not authenticated")
+        }
+        
+        // Fetch conversation
+        let conversationRef = db.collection("conversations").document(conversationId)
+        let doc = try await conversationRef.getDocument()
+        
+        guard doc.exists,
+              let conversation = try? doc.data(as: FirebaseConversation.self) else {
+            return (false, "Conversation not found")
+        }
+        
+        let status = conversation.conversationStatus ?? "accepted"
+        
+        // ✅ If conversation is accepted, can always send
+        if status == "accepted" {
+            return (true, nil)
+        }
+        
+        // ✅ If conversation is declined or blocked, cannot send
+        if status == "declined" || status == "blocked" {
+            return (false, "This conversation is not available")
+        }
+        
+        // ✅ If conversation is pending
+        if status == "pending" {
+            let messageCount = conversation.messageCount?[currentUserId] ?? 0
+            
+            // Check if sender is the requester
+            let isRequester = conversation.requesterId == currentUserId
+            
+            if isRequester {
+                // Requester can only send 1 message until accepted
+                if messageCount >= 1 {
+                    return (false, "Please wait for \(conversation.participantNames.values.first(where: { _ in true }) ?? "them") to accept your message request")
+                } else {
+                    return (true, nil)
+                }
+            } else {
+                // Recipient can send unlimited messages (accepting by sending a message)
+                return (true, nil)
+            }
+        }
+        
+        return (true, nil)
+    }
+    
+    /// Get message count for current user in conversation
+    public func getMessageCount(conversationId: String) async throws -> Int {
+        let conversationRef = db.collection("conversations").document(conversationId)
+        let doc = try await conversationRef.getDocument()
+        
+        guard let conversation = try? doc.data(as: FirebaseConversation.self) else {
+            return 0
+        }
+        
+        return conversation.messageCount?[currentUserId] ?? 0
+    }
+    
+    /// Accept a message request (Instagram/Threads style)
+    public func acceptMessageRequest(conversationId: String) async throws {
+        guard isAuthenticated else {
+            throw FirebaseMessagingError.notAuthenticated
+        }
+        
+        let conversationRef = db.collection("conversations").document(conversationId)
+        
+        try await conversationRef.updateData([
+            "conversationStatus": "accepted",
+            "updatedAt": Timestamp(date: Date())
+        ])
+        
+        print("✅ Message request accepted for conversation: \(conversationId)")
+    }
+    
+    /// Decline a message request (Instagram/Threads style)
+    public func declineMessageRequest(conversationId: String) async throws {
+        guard isAuthenticated else {
+            throw FirebaseMessagingError.notAuthenticated
+        }
+        
+        let conversationRef = db.collection("conversations").document(conversationId)
+        
+        try await conversationRef.updateData([
+            "conversationStatus": "declined",
+            "updatedAt": Timestamp(date: Date())
+        ])
+        
+        print("✅ Message request declined for conversation: \(conversationId)")
+    }
+    
+    /// Delete a message request
+    public func deleteMessageRequest(conversationId: String) async throws {
+        guard isAuthenticated else {
+            throw FirebaseMessagingError.notAuthenticated
+        }
+        
+        // Just decline it (don't actually delete to preserve data)
+        try await declineMessageRequest(conversationId: conversationId)
+    }
+    
+    /// Get pending message requests (for current user as recipient)
+    public func fetchPendingRequests() async throws -> [ChatConversation] {
+        guard isAuthenticated else {
+            throw FirebaseMessagingError.notAuthenticated
+        }
+        
+        let snapshot = try await db.collection("conversations")
+            .whereField("participantIds", arrayContains: currentUserId)
+            .whereField("conversationStatus", isEqualTo: "pending")
+            .order(by: "updatedAt", descending: true)
+            .getDocuments()
+        
+        // Filter to only show requests where current user is NOT the requester
+        let requests = snapshot.documents.compactMap { doc -> ChatConversation? in
+            guard let firebaseConv = try? doc.data(as: FirebaseConversation.self) else {
+                return nil
+            }
+            
+            // Only show if current user is the recipient (not the requester)
+            guard firebaseConv.requesterId != currentUserId else {
+                return nil
+            }
+            
+            return firebaseConv.toConversation()
+        }
+        
+        print("📬 Fetched \(requests.count) pending message requests")
+        return requests
+    }
+    
+    // MARK: - Message Requests
     
     /// Update message delivery status
     func updateMessageDeliveryStatus(
@@ -1925,6 +2537,7 @@ struct FirebaseConversation: Codable {
     @DocumentID var id: String?
     let participantIds: [String]
     let participantNames: [String: String] // userId: userName
+    let participantPhotoURLs: [String: String]? // userId: profilePhotoURL
     let isGroup: Bool
     let groupName: String?
     let groupAvatarUrl: String?
@@ -1935,17 +2548,22 @@ struct FirebaseConversation: Codable {
     let conversationStatus: String? // "pending", "accepted", "declined"
     let requesterId: String? // User who initiated the conversation request
     let requestReadBy: [String]? // Users who have seen the request
+    let messageCount: [String: Int]? // userId: message count (for Instagram/Threads style limits)
     let createdAt: Timestamp?
     let updatedAt: Timestamp?
     let archivedBy: [String: Bool]? // OLD: userId: archived status (deprecated)
     let archivedByArray: [String]? // NEW: array of user IDs who archived
     let archivedAt: Timestamp? // Shared archived timestamp
     let deletedBy: [String: Bool]? // userId: deleted status
+    let pinnedBy: [String]? // Array of user IDs who pinned this conversation
+    let pinnedAt: [String: Timestamp]? // userId: when they pinned it
+    let mutedBy: [String]? // Array of user IDs who muted this conversation
     
     enum CodingKeys: String, CodingKey {
         case id
         case participantIds
         case participantNames
+        case participantPhotoURLs
         case isGroup
         case groupName
         case groupAvatarUrl
@@ -1956,11 +2574,15 @@ struct FirebaseConversation: Codable {
         case conversationStatus
         case requesterId
         case requestReadBy
+        case messageCount
         case createdAt
         case updatedAt
         case archivedBy
         case archivedAt
         case deletedBy
+        case pinnedBy
+        case pinnedAt
+        case mutedBy
     }
     
     init(from decoder: Decoder) throws {
@@ -1971,6 +2593,7 @@ struct FirebaseConversation: Codable {
         
         participantIds = try container.decode([String].self, forKey: .participantIds)
         participantNames = try container.decode([String: String].self, forKey: .participantNames)
+        participantPhotoURLs = try container.decodeIfPresent([String: String].self, forKey: .participantPhotoURLs)
         isGroup = try container.decode(Bool.self, forKey: .isGroup)
         groupName = try container.decodeIfPresent(String.self, forKey: .groupName)
         groupAvatarUrl = try container.decodeIfPresent(String.self, forKey: .groupAvatarUrl)
@@ -1981,6 +2604,7 @@ struct FirebaseConversation: Codable {
         conversationStatus = try container.decodeIfPresent(String.self, forKey: .conversationStatus)
         requesterId = try container.decodeIfPresent(String.self, forKey: .requesterId)
         requestReadBy = try container.decodeIfPresent([String].self, forKey: .requestReadBy)
+        messageCount = try container.decodeIfPresent([String: Int].self, forKey: .messageCount)
         createdAt = try container.decodeIfPresent(Timestamp.self, forKey: .createdAt)
         updatedAt = try container.decodeIfPresent(Timestamp.self, forKey: .updatedAt)
         
@@ -2001,6 +2625,11 @@ struct FirebaseConversation: Codable {
         
         archivedAt = try container.decodeIfPresent(Timestamp.self, forKey: .archivedAt)
         deletedBy = try container.decodeIfPresent([String: Bool].self, forKey: .deletedBy)
+
+        // Decode new pin/mute fields
+        pinnedBy = try container.decodeIfPresent([String].self, forKey: .pinnedBy)
+        pinnedAt = try container.decodeIfPresent([String: Timestamp].self, forKey: .pinnedAt)
+        mutedBy = try container.decodeIfPresent([String].self, forKey: .mutedBy)
     }
     
     init(
@@ -2033,29 +2662,48 @@ struct FirebaseConversation: Codable {
         self.conversationStatus = conversationStatus
         self.requesterId = requesterId
         self.requestReadBy = requestReadBy
+        self.messageCount = [:] // Initialize as empty
         self.createdAt = Timestamp(date: createdAt)
         self.updatedAt = Timestamp(date: updatedAt)
         self.archivedBy = nil
         self.archivedByArray = nil
         self.archivedAt = nil
         self.deletedBy = nil
+        self.participantPhotoURLs = nil
+        self.pinnedBy = nil
+        self.pinnedAt = nil
+        self.mutedBy = nil
     }
     
     func toConversation() -> ChatConversation {
         let currentUserId = Auth.auth().currentUser?.uid ?? ""
         let otherParticipants = participantIds.filter { $0 != currentUserId }
-        
+
         let name: String
         if isGroup {
             name = groupName ?? "Group Chat"
         } else {
             name = otherParticipants.compactMap { participantNames[$0] }.first ?? "Unknown"
         }
-        
+
         let unreadCount = unreadCounts[currentUserId] ?? 0
-        
+
         let timestamp = lastMessageTimestamp?.dateValue() ?? Date()
-        
+
+        // Get profile photo URL for the other participant (for 1-on-1 chats)
+        let profilePhotoURL: String?
+        if !isGroup, let otherUserId = otherParticipants.first {
+            profilePhotoURL = participantPhotoURLs?[otherUserId]
+        } else {
+            profilePhotoURL = groupAvatarUrl // For groups, use group avatar
+        }
+
+        // Check if current user pinned this conversation
+        let isPinned = pinnedBy?.contains(currentUserId) ?? false
+
+        // Check if current user muted this conversation
+        let isMuted = mutedBy?.contains(currentUserId) ?? false
+
         let conversation = ChatConversation(
             id: id ?? UUID().uuidString,
             name: name,
@@ -2063,7 +2711,12 @@ struct FirebaseConversation: Codable {
             timestamp: formatTimestamp(timestamp),
             isGroup: isGroup,
             unreadCount: unreadCount,
-            avatarColor: colorForString(name)
+            avatarColor: colorForString(name),
+            status: conversationStatus ?? "accepted",
+            profilePhotoURL: profilePhotoURL,
+            isPinned: isPinned,
+            isMuted: isMuted,
+            requesterId: requesterId
         )
         return conversation
     }
@@ -2103,6 +2756,7 @@ struct FirebaseMessage: Codable {
     let conversationId: String
     let senderId: String
     let senderName: String
+    let senderProfileImageURL: String? // ✅ Sender's profile image URL
     let text: String
     let attachments: [Attachment]
     var reactions: [Reaction]
@@ -2131,6 +2785,7 @@ struct FirebaseMessage: Codable {
         conversationId: String,
         senderId: String,
         senderName: String,
+        senderProfileImageURL: String? = nil,
         text: String,
         attachments: [Attachment],
         reactions: [Reaction],
@@ -2156,6 +2811,7 @@ struct FirebaseMessage: Codable {
         self.conversationId = conversationId
         self.senderId = senderId
         self.senderName = senderName
+        self.senderProfileImageURL = senderProfileImageURL
         self.text = text
         self.attachments = attachments
         self.reactions = reactions
@@ -2266,6 +2922,7 @@ struct FirebaseMessage: Codable {
             timestamp: timestamp?.dateValue() ?? Date(),
             senderId: senderId,
             senderName: senderName,
+            senderProfileImageURL: senderProfileImageURL, // ✅ Pass profile image URL
             attachments: messageAttachments,
             replyTo: replyToMessage,
             reactions: reactions.map { reaction in
@@ -2293,17 +2950,17 @@ struct FirebaseMessage: Codable {
     }
 }
 
-struct ContactUser: Codable, Identifiable {
-    @DocumentID var id: String?
-    let displayName: String
-    let username: String
-    let email: String
-    let profileImageURL: String?
-    let showActivityStatus: Bool
+public struct ContactUser: Codable, Identifiable {
+    @DocumentID public var id: String?
+    public let displayName: String
+    public let username: String
+    public let email: String
+    public let profileImageURL: String?
+    public let showActivityStatus: Bool
     
-    var name: String { displayName }
-    var avatarUrl: String? { profileImageURL }
-    var isOnline: Bool { showActivityStatus }
+    public var name: String { displayName }
+    public var avatarUrl: String? { profileImageURL }
+    // Note: isOnline property removed - we don't show activity status in UI
     
     enum CodingKeys: String, CodingKey {
         case id
@@ -2367,4 +3024,7 @@ extension UIImage {
 
 // MARK: - Note: Additional extensions are in FirebaseMessagingService+RequestsAndBlocking.swift
 // MARK: - Note: BlockService is defined in BlockService.swift (separate file)
+
+
+
 

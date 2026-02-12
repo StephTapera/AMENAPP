@@ -15,13 +15,141 @@ import FirebaseAuth
 @MainActor
 class ChurchNotesService: ObservableObject {
     @Published var notes: [ChurchNote] = []
+    @Published var folders: [NoteFolder] = []
     @Published var isLoading = false
     @Published var error: String?
     
     private let firebaseManager = FirebaseManager.shared
     private let db = Firestore.firestore()
+    private var notesListener: ListenerRegistration?
+    private var foldersListener: ListenerRegistration?
     
-    /// Fetch all notes for current user
+    /// Start real-time listener for notes
+    func startListening() {
+        guard let userId = firebaseManager.currentUser?.uid else {
+            error = "No authenticated user"
+            return
+        }
+        
+        print("🔊 Starting real-time listener for church notes...")
+        
+        notesListener = db.collection("churchNotes")
+            .whereField("userId", isEqualTo: userId)
+            .order(by: "date", descending: true)
+            .addSnapshotListener { [weak self] snapshot, error in
+                guard let self = self else { return }
+                
+                if let error = error {
+                    print("❌ Church notes listener error: \(error)")
+                    self.error = error.localizedDescription
+                    return
+                }
+                
+                guard let snapshot = snapshot else { return }
+                
+                Task { @MainActor in
+                    do {
+                        self.notes = try snapshot.documents.compactMap { document in
+                            try document.data(as: ChurchNote.self)
+                        }
+                        print("✅ Real-time update: \(self.notes.count) church notes")
+                    } catch {
+                        print("❌ Failed to decode notes: \(error)")
+                        self.error = error.localizedDescription
+                    }
+                }
+            }
+    }
+    
+    /// Stop listening to notes
+    func stopListening() {
+        notesListener?.remove()
+        notesListener = nil
+        foldersListener?.remove()
+        foldersListener = nil
+        print("👋 Stopped church notes listener")
+    }
+    
+    // MARK: - Folder Management
+    
+    /// Start listening to folders
+    func startFoldersListening() {
+        guard let userId = firebaseManager.currentUser?.uid else { return }
+        
+        foldersListener = db.collection("noteFolders")
+            .whereField("userId", isEqualTo: userId)
+            .order(by: "createdAt", descending: false)
+            .addSnapshotListener { [weak self] snapshot, error in
+                guard let self = self else { return }
+                
+                if let error = error {
+                    print("❌ Folders listener error: \(error)")
+                    return
+                }
+                
+                guard let snapshot = snapshot else { return }
+                
+                Task { @MainActor in
+                    do {
+                        self.folders = try snapshot.documents.compactMap { document in
+                            try document.data(as: NoteFolder.self)
+                        }
+                        print("✅ Real-time update: \(self.folders.count) folders")
+                    } catch {
+                        print("❌ Failed to decode folders: \(error)")
+                    }
+                }
+            }
+    }
+    
+    /// Create a new folder
+    func createFolder(_ folder: NoteFolder) async throws {
+        guard let userId = firebaseManager.currentUser?.uid else {
+            throw FirebaseError.unauthorized
+        }
+        
+        var newFolder = folder
+        newFolder.userId = userId
+        newFolder.createdAt = Date()
+        newFolder.updatedAt = Date()
+        
+        let docRef = db.collection("noteFolders").document()
+        newFolder.id = docRef.documentID
+        
+        try docRef.setData(from: newFolder)
+        print("✅ Created folder: \(newFolder.name)")
+    }
+    
+    /// Delete folder
+    func deleteFolder(_ folder: NoteFolder) async throws {
+        guard let folderId = folder.id else {
+            throw NSError(domain: "ChurchNotesService", code: 400, userInfo: [NSLocalizedDescriptionKey: "Folder ID is missing"])
+        }
+        
+        // Move all notes from this folder to no folder
+        let notesInFolder = notes.filter { $0.folderId == folderId }
+        for var note in notesInFolder {
+            note.folderId = nil
+            try await updateNote(note)
+        }
+        
+        try await db.collection("noteFolders").document(folderId).delete()
+        print("✅ Deleted folder: \(folder.name)")
+    }
+    
+    /// Move note to folder
+    func moveNoteToFolder(_ note: ChurchNote, folderId: String?) async throws {
+        var updatedNote = note
+        updatedNote.folderId = folderId
+        try await updateNote(updatedNote)
+    }
+    
+    /// Get notes in folder
+    func getNotesInFolder(_ folderId: String?) -> [ChurchNote] {
+        notes.filter { $0.folderId == folderId }
+    }
+    
+    /// Fetch all notes for current user (one-time fetch)
     func fetchNotes() async {
         guard let userId = firebaseManager.currentUser?.uid else {
             error = "No authenticated user"
@@ -62,11 +190,15 @@ class ChurchNotesService: ObservableObject {
         let docRef = db.collection("churchNotes").document()
         newNote.id = docRef.documentID
         
+        print("📝 Creating church note: \(newNote.title)")
+        print("   User ID: \(userId)")
+        print("   Document ID: \(docRef.documentID)")
+        
         try docRef.setData(from: newNote)
         
-        print("✅ Created church note: \(newNote.title)")
+        print("✅ Created church note successfully!")
         
-        await fetchNotes()
+        // Real-time listener will automatically update the notes array
     }
     
     /// Update an existing note
@@ -82,7 +214,7 @@ class ChurchNotesService: ObservableObject {
         
         print("✅ Updated church note: \(note.title)")
         
-        await fetchNotes()
+        // Real-time listener will automatically update
     }
     
     /// Delete a note
@@ -95,7 +227,7 @@ class ChurchNotesService: ObservableObject {
         
         print("✅ Deleted church note: \(note.title)")
         
-        await fetchNotes()
+        // Real-time listener will automatically update
     }
     
     /// Toggle favorite status
@@ -112,7 +244,7 @@ class ChurchNotesService: ObservableObject {
         
         print("✅ Toggled favorite for note: \(note.title)")
         
-        await fetchNotes()
+        // Real-time listener will automatically update
     }
     
     /// Search notes by query
@@ -138,5 +270,175 @@ class ChurchNotesService: ObservableObject {
     /// Get favorite notes
     func getFavorites() -> [ChurchNote] {
         notes.filter { $0.isFavorite }
+    }
+    
+    // MARK: - Sorting
+    
+    /// Sort notes by option
+    func sortNotes(_ notes: [ChurchNote], by sortOption: NoteSortOption) -> [ChurchNote] {
+        switch sortOption {
+        case .dateNewest:
+            return notes.sorted { $0.date > $1.date }
+        case .dateOldest:
+            return notes.sorted { $0.date < $1.date }
+        case .titleAZ:
+            return notes.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+        case .titleZA:
+            return notes.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedDescending }
+        case .church:
+            return notes.sorted { ($0.churchName ?? "") < ($1.churchName ?? "") }
+        }
+    }
+    
+    // MARK: - Bulk Actions
+    
+    /// Bulk delete notes
+    func bulkDelete(_ notes: [ChurchNote]) async throws {
+        for note in notes {
+            try await deleteNote(note)
+        }
+        print("✅ Bulk deleted \(notes.count) notes")
+    }
+    
+    /// Bulk favorite/unfavorite notes
+    func bulkToggleFavorite(_ notes: [ChurchNote], favorite: Bool) async throws {
+        for var note in notes {
+            if note.isFavorite != favorite {
+                note.isFavorite = favorite
+                try await updateNote(note)
+            }
+        }
+        print("✅ Bulk updated \(notes.count) notes")
+    }
+    
+    /// Bulk move to folder
+    func bulkMoveToFolder(_ notes: [ChurchNote], folderId: String?) async throws {
+        for note in notes {
+            try await moveNoteToFolder(note, folderId: folderId)
+        }
+        print("✅ Bulk moved \(notes.count) notes to folder")
+    }
+    
+    /// Bulk export notes
+    func bulkExport(_ notes: [ChurchNote]) -> String {
+        var exportText = "🙏 Selected Church Notes from AMEN\n"
+        exportText += "Exported: \(Date().formatted(date: .long, time: .shortened))\n"
+        exportText += "Total Notes: \(notes.count)\n\n"
+        exportText += String(repeating: "=", count: 50)
+        exportText += "\n\n"
+        
+        for (index, note) in notes.enumerated() {
+            exportText += "[\(index + 1)] \(generateShareText(for: note))\n\n"
+            exportText += String(repeating: "-", count: 50)
+            exportText += "\n\n"
+        }
+        
+        return exportText
+    }
+    
+    // MARK: - Share & Export
+    
+    /// Generate shareable text from note
+    func generateShareText(for note: ChurchNote) -> String {
+        var text = "📖 \(note.title)\n\n"
+        
+        if let sermonTitle = note.sermonTitle {
+            text += "Sermon: \(sermonTitle)\n"
+        }
+        if let pastor = note.pastor {
+            text += "Pastor: \(pastor)\n"
+        }
+        if let churchName = note.churchName {
+            text += "Church: \(churchName)\n"
+        }
+        
+        text += "Date: \(note.date.formatted(date: .long, time: .omitted))\n"
+        
+        if !note.scriptureReferences.isEmpty {
+            text += "Scripture: \(note.scriptureReferences.joined(separator: ", "))\n"
+        }
+        
+        text += "\n---\n\n"
+        text += note.content
+        
+        if !note.tags.isEmpty {
+            text += "\n\n🏷️ Tags: \(note.tags.joined(separator: ", "))"
+        }
+        
+        text += "\n\n✨ Shared from AMEN App"
+        
+        return text
+    }
+    
+    /// Bulk export all notes
+    func exportAllNotes() -> String {
+        var exportText = "🙏 My Church Notes from AMEN\n"
+        exportText += "Exported: \(Date().formatted(date: .long, time: .shortened))\n"
+        exportText += "Total Notes: \(notes.count)\n\n"
+        exportText += String(repeating: "=", count: 50)
+        exportText += "\n\n"
+        
+        for (index, note) in notes.enumerated() {
+            exportText += "[\(index + 1)] \(generateShareText(for: note))\n\n"
+            exportText += String(repeating: "-", count: 50)
+            exportText += "\n\n"
+        }
+        
+        return exportText
+    }
+    
+    // MARK: - Permissions & Sharing
+    
+    /// Update note permission
+    func updatePermission(_ note: ChurchNote, permission: NotePermission) async throws {
+        var updatedNote = note
+        updatedNote.permission = permission
+        updatedNote.updatedAt = Date()
+        try await updateNote(updatedNote)
+        print("✅ Updated permission for note: \(note.title) to \(permission.rawValue)")
+    }
+    
+    /// Share note with specific users
+    func shareNoteWith(_ note: ChurchNote, userIds: [String]) async throws {
+        var updatedNote = note
+        updatedNote.sharedWith = userIds
+        updatedNote.permission = .shared
+        updatedNote.updatedAt = Date()
+        try await updateNote(updatedNote)
+        print("✅ Shared note with \(userIds.count) users")
+    }
+    
+    /// Get shared notes (notes shared with current user)
+    func getSharedNotes() async throws -> [ChurchNote] {
+        guard let userId = firebaseManager.currentUser?.uid else {
+            throw FirebaseError.unauthorized
+        }
+        
+        let snapshot = try await db.collection("churchNotes")
+            .whereField("sharedWith", arrayContains: userId)
+            .getDocuments()
+        
+        let sharedNotes = try snapshot.documents.compactMap { document in
+            try document.data(as: ChurchNote.self)
+        }
+        
+        print("✅ Found \(sharedNotes.count) notes shared with you")
+        return sharedNotes
+    }
+    
+    /// Get public notes from community
+    func getPublicNotes(limit: Int = 20) async throws -> [ChurchNote] {
+        let snapshot = try await db.collection("churchNotes")
+            .whereField("permission", isEqualTo: NotePermission.publicNote.rawValue)
+            .order(by: "createdAt", descending: true)
+            .limit(to: limit)
+            .getDocuments()
+        
+        let publicNotes = try snapshot.documents.compactMap { document in
+            try document.data(as: ChurchNote.self)
+        }
+        
+        print("✅ Found \(publicNotes.count) public notes")
+        return publicNotes
     }
 }

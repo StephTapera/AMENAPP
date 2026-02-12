@@ -7,6 +7,8 @@
 
 import SwiftUI
 import FirebaseFirestore
+import FirebaseAuth
+import Combine
 
 struct NotificationPostDetailView: View {
     let postId: String
@@ -72,13 +74,7 @@ struct NotificationPostDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .safeAreaInset(edge: .bottom) {
             if showComments {
-                CommentInputBar(
-                    text: $commentText,
-                    isFocused: $isCommentFocused,
-                    onSend: {
-                        sendComment()
-                    }
-                )
+                commentInputView
             }
         }
         .task {
@@ -120,6 +116,32 @@ struct NotificationPostDetailView: View {
             }
         }
         .padding()
+    }
+    
+    private var commentInputView: some View {
+        HStack(spacing: 12) {
+            TextField("Add a comment...", text: $commentText)
+                .textFieldStyle(.roundedBorder)
+                .focused($isCommentFocused)
+            
+            Button(action: sendComment) {
+                Image(systemName: "paperplane.fill")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 44, height: 44)
+                    .background(
+                        Circle()
+                            .fill(commentText.isEmpty ? Color.gray : Color.blue)
+                    )
+            }
+            .disabled(commentText.isEmpty)
+        }
+        .padding()
+        .background(
+            Rectangle()
+                .fill(Color(.systemBackground))
+                .shadow(color: .black.opacity(0.1), radius: 8, y: -2)
+        )
     }
     
     private func sendComment() {
@@ -202,7 +224,7 @@ struct PostContentCard: View {
                     Text(post.authorName)
                         .font(.custom("OpenSans-Bold", size: 16))
                     
-                    Text(post.createdAt.timeAgo())
+                    Text(post.timeAgo())
                         .font(.custom("OpenSans-Regular", size: 13))
                         .foregroundStyle(.secondary)
                 }
@@ -358,7 +380,7 @@ struct CommentsSection: View {
             
             if let comments = interactionsService.postCommentsData[postId], !comments.isEmpty {
                 ForEach(comments) { comment in
-                    CommentRow(comment: comment)
+                    NotificationCommentRow(comment: comment)
                 }
             } else {
                 Text("No comments yet")
@@ -371,7 +393,7 @@ struct CommentsSection: View {
     }
 }
 
-struct CommentRow: View {
+struct NotificationCommentRow: View {
     let comment: RealtimeComment
     
     var body: some View {
@@ -421,40 +443,6 @@ struct CommentRow: View {
         }
         .padding(.horizontal)
         .padding(.vertical, 8)
-    }
-}
-
-// MARK: - Comment Input Bar
-
-struct CommentInputBar: View {
-    @Binding var text: String
-    var isFocused: FocusState<Bool>.Binding
-    let onSend: () -> Void
-    
-    var body: some View {
-        HStack(spacing: 12) {
-            TextField("Add a comment...", text: $text)
-                .textFieldStyle(.roundedBorder)
-                .focused(isFocused)
-            
-            Button(action: onSend) {
-                Image(systemName: "paperplane.fill")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 44, height: 44)
-                    .background(
-                        Circle()
-                            .fill(text.isEmpty ? Color.gray : Color.blue)
-                    )
-            }
-            .disabled(text.isEmpty)
-        }
-        .padding()
-        .background(
-            Rectangle()
-                .fill(Color(.systemBackground))
-                .shadow(color: .black.opacity(0.1), radius: 8, y: -2)
-        )
     }
 }
 
@@ -511,22 +499,17 @@ struct NotificationPost {
         }
         return String(authorName.prefix(2)).uppercased()
     }
-}
-
-// MARK: - Date Extension
-
-extension Date {
+    
     func timeAgo() -> String {
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .abbreviated
-        return formatter.localizedString(for: self, relativeTo: Date())
+        return formatter.localizedString(for: createdAt, relativeTo: Date())
     }
 }
 
-// MARK: - Firebase Import
-import FirebaseAuth
 
-#Preview {
+
+#Preview("Notification Post Detail") {
     NavigationStack {
         NotificationPostDetailView(postId: "sample123")
     }

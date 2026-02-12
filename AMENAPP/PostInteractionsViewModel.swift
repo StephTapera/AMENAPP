@@ -113,9 +113,9 @@ class PostInteractionsViewModel: ObservableObject {
     }
     
     /// Toggle amen on a comment
-    func toggleCommentAmen(_ commentId: String) async {
+    func toggleCommentAmen(_ commentId: String, postId: String) async {
         do {
-            try await commentService.toggleAmen(commentId: commentId)
+            try await commentService.toggleAmen(commentId: commentId, postId: postId)
         } catch {
             handleError(error)
         }

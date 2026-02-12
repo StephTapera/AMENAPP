@@ -7,6 +7,7 @@
 
 import Foundation
 import SwiftUI
+import Combine
 
 // MARK: - Home Feed Personalization Algorithm
 
@@ -119,12 +120,12 @@ class HomeFeedAlgorithm: ObservableObject {
     // MARK: - Engagement Quality Scoring
     
     private func calculateEngagementScore(_ post: Post) -> Double {
-        // Weighted engagement: comments > reactions > views
+        // Weighted engagement: comments > reactions
+        // Note: viewCount is not available on Post model yet
         let commentWeight = Double(post.commentCount) * 3.0
         let reactionWeight = Double(post.amenCount) * 1.5
-        let viewWeight = Double(post.viewCount) * 0.5
         
-        let totalEngagement = commentWeight + reactionWeight + viewWeight
+        let totalEngagement = commentWeight + reactionWeight
         
         // Logarithmic scaling to prevent viral posts from dominating
         if totalEngagement < 5 {
@@ -188,8 +189,8 @@ class HomeFeedAlgorithm: ObservableObject {
         let currentPref = userInterests.preferredCategories[category] ?? 50
         userInterests.preferredCategories[category] = min(100, currentPref + type.scoreBoost / 2)
         
-        // Record interaction
-        userInterests.interactionHistory[post.id, default: 0] += 1
+        // Record interaction - convert UUID to String
+        userInterests.interactionHistory[post.id.uuidString, default: 0] += 1
         
         // Update timestamp
         userInterests.lastUpdate = Date()
@@ -197,7 +198,9 @@ class HomeFeedAlgorithm: ObservableObject {
         // Persist
         saveInterests()
         
+        #if DEBUG
         print("📊 Interest updated: Topic=\(post.topicTag ?? "none") +\(type.scoreBoost), Author +\(type.weight)")
+        #endif
     }
     
     enum InteractionType {
@@ -289,11 +292,11 @@ class HomeFeedAlgorithm: ObservableObject {
 extension Post {
     /// Check if user has interacted with this post
     func hasUserInteracted(interests: HomeFeedAlgorithm.UserInterests) -> Bool {
-        return interests.interactionHistory[id] != nil
+        return interests.interactionHistory[id.uuidString] != nil
     }
     
     /// Get interaction count for this post
     func userInteractionCount(interests: HomeFeedAlgorithm.UserInterests) -> Int {
-        return interests.interactionHistory[id] ?? 0
+        return interests.interactionHistory[id.uuidString] ?? 0
     }
 }

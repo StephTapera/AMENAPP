@@ -179,21 +179,21 @@ struct ChurchNoteDetailModal: View {
                     // Metadata section
                     VStack(alignment: .leading, spacing: 10) {
                         if let sermonTitle = note.sermonTitle {
-                            MetadataRow(label: "Sermon", value: sermonTitle)
+                            NoteMetadataRow(label: "Sermon", value: sermonTitle)
                         }
                         
                         if let pastor = note.pastor {
-                            MetadataRow(label: "Pastor", value: pastor)
+                            NoteMetadataRow(label: "Pastor", value: pastor)
                         }
                         
                         if let churchName = note.churchName {
-                            MetadataRow(label: "Church", value: churchName)
+                            NoteMetadataRow(label: "Church", value: churchName)
                         }
                         
-                        MetadataRow(label: "Date", value: note.date.formatted(date: .long, time: .omitted))
+                        NoteMetadataRow(label: "Date", value: note.date.formatted(date: .long, time: .omitted))
                         
                         if !note.scriptureReferences.isEmpty {
-                            MetadataRow(label: "Scripture", value: note.scriptureReferences.joined(separator: ", "))
+                            NoteMetadataRow(label: "Scripture", value: note.scriptureReferences.joined(separator: ", "))
                         }
                     }
                     .padding(.horizontal, 20)
@@ -288,28 +288,107 @@ struct ChurchNoteDetailModal: View {
                 }
             }
             .sheet(isPresented: $showShareSheet) {
-                // Share functionality would go here
-                Text("Share options")
+                ChurchNoteShareOptionsSheet(note: note)
             }
         }
     }
 }
 
 /// Simple metadata row for church note details
-private struct MetadataRow: View {
+private struct NoteMetadataRow: View {
     let label: String
     let value: String
-    
+
     var body: some View {
         HStack(spacing: 12) {
             Text(label)
                 .font(.custom("OpenSans-Regular", size: 14))
                 .foregroundStyle(Color(hex: "#9B9B9B"))
                 .frame(width: 80, alignment: .leading)
-            
+
             Text(value)
                 .font(.custom("OpenSans-Regular", size: 14))
                 .foregroundStyle(Color(hex: "#4A4A4A"))
+        }
+    }
+}
+
+/// Share options sheet for church notes
+struct ChurchNoteShareOptionsSheet: View {
+    let note: ChurchNote
+    @Environment(\.dismiss) var dismiss
+    @State private var showingShareCommunityConfirmation = false
+    @State private var shareSuccessMessage: String?
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    // Share as Text
+                    Button {
+                        ChurchNotesShareHelper.shareNote(note, from: nil)
+                        dismiss()
+                    } label: {
+                        Label("Share as Text", systemImage: "doc.text")
+                    }
+
+                    // Share as PDF
+                    Button {
+                        ChurchNotesShareHelper.sharePDF(for: note, from: nil)
+                        dismiss()
+                    } label: {
+                        Label("Share as PDF", systemImage: "doc.richtext")
+                    }
+                } header: {
+                    Text("Export Options")
+                }
+
+                Section {
+                    // Share to Community
+                    Button {
+                        showingShareCommunityConfirmation = true
+                    } label: {
+                        Label("Share to Community Feed", systemImage: "person.3.fill")
+                    }
+                } header: {
+                    Text("Share on AMEN")
+                }
+            }
+            .navigationTitle("Share Church Note")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                }
+            }
+            .alert("Share to Community?", isPresented: $showingShareCommunityConfirmation) {
+                Button("Cancel", role: .cancel) { }
+                Button("Share") {
+                    shareToCommunit()
+                }
+            } message: {
+                Text("This will create a post in your feed with this church note attached.")
+            }
+            .alert("Success", isPresented: .constant(shareSuccessMessage != nil)) {
+                Button("OK") {
+                    shareSuccessMessage = nil
+                    dismiss()
+                }
+            } message: {
+                if let message = shareSuccessMessage {
+                    Text(message)
+                }
+            }
+        }
+    }
+
+    private func shareToCommunit() {
+        ChurchNotesShareHelper.shareToCommunit(note) { success in
+            if success {
+                shareSuccessMessage = "Church note shared to your community feed!"
+            }
         }
     }
 }

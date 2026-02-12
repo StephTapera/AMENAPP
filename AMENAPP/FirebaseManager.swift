@@ -108,6 +108,7 @@ class FirebaseManager {
         
         // Create user profile in Firestore
         let userData: [String: Any] = [
+            "uid": user.uid, // ✅ CRITICAL: Required by security rules
             "email": email,
             "displayName": displayName,
             "displayNameLowercase": displayName.lowercased(),
@@ -232,6 +233,7 @@ class FirebaseManager {
         let nameKeywords = createNameKeywords(from: displayName)
         
         let userData: [String: Any] = [
+            "uid": user.uid, // ✅ CRITICAL: Required by security rules
             "email": email,
             "displayName": displayName,
             "displayNameLowercase": displayName.lowercased(),
@@ -308,6 +310,7 @@ class FirebaseManager {
         let nameKeywords = createNameKeywords(from: displayName)
         
         let userData: [String: Any] = [
+            "uid": user.uid, // ✅ CRITICAL: Required by security rules
             "email": email,
             "displayName": displayName,
             "displayNameLowercase": displayName.lowercased(),
@@ -364,9 +367,9 @@ class FirebaseManager {
         try await firestore.document(path).setData(encoded)
     }
     
-    /// Update document in Firestore
+    /// Update document in Firestore (creates if doesn't exist)
     func updateDocument(_ data: [String: Any], at path: String) async throws {
-        try await firestore.document(path).updateData(data)
+        try await firestore.document(path).setData(data, merge: true)
     }
     
     /// Delete document from Firestore

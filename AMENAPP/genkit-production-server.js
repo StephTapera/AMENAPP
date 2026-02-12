@@ -1,7 +1,7 @@
 // 🚀 Complete Genkit Server for AMEN App
 // Supports all 10 AI flows for Bible study
 
-const { genkit } = require('genkit');
+const { genkit, z } = require('genkit');
 const { googleAI } = require('@genkit-ai/googleai');
 const express = require('express');
 

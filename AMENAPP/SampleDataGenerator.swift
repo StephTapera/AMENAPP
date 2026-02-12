@@ -7,6 +7,7 @@
 //  Generates realistic sample posts for OpenTable, Prayer, and Testimonies
 //
 
+import SwiftUI
 import Foundation
 import FirebaseFirestore
 import FirebaseAuth
@@ -26,21 +27,7 @@ class SampleDataGenerator {
 
         "What does it mean to truly forgive someone who hurt you deeply? Wrestling with this question today.",
 
-        "Can we talk about finding purpose in our daily work? Sometimes it feels mundane, but I know God has a plan.",
-
-        "How do you stay consistent in prayer when life gets busy? Looking for practical tips from this community.",
-
-        "What's your favorite Bible verse about hope? Mine is Romans 15:13 - 'May the God of hope fill you with all joy and peace.'",
-
-        "Does anyone else struggle with doubt sometimes? How do you work through it while maintaining your faith?",
-
-        "I've been thinking about the parable of the Good Samaritan. How can we be better neighbors in our modern world?",
-
-        "What books (besides the Bible) have strengthened your faith journey? Always looking for recommendations!",
-
-        "How do you explain your faith to friends who are curious but skeptical? I want to share without being pushy.",
-
-        "What does rest look like in your spiritual life? I'm learning that Sabbath is about more than just Sunday."
+        "Can we talk about finding purpose in our daily work? Sometimes it feels mundane, but I know God has a plan."
     ]
 
     /// Heartfelt prayer requests
@@ -49,21 +36,7 @@ class SampleDataGenerator {
 
         "Asking for prayers as I start my new job on Monday. Feeling nervous but trusting God's plan for this next chapter.",
 
-        "My marriage is going through a really difficult season. Please pray for reconciliation, wisdom, and God's presence in our home.",
-
-        "Praying for everyone affected by the recent storms. May God provide shelter, comfort, and strength to rebuild.",
-
-        "Please lift up my friend Sarah who just lost her father. She's devastated and needs God's comfort right now.",
-
-        "Asking for prayer for financial breakthrough. Been struggling but trusting God will provide. He always has.",
-
-        "Please pray for my son who's battling addiction. We need a miracle and I know God is able. Never giving up hope. 🙏",
-
-        "Praying for healing from anxiety and depression. Some days are harder than others but God is faithful.",
-
-        "Please pray for my community - we've had three young people pass away this month. Hearts are heavy.",
-
-        "Asking for prayers for clarity and direction. At a crossroads and need God's wisdom for the next step."
+        "My marriage is going through a really difficult season. Please pray for reconciliation, wisdom, and God's presence in our home."
     ]
 
     /// Powerful testimonies
@@ -72,21 +45,7 @@ class SampleDataGenerator {
 
         "I was drowning in debt and had no way out. Started tithing in faith even when it didn't make sense. Within 6 months, completely debt free. God is faithful! 💪",
 
-        "My doctor said I'd never have children. Today I'm holding my miracle baby. God had the final say! Never stop believing. 👶💕",
-
-        "Was homeless 3 years ago, living in my car. Today I got the keys to my first house. God took me from nothing to abundance. He's a miracle worker!",
-
-        "Overcame a 15-year addiction by God's grace. Free for 2 years now and life is completely different. If He did it for me, He can do it for you! 🙏",
-
-        "My marriage was on the brink of divorce. We sought counseling and committed to prayer. Today we're celebrating 10 years renewed and stronger than ever! ❤️",
-
-        "Failed my boards twice and almost gave up on becoming a doctor. Passed on the third try and now I'm helping others. God's timing is perfect!",
-
-        "Lost my job during the pandemic with no backup plan. God opened doors I never imagined and now I'm in my dream career. Trust the process!",
-
-        "Battled stage 3 cancer last year. Doctors gave me a small chance. Today, completely cancer-free! God gets all the glory. Medical miracle! 💛",
-
-        "Went through the hardest season of my life - lost my father, job, and apartment in the same month. God provided every single step and brought me through stronger. His faithfulness is unmatched!"
+        "My doctor said I'd never have children. Today I'm holding my miracle baby. God had the final say! Never stop believing. 👶💕"
     ]
 
     // MARK: - Generate Sample Posts
@@ -104,9 +63,9 @@ class SampleDataGenerator {
         print("🎬 Generating sample posts for App Store screenshots...")
         print("   User: \(userName) (\(userId))")
 
-        // Generate 5 posts for each category
+        // Generate 3 posts for each category
         try await generateCategoryPosts(
-            posts: Array(openTablePosts.prefix(5)),
+            posts: Array(openTablePosts.prefix(3)),
             category: "openTable",
             userId: userId,
             userName: userName,
@@ -114,7 +73,7 @@ class SampleDataGenerator {
         )
 
         try await generateCategoryPosts(
-            posts: Array(prayerPosts.prefix(5)),
+            posts: Array(prayerPosts.prefix(3)),
             category: "prayer",
             userId: userId,
             userName: userName,
@@ -122,7 +81,7 @@ class SampleDataGenerator {
         )
 
         try await generateCategoryPosts(
-            posts: Array(testimonyPosts.prefix(5)),
+            posts: Array(testimonyPosts.prefix(3)),
             category: "testimonies",
             userId: userId,
             userName: userName,
@@ -130,7 +89,7 @@ class SampleDataGenerator {
         )
 
         print("✅ Sample posts generated successfully!")
-        print("   Total: 15 posts (5 per category)")
+        print("   Total: 9 posts (3 per category)")
     }
 
     /// Generates posts for a specific category
@@ -285,7 +244,7 @@ struct SampleDataGeneratorView: View {
                 try await SampleDataGenerator.shared.generateAllSamplePosts()
 
                 await MainActor.run {
-                    message = "Successfully generated 15 sample posts!\n\nYou can now take screenshots in:\n• OpenTable\n• Prayer View\n• Testimonies"
+                    message = "Successfully generated 9 sample posts!\n\nYou can now take screenshots in:\n• OpenTable (3 posts)\n• Prayer View (3 posts)\n• Testimonies (3 posts)"
                     showMessage = true
                     isGenerating = false
 

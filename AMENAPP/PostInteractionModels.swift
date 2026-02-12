@@ -13,7 +13,7 @@ import FirebaseFirestore
 // MARK: - Comment Model
 
 struct Comment: Identifiable, Codable, Equatable {
-    @DocumentID var id: String?
+    var id: String?
     var postId: String
     var authorId: String
     var authorName: String
@@ -200,11 +200,13 @@ struct PostMention: Identifiable, Codable, Equatable {
 
 /// Wrapper for displaying comments with their nested replies
 struct CommentWithReplies: Identifiable, Equatable {
-    var id: String { comment.id ?? UUID().uuidString }
+    let id: String // ✅ FIXED: Store stable ID instead of computing it each time
     let comment: Comment
     var replies: [Comment]
     
     init(comment: Comment, replies: [Comment] = []) {
+        // ✅ Create ID once and store it (prevents duplicate IDs in ForEach)
+        self.id = comment.id ?? UUID().uuidString
         self.comment = comment
         self.replies = replies
     }

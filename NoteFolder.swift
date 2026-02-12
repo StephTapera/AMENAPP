@@ -60,12 +60,12 @@ struct NoteFolder: Identifiable, Codable, Hashable {
 
 // MARK: - Default Folders
 extension NoteFolder {
-    static var defaultFolders: [NoteFolder] {
+    static func defaultFolders(for userId: String) -> [NoteFolder] {
         [
-            NoteFolder(name: "Sermons", icon: "mic.fill", color: "#FF9500"),
-            NoteFolder(name: "Bible Study", icon: "book.fill", color: "#5856D6"),
-            NoteFolder(name: "Prayer Meeting", icon: "hands.sparkles.fill", color: "#34C759"),
-            NoteFolder(name: "Small Group", icon: "person.3.fill", color: "#007AFF")
+            NoteFolder(userId: userId, name: "Sermons", icon: "mic.fill", color: "#FF9500"),
+            NoteFolder(userId: userId, name: "Bible Study", icon: "book.fill", color: "#5856D6"),
+            NoteFolder(userId: userId, name: "Prayer Meeting", icon: "hands.sparkles.fill", color: "#34C759"),
+            NoteFolder(userId: userId, name: "Small Group", icon: "person.3.fill", color: "#007AFF")
         ]
     }
 }

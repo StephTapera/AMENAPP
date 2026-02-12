@@ -13,6 +13,7 @@ import FirebaseAuth
 struct CommentsView: View {
     let post: Post
     
+    @Environment(\.dismiss) var dismiss
     @StateObject private var commentService = CommentService.shared
     @StateObject private var userService = UserService.shared // ✅ Use shared instance instead of environment
     
@@ -23,12 +24,23 @@ struct CommentsView: View {
     @State private var showError = false
     @State private var errorMessage = ""
     @State private var isListening = false
+    @State private var currentUserProfileImageURL: String?
+    @State private var currentUserInitials: String = "U"
+    @State private var selectedUserId: String?
+    @State private var showUserProfile = false
+    @State private var pollingTask: Task<Void, Never>?  // ✅ Store polling task
+    @State private var expandedThreads: Set<String> = []  // Track expanded reply threads
+    @State private var newCommentIds: Set<String> = []  // Track newly added comments for animation
+    @State private var scrollProxy: ScrollViewProxy?  // For smooth scrolling to replies
+    @Namespace private var animationNamespace  // For matched geometry effects
+    
+    private var postId: String { post.firestoreId }
     
     @FocusState private var isInputFocused: Bool
     
     var body: some View {
         VStack(spacing: 0) {
-            // Header
+            // Header with Liquid Glass Close Button
             HStack {
                 Text("Comments")
                     .font(.custom("OpenSans-Bold", size: 18))
@@ -39,6 +51,30 @@ struct CommentsView: View {
                 Text("\(commentsWithReplies.count)")
                     .font(.custom("OpenSans-Regular", size: 14))
                     .foregroundStyle(.black.opacity(0.6))
+                
+                // Liquid Glass Close Button
+                Button {
+                    dismiss()
+                    
+                    // Haptic feedback
+                    let haptic = UIImpactFeedbackGenerator(style: .light)
+                    haptic.impactOccurred()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.black)
+                        .frame(width: 32, height: 32)
+                        .background(
+                            Circle()
+                                .fill(Color(white: 0.93))
+                                .overlay(
+                                    Circle()
+                                        .stroke(Color.white.opacity(0.5), lineWidth: 1)
+                                )
+                                .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 4)
+                        )
+                }
+                .buttonStyle(PlainButtonStyle())
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 16)
@@ -46,84 +82,139 @@ struct CommentsView: View {
             
             Divider()
             
-            // Comments List
-            ScrollView {
-                LazyVStack(spacing: 0) {
-                    if isLoading {
-                        ProgressView()
-                            .padding(.top, 40)
-                    } else if commentsWithReplies.isEmpty {
-                        VStack(spacing: 12) {
-                            Image(systemName: "bubble.left")
-                                .font(.system(size: 48))
-                                .foregroundStyle(.black.opacity(0.3))
-                            
-                            Text("No comments yet")
-                                .font(.custom("OpenSans-Regular", size: 16))
-                                .foregroundStyle(.black.opacity(0.6))
-                            
-                            Text("Be the first to comment!")
-                                .font(.custom("OpenSans-Regular", size: 14))
-                                .foregroundStyle(.black.opacity(0.4))
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.top, 60)
-                    } else {
-                        ForEach(commentsWithReplies) { commentWithReplies in
-                            VStack(alignment: .leading, spacing: 8) {
-                                // Main Comment
-                                PostCommentRow(
-                                    comment: commentWithReplies.comment,
-                                    onReply: {
-                                        replyingTo = commentWithReplies.comment
-                                        isInputFocused = true
-                                    },
-                                    onDelete: {
-                                        deleteComment(commentWithReplies.comment)
-                                    },
-                                    onAmen: {
-                                        toggleAmen(comment: commentWithReplies.comment)
-                                    }
-                                )
+            // Comments List with ScrollViewReader for smooth scrolling
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        if isLoading {
+                            ProgressView()
+                                .padding(.top, 40)
+                                .transition(.opacity.combined(with: .scale))
+                        } else if commentsWithReplies.isEmpty {
+                            VStack(spacing: 12) {
+                                Image(systemName: "bubble.left")
+                                    .font(.system(size: 48))
+                                    .foregroundStyle(.black.opacity(0.3))
                                 
-                                // Replies
-                                if !commentWithReplies.replies.isEmpty {
-                                    VStack(spacing: 0) {
-                                        ForEach(Array(commentWithReplies.replies.enumerated()), id: \.offset) { index, reply in
-                                            HStack(spacing: 0) {
-                                                // Reply indicator line
-                                                Rectangle()
-                                                    .fill(.black.opacity(0.1))
-                                                    .frame(width: 2)
-                                                    .padding(.leading, 28)
-                                                
-                                                PostCommentRow(
-                                                    comment: reply,
-                                                    isReply: true,
-                                                    onReply: {
-                                                        replyingTo = commentWithReplies.comment
-                                                        isInputFocused = true
-                                                    },
-                                                    onDelete: {
-                                                        deleteComment(reply)
-                                                    },
-                                                    onAmen: {
-                                                        toggleAmen(comment: reply)
-                                                    }
-                                                )
+                                Text("No comments yet")
+                                    .font(.custom("OpenSans-Regular", size: 16))
+                                    .foregroundStyle(.black.opacity(0.6))
+                                
+                                Text("Be the first to comment!")
+                                    .font(.custom("OpenSans-Regular", size: 14))
+                                    .foregroundStyle(.black.opacity(0.4))
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.top, 60)
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+                        } else {
+                            ForEach(commentsWithReplies, id: \.id) { commentWithReplies in
+                                VStack(alignment: .leading, spacing: 8) {
+                                    // Main Comment with animation
+                                    PostCommentRow(
+                                        comment: commentWithReplies.comment,
+                                        isNew: newCommentIds.contains(commentWithReplies.comment.id ?? ""),
+                                        onReply: {
+                                            withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                                                replyingTo = commentWithReplies.comment
+                                                isInputFocused = true
                                             }
-                                            .id("reply-\(commentWithReplies.id)-\(index)")
+                                            
+                                            // Haptic feedback
+                                            let haptic = UIImpactFeedbackGenerator(style: .light)
+                                            haptic.impactOccurred()
+                                        },
+                                        onDelete: {
+                                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                                deleteComment(commentWithReplies.comment)
+                                            }
+                                        },
+                                        onAmen: {
+                                            toggleAmen(comment: commentWithReplies.comment)
+                                        },
+                                        onProfileTap: {
+                                            selectedUserId = commentWithReplies.comment.authorId
+                                            showUserProfile = true
+                                        },
+                                        onToggleThread: {
+                                            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                                                if expandedThreads.contains(commentWithReplies.comment.id ?? "") {
+                                                    expandedThreads.remove(commentWithReplies.comment.id ?? "")
+                                                } else {
+                                                    expandedThreads.insert(commentWithReplies.comment.id ?? "")
+                                                }
+                                            }
+                                        },
+                                        isThreadExpanded: expandedThreads.contains(commentWithReplies.comment.id ?? ""),
+                                        replyCount: commentWithReplies.replies.count
+                                    )
+                                    .id("\(commentWithReplies.comment.id ?? "")-main")
+                                    .transition(.asymmetric(
+                                        insertion: .scale.combined(with: .opacity),
+                                        removal: .scale.combined(with: .opacity)
+                                    ))
+                                    
+                                    // Replies with expand/collapse animation
+                                    if !commentWithReplies.replies.isEmpty && 
+                                       expandedThreads.contains(commentWithReplies.comment.id ?? "") {
+                                        VStack(spacing: 0) {
+                                            ForEach(commentWithReplies.replies, id: \.id) { reply in
+                                                HStack(spacing: 0) {
+                                                    // Animated reply indicator line
+                                                    Rectangle()
+                                                        .fill(.black.opacity(0.1))
+                                                        .frame(width: 2)
+                                                        .padding(.leading, 28)
+                                                        .transition(.scale(scale: 0.1, anchor: .top))
+                                                    
+                                                    PostCommentRow(
+                                                        comment: reply,
+                                                        isReply: true,
+                                                        isNew: newCommentIds.contains(reply.id ?? ""),
+                                                        onReply: {
+                                                            withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                                                                replyingTo = commentWithReplies.comment
+                                                                isInputFocused = true
+                                                            }
+                                                            
+                                                            let haptic = UIImpactFeedbackGenerator(style: .light)
+                                                            haptic.impactOccurred()
+                                                        },
+                                                        onDelete: {
+                                                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                                                deleteComment(reply)
+                                                            }
+                                                        },
+                                                        onAmen: {
+                                                            toggleAmen(comment: reply)
+                                                        },
+                                                        onProfileTap: {
+                                                            selectedUserId = reply.authorId
+                                                            showUserProfile = true
+                                                        }
+                                                    )
+                                                }
+                                                .id("\(reply.id ?? "")-reply")
+                                                .transition(.asymmetric(
+                                                    insertion: .move(edge: .leading).combined(with: .opacity),
+                                                    removal: .move(edge: .leading).combined(with: .opacity)
+                                                ))
+                                            }
                                         }
+                                        .transition(.move(edge: .top).combined(with: .opacity))
                                     }
                                 }
+                                .padding(.vertical, 8)
+                                .id(commentWithReplies.comment.id ?? UUID().uuidString)
+                                
+                                Divider()
+                                    .padding(.leading, 60)
                             }
-                            .padding(.vertical, 8)
-                            .id("comment-\(commentWithReplies.id)")
-                            
-                            Divider()
-                                .padding(.leading, 60)
                         }
                     }
+                }
+                .onAppear {
+                    scrollProxy = proxy
                 }
             }
             
@@ -155,15 +246,56 @@ struct CommentsView: View {
                 
                 // Input field
                 HStack(alignment: .bottom, spacing: 12) {
-                    // User avatar
-                    Circle()
-                        .fill(.black.opacity(0.1))
-                        .frame(width: 32, height: 32)
-                        .overlay(
-                            Text(userService.currentUser?.initials ?? "??")
-                                .font(.custom("OpenSans-SemiBold", size: 12))
-                                .foregroundStyle(.black.opacity(0.6))
-                        )
+                    // User avatar - Show actual profile photo
+                    if let imageURL = currentUserProfileImageURL,
+                       !imageURL.isEmpty,
+                       let url = URL(string: imageURL) {
+                        AsyncImage(url: url) { phase in
+                            switch phase {
+                            case .success(let image):
+                                image
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: 32, height: 32)
+                                    .clipShape(Circle())
+                            case .failure:
+                                Circle()
+                                    .fill(.black)
+                                    .frame(width: 32, height: 32)
+                                    .overlay(
+                                        Text(currentUserInitials)
+                                            .font(.custom("OpenSans-SemiBold", size: 12))
+                                            .foregroundStyle(.white)
+                                    )
+                            case .empty:
+                                Circle()
+                                    .fill(.black.opacity(0.1))
+                                    .frame(width: 32, height: 32)
+                                    .overlay(
+                                        ProgressView()
+                                            .scaleEffect(0.7)
+                                    )
+                            @unknown default:
+                                Circle()
+                                    .fill(.black)
+                                    .frame(width: 32, height: 32)
+                                    .overlay(
+                                        Text(currentUserInitials)
+                                            .font(.custom("OpenSans-SemiBold", size: 12))
+                                            .foregroundStyle(.white)
+                                    )
+                            }
+                        }
+                    } else {
+                        Circle()
+                            .fill(.black)
+                            .frame(width: 32, height: 32)
+                            .overlay(
+                                Text(currentUserInitials)
+                                    .font(.custom("OpenSans-SemiBold", size: 12))
+                                    .foregroundStyle(.white)
+                            )
+                    }
                     
                     // Text field
                     TextField(replyingTo != nil ? "Write a reply..." : "Add a comment...", text: $commentText, axis: .vertical)
@@ -171,13 +303,15 @@ struct CommentsView: View {
                         .lineLimit(1...4)
                         .focused($isInputFocused)
                     
-                    // Send button
+                    // Send button with animation
                     Button {
                         submitComment()
                     } label: {
                         Image(systemName: "arrow.up.circle.fill")
                             .font(.system(size: 28))
                             .foregroundStyle(commentText.isEmpty ? .black.opacity(0.3) : .black)
+                            .scaleEffect(commentText.isEmpty ? 1.0 : 1.1)
+                            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: commentText.isEmpty)
                     }
                     .disabled(commentText.isEmpty)
                 }
@@ -187,12 +321,47 @@ struct CommentsView: View {
             }
         }
         .background(Color.white)
+        .gesture(
+            // Tap to dismiss keyboard
+            TapGesture()
+                .onEnded { _ in
+                    if isInputFocused {
+                        isInputFocused = false
+                    }
+                }
+        )
+        .sheet(isPresented: $showUserProfile) {
+            if let userId = selectedUserId {
+                UserProfileView(userId: userId)
+            }
+        }
         .task {
-            await loadComments()
+            print("🎬 [VIEW] CommentsView appeared for post: \(postId)")
+            
+            // ✅ Start real-time listener FIRST so it picks up cached data immediately
             startRealtimeListener()
+            
+            // Load current user data
+            loadCurrentUserData()
+            
+            // ✅ DON'T call loadComments() - the real-time listener will populate the UI
+            // The listener fires immediately with cached data, then updates with server data
         }
         .onDisappear {
+            print("👋 [VIEW] CommentsView disappearing")
             stopRealtimeListener()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("commentsUpdated"))) { notification in
+            // Check if this notification is for our post
+            if let notificationPostId = notification.userInfo?["postId"] as? String,
+               notificationPostId == self.postId {
+                print("🔔 [REALTIME] Received comments update notification")
+                // ✅ Add a small delay to ensure the service has finished updating commentReplies
+                Task {
+                    try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+                    await updateCommentsFromService()
+                }
+            }
         }
         .alert("Error", isPresented: $showError) {
             Button("OK", role: .cancel) { }
@@ -201,13 +370,34 @@ struct CommentsView: View {
         }
     }
     
+    // MARK: - Load Current User Data
+    
+    private func loadCurrentUserData() {
+        // Get cached user data
+        currentUserInitials = UserDefaults.standard.string(forKey: "currentUserInitials") ?? "U"
+        currentUserProfileImageURL = UserDefaults.standard.string(forKey: "currentUserProfileImageURL")
+        
+        print("👤 Loaded current user data for comments input")
+        print("   Initials: \(currentUserInitials)")
+        print("   Profile Image URL: \(currentUserProfileImageURL ?? "none")")
+    }
+    
     // MARK: - Actions
     
     private func loadComments() async {
+        print("📥 [LOAD] Loading comments for post: \(postId)")
+        print("🔍 [DEBUG] Fetching from path: postInteractions/\(postId)/comments")
         isLoading = true
         do {
-            commentsWithReplies = try await commentService.fetchCommentsWithReplies(for: post.id.uuidString)
+            commentsWithReplies = try await commentService.fetchCommentsWithReplies(for: postId)
+            print("✅ [LOAD] Loaded \(commentsWithReplies.count) comments successfully")
+            
+            // Debug: Log each comment ID to verify they exist
+            for comment in commentsWithReplies {
+                print("   📝 Comment ID: \(comment.comment.id ?? "nil") - Content: \(comment.comment.content)")
+            }
         } catch {
+            print("❌ [LOAD] Error loading comments: \(error)")
             errorMessage = error.localizedDescription
             showError = true
         }
@@ -215,91 +405,252 @@ struct CommentsView: View {
     }
     
     private func submitComment() {
-        guard !commentText.isEmpty else { return }
+        guard !commentText.isEmpty else {
+            print("⚠️ [COMMENT] Submit blocked - empty text")
+            return
+        }
         
         let text = commentText
         commentText = ""
         
+        print("📝 [COMMENT] Starting submission process")
+        print("   Post ID: \(postId)")
+        print("   Content: \(text)")
+        print("   Current comments count: \(commentsWithReplies.count)")
+        
         Task {
             do {
+                var newCommentId: String?
+                
                 if let replyingTo = replyingTo {
+                    print("💬 [COMMENT] Submitting as REPLY to comment: \(replyingTo.id ?? "nil")")
+                    // Validate parent comment ID
+                    guard let parentCommentId = replyingTo.id, !parentCommentId.isEmpty else {
+                        await MainActor.run {
+                            errorMessage = "Invalid parent comment"
+                            showError = true
+                            commentText = text // Restore text
+                        }
+                        return
+                    }
+                    
                     // Submit reply
-                    _ = try await commentService.addReply(
-                        postId: post.id.uuidString,
-                        parentCommentId: replyingTo.id ?? "",
+                    let newComment = try await commentService.addReply(
+                        postId: postId,
+                        parentCommentId: parentCommentId,
                         content: text
                     )
+                    newCommentId = newComment.id
                     
-                    // Real-time listener will update UI automatically!
-                    self.replyingTo = nil
+                    // ✅ DON'T add reply to local UI - let the real-time listener handle it
+                    await MainActor.run {
+                        print("🎨 [REPLY] Reply created, waiting for real-time listener to update UI")
+                        print("   Reply ID: \(newComment.id ?? "nil")")
+                        print("   Parent ID: \(parentCommentId)")
+
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                            // Expand parent thread and clear reply state
+                            expandedThreads.insert(parentCommentId)
+                            self.replyingTo = nil
+                            print("   📂 Thread will be expanded when listener adds reply")
+                        }
+                    }
                 } else {
+                    print("💬 [COMMENT] Submitting as TOP-LEVEL comment")
+                    
                     // Submit comment
-                    _ = try await commentService.addComment(
-                        postId: post.id.uuidString,
+                    let newComment = try await commentService.addComment(
+                        postId: postId,
                         content: text
                     )
+                    newCommentId = newComment.id
                     
-                    // Real-time listener will update UI automatically!
+                    print("✅ [COMMENT] Comment created successfully!")
+                    print("   Comment ID: \(newComment.id ?? "nil")")
+                    print("   Author: \(newComment.authorName)")
+                    print("   Content: \(newComment.content)")
+                    
+                    // ✅ DON'T add to local UI - let the real-time listener handle it
+                    // The listener will pick up the new comment immediately from Firebase
+                    await MainActor.run {
+                        print("🎨 [COMMENT] Comment created, waiting for real-time listener to update UI")
+                        print("   Comment ID: \(newComment.id ?? "nil")")
+                        
+                        // Expand thread by default for new top-level comments
+                        if let id = newCommentId {
+                            expandedThreads.insert(id)
+                            print("   📂 Thread will be expanded when listener adds comment: \(id)")
+                        }
+                    }
+                }
+                
+                // Track new comment for highlight animation
+                if let id = newCommentId {
+                    await MainActor.run {
+                        withAnimation(.spring(response: 0.5, dampingFraction: 0.6)) {
+                            newCommentIds.insert(id)
+                        }
+                        
+                        // Remove highlight after 2 seconds
+                        Task {
+                            try? await Task.sleep(nanoseconds: 2_000_000_000)
+                            await MainActor.run {
+                                withAnimation {
+                                    newCommentIds.remove(id)
+                                }
+                            }
+                        }
+                        
+                        // Scroll to new comment
+                        if let scrollProxy = scrollProxy {
+                            withAnimation(.easeOut(duration: 0.4)) {
+                                scrollProxy.scrollTo("\(id)-main", anchor: .top)
+                            }
+                        }
+                    }
                 }
                 
                 // Haptic feedback
-                let haptic = UINotificationFeedbackGenerator()
-                haptic.notificationOccurred(.success)
+                await MainActor.run {
+                    let haptic = UINotificationFeedbackGenerator()
+                    haptic.notificationOccurred(.success)
+                }
             } catch {
-                errorMessage = error.localizedDescription
-                showError = true
+                print("❌ [COMMENT] Error submitting comment: \(error)")
+                print("   Error description: \(error.localizedDescription)")
                 
-                // Restore text on error
-                commentText = text
+                await MainActor.run {
+                    errorMessage = error.localizedDescription
+                    showError = true
+                    
+                    // Restore text on error
+                    commentText = text
+                    
+                    print("   ⚠️ Text restored to input field")
+                }
             }
         }
     }
     
     private func deleteComment(_ comment: Comment) {
         Task {
+            guard let commentId = comment.id, !commentId.isEmpty else {
+                await MainActor.run {
+                    errorMessage = "Invalid comment ID"
+                    showError = true
+                }
+                return
+            }
+            
             do {
-                try await commentService.deleteComment(commentId: comment.id ?? "", postId: post.id.uuidString)
+                // ✅ OPTIMISTIC UPDATE: Remove from UI immediately for better UX
+                await MainActor.run {
+                    if comment.isReply, let parentId = comment.parentCommentId {
+                        // Remove reply from parent's replies
+                        for i in 0..<commentsWithReplies.count {
+                            if commentsWithReplies[i].comment.id == parentId {
+                                commentsWithReplies[i].replies.removeAll { $0.id == commentId }
+                                break
+                            }
+                        }
+                    } else {
+                        // Remove top-level comment
+                        commentsWithReplies.removeAll { $0.comment.id == commentId }
+                    }
+                }
                 
-                // Real-time listener will update UI automatically!
+                // Then delete from Firebase (real-time listener will confirm)
+                try await commentService.deleteComment(commentId: commentId, postId: postId)
                 
                 // Haptic feedback
-                let haptic = UINotificationFeedbackGenerator()
-                haptic.notificationOccurred(.success)
+                await MainActor.run {
+                    let haptic = UINotificationFeedbackGenerator()
+                    haptic.notificationOccurred(.success)
+                }
             } catch {
-                errorMessage = error.localizedDescription
-                showError = true
+                // If deletion failed, reload comments to restore state
+                await MainActor.run {
+                    errorMessage = error.localizedDescription
+                    showError = true
+                }
+                
+                // ✅ DON'T reload - the real-time listener will restore the UI automatically
+                // The optimistic delete already happened, listener will revert if delete failed
             }
         }
     }
     
     private func toggleAmen(comment: Comment) {
+        // Optimistic UI update with animation
+        let commentId = comment.id ?? ""
+        
+        // Haptic feedback immediately
+        let haptic = UIImpactFeedbackGenerator(style: .medium)
+        haptic.impactOccurred()
+        
         Task {
+            guard !commentId.isEmpty else {
+                await MainActor.run {
+                    errorMessage = "Invalid comment ID"
+                    showError = true
+                }
+                return
+            }
+            
             do {
-                try await commentService.toggleAmen(commentId: comment.id ?? "")
+                // Get current amen status before toggling
+                let wasAmened = await commentService.hasUserAmened(commentId: commentId, postId: postId)
                 
-                // Update local UI
-                if comment.isReply {
-                    // Find and update reply
-                    for i in 0..<commentsWithReplies.count {
-                        if let replyIndex = commentsWithReplies[i].replies.firstIndex(where: { $0.id == comment.id }) {
-                            var updatedReply = commentsWithReplies[i].replies[replyIndex]
-                            let hasAmened = await commentService.hasUserAmened(commentId: comment.id ?? "")
-                            updatedReply.amenCount += hasAmened ? 1 : -1
-                            commentsWithReplies[i].replies[replyIndex] = updatedReply
+                // Optimistic UI update
+                await MainActor.run {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                        if comment.isReply {
+                            // Find and update reply
+                            for i in 0..<commentsWithReplies.count {
+                                if let replyIndex = commentsWithReplies[i].replies.firstIndex(where: { $0.id == commentId }) {
+                                    var updatedReply = commentsWithReplies[i].replies[replyIndex]
+                                    updatedReply.amenCount += wasAmened ? -1 : 1
+                                    commentsWithReplies[i].replies[replyIndex] = updatedReply
+                                }
+                            }
+                        } else {
+                            // Find and update comment
+                            if let index = commentsWithReplies.firstIndex(where: { $0.comment.id == commentId }) {
+                                var updatedComment = commentsWithReplies[index].comment
+                                updatedComment.amenCount += wasAmened ? -1 : 1
+                                commentsWithReplies[index] = CommentWithReplies(comment: updatedComment, replies: commentsWithReplies[index].replies)
+                            }
                         }
                     }
-                } else {
-                    // Find and update comment
-                    if let index = commentsWithReplies.firstIndex(where: { $0.comment.id == comment.id }) {
-                        var updatedComment = commentsWithReplies[index].comment
-                        let hasAmened = await commentService.hasUserAmened(commentId: comment.id ?? "")
-                        updatedComment.amenCount += hasAmened ? 1 : -1
-                        commentsWithReplies[index] = CommentWithReplies(comment: updatedComment, replies: commentsWithReplies[index].replies)
-                    }
                 }
+                
+                // Sync to Firebase in background
+                try await commentService.toggleAmen(commentId: commentId, postId: postId)
+                
             } catch {
-                errorMessage = error.localizedDescription
-                showError = true
+                // Revert on error
+                await MainActor.run {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        if comment.isReply {
+                            for i in 0..<commentsWithReplies.count {
+                                if let replyIndex = commentsWithReplies[i].replies.firstIndex(where: { $0.id == commentId }) {
+                                    var updatedReply = commentsWithReplies[i].replies[replyIndex]
+                                    updatedReply.amenCount = comment.amenCount // Revert to original
+                                    commentsWithReplies[i].replies[replyIndex] = updatedReply
+                                }
+                            }
+                        } else {
+                            if let index = commentsWithReplies.firstIndex(where: { $0.comment.id == commentId }) {
+                                var updatedComment = commentsWithReplies[index].comment
+                                updatedComment.amenCount = comment.amenCount // Revert to original
+                                commentsWithReplies[index] = CommentWithReplies(comment: updatedComment, replies: commentsWithReplies[index].replies)
+                            }
+                        }
+                    }
+                    
+                    errorMessage = error.localizedDescription
+                    showError = true
+                }
             }
         }
     }
@@ -309,15 +660,17 @@ struct CommentsView: View {
     private func startRealtimeListener() {
         guard !isListening else { return }
         
-        print("🔊 CommentsView: Starting real-time listener for post: \(post.id.uuidString)")
-        commentService.startListening(to: post.id.uuidString)
+        print("🔊 CommentsView: Starting real-time listener for post: \(postId)")
+        commentService.startListening(to: postId)
         isListening = true
         
-        // Observe changes to commentService.comments and update UI
-        Task {
-            // Poll for updates every second (not ideal, but works with current setup)
-            while isListening {
-                try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+        // ✅ Reduced polling since we now have instant notification updates
+        // This is just a safety fallback in case notifications are missed
+        pollingTask = Task {
+            while !Task.isCancelled && isListening {
+                // Slow polling as fallback (5 seconds) - notifications handle instant updates
+                try? await Task.sleep(nanoseconds: 5_000_000_000) // 5s
+                
                 await updateCommentsFromService()
             }
         }
@@ -327,20 +680,38 @@ struct CommentsView: View {
         guard isListening else { return }
         
         print("🔇 CommentsView: Stopping real-time listener")
+        
+        // Cancel polling task
+        pollingTask?.cancel()
+        pollingTask = nil
+        
         commentService.stopListening()
         isListening = false
     }
     
     @MainActor
-    private func updateCommentsFromService() async {
-        // Get updated comments from service cache
-        let updatedComments = commentService.comments[post.id.uuidString] ?? []
+    private func updateCommentsFromService() async -> Bool {
+        // Get updated comments from service cache (only top-level comments)
+        let allComments = commentService.comments[postId] ?? []
+        
+        print("🔄 [SYNC] Polling update from service")
+        print("   Service has \(allComments.count) comments for this post")
+        print("   Local UI has \(commentsWithReplies.count) comments")
+        
+        // Debug: Log current UI state
+        for (index, cwrComment) in commentsWithReplies.enumerated() {
+            print("   [UI-\(index)] ID: \(cwrComment.comment.id ?? "nil"), replies: \(cwrComment.replies.count), isReply: \(cwrComment.comment.parentCommentId != nil)")
+        }
         
         // Build commentsWithReplies from service data
         var newCommentsWithReplies: [CommentWithReplies] = []
         
-        for comment in updatedComments {
-            guard let commentId = comment.id else { continue }
+        for comment in allComments {
+            guard let commentId = comment.id else {
+                print("⚠️ [SYNC] Skipping comment with nil ID")
+                continue
+            }
+            
             let replies = commentService.commentReplies[commentId] ?? []
             
             // Update reply count
@@ -351,25 +722,75 @@ struct CommentsView: View {
             newCommentsWithReplies.append(commentWithReplies)
         }
         
-        // Only update if there are actual changes
-        if newCommentsWithReplies.count != commentsWithReplies.count ||
-           !areCommentsEqual(newCommentsWithReplies, commentsWithReplies) {
-            commentsWithReplies = newCommentsWithReplies
-            print("✅ CommentsView: Updated with \(commentsWithReplies.count) comments")
+        print("   Built \(newCommentsWithReplies.count) comments with replies")
+        
+        // ✅ CRITICAL FIX: Only update if there are actual changes
+        // This prevents duplicate IDs and unnecessary re-renders
+        if hasCommentsChanged(newCommentsWithReplies) {
+            print("   ✅ [SYNC] Changes detected - updating UI")
+            withAnimation(.easeOut(duration: 0.25)) {
+                commentsWithReplies = newCommentsWithReplies
+            }
+            print("   ✅ [SYNC] UI updated with \(commentsWithReplies.count) comments")
+            return true
+        } else {
+            print("   ⏭️ [SYNC] No changes detected - skipping update")
         }
+        
+        return false
     }
     
-    private func areCommentsEqual(_ lhs: [CommentWithReplies], _ rhs: [CommentWithReplies]) -> Bool {
-        guard lhs.count == rhs.count else { return false }
+    /// Check if comments have actually changed (prevents duplicate updates)
+    private func hasCommentsChanged(_ newComments: [CommentWithReplies]) -> Bool {
+        // Different count = changed
+        if newComments.count != commentsWithReplies.count {
+            print("   🔍 [CHANGE] Count changed: \(commentsWithReplies.count) → \(newComments.count)")
+            return true
+        }
         
-        for i in 0..<lhs.count {
-            if lhs[i].comment.id != rhs[i].comment.id ||
-               lhs[i].replies.count != rhs[i].replies.count {
-                return false
+        // Check if IDs match in order
+        for i in 0..<newComments.count {
+            guard i < commentsWithReplies.count else {
+                print("   🔍 [CHANGE] Bounds check failed at index \(i)")
+                return true
+            }
+            
+            let newComment = newComments[i]
+            let oldComment = commentsWithReplies[i]
+            
+            // Different comment ID = changed
+            if newComment.comment.id != oldComment.comment.id {
+                print("   🔍 [CHANGE] Comment ID changed at index \(i)")
+                return true
+            }
+            
+            // Different reply count = changed
+            if newComment.replies.count != oldComment.replies.count {
+                print("   🔍 [CHANGE] Reply count changed at index \(i): \(oldComment.replies.count) → \(newComment.replies.count)")
+                return true
+            }
+            
+            // Different amen count = changed
+            if newComment.comment.amenCount != oldComment.comment.amenCount {
+                print("   🔍 [CHANGE] Amen count changed at index \(i)")
+                return true
+            }
+            
+            // Check reply IDs with bounds checking
+            for j in 0..<newComment.replies.count {
+                guard j < oldComment.replies.count else {
+                    print("   🔍 [CHANGE] Reply bounds check failed at \(i):\(j)")
+                    return true
+                }
+                if newComment.replies[j].id != oldComment.replies[j].id {
+                    print("   🔍 [CHANGE] Reply ID changed at \(i):\(j)")
+                    return true
+                }
             }
         }
         
-        return true
+        // No changes detected
+        return false
     }
 }
 
@@ -378,11 +799,18 @@ struct CommentsView: View {
 private struct PostCommentRow: View {
     let comment: Comment
     var isReply: Bool = false
+    var isNew: Bool = false
     let onReply: () -> Void
     let onDelete: () -> Void
     let onAmen: () -> Void
+    let onProfileTap: () -> Void
+    var onToggleThread: (() -> Void)? = nil
+    var isThreadExpanded: Bool = true
+    var replyCount: Int = 0
     
     @State private var showOptions = false
+    @State private var hasAmened = false
+    @State private var localAmenCount: Int = 0
     
     private var isOwnComment: Bool {
         comment.authorId == FirebaseManager.shared.currentUser?.uid
@@ -390,50 +818,88 @@ private struct PostCommentRow: View {
     
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            // Avatar
-            if let imageURL = comment.authorProfileImageURL,
-               let url = URL(string: imageURL) {
-                AsyncImage(url: url) { image in
-                    image
-                        .resizable()
-                        .scaledToFill()
-                } placeholder: {
+            // Avatar - Tappable to view profile
+            Button {
+                onProfileTap()
+                
+                // Haptic feedback
+                let haptic = UIImpactFeedbackGenerator(style: .light)
+                haptic.impactOccurred()
+            } label: {
+                if let imageURL = comment.authorProfileImageURL,
+                   !imageURL.isEmpty,
+                   let url = URL(string: imageURL) {
+                    AsyncImage(url: url) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: isReply ? 28 : 36, height: isReply ? 28 : 36)
+                                .clipShape(Circle())
+                        case .failure:
+                            Circle()
+                                .fill(.black)
+                                .frame(width: isReply ? 28 : 36, height: isReply ? 28 : 36)
+                                .overlay(
+                                    Text(comment.authorInitials)
+                                        .font(.custom("OpenSans-SemiBold", size: isReply ? 10 : 12))
+                                        .foregroundStyle(.white)
+                                )
+                        case .empty:
+                            Circle()
+                                .fill(.black.opacity(0.1))
+                                .frame(width: isReply ? 28 : 36, height: isReply ? 28 : 36)
+                                .overlay(
+                                    ProgressView()
+                                        .scaleEffect(0.7)
+                                )
+                        @unknown default:
+                            Circle()
+                                .fill(.black)
+                                .frame(width: isReply ? 28 : 36, height: isReply ? 28 : 36)
+                                .overlay(
+                                    Text(comment.authorInitials)
+                                        .font(.custom("OpenSans-SemiBold", size: isReply ? 10 : 12))
+                                        .foregroundStyle(.white)
+                                )
+                        }
+                    }
+                } else {
                     Circle()
-                        .fill(.black.opacity(0.1))
+                        .fill(.black)
+                        .frame(width: isReply ? 28 : 36, height: isReply ? 28 : 36)
                         .overlay(
                             Text(comment.authorInitials)
                                 .font(.custom("OpenSans-SemiBold", size: isReply ? 10 : 12))
-                                .foregroundStyle(.black.opacity(0.6))
+                                .foregroundStyle(.white)
                         )
                 }
-                .frame(width: isReply ? 28 : 36, height: isReply ? 28 : 36)
-                .clipShape(Circle())
-            } else {
-                Circle()
-                    .fill(.black.opacity(0.1))
-                    .frame(width: isReply ? 28 : 36, height: isReply ? 28 : 36)
-                    .overlay(
-                        Text(comment.authorInitials)
-                            .font(.custom("OpenSans-SemiBold", size: isReply ? 10 : 12))
-                            .foregroundStyle(.black.opacity(0.6))
-                    )
             }
+            .buttonStyle(PlainButtonStyle())
             
             VStack(alignment: .leading, spacing: 6) {
                 // Author and time
                 HStack(spacing: 8) {
-                    Text(comment.authorName)
-                        .font(.custom("OpenSans-SemiBold", size: isReply ? 13 : 14))
-                        .foregroundStyle(.black)
-                    
+                    HStack(spacing: 4) {
+                        Text(comment.authorName)
+                            .font(.custom("OpenSans-SemiBold", size: isReply ? 13 : 14))
+                            .foregroundStyle(.black)
+
+                        // ✅ Verified badge
+                        if VerifiedBadgeHelper.isVerified(userId: comment.authorId) {
+                            VerifiedBadge(size: isReply ? 12 : 13)
+                        }
+                    }
+
                     Text(comment.authorUsername.hasPrefix("@") ? comment.authorUsername : "@\(comment.authorUsername)")
                         .font(.custom("OpenSans-Regular", size: isReply ? 11 : 12))
                         .foregroundStyle(.black.opacity(0.5))
-                    
+
                     Text("•")
                         .font(.custom("OpenSans-Regular", size: isReply ? 11 : 12))
                         .foregroundStyle(.black.opacity(0.3))
-                    
+
                     Text(comment.timeAgo)
                         .font(.custom("OpenSans-Regular", size: isReply ? 11 : 12))
                         .foregroundStyle(.black.opacity(0.5))
@@ -447,23 +913,30 @@ private struct PostCommentRow: View {
                 
                 // Actions
                 HStack(spacing: 16) {
-                    // Amen
+                    // Amen with animation
                     Button {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
+                            hasAmened.toggle()
+                        }
                         onAmen()
                     } label: {
                         HStack(spacing: 4) {
-                            Image(systemName: "hands.clap")
+                            Image(systemName: hasAmened ? "hands.clap.fill" : "hands.clap")
                                 .font(.system(size: 12))
+                                .foregroundStyle(hasAmened ? Color.blue : Color.black.opacity(0.6))
+                                .scaleEffect(hasAmened ? 1.15 : 1.0)
+                                .animation(.spring(response: 0.3, dampingFraction: 0.5), value: hasAmened)
                             
                             if comment.amenCount > 0 {
                                 Text("\(comment.amenCount)")
                                     .font(.custom("OpenSans-Regular", size: 12))
+                                    .foregroundStyle(hasAmened ? Color.blue : Color.black.opacity(0.6))
+                                    .contentTransition(.numericText())
                             }
                         }
-                        .foregroundStyle(.black.opacity(0.6))
                     }
                     
-                    // Reply
+                    // Reply with count badge
                     if !isReply {
                         Button {
                             onReply()
@@ -478,6 +951,31 @@ private struct PostCommentRow: View {
                                 }
                             }
                             .foregroundStyle(.black.opacity(0.6))
+                        }
+                        
+                        // Thread expand/collapse button
+                        if replyCount > 0, let onToggleThread = onToggleThread {
+                            Button {
+                                onToggleThread()
+                                
+                                let haptic = UIImpactFeedbackGenerator(style: .light)
+                                haptic.impactOccurred()
+                            } label: {
+                                HStack(spacing: 4) {
+                                    Image(systemName: isThreadExpanded ? "chevron.up" : "chevron.down")
+                                        .font(.system(size: 10, weight: .semibold))
+                                    
+                                    Text(isThreadExpanded ? "Hide" : "View")
+                                        .font(.custom("OpenSans-SemiBold", size: 11))
+                                }
+                                .foregroundStyle(.black.opacity(0.5))
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(
+                                    Capsule()
+                                        .fill(Color.black.opacity(0.05))
+                                )
+                            }
                         }
                     }
                     

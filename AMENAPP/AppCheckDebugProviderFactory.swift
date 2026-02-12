@@ -13,13 +13,9 @@ import FirebaseCore
 /// Debug provider factory for App Check - use only in DEBUG builds
 class AppCheckDebugProviderFactory: NSObject, AppCheckProviderFactory {
     func createProvider(with app: FirebaseApp) -> AppCheckProvider? {
-        #if DEBUG
-        // Use debug provider in simulator and debug builds
+        // Always use debug provider when using this factory
+        // For production, use DeviceCheckProviderFactory directly in AppDelegate
         return AppCheckDebugProvider(app: app)
-        #else
-        // Use DeviceCheck provider in production (real devices only)
-        return DeviceCheckProvider(app: app)
-        #endif
     }
 }
 

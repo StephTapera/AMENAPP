@@ -27,52 +27,63 @@ struct NotificationSettingsView: View {
     // Loading States
     @State private var isLoading = true
     @State private var isSaving = false
+    @State private var saveTask: Task<Void, Never>?
     @State private var errorMessage: String?
     @State private var showPermissionAlert = false
     
     private let db = Firestore.firestore()
     
     var body: some View {
-        listContent
-            .navigationTitle("Notifications")
-            .navigationBarTitleDisplayMode(.inline)
-            .disabled(isSaving)
-            .overlay {
-                if isLoading {
+        Group {
+            if isLoading {
+                VStack {
+                    Spacer()
                     ProgressView()
-                        .scaleEffect(1.2)
+                    Spacer()
                 }
+            } else {
+                listContent
             }
-            .alert("Enable Notifications", isPresented: $showPermissionAlert) {
-                Button("Open Settings") {
-                    openAppSettings()
-                }
-                Button("Cancel", role: .cancel) { }
-            } message: {
-                Text("Go to Settings > AMENAPP > Notifications to enable push notifications")
+        }
+        .animation(.easeInOut(duration: 0.2), value: isLoading)
+        .navigationTitle("Notifications")
+        .navigationBarTitleDisplayMode(.inline)
+        .alert("Enable Notifications", isPresented: $showPermissionAlert) {
+            Button("Open Settings") {
+                HapticManager.impact(style: .medium)
+                openAppSettings()
             }
-            .alert("Error", isPresented: .constant(errorMessage != nil)) {
-                Button("OK", role: .cancel) {
-                    errorMessage = nil
-                }
-            } message: {
-                if let error = errorMessage {
-                    Text(error)
-                }
+            Button("Cancel", role: .cancel) {
+                HapticManager.impact(style: .light)
             }
-            .task {
-                await checkPermissions()
-                await loadNotificationSettings()
+        } message: {
+            Text("Go to Settings > AMENAPP > Notifications to enable push notifications")
+        }
+        .alert("Error", isPresented: .constant(errorMessage != nil)) {
+            Button("OK", role: .cancel) {
+                errorMessage = nil
             }
-            .onChange(of: allowNotifications) { _, _ in Task { await saveNotificationSettings() } }
-            .onChange(of: followNotifications) { _, _ in Task { await saveNotificationSettings() } }
-            .onChange(of: amenNotifications) { _, _ in Task { await saveNotificationSettings() } }
-            .onChange(of: commentNotifications) { _, _ in Task { await saveNotificationSettings() } }
-            .onChange(of: messageNotifications) { _, _ in Task { await saveNotificationSettings() } }
-            .onChange(of: prayerReminderNotifications) { _, _ in Task { await saveNotificationSettings() } }
-            .onChange(of: savedSearchAlertNotifications) { _, _ in Task { await saveNotificationSettings() } }
-            .onChange(of: soundEnabled) { _, _ in Task { await saveNotificationSettings() } }
-            .onChange(of: badgeEnabled) { _, _ in Task { await saveNotificationSettings() } }
+        } message: {
+            if let error = errorMessage {
+                Text(error)
+            }
+        }
+        .task {
+            await checkPermissions()
+            await loadNotificationSettings()
+        }
+        .onDisappear {
+            saveTask?.cancel()
+        }
+        .onChange(of: allowNotifications) { _, _ in debouncedSave() }
+        .onChange(of: followNotifications) { _, _ in debouncedSave() }
+        .onChange(of: amenNotifications) { _, _ in debouncedSave() }
+        .onChange(of: commentNotifications) { _, _ in debouncedSave() }
+        .onChange(of: messageNotifications) { _, _ in debouncedSave() }
+        .onChange(of: prayerReminderNotifications) { _, _ in debouncedSave() }
+        .onChange(of: savedSearchAlertNotifications) { _, _ in debouncedSave() }
+        .onChange(of: soundEnabled) { _, _ in debouncedSave() }
+        .onChange(of: badgeEnabled) { _, _ in debouncedSave() }
     }
     
     private var listContent: some View {
@@ -89,21 +100,25 @@ struct NotificationSettingsView: View {
                 testingSection
             }
         }
+        .listStyle(.insetGrouped)
+        .animation(.easeInOut(duration: 0.25), value: allowNotifications)
     }
     
     private var systemSettingsSection: some View {
         Section {
-            HStack {
+            HStack(spacing: 12) {
                 let isGranted = pushManager.notificationPermissionGranted
                 Image(systemName: isGranted ? "checkmark.circle.fill" : "xmark.circle.fill")
+                    .font(.system(size: 22))
                     .foregroundStyle(isGranted ? .green : .red)
+                    .frame(width: 28)
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Push Notifications")
-                        .font(.custom("OpenSans-SemiBold", size: 15))
+                        .font(.custom("OpenSans-SemiBold", size: 16))
                     
                     Text(isGranted ? "Enabled" : "Disabled")
-                        .font(.custom("OpenSans-Regular", size: 13))
+                        .font(.custom("OpenSans-Regular", size: 14))
                         .foregroundStyle(.secondary)
                 }
                 
@@ -111,34 +126,39 @@ struct NotificationSettingsView: View {
                 
                 if !isGranted {
                     Button("Enable") {
+                        HapticManager.impact(style: .light)
                         showPermissionAlert = true
                     }
-                    .font(.custom("OpenSans-SemiBold", size: 14))
+                    .font(.custom("OpenSans-SemiBold", size: 15))
                     .foregroundStyle(.blue)
                 }
             }
+            .padding(.vertical, 4)
         } header: {
             Text("SYSTEM SETTINGS")
                 .font(.custom("OpenSans-Bold", size: 12))
         } footer: {
             Text("Enable push notifications to receive alerts when the app is closed")
-                .font(.custom("OpenSans-Regular", size: 12))
+                .font(.custom("OpenSans-Regular", size: 13))
         }
     }
     
     private var notificationPreferencesSection: some View {
         Section {
-            Toggle(isOn: $allowNotifications) {
+            Toggle(isOn: $allowNotifications.animation()) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Allow Notifications")
-                        .font(.custom("OpenSans-SemiBold", size: 15))
+                        .font(.custom("OpenSans-SemiBold", size: 16))
                     Text("Receive all app notifications")
-                        .font(.custom("OpenSans-Regular", size: 13))
+                        .font(.custom("OpenSans-Regular", size: 14))
                         .foregroundStyle(.secondary)
                 }
             }
             .tint(.blue)
             .disabled(!pushManager.notificationPermissionGranted)
+            .onChange(of: allowNotifications) { _, _ in
+                HapticManager.impact(style: .light)
+            }
         } header: {
             Text("NOTIFICATION PREFERENCES")
                 .font(.custom("OpenSans-Bold", size: 12))
@@ -190,59 +210,73 @@ struct NotificationSettingsView: View {
             notificationToggle(
                 isOn: $savedSearchAlertNotifications,
                 icon: "bookmark.fill",
-                iconColor: .blue,
+                iconColor: .indigo,
                 title: "Saved Search Alerts",
-                subtitle: "When new results match your saved searches"
+                subtitle: "New results match your saved searches"
             )
         } header: {
             Text("NOTIFICATION TYPES")
                 .font(.custom("OpenSans-Bold", size: 12))
         }
+        .transition(.opacity.combined(with: .move(edge: .top)))
     }
     
     private var displaySection: some View {
         Section {
             Toggle(isOn: $soundEnabled) {
-                HStack {
+                HStack(spacing: 12) {
                     Image(systemName: "speaker.wave.2.fill")
+                        .font(.system(size: 18))
                         .foregroundStyle(.blue)
-                        .frame(width: 24)
+                        .frame(width: 28)
                     
                     Text("Sound")
-                        .font(.custom("OpenSans-SemiBold", size: 15))
+                        .font(.custom("OpenSans-SemiBold", size: 16))
                 }
             }
             .tint(.blue)
             .disabled(!pushManager.notificationPermissionGranted)
+            .onChange(of: soundEnabled) { _, _ in
+                HapticManager.impact(style: .light)
+            }
             
             Toggle(isOn: $badgeEnabled) {
-                HStack {
+                HStack(spacing: 12) {
                     Image(systemName: "app.badge.fill")
+                        .font(.system(size: 18))
                         .foregroundStyle(.red)
-                        .frame(width: 24)
+                        .frame(width: 28)
                     
                     Text("Badge Count")
-                        .font(.custom("OpenSans-SemiBold", size: 15))
+                        .font(.custom("OpenSans-SemiBold", size: 16))
                 }
             }
             .tint(.blue)
             .disabled(!pushManager.notificationPermissionGranted)
+            .onChange(of: badgeEnabled) { _, _ in
+                HapticManager.impact(style: .light)
+            }
         } header: {
             Text("DISPLAY")
                 .font(.custom("OpenSans-Bold", size: 12))
         }
+        .transition(.opacity.combined(with: .move(edge: .top)))
     }
     
     private var testingSection: some View {
         Section {
             Button {
+                HapticManager.impact(style: .medium)
                 testNotification()
             } label: {
-                HStack {
+                HStack(spacing: 12) {
                     Image(systemName: "bell.badge.fill")
+                        .font(.system(size: 18))
                         .foregroundStyle(.orange)
+                        .frame(width: 28)
+                    
                     Text("Send Test Notification")
-                        .font(.custom("OpenSans-SemiBold", size: 15))
+                        .font(.custom("OpenSans-SemiBold", size: 16))
                 }
             }
         } header: {
@@ -250,7 +284,7 @@ struct NotificationSettingsView: View {
                 .font(.custom("OpenSans-Bold", size: 12))
         } footer: {
             Text("Test notification will appear in 5 seconds")
-                .font(.custom("OpenSans-Regular", size: 12))
+                .font(.custom("OpenSans-Regular", size: 13))
         }
     }
     
@@ -262,22 +296,26 @@ struct NotificationSettingsView: View {
         subtitle: String
     ) -> some View {
         Toggle(isOn: isOn) {
-            HStack {
+            HStack(spacing: 12) {
                 Image(systemName: icon)
+                    .font(.system(size: 18))
                     .foregroundStyle(iconColor)
-                    .frame(width: 24)
+                    .frame(width: 28)
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(title)
-                        .font(.custom("OpenSans-SemiBold", size: 15))
+                        .font(.custom("OpenSans-SemiBold", size: 16))
                     Text(subtitle)
-                        .font(.custom("OpenSans-Regular", size: 13))
+                        .font(.custom("OpenSans-Regular", size: 14))
                         .foregroundStyle(.secondary)
                 }
             }
         }
         .tint(.blue)
         .disabled(!pushManager.notificationPermissionGranted)
+        .onChange(of: isOn.wrappedValue) { _, _ in
+            HapticManager.impact(style: .light)
+        }
     }
     
     // MARK: - Functions
@@ -288,7 +326,7 @@ struct NotificationSettingsView: View {
     
     private func loadNotificationSettings() async {
         guard let userId = Auth.auth().currentUser?.uid else {
-            isLoading = false
+            await MainActor.run { isLoading = false }
             return
         }
         
@@ -309,24 +347,28 @@ struct NotificationSettingsView: View {
                     isLoading = false
                 }
             } else {
-                await MainActor.run {
-                    isLoading = false
-                }
+                await MainActor.run { isLoading = false }
             }
         } catch {
             await MainActor.run {
-                errorMessage = "Failed to load notification settings: \(error.localizedDescription)"
+                errorMessage = "Failed to load settings"
                 isLoading = false
             }
         }
     }
     
+    private func debouncedSave() {
+        HapticManager.impact(style: .light)
+        saveTask?.cancel()
+        saveTask = Task {
+            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 second debounce
+            guard !Task.isCancelled else { return }
+            await saveNotificationSettings()
+        }
+    }
+    
     private func saveNotificationSettings() async {
         guard let userId = Auth.auth().currentUser?.uid else { return }
-        
-        await MainActor.run {
-            isSaving = true
-        }
         
         do {
             try await db.collection("users").document(userId).updateData([
@@ -341,18 +383,10 @@ struct NotificationSettingsView: View {
                 "badgeEnabled": badgeEnabled,
                 "notificationSettingsUpdatedAt": FieldValue.serverTimestamp()
             ])
-            
-            await MainActor.run {
-                isSaving = false
-            }
-            
-            print("✅ Notification settings saved successfully")
         } catch {
             await MainActor.run {
-                errorMessage = "Failed to save notification settings: \(error.localizedDescription)"
-                isSaving = false
+                errorMessage = "Failed to save settings"
             }
-            print("❌ Error saving notification settings: \(error.localizedDescription)")
         }
     }
     
@@ -365,10 +399,7 @@ struct NotificationSettingsView: View {
     private func testNotification() {
         Task {
             await pushManager.scheduleTestNotification()
-            
-            // Haptic feedback
-            let haptic = UINotificationFeedbackGenerator()
-            haptic.notificationOccurred(.success)
+            HapticManager.notification(type: .success)
         }
     }
 }

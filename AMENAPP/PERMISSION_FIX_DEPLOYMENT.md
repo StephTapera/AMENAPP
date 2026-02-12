@@ -7,34 +7,28 @@
 
 **Problem**: Rules used `$amenId` but code writes with `$userId` directly.
 
-**Fix**: Changed amens structure from:
-```json
-"amens": {
-  "$amenId": { ... }
-}
-```
-
-To:
-```json
-"amens": {
-  "$userId": {
-    ".write": "auth != null && auth.uid == $userId"
-  }
-}
-```
+**Fix**: Changed amens structure from `$amenId` to `$userId`.
 
 ### 2. ✅ Firestore - Saved Posts Permission Denied
 **Error**: `Listen for query at savedPosts|f:userId==... failed: Missing or insufficient permissions`
 
-**Problem**: Code queries top-level `savedPosts` collection, but rules only had subcollection under `users/{userId}/savedPosts`.
+**Problem**: Code queries top-level `savedPosts` collection, but rules only had subcollection.
 
-**Fix**: Added top-level `savedPosts` collection to Firestore rules:
+**Fix**: Added top-level `savedPosts` collection rules.
+
+### 3. ✅ Firestore - Reposts Permission Denied (NEW)
+**Error**: `Listen for query at reposts|f:userId==...originalPostId==... failed: Missing or insufficient permissions`
+
+**Problem**: Code queries top-level `reposts` collection, but rules didn't have it.
+
+**Fix**: Added top-level `reposts` collection rules:
 ```javascript
-match /savedPosts/{saveId} {
-  allow read: if isAuthenticated() 
-    && resource.data.userId == request.auth.uid;
+match /reposts/{repostId} {
+  allow read: if isAuthenticated();
   allow create: if isAuthenticated()
     && request.resource.data.userId == request.auth.uid;
+  allow update: if isAuthenticated()
+    && resource.data.userId == request.auth.uid;
   allow delete: if isAuthenticated()
     && resource.data.userId == request.auth.uid;
 }
@@ -67,25 +61,14 @@ match /savedPosts/{saveId} {
 2. **Reopen** the app
 3. **Test amen button** - should work now ✅
 4. **Test bookmark/save** - should work now ✅
-
-## ⚠️ About the Font Warning
-
-The warning:
-```
-Unable to update Font Descriptor's weight to Weight(value: 0.3)
-```
-
-**This is harmless!** It's a known SwiftUI bug when using custom fonts (OpenSans) with certain modifiers. It doesn't affect your app functionality. You can safely ignore it.
-
-If you want to suppress it (optional):
-- Remove any `.fontWeight()` modifiers on Text views that already use custom fonts
-- Or switch to system fonts with weights: `.font(.system(size: 12, weight: .semibold))`
+5. **Test repost button** - should work now ✅
 
 ## ✅ After Deployment
 
 Your errors should be gone:
 - ✅ Amens will save properly
 - ✅ Bookmarks will save properly
+- ✅ Reposts will work properly
 - ✅ No more permission denied errors
 
 ## 📊 What Changed
@@ -96,30 +79,26 @@ Your errors should be gone:
 
 ### firestore 18.rules
 - Added top-level `savedPosts` collection
-- Users can read/write their own saved posts by userId
+- Added top-level `reposts` collection
+- Users can read/write their own saved posts and reposts
 
 ## 🎯 Data Structure Now Supported
 
-### Realtime Database
-```
-/postInteractions/{postId}/
-  ├── amens/{userId}/          ← FIXED: Now uses userId
-  │   ├── userId: "..."
-  │   ├── userName: "..."
-  │   └── timestamp: 123456
-  ├── lightbulbs/{userId}/
-  ├── comments/{commentId}/
-  └── reposts/{userId}/
-```
-
-### Firestore
+### Firestore (NEW Collections)
 ```
 /savedPosts/{saveId}           ← NEW: Top-level collection
   ├── userId: "91JpG4q..."     ← Can query by this
   ├── postId: "..."
   └── savedAt: timestamp
 
+/reposts/{repostId}            ← NEW: Top-level collection
+  ├── userId: "91JpG4q..."     ← Can query by this
+  ├── originalPostId: "..."
+  ├── createdAt: timestamp
+  └── ...other fields
+
 /users/{userId}/savedPosts     ← OLD: Still works for subcollections
+/user-reposts/{userId}/reposts ← OLD: Still works for subcollections
 ```
 
 ## 🔥 Deploy Now!
@@ -129,7 +108,7 @@ Both rules files are ready. Just copy-paste them to Firebase Console and publish
 ---
 
 **Files Updated**:
-- ✅ `/repo/database.rules.json` - Realtime Database Rules
-- ✅ `/repo/firestore 18.rules` - Firestore Rules
+- ✅ `/repo/database.rules.json` - Realtime Database Rules (amens fixed)
+- ✅ `/repo/firestore 18.rules` - Firestore Rules (savedPosts + reposts added)
 
-**Next**: Deploy to Firebase Console → Test app → Errors gone! 🎉
+**Next**: Deploy to Firebase Console → Test app → All errors gone! 🎉

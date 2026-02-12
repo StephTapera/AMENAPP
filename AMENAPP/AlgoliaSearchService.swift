@@ -55,8 +55,71 @@ class AlgoliaSearchService: ObservableObject {
     
     // MARK: - Search Users
     
+    /// Get autocomplete suggestions for users (fast, limited results)
+    func getUserSuggestions(query: String, limit: Int = 5) async throws -> [AlgoliaUserSuggestion] {
+        guard !query.isEmpty else { return [] }
+        
+        guard let client = client else {
+            throw NSError(
+                domain: "AlgoliaSearchService",
+                code: 0,
+                userInfo: [NSLocalizedDescriptionKey: "Algolia not configured"]
+            )
+        }
+        
+        do {
+            // Build search request with minimal attributes for speed
+            let searchForHits = SearchForHits(
+                query: query,
+                attributesToRetrieve: [
+                    "displayName",
+                    "username",
+                    "profileImageURL",
+                    "followersCount"
+                ],
+                hitsPerPage: limit,
+                indexName: usersIndexName,
+                type: .default
+            )
+            
+            // Wrap in SearchQuery enum
+            let searchQuery = SearchQuery.searchForHits(searchForHits)
+            
+            // Perform search
+            let responses: [SearchResponse<Hit>] = try await client.searchForHitsWithResponse(
+                searchMethodParams: SearchMethodParams(requests: [searchQuery])
+            )
+            
+            // Parse results
+            guard let searchResponse = responses.first else {
+                return []
+            }
+            
+            let suggestions = searchResponse.hits.compactMap { hit -> AlgoliaUserSuggestion? in
+                guard let displayName = hit.additionalProperties["displayName"] as? String,
+                      let username = hit.additionalProperties["username"] as? String else {
+                    return nil
+                }
+                
+                return AlgoliaUserSuggestion(
+                    id: hit.objectID,
+                    displayName: displayName,
+                    username: username,
+                    profileImageURL: hit.additionalProperties["profileImageURL"] as? String,
+                    followersCount: hit.additionalProperties["followersCount"] as? Int ?? 0
+                )
+            }
+            
+            return suggestions
+            
+        } catch {
+            print("❌ Algolia suggestions error: \(error)")
+            throw error
+        }
+    }
+    
     /// Search users with Algolia (typo-tolerant, instant results)
-    func searchUsers(query: String) async throws -> [AlgoliaUser] {
+    func searchUsers(query: String, limit: Int = 50) async throws -> [AlgoliaUser] {
         guard !query.isEmpty else { return [] }
         
         guard let client = client else {
@@ -83,7 +146,7 @@ class AlgoliaSearchService: ObservableObject {
                     "profileImageURL",
                     "isVerified"
                 ],
-                hitsPerPage: 50,
+                hitsPerPage: limit,
                 indexName: usersIndexName,
                 type: .default
             )
@@ -131,7 +194,7 @@ class AlgoliaSearchService: ObservableObject {
     // MARK: - Search Posts
     
     /// Search posts with Algolia
-    func searchPosts(query: String, category: String? = nil) async throws -> [AlgoliaPost] {
+    func searchPosts(query: String, category: String? = nil, limit: Int = 50) async throws -> [AlgoliaPost] {
         guard !query.isEmpty else { return [] }
         
         guard let client = client else {
@@ -156,9 +219,11 @@ class AlgoliaSearchService: ObservableObject {
                     "category",
                     "amenCount",
                     "commentCount",
-                    "createdAt"
+                    "createdAt",
+                    "mediaURLs",
+                    "likesCount"
                 ],
-                hitsPerPage: 50,
+                hitsPerPage: limit,
                 indexName: postsIndexName,
                 type: .default
             )
@@ -190,7 +255,9 @@ class AlgoliaSearchService: ObservableObject {
                     category: categoryValue,
                     amenCount: hit.additionalProperties["amenCount"] as? Int,
                     commentCount: hit.additionalProperties["commentCount"] as? Int,
-                    createdAt: hit.additionalProperties["createdAt"] as? TimeInterval
+                    createdAt: hit.additionalProperties["createdAt"] as? TimeInterval,
+                    mediaURLs: hit.additionalProperties["mediaURLs"] as? [String] ?? [],
+                    likesCount: hit.additionalProperties["likesCount"] as? Int ?? 0
                 )
             }
             
@@ -205,6 +272,37 @@ class AlgoliaSearchService: ObservableObject {
 }
 
 // MARK: - Algolia Models
+
+/// Lightweight user suggestion for autocomplete
+struct AlgoliaUserSuggestion: Codable, Identifiable {
+    let id: String
+    let displayName: String
+    let username: String
+    let profileImageURL: String?
+    let followersCount: Int
+    
+    init(id: String, displayName: String, username: String, profileImageURL: String?, followersCount: Int) {
+        self.id = id
+        self.displayName = displayName
+        self.username = username
+        self.profileImageURL = profileImageURL
+        self.followersCount = followersCount
+    }
+    
+    init?(json: [String: Any]) {
+        guard let id = json["objectID"] as? String,
+              let displayName = json["displayName"] as? String,
+              let username = json["username"] as? String else {
+            return nil
+        }
+        
+        self.id = id
+        self.displayName = displayName
+        self.username = username
+        self.profileImageURL = json["profileImageURL"] as? String
+        self.followersCount = json["followersCount"] as? Int ?? 0
+    }
+}
 
 struct AlgoliaUser: Codable {
     let objectID: String
@@ -242,9 +340,24 @@ struct AlgoliaUser: Codable {
             isVerified: isVerified
         )
     }
+    
+    /// Convert to UserModel for compatibility with existing views
+    func toUserModel() -> UserModel {
+        // Note: UserModel doesn't have isVerified field, so it's not included
+        return UserModel(
+            id: objectID,
+            email: "", // Email is not available from Algolia search
+            displayName: displayName,
+            username: username,
+            bio: bio,
+            profileImageURL: profileImageURL,
+            followersCount: followersCount ?? 0,
+            followingCount: followingCount ?? 0
+        )
+    }
 }
 
-struct AlgoliaPost: Codable {
+struct AlgoliaPost: Codable, Identifiable {
     let objectID: String
     let content: String
     let authorName: String
@@ -252,12 +365,16 @@ struct AlgoliaPost: Codable {
     let amenCount: Int?
     let commentCount: Int?
     let createdAt: TimeInterval?
+    let mediaURLs: [String]
+    let likesCount: Int
+    
+    var id: String { objectID }
     
     /// Convert to AppSearchResult for compatibility with existing UI
     func toSearchResult() -> AppSearchResult {
         let timeAgo = createdAt
             .map { Date(timeIntervalSince1970: $0) }
-            .map { formatTimeAgo(from: $0) } ?? "Recent"
+            .map { self.formatTimeAgo(from: $0) } ?? "Recent"
         
         let contentPreview = content.count > 80
             ? String(content.prefix(80)) + "..."

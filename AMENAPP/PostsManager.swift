@@ -12,8 +12,16 @@ import FirebaseFirestore
 
 // MARK: - Post Model
 
+/// Represents a user mention reference in post content
+struct MentionedUser: Codable, Equatable, Hashable {
+    let userId: String
+    let username: String
+    let displayName: String
+}
+
 struct Post: Identifiable, Codable, Equatable {
     let id: UUID
+    let firebaseId: String?
     let authorId: String  // Firebase user ID of the post author
     let authorName: String
     let authorUsername: String?  // Optional username (e.g., @johndoe)
@@ -25,17 +33,24 @@ struct Post: Identifiable, Codable, Equatable {
     let topicTag: String?
     let visibility: PostVisibility
     let allowComments: Bool
+    var commentPermissions: CommentPermissions? // Who can comment
     let imageURLs: [String]?
     let linkURL: String?
+    let linkPreviewTitle: String?  // Link preview title
+    let linkPreviewDescription: String?  // Link preview description
+    let linkPreviewImageURL: String?  // Link preview image
+    let linkPreviewSiteName: String?  // Link preview site name
     let createdAt: Date
     var amenCount: Int
     var lightbulbCount: Int
     var commentCount: Int
     var repostCount: Int
     var isRepost: Bool = false  // Track if this is a repost
-    var originalAuthorName: String? // Track original author if repost
-    var originalAuthorId: String? // Track original author ID if repost
-    
+    var originalAuthorName: String? = nil // Track original author if repost
+    var originalAuthorId: String? = nil // Track original author ID if repost
+    var churchNoteId: String? = nil // Optional church note ID if post contains a shared note
+    var mentions: [MentionedUser]? = nil // User mentions in this post
+
     enum PostCategory: String, Codable, CaseIterable {
         case openTable = "openTable"      // ✅ Firebase-safe (no special chars)
         case testimonies = "testimonies"  // ✅ Firebase-safe (lowercase)
@@ -65,20 +80,37 @@ struct Post: Identifiable, Codable, Equatable {
         case community = "Community Only"
     }
     
+    enum CommentPermissions: String, Codable, CaseIterable {
+        case everyone = "Everyone"
+        case following = "People I follow"
+        case mentioned = "Mentioned only"
+        case off = "Comments off"
+        
+        var icon: String {
+            switch self {
+            case .everyone: return "globe"
+            case .following: return "person.2.fill"
+            case .mentioned: return "at"
+            case .off: return "bubble.left.and.bubble.right.fill"
+            }
+        }
+    }
+    
     // MARK: - Custom Decoding (Handle Missing Fields)
     
     enum CodingKeys: String, CodingKey {
-        case id, authorId, authorName, authorUsername, authorInitials, authorProfileImageURL, timeAgo
-        case content, category, topicTag, visibility, allowComments
-        case imageURLs, linkURL, createdAt
+        case id, firebaseId, authorId, authorName, authorUsername, authorInitials, authorProfileImageURL, timeAgo
+        case content, category, topicTag, visibility, allowComments, commentPermissions
+        case imageURLs, linkURL, linkPreviewTitle, linkPreviewDescription, linkPreviewImageURL, linkPreviewSiteName, createdAt
         case amenCount, lightbulbCount, commentCount, repostCount
-        case isRepost, originalAuthorName, originalAuthorId
+        case isRepost, originalAuthorName, originalAuthorId, churchNoteId, mentions
     }
     
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         
         id = try container.decode(UUID.self, forKey: .id)
+        firebaseId = try container.decodeIfPresent(String.self, forKey: .firebaseId)
         authorId = try container.decode(String.self, forKey: .authorId)
         authorName = try container.decode(String.self, forKey: .authorName)
         
@@ -96,8 +128,13 @@ struct Post: Identifiable, Codable, Equatable {
         topicTag = try container.decodeIfPresent(String.self, forKey: .topicTag)
         visibility = try container.decode(PostVisibility.self, forKey: .visibility)
         allowComments = try container.decode(Bool.self, forKey: .allowComments)
+        commentPermissions = try container.decodeIfPresent(CommentPermissions.self, forKey: .commentPermissions)
         imageURLs = try container.decodeIfPresent([String].self, forKey: .imageURLs)
         linkURL = try container.decodeIfPresent(String.self, forKey: .linkURL)
+        linkPreviewTitle = try container.decodeIfPresent(String.self, forKey: .linkPreviewTitle)
+        linkPreviewDescription = try container.decodeIfPresent(String.self, forKey: .linkPreviewDescription)
+        linkPreviewImageURL = try container.decodeIfPresent(String.self, forKey: .linkPreviewImageURL)
+        linkPreviewSiteName = try container.decodeIfPresent(String.self, forKey: .linkPreviewSiteName)
         createdAt = try container.decode(Date.self, forKey: .createdAt)
         amenCount = try container.decode(Int.self, forKey: .amenCount)
         lightbulbCount = try container.decode(Int.self, forKey: .lightbulbCount)
@@ -106,12 +143,15 @@ struct Post: Identifiable, Codable, Equatable {
         isRepost = try container.decodeIfPresent(Bool.self, forKey: .isRepost) ?? false
         originalAuthorName = try container.decodeIfPresent(String.self, forKey: .originalAuthorName)
         originalAuthorId = try container.decodeIfPresent(String.self, forKey: .originalAuthorId)
+        churchNoteId = try container.decodeIfPresent(String.self, forKey: .churchNoteId)
+        mentions = try container.decodeIfPresent([MentionedUser].self, forKey: .mentions)
     }
     
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         
         try container.encode(id, forKey: .id)
+        try container.encodeIfPresent(firebaseId, forKey: .firebaseId)
         try container.encode(authorId, forKey: .authorId)
         try container.encode(authorName, forKey: .authorName)
         try container.encodeIfPresent(authorUsername, forKey: .authorUsername)
@@ -123,8 +163,13 @@ struct Post: Identifiable, Codable, Equatable {
         try container.encodeIfPresent(topicTag, forKey: .topicTag)
         try container.encode(visibility, forKey: .visibility)
         try container.encode(allowComments, forKey: .allowComments)
+        try container.encodeIfPresent(commentPermissions, forKey: .commentPermissions)
         try container.encodeIfPresent(imageURLs, forKey: .imageURLs)
         try container.encodeIfPresent(linkURL, forKey: .linkURL)
+        try container.encodeIfPresent(linkPreviewTitle, forKey: .linkPreviewTitle)
+        try container.encodeIfPresent(linkPreviewDescription, forKey: .linkPreviewDescription)
+        try container.encodeIfPresent(linkPreviewImageURL, forKey: .linkPreviewImageURL)
+        try container.encodeIfPresent(linkPreviewSiteName, forKey: .linkPreviewSiteName)
         try container.encode(createdAt, forKey: .createdAt)
         try container.encode(amenCount, forKey: .amenCount)
         try container.encode(lightbulbCount, forKey: .lightbulbCount)
@@ -133,10 +178,13 @@ struct Post: Identifiable, Codable, Equatable {
         try container.encode(isRepost, forKey: .isRepost)
         try container.encodeIfPresent(originalAuthorName, forKey: .originalAuthorName)
         try container.encodeIfPresent(originalAuthorId, forKey: .originalAuthorId)
+        try container.encodeIfPresent(churchNoteId, forKey: .churchNoteId)
+        try container.encodeIfPresent(mentions, forKey: .mentions)
     }
     
     init(
         id: UUID = UUID(),
+        firebaseId: String? = nil,
         authorId: String = "",
         authorName: String,
         authorUsername: String? = nil,
@@ -148,8 +196,13 @@ struct Post: Identifiable, Codable, Equatable {
         topicTag: String? = nil,
         visibility: PostVisibility = .everyone,
         allowComments: Bool = true,
+        commentPermissions: CommentPermissions? = .everyone,
         imageURLs: [String]? = nil,
         linkURL: String? = nil,
+        linkPreviewTitle: String? = nil,
+        linkPreviewDescription: String? = nil,
+        linkPreviewImageURL: String? = nil,
+        linkPreviewSiteName: String? = nil,
         createdAt: Date = Date(),
         amenCount: Int = 0,
         lightbulbCount: Int = 0,
@@ -157,9 +210,11 @@ struct Post: Identifiable, Codable, Equatable {
         repostCount: Int = 0,
         isRepost: Bool = false,
         originalAuthorName: String? = nil,
-        originalAuthorId: String? = nil
+        originalAuthorId: String? = nil,
+        churchNoteId: String? = nil
     ) {
         self.id = id
+        self.firebaseId = firebaseId
         self.authorId = authorId
         self.authorName = authorName
         self.authorUsername = authorUsername
@@ -171,8 +226,13 @@ struct Post: Identifiable, Codable, Equatable {
         self.topicTag = topicTag
         self.visibility = visibility
         self.allowComments = allowComments
+        self.commentPermissions = commentPermissions
         self.imageURLs = imageURLs
         self.linkURL = linkURL
+        self.linkPreviewTitle = linkPreviewTitle
+        self.linkPreviewDescription = linkPreviewDescription
+        self.linkPreviewImageURL = linkPreviewImageURL
+        self.linkPreviewSiteName = linkPreviewSiteName
         self.createdAt = createdAt
         self.amenCount = amenCount
         self.lightbulbCount = lightbulbCount
@@ -181,6 +241,11 @@ struct Post: Identifiable, Codable, Equatable {
         self.isRepost = isRepost
         self.originalAuthorName = originalAuthorName
         self.originalAuthorId = originalAuthorId
+        self.churchNoteId = churchNoteId
+    }
+
+    var backendId: String {
+        firebaseId ?? id.uuidString
     }
 }
 
@@ -198,35 +263,97 @@ class PostsManager: ObservableObject {
     
     private let firebasePostService = FirebasePostService.shared
     private let personalizationService = PersonalizationService.shared
+    private var profileUpdateListeners: [String: Any] = [:] // Store Firestore listeners
     
+    private var cancellables = Set<AnyCancellable>()
+
     private init() {
+        // Setup real-time sync with FirebasePostService using Combine
+        setupFirebaseSync()
+
         // Load posts from Firebase
         Task {
             await loadPostsFromFirebase()
+            // Start listening for profile picture updates
+            await startListeningForProfileUpdates()
         }
+    }
+
+    // ✅ Setup real-time sync with FirebasePostService using Combine publishers
+    private func setupFirebaseSync() {
+        // Listen to prayer posts changes
+        firebasePostService.$prayerPosts
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] newPosts in
+                guard let self = self else { return }
+                self.objectWillChange.send() // Force UI update
+                self.prayerPosts = newPosts
+                print("🔄 Prayer posts updated: \(newPosts.count) posts")
+            }
+            .store(in: &cancellables)
+
+        // Listen to testimonies posts changes
+        firebasePostService.$testimoniesPosts
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] newPosts in
+                guard let self = self else { return }
+                self.objectWillChange.send() // Force UI update
+                self.testimoniesPosts = newPosts
+                print("🔄 Testimonies posts updated: \(newPosts.count) posts")
+            }
+            .store(in: &cancellables)
+
+        // Listen to open table posts changes
+        firebasePostService.$openTablePosts
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] newPosts in
+                guard let self = self else { return }
+                self.objectWillChange.send() // Force UI update
+                self.openTablePosts = newPosts
+                print("🔄 OpenTable posts updated: \(newPosts.count) posts (with profile images)")
+            }
+            .store(in: &cancellables)
+
+        // Listen to all posts changes
+        firebasePostService.$posts
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] newPosts in
+                guard let self = self else { return }
+                self.objectWillChange.send() // Force UI update
+                self.allPosts = newPosts
+                print("🔄 All posts updated: \(newPosts.count) posts")
+            }
+            .store(in: &cancellables)
     }
     
     // MARK: - Load from Firebase
     
     func loadPostsFromFirebase() async {
+        // Skip loading if user is not authenticated
+        guard Auth.auth().currentUser != nil else {
+            print("⏭️ Skipping post load - user not authenticated")
+            return
+        }
+        
         do {
             print("📥 Loading posts from Firebase...")
             try await firebasePostService.fetchAllPosts()
             
-            // Subscribe to real-time updates
-            firebasePostService.startListening()
+            // ✅ Don't start listener here - let individual views handle it with their category filters
+            // This prevents listener conflicts
             
-            // Update local arrays
-            self.allPosts = firebasePostService.posts
-            self.openTablePosts = firebasePostService.openTablePosts
-            self.testimoniesPosts = firebasePostService.testimoniesPosts
-            self.prayerPosts = firebasePostService.prayerPosts
-            
-            print("✅ Posts loaded from Firebase: \(allPosts.count) total")
+            // Update local arrays from FirebasePostService
+            await MainActor.run {
+                self.allPosts = firebasePostService.posts
+                self.openTablePosts = firebasePostService.openTablePosts
+                self.testimoniesPosts = firebasePostService.testimoniesPosts
+                self.prayerPosts = firebasePostService.prayerPosts
+                
+                print("✅ Posts loaded: \(allPosts.count) total, \(prayerPosts.count) prayer, \(testimoniesPosts.count) testimonies, \(openTablePosts.count) openTable")
+            }
         } catch {
             print("❌ Failed to load posts from Firebase: \(error)")
             self.error = error.localizedDescription
-            // Posts will show empty state in UI
         }
     }
     
@@ -243,7 +370,8 @@ class PostsManager: ObservableObject {
         visibility: Post.PostVisibility = .everyone,
         allowComments: Bool = true,
         imageURLs: [String]? = nil,
-        linkURL: String? = nil
+        linkURL: String? = nil,
+        churchNoteId: String? = nil
     ) {
         Task {
             do {
@@ -255,7 +383,8 @@ class PostsManager: ObservableObject {
                     visibility: visibility,
                     allowComments: allowComments,
                     imageURLs: imageURLs,
-                    linkURL: linkURL
+                    linkURL: linkURL,
+                    churchNoteId: churchNoteId
                 )
                 
                 print("✅ Post created successfully")
@@ -405,24 +534,43 @@ class PostsManager: ObservableObject {
     // MARK: - Repost to Profile
     
     func repostToProfile(originalPost: Post, userInitials: String = "JD", userName: String = "John Disciple") {
+        print("🔵 [POSTSMANAGER] repostToProfile() called for post: \(originalPost.firestoreId)")
         Task {
             do {
-                try await firebasePostService.repostToProfile(originalPostId: originalPost.id.uuidString)
-                
-                print("✅ Post reposted successfully")
-                
-                // Refresh posts to get the new repost
-                await refreshPosts()
-                
-                // Post notification
-                NotificationCenter.default.post(
-                    name: .postReposted,
-                    object: nil,
-                    userInfo: ["originalPostId": originalPost.id]
-                )
-                
+                print("🔵 [POSTSMANAGER] Calling RealtimeRepostsService.repostPost()...")
+                // Use RealtimeRepostsService for reposts
+                try await RealtimeRepostsService.shared.repostPost(postId: originalPost.id, originalPost: originalPost)
+
+                print("✅ Post reposted successfully via RealtimeRepostsService")
+
+                // Notification is already sent by RealtimeRepostsService
+                // No need to send duplicate notification here
+
             } catch {
                 print("❌ Failed to repost: \(error)")
+                self.error = error.localizedDescription
+            }
+        }
+    }
+
+    /// Remove a repost from the user's profile
+    func removeRepost(postId: UUID, firestoreId: String) {
+        Task {
+            do {
+                // Use RealtimeRepostsService to remove the repost
+                // ✅ Pass Firestore ID instead of UUID
+                try await RealtimeRepostsService.shared.undoRepost(firestoreId: firestoreId)
+
+                print("✅ Repost removed successfully via RealtimeRepostsService")
+
+                // Remove from local cache
+                allPosts.removeAll { $0.id == postId && $0.isRepost }
+                openTablePosts.removeAll { $0.id == postId && $0.isRepost }
+                testimoniesPosts.removeAll { $0.id == postId && $0.isRepost }
+                prayerPosts.removeAll { $0.id == postId && $0.isRepost }
+
+            } catch {
+                print("❌ Failed to remove repost: \(error)")
                 self.error = error.localizedDescription
             }
         }
@@ -511,6 +659,286 @@ class PostsManager: ObservableObject {
         
         if let index = prayerPosts.firstIndex(where: { $0.id == postId }) {
             prayerPosts[index] = update(prayerPosts[index])
+        }
+    }
+    
+    // MARK: - Profile Picture Sync
+    
+    /// Start listening for profile picture updates in real-time
+    /// Automatically updates all posts when a user changes their profile picture
+    private func startListeningForProfileUpdates() async {
+        print("👂 Starting real-time profile picture listeners...")
+        
+        let db = Firestore.firestore()
+        
+        // Get all unique author IDs
+        var authorIds = Set<String>()
+        
+        await MainActor.run {
+            for post in allPosts {
+                authorIds.insert(post.authorId)
+            }
+        }
+        
+        print("📊 Setting up listeners for \(authorIds.count) unique authors")
+        
+        // Set up a listener for each author
+        for authorId in authorIds {
+            let listener = db.collection("users").document(authorId)
+                .addSnapshotListener { [weak self] documentSnapshot, error in
+                    guard let self = self else { return }
+                    
+                    if let error = error {
+                        print("⚠️ Profile listener error for \(authorId): \(error)")
+                        return
+                    }
+                    
+                    guard let document = documentSnapshot,
+                          let data = document.data(),
+                          let profileImageURL = data["profileImageURL"] as? String else {
+                        return
+                    }
+                    
+                    // User updated their profile picture - update all their posts
+                    Task { @MainActor in
+                        self.updatePostsForUser(userId: authorId, newProfileImageURL: profileImageURL)
+                    }
+                }
+            
+            // Store listener reference
+            await MainActor.run {
+                profileUpdateListeners[authorId] = listener
+            }
+        }
+        
+        print("✅ Profile picture listeners active")
+    }
+    
+    /// Update all posts from a specific user with their new profile image
+    private func updatePostsForUser(userId: String, newProfileImageURL: String) {
+        print("🔄 Updating posts for user \(userId) with new profile picture")
+        
+        var postsUpdated = 0
+        
+        // Update all posts arrays
+        allPosts = allPosts.map { post in
+            guard post.authorId == userId else { return post }
+            postsUpdated += 1
+            return Post(
+                id: post.id,
+                firebaseId: post.firebaseId,
+                authorId: post.authorId,
+                authorName: post.authorName,
+                authorUsername: post.authorUsername,
+                authorInitials: post.authorInitials,
+                authorProfileImageURL: newProfileImageURL,
+                timeAgo: post.timeAgo,
+                content: post.content,
+                category: post.category,
+                topicTag: post.topicTag,
+                visibility: post.visibility,
+                allowComments: post.allowComments,
+                imageURLs: post.imageURLs,
+                linkURL: post.linkURL,
+                createdAt: post.createdAt,
+                amenCount: post.amenCount,
+                lightbulbCount: post.lightbulbCount,
+                commentCount: post.commentCount,
+                repostCount: post.repostCount,
+                isRepost: post.isRepost,
+                originalAuthorName: post.originalAuthorName,
+                originalAuthorId: post.originalAuthorId
+            )
+        }
+        
+        openTablePosts = openTablePosts.map { post in
+            guard post.authorId == userId else { return post }
+            return Post(
+                id: post.id,
+                firebaseId: post.firebaseId,
+                authorId: post.authorId,
+                authorName: post.authorName,
+                authorUsername: post.authorUsername,
+                authorInitials: post.authorInitials,
+                authorProfileImageURL: newProfileImageURL,
+                timeAgo: post.timeAgo,
+                content: post.content,
+                category: post.category,
+                topicTag: post.topicTag,
+                visibility: post.visibility,
+                allowComments: post.allowComments,
+                imageURLs: post.imageURLs,
+                linkURL: post.linkURL,
+                createdAt: post.createdAt,
+                amenCount: post.amenCount,
+                lightbulbCount: post.lightbulbCount,
+                commentCount: post.commentCount,
+                repostCount: post.repostCount,
+                isRepost: post.isRepost,
+                originalAuthorName: post.originalAuthorName,
+                originalAuthorId: post.originalAuthorId
+            )
+        }
+        
+        testimoniesPosts = testimoniesPosts.map { post in
+            guard post.authorId == userId else { return post }
+            return Post(
+                id: post.id,
+                firebaseId: post.firebaseId,
+                authorId: post.authorId,
+                authorName: post.authorName,
+                authorUsername: post.authorUsername,
+                authorInitials: post.authorInitials,
+                authorProfileImageURL: newProfileImageURL,
+                timeAgo: post.timeAgo,
+                content: post.content,
+                category: post.category,
+                topicTag: post.topicTag,
+                visibility: post.visibility,
+                allowComments: post.allowComments,
+                imageURLs: post.imageURLs,
+                linkURL: post.linkURL,
+                createdAt: post.createdAt,
+                amenCount: post.amenCount,
+                lightbulbCount: post.lightbulbCount,
+                commentCount: post.commentCount,
+                repostCount: post.repostCount,
+                isRepost: post.isRepost,
+                originalAuthorName: post.originalAuthorName,
+                originalAuthorId: post.originalAuthorId
+            )
+        }
+        
+        prayerPosts = prayerPosts.map { post in
+            guard post.authorId == userId else { return post }
+            return Post(
+                id: post.id,
+                firebaseId: post.firebaseId,
+                authorId: post.authorId,
+                authorName: post.authorName,
+                authorUsername: post.authorUsername,
+                authorInitials: post.authorInitials,
+                authorProfileImageURL: newProfileImageURL,
+                timeAgo: post.timeAgo,
+                content: post.content,
+                category: post.category,
+                topicTag: post.topicTag,
+                visibility: post.visibility,
+                allowComments: post.allowComments,
+                imageURLs: post.imageURLs,
+                linkURL: post.linkURL,
+                createdAt: post.createdAt,
+                amenCount: post.amenCount,
+                lightbulbCount: post.lightbulbCount,
+                commentCount: post.commentCount,
+                repostCount: post.repostCount,
+                isRepost: post.isRepost,
+                originalAuthorName: post.originalAuthorName,
+                originalAuthorId: post.originalAuthorId
+            )
+        }
+        
+        print("✅ Updated \(postsUpdated) posts with new profile picture")
+    }
+    
+    /// Sync all posts with fresh user profile images from Firestore
+    /// This ensures profile pictures are always up-to-date when the app opens
+    func syncAllPostsWithUserProfiles() async {
+        print("🔄 Syncing all posts with user profile images...")
+        
+        let db = Firestore.firestore()
+        
+        // Collect all unique author IDs from all posts
+        var authorIds = Set<String>()
+        
+        await MainActor.run {
+            for post in allPosts {
+                authorIds.insert(post.authorId)
+            }
+        }
+        
+        guard !authorIds.isEmpty else {
+            print("ℹ️ No posts to sync")
+            return
+        }
+        
+        print("📊 Found \(authorIds.count) unique authors to sync")
+        
+        // Fetch fresh profile data for all authors
+        var profileImageMap: [String: String] = [:]
+        
+        for authorId in authorIds {
+            do {
+                let userDoc = try await db.collection("users").document(authorId).getDocument()
+                
+                if let userData = userDoc.data(),
+                   let profileImageURL = userData["profileImageURL"] as? String,
+                   !profileImageURL.isEmpty {
+                    profileImageMap[authorId] = profileImageURL
+                }
+            } catch {
+                print("⚠️ Failed to fetch profile for user \(authorId): \(error)")
+            }
+        }
+        
+        print("✅ Fetched \(profileImageMap.count) profile images")
+        
+        // Update all posts with fresh profile images
+        await MainActor.run {
+            // Create updated posts
+            var updatedAllPosts: [Post] = []
+            var updatedOpenTablePosts: [Post] = []
+            var updatedTestimoniesPosts: [Post] = []
+            var updatedPrayerPosts: [Post] = []
+            
+            for post in allPosts {
+                let profileImageURL = profileImageMap[post.authorId]
+                let updatedPost = Post(
+                    id: post.id,
+                    firebaseId: post.firebaseId,
+                    authorId: post.authorId,
+                    authorName: post.authorName,
+                    authorUsername: post.authorUsername,
+                    authorInitials: post.authorInitials,
+                    authorProfileImageURL: profileImageURL, // Updated!
+                    timeAgo: post.timeAgo,
+                    content: post.content,
+                    category: post.category,
+                    topicTag: post.topicTag,
+                    visibility: post.visibility,
+                    allowComments: post.allowComments,
+                    imageURLs: post.imageURLs,
+                    linkURL: post.linkURL,
+                    createdAt: post.createdAt,
+                    amenCount: post.amenCount,
+                    lightbulbCount: post.lightbulbCount,
+                    commentCount: post.commentCount,
+                    repostCount: post.repostCount,
+                    isRepost: post.isRepost,
+                    originalAuthorName: post.originalAuthorName,
+                    originalAuthorId: post.originalAuthorId
+                )
+                
+                updatedAllPosts.append(updatedPost)
+                
+                // Also update category-specific arrays
+                switch post.category {
+                case .openTable:
+                    updatedOpenTablePosts.append(updatedPost)
+                case .testimonies:
+                    updatedTestimoniesPosts.append(updatedPost)
+                case .prayer:
+                    updatedPrayerPosts.append(updatedPost)
+                }
+            }
+            
+            // Replace all posts with updated versions
+            self.allPosts = updatedAllPosts
+            self.openTablePosts = updatedOpenTablePosts
+            self.testimoniesPosts = updatedTestimoniesPosts
+            self.prayerPosts = updatedPrayerPosts
+            
+            print("✅ Profile picture sync complete! Updated \(updatedAllPosts.count) posts")
         }
     }
 }

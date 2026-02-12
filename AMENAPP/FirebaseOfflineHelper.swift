@@ -7,6 +7,7 @@
 
 import Foundation
 import FirebaseDatabase
+import Combine
 
 /// Helper utilities for handling Firebase offline scenarios
 @MainActor
@@ -29,7 +30,7 @@ class FirebaseOfflineHelper {
         defaultValue: T? = nil
     ) async throws -> T? where T: Codable {
         // Check network first
-        guard NetworkMonitor.shared.isConnected else {
+        guard AMENNetworkMonitor.shared.isConnected else {
             print("⚠️ Offline - attempting to use cached value for: \(path)")
             
             if let cacheKey = cacheKey,
@@ -86,7 +87,7 @@ class FirebaseOfflineHelper {
         cacheKey: String? = nil
     ) async -> Bool {
         // Check network
-        guard NetworkMonitor.shared.isConnected else {
+        guard AMENNetworkMonitor.shared.isConnected else {
             // Return cached value
             if let cacheKey = cacheKey {
                 return UserDefaults.standard.bool(forKey: cacheKey)
@@ -130,7 +131,7 @@ class FirebaseOfflineHelper {
         queueIfOffline: Bool = true
     ) async throws {
         // Check network
-        guard NetworkMonitor.shared.isConnected else {
+        guard AMENNetworkMonitor.shared.isConnected else {
             if queueIfOffline {
                 print("📥 Queuing write for when online: \(path)")
                 OfflineWriteQueue.shared.queue(path: path, value: value)
@@ -213,7 +214,7 @@ class OfflineWriteQueue: ObservableObject {
     }
     
     @objc private func networkStatusChanged() {
-        guard NetworkMonitor.shared.isConnected else { return }
+        guard AMENNetworkMonitor.shared.isConnected else { return }
         
         Task {
             await processQueue()
@@ -221,7 +222,7 @@ class OfflineWriteQueue: ObservableObject {
     }
     
     func processQueue() async {
-        guard NetworkMonitor.shared.isConnected else {
+        guard AMENNetworkMonitor.shared.isConnected else {
             print("⚠️ Still offline - cannot process queue")
             return
         }

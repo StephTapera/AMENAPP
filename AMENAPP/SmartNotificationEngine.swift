@@ -12,8 +12,7 @@ import FirebaseAuth
 
 /// Smart notification engine that prioritizes notifications like Instagram/Threads
 /// Uses ML-style scoring to surface the most important notifications first
-@MainActor
-final class SmartNotificationEngine: ObservableObject {
+final class SmartNotificationEngine {
     
     static let shared = SmartNotificationEngine()
     
@@ -258,7 +257,7 @@ final class SmartNotificationEngine: ObservableObject {
     
     /// Group similar notifications together (like Instagram)
     /// Example: "John and 5 others liked your post"
-    func groupNotifications(_ notifications: [AppNotification]) -> [NotificationGroup] {
+    func groupNotifications(_ notifications: [AppNotification]) -> [SmartNotificationGroup] {
         var groups: [String: [AppNotification]] = [:]
         
         for notification in notifications {
@@ -274,16 +273,16 @@ final class SmartNotificationEngine: ObservableObject {
             groups[groupKey, default: []].append(notification)
         }
         
-        // Convert to NotificationGroup objects
+        // Convert to SmartNotificationGroup objects
         return groups.compactMap { key, notifs in
-            NotificationGroup(notifications: notifs)
+            SmartNotificationGroup(notifications: notifs)
         }
     }
 }
 
-// MARK: - Notification Group Model
+// MARK: - Smart Notification Group Model (distinct from NotificationsView's NotificationGroup)
 
-struct NotificationGroup: Identifiable, Hashable {
+struct SmartNotificationGroup: Identifiable, Hashable {
     let id: String
     let type: AppNotification.NotificationType
     let notifications: [AppNotification]
@@ -313,7 +312,10 @@ struct NotificationGroup: Identifiable, Hashable {
         self.primaryNotification = primary
         self.postId = primary.postId
         self.timestamp = primary.createdAt.dateValue()
-        self.priority = primary.priority ?? SmartNotificationEngine.shared.calculatePriority(for: primary)
+        
+        // Use shared instance's calculatePriority method
+        let engine = SmartNotificationEngine.shared
+        self.priority = primary.priority ?? engine.calculatePriority(for: primary)
     }
     
     var isGrouped: Bool {
@@ -361,7 +363,7 @@ struct NotificationGroup: Identifiable, Hashable {
         hasher.combine(id)
     }
     
-    static func == (lhs: NotificationGroup, rhs: NotificationGroup) -> Bool {
+    static func == (lhs: SmartNotificationGroup, rhs: SmartNotificationGroup) -> Bool {
         lhs.id == rhs.id
     }
 }

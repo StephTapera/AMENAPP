@@ -39,7 +39,7 @@ struct GivingNonprofitsSection: View {
                     .padding(.horizontal)
                 
                 // Compassion International
-                NonprofitCard(
+                FeaturedNonprofitCard(
                     name: "Compassion International",
                     category: "Child Sponsorship",
                     icon: "heart.circle.fill",
@@ -49,7 +49,7 @@ struct GivingNonprofitsSection: View {
                 )
                 
                 // Samaritan's Purse
-                NonprofitCard(
+                FeaturedNonprofitCard(
                     name: "Samaritan's Purse",
                     category: "Disaster Relief",
                     icon: "cross.fill",
@@ -59,7 +59,7 @@ struct GivingNonprofitsSection: View {
                 )
                 
                 // World Vision
-                NonprofitCard(
+                FeaturedNonprofitCard(
                     name: "World Vision",
                     category: "Global Humanitarian",
                     icon: "globe.americas.fill",
@@ -69,7 +69,7 @@ struct GivingNonprofitsSection: View {
                 )
                 
                 // The Salvation Army
-                NonprofitCard(
+                FeaturedNonprofitCard(
                     name: "The Salvation Army",
                     category: "Community Services",
                     icon: "building.2.fill",
@@ -79,7 +79,7 @@ struct GivingNonprofitsSection: View {
                 )
                 
                 // Habitat for Humanity
-                NonprofitCard(
+                FeaturedNonprofitCard(
                     name: "Habitat for Humanity",
                     category: "Housing & Shelter",
                     icon: "house.fill",
@@ -239,8 +239,8 @@ struct GivingFeaturedCard: View {
     }
 }
 
-// MARK: - Nonprofit Card
-struct NonprofitCard: View {
+// MARK: - Featured Nonprofit Card
+private struct FeaturedNonprofitCard: View {
     let name: String
     let category: String
     let icon: String

@@ -12,43 +12,6 @@ import FirebaseFirestore
 import Combine
 import SwiftUI
 
-// MARK: - Search Result Model
-
-struct AppSearchResult: Identifiable {
-    let id = UUID()
-    let firestoreId: String?  // Firebase document ID for the user/post/group
-    let title: String
-    let subtitle: String
-    let metadata: String
-    let type: ResultType
-    let isVerified: Bool
-    
-    enum ResultType {
-        case person
-        case group
-        case post
-        case event
-        
-        var icon: String {
-            switch self {
-            case .person: return "person.circle.fill"
-            case .group: return "person.3.fill"
-            case .post: return "doc.text.fill"
-            case .event: return "calendar.circle.fill"
-            }
-        }
-        
-        var color: Color {
-            switch self {
-            case .person: return .blue
-            case .group: return .purple
-            case .post: return .orange
-            case .event: return .green
-            }
-        }
-    }
-}
-
 // MARK: - Trending Item Model
 
 struct TrendingItem: Identifiable {
@@ -102,7 +65,7 @@ class SearchService: ObservableObject {
     // MARK: - Main Search Function
     
     /// Search across all categories
-    func search(query: String, filter: SearchViewTypes.SearchFilter = .all) async throws -> [AppSearchResult] {
+    func search(query: String, filter: SearchFilter = .all) async throws -> [AppSearchResult] {
         guard !query.trimmingCharacters(in: .whitespaces).isEmpty else {
             return []
         }

@@ -7,6 +7,7 @@
 
 import SwiftUI
 
+/*
 struct FindFriendsOnboardingView: View {
     @Environment(\.dismiss) var dismiss
     var onComplete: (() -> Void)? = nil
@@ -864,6 +865,8 @@ struct FriendSafetyTipRow: View {
     }
 }
 
+
 #Preview {
-    FindFriendsOnboardingView()
+    Text("FindFriendsOnboardingView - Commented Out")
 }
+*/

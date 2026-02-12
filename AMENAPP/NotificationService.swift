@@ -27,12 +27,12 @@ final class NotificationService: ObservableObject {
     @Published private(set) var notifications: [AppNotification] = []
     @Published private(set) var unreadCount: Int = 0
     @Published private(set) var isLoading = false
-    @Published private(set) var error: NotificationServiceError?
+    @Published var error: NotificationServiceError?  // ✅ Now publicly settable for error dismissal
     @Published var useAINotifications = true
     
     // MARK: - Private Properties
     
-    private let db = Firestore.firestore()
+    let db = Firestore.firestore()  // Changed from private to internal for extension access
     private var listener: ListenerRegistration?
     private var notificationObserver: NSObjectProtocol?
     private let maxNotifications = 100
@@ -140,9 +140,10 @@ final class NotificationService: ObservableObject {
         error = nil
         retryCount = 0
         
-        // Listen to notifications collection (created by Cloud Functions)
-        listener = db.collection("notifications")
-            .whereField("userId", isEqualTo: userId)
+        // Listen to user's notifications subcollection (created by Cloud Functions)
+        listener = db.collection("users")
+            .document(userId)
+            .collection("notifications")
             .order(by: "createdAt", descending: true)
             .limit(to: maxNotifications)
             .addSnapshotListener { [weak self] snapshot, firestoreError in
@@ -183,19 +184,34 @@ final class NotificationService: ObservableObject {
             }
         }
         
+        // Remove duplicates before updating state
+        let deduplicated = self.deduplicateNotifications(parsedNotifications)
+        
         // Update state
-        self.notifications = parsedNotifications
-        self.unreadCount = parsedNotifications.filter { !$0.read }.count
+        self.notifications = deduplicated
+        self.unreadCount = deduplicated.filter { !$0.read }.count
         self.isLoading = false
         self.retryCount = 0 // Reset on success
         
         // Update badge
         await updateBadgeCount()
         
-        print("✅ Loaded \(parsedNotifications.count) notifications (\(unreadCount) unread)")
+        let duplicateCount = parsedNotifications.count - deduplicated.count
+        if duplicateCount > 0 {
+            print("🧹 Removed \(duplicateCount) duplicate notification(s)")
+        }
+        
+        print("✅ Loaded \(deduplicated.count) notifications (\(unreadCount) unread)")
         
         if !parseErrors.isEmpty {
             print("⚠️ Failed to parse \(parseErrors.count) notification(s)")
+        }
+        
+        // Clean up duplicates in background (doesn't block UI)
+        if duplicateCount > 0 {
+            Task.detached(priority: .background) {
+                await self.removeDuplicateFollowNotifications()
+            }
         }
     }
     
@@ -254,6 +270,99 @@ final class NotificationService: ObservableObject {
         print("🛑 Stopped listening to notifications")
     }
     
+    // MARK: - Duplicate Cleanup
+    
+    /// Deduplicate notifications in-memory (keeps most recent for each actor+type+post combination)
+    /// This provides immediate UI deduplication without waiting for Firestore cleanup
+    private func deduplicateNotifications(_ notifications: [AppNotification]) -> [AppNotification] {
+        var seen: [String: AppNotification] = [:]
+        
+        for notification in notifications {
+            // Create unique key based on type, actor, and post (if applicable)
+            let key: String
+            if let postId = notification.postId {
+                // For post-related notifications, group by actor+type+post
+                key = "\(notification.type.rawValue)_\(notification.actorId ?? "unknown")_\(postId)"
+            } else {
+                // For non-post notifications (like follows), group by actor+type
+                key = "\(notification.type.rawValue)_\(notification.actorId ?? "unknown")"
+            }
+            
+            // Keep the most recent notification for each unique key
+            if let existing = seen[key] {
+                // Compare timestamps - keep the newer one
+                if notification.createdAt.dateValue() > existing.createdAt.dateValue() {
+                    seen[key] = notification
+                }
+            } else {
+                seen[key] = notification
+            }
+        }
+        
+        // Return deduplicated list, sorted by creation date (most recent first)
+        return seen.values.sorted { $0.createdAt.dateValue() > $1.createdAt.dateValue() }
+    }
+    
+    /// Clean up duplicate follow notifications for the same user
+    /// This handles cases where Cloud Functions might have created duplicates
+    func removeDuplicateFollowNotifications() async {
+        guard let userId = Auth.auth().currentUser?.uid else {
+            print("⚠️ Cannot cleanup: No authenticated user")
+            return
+        }
+        
+        print("🧹 Starting duplicate follow notification cleanup...")
+        
+        do {
+            // Get all follow notifications from user's subcollection
+            let snapshot = try await db.collection("users")
+                .document(userId)
+                .collection("notifications")
+                .whereField("type", isEqualTo: "follow")
+                .getDocuments()
+            
+            // Group by actorId
+            var notificationsByActor: [String: [QueryDocumentSnapshot]] = [:]
+            
+            for doc in snapshot.documents {
+                guard let actorId = doc.data()["actorId"] as? String else { continue }
+                notificationsByActor[actorId, default: []].append(doc)
+            }
+            
+            // For each actor with multiple notifications, keep only the most recent
+            var deletedCount = 0
+            let batch = db.batch()
+            
+            for (actorId, docs) in notificationsByActor where docs.count > 1 {
+                // Sort by createdAt (most recent first)
+                let sortedDocs = docs.sorted { doc1, doc2 in
+                    let timestamp1 = (doc1.data()["createdAt"] as? Timestamp)?.dateValue() ?? Date.distantPast
+                    let timestamp2 = (doc2.data()["createdAt"] as? Timestamp)?.dateValue() ?? Date.distantPast
+                    return timestamp1 > timestamp2
+                }
+                
+                // Delete all except the most recent
+                for doc in sortedDocs.dropFirst() {
+                    batch.deleteDocument(doc.reference)
+                    deletedCount += 1
+                    print("🗑️ Marking duplicate notification for deletion from \(actorId)")
+                }
+            }
+            
+            // Commit batch delete
+            if deletedCount > 0 {
+                try await batch.commit()
+                print("✅ Cleaned up \(deletedCount) duplicate follow notifications")
+            } else {
+                print("✅ No duplicate follow notifications found")
+            }
+            
+        } catch {
+            print("❌ Failed to cleanup duplicate notifications: \(error.localizedDescription)")
+            // Don't throw - this is a best-effort cleanup
+        }
+    }
+    
     // MARK: - Mark as Read
     
     /// Mark a single notification as read
@@ -264,7 +373,13 @@ final class NotificationService: ObservableObject {
         }
         
         do {
-            try await db.collection("notifications")
+            guard let userId = Auth.auth().currentUser?.uid else {
+                throw NotificationServiceError.notAuthenticated
+            }
+            
+            try await db.collection("users")
+                .document(userId)
+                .collection("notifications")
                 .document(notificationId)
                 .updateData(["read": true])
             
@@ -295,12 +410,19 @@ final class NotificationService: ObservableObject {
             return
         }
         
+        guard let userId = Auth.auth().currentUser?.uid else {
+            throw NotificationServiceError.notAuthenticated
+        }
+        
         let batch = db.batch()
         var batchCount = 0
         
         for notification in unreadNotifications {
             guard let id = notification.id else { continue }
-            let ref = db.collection("notifications").document(id)
+            let ref = db.collection("users")
+                .document(userId)
+                .collection("notifications")
+                .document(id)
             batch.updateData(["read": true], forDocument: ref)
             batchCount += 1
             
@@ -338,7 +460,13 @@ final class NotificationService: ObservableObject {
         }
         
         do {
-            try await db.collection("notifications")
+            guard let userId = Auth.auth().currentUser?.uid else {
+                throw NotificationServiceError.notAuthenticated
+            }
+            
+            try await db.collection("users")
+                .document(userId)
+                .collection("notifications")
                 .document(notificationId)
                 .delete()
             
@@ -363,12 +491,19 @@ final class NotificationService: ObservableObject {
             return
         }
         
+        guard let userId = Auth.auth().currentUser?.uid else {
+            throw NotificationServiceError.notAuthenticated
+        }
+        
         let batch = db.batch()
         var batchCount = 0
         
         for notification in readNotifications {
             guard let id = notification.id else { continue }
-            let ref = db.collection("notifications").document(id)
+            let ref = db.collection("users")
+                .document(userId)
+                .collection("notifications")
+                .document(id)
             batch.deleteDocument(ref)
             batchCount += 1
             
@@ -394,6 +529,86 @@ final class NotificationService: ObservableObject {
         }
     }
     
+    // MARK: - Mention Notifications
+    
+    /// Send notifications to users who were mentioned in a post or comment
+    /// - Parameters:
+    ///   - mentions: Array of mentioned users
+    ///   - actorId: ID of user who created the post/comment
+    ///   - actorName: Name of user who created the post/comment
+    ///   - postId: ID of the post (required)
+    ///   - contentType: Either "post" or "comment"
+    func sendMentionNotifications(
+        mentions: [MentionedUser],
+        actorId: String,
+        actorName: String,
+        actorUsername: String?,
+        postId: String,
+        contentType: String
+    ) async {
+        guard !mentions.isEmpty else {
+            print("ℹ️ No mentions to notify")
+            return
+        }
+        
+        print("📧 Sending \(mentions.count) mention notifications...")
+        
+        let batch = db.batch()
+        var batchCount = 0
+        
+        for mention in mentions {
+            // Don't notify yourself
+            guard mention.userId != actorId else { continue }
+            
+            let notificationData: [String: Any] = [
+                "userId": mention.userId,
+                "type": "mention",
+                "actorId": actorId,
+                "actorName": actorName,
+                "actorUsername": actorUsername ?? "",
+                "postId": postId,
+                "commentText": nil as String?,
+                "read": false,
+                "createdAt": Timestamp(date: Date())
+            ]
+            
+            let notificationRef = db.collection("users")
+                .document(mention.userId)
+                .collection("notifications")
+                .document()
+            
+            batch.setData(notificationData, forDocument: notificationRef)
+            batchCount += 1
+            
+            // Firestore batch limit is 500 operations
+            if batchCount >= 500 {
+                print("⚠️ Reached Firestore batch limit")
+                break
+            }
+        }
+        
+        guard batchCount > 0 else {
+            print("ℹ️ No mention notifications to send")
+            return
+        }
+        
+        do {
+            try await batch.commit()
+            print("✅ Sent \(batchCount) mention notifications")
+        } catch {
+            print("❌ Failed to send mention notifications: \(error.localizedDescription)")
+        }
+    }
+    
+    // MARK: - Helper Methods for Extensions
+    
+    /// Remove notifications from local array (used by extensions)
+    /// - Parameter predicate: A closure that returns true for notifications to remove
+    func removeNotifications(where predicate: (AppNotification) -> Bool) {
+        notifications.removeAll(where: predicate)
+        unreadCount = notifications.filter { !$0.read }.count
+    }
+    
     // MARK: - Refresh
     
     /// Manually refresh notifications (useful for pull-to-refresh)
@@ -409,19 +624,80 @@ final class NotificationService: ObservableObject {
         isLoading = true
         
         do {
-            let snapshot = try await db.collection("notifications")
-                .whereField("userId", isEqualTo: userId)
+            let snapshot = try await db.collection("users")
+                .document(userId)
+                .collection("notifications")
                 .order(by: "createdAt", descending: true)
                 .limit(to: maxNotifications)
                 .getDocuments()
             
             await processNotifications(snapshot.documents)
+            retryCount = 0 // Reset retry count on successful manual refresh
             print("✅ Manual refresh complete")
         } catch {
             print("❌ Error refreshing notifications: \(error.localizedDescription)")
             self.error = .firestoreError(error)
             isLoading = false
         }
+    }
+    
+    // MARK: - Cleanup Corrupted Notifications
+    
+    /// Delete corrupted notifications that can't be parsed
+    /// This is useful when you have old notifications with missing required fields
+    func cleanupCorruptedNotifications() async throws {
+        guard let userId = Auth.auth().currentUser?.uid else {
+            throw NotificationServiceError.notAuthenticated
+        }
+        
+        print("🧹 Starting cleanup of corrupted notifications...")
+        
+        let snapshot = try await db.collection("users")
+            .document(userId)
+            .collection("notifications")
+            .getDocuments()
+        
+        var corruptedIds: [String] = []
+        
+        for doc in snapshot.documents {
+            do {
+                // Try to decode the notification
+                _ = try doc.data(as: AppNotification.self)
+            } catch {
+                // If it fails, add to corrupted list
+                corruptedIds.append(doc.documentID)
+                print("⚠️ Found corrupted notification: \(doc.documentID)")
+                print("   Error: \(error.localizedDescription)")
+                print("   Data: \(doc.data())")
+            }
+        }
+        
+        guard !corruptedIds.isEmpty else {
+            print("✅ No corrupted notifications found")
+            return
+        }
+        
+        // Delete corrupted notifications in batches
+        let batch = db.batch()
+        var batchCount = 0
+        
+        for corruptedId in corruptedIds {
+            let ref = db.collection("users").document(userId).collection("notifications").document(corruptedId)
+            batch.deleteDocument(ref)
+            batchCount += 1
+            
+            if batchCount >= 500 {
+                print("⚠️ Reached Firestore batch limit at 500, processing partial batch")
+                break
+            }
+        }
+        
+        try await batch.commit()
+        
+        print("✅ Deleted \(batchCount) corrupted notification(s)")
+        
+        // Refresh notifications after cleanup
+        await refresh()
     }
 }
 
@@ -452,6 +728,17 @@ enum NotificationServiceError: LocalizedError {
 
 // MARK: - App Notification Model
 
+// MARK: - Notification Actor (for Threads-style grouping)
+
+struct NotificationActor: Codable, Hashable {
+    let id: String
+    let name: String
+    let username: String
+    let profileImageURL: String?
+}
+
+// MARK: - App Notification
+
 struct AppNotification: Identifiable, Codable, Hashable {
     var id: String?
     let userId: String
@@ -459,13 +746,53 @@ struct AppNotification: Identifiable, Codable, Hashable {
     let actorId: String?
     let actorName: String?
     let actorUsername: String?
+    let actorProfileImageURL: String?  // ✅ NEW: Profile photo for fast display
     let postId: String?
     let commentText: String?
     var read: Bool
     let createdAt: Timestamp
     
+    // ✅ NEW: Smart notification metadata for Instagram-level performance
+    var priority: Int?  // 0-100 score for smart sorting
+    var groupId: String?  // For grouping similar notifications
+    
+    // ✅ THREADS-STYLE GROUPING: Multiple actors for aggregated notifications
+    var actors: [NotificationActor]?  // List of all users who performed this action
+    var actorCount: Int?  // Total number of actors (for "Alex and 5 others")
+    let updatedAt: Timestamp?  // Last update time (different from createdAt)
+    
     enum CodingKeys: String, CodingKey {
-        case userId, type, actorId, actorName, actorUsername, postId, commentText, read, createdAt
+        case userId, type, actorId, actorName, actorUsername, actorProfileImageURL
+        case postId, commentText, read, createdAt, priority, groupId
+        case actors, actorCount, updatedAt
+    }
+    
+    // MARK: - Custom Decoding
+    
+    /// Custom decoder that gracefully handles missing optional fields
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        // Required fields - will throw if missing
+        userId = try container.decode(String.self, forKey: .userId)
+        type = try container.decode(NotificationType.self, forKey: .type)
+        read = try container.decodeIfPresent(Bool.self, forKey: .read) ?? false
+        createdAt = try container.decode(Timestamp.self, forKey: .createdAt)
+        
+        // Optional fields - return nil if missing or invalid
+        actorId = try? container.decodeIfPresent(String.self, forKey: .actorId)
+        actorName = try? container.decodeIfPresent(String.self, forKey: .actorName)
+        actorUsername = try? container.decodeIfPresent(String.self, forKey: .actorUsername)
+        actorProfileImageURL = try? container.decodeIfPresent(String.self, forKey: .actorProfileImageURL)  // ✅ NEW
+        postId = try? container.decodeIfPresent(String.self, forKey: .postId)
+        commentText = try? container.decodeIfPresent(String.self, forKey: .commentText)
+        priority = try? container.decodeIfPresent(Int.self, forKey: .priority)  // ✅ NEW
+        groupId = try? container.decodeIfPresent(String.self, forKey: .groupId)  // ✅ NEW
+        
+        // Threads-style grouping fields
+        actors = try? container.decodeIfPresent([NotificationActor].self, forKey: .actors)
+        actorCount = try? container.decodeIfPresent(Int.self, forKey: .actorCount)
+        updatedAt = try? container.decodeIfPresent(Timestamp.self, forKey: .updatedAt)
     }
     
     // MARK: - Notification Type
@@ -477,7 +804,10 @@ struct AppNotification: Identifiable, Codable, Hashable {
         case prayerReminder = "prayer_reminder"
         case mention = "mention"
         case reply = "reply"
+        case repost = "repost"  // ✅ NEW: When someone reposts your content
         case prayerAnswered = "prayer_answered"
+        case followRequestAccepted = "follow_request_accepted"  // ✅ NEW: When follow request is accepted
+        case messageRequestAccepted = "message_request_accepted"  // ✅ NEW: When message request is accepted
         case unknown = "unknown"
         
         init(from decoder: Decoder) throws {
@@ -490,7 +820,13 @@ struct AppNotification: Identifiable, Codable, Hashable {
     // MARK: - Computed Properties
     
     var timeAgo: String {
-        let date: Date = createdAt.dateValue()
+        // For grouped notifications, use updatedAt (most recent activity)
+        let date: Date
+        if let updatedAt = updatedAt {
+            date = updatedAt.dateValue()
+        } else {
+            date = createdAt.dateValue()
+        }
         return timeAgoString(from: date)
     }
     
@@ -544,8 +880,14 @@ struct AppNotification: Identifiable, Codable, Hashable {
             return "mentioned you in a post"
         case .reply:
             return "replied to your comment"
+        case .repost:
+            return "reposted your content"  // ✅ NEW
         case .prayerAnswered:
             return "marked your prayer as answered"
+        case .followRequestAccepted:
+            return "accepted your follow request"  // ✅ NEW
+        case .messageRequestAccepted:
+            return "accepted your message request"  // ✅ NEW
         case .unknown:
             return "interacted with you"
         }
@@ -565,8 +907,14 @@ struct AppNotification: Identifiable, Codable, Hashable {
             return "at.badge.plus"
         case .reply:
             return "arrowshape.turn.up.left.fill"
+        case .repost:
+            return "arrow.2.squarepath"  // ✅ NEW
         case .prayerAnswered:
             return "checkmark.seal.fill"
+        case .followRequestAccepted:
+            return "person.fill.checkmark"  // ✅ NEW
+        case .messageRequestAccepted:
+            return "message.fill.badge.checkmark"  // ✅ NEW
         case .unknown:
             return "bell.fill"
         }
@@ -586,8 +934,14 @@ struct AppNotification: Identifiable, Codable, Hashable {
             return .pink
         case .reply:
             return .indigo
+        case .repost:
+            return .cyan  // ✅ NEW
         case .prayerAnswered:
             return .green
+        case .followRequestAccepted:
+            return .green  // ✅ NEW
+        case .messageRequestAccepted:
+            return .blue  // ✅ NEW
         case .unknown:
             return .gray
         }

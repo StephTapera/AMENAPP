@@ -13,122 +13,8 @@ import FirebaseAuth
 
 extension NotificationService {
     
-    /// Manual refresh of notifications
-    func refresh() async {
-        guard let userId = Auth.auth().currentUser?.uid else {
-            print("⚠️ Cannot refresh notifications: No user logged in")
-            return
-        }
-        
-        print("🔄 Refreshing notifications for user: \(userId)")
-        
-        await MainActor.run {
-            self.isLoading = true
-            self.error = nil
-        }
-        
-        do {
-            // Fetch notifications from Firestore
-            let snapshot = try await db.collection("notifications")
-                .whereField("userId", isEqualTo: userId)
-                .order(by: "createdAt", descending: true)
-                .limit(to: 100)
-                .getDocuments()
-            
-            var fetchedNotifications: [AppNotification] = []
-            
-            for document in snapshot.documents {
-                do {
-                    let notification = try document.data(as: AppNotification.self)
-                    fetchedNotifications.append(notification)
-                } catch {
-                    print("⚠️ Failed to decode notification \(document.documentID): \(error)")
-                }
-            }
-            
-            // Remove duplicate follow notifications (keep only the most recent)
-            let deduplicated = removeDuplicateFollowNotifications(fetchedNotifications)
-            
-            await MainActor.run {
-                self.notifications = deduplicated
-                self.isLoading = false
-                print("✅ Refreshed \(deduplicated.count) notifications")
-            }
-            
-        } catch {
-            await MainActor.run {
-                self.error = .fetchFailed(error)
-                self.isLoading = false
-            }
-            print("❌ Failed to refresh notifications: \(error)")
-        }
-    }
-    
-    /// Start listening for real-time notification updates
-    func startListening() {
-        guard listenerRegistration == nil else {
-            print("⚠️ Already listening for notifications")
-            return
-        }
-        
-        guard let userId = Auth.auth().currentUser?.uid else {
-            print("⚠️ Cannot start listening: No user logged in")
-            return
-        }
-        
-        print("👂 Starting to listen for notifications for user: \(userId)")
-        
-        isLoading = true
-        
-        listenerRegistration = db.collection("notifications")
-            .whereField("userId", isEqualTo: userId)
-            .order(by: "createdAt", descending: true)
-            .limit(to: 100)
-            .addSnapshotListener { [weak self] snapshot, error in
-                guard let self = self else { return }
-                
-                Task { @MainActor in
-                    if let error = error {
-                        print("❌ Notification listener error: \(error)")
-                        self.error = .fetchFailed(error)
-                        self.isLoading = false
-                        return
-                    }
-                    
-                    guard let documents = snapshot?.documents else {
-                        print("⚠️ No notification documents found")
-                        self.isLoading = false
-                        return
-                    }
-                    
-                    var fetchedNotifications: [AppNotification] = []
-                    
-                    for document in documents {
-                        do {
-                            let notification = try document.data(as: AppNotification.self)
-                            fetchedNotifications.append(notification)
-                        } catch {
-                            print("⚠️ Failed to decode notification \(document.documentID): \(error)")
-                        }
-                    }
-                    
-                    // Remove duplicate follow notifications
-                    let deduplicated = self.removeDuplicateFollowNotifications(fetchedNotifications)
-                    
-                    self.notifications = deduplicated
-                    self.isLoading = false
-                    
-                    print("✅ Loaded \(deduplicated.count) notifications via listener")
-                }
-            }
-    }
-    
-    /// Stop listening for notification updates
-    func stopListening() {
-        listenerRegistration?.remove()
-        listenerRegistration = nil
-        print("🔇 Stopped listening for notifications")
-    }
+    // NOTE: The refresh(), startListening(), and stopListening() methods 
+    // are now in NotificationService.swift to avoid duplication
     
     /// Remove duplicate follow notifications (keep most recent from each user)
     private func removeDuplicateFollowNotifications(_ notifications: [AppNotification]) -> [AppNotification] {
@@ -182,7 +68,7 @@ extension NotificationService {
         
         // Also remove from local array
         await MainActor.run {
-            notifications.removeAll { notification in
+            removeNotifications { notification in
                 notification.type == .follow && notification.actorId == actorId
             }
         }
@@ -236,17 +122,3 @@ extension NotificationService {
     }
 }
 
-// MARK: - Listener Management Property
-
-extension NotificationService {
-    private static var listenerKey = "listenerRegistration"
-    
-    var listenerRegistration: ListenerRegistration? {
-        get {
-            objc_getAssociatedObject(self, &Self.listenerKey) as? ListenerRegistration
-        }
-        set {
-            objc_setAssociatedObject(self, &Self.listenerKey, newValue, .OBJC_ASSOCIATION_RETAIN)
-        }
-    }
-}

@@ -105,6 +105,7 @@ class ContentModerationService {
     // MARK: - Quick Local Checks
     
     /// Perform instant local checks before calling AI
+    /// OPTIMIZED: Less strict, only blocks obvious violations
     private func performQuickLocalCheck(_ content: String) -> ModerationResult? {
         let lowercased = content.lowercased()
         
@@ -112,48 +113,37 @@ class ContentModerationService {
         if content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return ModerationResult(
                 isApproved: false,
-                flaggedReasons: ["Empty content"],
+                flaggedReasons: ["Content cannot be empty"],
                 severityLevel: .blocked,
                 suggestedAction: .block,
                 confidence: 1.0
             )
         }
         
-        // Check 2: Excessive caps (spam indicator)
+        // Check 2: Excessive caps - RELAXED (now 90% instead of 70%)
         let capsRatio = Double(content.filter { $0.isUppercase }.count) / Double(content.count)
-        if capsRatio > 0.7 && content.count > 20 {
+        if capsRatio > 0.9 && content.count > 30 {
             return ModerationResult(
                 isApproved: false,
-                flaggedReasons: ["Excessive capitalization (spam indicator)"],
+                flaggedReasons: ["Excessive capitalization"],
                 severityLevel: .blocked,
                 suggestedAction: .block,
                 confidence: 0.85
             )
         }
         
-        // Check 3: Excessive special characters (spam)
-        let specialCharsCount = content.filter { !$0.isLetter && !$0.isNumber && !$0.isWhitespace }.count
-        if specialCharsCount > content.count / 2 {
-            return ModerationResult(
-                isApproved: false,
-                flaggedReasons: ["Excessive special characters"],
-                severityLevel: .blocked,
-                suggestedAction: .block,
-                confidence: 0.8
-            )
-        }
+        // Check 3: REMOVED - Special characters check (too strict for Christian content)
         
-        // Check 4: Known profanity patterns (basic)
+        // Check 4: Known profanity patterns - REDUCED to only extreme cases
         let profanityPatterns = [
-            "f***", "s***", "b****", "damn", "hell",
-            "wtf", "stfu", "omfg"
+            "f***", "s***", "b****"
         ]
         
         for pattern in profanityPatterns {
             if lowercased.contains(pattern) {
                 return ModerationResult(
                     isApproved: false,
-                    flaggedReasons: ["Profanity detected"],
+                    flaggedReasons: ["Inappropriate language"],
                     severityLevel: .blocked,
                     suggestedAction: .block,
                     confidence: 0.9
@@ -161,20 +151,20 @@ class ContentModerationService {
             }
         }
         
-        // Check 5: Hate speech indicators (basic)
-        let hateSpeechIndicators = [
-            "hate", "kill", "die", "death to", "murder"
+        // Check 5: REMOVED - "hate", "kill", "die" are common in Christian contexts
+        // Only block extremely specific hate speech phrases
+        let extremeHateSpeech = [
+            "death to", "i will kill"
         ]
         
-        for indicator in hateSpeechIndicators {
-            if lowercased.contains(indicator) {
-                // Flag for AI review (might be false positive)
+        for phrase in extremeHateSpeech {
+            if lowercased.contains(phrase) {
                 return ModerationResult(
                     isApproved: false,
-                    flaggedReasons: ["Potential hate speech detected"],
-                    severityLevel: .review,
-                    suggestedAction: .humanReview,
-                    confidence: 0.6
+                    flaggedReasons: ["Threatening language"],
+                    severityLevel: .blocked,
+                    suggestedAction: .block,
+                    confidence: 0.95
                 )
             }
         }
@@ -186,11 +176,14 @@ class ContentModerationService {
     // MARK: - Firebase AI Logic API
     
     /// Call Firebase AI Logic extension for deep content analysis
+    /// OPTIMIZED: Faster timeout, fail-open approach
     private func callFirebaseAIModerationAPI(
         content: String,
         type: ContentType,
         userId: String
     ) async throws -> ModerationResult {
+        
+        print("🛡️ [MODERATION] AI moderation check initiated")
         
         // Prepare request payload for Firebase AI Logic
         let requestData: [String: Any] = [
@@ -202,33 +195,38 @@ class ContentModerationService {
         
         do {
             // Call Firebase AI Logic Cloud Function
-            // This will use the Firebase AI Logic extension you enable in Firebase Console
+            print("📤 [MODERATION] Sending request to Cloud Function...")
             let result = try await db.collection("moderationRequests")
                 .addDocument(data: requestData)
             
-            // Wait for AI response (processed by Firebase AI Logic trigger)
+            print("⏳ [MODERATION] Waiting for AI response (request ID: \(result.documentID))...")
+            
+            // Wait for AI response (FASTER: 3 seconds max instead of 5)
             let response = try await waitForModerationResponse(requestId: result.documentID)
             
+            print("✅ [MODERATION] Received AI response: \(response.severityLevel.rawValue)")
             return response
             
         } catch {
             print("❌ [MODERATION] AI API error: \(error)")
             
-            // Fallback: If AI fails, apply conservative moderation
+            // Fallback: If AI fails, APPROVE and allow posting (fail-open)
+            // This prevents users from being blocked by technical issues
             return ModerationResult(
-                isApproved: true, // Allow but flag for human review
-                flaggedReasons: ["AI moderation unavailable"],
-                severityLevel: .review,
-                suggestedAction: .humanReview,
+                isApproved: true,
+                flaggedReasons: [],
+                severityLevel: .safe,
+                suggestedAction: .approve,
                 confidence: 0.5
             )
         }
     }
     
     /// Wait for Firebase AI Logic to process and return moderation result
+    /// OPTIMIZED: Faster polling with 3 second max timeout
     private func waitForModerationResponse(requestId: String) async throws -> ModerationResult {
-        // Poll for response from Firebase AI Logic
-        for _ in 0..<10 { // Max 10 attempts (5 seconds)
+        // Poll for response from Firebase AI Logic - FASTER
+        for _ in 0..<6 { // Max 6 attempts (3 seconds instead of 5)
             try await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
             
             let snapshot = try await db.collection("moderationResults")

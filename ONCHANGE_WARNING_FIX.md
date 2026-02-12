@@ -39,19 +39,19 @@ When 6 posts all called this at once, the `userRepostedPosts` Set was modified 6
 
 ## Solution
 
-Added `await Task.yield()` before modifying the published Sets to allow SwiftUI to process each update in a separate frame.
+Added staggered delays using `Task.sleep()` before modifying the published Sets to ensure each Set update happens in a separate frame and prevent multiple updates per frame.
 
 ### Changes Made
 
 **File**: `AMENAPP/PostInteractionsService.swift`
 
-Updated three functions to include `await Task.yield()` before cache updates:
+Updated three functions to include staggered delays before cache updates:
 
 #### 1. hasLitLightbulb() - Line 194
 ```swift
 // ✅ Sync cache with RTDB state to ensure consistency
-// Yield to prevent "multiple updates per frame" warning when loading many posts
-await Task.yield()
+// Delay updates to prevent "multiple updates per frame" warning when loading many posts
+try? await Task.sleep(nanoseconds: 10_000_000) // 10ms delay
 
 if exists && !userLightbulbedPosts.contains(postId) {
     userLightbulbedPosts.insert(postId)
@@ -65,8 +65,8 @@ if exists && !userLightbulbedPosts.contains(postId) {
 #### 2. hasAmened() - Line 295
 ```swift
 // ✅ Sync cache with RTDB state to ensure consistency
-// Yield to prevent "multiple updates per frame" warning when loading many posts
-await Task.yield()
+// Delay updates to prevent "multiple updates per frame" warning when loading many posts
+try? await Task.sleep(nanoseconds: 20_000_000) // 20ms delay (stagger from lightbulb)
 
 if exists && !userAmenedPosts.contains(postId) {
     userAmenedPosts.insert(postId)
@@ -80,8 +80,8 @@ if exists && !userAmenedPosts.contains(postId) {
 #### 3. hasReposted() - Line 585
 ```swift
 // ✅ Sync cache with RTDB state to ensure consistency
-// Yield to prevent "multiple updates per frame" warning when loading many posts
-await Task.yield()
+// Delay updates to prevent "multiple updates per frame" warning when loading many posts
+try? await Task.sleep(nanoseconds: 30_000_000) // 30ms delay (stagger from lightbulb/amen)
 
 if exists && !userRepostedPosts.contains(postId) {
     userRepostedPosts.insert(postId)
@@ -92,21 +92,21 @@ if exists && !userRepostedPosts.contains(postId) {
 }
 ```
 
-## How Task.yield() Works
+## How Staggered Delays Work
 
-`Task.yield()` is a cooperative cancellation point that:
-1. Temporarily suspends the current task
-2. Allows other tasks and the run loop to execute
-3. Resumes the task on the next run loop cycle
-
-This ensures that each Set modification happens in a separate frame, preventing SwiftUI's "multiple updates per frame" warning.
+The staggered delays (10ms, 20ms, 30ms) ensure that:
+1. Each function updates its Set in a different frame
+2. SwiftUI processes lightbulb updates first, then amen, then repost
+3. The `.onChange` observers don't fire multiple times in the same frame
+4. Total delay is only 30ms maximum (imperceptible to users)
 
 ## Technical Details
 
-- **No Performance Impact**: `Task.yield()` is extremely lightweight - it just schedules continuation on the next run loop
+- **Minimal Performance Impact**: Maximum 30ms delay is imperceptible to users (< 2 frames at 60fps)
 - **Maintains Correctness**: Data still loads correctly, just spread across multiple frames instead of all at once
-- **Better UX**: Actually improves perceived performance by allowing SwiftUI to update incrementally
+- **Better UX**: Prevents UI jank from simultaneous updates, allows SwiftUI to update incrementally
 - **Thread-Safe**: Works correctly with `@MainActor` and `@Published` properties
+- **Staggered Approach**: Different delays for each interaction type prevent conflicts
 
 ## Build Status
 ✅ Build succeeded with no errors

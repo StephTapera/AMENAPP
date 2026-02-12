@@ -9,7 +9,7 @@ import SwiftUI
 
 // MARK: - Onboarding Model
 
-struct OnboardingPage: Identifiable {
+struct BereanOnboardingPage: Identifiable {
     let id = UUID()
     let icon: String
     let iconColor: Color
@@ -25,43 +25,43 @@ struct BereanOnboardingView: View {
     @State private var currentPage = 0
     @State private var showPermissions = false
     
-    let pages: [OnboardingPage] = [
-        OnboardingPage(
+    let pages: [BereanOnboardingPage] = [
+        BereanOnboardingPage(
             icon: "sparkles",
             iconColor: Color(red: 1.0, green: 0.7, blue: 0.5),
             title: "Meet Berean AI",
             description: "Your personal Bible study companion powered by advanced AI. Ask questions, explore Scripture, and deepen your faith.",
             animation: "pulse"
         ),
-        OnboardingPage(
+        BereanOnboardingPage(
             icon: "book.pages.fill",
             iconColor: Color(red: 0.5, green: 0.6, blue: 0.9),
             title: "Deep Scripture Study",
             description: "Get instant explanations, historical context, cross-references, and original language insights for any passage.",
             animation: nil
         ),
-        OnboardingPage(
+        BereanOnboardingPage(
             icon: "globe.americas.fill",
             iconColor: Color(red: 0.6, green: 0.5, blue: 0.8),
             title: "Multiple Translations",
             description: "Compare Bible translations side-by-side. Choose from ESV, NIV, NKJV, KJV, NLT, and more.",
             animation: nil
         ),
-        OnboardingPage(
+        BereanOnboardingPage(
             icon: "person.2.fill",
             iconColor: Color(red: 1.0, green: 0.6, blue: 0.7),
             title: "Share Your Insights",
             description: "Found something meaningful? Share AI insights directly to your OpenTable feed and inspire your community.",
             animation: nil
         ),
-        OnboardingPage(
+        BereanOnboardingPage(
             icon: "waveform",
             iconColor: Color(red: 1.0, green: 0.85, blue: 0.5),
             title: "Voice Conversations",
             description: "Ask questions naturally using your voice. Berean understands context and conversation flow.",
             animation: "variableColor"
         ),
-        OnboardingPage(
+        BereanOnboardingPage(
             icon: "crown.fill",
             iconColor: Color(red: 1.0, green: 0.75, blue: 0.4),
             title: "Ready to Begin?",
@@ -123,7 +123,7 @@ struct BereanOnboardingView: View {
             // Page content
             TabView(selection: $currentPage) {
                 ForEach(Array(pages.enumerated()), id: \.element.id) { index, page in
-                    OnboardingPageView(page: page)
+                    BereanOnboardingPageView(page: page)
                         .tag(index)
                 }
             }
@@ -222,8 +222,8 @@ struct BereanOnboardingView: View {
 
 // MARK: - Onboarding Page View
 
-struct OnboardingPageView: View {
-    let page: OnboardingPage
+struct BereanOnboardingPageView: View {
+    let page: BereanOnboardingPage
     
     var body: some View {
         VStack(spacing: 40) {

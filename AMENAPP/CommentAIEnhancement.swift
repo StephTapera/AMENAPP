@@ -7,6 +7,7 @@
 
 import SwiftUI
 import NaturalLanguage
+import Combine
 
 // MARK: - Comment Sentiment
 
@@ -62,10 +63,10 @@ struct CommentInsights {
 
 // MARK: - AI Service
 
-class CommentAIService {
+class CommentAIService: ObservableObject {
     static let shared = CommentAIService()
     
-    private let sentimentPredictor = NLModel(mlModel: try! NLModel(contentsOf: NLModel.sentimentModel))
+    private init() {}
     
     // Analyze comment text
     func analyzeComment(_ text: String) -> CommentInsights {
@@ -136,7 +137,7 @@ class CommentAIService {
         ]
         
         // Profanity filter (basic)
-        let profanity = [
+        let profanity: [String] = [
             // Add profanity list (censored for code)
         ]
         
@@ -157,7 +158,7 @@ class CommentAIService {
         }
         
         // Check for ALL CAPS (shouting)
-        let uppercaseRatio = Double(text.filter { $0.isUppercase }.count) / Double(text.count)
+        let uppercaseRatio = Double(text.filter { $0.isUppercase }.count) / Double(max(text.count, 1))
         if uppercaseRatio > 0.6 && text.count > 10 {
             toxicityScore += 0.1
         }

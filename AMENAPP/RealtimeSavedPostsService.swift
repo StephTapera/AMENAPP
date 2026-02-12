@@ -42,9 +42,20 @@ class RealtimeSavedPostsService: ObservableObject {
     
     // MARK: - Toggle Save Post
     
+    /// ✅ Toggle save status with offline handling
     func toggleSavePost(postId: String) async throws -> Bool {
         guard let currentUser = Auth.auth().currentUser else {
             throw NSError(domain: "RealtimeSavedPostsService", code: 401, userInfo: [NSLocalizedDescriptionKey: "Not authenticated"])
+        }
+        
+        // ✅ Check network first
+        guard AMENNetworkMonitor.shared.isConnected else {
+            print("📱 Offline - cannot toggle save status")
+            throw NSError(
+                domain: "RealtimeSavedPostsService",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "No internet connection. Please try again when online."]
+            )
         }
         
         let userId = currentUser.uid
@@ -56,7 +67,9 @@ class RealtimeSavedPostsService: ObservableObject {
         
         if isSaved {
             // Unsave
-            print("🔖 Unsaving post: \(postId)")
+            print("🔖 [DEBUG] Unsaving post: \(postId)")
+            print("   - User: \(userId)")
+            print("   - Remaining saved posts: \(savedPostIds.count - 1)")
             
             let updates: [String: Any?] = [
                 savedPath: nil
@@ -78,7 +91,9 @@ class RealtimeSavedPostsService: ObservableObject {
             
         } else {
             // Save
-            print("🔖 Saving post: \(postId)")
+            print("🔖 [DEBUG] Saving post: \(postId)")
+            print("   - User: \(userId)")
+            print("   - Total saved posts: \(savedPostIds.count + 1)")
             
             let updates: [String: Any] = [
                 savedPath: Date().timeIntervalSince1970
@@ -102,16 +117,40 @@ class RealtimeSavedPostsService: ObservableObject {
     
     // MARK: - Check if Post is Saved
     
+    /// ✅ Check if post is saved (with offline support)
     func isPostSaved(postId: String) async throws -> Bool {
         guard let currentUser = Auth.auth().currentUser else {
             return false
         }
         
+        // ✅ Check network first
+        guard AMENNetworkMonitor.shared.isConnected else {
+            print("📱 Offline - using cached saved status for: \(postId)")
+            return isPostSavedSync(postId: postId)
+        }
+        
         let userId = currentUser.uid
-        let snapshot = try await database.child("user_saved_posts").child(userId).child(postId).getData()
-        return snapshot.exists()
+        
+        do {
+            let snapshot = try await database.child("user_saved_posts").child(userId).child(postId).getData()
+            let isSaved = snapshot.exists()
+            
+            // Update cache
+            if isSaved {
+                savedPostIds.insert(postId)
+            } else {
+                savedPostIds.remove(postId)
+            }
+            
+            return isSaved
+        } catch {
+            print("⚠️ Failed to check saved status (using cache): \(error.localizedDescription)")
+            // Fall back to cached value
+            return isPostSavedSync(postId: postId)
+        }
     }
     
+    /// ✅ Synchronous check using local cache (for offline use)
     func isPostSavedSync(postId: String) -> Bool {
         return savedPostIds.contains(postId)
     }
@@ -144,7 +183,14 @@ class RealtimeSavedPostsService: ObservableObject {
     // MARK: - Fetch Saved Posts with Details
     
     func fetchSavedPosts() async throws -> [Post] {
-        let postIds = try await fetchSavedPostIds()
+        // ✅ Check if offline - use cached post IDs
+        let postIds: [String]
+        if AMENNetworkMonitor.shared.isConnected {
+            postIds = try await fetchSavedPostIds()
+        } else {
+            print("📱 Offline - using cached saved post IDs")
+            postIds = Array(savedPostIds)
+        }
         
         guard !postIds.isEmpty else {
             return []
@@ -156,10 +202,19 @@ class RealtimeSavedPostsService: ObservableObject {
         
         for postId in postIds {
             do {
-                let post = try await RealtimePostService.shared.fetchPost(postId: postId)
-                posts.append(post)
-            } catch {
-                print("⚠️ Failed to fetch saved post \(postId): \(error)")
+                // ✅ FIX: Use FirebasePostService to fetch from Firestore (not RTDB)
+                if let post = try await FirebasePostService.shared.fetchPostById(postId: postId) {
+                    posts.append(post)
+                } else {
+                    print("⚠️ Post \(postId) not found in Firestore")
+                }
+            } catch let error as NSError {
+                // ✅ Handle offline errors gracefully
+                if error.domain == "com.firebase.core" && error.code == 1 {
+                    print("📱 Post \(postId) not in cache - skipping (offline)")
+                } else {
+                    print("⚠️ Failed to fetch saved post \(postId): \(error)")
+                }
             }
         }
         
@@ -188,7 +243,12 @@ class RealtimeSavedPostsService: ObservableObject {
         
         removeSavedPostsListener()  // Remove existing listener
         
-        savedPostsListener = database.child("user_saved_posts").child(userId).observe(.value) { [weak self] snapshot in
+        let savedPostsRef = database.child("user_saved_posts").child(userId)
+        
+        // ✅ CRITICAL FIX: Keep saved posts synced locally for offline persistence
+        savedPostsRef.keepSynced(true)
+        
+        savedPostsListener = savedPostsRef.observe(.value) { [weak self] snapshot in
             guard let self = self else { return }
             
             Task { @MainActor in

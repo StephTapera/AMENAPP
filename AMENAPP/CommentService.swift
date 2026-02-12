@@ -11,6 +11,7 @@
 import Foundation
 import FirebaseDatabase
 import FirebaseAuth
+import FirebaseFirestore
 import Combine
 import UIKit
 
@@ -36,6 +37,58 @@ class CommentService: ObservableObject {
     
     private init() {}
     
+    // MARK: - Comment Permissions
+    
+    /// Check if user can comment on a post
+    func canComment(postId: String, post: Post) async -> Bool {
+        guard let currentUserId = Auth.auth().currentUser?.uid else {
+            return false
+        }
+        
+        // Post author can always comment
+        if post.authorId == currentUserId {
+            return true
+        }
+        
+        // Check comment permissions
+        let permissions = post.commentPermissions ?? .everyone
+        
+        switch permissions {
+        case .everyone:
+            return true
+            
+        case .following:
+            // Check if post author follows current user
+            return await FollowService.shared.isFollowing(userId: post.authorId)
+            
+        case .mentioned:
+            // Check if user is mentioned in the post
+            // Extract mentions from post content
+            let mentions = extractMentions(from: post.content)
+            return mentions.contains { mention in
+                mention.lowercased() == "@\(currentUserId.lowercased())"
+            }
+            
+        case .off:
+            return false
+        }
+    }
+    
+    private func extractMentions(from text: String) -> [String] {
+        let pattern = "@[a-zA-Z0-9_]+"
+        guard let regex = try? NSRegularExpression(pattern: pattern) else {
+            return []
+        }
+        
+        let range = NSRange(text.startIndex..<text.endIndex, in: text)
+        let matches = regex.matches(in: text, range: range)
+        
+        return matches.compactMap { match in
+            guard let range = Range(match.range, in: text) else { return nil }
+            return String(text[range])
+        }
+    }
+    
     // MARK: - Create Comment
     
     /// Add a comment to a post
@@ -50,59 +103,81 @@ class CommentService: ObservableObject {
             throw NSError(domain: "CommentService", code: -1, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
         }
         
-        // ✅ NEW: Fetch username BEFORE adding comment
+        // ============================================================================
+        // ✅ STEP 1: AI CONTENT MODERATION
+        // ============================================================================
+        print("🛡️ Running AI moderation check for comment...")
+        let moderationResult = try await ContentModerationService.shared.moderateContent(
+            content,
+            type: .comment,
+            userId: userId
+        )
+        
+        // Block comment if moderation fails
+        if !moderationResult.isApproved {
+            let reasons = moderationResult.flaggedReasons
+            print("❌ Comment blocked by moderation: \(reasons.joined(separator: ", "))")
+            
+            // Show liquid glass toast notification
+            await MainActor.run {
+                ModerationToastManager.shared.show(reasons: reasons)
+            }
+            
+            throw NSError(
+                domain: "CommentService",
+                code: -2,
+                userInfo: [NSLocalizedDescriptionKey: "Content flagged"]
+            )
+        }
+        
+        print("✅ Comment passed moderation check")
+        
+        // ✅ Fetch user data (username AND profile image) BEFORE adding comment
         let authorUsername: String
+        let authorProfileImageURL: String?
         do {
             let userProfile = try await userService.fetchUserProfile(userId: userId)
             authorUsername = userProfile.username
+            authorProfileImageURL = userProfile.profileImageURL
             print("✅ Using username: @\(authorUsername)")
+            print("✅ Profile image URL: \(authorProfileImageURL ?? "none")")
         } catch {
-            print("⚠️ Failed to fetch username, generating fallback from userId")
-            // Fallback: use first 8 chars of userId
+            print("⚠️ Failed to fetch user profile, generating fallback")
             authorUsername = "user\(userId.prefix(8))"
+            authorProfileImageURL = nil
         }
         
-        // ✅ UPDATED: Pass username to PostInteractionsService
+        // ✅ Add comment to PostInteractionsService with profile image URL
         let interactionsService = PostInteractionsService.shared
         let commentId = try await interactionsService.addComment(
             postId: postId,
             content: content,
             authorInitials: firebaseManager.currentUser?.displayName?.prefix(2).uppercased() ?? "??",
-            authorUsername: authorUsername  // ← NEW PARAMETER
+            authorUsername: authorUsername,
+            authorProfileImageURL: authorProfileImageURL  // ← NEW PARAMETER
         )
         
         print("✅ Comment created with ID: \(commentId)")
         
-        // Fetch the comment we just created
-        let commentRef = ref.child("postInteractions").child(postId).child("comments").child(commentId)
-        let snapshot = try await commentRef.getData()
+        // ✅ DON'T manually update local cache - let real-time listener handle it
+        // This prevents duplicate comments in the UI
         
-        // Get comment data with fallback values
-        let commentData = snapshot.value as? [String: Any] ?? [:]
-        let currentUserName = firebaseManager.currentUser?.displayName ?? "Unknown User"
-        let authorName = commentData["authorName"] as? String ?? currentUserName
-        let authorInitials = commentData["authorInitials"] as? String ?? currentUserName.prefix(2).uppercased()
-        let timestamp = commentData["timestamp"] as? Int64 ?? Int64(Date().timeIntervalSince1970 * 1000)
+        // Haptic feedback
+        let haptic = UIImpactFeedbackGenerator(style: .medium)
+        haptic.impactOccurred()
         
-        // ✅ REMOVED: No longer need to fetch username here - we already have it
-        
-        // Verify we have the essential data
-        if commentData.isEmpty {
-            print("⚠️ Warning: Comment data is empty, using fallback values")
-        }
-        
-        // Create Comment object
+        // Return a temporary comment object (won't be used by UI due to listener)
         let comment = Comment(
             id: commentId,
             postId: postId,
             authorId: userId,
-            authorName: authorName,
-            authorUsername: authorUsername,  // ✅ Use the username we already fetched
-            authorInitials: String(authorInitials),
-            authorProfileImageURL: nil,
+            authorName: firebaseManager.currentUser?.displayName ?? "Unknown User",
+            authorUsername: authorUsername,
+            authorInitials: firebaseManager.currentUser?.displayName?.prefix(2).uppercased() ?? "??",
+            authorProfileImageURL: authorProfileImageURL,
             content: content,
-            createdAt: Date(timeIntervalSince1970: Double(timestamp) / 1000.0),
-            updatedAt: Date(timeIntervalSince1970: Double(timestamp) / 1000.0),
+            createdAt: Date(),
+            updatedAt: Date(),
             amenCount: 0,
             replyCount: 0,
             amenUserIds: [],
@@ -110,22 +185,78 @@ class CommentService: ObservableObject {
             mentionedUserIds: mentionedUserIds
         )
         
-        // Haptic feedback
-        let haptic = UIImpactFeedbackGenerator(style: .medium)
-        haptic.impactOccurred()
+        print("✅ Comment will be added to UI via real-time listener")
         
-        // Update local cache
-        if var postComments = comments[postId] {
-            postComments.append(comment)
-            comments[postId] = postComments.sorted { $0.createdAt < $1.createdAt }
-        } else {
-            comments[postId] = [comment]
+        // 📧 Send mention notifications (extract mentions from content)
+        let mentionUsernames = extractMentionUsernames(from: content)
+        if !mentionUsernames.isEmpty {
+            Task {
+                var mentions: [MentionedUser] = []
+                
+                // Fetch user data for each mentioned username
+                for username in mentionUsernames {
+                    do {
+                        let userQuery = try await firebaseManager.firestore
+                            .collection("users")
+                            .whereField("username", isEqualTo: username)
+                            .limit(to: 1)
+                            .getDocuments()
+                        
+                        if let userDoc = userQuery.documents.first {
+                            let mentionUserId = userDoc.documentID
+                            let displayName = userDoc.data()["displayName"] as? String ?? username
+                            mentions.append(MentionedUser(
+                                userId: mentionUserId,
+                                username: username,
+                                displayName: displayName
+                            ))
+                        }
+                    } catch {
+                        print("⚠️ Failed to resolve @\(username): \(error)")
+                    }
+                }
+                
+                // Send notifications
+                if !mentions.isEmpty {
+                    await NotificationService.shared.sendMentionNotifications(
+                        mentions: mentions,
+                        actorId: userId,
+                        actorName: firebaseManager.currentUser?.displayName ?? "User",
+                        actorUsername: authorUsername,
+                        postId: postId,
+                        contentType: "comment"
+                    )
+                }
+            }
         }
         
-        print("✅ Comment added to local cache for post: \(postId)")
-        print("📊 Current comment count: \(await interactionsService.getCommentCount(postId: postId))")
+        // ✅ Post notification so ProfileView can update Replies tab
+        NotificationCenter.default.post(
+            name: Notification.Name("newCommentCreated"),
+            object: nil,
+            userInfo: ["comment": comment]
+        )
+        print("📬 Posted newCommentCreated notification for ProfileView")
         
         return comment
+    }
+    
+    // MARK: - Helper: Extract Mentions
+    
+    private func extractMentionUsernames(from text: String) -> [String] {
+        let pattern = "@(\\w+)"
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else {
+            return []
+        }
+        
+        let nsString = text as NSString
+        let matches = regex.matches(in: text, options: [], range: NSRange(location: 0, length: nsString.length))
+        
+        return matches.compactMap { match in
+            guard match.numberOfRanges > 1 else { return nil }
+            let usernameRange = match.range(at: 1)
+            return nsString.substring(with: usernameRange)
+        }
     }
     
     // MARK: - Create Reply
@@ -139,25 +270,26 @@ class CommentService: ObservableObject {
     ) async throws -> Comment {
         print("↩️ Adding reply to comment: \(parentCommentId)")
         
-        // Add comment first
+        // ✅ Add comment first (moderation happens inside addComment)
         let comment = try await addComment(postId: postId, content: content, mentionedUserIds: mentionedUserIds)
         
         // Update to mark it as a reply
         let commentRef = ref.child("postInteractions").child(postId).child("comments").child(comment.id ?? "")
         try await commentRef.child("parentCommentId").setValue(parentCommentId)
         
-        // Update local cache for replies
+        // ✅ Don't manually update reply cache; real-time listener will update
         var updatedComment = comment
         updatedComment.parentCommentId = parentCommentId
         
-        if var replies = commentReplies[parentCommentId] {
-            replies.append(updatedComment)
-            commentReplies[parentCommentId] = replies.sorted { $0.createdAt < $1.createdAt }
-        } else {
-            commentReplies[parentCommentId] = [updatedComment]
-        }
-        
         print("✅ Reply added")
+        
+        // ✅ Post notification so ProfileView can update Replies tab
+        NotificationCenter.default.post(
+            name: Notification.Name("newCommentCreated"),
+            object: nil,
+            userInfo: ["comment": updatedComment]
+        )
+        print("📬 Posted newCommentCreated notification for reply")
         
         // Haptic feedback
         let haptic = UIImpactFeedbackGenerator(style: .light)
@@ -171,32 +303,41 @@ class CommentService: ObservableObject {
     /// Fetch all comments for a post from Realtime Database
     func fetchComments(for postId: String) async throws -> [Comment] {
         print("📥 Fetching comments for post: \(postId)")
+        print("🔍 [DEBUG] Querying path: postInteractions/\(postId)/comments")
         
         isLoading = true
         defer { isLoading = false }
         
         let interactionsService = PostInteractionsService.shared
         let realtimeComments = try await interactionsService.getComments(postId: postId)
+        print("🔍 [DEBUG] Raw query returned \(realtimeComments.count) comments from RTDB")
         
-        // Convert to Comment objects and filter out replies
+        // Convert to Comment objects and filter out replies (only get top-level comments)
         var fetchedComments: [Comment] = []
         
         for rtComment in realtimeComments {
-            // ✅ NEW: Use username from RTDB if available, otherwise fetch or generate fallback
+            // ✅ Skip replies (these are handled separately)
+            guard rtComment.parentCommentId == nil else {
+                print("⏭️ Skipping reply: \(rtComment.id)")
+                continue
+            }
+            
+            // ✅ Use stored username and profile image from RTDB
             let authorUsername: String
+            let authorProfileImageURL: String?
+            
             if let storedUsername = rtComment.authorUsername, !storedUsername.isEmpty {
                 authorUsername = storedUsername
                 print("✅ Using stored username: @\(authorUsername)")
             } else {
-                // Fallback: Try to fetch from Firestore for old comments
-                do {
-                    let user = try await userService.fetchUserProfile(userId: rtComment.authorId)
-                    authorUsername = user.username
-                    print("⚠️ Fetched username from Firestore (old comment): @\(authorUsername)")
-                } catch {
-                    print("⚠️ No stored username and fetch failed, using fallback")
-                    authorUsername = "user\(rtComment.authorId.prefix(8))"
-                }
+                print("⚠️ No stored username, using fallback")
+                authorUsername = "user\(rtComment.authorId.prefix(8))"
+            }
+            
+            // ✅ Get profile image URL from RTDB
+            authorProfileImageURL = rtComment.authorProfileImageURL
+            if let imageURL = authorProfileImageURL {
+                print("✅ Profile image URL: \(imageURL)")
             }
             
             let comment = Comment(
@@ -206,7 +347,7 @@ class CommentService: ObservableObject {
                 authorName: rtComment.authorName,
                 authorUsername: authorUsername,
                 authorInitials: rtComment.authorInitials,
-                authorProfileImageURL: nil,
+                authorProfileImageURL: authorProfileImageURL,  // ✅ Now includes profile image
                 content: rtComment.content,
                 createdAt: rtComment.timestamp,
                 updatedAt: rtComment.timestamp,
@@ -220,7 +361,7 @@ class CommentService: ObservableObject {
             fetchedComments.append(comment)
         }
         
-        print("✅ Fetched \(fetchedComments.count) comments from Realtime DB")
+        print("✅ Fetched \(fetchedComments.count) top-level comments from Realtime DB")
         
         // Update local cache
         comments[postId] = fetchedComments
@@ -232,10 +373,81 @@ class CommentService: ObservableObject {
     func fetchReplies(for commentId: String) async throws -> [Comment] {
         print("📥 Fetching replies for comment: \(commentId)")
         
-        // Get parent comment's post ID
-        // Then filter comments with matching parentCommentId
-        // For now, return cached replies
-        return commentReplies[commentId] ?? []
+        // ✅ FIXED: First check cache (populated by real-time listener)
+        if let cachedReplies = commentReplies[commentId], !cachedReplies.isEmpty {
+            print("✅ Returning \(cachedReplies.count) cached replies for comment: \(commentId)")
+            return cachedReplies
+        }
+        
+        // ✅ If cache is empty, fetch from database
+        // This happens when the real-time listener hasn't populated the cache yet
+        // or when loading historical data
+        print("⚠️ No cached replies, fetching from database for comment: \(commentId)")
+        
+        // We need to find which post this comment belongs to
+        // Search through all cached posts' comments to find the parent
+        var parentPostId: String?
+        for (postId, postComments) in comments {
+            if postComments.contains(where: { $0.id == commentId }) {
+                parentPostId = postId
+                break
+            }
+        }
+        
+        guard let postId = parentPostId else {
+            print("⚠️ Could not find post for comment: \(commentId)")
+            return []
+        }
+        
+        // Fetch all comments for the post and filter replies
+        let interactionsService = PostInteractionsService.shared
+        let allComments = try await interactionsService.getComments(postId: postId)
+        
+        var replies: [Comment] = []
+        for rtComment in allComments {
+            // Only get replies for this specific comment
+            guard rtComment.parentCommentId == commentId else { continue }
+            
+            let authorUsername: String
+            let authorProfileImageURL: String?
+            
+            if let storedUsername = rtComment.authorUsername, !storedUsername.isEmpty {
+                authorUsername = storedUsername
+            } else {
+                authorUsername = "user\(rtComment.authorId.prefix(8))"
+            }
+            
+            authorProfileImageURL = rtComment.authorProfileImageURL
+            
+            let reply = Comment(
+                id: rtComment.id,
+                postId: postId,
+                authorId: rtComment.authorId,
+                authorName: rtComment.authorName,
+                authorUsername: authorUsername,
+                authorInitials: rtComment.authorInitials,
+                authorProfileImageURL: authorProfileImageURL,
+                content: rtComment.content,
+                createdAt: rtComment.timestamp,
+                updatedAt: rtComment.timestamp,
+                amenCount: rtComment.likes,
+                replyCount: 0,
+                amenUserIds: [],
+                parentCommentId: rtComment.parentCommentId,
+                mentionedUserIds: nil
+            )
+            
+            replies.append(reply)
+        }
+        
+        // Sort by timestamp
+        replies.sort { $0.createdAt < $1.createdAt }
+        
+        // Update cache
+        commentReplies[commentId] = replies
+        
+        print("✅ Fetched \(replies.count) replies from database for comment: \(commentId)")
+        return replies
     }
     
     /// Fetch all comments by a specific user
@@ -250,6 +462,32 @@ class CommentService: ObservableObject {
     func fetchCommentsWithReplies(for postId: String) async throws -> [CommentWithReplies] {
         print("📥 Fetching comments with replies for post: \(postId)")
         
+        // ✅ IMPROVED: Check if real-time listener has already populated the cache
+        if let cachedComments = comments[postId], !cachedComments.isEmpty {
+            print("✅ Using cached comments from real-time listener (\(cachedComments.count) comments)")
+            
+            var commentsWithReplies: [CommentWithReplies] = []
+            
+            for comment in cachedComments {
+                guard let commentId = comment.id else { continue }
+                
+                // Get replies from cache (populated by real-time listener)
+                let replies = commentReplies[commentId] ?? []
+                
+                var updatedComment = comment
+                updatedComment.replyCount = replies.count
+                
+                let commentWithReplies = CommentWithReplies(comment: updatedComment, replies: replies)
+                commentsWithReplies.append(commentWithReplies)
+            }
+            
+            print("✅ Built \(commentsWithReplies.count) comments with replies from cache")
+            return commentsWithReplies
+        }
+        
+        // ✅ If cache is empty, fetch from database (happens on initial load before listener fires)
+        print("⚠️ Cache empty, fetching comments from database")
+        
         // Fetch top-level comments
         let topLevelComments = try await fetchComments(for: postId)
         
@@ -260,11 +498,15 @@ class CommentService: ObservableObject {
             guard let commentId = comment.id else { continue }
             
             let replies = try await fetchReplies(for: commentId)
-            let commentWithReplies = CommentWithReplies(comment: comment, replies: replies)
+            
+            var updatedComment = comment
+            updatedComment.replyCount = replies.count
+            
+            let commentWithReplies = CommentWithReplies(comment: updatedComment, replies: replies)
             commentsWithReplies.append(commentWithReplies)
         }
         
-        print("✅ Fetched \(commentsWithReplies.count) comments with replies")
+        print("✅ Fetched \(commentsWithReplies.count) comments with replies from database")
         
         return commentsWithReplies
     }
@@ -364,24 +606,14 @@ class CommentService: ObservableObject {
     // MARK: - Interactions
     
     /// Toggle "Amen" (or lightbulb) on a comment
-    func toggleAmen(commentId: String) async throws {
-        print("🙏 Toggling Amen on comment: \(commentId)")
+    /// - Parameters:
+    ///   - commentId: The comment ID to toggle
+    ///   - postId: The post ID (required for direct Firebase access)
+    func toggleAmen(commentId: String, postId: String) async throws {
+        print("🙏 Toggling Amen on comment: \(commentId) in post: \(postId)")
         
         guard let userId = firebaseManager.currentUser?.uid else {
             throw NSError(domain: "CommentService", code: -1, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
-        }
-        
-        // Find the post ID for this comment (we need to search through our cache)
-        var postId: String?
-        for (pid, commentsArray) in comments {
-            if commentsArray.contains(where: { $0.id == commentId }) {
-                postId = pid
-                break
-            }
-        }
-        
-        guard let postId = postId else {
-            throw NSError(domain: "CommentService", code: -2, userInfo: [NSLocalizedDescriptionKey: "Could not find post for comment"])
         }
         
         // Reference to the comment's like status
@@ -437,15 +669,39 @@ class CommentService: ObservableObject {
     
     /// Start listening to comments for a post in Realtime Database
     func startListening(to postId: String) {
+        // ✅ Prevent duplicate listeners
+        if listenerPaths[postId] != nil {
+            print("⚠️ Already listening to post: \(postId)")
+            return
+        }
+        
         print("🔊 Starting real-time listener for comments on post: \(postId)")
         
         let commentsRef = ref.child("postInteractions").child(postId).child("comments")
+        
+        // ✅ CRITICAL FIX: Keep data synced locally even when app is offline
+        // This ensures cached data persists across app restarts
+        commentsRef.keepSynced(true)
         
         let handle = commentsRef.observe(.value) { [weak self] snapshot in
             guard let self = self else { return }
             
             Task { @MainActor in
+                print("📥 [LISTENER] Real-time data received for post: \(postId)")
+                print("   Snapshot exists: \(snapshot.exists())")
+                print("   Children count: \(snapshot.childrenCount)")
+                
+                // ✅ Check if this data came from cache (offline) or server
+                if let metadata = snapshot.value as? [String: Any] {
+                    print("   Data source: \(metadata.keys.count) comment(s)")
+                } else if snapshot.exists() {
+                    print("   Data source: Has data but not a dictionary")
+                } else {
+                    print("   Data source: Empty snapshot (no comments)")
+                }
+                
                 var fetchedComments: [Comment] = []
+                var repliesMap: [String: [Comment]] = [:]
                 
                 for child in snapshot.children {
                     guard let childSnapshot = child as? DataSnapshot,
@@ -458,20 +714,23 @@ class CommentService: ObservableObject {
                         continue
                     }
                     
-                    // Fetch username from user profile
+                    // ✅ Get username and profile image from RTDB (stored during comment creation)
                     let authorUsername: String
-                    do {
-                        // ✅ NEW: Check if username is already in RTDB
-                        if let storedUsername = commentData["authorUsername"] as? String, !storedUsername.isEmpty {
-                            authorUsername = storedUsername
-                        } else {
-                            // Fallback: Fetch from Firestore for old comments
-                            let user = try await self.userService.fetchUserProfile(userId: authorId)
-                            authorUsername = user.username
-                        }
-                    } catch {
-                        print("⚠️ Failed to fetch user profile: \(error)")
+                    let authorProfileImageURL: String?
+                    
+                    if let storedUsername = commentData["authorUsername"] as? String, !storedUsername.isEmpty {
+                        authorUsername = storedUsername
+                        print("✅ Using stored username: @\(authorUsername)")
+                    } else {
+                        // Fallback for old comments without username
                         authorUsername = "user\(authorId.prefix(8))"
+                        print("⚠️ No stored username, using fallback: @\(authorUsername)")
+                    }
+                    
+                    // ✅ Get profile image URL from RTDB
+                    authorProfileImageURL = commentData["authorProfileImageURL"] as? String
+                    if let imageURL = authorProfileImageURL {
+                        print("✅ Profile image URL found: \(imageURL)")
                     }
                     
                     let comment = Comment(
@@ -481,7 +740,7 @@ class CommentService: ObservableObject {
                         authorName: authorName,
                         authorUsername: authorUsername,
                         authorInitials: authorInitials,
-                        authorProfileImageURL: nil,
+                        authorProfileImageURL: authorProfileImageURL,  // ✅ Now includes profile image
                         content: content,
                         createdAt: Date(timeIntervalSince1970: Double(timestamp) / 1000.0),
                         updatedAt: Date(timeIntervalSince1970: Double(timestamp) / 1000.0),
@@ -498,24 +757,45 @@ class CommentService: ObservableObject {
                 // Sort by timestamp
                 fetchedComments.sort { $0.createdAt < $1.createdAt }
                 
-                // Update cache - separate top-level and replies
-                self.comments[postId] = fetchedComments.filter { $0.parentCommentId == nil }
+                // ✅ Separate top-level comments and replies
+                let topLevelComments = fetchedComments.filter { $0.parentCommentId == nil }
+                let replies = fetchedComments.filter { $0.parentCommentId != nil }
                 
-                // Group replies by parent
-                for reply in fetchedComments.filter({ $0.parentCommentId != nil }) {
+                // ✅ Update cache ONCE with new data
+                self.comments[postId] = topLevelComments
+                
+                // ✅ Clear and rebuild replies map
+                for reply in replies {
                     guard let parentId = reply.parentCommentId else { continue }
                     
-                    if var replies = self.commentReplies[parentId] {
-                        if !replies.contains(where: { $0.id == reply.id }) {
-                            replies.append(reply)
-                            self.commentReplies[parentId] = replies.sorted { $0.createdAt < $1.createdAt }
-                        }
+                    if repliesMap[parentId] != nil {
+                        repliesMap[parentId]?.append(reply)
                     } else {
-                        self.commentReplies[parentId] = [reply]
+                        repliesMap[parentId] = [reply]
                     }
                 }
                 
-                print("✅ Real-time update: \(self.comments[postId]?.count ?? 0) comments")
+                // ✅ Sort replies by timestamp within each parent
+                for (parentId, var replies) in repliesMap {
+                    replies.sort { $0.createdAt < $1.createdAt }
+                    self.commentReplies[parentId] = replies
+                }
+                
+                // ✅ Remove old replies that no longer exist
+                let currentReplyParents = Set(replies.compactMap { $0.parentCommentId })
+                let cachedReplyParents = Set(self.commentReplies.keys)
+                for oldParent in cachedReplyParents where !currentReplyParents.contains(oldParent) {
+                    self.commentReplies.removeValue(forKey: oldParent)
+                }
+                
+                print("✅ Real-time update: \(topLevelComments.count) comments, \(replies.count) replies")
+                
+                // ✅ Post notification to immediately update UI
+                NotificationCenter.default.post(
+                    name: Notification.Name("commentsUpdated"),
+                    object: nil,
+                    userInfo: ["postId": postId]
+                )
             }
         }
         
@@ -536,25 +816,19 @@ class CommentService: ObservableObject {
     // MARK: - Helper Methods
     
     /// Check if user has amened a comment
-    func hasUserAmened(commentId: String) async -> Bool {
+    /// - Parameters:
+    ///   - commentId: The comment ID to check
+    ///   - postId: The post ID (required since cache might not be populated yet)
+    func hasUserAmened(commentId: String, postId: String) async -> Bool {
         guard let userId = firebaseManager.currentUser?.uid else { return false }
-        
-        // Find the post ID for this comment
-        var postId: String?
-        for (pid, commentsArray) in comments {
-            if commentsArray.contains(where: { $0.id == commentId }) {
-                postId = pid
-                break
-            }
-        }
-        
-        guard let postId = postId else { return false }
         
         let userLikeRef = ref.child("postInteractions").child(postId).child("comments").child(commentId).child("likedBy").child(userId)
         
         do {
             let snapshot = try await userLikeRef.getData()
-            return snapshot.exists()
+            let hasLiked = snapshot.exists()
+            print("✅ hasUserAmened check - commentId: \(commentId), postId: \(postId), result: \(hasLiked)")
+            return hasLiked
         } catch {
             print("❌ Error checking amen status: \(error)")
             return false

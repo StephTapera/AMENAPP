@@ -18,37 +18,73 @@ class BereanGenkitService: ObservableObject {
     @Published var isProcessing = false
     @Published var lastError: Error?
     
+    // ⚡ Response cache for faster repeat queries (15-minute TTL)
+    private var responseCache: [String: CachedResponse] = [:]
+    private let cacheTTL: TimeInterval = 900 // 15 minutes
+    
     // Genkit configuration
     private let genkitEndpoint: String
     private let apiKey: String?
     
+    // Feature flag to disable AI when server is offline
+    var isEnabled: Bool {
+        // AI is always enabled - production uses Cloud Run
+        return true
+    }
+    
     init() {
         // Configure your Genkit endpoint
-        // In development: http://localhost:3400
-        // In production: your deployed Cloud Run URL
+        // Priority: Info.plist -> Default Cloud Run URL
         if let endpoint = Bundle.main.object(forInfoDictionaryKey: "GENKIT_ENDPOINT") as? String {
             self.genkitEndpoint = endpoint
         } else {
-            #if targetEnvironment(simulator)
-            // iOS Simulator: use localhost
-            self.genkitEndpoint = "http://localhost:3400"
-            #else
-            // Real device: use your Mac's IP address
-            self.genkitEndpoint = "http://192.168.1.XXX:3400"  // Replace with your Mac's IP
-            #endif
-            print("⚠️ Using default Genkit endpoint: \(self.genkitEndpoint)")
+            // Production & TestFlight: Use Cloud Run
+            self.genkitEndpoint = "https://genkit-amen-78278013543.us-central1.run.app"
+            
+            // 💡 For local development, you can override this in Info.plist:
+            // <key>GENKIT_ENDPOINT</key>
+            // <string>http://localhost:3400</string>
         }
         
-        // Optional: API key for production
+        // Optional: API key for production (recommended for security)
         self.apiKey = Bundle.main.object(forInfoDictionaryKey: "GENKIT_API_KEY") as? String
         
-        print("✅ BereanGenkitService initialized with endpoint: \(genkitEndpoint)")
+        print("✅ BereanGenkitService initialized")
+        print("   Endpoint: \(genkitEndpoint)")
+        print("   API Key: \(apiKey != nil ? "✓ Configured" : "⚠️ Not set (consider adding for production)")")
     }
     
     // MARK: - Core AI Chat
     
     /// Send a message to the AI and get streaming response
     func sendMessage(_ message: String, conversationHistory: [BereanMessage] = []) -> AsyncThrowingStream<String, Error> {
+        // Check if AI is enabled
+        guard isEnabled else {
+            return AsyncThrowingStream { continuation in
+                continuation.finish(throwing: NSError(
+                    domain: "BereanGenkitService",
+                    code: -1,
+                    userInfo: [NSLocalizedDescriptionKey: "AI features are currently disabled. Start the Genkit server to enable them."]
+                ))
+            }
+        }
+        
+        // ⚡ Check cache for instant responses (only for queries without history)
+        if conversationHistory.isEmpty, let cached = getCachedResponse(for: message) {
+            print("⚡ Cache hit! Returning instant response")
+            return AsyncThrowingStream { continuation in
+                Task {
+                    // Stream cached response word by word for consistent UX
+                    let words = cached.split(separator: " ")
+                    for word in words {
+                        continuation.yield(String(word) + " ")
+                        try await Task.sleep(nanoseconds: 8_000_000)
+                    }
+                    continuation.finish()
+                }
+            }
+        }
+        
         return AsyncThrowingStream { continuation in
             Task {
                 await MainActor.run {
@@ -75,11 +111,17 @@ class BereanGenkitService: ObservableObject {
                     
                     // For streaming, we'll simulate chunks (Genkit can do real streaming with SSE)
                     if let text = response["response"] as? String {
-                        // Split into words for streaming effect
+                        // ⚡ Cache the response for future use
+                        if conversationHistory.isEmpty {
+                            cacheResponse(text, for: message)
+                        }
+                        
+                        // ⚡ SPEED OPTIMIZATION: Reduced to 8ms for near-instant streaming
+                        // This provides smooth visual feedback while maximizing speed
                         let words = text.split(separator: " ")
                         for word in words {
                             continuation.yield(String(word) + " ")
-                            try await Task.sleep(nanoseconds: 50_000_000) // 50ms delay
+                            try await Task.sleep(nanoseconds: 8_000_000) // 8ms delay (6x faster than original)
                         }
                     }
                     
@@ -104,6 +146,15 @@ class BereanGenkitService: ObservableObject {
     
     /// Send message synchronously (for non-streaming use cases)
     func sendMessageSync(_ message: String, conversationHistory: [BereanMessage] = []) async throws -> String {
+        // Check if AI is enabled
+        guard isEnabled else {
+            throw NSError(
+                domain: "BereanGenkitService",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "AI features are currently disabled. Start the Genkit server to enable them."]
+            )
+        }
+        
         isProcessing = true
         defer { isProcessing = false }
         
@@ -301,7 +352,7 @@ class BereanGenkitService: ObservableObject {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.timeoutInterval = 30  // 30 second timeout
+        request.timeoutInterval = 20  // ⚡ Reduced to 20 seconds for faster feedback
         
         // Add API key if available
         if let apiKey = apiKey {
@@ -309,11 +360,19 @@ class BereanGenkitService: ObservableObject {
         }
         
         // Encode input as JSON
-        let requestBody = ["data": input]
-        request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+        // ✅ FIXED: Send input directly, not wrapped in "data"
+        // Genkit flows accessed via HTTP expect the input object directly
+        request.httpBody = try JSONSerialization.data(withJSONObject: input)
         
         print("📤 Calling Genkit flow: \(flowName)")
         print("   URL: \(urlString)")
+        print("   Input: \(input)")
+        
+        // Debug: Print the actual request body being sent
+        if let bodyData = request.httpBody,
+           let bodyString = String(data: bodyData, encoding: .utf8) {
+            print("   Request body: \(bodyString)")
+        }
         
         // Make the request
         do {
@@ -332,14 +391,19 @@ class BereanGenkitService: ObservableObject {
             }
             
             // Parse JSON response
-            guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let result = json["result"] as? [String: Any] else {
+            // ✅ FIXED: Genkit returns the result directly, not wrapped
+            guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                print("❌ Failed to parse JSON response")
+                if let responseText = String(data: data, encoding: .utf8) {
+                    print("   Response was: \(responseText)")
+                }
                 throw GenkitError.invalidResponse
             }
             
             print("✅ Genkit flow completed: \(flowName)")
+            print("   Response: \(json)")
             
-            return result
+            return json
         } catch let error as URLError {
             print("❌ Network error: \(error.localizedDescription)")
             print("   Error code: \(error.code.rawValue)")
@@ -358,17 +422,27 @@ class BereanGenkitService: ObservableObject {
     
     /// Generate a fun and fascinating Bible fact
     func generateFunBibleFact(category: String? = nil) async throws -> String {
+        // Cloud Run endpoint expects: { "data": { "category": "..." } }
         let input: [String: Any] = [
-            "category": category ?? "random"
+            "data": [
+                "category": category ?? "random"
+            ]
         ]
         
         let result = try await callGenkitFlow(flowName: "generateFunBibleFact", input: input)
         
-        guard let fact = result["fact"] as? String else {
-            throw GenkitError.invalidResponse
+        // Response format: { "result": { "fact": "..." } }
+        if let resultData = result["result"] as? [String: Any],
+           let fact = resultData["fact"] as? String {
+            return fact
         }
         
-        return fact
+        // Fallback: try direct fact field
+        if let fact = result["fact"] as? String {
+            return fact
+        }
+        
+        throw GenkitError.invalidResponse
     }
     
     // MARK: - AI-Powered Search
@@ -452,6 +526,50 @@ class BereanGenkitService: ObservableObject {
             explanation: explanation
         )
     }
+    
+    // MARK: - Cache Management
+    
+    /// Get cached response if available and not expired
+    private func getCachedResponse(for query: String) -> String? {
+        let cacheKey = query.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        guard let cached = responseCache[cacheKey] else {
+            return nil
+        }
+        
+        // Check if cache entry is still valid
+        let age = Date().timeIntervalSince(cached.timestamp)
+        if age > cacheTTL {
+            // Remove expired entry
+            responseCache.removeValue(forKey: cacheKey)
+            return nil
+        }
+        
+        return cached.response
+    }
+    
+    /// Cache a response for faster future lookups
+    private func cacheResponse(_ response: String, for query: String) {
+        let cacheKey = query.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        responseCache[cacheKey] = CachedResponse(response: response, timestamp: Date())
+        
+        // Limit cache size to 50 entries (oldest entries removed first)
+        if responseCache.count > 50 {
+            let sortedKeys = responseCache.sorted { $0.value.timestamp < $1.value.timestamp }
+            if let oldestKey = sortedKeys.first?.key {
+                responseCache.removeValue(forKey: oldestKey)
+            }
+        }
+        
+        print("💾 Cached response for: \(query.prefix(50))...")
+    }
+}
+
+// MARK: - Cache Types
+
+struct CachedResponse {
+    let response: String
+    let timestamp: Date
 }
 
 // MARK: - Search Support Types

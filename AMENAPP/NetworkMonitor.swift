@@ -9,8 +9,8 @@ import Network
 import SwiftUI
 import Combine
 
-class NetworkMonitor: ObservableObject {
-    static let shared = NetworkMonitor()
+class AMENNetworkMonitor: ObservableObject {
+    static let shared = AMENNetworkMonitor()
     
     private let monitor = NWPathMonitor()
     private let queue = DispatchQueue(label: "NetworkMonitor")
@@ -61,7 +61,7 @@ class NetworkMonitor: ObservableObject {
 // MARK: - SwiftUI View Modifier
 
 struct NetworkStatusBanner: ViewModifier {
-    @ObservedObject var monitor: NetworkMonitor
+    @ObservedObject var monitor: AMENNetworkMonitor
     
     func body(content: Content) -> some View {
         ZStack(alignment: .top) {
@@ -94,7 +94,7 @@ struct NetworkStatusBanner: ViewModifier {
 
 extension View {
     func networkStatusBanner() -> some View {
-        modifier(NetworkStatusBanner(monitor: NetworkMonitor.shared))
+        modifier(NetworkStatusBanner(monitor: AMENNetworkMonitor.shared))
     }
 }
 
@@ -138,7 +138,7 @@ enum ConnectionQuality {
     }
 }
 
-extension NetworkMonitor {
+extension AMENNetworkMonitor {
     var quality: ConnectionQuality {
         if !isConnected {
             return .offline

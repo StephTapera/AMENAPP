@@ -9,7 +9,7 @@
 
 import SwiftUI
 
-struct CleanTextField: View {
+struct ReusableCleanTextField: View {
     let icon: String
     let placeholder: String
     @Binding var text: String
@@ -130,13 +130,13 @@ struct SimpleCleanTextField: View {
 
 #Preview {
     VStack(spacing: 20) {
-        CleanTextField(
+        ReusableCleanTextField(
             icon: "envelope.fill",
             placeholder: "Email",
             text: .constant("")
         )
         
-        CleanTextField(
+        ReusableCleanTextField(
             icon: "lock.fill",
             placeholder: "Password",
             text: .constant(""),

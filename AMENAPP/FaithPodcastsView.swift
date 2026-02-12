@@ -740,8 +740,7 @@ struct PodcastDetailView: View {
     @Environment(\.dismiss) var dismiss
     
     var body: some View {
-        NavigationView {
-            ScrollView {
+        ScrollView {
                 VStack(spacing: 24) {
                     // Large podcast artwork
                     ZStack {
@@ -852,21 +851,38 @@ struct PodcastDetailView: View {
                     Spacer(minLength: 40)
                 }
             }
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
+            .safeAreaInset(edge: .top) {
+                // Custom header with dismiss button
+                HStack {
                     Button {
                         dismiss()
                     } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 28))
-                            .foregroundStyle(.secondary)
+                        ZStack {
+                            Circle()
+                                .fill(.ultraThinMaterial)
+                                .frame(width: 36, height: 36)
+                                .shadow(color: .black.opacity(0.1), radius: 8, y: 2)
+                            
+                            Image(systemName: "xmark")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(.primary)
+                        }
                     }
+                    .buttonStyle(LiquidGlassButtonStyle())
+                    
+                    Spacer()
                 }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
+                .background(
+                    Rectangle()
+                        .fill(.ultraThinMaterial)
+                        .ignoresSafeArea()
+                )
             }
         }
     }
-}
+
 
 struct EpisodeRow: View {
     let episodeNumber: Int
@@ -920,8 +936,7 @@ struct FiltersSheet: View {
     let durationOptions = ["All", "Under 30 min", "30-60 min", "Over 60 min"]
     
     var body: some View {
-        NavigationView {
-            Form {
+        Form {
                 Section("Sort By") {
                     ForEach(sortOptions, id: \.self) { option in
                         Button {
@@ -975,19 +990,30 @@ struct FiltersSheet: View {
                     }
                 }
             }
-            .navigationTitle("Filters")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+            .safeAreaInset(edge: .top) {
+                // Custom header
+                HStack {
+                    Text("Filters")
+                        .font(.custom("OpenSans-Bold", size: 20))
+                    
+                    Spacer()
+                    
                     Button("Done") {
                         dismiss()
                     }
                     .font(.custom("OpenSans-Bold", size: 16))
                 }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 16)
+                .background(
+                    Rectangle()
+                        .fill(Color(.systemBackground))
+                        .ignoresSafeArea()
+                )
             }
         }
     }
-}
+
 
 // MARK: - Button Style
 
