@@ -1683,13 +1683,20 @@ struct LiquidGlassMessageBubble: View {
                         )
                     }
                 }
-                .onLongPressGesture(minimumDuration: 0.5) {
-                    // Haptic feedback
+                .onTapGesture(count: 2) {
+                    // Double-tap to show reactions (like Instagram)
                     let haptic = UIImpactFeedbackGenerator(style: .medium)
                     haptic.impactOccurred()
                     onLongPress()
                 }
                 .contextMenu {
+                    // React button at the top
+                    Button {
+                        onLongPress()
+                    } label: {
+                        Label("React", systemImage: "face.smiling")
+                    }
+
                     Button {
                         onReply()
                     } label: {
@@ -1916,7 +1923,7 @@ struct MediaButton: View {
 // Note: ScaleButtonStyle is defined in SharedUIComponents.swift
 // Note: placeholder(when:alignment:placeholder:) extension is defined in SharedUIComponents.swift
 
-// MARK: - Reaction Picker Overlay
+// MARK: - Reaction Picker Overlay (iMessage/Instagram Style)
 
 struct ReactionPickerOverlay: View {
     let message: AppMessage
@@ -1927,19 +1934,19 @@ struct ReactionPickerOverlay: View {
     private let reactions = ["🙏", "❤️", "🔥", "👍", "😊"]
 
     var body: some View {
-        ZStack {
-            // Dimmed background - tap to dismiss
-            Color.black.opacity(0.4)
-                .ignoresSafeArea()
-                .onTapGesture {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                        isShowing = false
+        GeometryReader { geometry in
+            ZStack(alignment: .top) {
+                // Semi-transparent background - tap to dismiss
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            isShowing = false
+                        }
                     }
-                }
 
-            VStack(spacing: 0) {
-                // Reaction buttons
-                HStack(spacing: 12) {
+                // Reaction buttons hovering near top (like iMessage/Instagram)
+                HStack(spacing: 8) {
                     ForEach(reactions, id: \.self) { emoji in
                         Button(action: {
                             onReaction(emoji)
@@ -1957,77 +1964,52 @@ struct ReactionPickerOverlay: View {
                                             endPoint: .bottomTrailing
                                         )
                                     )
-                                    .frame(width: 56, height: 56)
-                                    .shadow(color: .black.opacity(0.3), radius: 12, y: 4)
+                                    .frame(width: 48, height: 48)
 
                                 // White border
                                 Circle()
                                     .strokeBorder(
                                         LinearGradient(
                                             colors: [
-                                                Color.white.opacity(0.3),
-                                                Color.white.opacity(0.1)
+                                                Color.white.opacity(0.4),
+                                                Color.white.opacity(0.2)
                                             ],
                                             startPoint: .topLeading,
                                             endPoint: .bottomTrailing
                                         ),
                                         lineWidth: 1.5
                                     )
-                                    .frame(width: 56, height: 56)
+                                    .frame(width: 48, height: 48)
 
                                 // Emoji
                                 Text(emoji)
-                                    .font(.system(size: 28))
+                                    .font(.system(size: 24))
                             }
                         }
-                        .buttonStyle(SpringButtonStyle())
+                        .buttonStyle(ScaleButtonStyle())
                     }
                 }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 16)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
                 .background(
-                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    RoundedRectangle(cornerRadius: 30, style: .continuous)
                         .fill(.ultraThinMaterial)
-                        .shadow(color: .black.opacity(0.2), radius: 20, y: 8)
+                        .shadow(color: .black.opacity(0.25), radius: 16, y: 6)
                         .overlay(
-                            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                            RoundedRectangle(cornerRadius: 30, style: .continuous)
                                 .strokeBorder(
-                                    LinearGradient(
-                                        colors: [
-                                            Color.white.opacity(0.3),
-                                            Color.white.opacity(0.1)
-                                        ],
-                                        startPoint: .top,
-                                        endPoint: .bottom
-                                    ),
-                                    lineWidth: 1.5
+                                    Color.white.opacity(0.2),
+                                    lineWidth: 1
                                 )
                         )
                 )
-
-                // Small arrow pointing to message (optional visual enhancement)
-                Triangle()
-                    .fill(.ultraThinMaterial)
-                    .frame(width: 20, height: 10)
-                    .offset(y: -1)
-                    .shadow(color: .black.opacity(0.1), radius: 2, y: 2)
+                .scaleEffect(isShowing ? 1.0 : 0.5)
+                .opacity(isShowing ? 1.0 : 0.0)
+                .animation(.spring(response: 0.35, dampingFraction: 0.7), value: isShowing)
+                .position(x: geometry.size.width / 2, y: 100) // Positioned near top, hovering
             }
-            .scaleEffect(isShowing ? 1.0 : 0.8)
-            .opacity(isShowing ? 1.0 : 0.0)
+            .ignoresSafeArea(.keyboard)
         }
-    }
-}
-
-// MARK: - Triangle Shape for Reaction Picker Arrow
-
-struct Triangle: Shape {
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        path.move(to: CGPoint(x: rect.midX, y: rect.maxY))
-        path.addLine(to: CGPoint(x: rect.minX, y: rect.minY))
-        path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
-        path.closeSubpath()
-        return path
     }
 }
 
