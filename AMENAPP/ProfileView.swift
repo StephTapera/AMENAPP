@@ -881,16 +881,75 @@ struct ProfileView: View {
             print("🔥 Fetching fresh data from Firestore and Realtime DB...")
             
             // 1. Fetch user's own posts from Firestore (where createPost saves them)
+            print("🔍 [POSTS] Starting to fetch posts for userId: \(userId)")
             let postService = FirebasePostService.shared
+            print("🔍 [POSTS] PostService instance: \(postService)")
+
             let fetchedPosts = try await postService.fetchUserPosts(userId: userId)
+            print("🔍 [POSTS] fetchUserPosts returned \(fetchedPosts.count) posts")
+
+            if fetchedPosts.isEmpty {
+                print("⚠️ [POSTS] No posts returned - checking Firestore directly...")
+                let db = Firestore.firestore()
+                let postsSnapshot = try await db.collection("posts")
+                    .whereField("userId", isEqualTo: userId)
+                    .getDocuments()
+                print("🔍 [POSTS] Direct Firestore query returned \(postsSnapshot.documents.count) documents")
+                for (index, doc) in postsSnapshot.documents.prefix(3).enumerated() {
+                    print("   Document \(index + 1): \(doc.documentID)")
+                    print("      Content: \(doc.data()["content"] as? String ?? "N/A")")
+                    print("      Category: \(doc.data()["category"] as? String ?? "N/A")")
+                    print("      UserId: \(doc.data()["userId"] as? String ?? "N/A")")
+                }
+            } else {
+                print("✅ [POSTS] Posts fetched successfully")
+                for (index, post) in fetchedPosts.prefix(3).enumerated() {
+                    print("   Post \(index + 1):")
+                    print("      ID: \(post.id)")
+                    print("      Firestore ID: \(post.firestoreId)")
+                    print("      Content: \(post.content.prefix(50))...")
+                    print("      Category: \(post.category)")
+                    print("      Author ID: \(post.authorId)")
+                }
+            }
+
             userPosts = fetchedPosts
+            print("🔍 [POSTS] userPosts array now has \(userPosts.count) items")
             print("   ✅ Posts loaded from Firestore: \(fetchedPosts.count)")
             
             // 2. Fetch saved posts from Realtime Database
-            print("📦 [PROFILE] Fetching saved posts...")
+            print("🔍 [SAVED] Starting to fetch saved posts for userId: \(userId)")
             let savedPostsService: RealtimeSavedPostsService = .shared
+            print("🔍 [SAVED] SavedPostsService instance: \(savedPostsService)")
+
             let fetchedSavedPosts = try await savedPostsService.fetchSavedPosts()
+            print("🔍 [SAVED] fetchSavedPosts returned \(fetchedSavedPosts.count) posts")
+
+            if fetchedSavedPosts.isEmpty {
+                print("⚠️ [SAVED] No saved posts returned - checking Realtime DB directly...")
+                let rtdb = FirebaseDatabase.Database.database(url: "https://amen-5e359-default-rtdb.firebaseio.com").reference()
+                let savedSnapshot = try await rtdb.child("savedPosts").child(userId).getData()
+                print("🔍 [SAVED] Direct RTDB query exists: \(savedSnapshot.exists())")
+                if savedSnapshot.exists(), let savedData = savedSnapshot.value as? [String: Any] {
+                    print("🔍 [SAVED] Found \(savedData.keys.count) saved post IDs in RTDB")
+                    for (index, postId) in savedData.keys.prefix(3).enumerated() {
+                        print("   Saved Post \(index + 1): \(postId)")
+                    }
+                } else {
+                    print("⚠️ [SAVED] No data in Realtime DB at savedPosts/\(userId)")
+                }
+            } else {
+                print("✅ [SAVED] Saved posts fetched successfully")
+                for (index, post) in fetchedSavedPosts.prefix(3).enumerated() {
+                    print("   Saved Post \(index + 1):")
+                    print("      ID: \(post.id)")
+                    print("      Firestore ID: \(post.firestoreId)")
+                    print("      Content: \(post.content.prefix(50))...")
+                }
+            }
+
             savedPosts = fetchedSavedPosts
+            print("🔍 [SAVED] savedPosts array now has \(savedPosts.count) items")
             print("   ✅ Saved posts loaded: \(fetchedSavedPosts.count)")
             if !fetchedSavedPosts.isEmpty {
                 print("   📋 Saved post IDs: \(fetchedSavedPosts.map { $0.firestoreId }.joined(separator: ", "))")
@@ -899,16 +958,92 @@ struct ProfileView: View {
             }
             
             // 3. Fetch user's comments/replies from Realtime Database (including replies received)
+            print("🔍 [REPLIES] Starting to fetch replies for userId: \(userId)")
             let commentsService = AMENAPP.RealtimeCommentsService.shared
+            print("🔍 [REPLIES] CommentsService instance: \(commentsService)")
+
             let fetchedReplies = try await commentsService.fetchUserCommentInteractions(userId: userId)
+            print("🔍 [REPLIES] fetchUserCommentInteractions returned \(fetchedReplies.count) replies")
+
+            if fetchedReplies.isEmpty {
+                print("⚠️ [REPLIES] No replies returned - checking Realtime DB directly...")
+                let rtdb = FirebaseDatabase.Database.database(url: "https://amen-5e359-default-rtdb.firebaseio.com").reference()
+                let commentsSnapshot = try await rtdb.child("postInteractions").getData()
+                print("🔍 [REPLIES] postInteractions node exists: \(commentsSnapshot.exists())")
+                if commentsSnapshot.exists(), let interactionsData = commentsSnapshot.value as? [String: Any] {
+                    print("🔍 [REPLIES] Found \(interactionsData.keys.count) posts with interactions")
+                    // Check first few posts for comments by this user
+                    var userCommentCount = 0
+                    for (postId, data) in interactionsData.prefix(10) {
+                        if let postData = data as? [String: Any],
+                           let comments = postData["comments"] as? [String: Any] {
+                            for (_, commentData) in comments {
+                                if let comment = commentData as? [String: Any],
+                                   let authorId = comment["userId"] as? String,
+                                   authorId == userId {
+                                    userCommentCount += 1
+                                }
+                            }
+                        }
+                    }
+                    print("🔍 [REPLIES] Found \(userCommentCount) comments by user in first 10 posts")
+                } else {
+                    print("⚠️ [REPLIES] No postInteractions data in RTDB")
+                }
+            } else {
+                print("✅ [REPLIES] Replies fetched successfully")
+                for (index, reply) in fetchedReplies.prefix(3).enumerated() {
+                    print("   Reply \(index + 1):")
+                    print("      ID: \(reply.id)")
+                    print("      Content: \(reply.content.prefix(50))...")
+                    print("      Author ID: \(reply.authorId)")
+                }
+            }
+
             userReplies = fetchedReplies
+            print("🔍 [REPLIES] userReplies array now has \(userReplies.count) items")
             print("   ✅ Replies loaded: \(fetchedReplies.count) (own comments + replies received)")
             
             // 4. Fetch user's reposts from Realtime Database
-            print("📦 [PROFILE] Fetching user reposts for userId: \(userId)...")
+            print("🔍 [REPOSTS] Starting to fetch reposts for userId: \(userId)")
             let repostsService: RealtimeRepostsService = .shared
+            print("🔍 [REPOSTS] RepostsService instance: \(repostsService)")
+
             let fetchedReposts = try await repostsService.fetchUserReposts(userId: userId)
+            print("🔍 [REPOSTS] fetchUserReposts returned \(fetchedReposts.count) reposts")
+
+            if fetchedReposts.isEmpty {
+                print("⚠️ [REPOSTS] No reposts returned - checking Realtime DB directly...")
+                let rtdb = FirebaseDatabase.Database.database(url: "https://amen-5e359-default-rtdb.firebaseio.com").reference()
+                let repostsSnapshot = try await rtdb.child("postInteractions").getData()
+                print("🔍 [REPOSTS] postInteractions node exists: \(repostsSnapshot.exists())")
+                if repostsSnapshot.exists(), let interactionsData = repostsSnapshot.value as? [String: Any] {
+                    var userRepostCount = 0
+                    for (postId, data) in interactionsData.prefix(10) {
+                        if let postData = data as? [String: Any],
+                           let reposts = postData["reposts"] as? [String: Any] {
+                            if reposts.keys.contains(userId) {
+                                userRepostCount += 1
+                                print("   Found repost by user on post: \(postId)")
+                            }
+                        }
+                    }
+                    print("🔍 [REPOSTS] Found \(userRepostCount) reposts by user in first 10 posts")
+                } else {
+                    print("⚠️ [REPOSTS] No postInteractions data in RTDB")
+                }
+            } else {
+                print("✅ [REPOSTS] Reposts fetched successfully")
+                for (index, repost) in fetchedReposts.prefix(3).enumerated() {
+                    print("   Repost \(index + 1):")
+                    print("      ID: \(repost.id)")
+                    print("      Firestore ID: \(repost.firestoreId)")
+                    print("      Content: \(repost.content.prefix(50))...")
+                }
+            }
+
             reposts = fetchedReposts
+            print("🔍 [REPOSTS] reposts array now has \(reposts.count) items")
             print("   ✅ Reposts loaded: \(fetchedReposts.count)")
             if !fetchedReposts.isEmpty {
                 print("   📋 Repost IDs: \(fetchedReposts.map { $0.firestoreId }.joined(separator: ", "))")
@@ -2363,9 +2498,10 @@ struct RepliesContentView: View {
     @Binding var replies: [AMENAPP.Comment]
     @State private var selectedUserId: String?
     @State private var showUserProfile = false
-    
+
     var body: some View {
-        if replies.isEmpty {
+        VStack {
+            if replies.isEmpty {
             // Empty state
             VStack(spacing: 16) {
                 Image(systemName: "bubble.left.and.bubble.right")
@@ -2405,6 +2541,13 @@ struct RepliesContentView: View {
                 if let userId = selectedUserId {
                     UserProfileView(userId: userId)
                 }
+            }
+        }
+        }
+        .onAppear {
+            print("🔍 RepliesContentView appeared - displaying \(replies.count) replies")
+            for (index, reply) in replies.prefix(3).enumerated() {
+                print("   Reply \(index + 1): \(reply.content.prefix(50))... (authorId: \(reply.authorId))")
             }
         }
     }
