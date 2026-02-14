@@ -59,36 +59,100 @@ class AIResourceSearchService {
     /// Analyze search intent using Vertex AI
     private func analyzeSearchIntent(query: String) async throws -> SearchIntent {
         
-        // Create analysis request
-        let requestData: [String: Any] = [
-            "query": query,
-            "timestamp": FieldValue.serverTimestamp()
-        ]
+        // Use enhanced fallback that works immediately
+        print("🔍 [AI SEARCH] Using enhanced keyword analysis...")
+        return analyzeSearchWithKeywords(query: query)
+    }
+    
+    /// Enhanced keyword-based search analysis (more reliable than AI for simple queries)
+    private func analyzeSearchWithKeywords(query: String) -> SearchIntent {
+        let lowercased = query.lowercased()
+        var keywords: [String] = []
+        var categories: [String] = []
+        var intent = "general"
+        var sentiment = "neutral"
+        var urgency = "normal"
         
-        do {
-            // Send to Cloud Function
-            print("📤 [AI SEARCH] Sending request to Cloud Function...")
-            let result = try await db.collection("aiSearchRequests")
-                .addDocument(data: requestData)
-            
-            // Wait for AI response (max 3 seconds)
-            let response = try await waitForSearchResponse(requestId: result.documentID)
-            
-            print("✅ [AI SEARCH] Received AI analysis")
-            return response
-            
-        } catch {
-            print("❌ [AI SEARCH] Error: \(error)")
-            
-            // Fallback: Basic keyword extraction
-            return SearchIntent(
-                intent: "general",
-                keywords: extractBasicKeywords(from: query),
-                categories: [],
-                sentiment: "neutral",
-                urgency: "normal"
-            )
+        // Crisis detection (highest priority)
+        let crisisTerms = ["suicide", "crisis", "emergency", "help me", "urgent", "desperate"]
+        if crisisTerms.contains(where: { lowercased.contains($0) }) {
+            categories.append("Crisis")
+            intent = "help_seeking"
+            urgency = "high"
+            sentiment = "distressed"
         }
+        
+        // Mental health keywords
+        let mentalHealthTerms = ["anxiety", "depression", "mental health", "stress", "therapy", "counseling"]
+        if mentalHealthTerms.contains(where: { lowercased.contains($0) }) {
+            categories.append("Mental Health")
+            keywords.append(contentsOf: mentalHealthTerms.filter { lowercased.contains($0) })
+            if intent == "general" { intent = "help_seeking" }
+        }
+        
+        // Prayer and spiritual
+        let prayerTerms = ["prayer", "pray", "spiritual", "devotional", "worship"]
+        if prayerTerms.contains(where: { lowercased.contains($0) }) {
+            categories.append("Tools")
+            keywords.append(contentsOf: prayerTerms.filter { lowercased.contains($0) })
+            if intent == "general" { intent = "spiritual_growth" }
+        }
+        
+        // Bible study and learning
+        let studyTerms = ["bible", "study", "scripture", "verse", "learn"]
+        if studyTerms.contains(where: { lowercased.contains($0) }) {
+            categories.append("Learning")
+            categories.append("Reading")
+            keywords.append(contentsOf: studyTerms.filter { lowercased.contains($0) })
+            if intent == "general" { intent = "learning" }
+        }
+        
+        // Church and community
+        let communityTerms = ["church", "community", "fellowship", "group", "connect"]
+        if communityTerms.contains(where: { lowercased.contains($0) }) {
+            categories.append("Community")
+            keywords.append(contentsOf: communityTerms.filter { lowercased.contains($0) })
+        }
+        
+        // Giving and charity
+        let givingTerms = ["giving", "donate", "charity", "nonprofit", "help others"]
+        if givingTerms.contains(where: { lowercased.contains($0) }) {
+            categories.append("Giving")
+            keywords.append(contentsOf: givingTerms.filter { lowercased.contains($0) })
+        }
+        
+        // Listening (podcasts, sermons)
+        let listeningTerms = ["podcast", "sermon", "audio", "listen", "preaching"]
+        if listeningTerms.contains(where: { lowercased.contains($0) }) {
+            categories.append("Listening")
+            keywords.append(contentsOf: listeningTerms.filter { lowercased.contains($0) })
+        }
+        
+        // Reading (books, articles)
+        let readingTerms = ["book", "read", "article", "blog"]
+        if readingTerms.contains(where: { lowercased.contains($0) }) {
+            categories.append("Reading")
+            keywords.append(contentsOf: readingTerms.filter { lowercased.contains($0) })
+        }
+        
+        // If no specific categories found, extract general keywords
+        if keywords.isEmpty {
+            keywords = extractBasicKeywords(from: query)
+        }
+        
+        // Remove duplicates
+        keywords = Array(Set(keywords))
+        categories = Array(Set(categories))
+        
+        print("🤖 [ENHANCED SEARCH] Intent: \(intent), Categories: \(categories.joined(separator: ", "))")
+        
+        return SearchIntent(
+            intent: intent,
+            keywords: keywords,
+            categories: categories,
+            sentiment: sentiment,
+            urgency: urgency
+        )
     }
     
     /// Wait for AI search analysis response

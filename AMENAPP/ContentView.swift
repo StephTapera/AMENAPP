@@ -3110,43 +3110,11 @@ struct OpenTableView: View {
                 .padding(.horizontal)
                 .padding(.vertical, 8)
                 
-                // Community Section - Enhanced with smart colors
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Community")
-                        .font(.custom("OpenSans-Bold", size: 16))
-                        .padding(.horizontal)
-                    
-                    HStack(spacing: 12) {
-                        SmartCommunityCard(
-                            icon: "star.fill",
-                            iconColor: Color(red: 1.0, green: 0.84, blue: 0.0), // Gold
-                            title: "Top Ideas",
-                            subtitle: "This Week",
-                            backgroundColor: Color(red: 1.0, green: 0.98, blue: 0.92),
-                            accentColor: Color(red: 1.0, green: 0.84, blue: 0.0)
-                        ) {
-                            showTopIdeas = true
-                        }
-                        
-                        SmartCommunityCard(
-                            icon: "sparkles",
-                            iconColor: Color(red: 0.6, green: 0.5, blue: 1.0), // Soft purple
-                            title: "Spotlight",
-                            subtitle: "Featured",
-                            backgroundColor: Color(red: 0.95, green: 0.94, blue: 1.0),
-                            accentColor: Color(red: 0.6, green: 0.5, blue: 1.0)
-                        ) {
-                            showSpotlight = true
-                        }
-                    }
-                    .padding(.horizontal)
-                }
-                .sheet(isPresented: $showTopIdeas) {
-                    TopIdeasView()
-                }
-                .sheet(isPresented: $showSpotlight) {
-                    SpotlightView()
-                }
+                // Community Section - Collapsible with Liquid Glass Design
+                CollapsibleCommunitySection(
+                    showTopIdeas: $showTopIdeas,
+                    showSpotlight: $showSpotlight
+                )
                 
                 // Trending Section - Collapsible
                 CollapsibleTrendingSection()
@@ -3372,6 +3340,241 @@ struct CollapsibleTrendingSection: View {
                 ))
             }
         }
+    }
+}
+
+// MARK: - Collapsible Community Section
+
+struct CollapsibleCommunitySection: View {
+    @AppStorage("communitySectionExpanded") private var isExpanded = true
+    @Binding var showTopIdeas: Bool
+    @Binding var showSpotlight: Bool
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Header with expand/collapse button
+            Button {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    isExpanded.toggle()
+                }
+                
+                let haptic = UIImpactFeedbackGenerator(style: .light)
+                haptic.impactOccurred()
+            } label: {
+                HStack {
+                    Text("Community")
+                        .font(.custom("OpenSans-Bold", size: 16))
+                        .foregroundStyle(.primary)
+                    
+                    Spacer()
+                    
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                        .rotationEffect(.degrees(isExpanded ? 0 : 180))
+                }
+                .padding(.horizontal)
+            }
+            .buttonStyle(PlainButtonStyle())
+            
+            // Community Cards - Liquid Glass Design
+            if isExpanded {
+                HStack(spacing: 12) {
+                    LiquidGlassCommunityCard(
+                        icon: "star.fill",
+                        iconColor: Color.white, // White star
+                        backgroundGradientTop: Color(red: 0.15, green: 0.18, blue: 0.22), // Deep slate blue-gray
+                        backgroundGradientBottom: Color(red: 0.20, green: 0.24, blue: 0.28), // Lighter slate
+                        useBurgundyStyle: true,
+                        title: "Top Ideas",
+                        subtitle: "This Week"
+                    ) {
+                        showTopIdeas = true
+                    }
+                    
+                    LiquidGlassCommunityCard(
+                        icon: "lightbulb.fill",
+                        iconColor: Color.white, // White lightbulb
+                        backgroundGradientTop: Color(red: 0.55, green: 0.09, blue: 0.13), // Rich red-burgundy
+                        backgroundGradientBottom: Color(red: 0.65, green: 0.12, blue: 0.16), // Brighter burgundy
+                        useBurgundyStyle: true,
+                        title: "Spotlight",
+                        subtitle: "Featured"
+                    ) {
+                        showSpotlight = true
+                    }
+                }
+                .padding(.horizontal)
+                .transition(.asymmetric(
+                    insertion: .opacity.combined(with: .scale(scale: 0.95)).animation(.spring(response: 0.3, dampingFraction: 0.8)),
+                    removal: .opacity.combined(with: .scale(scale: 0.95)).animation(.spring(response: 0.3, dampingFraction: 0.8))
+                ))
+            }
+        }
+        .sheet(isPresented: $showTopIdeas) {
+            TopIdeasView()
+        }
+        .sheet(isPresented: $showSpotlight) {
+            SpotlightView()
+        }
+    }
+}
+
+// MARK: - Liquid Glass Community Card (Black & White with Color Accents)
+
+struct LiquidGlassCommunityCard: View {
+    let icon: String
+    let iconColor: Color
+    var backgroundGradientTop: Color? = nil
+    var backgroundGradientBottom: Color? = nil
+    var useBurgundyStyle: Bool = false
+    let title: String
+    let subtitle: String
+    let action: () -> Void
+    
+    @State private var isPressed = false
+    
+    var body: some View {
+        Button(action: {
+            let haptic = UIImpactFeedbackGenerator(style: .light)
+            haptic.impactOccurred()
+            action()
+        }) {
+            HStack(spacing: 10) {
+                // Icon with color accent
+                ZStack {
+                    Circle()
+                        .fill(iconColor.opacity(useBurgundyStyle ? 0.4 : 0.3))
+                        .frame(width: 32, height: 32)
+                    
+                    Image(systemName: icon)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(iconColor)
+                        .symbolEffect(.bounce, value: isPressed)
+                }
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.custom("OpenSans-Bold", size: 13))
+                        .foregroundStyle(.white)
+                    
+                    Text(subtitle)
+                        .font(.custom("OpenSans-Regular", size: 10))
+                        .foregroundStyle(.white.opacity(useBurgundyStyle ? 0.9 : 0.8))
+                }
+                
+                Spacer()
+                
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.white.opacity(useBurgundyStyle ? 0.7 : 0.6))
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background(
+                ZStack {
+                    // Rich burgundy background with full opacity
+                    if useBurgundyStyle {
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(.thinMaterial)
+                            .background(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [
+                                                backgroundGradientTop ?? Color.black,
+                                                backgroundGradientBottom ?? Color.black
+                                            ],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
+                                    )
+                            )
+                    } else {
+                        // Dark frosted glass background (default)
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(.ultraThinMaterial)
+                            .background(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [
+                                                (backgroundGradientTop ?? Color.black).opacity(0.7),
+                                                (backgroundGradientBottom ?? Color.black).opacity(0.5)
+                                            ],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
+                                    )
+                            )
+                    }
+                    
+                    // Enhanced color accent overlay for burgundy style
+                    if useBurgundyStyle {
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        iconColor.opacity(0.12),
+                                        iconColor.opacity(0.04)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                    } else {
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        iconColor.opacity(0.2),
+                                        iconColor.opacity(0.08)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                    }
+                    
+                    // Glass highlight (top reflection)
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color.white.opacity(useBurgundyStyle ? 0.12 : 0.1),
+                                    Color.clear
+                                ],
+                                startPoint: .top,
+                                endPoint: .center
+                            )
+                        )
+                    
+                    // Border only for default style (no border for burgundy)
+                    if !useBurgundyStyle {
+                        RoundedRectangle(cornerRadius: 16)
+                            .strokeBorder(
+                                LinearGradient(
+                                    colors: [
+                                        Color.white.opacity(0.4),
+                                        Color.white.opacity(0.15)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 1.5
+                            )
+                    }
+                }
+            )
+            .scaleEffect(isPressed ? 0.98 : 1.0)
+        }
+        .buttonStyle(PlainButtonStyle())
+        .onLongPressGesture(minimumDuration: .infinity, maximumDistance: .infinity, pressing: { pressing in
+            withAnimation(.smooth(duration: 0.2)) {
+                isPressed = pressing
+            }
+        }, perform: {})
     }
 }
 

@@ -918,6 +918,15 @@ struct PostCard: View {
     
     // MARK: - Card Content
     
+    // MARK: - Swipe Gesture State
+    @State private var swipeOffset: CGFloat = 0
+    @State private var showSwipeAction = false
+    @State private var swipeDirection: SwipeDirection = .none
+    
+    enum SwipeDirection {
+        case none, left, right
+    }
+    
     private var cardContent: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Header with author info and menu
@@ -994,10 +1003,130 @@ struct PostCard: View {
                 .padding(.bottom, 20)
         }
         .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(Color(.systemBackground))
-                .shadow(color: .black.opacity(0.06), radius: 12, y: 4)
+            ZStack {
+                // Swipe action indicators
+                if abs(swipeOffset) > 20 {
+                    HStack {
+                        if swipeDirection == .right {
+                            // Like/Amen indicator on left
+                            swipeIndicator(
+                                icon: category == .openTable ? "lightbulb.fill" : "hands.sparkles.fill",
+                                color: category == .openTable ? .yellow : .purple,
+                                text: category == .openTable ? "Light" : "Amen"
+                            )
+                            .opacity(min(Double(abs(swipeOffset)) / 80.0, 1.0))
+                            .padding(.leading, 20)
+                            Spacer()
+                        } else if swipeDirection == .left {
+                            // Comment indicator on right
+                            Spacer()
+                            swipeIndicator(
+                                icon: "bubble.left.fill",
+                                color: .blue,
+                                text: "Comment"
+                            )
+                            .opacity(min(Double(abs(swipeOffset)) / 80.0, 1.0))
+                            .padding(.trailing, 20)
+                        }
+                    }
+                }
+                
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(Color(.systemBackground))
+                    .shadow(color: .black.opacity(0.06), radius: 12, y: 4)
+            }
         )
+        .offset(x: swipeOffset)
+        .gesture(
+            DragGesture(minimumDistance: 20)
+                .onChanged { value in
+                    // Only respond to predominantly horizontal swipes
+                    let horizontalAmount = abs(value.translation.width)
+                    let verticalAmount = abs(value.translation.height)
+                    
+                    // Require horizontal movement to be significantly more than vertical
+                    // This allows vertical scrolling to work normally
+                    guard horizontalAmount > verticalAmount * 2 else {
+                        return
+                    }
+                    
+                    // Determine swipe direction
+                    if value.translation.width > 20 {
+                        swipeDirection = .right
+                        swipeOffset = min(value.translation.width, 100)
+                    } else if value.translation.width < -20 {
+                        swipeDirection = .left
+                        swipeOffset = max(value.translation.width, -100)
+                    }
+                }
+                .onEnded { value in
+                    let threshold: CGFloat = 60
+                    let horizontalAmount = abs(value.translation.width)
+                    let verticalAmount = abs(value.translation.height)
+                    
+                    // Only trigger action if this was a horizontal swipe
+                    guard horizontalAmount > verticalAmount * 2 else {
+                        // Reset without triggering action
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            swipeOffset = 0
+                            swipeDirection = .none
+                        }
+                        return
+                    }
+                    
+                    if swipeDirection == .right && swipeOffset > threshold {
+                        // Trigger like/amen action
+                        triggerSwipeLikeAction()
+                    } else if swipeDirection == .left && abs(swipeOffset) > threshold {
+                        // Trigger comment action
+                        triggerSwipeCommentAction()
+                    }
+                    
+                    // Reset with animation
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        swipeOffset = 0
+                        swipeDirection = .none
+                    }
+                }
+        )
+    }
+    
+    private func swipeIndicator(icon: String, color: Color, text: String) -> some View {
+        VStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 28, weight: .medium))
+                .foregroundColor(color)
+            Text(text)
+                .font(.custom("OpenSans-SemiBold", size: 12))
+                .foregroundColor(color)
+        }
+        .scaleEffect(min(Double(abs(swipeOffset)) / 60.0, 1.2))
+        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: swipeOffset)
+    }
+    
+    private func triggerSwipeLikeAction() {
+        let haptic = UIImpactFeedbackGenerator(style: .medium)
+        haptic.impactOccurred()
+        
+        if category == .openTable {
+            // Toggle lightbulb
+            Task {
+                await toggleLightbulb()
+            }
+        } else {
+            // Toggle amen
+            Task {
+                await toggleAmen()
+            }
+        }
+    }
+    
+    private func triggerSwipeCommentAction() {
+        let haptic = UIImpactFeedbackGenerator(style: .light)
+        haptic.impactOccurred()
+        
+        // Open comments sheet
+        showCommentsSheet = true
     }
     
     private func repostIndicator(originalAuthor: String) -> some View {

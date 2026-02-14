@@ -41,6 +41,12 @@ struct BereanAIAssistantView: View {
     @State private var showErrorBanner = false
     @ObservedObject private var networkMonitor = AMENNetworkMonitor.shared
     @ObservedObject private var dataManager = BereanDataManager.shared
+    @ObservedObject private var premiumManager = PremiumManager.shared
+    
+    // Advanced AI features
+    @State private var showDevotionalGenerator = false
+    @State private var showStudyPlanner = false
+    @State private var showScriptureAnalyzer = false
     
     var body: some View {
         ZStack {
@@ -306,6 +312,16 @@ struct BereanAIAssistantView: View {
         .sheet(isPresented: $showPremiumUpgrade) {
             PremiumUpgradeView()
         }
+        // ✅ Advanced AI Features
+        .sheet(isPresented: $showDevotionalGenerator) {
+            DevotionalGeneratorView()
+        }
+        .sheet(isPresented: $showStudyPlanner) {
+            StudyPlanGeneratorView()
+        }
+        .sheet(isPresented: $showScriptureAnalyzer) {
+            ScriptureAnalyzerView()
+        }
         .onAppear {
             checkOnboardingStatus()
             setupKeyboardObservers()
@@ -535,25 +551,45 @@ struct BereanAIAssistantView: View {
             }
         } label: {
             HStack(spacing: 4) {
-                Image(systemName: "crown.fill")
-                    .font(.system(size: 11, weight: .medium))
-                Text("Pro")
-                    .font(.system(size: 11, weight: .semibold))
-                    .tracking(0.5)
+                if premiumManager.hasProAccess {
+                    // Pro badge for premium users
+                    Image(systemName: "crown.fill")
+                        .font(.system(size: 11, weight: .medium))
+                    Text("Pro")
+                        .font(.system(size: 11, weight: .semibold))
+                        .tracking(0.5)
+                } else {
+                    // Usage indicator for free tier
+                    Image(systemName: premiumManager.freeMessagesRemaining > 3 ? "sparkles" : "exclamationmark.triangle.fill")
+                        .font(.system(size: 10, weight: .medium))
+                    Text("\(premiumManager.freeMessagesRemaining)")
+                        .font(.system(size: 11, weight: .bold))
+                        .monospacedDigit()
+                }
             }
             .foregroundStyle(
-                LinearGradient(
-                    colors: [Color(red: 1.0, green: 0.75, blue: 0.4), Color(red: 1.0, green: 0.6, blue: 0.3)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
+                premiumManager.hasProAccess ?
+                    // Gold gradient for Pro
+                    LinearGradient(
+                        colors: [Color(red: 1.0, green: 0.75, blue: 0.4), Color(red: 1.0, green: 0.6, blue: 0.3)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ) :
+                    // Subtle warning colors for free tier
+                    LinearGradient(
+                        colors: premiumManager.freeMessagesRemaining > 3 ? 
+                            [Color(white: 0.4), Color(white: 0.35)] : 
+                            [Color.orange, Color.red],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
             )
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
             .background(
                 Capsule()
-                    .fill(Color.white.opacity(0.7))
-                    .shadow(color: Color(red: 1.0, green: 0.6, blue: 0.3).opacity(0.2), radius: 8, y: 2)
+                    .fill(Color.white.opacity(premiumManager.hasProAccess ? 0.7 : 0.6))
+                    .shadow(color: premiumManager.hasProAccess ? Color(red: 1.0, green: 0.6, blue: 0.3).opacity(0.2) : Color.black.opacity(0.05), radius: 8, y: 2)
             )
         }
     }
@@ -594,6 +630,60 @@ struct BereanAIAssistantView: View {
                 showNewConversationAlert = true
             } label: {
                 Label("New Conversation", systemImage: "plus.circle")
+            }
+            
+            Divider()
+            
+            // ✅ Advanced AI Features (Premium)
+            Button {
+                if premiumManager.hasProAccess {
+                    showDevotionalGenerator = true
+                } else {
+                    showPremiumUpgrade = true
+                }
+            } label: {
+                HStack {
+                    Label("Daily Devotional", systemImage: "book.pages.fill")
+                    if !premiumManager.hasProAccess {
+                        Image(systemName: "crown.fill")
+                            .font(.system(size: 9))
+                            .foregroundStyle(.orange)
+                    }
+                }
+            }
+            
+            Button {
+                if premiumManager.hasProAccess {
+                    showStudyPlanner = true
+                } else {
+                    showPremiumUpgrade = true
+                }
+            } label: {
+                HStack {
+                    Label("Study Plan Generator", systemImage: "calendar.badge.plus")
+                    if !premiumManager.hasProAccess {
+                        Image(systemName: "crown.fill")
+                            .font(.system(size: 9))
+                            .foregroundStyle(.orange)
+                    }
+                }
+            }
+            
+            Button {
+                if premiumManager.hasProAccess {
+                    showScriptureAnalyzer = true
+                } else {
+                    showPremiumUpgrade = true
+                }
+            } label: {
+                HStack {
+                    Label("Scripture Analyzer", systemImage: "text.magnifyingglass")
+                    if !premiumManager.hasProAccess {
+                        Image(systemName: "crown.fill")
+                            .font(.system(size: 9))
+                            .foregroundStyle(.orange)
+                    }
+                }
             }
             
             Divider()
@@ -1193,6 +1283,24 @@ struct BereanAIAssistantView: View {
             return
         }
         
+        // ✅ Check Premium limits FIRST
+        guard premiumManager.canSendMessage() else {
+            print("❌ Message limit reached")
+            showError = .rateLimitExceeded
+            showErrorBanner = true
+            
+            // Show upgrade prompt after short delay
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                withAnimation(.easeOut(duration: 0.3)) {
+                    showPremiumUpgrade = true
+                }
+            }
+            
+            let haptic = UINotificationFeedbackGenerator()
+            haptic.notificationOccurred(.warning)
+            return
+        }
+        
         // Validate message length
         guard trimmedText.count <= 2000 else {
             showError = .unknown("Message is too long. Please keep it under 2000 characters.")
@@ -1268,6 +1376,10 @@ struct BereanAIAssistantView: View {
                 if let lastIndex = viewModel.messages.lastIndex(where: { $0.role == .assistant }) {
                     viewModel.messages[lastIndex] = finalMessage
                 }
+                
+                // ✅ Track usage for free tier users
+                premiumManager.incrementMessageCount()
+                print("📊 Message count updated: \(premiumManager.freeMessagesUsed)/\(premiumManager.FREE_MESSAGES_PER_DAY)")
                 
                 withAnimation(.easeOut(duration: 0.3)) {
                     isThinking = false

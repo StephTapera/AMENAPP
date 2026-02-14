@@ -38,9 +38,8 @@ struct CommentsView: View {
     
     @FocusState private var isInputFocused: Bool
     
-    var body: some View {
+    private var headerView: some View {
         VStack(spacing: 0) {
-            // Header with Liquid Glass Close Button
             HStack {
                 Text("Comments")
                     .font(.custom("OpenSans-Bold", size: 18))
@@ -52,11 +51,8 @@ struct CommentsView: View {
                     .font(.custom("OpenSans-Regular", size: 14))
                     .foregroundStyle(.black.opacity(0.6))
                 
-                // Liquid Glass Close Button
                 Button {
                     dismiss()
-                    
-                    // Haptic feedback
                     let haptic = UIImpactFeedbackGenerator(style: .light)
                     haptic.impactOccurred()
                 } label: {
@@ -81,6 +77,12 @@ struct CommentsView: View {
             .background(Color(red: 0.98, green: 0.98, blue: 0.98))
             
             Divider()
+        }
+    }
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            headerView
             
             // Comments List with ScrollViewReader for smooth scrolling
             ScrollViewReader { proxy in
