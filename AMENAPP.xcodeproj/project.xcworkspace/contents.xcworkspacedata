@@ -4,16 +4,4 @@
    <FileRef
       location = "self:">
    </FileRef>
-   <FileRef
-      location = "group:REPOST_DOUBLE_DIALOGUE_DEBUG.md">
-   </FileRef>
-   <FileRef
-      location = "group:REPOST_INSTANT_TOGGLE_COMPLETE.md">
-   </FileRef>
-   <FileRef
-      location = "group:RESOURCES_VIEW_CLEANUP_COMPLETE.md">
-   </FileRef>
-   <FileRef
-      location = "group:MENTIONS_IMPLEMENTATION_COMPLETE.md">
-   </FileRef>
 </Workspace>

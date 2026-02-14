@@ -249,7 +249,7 @@ class BereanGenkitService: ObservableObject {
     
     // MARK: - Scripture Analysis
     
-    func analyzeScripture(reference: String, analysisType: AnalysisType) async throws -> String {
+    func analyzeScripture(reference: String, analysisType: ScriptureAnalysisType) async throws -> String {
         isProcessing = true
         defer { isProcessing = false }
         

@@ -2001,6 +2001,14 @@ struct ProfilePostCard: View {
     @State private var amenCount = 0
     @State private var commentCount = 0
     
+    // Swipe gesture state
+    @State private var swipeOffset: CGFloat = 0
+    @State private var swipeDirection: SwipeDirection = .none
+    
+    enum SwipeDirection {
+        case none, left, right
+    }
+    
     @StateObject private var postsManager = PostsManager.shared
     @StateObject private var interactionsService = PostInteractionsService.shared
     
@@ -2105,6 +2113,33 @@ struct ProfilePostCard: View {
         .background(
             // ✨ BLACK & WHITE GLASSMORPHIC DESIGN
             ZStack {
+                // Swipe action indicators
+                if abs(swipeOffset) > 20 {
+                    HStack {
+                        if swipeDirection == .right {
+                            // Like/Amen indicator on left
+                            swipeIndicator(
+                                icon: post.category == .openTable ? "lightbulb.fill" : "hands.sparkles.fill",
+                                color: post.category == .openTable ? .yellow : .purple,
+                                text: post.category == .openTable ? "Light" : "Amen"
+                            )
+                            .opacity(min(Double(abs(swipeOffset)) / 80.0, 1.0))
+                            .padding(.leading, 20)
+                            Spacer()
+                        } else if swipeDirection == .left {
+                            // Comment indicator on right
+                            Spacer()
+                            swipeIndicator(
+                                icon: "bubble.left.fill",
+                                color: .blue,
+                                text: "Comment"
+                            )
+                            .opacity(min(Double(abs(swipeOffset)) / 80.0, 1.0))
+                            .padding(.trailing, 20)
+                        }
+                    }
+                }
+                
                 // Base white background
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
                     .fill(Color.white)
@@ -2139,6 +2174,51 @@ struct ProfilePostCard: View {
             }
             .shadow(color: .black.opacity(0.08), radius: 16, x: 0, y: 4)
             .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
+        )
+        .offset(x: swipeOffset)
+        .gesture(
+            DragGesture(minimumDistance: 20)
+                .onChanged { value in
+                    // Only respond to predominantly horizontal swipes
+                    let horizontalAmount = abs(value.translation.width)
+                    let verticalAmount = abs(value.translation.height)
+                    
+                    guard horizontalAmount > verticalAmount * 2 else {
+                        return
+                    }
+                    
+                    if value.translation.width > 20 {
+                        swipeDirection = .right
+                        swipeOffset = min(value.translation.width, 100)
+                    } else if value.translation.width < -20 {
+                        swipeDirection = .left
+                        swipeOffset = max(value.translation.width, -100)
+                    }
+                }
+                .onEnded { value in
+                    let threshold: CGFloat = 60
+                    let horizontalAmount = abs(value.translation.width)
+                    let verticalAmount = abs(value.translation.height)
+                    
+                    guard horizontalAmount > verticalAmount * 2 else {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            swipeOffset = 0
+                            swipeDirection = .none
+                        }
+                        return
+                    }
+                    
+                    if swipeDirection == .right && swipeOffset > threshold {
+                        triggerSwipeLikeAction()
+                    } else if swipeDirection == .left && abs(swipeOffset) > threshold {
+                        triggerSwipeCommentAction()
+                    }
+                    
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        swipeOffset = 0
+                        swipeDirection = .none
+                    }
+                }
         )
         .sheet(isPresented: $showingEditSheet) {
             EditPostSheet(post: post)
@@ -2326,6 +2406,41 @@ struct ProfilePostCard: View {
         let thirtyMinutesAgo = Date().addingTimeInterval(-30 * 60)
         return post.createdAt >= thirtyMinutesAgo
     }
+    
+    // MARK: - Swipe Gesture Helpers
+    
+    private func swipeIndicator(icon: String, color: Color, text: String) -> some View {
+        VStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 28, weight: .medium))
+                .foregroundColor(color)
+            Text(text)
+                .font(.custom("OpenSans-SemiBold", size: 12))
+                .foregroundColor(color)
+        }
+        .scaleEffect(min(Double(abs(swipeOffset)) / 60.0, 1.2))
+        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: swipeOffset)
+    }
+    
+    private func triggerSwipeLikeAction() {
+        let haptic = UIImpactFeedbackGenerator(style: .medium)
+        haptic.impactOccurred()
+        
+        if post.category == .openTable {
+            toggleLightbulb()
+        } else {
+            toggleAmen()
+        }
+    }
+    
+    private func triggerSwipeCommentAction() {
+        let haptic = UIImpactFeedbackGenerator(style: .light)
+        haptic.impactOccurred()
+        
+        showCommentsSheet = true
+    }
+    
+    // MARK: - Actions
     
     private func toggleLightbulb() {
         withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) {

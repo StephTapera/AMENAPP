@@ -379,7 +379,7 @@ struct PeopleSearchResultsView: View {
                 LazyVStack(spacing: 16) {
                     ForEach(viewModel.users) { user in
                         NavigationLink(destination: UserProfileView(userId: user.id ?? "")) {
-                            DiscoveryUserCard(user: user)
+                            SimpleUserCard(user: user)
                         }
                         .buttonStyle(PlainButtonStyle())
                     }
@@ -603,5 +603,65 @@ struct FollowerQuickActions {
  .withFollowButton(for: "user-id-123")
 
 */
+
+// MARK: - Simple User Card
+
+struct SimpleUserCard: View {
+    let user: UserModel
+    @StateObject private var followService = FollowService.shared
+    @State private var isFollowing = false
+    
+    var body: some View {
+        HStack(spacing: 14) {
+            // Profile Photo
+            ZStack {
+                Circle()
+                    .fill(Color.primary.opacity(0.1))
+                    .frame(width: 48, height: 48)
+                
+                if let photoURL = user.profileImageURL, !photoURL.isEmpty {
+                    AsyncImage(url: URL(string: photoURL)) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .frame(width: 48, height: 48)
+                                .clipShape(Circle())
+                        case .failure, .empty:
+                            Image(systemName: "person.circle.fill")
+                                .font(.system(size: 48))
+                                .foregroundStyle(.secondary)
+                        @unknown default:
+                            EmptyView()
+                        }
+                    }
+                } else {
+                    Image(systemName: "person.circle.fill")
+                        .font(.system(size: 48))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            
+            // User Info
+            VStack(alignment: .leading, spacing: 4) {
+                Text(user.displayName ?? "Unknown User")
+                    .font(.custom("OpenSans-SemiBold", size: 16))
+                    .foregroundStyle(.primary)
+                
+                if !user.username.isEmpty {
+                    Text("@\(user.username)")
+                        .font(.custom("OpenSans-Regular", size: 14))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(Color(.systemBackground))
+    }
+}
 
 

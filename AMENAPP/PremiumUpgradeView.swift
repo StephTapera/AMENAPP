@@ -3,6 +3,7 @@
 //  AMENAPP
 //
 //  Enhanced premium upgrade sheet with StoreKit 2
+//  Black & White Liquid Glass Design for Berean Pro
 //
 
 import SwiftUI
@@ -19,45 +20,100 @@ struct PremiumUpgradeView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                // Premium gradient background
-                LinearGradient(
-                    colors: [
-                        Color(red: 0.1, green: 0.05, blue: 0.15),
-                        Color(red: 0.15, green: 0.1, blue: 0.2),
-                        Color.black
-                    ],
-                    startPoint: animateGradient ? .topLeading : .bottomLeading,
-                    endPoint: animateGradient ? .bottomTrailing : .topTrailing
-                )
+                // Liquid Glass: Black gradient background with subtle depth
+                ZStack {
+                    // Deep black base
+                    LinearGradient(
+                        colors: [
+                            Color.black,
+                            Color(white: 0.05),
+                            Color.black
+                        ],
+                        startPoint: animateGradient ? .topLeading : .bottomLeading,
+                        endPoint: animateGradient ? .bottomTrailing : .topTrailing
+                    )
+                    
+                    // Liquid glass orbs - subtle white glows
+                    GeometryReader { geometry in
+                        ZStack {
+                            // Top right glow
+                            Circle()
+                                .fill(
+                                    RadialGradient(
+                                        colors: [
+                                            Color.white.opacity(0.08),
+                                            Color.white.opacity(0.03),
+                                            Color.clear
+                                        ],
+                                        center: .center,
+                                        startRadius: 50,
+                                        endRadius: 300
+                                    )
+                                )
+                                .frame(width: 600, height: 600)
+                                .offset(x: geometry.size.width * 0.7, y: -150)
+                                .blur(radius: 80)
+                            
+                            // Bottom left glow
+                            Circle()
+                                .fill(
+                                    RadialGradient(
+                                        colors: [
+                                            Color.white.opacity(0.06),
+                                            Color.white.opacity(0.02),
+                                            Color.clear
+                                        ],
+                                        center: .center,
+                                        startRadius: 50,
+                                        endRadius: 280
+                                    )
+                                )
+                                .frame(width: 500, height: 500)
+                                .offset(x: -120, y: geometry.size.height * 0.8)
+                                .blur(radius: 70)
+                        }
+                    }
+                }
                 .ignoresSafeArea()
-                .animation(.easeInOut(duration: 3).repeatForever(autoreverses: true), value: animateGradient)
+                .animation(.easeInOut(duration: 4).repeatForever(autoreverses: true), value: animateGradient)
 
                 ScrollView(showsIndicators: false) {
-                    VStack(spacing: 24) {
-                        // Hero Section
-                        VStack(spacing: 16) {
-                            // Crown icon with glow
+                    VStack(spacing: 28) {
+                        // Hero Section - Minimalist Liquid Glass
+                        VStack(spacing: 20) {
+                            // Sparkles icon with white glow (Berean branding)
                             ZStack {
+                                // Soft white glow
                                 Circle()
                                     .fill(
                                         RadialGradient(
                                             colors: [
-                                                Color(red: 1.0, green: 0.6, blue: 0.0).opacity(0.4),
+                                                Color.white.opacity(0.15),
+                                                Color.white.opacity(0.05),
                                                 Color.clear
                                             ],
                                             center: .center,
                                             startRadius: 0,
-                                            endRadius: 50
+                                            endRadius: 60
                                         )
                                     )
-                                    .frame(width: 100, height: 100)
-                                    .blur(radius: 20)
+                                    .frame(width: 120, height: 120)
+                                    .blur(radius: 30)
 
-                                Image(systemName: "crown.fill")
-                                    .font(.system(size: 50, weight: .bold))
+                                // Glass morphism circle
+                                Circle()
+                                    .fill(.ultraThinMaterial)
+                                    .frame(width: 90, height: 90)
+                                    .overlay(
+                                        Circle()
+                                            .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                                    )
+
+                                Image(systemName: "sparkles")
+                                    .font(.system(size: 42, weight: .light))
                                     .foregroundStyle(
                                         LinearGradient(
-                                            colors: [Color(red: 1.0, green: 0.84, blue: 0.0), Color(red: 1.0, green: 0.6, blue: 0.0)],
+                                            colors: [Color.white, Color.white.opacity(0.8)],
                                             startPoint: .topLeading,
                                             endPoint: .bottomTrailing
                                         )
@@ -65,62 +121,59 @@ struct PremiumUpgradeView: View {
                                     .symbolEffect(.pulse.byLayer, options: .repeating)
                             }
 
-                            Text("Upgrade to Pro")
-                                .font(.custom("OpenSans-Bold", size: 32))
+                            Text("Berean Pro")
+                                .font(.custom("Georgia", size: 38))
+                                .fontWeight(.light)
                                 .foregroundStyle(.white)
+                                .tracking(1)
 
-                            Text("Unlimited AI Bible Study\n& Premium Features")
-                                .font(.custom("OpenSans-Regular", size: 16))
-                                .foregroundStyle(.white.opacity(0.7))
+                            Text("Unlimited AI Bible Study")
+                                .font(.system(size: 16, weight: .regular))
+                                .foregroundStyle(.white.opacity(0.6))
+                                .tracking(0.5)
                                 .multilineTextAlignment(.center)
                         }
-                        .padding(.top, 20)
+                        .padding(.top, 30)
 
-                        // Features
-                        VStack(spacing: 16) {
-                            PremiumFeatureRow(
+                        // Features - Liquid Glass Cards
+                        VStack(spacing: 12) {
+                            LiquidGlassFeatureRow(
                                 icon: "infinity",
                                 title: "Unlimited Messages",
-                                description: "Ask as many questions as you want",
-                                iconColor: .blue
+                                description: "Ask as many questions as you want"
                             )
 
-                            PremiumFeatureRow(
+                            LiquidGlassFeatureRow(
                                 icon: "sparkles",
                                 title: "Advanced AI Features",
-                                description: "Devotionals, study plans & analysis",
-                                iconColor: .purple
+                                description: "Devotionals, study plans & analysis"
                             )
 
-                            PremiumFeatureRow(
+                            LiquidGlassFeatureRow(
                                 icon: "book.closed.fill",
                                 title: "Priority Support",
-                                description: "Faster responses & dedicated help",
-                                iconColor: .orange
+                                description: "Faster responses & dedicated help"
                             )
 
-                            PremiumFeatureRow(
+                            LiquidGlassFeatureRow(
                                 icon: "arrow.triangle.2.circlepath",
                                 title: "Conversation History",
-                                description: "Save & sync across devices",
-                                iconColor: .green
+                                description: "Save & sync across devices"
                             )
 
-                            PremiumFeatureRow(
-                                icon: "waveform",
-                                title: "Voice Input",
-                                description: "Ask questions with your voice",
-                                iconColor: .pink
+                            LiquidGlassFeatureRow(
+                                icon: "bookmark.fill",
+                                title: "Save Messages",
+                                description: "Bookmark insights for later"
                             )
 
-                            PremiumFeatureRow(
-                                icon: "bell.badge.fill",
-                                title: "Smart Notifications",
-                                description: "Personalized study reminders",
-                                iconColor: .cyan
+                            LiquidGlassFeatureRow(
+                                icon: "square.and.arrow.up",
+                                title: "Share to Feed",
+                                description: "Share AI insights with community"
                             )
                         }
-                        .padding(.horizontal)
+                        .padding(.horizontal, 20)
 
                         // Pricing Options
                         if premiumManager.isLoading {
@@ -160,7 +213,7 @@ struct PremiumUpgradeView: View {
                             .padding(.horizontal)
                         }
 
-                        // CTA Button
+                        // CTA Button - Liquid Glass Style
                         Button {
                             guard let product = selectedProduct else { return }
                             Task {
@@ -173,27 +226,44 @@ struct PremiumUpgradeView: View {
                                 }
                             }
                         } label: {
-                            HStack {
+                            HStack(spacing: 8) {
                                 Image(systemName: "sparkles")
-                                Text("Start Free Trial")
-                                    .font(.custom("OpenSans-Bold", size: 18))
+                                    .font(.system(size: 16, weight: .medium))
+                                Text(premiumManager.isLoading ? "Loading..." : "Upgrade to Pro")
+                                    .font(.system(size: 17, weight: .semibold))
+                                    .tracking(0.3)
                             }
-                            .foregroundStyle(.white)
+                            .foregroundStyle(.black)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 18)
                             .background(
-                                LinearGradient(
-                                    colors: [Color(red: 1.0, green: 0.6, blue: 0.0), Color(red: 1.0, green: 0.4, blue: 0.2)],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
+                                ZStack {
+                                    // White background with subtle gradient
+                                    LinearGradient(
+                                        colors: [Color.white, Color(white: 0.95)],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                    
+                                    // Subtle shimmer effect
+                                    LinearGradient(
+                                        colors: [
+                                            Color.white.opacity(0.0),
+                                            Color.white.opacity(0.3),
+                                            Color.white.opacity(0.0)
+                                        ],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                }
                             )
                             .cornerRadius(16)
-                            .shadow(color: Color(red: 1.0, green: 0.6, blue: 0.0).opacity(0.4), radius: 20, y: 10)
+                            .shadow(color: .white.opacity(0.3), radius: 20, y: 8)
                         }
                         .disabled(selectedProduct == nil || premiumManager.isLoading)
                         .opacity((selectedProduct == nil || premiumManager.isLoading) ? 0.5 : 1.0)
-                        .padding(.horizontal)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 8)
 
                         // Restore button
                         Button {
@@ -208,16 +278,18 @@ struct PremiumUpgradeView: View {
                             }
                         } label: {
                             Text("Restore Purchases")
-                                .font(.custom("OpenSans-SemiBold", size: 14))
-                                .foregroundStyle(.white.opacity(0.6))
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundStyle(.white.opacity(0.5))
                         }
+                        .padding(.top, 8)
 
                         // Legal text
                         Text("7-day free trial, then \(selectedProduct?.displayPrice ?? "$4.99")/month. Cancel anytime.")
-                            .font(.custom("OpenSans-Regular", size: 12))
-                            .foregroundStyle(.white.opacity(0.5))
+                            .font(.system(size: 12, weight: .regular))
+                            .foregroundStyle(.white.opacity(0.4))
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 40)
+                            .padding(.top, 4)
 
                         // Error message
                         if let error = premiumManager.purchaseError {
@@ -242,8 +314,17 @@ struct PremiumUpgradeView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(.white.opacity(0.6))
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundStyle(.white.opacity(0.5))
+                            .frame(width: 32, height: 32)
+                            .background(
+                                Circle()
+                                    .fill(.ultraThinMaterial)
+                                    .overlay(
+                                        Circle()
+                                            .stroke(Color.white.opacity(0.2), lineWidth: 0.5)
+                                    )
+                            )
                     }
                 }
             }
@@ -266,47 +347,73 @@ struct PremiumUpgradeView: View {
     }
 }
 
-// MARK: - Premium Feature Row
+// MARK: - Liquid Glass Feature Row
 
-struct PremiumFeatureRow: View {
+struct LiquidGlassFeatureRow: View {
     let icon: String
     let title: String
     let description: String
-    let iconColor: Color
 
     var body: some View {
-        HStack(spacing: 16) {
+        HStack(spacing: 14) {
+            // Icon with glass effect
             ZStack {
                 Circle()
-                    .fill(iconColor.opacity(0.15))
-                    .frame(width: 48, height: 48)
+                    .fill(.ultraThinMaterial)
+                    .frame(width: 44, height: 44)
+                    .overlay(
+                        Circle()
+                            .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                    )
 
                 Image(systemName: icon)
-                    .font(.system(size: 22))
-                    .foregroundStyle(iconColor)
+                    .font(.system(size: 18, weight: .light))
+                    .foregroundStyle(.white.opacity(0.9))
             }
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text(title)
-                    .font(.custom("OpenSans-Bold", size: 16))
+                    .font(.system(size: 16, weight: .medium))
                     .foregroundStyle(.white)
+                    .tracking(0.2)
 
                 Text(description)
-                    .font(.custom("OpenSans-Regular", size: 14))
-                    .foregroundStyle(.white.opacity(0.6))
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundStyle(.white.opacity(0.5))
             }
 
             Spacer()
+            
+            // Checkmark
+            Image(systemName: "checkmark")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.6))
         }
-        .padding()
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
         .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(.white.opacity(0.05))
+            RoundedRectangle(cornerRadius: 14)
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(
+                            LinearGradient(
+                                colors: [
+                                    Color.white.opacity(0.15),
+                                    Color.white.opacity(0.05)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1
+                        )
+                )
         )
+        .shadow(color: .black.opacity(0.3), radius: 10, y: 5)
     }
 }
 
-// MARK: - Pricing Card
+// MARK: - Liquid Glass Pricing Card
 
 struct PricingCard: View {
     let product: Product
@@ -316,56 +423,93 @@ struct PricingCard: View {
 
     var body: some View {
         Button(action: onSelect) {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 6) {
                         Text(product.displayName)
-                            .font(.custom("OpenSans-Bold", size: 18))
+                            .font(.system(size: 19, weight: .semibold))
                             .foregroundStyle(.white)
+                            .tracking(0.3)
 
                         if let badge = badge {
                             Text(badge)
-                                .font(.custom("OpenSans-Bold", size: 11))
-                                .foregroundStyle(Color(red: 1.0, green: 0.6, blue: 0.0))
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundStyle(.white)
+                                .tracking(0.5)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 5)
                                 .background(
                                     Capsule()
-                                        .fill(Color(red: 1.0, green: 0.6, blue: 0.0).opacity(0.2))
+                                        .fill(.white.opacity(0.2))
+                                        .overlay(
+                                            Capsule()
+                                                .stroke(Color.white.opacity(0.3), lineWidth: 0.5)
+                                        )
                                 )
                         }
                     }
 
                     Spacer()
 
-                    Text(product.displayPrice)
-                        .font(.custom("OpenSans-Bold", size: 24))
-                        .foregroundStyle(.white)
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text(product.displayPrice)
+                            .font(.system(size: 26, weight: .bold))
+                            .foregroundStyle(.white)
+                        
+                        if product.id.contains("monthly") {
+                            Text("/month")
+                                .font(.system(size: 12, weight: .regular))
+                                .foregroundStyle(.white.opacity(0.5))
+                        } else if product.id.contains("yearly") {
+                            Text("/year")
+                                .font(.system(size: 12, weight: .regular))
+                                .foregroundStyle(.white.opacity(0.5))
+                        }
+                    }
                 }
 
                 Text(product.description)
-                    .font(.custom("OpenSans-Regular", size: 14))
-                    .foregroundStyle(.white.opacity(0.6))
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundStyle(.white.opacity(0.5))
                     .lineLimit(2)
             }
             .padding(20)
             .background(
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(isSelected ? Color(red: 1.0, green: 0.6, blue: 0.0).opacity(0.2) : Color.white.opacity(0.05))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 20)
-                            .stroke(
-                                isSelected ?
-                                    LinearGradient(
-                                        colors: [Color(red: 1.0, green: 0.6, blue: 0.0), Color(red: 1.0, green: 0.4, blue: 0.2)],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    ) :
-                                    LinearGradient(colors: [.clear], startPoint: .top, endPoint: .bottom),
-                                lineWidth: 2
+                ZStack {
+                    // Glass morphism base
+                    RoundedRectangle(cornerRadius: 18)
+                        .fill(.ultraThinMaterial)
+                    
+                    // Selected state: White glow
+                    if isSelected {
+                        RoundedRectangle(cornerRadius: 18)
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        Color.white.opacity(0.12),
+                                        Color.white.opacity(0.06)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
                             )
-                    )
+                    }
+                    
+                    // Border
+                    RoundedRectangle(cornerRadius: 18)
+                        .stroke(
+                            LinearGradient(
+                                colors: isSelected ? 
+                                    [Color.white.opacity(0.4), Color.white.opacity(0.2)] :
+                                    [Color.white.opacity(0.15), Color.white.opacity(0.05)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: isSelected ? 1.5 : 1
+                        )
+                }
             )
+            .shadow(color: isSelected ? .white.opacity(0.2) : .black.opacity(0.3), radius: isSelected ? 15 : 10, y: 5)
         }
         .buttonStyle(ScaleButtonStyle())
     }

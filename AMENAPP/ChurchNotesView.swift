@@ -1567,30 +1567,17 @@ struct NewChurchNoteView: View {
                             tintColor: .purple
                         )
                         
-                        // Content Editor
+                        // Content Editor with Rich Text Formatting
                         VStack(alignment: .leading, spacing: 12) {
                             Label("Notes", systemImage: "note.text")
                                 .font(.custom("OpenSans-Bold", size: 16))
                                 .foregroundStyle(.white.opacity(0.9))
                             
-                            ZStack(alignment: .topLeading) {
-                                if content.isEmpty {
-                                    Text("Start writing your sermon notes...")
-                                        .font(.custom("OpenSans-Regular", size: 16))
-                                        .foregroundStyle(.white.opacity(0.4))
-                                        .padding(.horizontal, 16)
-                                        .padding(.vertical, 14)
-                                }
-                                
-                                TextEditor(text: $content)
-                                    .font(.custom("OpenSans-Regular", size: 16))
-                                    .foregroundStyle(.white)
-                                    .scrollContentBackground(.hidden)
-                                    .background(Color.clear)
-                                    .frame(minHeight: 200)
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 10)
-                            }
+                            RichTextEditorView(
+                                text: $content,
+                                placeholder: "Start writing your sermon notes...",
+                                minHeight: 200
+                            )
                             .glassEffect(GlassEffectStyle.regular, in: RoundedRectangle(cornerRadius: 16))
                         }
                         .padding(20)

@@ -2,29 +2,36 @@
 //  ReportIssueView.swift
 //  AMENAPP
 //
-//  Created by Assistant on 2/3/26.
+//  Issue reporting UI for Berean AI
 //
 
 import SwiftUI
 
-// MARK: - Report Issue View
-
 struct ReportIssueView: View {
     let message: BereanMessage
     @Binding var isPresented: Bool
-    
+    @Environment(\.dismiss) private var dismiss
     @StateObject private var dataManager = BereanDataManager.shared
+    
     @State private var selectedIssueType: BereanIssueReport.IssueType = .inaccurate
     @State private var description = ""
     @State private var isSubmitting = false
     @State private var showSuccess = false
-    @FocusState private var isDescriptionFocused: Bool
+    @State private var errorMessage: String?
     
     var body: some View {
         NavigationStack {
             ZStack {
-                Color(white: 0.05)
-                    .ignoresSafeArea()
+                // Subtle background matching Berean aesthetic
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.98, green: 0.96, blue: 0.94),
+                        Color(red: 0.96, green: 0.95, blue: 0.94)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .ignoresSafeArea()
                 
                 if showSuccess {
                     successView
@@ -36,21 +43,12 @@ struct ReportIssueView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Cancel") {
-                        isPresented = false
-                    }
-                    .foregroundStyle(.white)
-                    .disabled(isSubmitting)
-                }
-                
-                ToolbarItem(placement: .topBarTrailing) {
-                    if !showSuccess {
-                        Button("Submit") {
-                            submitReport()
-                        }
-                        .foregroundStyle(Color(red: 1.0, green: 0.7, blue: 0.5))
-                        .fontWeight(.semibold)
-                        .disabled(description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSubmitting)
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundStyle(Color(white: 0.3))
                     }
                 }
             }
@@ -59,38 +57,70 @@ struct ReportIssueView: View {
     
     private var formView: some View {
         ScrollView {
-            VStack(spacing: 24) {
+            VStack(alignment: .leading, spacing: 24) {
+                // Header
+                VStack(alignment: .leading, spacing: 8) {
+                    Image(systemName: "exclamationmark.bubble.fill")
+                        .font(.system(size: 40))
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [Color.orange, Color.red],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                    
+                    Text("Help Us Improve")
+                        .font(.system(size: 28, weight: .light))
+                        .foregroundStyle(Color(white: 0.2))
+                    
+                    Text("Your feedback helps Berean AI provide better responses for everyone.")
+                        .font(.system(size: 14, weight: .regular))
+                        .foregroundStyle(Color(white: 0.4))
+                        .lineSpacing(4)
+                }
+                .padding(.top, 20)
+                
                 // Message preview
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Message")
-                        .font(.custom("OpenSans-Bold", size: 16))
-                        .foregroundStyle(.white)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Reported Message")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Color(white: 0.4))
+                        .textCase(.uppercase)
+                        .tracking(1)
                     
                     Text(message.content)
-                        .font(.custom("OpenSans-Regular", size: 14))
-                        .foregroundStyle(.white.opacity(0.7))
-                        .lineLimit(5)
-                        .padding(16)
+                        .font(.system(size: 14))
+                        .foregroundStyle(Color(white: 0.3))
+                        .padding()
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .background(
                             RoundedRectangle(cornerRadius: 12)
-                                .fill(Color.white.opacity(0.05))
+                                .fill(Color.white.opacity(0.5))
                         )
+                        .lineLimit(4)
                 }
                 
                 // Issue type selection
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Issue Type")
-                        .font(.custom("OpenSans-Bold", size: 16))
-                        .foregroundStyle(.white)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Color(white: 0.4))
+                        .textCase(.uppercase)
+                        .tracking(1)
                     
-                    ForEach(BereanIssueReport.IssueType.allCases, id: \.self) { issueType in
-                        IssueTypeCard(
-                            issueType: issueType,
-                            isSelected: selectedIssueType == issueType
-                        ) {
-                            withAnimation(.smooth(duration: 0.2)) {
-                                selectedIssueType = issueType
+                    VStack(spacing: 8) {
+                        ForEach(BereanIssueReport.IssueType.allCases, id: \.self) { type in
+                            IssueTypeButton(
+                                type: type,
+                                isSelected: selectedIssueType == type
+                            ) {
+                                withAnimation(.easeOut(duration: 0.2)) {
+                                    selectedIssueType = type
+                                }
+                                
+                                let haptic = UIImpactFeedbackGenerator(style: .light)
+                                haptic.impactOccurred()
                             }
                         }
                     }
@@ -98,116 +128,115 @@ struct ReportIssueView: View {
                 
                 // Description
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("Description")
-                        .font(.custom("OpenSans-Bold", size: 16))
-                        .foregroundStyle(.white)
-                    
-                    Text("Please provide details about the issue")
-                        .font(.custom("OpenSans-Regular", size: 13))
-                        .foregroundStyle(.white.opacity(0.6))
+                    Text("Details (Optional)")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Color(white: 0.4))
+                        .textCase(.uppercase)
+                        .tracking(1)
                     
                     TextEditor(text: $description)
-                        .font(.custom("OpenSans-Regular", size: 15))
-                        .foregroundStyle(.white)
-                        .scrollContentBackground(.hidden)
-                        .frame(height: 150)
+                        .font(.system(size: 15))
+                        .foregroundStyle(Color(white: 0.3))
+                        .frame(height: 120)
                         .padding(12)
                         .background(
                             RoundedRectangle(cornerRadius: 12)
-                                .fill(Color.white.opacity(0.08))
+                                .fill(Color.white.opacity(0.5))
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 12)
-                                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                                        .stroke(Color(white: 0.85), lineWidth: 1)
                                 )
                         )
-                        .focused($isDescriptionFocused)
+                        .scrollContentBackground(.hidden)
+                    
+                    Text("Help us understand the issue better")
+                        .font(.system(size: 12))
+                        .foregroundStyle(Color(white: 0.5))
                 }
                 
-                // Disclaimer
-                HStack(spacing: 8) {
-                    Image(systemName: "info.circle.fill")
-                        .font(.system(size: 14))
-                    
-                    Text("Your feedback helps improve Berean AI. We'll review this report and take appropriate action.")
-                        .font(.custom("OpenSans-Regular", size: 12))
-                        .lineSpacing(3)
-                }
-                .foregroundStyle(.white.opacity(0.6))
-                .padding(12)
-                .background(
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(Color(red: 0.5, green: 0.6, blue: 0.9).opacity(0.1))
-                )
-            }
-            .padding(20)
-        }
-        .disabled(isSubmitting)
-        .overlay {
-            if isSubmitting {
-                ZStack {
-                    Color.black.opacity(0.3)
-                        .ignoresSafeArea()
-                    
-                    VStack(spacing: 16) {
-                        ProgressView()
-                            .progressViewStyle(.circular)
-                            .tint(.white)
-                            .scaleEffect(1.2)
-                        
-                        Text("Submitting report...")
-                            .font(.custom("OpenSans-SemiBold", size: 15))
-                            .foregroundStyle(.white)
+                // Submit button
+                Button {
+                    submitReport()
+                } label: {
+                    HStack {
+                        if isSubmitting {
+                            ProgressView()
+                                .tint(.white)
+                        } else {
+                            Image(systemName: "paperplane.fill")
+                            Text("Submit Report")
+                                .font(.system(size: 16, weight: .semibold))
+                        }
                     }
-                    .padding(32)
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
                     .background(
-                        RoundedRectangle(cornerRadius: 20)
-                            .fill(Color(white: 0.1))
-                            .shadow(color: .black.opacity(0.3), radius: 20)
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(
+                                LinearGradient(
+                                    colors: [Color.orange, Color.red],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .shadow(color: Color.orange.opacity(0.3), radius: 10, y: 4)
                     )
                 }
+                .disabled(isSubmitting)
+                .opacity(isSubmitting ? 0.6 : 1.0)
+                
+                // Error message
+                if let error = errorMessage {
+                    Text(error)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(.red)
+                        .padding()
+                        .frame(maxWidth: .infinity)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(Color.red.opacity(0.1))
+                        )
+                }
             }
+            .padding(20)
         }
     }
     
     private var successView: some View {
-        VStack(spacing: 32) {
+        VStack(spacing: 24) {
             Spacer()
             
-            // Success icon
             ZStack {
                 Circle()
                     .fill(
                         RadialGradient(
                             colors: [
-                                Color(red: 0.4, green: 0.85, blue: 0.7).opacity(0.2),
-                                Color(red: 0.4, green: 0.85, blue: 0.7).opacity(0.05),
+                                Color.green.opacity(0.2),
+                                Color.green.opacity(0.05),
                                 Color.clear
                             ],
                             center: .center,
-                            startRadius: 20,
+                            startRadius: 0,
                             endRadius: 80
                         )
                     )
                     .frame(width: 140, height: 140)
                 
-                Circle()
-                    .fill(Color.white.opacity(0.1))
-                    .frame(width: 100, height: 100)
-                
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 60))
-                    .foregroundStyle(Color(red: 0.4, green: 0.85, blue: 0.7))
+                    .font(.system(size: 70))
+                    .foregroundStyle(Color.green)
+                    .symbolEffect(.bounce)
             }
             
             VStack(spacing: 12) {
                 Text("Report Submitted")
-                    .font(.custom("Georgia", size: 28))
-                    .fontWeight(.light)
-                    .foregroundStyle(.white)
+                    .font(.system(size: 28, weight: .light))
+                    .foregroundStyle(Color(white: 0.2))
                 
-                Text("Thank you for helping improve Berean AI. We'll review your feedback and take action if needed.")
-                    .font(.custom("OpenSans-Regular", size: 15))
-                    .foregroundStyle(.white.opacity(0.7))
+                Text("Thank you for helping us improve Berean AI. We'll review your feedback carefully.")
+                    .font(.system(size: 15))
+                    .foregroundStyle(Color(white: 0.4))
                     .multilineTextAlignment(.center)
                     .lineSpacing(4)
                     .padding(.horizontal, 40)
@@ -216,17 +245,16 @@ struct ReportIssueView: View {
             Spacer()
             
             Button {
-                isPresented = false
+                dismiss()
             } label: {
                 Text("Done")
-                    .font(.custom("OpenSans-Bold", size: 16))
+                    .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
                     .background(
-                        RoundedRectangle(cornerRadius: 16)
-                            .fill(Color(red: 0.4, green: 0.85, blue: 0.7))
-                            .shadow(color: Color(red: 0.4, green: 0.85, blue: 0.7).opacity(0.3), radius: 15, y: 5)
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color(white: 0.3))
                     )
             }
             .padding(.horizontal, 20)
@@ -235,36 +263,31 @@ struct ReportIssueView: View {
     }
     
     private func submitReport() {
-        guard !description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        
         isSubmitting = true
+        errorMessage = nil
         
         Task {
             do {
                 try await dataManager.reportIssue(
                     message: message,
                     issueType: selectedIssueType,
-                    description: description
+                    description: description.isEmpty ? "No additional details provided" : description
                 )
                 
-                // Haptic feedback
-                let haptic = UINotificationFeedbackGenerator()
-                haptic.notificationOccurred(.success)
-                
                 await MainActor.run {
                     isSubmitting = false
-                    
-                    withAnimation(.smooth(duration: 0.4)) {
+                    withAnimation(.easeOut(duration: 0.3)) {
                         showSuccess = true
                     }
+                    
+                    let haptic = UINotificationFeedbackGenerator()
+                    haptic.notificationOccurred(.success)
                 }
             } catch {
-                print("❌ Failed to submit report: \(error)")
-                
                 await MainActor.run {
                     isSubmitting = false
+                    errorMessage = "Failed to submit report. Please try again."
                     
-                    // Show error (you could add an error state)
                     let haptic = UINotificationFeedbackGenerator()
                     haptic.notificationOccurred(.error)
                 }
@@ -273,63 +296,46 @@ struct ReportIssueView: View {
     }
 }
 
-// MARK: - Issue Type Card
+// MARK: - Issue Type Button
 
-struct IssueTypeCard: View {
-    let issueType: BereanIssueReport.IssueType
+struct IssueTypeButton: View {
+    let type: BereanIssueReport.IssueType
     let isSelected: Bool
     let action: () -> Void
     
     var body: some View {
         Button(action: action) {
             HStack(spacing: 12) {
-                Image(systemName: issueType.icon)
-                    .font(.system(size: 18, weight: .medium))
-                    .foregroundStyle(isSelected ? Color(red: 1.0, green: 0.7, blue: 0.5) : .white.opacity(0.6))
+                Image(systemName: type.icon)
+                    .font(.system(size: 20))
+                    .foregroundStyle(isSelected ? Color.orange : Color(white: 0.4))
                     .frame(width: 32)
                 
-                Text(issueType.rawValue)
-                    .font(.custom("OpenSans-SemiBold", size: 15))
-                    .foregroundStyle(.white)
+                Text(type.rawValue)
+                    .font(.system(size: 15, weight: isSelected ? .semibold : .regular))
+                    .foregroundStyle(isSelected ? Color(white: 0.2) : Color(white: 0.4))
                 
                 Spacer()
                 
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 20))
-                        .foregroundStyle(Color(red: 1.0, green: 0.7, blue: 0.5))
-                } else {
-                    Circle()
-                        .stroke(Color.white.opacity(0.3), lineWidth: 2)
-                        .frame(width: 20, height: 20)
+                        .font(.system(size: 18))
+                        .foregroundStyle(Color.orange)
                 }
             }
-            .padding(16)
+            .padding()
             .background(
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(isSelected ? Color.white.opacity(0.1) : Color.white.opacity(0.05))
+                    .fill(isSelected ? Color.white.opacity(0.7) : Color.white.opacity(0.3))
                     .overlay(
                         RoundedRectangle(cornerRadius: 12)
                             .stroke(
-                                isSelected ?
-                                    Color(red: 1.0, green: 0.7, blue: 0.5).opacity(0.5) :
-                                    Color.white.opacity(0.1),
-                                lineWidth: 1
+                                isSelected ? Color.orange.opacity(0.4) : Color.clear,
+                                lineWidth: 2
                             )
                     )
             )
         }
         .buttonStyle(PlainButtonStyle())
     }
-}
-
-#Preview {
-    ReportIssueView(
-        message: BereanMessage(
-            content: "This is a test message from Berean AI with some example content.",
-            role: .assistant,
-            timestamp: Date()
-        ),
-        isPresented: .constant(true)
-    )
 }

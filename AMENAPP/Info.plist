@@ -38,5 +38,7 @@
 	<string>We'll send you reminders about church service times and when you're near your saved churches</string>
 	<key>FirebaseAppDelegateProxyEnabled</key>
 	<false/>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>

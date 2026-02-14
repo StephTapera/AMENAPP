@@ -4,8 +4,8 @@
 //
 //  Created by Steph on 1/28/26.
 //
-//  Optimized view for discovering and connecting with other users
-//  Features: Smart suggestions, fast image loading, glassmorphic design
+//  Production-ready people discovery with clean black & white design
+//  Focused on finding and connecting with people
 //
 
 import SwiftUI
@@ -13,36 +13,19 @@ import FirebaseFirestore
 import FirebaseAuth
 import Combine
 
-// MARK: - People Discovery View
+// MARK: - People Discovery View (Liquid Glass Design)
 
-struct PeopleDiscoveryView: View {
+struct PeopleDiscoveryViewNew: View {
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var viewModel = PeopleDiscoveryViewModel()
-    @StateObject private var postSearchViewModel = PostSearchViewModel()
+    @StateObject private var viewModel = PeopleDiscoveryViewModelNew()
     @State private var searchText = ""
     @State private var selectedFilter: DiscoveryFilter = .suggested
-    @State private var searchTask: Task<Void, Never>?
-    @State private var suggestions: [AlgoliaUserSuggestion] = []
-    @State private var showSuggestions = false
-    @State private var selectedTab: DiscoveryTab = .people
-    @State private var hasLoadedUsers = false
-
-    enum DiscoveryTab: String, CaseIterable {
-        case people = "People"
-        case posts = "Posts"
-
-        var icon: String {
-            switch self {
-            case .people: return "person.2.fill"
-            case .posts: return "square.grid.2x2.fill"
-            }
-        }
-    }
-
+    @State private var showProfileSheet: UserModel?
+    
     enum DiscoveryFilter: String, CaseIterable {
-        case suggested = "For You"
+        case suggested = "Suggested"
         case recent = "Recent"
-
+        
         var icon: String {
             switch self {
             case .suggested: return "sparkles"
@@ -50,1398 +33,1252 @@ struct PeopleDiscoveryView: View {
             }
         }
     }
-
+    
     var body: some View {
         NavigationStack {
             ZStack {
-                // Gradient background
+                // Clean white gradient background
                 LinearGradient(
                     colors: [
-                        Color(red: 0.95, green: 0.96, blue: 0.98),
-                        Color(red: 0.98, green: 0.98, blue: 1.0)
+                        Color.white,
+                        Color(red: 0.97, green: 0.97, blue: 0.98)
                     ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
+                    startPoint: .top,
+                    endPoint: .bottom
                 )
                 .ignoresSafeArea()
-
+                
                 VStack(spacing: 0) {
-                    // Custom Header
-                    customHeaderView
-
-                    // Smart Tab Switcher
-                    tabSwitcherView
-
-                    // Content based on selected tab
-                    if selectedTab == .people {
-                        peopleContentView
-                    } else {
-                        postsContentView
-                    }
+                    // Header with back button (always shown)
+                    headerSection
+                    
+                    // Search bar
+                    liquidGlassSearchSection
+                    
+                    // Filter tabs
+                    liquidGlassFilterSection
+                    
+                    // People Discovery content
+                    ScrollView(showsIndicators: false) {
+                            LazyVStack(spacing: 12) {
+                                if viewModel.isLoading && viewModel.users.isEmpty {
+                                    loadingView
+                                } else if viewModel.users.isEmpty {
+                                    emptyStateView
+                                } else {
+                                    ForEach(viewModel.users.filter { $0.id != nil }) { user in
+                                        PeopleDiscoveryPersonCard(
+                                            user: user,
+                                            onTap: {
+                                                showProfileSheet = user
+                                            },
+                                            viewModel: viewModel
+                                        )
+                                    }
+                                    
+                                    // Load more trigger
+                                    if viewModel.hasMore {
+                                        ProgressView()
+                                            .progressViewStyle(CircularProgressViewStyle(tint: .white.opacity(0.5)))
+                                            .frame(height: 50)
+                                            .onAppear {
+                                                Task { await viewModel.loadMore() }
+                                            }
+                                    }
+                                }
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 20)
+                        }
+                        .refreshable {
+                            await viewModel.refresh()
+                        }
                 }
             }
-            .overlay(alignment: .top) {
-                if let error = viewModel.error {
-                    ErrorBanner(message: error) {
-                        viewModel.error = nil
-                    }
-                    .padding(.top, 60)
-                    .padding(.horizontal, 20)
-                    .transition(.move(edge: .top).combined(with: .opacity))
-                }
-            }
-            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: viewModel.error)
             .navigationBarHidden(true)
-            .task {
-                if !hasLoadedUsers {
-                    await viewModel.loadUsers(filter: selectedFilter)
-                    hasLoadedUsers = true
+            .sheet(item: $showProfileSheet) { user in
+                if let userId = user.id, !userId.isEmpty {
+                    NavigationView {
+                        SafeUserProfileWrapper(userId: userId)
+                    }
+                } else {
+                    Text("Unable to load profile")
+                        .font(.custom("OpenSans-Regular", size: 16))
+                        .foregroundStyle(.secondary)
+                        .padding()
                 }
             }
-            .onDisappear {
-                searchTask?.cancel()
+            .task {
+                await viewModel.loadUsers(filter: selectedFilter)
             }
         }
     }
-
-    // MARK: - Custom Header
-
-    private var customHeaderView: some View {
-        HStack {
+    
+    // MARK: - Header with Back Button
+    
+    private var headerSection: some View {
+        HStack(spacing: 16) {
+            // Back button with liquid glass
             Button {
+                let haptic = UIImpactFeedbackGenerator(style: .light)
+                haptic.impactOccurred()
                 dismiss()
             } label: {
-                Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundStyle(.black.opacity(0.6))
-                    .contentShape(Circle())
-            }
-            .padding(.leading, 20)
-
-            Spacer()
-
-            Text("Discover")
-                .font(.custom("OpenSans-Bold", size: 20))
-                .foregroundStyle(.black)
-
-            Spacer()
-
-            Color.clear
-                .frame(width: 44)
-                .padding(.trailing, 20)
-        }
-        .frame(height: 56)
-        .background(
-            ZStack {
-                Color.white.opacity(0.7)
-
-                BlurView(style: .systemUltraThinMaterialLight)
-            }
-        )
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(Color.black.opacity(0.05))
-                .frame(height: 0.5)
-        }
-    }
-
-    // MARK: - Tab Switcher
-
-    private var tabSwitcherView: some View {
-        HStack(spacing: 0) {
-            ForEach(DiscoveryTab.allCases, id: \.self) { tab in
-                Button {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
-                        selectedTab = tab
-                        searchTask?.cancel()
-                        searchText = ""
-                        suggestions = []
-                        showSuggestions = false
-                    }
-                } label: {
-                    VStack(spacing: 10) {
-                        HStack(spacing: 8) {
-                            Image(systemName: tab.icon)
-                                .font(.system(size: 15, weight: .semibold))
-                            Text(tab.rawValue)
-                                .font(.custom("OpenSans-Bold", size: 15))
-                        }
-                        .foregroundStyle(selectedTab == tab ? .black : .black.opacity(0.4))
-                        .padding(.vertical, 14)
-                        .frame(maxWidth: .infinity)
-
-                        // Animated liquid glass indicator
-                        if selectedTab == tab {
-                            Capsule()
-                                .fill(
+                ZStack {
+                    // Liquid glass background
+                    Circle()
+                        .fill(.ultraThinMaterial.opacity(0.3))
+                        .overlay(
+                            Circle()
+                                .stroke(
                                     LinearGradient(
                                         colors: [
-                                            Color.black.opacity(0.8),
-                                            Color.black.opacity(0.6)
+                                            Color.black.opacity(0.3),
+                                            Color.black.opacity(0.1)
                                         ],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    )
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    ),
+                                    lineWidth: 1
                                 )
-                                .frame(height: 3)
-                                .transition(.scale.combined(with: .opacity))
-                        } else {
-                            Capsule()
-                                .fill(Color.clear)
-                                .frame(height: 3)
-                        }
-                    }
-                }
-                .buttonStyle(PlainButtonStyle())
-            }
-        }
-        .background(
-            ZStack {
-                Color.white.opacity(0.5)
-                BlurView(style: .systemUltraThinMaterialLight)
-            }
-        )
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(Color.black.opacity(0.05))
-                .frame(height: 0.5)
-        }
-    }
-
-    // MARK: - People Content
-
-    private var peopleContentView: some View {
-        ScrollView {
-            VStack(spacing: 16) {
-                // Search Bar
-                searchBarView
-                    .padding(.top, 20)
-
-                // Filter Chips
-                filterChipsView
-
-                // Content
-                if viewModel.isLoading && viewModel.users.isEmpty {
-                    loadingView
-                } else if viewModel.users.isEmpty {
-                    emptyStateView
-                } else {
-                    usersListView
-                }
-            }
-            .padding(.bottom, 30)
-        }
-        .refreshable {
-            await viewModel.refresh()
-        }
-    }
-
-    // MARK: - Posts Content
-
-    private var postsContentView: some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                // Search bar for posts
-                postSearchBarView
-                    .padding(.top, 20)
-
-                // Posts grid or empty state
-                if postSearchViewModel.isLoading && postSearchViewModel.posts.isEmpty {
-                    postLoadingView
-                } else if postSearchViewModel.posts.isEmpty && !searchText.isEmpty {
-                    postEmptyStateView
-                } else if !postSearchViewModel.posts.isEmpty {
-                    postsGridContent
-                } else {
-                    postWelcomeView
-                }
-            }
-        }
-        .refreshable {
-            if !searchText.isEmpty {
-                await postSearchViewModel.searchPosts(query: searchText)
-            }
-        }
-    }
-
-    private var postSearchBarView: some View {
-        HStack(spacing: 12) {
-            Group {
-                if postSearchViewModel.isLoading && !searchText.isEmpty {
-                    ProgressView()
-                        .scaleEffect(0.8)
-                } else {
-                    Image(systemName: "magnifyingglass")
-                        .font(.system(size: 16, weight: .medium))
-                }
-            }
-            .foregroundStyle(.black.opacity(0.6))
-            .frame(width: 20)
-
-            TextField("Search posts, hashtags...", text: $searchText)
-                .font(.custom("OpenSans-Regular", size: 15))
-                .textFieldStyle(.plain)
-                .autocorrectionDisabled()
-                .textInputAutocapitalization(.never)
-                .onChange(of: searchText) {
-                    searchTask?.cancel()
-                    searchTask = Task {
-                        do {
-                            try await Task.sleep(nanoseconds: 400_000_000)
-                            guard !Task.isCancelled else { return }
-                            await postSearchViewModel.searchPosts(query: searchText)
-                        } catch {}
-                    }
-                }
-
-            if !searchText.isEmpty {
-                Button(action: {
-                    searchTask?.cancel()
-                    searchText = ""
-                    postSearchViewModel.clearResults()
-                }) {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(.black.opacity(0.3))
-                }
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(
-            ZStack {
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.white.opacity(0.6))
-
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(
-                        LinearGradient(
-                            colors: [Color.white.opacity(0.8), Color.white.opacity(0.4)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
                         )
-                    )
-
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(Color.white.opacity(0.6), lineWidth: 1)
+                        .frame(width: 40, height: 40)
+                    
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.black)
+                }
             }
-            .shadow(color: .black.opacity(0.06), radius: 12, x: 0, y: 4)
-        )
+            
+            Spacer()
+            
+            Text("Discover People")
+                .font(.custom("OpenSans-Bold", size: 28))
+                .foregroundColor(.black)
+            
+            Spacer()
+        }
         .padding(.horizontal, 20)
-    }
-
-    private var postsGridContent: some View {
-        LazyVGrid(columns: [
-            GridItem(.flexible(), spacing: 3),
-            GridItem(.flexible(), spacing: 3),
-            GridItem(.flexible(), spacing: 3)
-        ], spacing: 3) {
-            ForEach(postSearchViewModel.posts) { post in
-                PostThumbnailView(post: post)
-            }
-        }
         .padding(.top, 16)
+        .padding(.bottom, 20)
     }
-
-    private var postLoadingView: some View {
-        VStack(spacing: 20) {
-            ProgressView()
-                .scaleEffect(1.2)
-                .tint(.black.opacity(0.6))
-            Text("Searching posts...")
-                .font(.custom("OpenSans-Regular", size: 15))
-                .foregroundStyle(.black.opacity(0.5))
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.top, 100)
-    }
-
-    private var postEmptyStateView: some View {
-        VStack(spacing: 20) {
-            ZStack {
-                Circle()
-                    .fill(Color.white.opacity(0.5))
-                    .frame(width: 100, height: 100)
-                    .overlay {
-                        Circle()
-                            .stroke(Color.black.opacity(0.05), lineWidth: 1)
-                    }
-
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: 38, weight: .light))
-                    .foregroundStyle(.black.opacity(0.4))
-            }
-
-            Text("No posts found")
-                .font(.custom("OpenSans-Bold", size: 18))
-                .foregroundStyle(.black)
-
-            Text("Try different keywords or hashtags")
-                .font(.custom("OpenSans-Regular", size: 14))
-                .foregroundStyle(.black.opacity(0.5))
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.top, 100)
-    }
-
-    private var postWelcomeView: some View {
-        VStack(spacing: 24) {
-            ZStack {
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [Color.white.opacity(0.8), Color.white.opacity(0.4)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .frame(width: 100, height: 100)
-                    .overlay {
-                        Circle()
-                            .stroke(Color.white.opacity(0.6), lineWidth: 1)
-                    }
-                    .shadow(color: .black.opacity(0.05), radius: 20, x: 0, y: 8)
-
-                Image(systemName: "square.grid.2x2.fill")
-                    .font(.system(size: 38, weight: .medium))
-                    .foregroundStyle(.black.opacity(0.5))
-            }
-
-            VStack(spacing: 8) {
-                Text("Search Posts")
-                    .font(.custom("OpenSans-Bold", size: 20))
-                    .foregroundStyle(.black)
-
-                Text("Find posts by caption, hashtags, or location")
-                    .font(.custom("OpenSans-Regular", size: 14))
-                    .foregroundStyle(.black.opacity(0.5))
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 40)
-            }
-
-            // Popular hashtags
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Try searching:")
-                    .font(.custom("OpenSans-Bold", size: 12))
-                    .foregroundStyle(.black.opacity(0.4))
-
-                HStack(spacing: 8) {
-                    ForEach(["#prayer", "#faith", "#blessed"], id: \.self) { tag in
-                        Button {
-                            searchText = tag
-                        } label: {
-                            Text(tag)
-                                .font(.custom("OpenSans-Bold", size: 13))
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 7)
-                                .background(
-                                    Capsule()
-                                        .fill(
-                                            LinearGradient(
-                                                colors: [Color.black.opacity(0.7), Color.black.opacity(0.5)],
-                                                startPoint: .topLeading,
-                                                endPoint: .bottomTrailing
-                                            )
-                                        )
-                                        .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
-                                )
-                        }
-                    }
-                }
-            }
-            .padding(.top, 8)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.top, 80)
-    }
-
-    // MARK: - Search Bar
-
-    private var searchBarView: some View {
-        VStack(spacing: 8) {
+    
+    // MARK: - Smart Search
+    
+    private var liquidGlassSearchSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 12) {
-                Group {
-                    if viewModel.isLoading && !searchText.isEmpty {
-                        ProgressView()
-                            .scaleEffect(0.8)
-                    } else {
-                        Image(systemName: "magnifyingglass")
-                            .font(.system(size: 16, weight: .medium))
-                    }
-                }
-                .foregroundStyle(.black.opacity(0.6))
-                .frame(width: 20)
-
-                TextField("Search people...", text: $searchText)
-                    .font(.custom("OpenSans-Regular", size: 15))
-                    .textFieldStyle(.plain)
+                // Animated search icon
+                Image(systemName: searchText.isEmpty ? "magnifyingglass" : "magnifyingglass.circle.fill")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(searchText.isEmpty ? .black.opacity(0.6) : .black)
+                    .animation(.spring(response: 0.3, dampingFraction: 0.7), value: searchText.isEmpty)
+                
+                TextField("", text: $searchText, prompt: Text("Search by name or @username").foregroundColor(.black.opacity(0.4)))
+                    .font(.custom("OpenSans-Regular", size: 16))
+                    .foregroundColor(.black)
                     .autocorrectionDisabled()
                     .textInputAutocapitalization(.never)
-                    .onChange(of: searchText) {
-                        searchTask?.cancel()
-                        showSuggestions = !searchText.isEmpty
-
-                        searchTask = Task {
-                            do {
-                                try await Task.sleep(nanoseconds: 400_000_000)
-                                guard !Task.isCancelled else { return }
-
-                                if !searchText.isEmpty {
-                                    await loadSuggestions(query: searchText)
-                                }
-
-                                await viewModel.searchUsers(query: searchText)
-                            } catch {}
-                        }
-                    }
-
-                if !searchText.isEmpty {
-                    Button(action: {
-                        searchTask?.cancel()
-                        searchText = ""
-                        suggestions = []
-                        showSuggestions = false
+                    .onChange(of: searchText) { _, newValue in
                         Task {
-                            await viewModel.loadUsers(filter: selectedFilter)
+                            await viewModel.searchUsers(query: newValue)
                         }
-                    }) {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(.black.opacity(0.3))
                     }
+                
+                if !searchText.isEmpty {
+                    Button {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            searchText = ""
+                            Task {
+                                await viewModel.loadUsers(filter: selectedFilter)
+                            }
+                        }
+                        
+                        let haptic = UIImpactFeedbackGenerator(style: .light)
+                        haptic.impactOccurred()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 16))
+                            .foregroundColor(.black.opacity(0.5))
+                    }
+                    .transition(.scale.combined(with: .opacity))
                 }
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+            .padding(.vertical, 14)
             .background(
                 ZStack {
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(Color.white.opacity(0.6))
-
-                    RoundedRectangle(cornerRadius: 16)
+                    // Liquid glass effect
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(.ultraThinMaterial.opacity(0.3))
+                    
+                    // Subtle gradient overlay - more prominent when searching
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
                         .fill(
                             LinearGradient(
-                                colors: [Color.white.opacity(0.8), Color.white.opacity(0.4)],
+                                colors: [
+                                    Color.black.opacity(searchText.isEmpty ? 0.04 : 0.06),
+                                    Color.black.opacity(searchText.isEmpty ? 0.02 : 0.03)
+                                ],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             )
                         )
-
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.white.opacity(0.6), lineWidth: 1)
+                        .animation(.easeOut(duration: 0.2), value: searchText.isEmpty)
+                    
+                    // Border - darker when active
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(
+                            Color.black.opacity(searchText.isEmpty ? 0.12 : 0.2),
+                            lineWidth: searchText.isEmpty ? 0.5 : 1
+                        )
+                        .animation(.easeOut(duration: 0.2), value: searchText.isEmpty)
                 }
-                .shadow(color: .black.opacity(0.06), radius: 12, x: 0, y: 4)
             )
-
-            // Autocomplete suggestions
-            if showSuggestions && !suggestions.isEmpty {
-                SearchSuggestionsView(
-                    suggestions: suggestions,
-                    onSelect: { (suggestion: AlgoliaUserSuggestion) in
-                        searchTask?.cancel()
-                        searchText = suggestion.username
-                        showSuggestions = false
-                        suggestions = []
+            .shadow(color: .black.opacity(searchText.isEmpty ? 0.04 : 0.08), radius: searchText.isEmpty ? 4 : 8, y: searchText.isEmpty ? 2 : 4)
+            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: searchText.isEmpty)
+            
+            // Smart search status
+            if !searchText.isEmpty {
+                HStack(spacing: 4) {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 10, weight: .semibold))
+                    
+                    if viewModel.isLoading {
+                        Text("Searching...")
+                            .font(.custom("OpenSans-Medium", size: 12))
+                    } else if viewModel.users.isEmpty {
+                        Text("No results for \"\(searchText)\"")
+                            .font(.custom("OpenSans-Medium", size: 12))
+                    } else {
+                        Text("\(viewModel.users.count) \(viewModel.users.count == 1 ? "result" : "results")")
+                            .font(.custom("OpenSans-Medium", size: 12))
                     }
-                )
+                }
+                .foregroundColor(.black.opacity(0.5))
+                .padding(.horizontal, 4)
                 .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
         .padding(.horizontal, 20)
-        .animation(.spring(response: 0.25, dampingFraction: 0.8), value: showSuggestions)
+        .padding(.bottom, 16)
     }
-
-    private func loadSuggestions(query: String) async {
-        do {
-            suggestions = try await AlgoliaSearchService.shared.getUserSuggestions(query: query, limit: 5)
-        } catch {
-            suggestions = []
-        }
-    }
-
-    // MARK: - Filter Chips
-
-    private var filterChipsView: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 10) {
+    
+    // MARK: - Liquid Glass Filters
+    
+    private var liquidGlassFilterSection: some View {
+        VStack(spacing: 12) {
+            // Filter buttons
+            HStack(spacing: 12) {
                 ForEach(DiscoveryFilter.allCases, id: \.self) { filter in
-                    PeopleFilterChip(
-                        filter: filter,
-                        isSelected: selectedFilter == filter
-                    ) {
-                        searchTask?.cancel()
-                        searchText = ""
-
+                    Button(action: {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                             selectedFilter = filter
                         }
+                        
+                        let haptic = UIImpactFeedbackGenerator(style: .light)
+                        haptic.impactOccurred()
+                        
                         Task {
                             await viewModel.loadUsers(filter: filter)
                         }
-                    }
-                }
-            }
-            .padding(.horizontal, 20)
-        }
-    }
-
-    // MARK: - Users List
-
-    private var usersListView: some View {
-        LazyVStack(spacing: 12) {
-            ForEach(viewModel.users) { user in
-                if let userId = user.id, !userId.isEmpty {
-                    NavigationLink {
-                        UserProfileView(userId: userId)
-                            .navigationBarBackButtonHidden(false)
-                            .toolbar(.visible, for: .navigationBar)
-                    } label: {
-                        DiscoveryUserCard(user: user)
+                    }) {
+                        HStack(spacing: 8) {
+                            Image(systemName: filter.icon)
+                                .font(.system(size: 14, weight: .semibold))
+                            
+                            Text(filter.rawValue)
+                                .font(.custom("OpenSans-SemiBold", size: 14))
+                        }
+                        .foregroundColor(selectedFilter == filter ? .white : .black.opacity(0.7))
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 10)
+                        .background(
+                            ZStack {
+                                if selectedFilter == filter {
+                                    // Selected: Solid black pill
+                                    Capsule()
+                                        .fill(Color.black)
+                                        .shadow(color: .black.opacity(0.2), radius: 8, y: 4)
+                                } else {
+                                    // Unselected: Transparent liquid glass pill
+                                    Capsule()
+                                        .fill(.ultraThinMaterial.opacity(0.3))
+                                    
+                                    Capsule()
+                                        .stroke(
+                                            LinearGradient(
+                                                colors: [
+                                                    Color.black.opacity(0.3),
+                                                    Color.black.opacity(0.1)
+                                                ],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            ),
+                                            lineWidth: 1
+                                        )
+                                }
+                            }
+                        )
                     }
                     .buttonStyle(PlainButtonStyle())
-                } else {
-                    DiscoveryUserCard(user: user)
-                        .opacity(0.6)
                 }
             }
-
-            // Load more trigger
-            if viewModel.hasMore && !viewModel.isLoadingMore {
-                Color.clear
-                    .frame(height: 20)
-                    .onAppear {
-                        Task {
-                            await viewModel.loadMore()
-                        }
-                    }
-            }
-
-            if viewModel.isLoadingMore {
-                ProgressView()
-                    .padding()
-                    .tint(.black.opacity(0.6))
+            
+            // Smart discovery tip
+            if !viewModel.users.isEmpty {
+                HStack(spacing: 6) {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 11, weight: .semibold))
+                    
+                    Text(selectedFilter == .suggested ? "People you might know" : "Recently joined believers")
+                        .font(.custom("OpenSans-Medium", size: 12))
+                }
+                .foregroundColor(.black.opacity(0.5))
+                .padding(.horizontal, 16)
+                .padding(.vertical, 6)
+                .background(
+                    Capsule()
+                        .fill(.ultraThinMaterial.opacity(0.2))
+                        .overlay(
+                            Capsule()
+                                .stroke(Color.black.opacity(0.08), lineWidth: 0.5)
+                        )
+                )
             }
         }
         .padding(.horizontal, 20)
+        .padding(.bottom, 16)
     }
-
-    // MARK: - Loading View
-
+    
+    // MARK: - Loading
+    
     private var loadingView: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 16) {
             ProgressView()
+                .progressViewStyle(CircularProgressViewStyle(tint: .black))
                 .scaleEffect(1.2)
-                .tint(.black.opacity(0.6))
-
-            Text("Discovering people...")
+            
+            Text("Finding people...")
                 .font(.custom("OpenSans-Regular", size: 15))
-                .foregroundStyle(.black.opacity(0.5))
+                .foregroundColor(.black.opacity(0.5))
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 80)
+        .transition(.opacity.combined(with: .scale(scale: 0.9)))
     }
-
+    
     // MARK: - Empty State
-
+    
     private var emptyStateView: some View {
-        Group {
-            if !searchText.isEmpty {
-                searchEmptyState
-            } else {
-                discoveryEmptyState
-            }
-        }
-    }
-
-    private var searchEmptyState: some View {
-        VStack(spacing: 20) {
-            ZStack {
-                Circle()
-                    .fill(Color.white.opacity(0.5))
-                    .frame(width: 100, height: 100)
-                    .overlay {
-                        Circle()
-                            .stroke(Color.black.opacity(0.05), lineWidth: 1)
-                    }
-
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: 38, weight: .light))
-                    .foregroundStyle(.black.opacity(0.4))
-            }
-
-            Text("No results for \"\(searchText)\"")
-                .font(.custom("OpenSans-Bold", size: 18))
-                .foregroundStyle(.black)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 40)
-
-            Text("Try searching for a different username or name")
+        VStack(spacing: 16) {
+            Image(systemName: "person.2")
+                .font(.system(size: 48, weight: .light))
+                .foregroundColor(.black.opacity(0.3))
+                .symbolEffect(.bounce, value: viewModel.users.isEmpty)
+            
+            Text("No people found")
+                .font(.custom("OpenSans-SemiBold", size: 18))
+                .foregroundColor(.black)
+            
+            Text("Try a different search or filter")
                 .font(.custom("OpenSans-Regular", size: 14))
-                .foregroundStyle(.black.opacity(0.5))
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 40)
-
-            Button(action: {
-                searchTask?.cancel()
-                searchText = ""
-                Task {
-                    await viewModel.loadUsers(filter: selectedFilter)
-                }
-            }) {
-                HStack(spacing: 6) {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 13, weight: .semibold))
-                    Text("Clear Search")
-                        .font(.custom("OpenSans-Bold", size: 14))
-                }
-                .foregroundStyle(.white)
-                .padding(.horizontal, 18)
-                .padding(.vertical, 10)
-                .background(
-                    Capsule()
-                        .fill(
-                            LinearGradient(
-                                colors: [Color.black.opacity(0.8), Color.black.opacity(0.6)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .shadow(color: .black.opacity(0.15), radius: 10, x: 0, y: 4)
-                )
-            }
-            .padding(.top, 8)
+                .foregroundColor(.black.opacity(0.5))
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 80)
-    }
-
-    private var discoveryEmptyState: some View {
-        VStack(spacing: 20) {
-            ZStack {
-                Circle()
-                    .fill(Color.white.opacity(0.5))
-                    .frame(width: 100, height: 100)
-                    .overlay {
-                        Circle()
-                            .stroke(Color.black.opacity(0.05), lineWidth: 1)
-                    }
-
-                Image(systemName: "person.2.fill")
-                    .font(.system(size: 38, weight: .medium))
-                    .foregroundStyle(.black.opacity(0.4))
-            }
-
-            Text("No users to discover")
-                .font(.custom("OpenSans-Bold", size: 18))
-                .foregroundStyle(.black)
-
-            Text("Check back later for new people to connect with")
-                .font(.custom("OpenSans-Regular", size: 14))
-                .foregroundStyle(.black.opacity(0.5))
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 40)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.top, 80)
+        .transition(.opacity.combined(with: .move(edge: .top)))
     }
 }
 
-// MARK: - Discovery Filter Chip
+// MARK: - Liquid Glass Filter Chip
 
-struct PeopleFilterChip: View {
-    let filter: PeopleDiscoveryView.DiscoveryFilter
+struct LiquidGlassFilterChip: View {
+    let title: String
+    let icon: String
     let isSelected: Bool
     let action: () -> Void
-
+    
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: 6) {
-                Image(systemName: filter.icon)
-                    .font(.system(size: 12, weight: .semibold))
-
-                Text(filter.rawValue)
-                    .font(.custom("OpenSans-Bold", size: 13))
+        Button {
+            print("🎯 LiquidGlassFilterChip tapped: \(title)")
+            action()
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.system(size: 14, weight: .semibold))
+                
+                Text(title)
+                    .font(.custom("OpenSans-SemiBold", size: 15))
             }
-            .foregroundStyle(isSelected ? .white : .black.opacity(0.6))
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
+            .foregroundColor(isSelected ? .black : .white.opacity(0.7))
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
             .background(
-                Group {
+                ZStack {
                     if isSelected {
-                        Capsule()
-                            .fill(
+                        // Selected: White liquid glass
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(Color.white)
+                            .shadow(color: .white.opacity(0.3), radius: 12, y: 6)
+                            .transition(.scale.combined(with: .opacity))
+                    } else {
+                        // Unselected: Transparent liquid glass
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(.ultraThinMaterial.opacity(0.2))
+                        
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(
                                 LinearGradient(
-                                    colors: [Color.black.opacity(0.8), Color.black.opacity(0.6)],
+                                    colors: [
+                                        Color.white.opacity(0.2),
+                                        Color.white.opacity(0.05)
+                                    ],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
-                                )
+                                ),
+                                lineWidth: 1
                             )
-                            .overlay {
-                                Capsule()
-                                    .stroke(Color.white.opacity(0.2), lineWidth: 1)
-                            }
-                    } else {
-                        Capsule()
-                            .fill(Color.white.opacity(0.6))
-                            .overlay {
-                                Capsule()
-                                    .stroke(Color.black.opacity(0.1), lineWidth: 1)
-                            }
                     }
                 }
+                .animation(.spring(response: 0.25, dampingFraction: 0.75, blendDuration: 0), value: isSelected)
             )
-            .shadow(color: .black.opacity(isSelected ? 0.15 : 0.05), radius: isSelected ? 10 : 6, x: 0, y: isSelected ? 4 : 2)
-            .scaleEffect(isSelected ? 1.0 : 0.98)
+            .contentShape(Rectangle()) // Better tap target
         }
         .buttonStyle(PlainButtonStyle())
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
+        .allowsHitTesting(true)
     }
 }
 
-// MARK: - Discovery User Card (Smaller Design)
+// ScaleButtonStyle is defined in SharedUIComponents.swift
 
-struct DiscoveryUserCard: View {
+// MARK: - Smart Follow Button
+
+struct SmartFollowButton: View {
+    let isFollowing: Bool
+    @Binding var isHovering: Bool
+    let onToggle: () -> Void
+    
+    @State private var isPressed = false
+    @State private var showCheckmark = false
+    
+    var body: some View {
+        Button(action: {
+            let haptic = UIImpactFeedbackGenerator(style: .medium)
+            haptic.impactOccurred()
+            
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                showCheckmark = true
+            }
+            
+            onToggle()
+            
+            // Hide checkmark after animation
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                withAnimation(.easeOut(duration: 0.2)) {
+                    showCheckmark = false
+                }
+            }
+        }) {
+            ZStack {
+                // Following state - "Following" text
+                if isFollowing && !showCheckmark {
+                    Text("Following")
+                        .font(.custom("OpenSans-SemiBold", size: 13))
+                        .foregroundColor(.black.opacity(0.6))
+                        .transition(.scale.combined(with: .opacity))
+                }
+                // Not following state - "Follow" text
+                else if !isFollowing && !showCheckmark {
+                    Text("Follow")
+                        .font(.custom("OpenSans-Bold", size: 13))
+                        .foregroundColor(.white)
+                        .transition(.scale.combined(with: .opacity))
+                }
+                // Checkmark animation
+                else if showCheckmark {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(.white)
+                        .transition(.scale.combined(with: .opacity))
+                }
+            }
+            .frame(width: isFollowing ? 85 : 70, height: 32)
+            .background(
+                ZStack {
+                    if isFollowing {
+                        // Following state - subtle glass
+                        Capsule()
+                            .fill(.ultraThinMaterial.opacity(0.3))
+                        
+                        Capsule()
+                            .stroke(Color.black.opacity(0.15), lineWidth: 1)
+                    } else {
+                        // Follow state - solid black
+                        Capsule()
+                            .fill(Color.black)
+                            .shadow(color: .black.opacity(0.3), radius: 8, y: 4)
+                    }
+                }
+            )
+            .scaleEffect(isPressed ? 0.92 : 1.0)
+            .animation(.spring(response: 0.25, dampingFraction: 0.6), value: isPressed)
+            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isFollowing)
+            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: showCheckmark)
+        }
+        .buttonStyle(PlainButtonStyle())
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in
+                    isPressed = true
+                    isHovering = true
+                }
+                .onEnded { _ in
+                    isPressed = false
+                    isHovering = false
+                }
+        )
+    }
+}
+
+// MARK: - People Discovery Person Card
+
+struct PeopleDiscoveryPersonCard: View {
     let user: UserModel
+    let onTap: () -> Void
     @State private var isFollowing = false
-    @State private var optimisticFollowState: Bool?
+    @State private var isPressed = false
+    @State private var isHovering = false
     @StateObject private var followService = FollowService.shared
-
+    @ObservedObject var viewModel: PeopleDiscoveryViewModelNew
+    @State private var hasAppeared = false // Track appearance for staggered animation
+    
     var body: some View {
         HStack(spacing: 12) {
-            // Avatar - smaller and faster loading
-            FastProfileImage(
-                url: user.profileImageURL,
-                initials: user.initials,
-                size: 48
-            )
-
-            // User Info - compact
-            VStack(alignment: .leading, spacing: 4) {
-                Text(user.displayName)
-                    .font(.custom("OpenSans-Bold", size: 15))
-                    .foregroundStyle(.black)
-                    .lineLimit(1)
-
-                HStack(spacing: 4) {
-                    Text("@\(user.username)")
-                        .font(.custom("OpenSans-Regular", size: 13))
-                        .foregroundStyle(.black.opacity(0.5))
-                        .lineLimit(1)
-
-                    if user.postsCount > 0 {
-                        Text("•")
-                            .foregroundStyle(.black.opacity(0.3))
-                        Text("\(user.postsCount) posts")
-                            .font(.custom("OpenSans-Regular", size: 12))
-                            .foregroundStyle(.black.opacity(0.4))
+            // Smaller Avatar - tappable
+            Button(action: onTap) {
+                ZStack {
+                    // Avatar circle
+                    Circle()
+                        .fill(.ultraThinMaterial.opacity(0.3))
+                        .frame(width: 44, height: 44)
+                        .overlay(
+                            Circle()
+                                .stroke(
+                                    Color.black.opacity(0.2),
+                                    lineWidth: 1
+                                )
+                        )
+                    
+                    if let profileImageURL = user.profileImageURL, !profileImageURL.isEmpty {
+                        AsyncImage(url: URL(string: profileImageURL)) { phase in
+                            switch phase {
+                            case .success(let image):
+                                image
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: 44, height: 44)
+                                    .clipShape(Circle())
+                            default:
+                                Text(user.initials)
+                                    .font(.custom("OpenSans-Bold", size: 16))
+                                    .foregroundColor(.black.opacity(0.7))
+                            }
+                        }
+                    } else {
+                        Text(user.initials)
+                            .font(.custom("OpenSans-Bold", size: 16))
+                            .foregroundColor(.black.opacity(0.7))
                     }
                 }
             }
-
-            Spacer(minLength: 8)
-
-            // Compact Follow Button
-            MiniFollowButton(isFollowing: .constant(optimisticFollowState ?? isFollowing)) {
-                await toggleFollow()
+            .buttonStyle(ScaleButtonStyle())
+            
+            // Info - tappable
+            Button(action: onTap) {
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 4) {
+                        Text(user.displayName)
+                            .font(.custom("OpenSans-SemiBold", size: 15))
+                            .foregroundColor(.black)
+                            .lineLimit(1)
+                        
+                        // Mutual following badge
+                        if isFollowing && viewModel.followingUserIds.contains(user.id ?? "") {
+                            Image(systemName: "arrow.left.arrow.right")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundColor(.black.opacity(0.4))
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(
+                                    Capsule()
+                                        .fill(Color.black.opacity(0.06))
+                                )
+                        }
+                    }
+                    
+                    HStack(spacing: 4) {
+                        Text("@\(user.username)")
+                            .font(.custom("OpenSans-Regular", size: 13))
+                            .foregroundColor(.black.opacity(0.5))
+                        
+                        if user.followersCount > 0 {
+                            Text("•")
+                                .foregroundColor(.black.opacity(0.3))
+                            
+                            HStack(spacing: 3) {
+                                Image(systemName: "person.2.fill")
+                                    .font(.system(size: 9))
+                                Text("\(user.followersCount)")
+                                    .font(.custom("OpenSans-Medium", size: 13))
+                            }
+                            .foregroundColor(.black.opacity(0.5))
+                        }
+                    }
+                    .lineLimit(1)
+                }
             }
+            .buttonStyle(PlainButtonStyle())
+            
+            Spacer()
+            
+            // Smart Follow Button
+            SmartFollowButton(
+                isFollowing: isFollowing,
+                isHovering: $isHovering,
+                onToggle: {
+                    toggleFollow()
+                }
+            )
         }
         .padding(.horizontal, 14)
-        .padding(.vertical, 12)
+        .padding(.vertical, 10)
         .background(
             ZStack {
-                RoundedRectangle(cornerRadius: 14)
-                    .fill(Color.white.opacity(0.5))
-
-                RoundedRectangle(cornerRadius: 14)
+                // Very subtle liquid glass background
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(.ultraThinMaterial.opacity(0.25))
+                
+                // Minimal gradient overlay
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .fill(
                         LinearGradient(
-                            colors: [Color.white.opacity(0.7), Color.white.opacity(0.3)],
+                            colors: [
+                                Color.black.opacity(isHovering ? 0.04 : 0.02),
+                                Color.black.opacity(isHovering ? 0.02 : 0.01)
+                            ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
                     )
-
-                RoundedRectangle(cornerRadius: 14)
+                    .animation(.easeOut(duration: 0.2), value: isHovering)
+                
+                // Subtle border
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .stroke(
-                        LinearGradient(
-                            colors: [Color.white.opacity(0.8), Color.white.opacity(0.2)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 1
+                        Color.black.opacity(isHovering ? 0.15 : 0.08),
+                        lineWidth: 0.5
                     )
+                    .animation(.easeOut(duration: 0.2), value: isHovering)
             }
-            .shadow(color: .black.opacity(0.04), radius: 10, x: 0, y: 4)
         )
-        .task {
-            await loadFollowStatus()
+        .shadow(color: .black.opacity(isHovering ? 0.08 : 0.04), radius: isHovering ? 8 : 4, y: isHovering ? 4 : 2)
+        .scaleEffect(isHovering ? 1.01 : 1.0)
+        .opacity(hasAppeared ? 1 : 0)
+        .offset(y: hasAppeared ? 0 : 10)
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isHovering)
+        .animation(.easeOut(duration: 0.3), value: hasAppeared)
+        .onAppear {
+            // Staggered fade-in animation
+            withAnimation {
+                hasAppeared = true
+            }
+            
+            // Use cached follow status from viewModel - only check once
+            if let userId = user.id {
+                isFollowing = viewModel.followingUserIds.contains(userId)
+            }
+        }
+        .onChange(of: viewModel.followingUserIds) { oldValue, newValue in
+            // Smart update: only if THIS user's status changed
+            if let userId = user.id {
+                let wasFollowing = oldValue.contains(userId)
+                let nowFollowing = newValue.contains(userId)
+                
+                if wasFollowing != nowFollowing {
+                    isFollowing = nowFollowing
+                }
+            }
         }
     }
-
-    private func loadFollowStatus() async {
+    
+    private func toggleFollow() {
         guard let userId = user.id else { return }
-        isFollowing = await followService.isFollowing(userId: userId)
-    }
-
-    private func toggleFollow() async {
-        guard let userId = user.id else { return }
-        guard optimisticFollowState == nil else { return }
-
-        let previousState = isFollowing
-        optimisticFollowState = !previousState
-
-        do {
-            if previousState {
-                try await followService.unfollowUser(userId: userId)
+        
+        let haptic = UIImpactFeedbackGenerator(style: .medium)
+        haptic.impactOccurred()
+        
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            isFollowing.toggle()
+            
+            // Update the cache immediately for instant UI feedback
+            if isFollowing {
+                viewModel.followingUserIds.insert(userId)
             } else {
-                try await followService.followUser(userId: userId)
+                viewModel.followingUserIds.remove(userId)
             }
-
-            await MainActor.run {
-                isFollowing = !previousState
-                optimisticFollowState = nil
-            }
-        } catch {
-            await MainActor.run {
-                optimisticFollowState = nil
-                let errorHaptic = UINotificationFeedbackGenerator()
-                errorHaptic.notificationOccurred(.error)
+        }
+        
+        Task {
+            do {
+                if isFollowing {
+                    try await followService.followUser(userId: userId)
+                } else {
+                    try await followService.unfollowUser(userId: userId)
+                }
+            } catch {
+                print("❌ Follow action failed: \(error)")
+                // Revert on error
+                await MainActor.run {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        isFollowing.toggle()
+                        
+                        // Revert cache
+                        if isFollowing {
+                            viewModel.followingUserIds.insert(userId)
+                        } else {
+                            viewModel.followingUserIds.remove(userId)
+                        }
+                    }
+                }
             }
         }
     }
 }
 
-// MARK: - Fast Profile Image
+// MARK: - Liquid Glass Follow Button
 
-struct FastProfileImage: View {
-    let url: String?
-    let initials: String
-    let size: CGFloat
-
-    @State private var cachedImage: UIImage?
-    @State private var isLoading = false
-
+struct LiquidGlassFollowButton: View {
+    let isFollowing: Bool
+    let userId: String
+    let onTap: () -> Void
+    @State private var showCheckmark = false
+    
     var body: some View {
-        Group {
-            if let cachedImage = cachedImage {
-                Image(uiImage: cachedImage)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: size, height: size)
-                    .clipShape(Circle())
-                    .overlay {
-                        Circle()
+        Button(action: {
+            onTap()
+            // Show brief checkmark animation when following
+            if !isFollowing {
+                showCheckmark = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    showCheckmark = false
+                }
+            }
+        }) {
+            HStack(spacing: 6) {
+                if !isFollowing && !showCheckmark {
+                    Image(systemName: "plus")
+                        .font(.system(size: 12, weight: .bold))
+                        .transition(.scale.combined(with: .opacity))
+                } else if showCheckmark {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 12, weight: .bold))
+                        .transition(.scale.combined(with: .opacity))
+                }
+                
+                Text(isFollowing ? "Following" : "Follow")
+                    .font(.custom("OpenSans-Bold", size: 14))
+            }
+            .foregroundColor(isFollowing ? .white.opacity(0.7) : .black)
+            .padding(.horizontal, 18)
+            .padding(.vertical, 10)
+            .background(
+                ZStack {
+                    if isFollowing {
+                        // Following state: Liquid glass
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(.ultraThinMaterial.opacity(0.3))
+                        
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
                             .stroke(
                                 LinearGradient(
-                                    colors: [Color.white.opacity(0.5), Color.white.opacity(0.1)],
+                                    colors: [
+                                        Color.white.opacity(0.4),
+                                        Color.white.opacity(0.1)
+                                    ],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 ),
                                 lineWidth: 1.5
                             )
-                    }
-            } else {
-                ZStack {
-                    Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: [Color.black.opacity(0.7), Color.black.opacity(0.5)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(width: size, height: size)
-
-                    Text(initials)
-                        .font(.custom("OpenSans-Bold", size: size * 0.4))
-                        .foregroundStyle(.white)
-                }
-                .overlay {
-                    Circle()
-                        .stroke(
-                            LinearGradient(
-                                colors: [Color.white.opacity(0.5), Color.white.opacity(0.1)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1.5
-                        )
-                }
-                .onAppear {
-                    loadImage()
-                }
-            }
-        }
-        .frame(width: size, height: size)
-    }
-
-    private func loadImage() {
-        guard let urlString = url,
-              !urlString.isEmpty,
-              let imageURL = URL(string: urlString),
-              !isLoading else {
-            return
-        }
-
-        isLoading = true
-
-        Task {
-            // Check cache first
-            if let cached = await DiscoveryProfileImageCache.shared.getCachedImage(forKey: urlString) {
-                await MainActor.run {
-                    cachedImage = cached
-                    isLoading = false
-                }
-                return
-            }
-
-            do {
-                let (data, _) = try await URLSession.shared.data(from: imageURL)
-
-                if let downloadedImage = UIImage(data: data) {
-                    let resizedImage = await resizeImage(downloadedImage, targetSize: CGSize(width: size * 2, height: size * 2))
-                    await DiscoveryProfileImageCache.shared.setCachedImage(resizedImage, forKey: urlString)
-
-                    await MainActor.run {
-                        cachedImage = resizedImage
-                        isLoading = false
-                    }
-                }
-            } catch {
-                await MainActor.run {
-                    isLoading = false
-                }
-            }
-        }
-    }
-
-    private func resizeImage(_ image: UIImage, targetSize: CGSize) async -> UIImage {
-        let renderer = UIGraphicsImageRenderer(size: targetSize)
-        return renderer.image { _ in
-            image.draw(in: CGRect(origin: .zero, size: targetSize))
-        }
-    }
-}
-
-// MARK: - Mini Follow Button
-
-struct MiniFollowButton: View {
-    @Binding var isFollowing: Bool
-    let action: () async -> Void
-    @State private var isPressed = false
-
-    var body: some View {
-        Button {
-            Task {
-                await action()
-            }
-        } label: {
-            HStack(spacing: 4) {
-                if !isFollowing {
-                    Image(systemName: "plus")
-                        .font(.system(size: 9, weight: .bold))
-                }
-                Text(isFollowing ? "Following" : "Follow")
-                    .font(.custom("OpenSans-Bold", size: 12))
-            }
-            .foregroundStyle(isFollowing ? Color.black.opacity(0.6) : Color.white)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(
-                Group {
-                    if isFollowing {
-                        Capsule()
-                            .fill(Color.white.opacity(0.5))
-                            .overlay {
-                                Capsule()
-                                    .stroke(Color.black.opacity(0.15), lineWidth: 1)
-                            }
                     } else {
-                        Capsule()
-                            .fill(
-                                LinearGradient(
-                                    colors: [Color.black.opacity(0.8), Color.black.opacity(0.6)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .overlay {
-                                Capsule()
-                                    .stroke(Color.white.opacity(0.2), lineWidth: 1)
-                            }
+                        // Follow state: White solid
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(Color.white)
+                            .shadow(color: .white.opacity(0.4), radius: 8, y: 4)
                     }
                 }
+                .animation(.spring(response: 0.25, dampingFraction: 0.7), value: isFollowing)
             )
-            .scaleEffect(isPressed ? 0.95 : 1.0)
-            .shadow(color: .black.opacity(isFollowing ? 0.05 : 0.15), radius: isFollowing ? 4 : 8, x: 0, y: 2)
+            .contentShape(Rectangle())
         }
-        .buttonStyle(PlainButtonStyle())
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in isPressed = true }
-                .onEnded { _ in isPressed = false }
-        )
+        .buttonStyle(ScaleButtonStyle())
     }
 }
 
-// MARK: - View Model
+// MARK: - View Model (Production-Ready with Smart Algorithm)
 
 @MainActor
-final class PeopleDiscoveryViewModel: ObservableObject {
-    @Published private(set) var users: [UserModel] = []
-    @Published private(set) var isLoading = false
-    @Published private(set) var isLoadingMore = false
-    @Published private(set) var hasMore = true
+class PeopleDiscoveryViewModelNew: ObservableObject {
+    @Published var users: [UserModel] = []
+    @Published var isLoading = false
+    @Published var isLoadingMore = false
+    @Published var hasMore = true
     @Published var error: String?
-
+    @Published var followingUserIds: Set<String> = [] // Cache follow status
+    
     private let db = Firestore.firestore()
     private var lastDocument: DocumentSnapshot?
-    private let pageSize = 20
-    private var currentSearchQuery: String?
-    private var currentFilter: PeopleDiscoveryView.DiscoveryFilter = .suggested
-
-    func loadUsers(filter: PeopleDiscoveryView.DiscoveryFilter) async {
-        guard !isLoading else { return }
-
+    private let pageSize = 50 // Increased to show more users for discovery
+    private var searchTask: Task<Void, Never>?
+    private var currentFilter: PeopleDiscoveryViewNew.DiscoveryFilter = .suggested
+    
+    // Cache for user connections to improve performance
+    private var connectionsCache: [String: (following: Set<String>, followers: Set<String>)] = [:]
+    private var currentUserConnections: (following: Set<String>, followers: Set<String>)?
+    
+    func loadUsers(filter: PeopleDiscoveryViewNew.DiscoveryFilter) async {
         isLoading = true
         lastDocument = nil
-        error = nil
-        currentFilter = filter
-        currentSearchQuery = nil
-
+        currentFilter = filter // Track current filter
+        
         do {
             users = try await fetchUsers(filter: filter, limit: pageSize)
             hasMore = users.count >= pageSize
-            prefetchProfileImages(for: users)
+            await loadFollowingStatus() // Batch load all at once
+            print("✅ Loaded \(users.count) users for filter: \(filter.rawValue)")
         } catch {
-            handleError(error, context: "loading users")
+            self.error = error.localizedDescription
+            print("❌ Failed to load users: \(error)")
         }
-
+        
         isLoading = false
     }
-
-    func loadMore() async {
-        guard !isLoadingMore && hasMore && !isLoading else { return }
-
-        isLoadingMore = true
-
+    
+    // Batch load following status - ONE query instead of N queries
+    private func loadFollowingStatus() async {
+        guard let currentUserId = Auth.auth().currentUser?.uid else { 
+            print("⚠️ No current user ID, skipping follow status load")
+            return 
+        }
+        
         do {
-            let newUsers: [UserModel]
-
-            if let searchQuery = currentSearchQuery {
-                newUsers = []
-            } else {
-                newUsers = try await fetchUsers(filter: currentFilter, limit: pageSize, afterDocument: lastDocument)
-            }
-
-            users.append(contentsOf: newUsers)
-            hasMore = newUsers.count >= pageSize
-            prefetchProfileImages(for: newUsers)
-        } catch {
-            handleError(error, context: "loading more users")
-        }
-
-        isLoadingMore = false
-    }
-
-    func refresh() async {
-        error = nil
-
-        if let searchQuery = currentSearchQuery {
-            await searchUsers(query: searchQuery)
-        } else {
-            await loadUsers(filter: currentFilter)
-        }
-    }
-
-    func searchUsers(query: String) async {
-        guard !isLoading else { return }
-
-        let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        guard !trimmedQuery.isEmpty else {
-            currentSearchQuery = nil
-            error = nil
-            await loadUsers(filter: currentFilter)
-            return
-        }
-
-        isLoading = true
-        error = nil
-        currentSearchQuery = trimmedQuery
-        lastDocument = nil
-
-        do {
-            let algoliaUsers = try await AlgoliaSearchService.shared.searchUsers(
-                query: trimmedQuery,
-                limit: pageSize
-            )
-
-            users = algoliaUsers.map { $0.toUserModel() }
-            hasMore = false
-        } catch {
-            do {
-                users = try await performFirestoreSearch(query: trimmedQuery)
-                hasMore = false
-            } catch {
-                handleError(error, context: "searching users")
-            }
-        }
-
-        isLoading = false
-    }
-
-    private func performFirestoreSearch(query: String) async throws -> [UserModel] {
-        guard let currentUserId = Auth.auth().currentUser?.uid else {
-            throw PeopleDiscoveryError.notAuthenticated
-        }
-
-        let lowercaseQuery = query.lowercased()
-        var results: [UserModel] = []
-
-        let usernameSnapshot = try await db.collection("users")
-            .whereField("username", isGreaterThanOrEqualTo: lowercaseQuery)
-            .whereField("username", isLessThanOrEqualTo: lowercaseQuery + "\u{f8ff}")
-            .limit(to: pageSize)
-            .getDocuments()
-
-        for doc in usernameSnapshot.documents {
-            do {
-                var user = try doc.data(as: UserModel.self)
-                user.id = doc.documentID
-                results.append(user)
-            } catch {}
-        }
-
-        if results.count < 5 {
-            let nameSnapshot = try await db.collection("users")
-                .whereField("displayName", isGreaterThanOrEqualTo: query)
-                .whereField("displayName", isLessThanOrEqualTo: query + "\u{f8ff}")
-                .limit(to: pageSize)
-                .getDocuments()
-
-            var nameResults: [UserModel] = []
-            for doc in nameSnapshot.documents {
-                do {
-                    var user = try doc.data(as: UserModel.self)
-                    user.id = doc.documentID
-                    nameResults.append(user)
-                } catch {}
-            }
-
-            for user in nameResults {
-                if !results.contains(where: { $0.id == user.id }) {
-                    results.append(user)
-                }
-            }
-        }
-
-        return results.filter { $0.id != currentUserId }
-    }
-
-    private func fetchUsers(filter: PeopleDiscoveryView.DiscoveryFilter, limit: Int, afterDocument: DocumentSnapshot? = nil) async throws -> [UserModel] {
-        guard let currentUserId = Auth.auth().currentUser?.uid else {
-            throw PeopleDiscoveryError.notAuthenticated
-        }
-
-        var query = db.collection("users")
-            .limit(to: limit)
-
-        switch filter {
-        case .suggested:
-            // Smart suggestion algorithm:
-            // 1. Get users you're NOT following
-            // 2. Score by: (followers * 2) + (posts * 1) + (engagement rate * 3)
-            // 3. Filter out inactive users (no posts in 90 days - if we track that)
-            // 4. Personalize based on interests (future enhancement)
-
-            let followingSnapshot = try await db.collection("users")
+            let snapshot = try await db
+                .collection("users")
                 .document(currentUserId)
                 .collection("following")
                 .getDocuments()
-
-            let followingIds = Set(followingSnapshot.documents.map { $0.documentID })
-
-            // Query for active users sorted by engagement
-            query = query
-                .order(by: "followersCount", descending: true)
-                .order(by: "postsCount", descending: true)
-
-            if let afterDocument = afterDocument {
-                query = query.start(afterDocument: afterDocument)
-            }
-
-            let snapshot = try await query.getDocuments()
-            lastDocument = snapshot.documents.last
-
-            var fetchedUsers: [UserModel] = []
-            for doc in snapshot.documents {
-                do {
-                    var user = try doc.data(as: UserModel.self)
-                    user.id = doc.documentID
-                    fetchedUsers.append(user)
-                } catch {}
-            }
-
-            let filtered = fetchedUsers.filter { user in
-                guard let userId = user.id else { return false }
-                return userId != currentUserId && !followingIds.contains(userId)
-            }
-            return filtered
-
-        case .recent:
-            query = query.order(by: "createdAt", descending: true)
-
-            if let afterDocument = afterDocument {
-                query = query.start(afterDocument: afterDocument)
-            }
-
-            let snapshot = try await query.getDocuments()
-            lastDocument = snapshot.documents.last
-
-            var fetchedUsers: [UserModel] = []
-            for doc in snapshot.documents {
-                do {
-                    var user = try doc.data(as: UserModel.self)
-                    user.id = doc.documentID
-                    fetchedUsers.append(user)
-                } catch {}
-            }
-
-            let filtered = fetchedUsers.filter { $0.id != nil && $0.id != currentUserId }
-            return filtered
-        }
-    }
-
-    private func handleError(_ error: Error, context: String) {
-        if let discoveryError = error as? PeopleDiscoveryError {
-            self.error = discoveryError.userMessage
-        } else {
-            self.error = "Something went wrong. Please try again."
-        }
-    }
-}
-
-// MARK: - Error Types
-
-private enum PeopleDiscoveryError: LocalizedError {
-    case notAuthenticated
-    case searchFailed
-    case loadFailed
-
-    var userMessage: String {
-        switch self {
-        case .notAuthenticated:
-            return "Please sign in to continue."
-        case .searchFailed:
-            return "Search failed. Please try again."
-        case .loadFailed:
-            return "Failed to load users. Please try again."
-        }
-    }
-
-    var errorDescription: String? {
-        userMessage
-    }
-}
-
-// MARK: - Error Banner
-
-struct ErrorBanner: View {
-    let message: String
-    let onDismiss: () -> Void
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(.white)
-
-            Text(message)
-                .font(.custom("OpenSans-SemiBold", size: 13))
-                .foregroundStyle(.white)
-                .lineLimit(2)
-
-            Spacer()
-
-            Button(action: onDismiss) {
-                Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 18))
-                    .foregroundStyle(.white.opacity(0.8))
+            
+            followingUserIds = Set(snapshot.documents.map { $0.documentID })
+            print("✅ Loaded following status for \(followingUserIds.count) users")
+        } catch let error as NSError {
+            // Handle permission errors gracefully
+            if error.domain == "FIRFirestoreErrorDomain" && error.code == 7 {
+                print("⚠️ Permission denied for following status. Check Firestore rules.")
+                print("   Make sure users can read: /users/{userId}/following")
+                followingUserIds = [] // Start with empty set
+            } else {
+                print("❌ Failed to load following status: \(error.localizedDescription)")
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.red.opacity(0.9))
-                .shadow(color: .black.opacity(0.2), radius: 12, x: 0, y: 6)
-        )
     }
-}
-
-// MARK: - Discovery Profile Image Cache
-
-actor DiscoveryProfileImageCache {
-    static let shared = DiscoveryProfileImageCache()
-
-    private var cache: [String: UIImage] = [:]
-    private let maxCacheSize = 100
-    private var accessOrder: [String] = []
-
-    private init() {}
-
-    func getCachedImage(forKey key: String) -> UIImage? {
-        if let index = accessOrder.firstIndex(of: key) {
-            accessOrder.remove(at: index)
-            accessOrder.append(key)
+    
+    func loadMore() async {
+        guard !isLoadingMore && hasMore else { return }
+        
+        isLoadingMore = true
+        
+        do {
+            let newUsers = try await fetchUsers(
+                filter: currentFilter, // Use the current filter
+                limit: pageSize,
+                afterDocument: lastDocument
+            )
+            users.append(contentsOf: newUsers)
+            hasMore = newUsers.count >= pageSize
+            await loadFollowingStatus() // Update follow status for new users
+            print("✅ Loaded \(newUsers.count) more users")
+        } catch {
+            print("❌ Failed to load more users: \(error)")
         }
-        return cache[key]
+        
+        isLoadingMore = false
     }
-
-    func setCachedImage(_ image: UIImage, forKey key: String) {
-        if cache.count >= maxCacheSize, let oldestKey = accessOrder.first {
-            cache.removeValue(forKey: oldestKey)
-            accessOrder.removeFirst()
+    
+    func refresh() async {
+        // Clear cache on refresh to get fresh data
+        connectionsCache.removeAll()
+        currentUserConnections = nil
+        await loadUsers(filter: .suggested)
+    }
+    
+    func clearCache() {
+        connectionsCache.removeAll()
+        currentUserConnections = nil
+    }
+    
+    func searchUsers(query: String) async {
+        // Cancel previous search task
+        searchTask?.cancel()
+        
+        guard !query.isEmpty else {
+            await loadUsers(filter: .suggested)
+            return
         }
-
-        cache[key] = image
-        accessOrder.append(key)
+        
+        // Debounce search with Task
+        searchTask = Task {
+            // Wait 300ms for debouncing
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            
+            guard !Task.isCancelled else { return }
+            
+            await performSearch(query: query)
+        }
     }
-
-    func clear() {
-        cache.removeAll()
-        accessOrder.removeAll()
+    
+    private func performSearch(query: String) async {
+        isLoading = true
+        
+        do {
+            let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+            
+            print("🔍 Searching with Algolia for: '\(trimmedQuery)'")
+            
+            // Use Algolia for fast, typo-tolerant search
+            let algoliaUsers = try await AlgoliaSearchService.shared.searchUsers(query: trimmedQuery)
+            
+            // Convert Algolia users to UserModel
+            let results = try await convertAlgoliaUsersToUserModels(algoliaUsers)
+            
+            // Update users on main thread
+            users = results
+            await loadFollowingStatus() // Load follow status for search results
+            print("✅ Algolia search found \(results.count) users for '\(query)'")
+            
+        } catch {
+            print("❌ Algolia search failed: \(error)")
+            // Fallback to Firestore search if Algolia fails
+            print("⚠️ Falling back to Firestore search...")
+            await performFirestoreSearch(query: query)
+        }
+        
+        isLoading = false
     }
-}
-
-// MARK: - Image Prefetcher
-
-func prefetchProfileImages(for users: [UserModel]) {
-    Task.detached(priority: .utility) {
-        for user in users {
-            guard let urlString = user.profileImageURL,
-                  !urlString.isEmpty,
-                  let url = URL(string: urlString) else {
-                continue
-            }
-
-            if await DiscoveryProfileImageCache.shared.getCachedImage(forKey: urlString) != nil {
-                continue
-            }
-
+    
+    // MARK: - Algolia to UserModel Conversion
+    
+    private func convertAlgoliaUsersToUserModels(_ algoliaUsers: [AlgoliaUser]) async throws -> [UserModel] {
+        guard let currentUserId = Auth.auth().currentUser?.uid else {
+            return []
+        }
+        
+        var userModels: [UserModel] = []
+        
+        // Batch fetch full user data from Firestore
+        for algoliaUser in algoliaUsers {
+            // Skip current user
+            guard algoliaUser.objectID != currentUserId else { continue }
+            
             do {
-                let (data, _) = try await URLSession.shared.data(from: url)
-                if let image = UIImage(data: data) {
-                    let targetSize = CGSize(width: 96, height: 96)
-                    let renderer = UIGraphicsImageRenderer(size: targetSize)
-                    let resizedImage = renderer.image { _ in
-                        image.draw(in: CGRect(origin: .zero, size: targetSize))
-                    }
-
-                    await DiscoveryProfileImageCache.shared.setCachedImage(resizedImage, forKey: urlString)
+                let doc = try await db.collection("users").document(algoliaUser.objectID).getDocument()
+                if let user = try? doc.data(as: UserModel.self), user.id != nil {
+                    userModels.append(user)
                 }
-            } catch {}
+            } catch {
+                print("⚠️ Failed to fetch user \(algoliaUser.objectID): \(error)")
+            }
         }
+        
+        return userModels
+    }
+    
+    // MARK: - Firestore Fallback Search
+    
+    private func performFirestoreSearch(query: String) async {
+        do {
+            let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+            let lowercaseQuery = trimmedQuery.lowercased()
+            
+            print("🔍 Firestore fallback search for: '\(trimmedQuery)'")
+            
+            // Strategy 1: Search by username (most common)
+            var results = try await searchByUsername(lowercaseQuery)
+            
+            // Strategy 2: If few results, also search by display name
+            if results.count < 5 {
+                let nameResults = try await searchByDisplayName(trimmedQuery)
+                
+                // Merge results, avoiding duplicates
+                for user in nameResults {
+                    if !results.contains(where: { $0.id == user.id }) {
+                        results.append(user)
+                    }
+                }
+            }
+            
+            // Strategy 3: If still few results, try searchable fields
+            if results.count < 3 {
+                let searchableResults = try await searchBySearchableFields(lowercaseQuery)
+                
+                for user in searchableResults {
+                    if !results.contains(where: { $0.id == user.id }) {
+                        results.append(user)
+                    }
+                }
+            }
+            
+            users = results
+            print("✅ Firestore fallback found \(results.count) users for '\(query)'")
+            
+        } catch {
+            print("❌ Firestore search failed: \(error)")
+            self.error = error.localizedDescription
+        }
+    }
+    
+    // MARK: - Search Strategies
+    
+    private func searchByUsername(_ query: String) async throws -> [UserModel] {
+        let snapshot = try await db.collection("users")
+            .whereField("username", isGreaterThanOrEqualTo: query)
+            .whereField("username", isLessThanOrEqualTo: query + "\u{f8ff}")
+            .limit(to: pageSize)
+            .getDocuments()
+        
+        return snapshot.documents.compactMap { doc -> UserModel? in
+            guard let user = try? doc.data(as: UserModel.self),
+                  user.id != nil else {
+                return nil
+            }
+            return user
+        }
+    }
+    
+    private func searchByDisplayName(_ query: String) async throws -> [UserModel] {
+        let snapshot = try await db.collection("users")
+            .whereField("displayName", isGreaterThanOrEqualTo: query)
+            .whereField("displayName", isLessThanOrEqualTo: query + "\u{f8ff}")
+            .limit(to: pageSize)
+            .getDocuments()
+        
+        return snapshot.documents.compactMap { doc -> UserModel? in
+            guard let user = try? doc.data(as: UserModel.self),
+                  user.id != nil else {
+                return nil
+            }
+            return user
+        }
+    }
+    
+    private func searchBySearchableFields(_ query: String) async throws -> [UserModel] {
+        // Try searching with searchable username/display name fields
+        let snapshot = try await db.collection("users")
+            .whereField("searchableUsername", isGreaterThanOrEqualTo: query)
+            .whereField("searchableUsername", isLessThanOrEqualTo: query + "\u{f8ff}")
+            .limit(to: pageSize)
+            .getDocuments()
+        
+        return snapshot.documents.compactMap { doc -> UserModel? in
+            guard let user = try? doc.data(as: UserModel.self),
+                  user.id != nil else {
+                return nil
+            }
+            return user
+        }
+    }
+    
+    // MARK: - Fetch Users by Filter
+    
+    private func fetchUsers(
+        filter: PeopleDiscoveryViewNew.DiscoveryFilter,
+        limit: Int,
+        afterDocument: DocumentSnapshot? = nil
+    ) async throws -> [UserModel] {
+        guard let currentUserId = Auth.auth().currentUser?.uid else {
+            throw NSError(
+                domain: "PeopleDiscovery",
+                code: 401,
+                userInfo: [NSLocalizedDescriptionKey: "Not authenticated"]
+            )
+        }
+        
+        // Fetch ALL users from the app for discovery
+        var query: Query = db.collection("users")
+        
+        print("📊 [Fetch Users] Fetching users for filter: \(filter.rawValue)")
+        
+        // Pagination
+        if let afterDocument = afterDocument {
+            query = query.start(afterDocument: afterDocument).limit(to: limit)
+            print("📊 [Fetch Users] Loading more users after document")
+        } else {
+            query = query.limit(to: limit)
+            print("📊 [Fetch Users] Loading first \(limit) users")
+        }
+        
+        let snapshot = try await query.getDocuments()
+        lastDocument = snapshot.documents.last
+        
+        print("📊 [Fetch Users] Retrieved \(snapshot.documents.count) documents from Firestore")
+        
+        // Filter out current user and map to UserModel
+        var allUsers: [UserModel] = []
+        var decodingErrors = 0
+        var currentUserFiltered = 0
+        var idFixedCount = 0
+        
+        for doc in snapshot.documents {
+            do {
+                var user = try doc.data(as: UserModel.self)
+                
+                // Fix @DocumentID issue - manually set ID if nil
+                if user.id == nil {
+                    user.id = doc.documentID
+                    idFixedCount += 1
+                }
+                
+                // Check if it's the current user
+                if user.id == currentUserId {
+                    currentUserFiltered += 1
+                    continue
+                }
+                
+                allUsers.append(user)
+            } catch {
+                // Try to recover from decoding errors by using document ID
+                print("⚠️ [Fetch Users] Decoding error for user \(doc.documentID), attempting recovery: \(error)")
+                
+                // For now, skip users that fail to decode
+                // In production, you might want to create a minimal UserModel with available data
+                decodingErrors += 1
+            }
+        }
+        
+        print("📊 [Fetch Users] Filtered to \(allUsers.count) users (excluding current user)")
+        print("📊 [Fetch Users] Stats - Decoding errors: \(decodingErrors), IDs fixed: \(idFixedCount), Current user filtered: \(currentUserFiltered)")
+        
+        // Apply smart algorithm based on filter
+        allUsers = await applySmartAlgorithm(to: allUsers, filter: filter, currentUserId: currentUserId)
+        
+        print("📊 [Fetch Users] Returning \(allUsers.count) users after algorithm")
+        
+        return allUsers
+    }
+    
+    // MARK: - Smart Discovery Algorithm
+    
+    private func applySmartAlgorithm(
+        to users: [UserModel],
+        filter: PeopleDiscoveryViewNew.DiscoveryFilter,
+        currentUserId: String
+    ) async -> [UserModel] {
+        print("🔍 [Discovery Algorithm] Processing \(users.count) users for filter: \(filter.rawValue)")
+        
+        // Return users immediately if empty
+        guard !users.isEmpty else {
+            print("⚠️ [Discovery Algorithm] No users to process")
+            return users
+        }
+        
+        // Load current user's following and followers for mutual connection scoring (with cache)
+        let (currentUserFollowing, currentUserFollowers): (Set<String>, Set<String>)
+        if let cached = currentUserConnections {
+            (currentUserFollowing, currentUserFollowers) = cached
+            print("✅ [Discovery Algorithm] Using cached connections: \(currentUserFollowing.count) following, \(currentUserFollowers.count) followers")
+        } else {
+            let connections = await loadUserConnections(userId: currentUserId)
+            currentUserConnections = connections
+            (currentUserFollowing, currentUserFollowers) = connections
+            print("✅ [Discovery Algorithm] Loaded fresh connections: \(currentUserFollowing.count) following, \(currentUserFollowers.count) followers")
+        }
+        
+        // Score each user based on multiple factors
+        let scoredUsers = users.map { user -> (user: UserModel, score: Double) in
+            var score: Double = 10.0 // Base score to ensure everyone has some score
+            
+            guard let userId = user.id else {
+                return (user, 0.0)
+            }
+            
+            // Factor 1: User engagement/activity (always calculated)
+            let followerCount = user.followersCount
+            let followingCount = user.followingCount
+            score += Double(followerCount) * 0.5 // Popular users
+            score += Double(followingCount) * 0.3 // Active users
+            
+            // Factor 2: Profile completeness (quality signal)
+            var completeness = 0
+            if !(user.bio?.isEmpty ?? true) { completeness += 1 }
+            if !(user.profileImageURL?.isEmpty ?? true) { completeness += 1 }
+            if !user.displayName.isEmpty { completeness += 1 }
+            score += Double(completeness) * 2.0
+            
+            // Factor 3: Recency (for Recent filter)
+            if filter == .recent {
+                let daysSinceCreation = Date().timeIntervalSince(user.createdAt) / 86400
+                // Boost score for recently joined users (decay over time)
+                score += max(0, 50.0 - daysSinceCreation)
+            }
+            
+            // Factor 4: Already following penalty (for Suggested filter only)
+            // Don't completely hide users you follow, just deprioritize them
+            if filter == .suggested && followingUserIds.contains(userId) {
+                score *= 0.2 // Reduce score but don't eliminate
+            }
+            
+            return (user, score)
+        }
+        
+        // Sort by score (highest first)
+        let sortedUsers = scoredUsers
+            .sorted { $0.score > $1.score }
+            .map { $0.user }
+        
+        print("✅ [Discovery Algorithm] Sorted \(sortedUsers.count) users by score")
+        
+        return sortedUsers
+    }
+    
+    // MARK: - Load User Connections
+    
+    private func loadUserConnections(userId: String) async -> (following: Set<String>, followers: Set<String>) {
+        var following: Set<String> = []
+        var followers: Set<String> = []
+        
+        do {
+            // Load following
+            let followingSnapshot = try await db
+                .collection("users")
+                .document(userId)
+                .collection("following")
+                .getDocuments()
+            following = Set(followingSnapshot.documents.map { $0.documentID })
+            
+            // Load followers
+            let followersSnapshot = try await db
+                .collection("users")
+                .document(userId)
+                .collection("followers")
+                .getDocuments()
+            followers = Set(followersSnapshot.documents.map { $0.documentID })
+            
+            print("✅ Loaded connections: \(following.count) following, \(followers.count) followers")
+        } catch {
+            print("⚠️ Failed to load user connections: \(error)")
+        }
+        
+        return (following, followers)
     }
 }
 
@@ -1452,7 +1289,7 @@ struct SafeUserProfileWrapper: View {
     @State private var loadFailed = false
     @State private var isLoading = true
     @Environment(\.dismiss) var dismiss
-
+    
     var body: some View {
         Group {
             if loadFailed {
@@ -1460,16 +1297,16 @@ struct SafeUserProfileWrapper: View {
                     Image(systemName: "exclamationmark.triangle")
                         .font(.system(size: 48))
                         .foregroundStyle(.orange)
-
+                    
                     Text("Unable to Load Profile")
                         .font(.custom("OpenSans-Bold", size: 20))
-
+                    
                     Text("This profile could not be loaded. Please try again later.")
                         .font(.custom("OpenSans-Regular", size: 14))
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 40)
-
+                    
                     Button {
                         dismiss()
                     } label: {
@@ -1510,6 +1347,11 @@ struct SafeUserProfileWrapper: View {
 
 // MARK: - Preview
 
+
+// MARK: - Typealias for backward compatibility
+typealias PeopleDiscoveryView = PeopleDiscoveryViewNew
+
 #Preview {
-    PeopleDiscoveryView()
+    let view = PeopleDiscoveryViewNew()
+    return view
 }
