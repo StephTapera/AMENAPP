@@ -9,6 +9,7 @@
 
 import Foundation
 import FirebaseFirestore
+import Combine
 
 /// Smart filtering service that uses keyword analysis and semantic matching
 /// to categorize ideas into AI & Tech, Ministry, Business, or Creative
@@ -19,7 +20,7 @@ class SmartIdeaFilteringService: ObservableObject {
     // MARK: - Category Keywords (Optimized for Fast Matching)
     
     private let categoryKeywords: [TopIdea.IdeaCategory: Set<String>] = [
-        .aiTech: [
+        .ai: [
             // AI & Machine Learning
             "ai", "artificial intelligence", "ml", "machine learning", "neural", "algorithm",
             "automation", "bot", "chatbot", "api", "code", "programming", "software",
@@ -97,7 +98,7 @@ class SmartIdeaFilteringService: ObservableObject {
         
         var scores: [TopIdea.IdeaCategory: Double] = [
             .all: 0,
-            .aiTech: 0,
+            .ai: 0,
             .ministry: 0,
             .business: 0,
             .creative: 0
@@ -144,7 +145,7 @@ class SmartIdeaFilteringService: ObservableObject {
     func categorizeIdeas(_ ideas: [TopIdea]) -> [TopIdea.IdeaCategory: [TopIdea]] {
         var categorized: [TopIdea.IdeaCategory: [TopIdea]] = [
             .all: ideas,
-            .aiTech: [],
+            .ai: [],
             .ministry: [],
             .business: [],
             .creative: []
@@ -175,7 +176,7 @@ class SmartIdeaFilteringService: ObservableObject {
             let matchesCategory = category == .all || detectCategory(for: idea.content) == category
             
             // Timeframe filter
-            let isInTimeframe = idea.timestamp >= cutoffDate
+            let isInTimeframe = idea.createdAt >= cutoffDate
             
             // Engagement filter
             let meetsEngagement = idea.lightbulbCount >= minEngagement
@@ -195,7 +196,7 @@ class SmartIdeaFilteringService: ObservableObject {
     /// Detect if an idea is trending (rapid engagement growth)
     func isTrending(_ idea: TopIdea, comparedTo average: Double) -> Bool {
         let engagement = Double(idea.lightbulbCount + idea.commentCount)
-        let ageInHours = Date().timeIntervalSince(idea.timestamp) / 3600
+        let ageInHours = Date().timeIntervalSince(idea.createdAt) / 3600
         
         // Avoid division by zero
         guard ageInHours > 0 else { return false }
