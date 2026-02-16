@@ -64,58 +64,69 @@ struct FormattingToolbar: View {
     
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 12) {
-                TextFormatButton(icon: "bold", label: "Bold") {
+            HStack(spacing: 8) {
+                // Text Style Group
+                TextFormatButton(icon: "bold") {
                     applyFormatting(markdown: "**")
                 }
                 
-                TextFormatButton(icon: "italic", label: "Italic") {
+                TextFormatButton(icon: "italic") {
                     applyFormatting(markdown: "*")
                 }
                 
-                TextFormatButton(icon: "underline", label: "Underline") {
+                TextFormatButton(icon: "underline") {
                     applyFormatting(markdown: "__")
                 }
                 
-                TextFormatButton(icon: "strikethrough", label: "Strike") {
-                    applyFormatting(markdown: "~~")
+                Divider()
+                    .frame(height: 24)
+                    .background(Color.white.opacity(0.2))
+                
+                // Heading Styles
+                TextFormatButton(icon: "textformat.size.larger", label: "H1") {
+                    applyHeading(level: 1)
+                }
+                
+                TextFormatButton(icon: "textformat.size", label: "H2") {
+                    applyHeading(level: 2)
                 }
                 
                 Divider()
                     .frame(height: 24)
-                    .padding(.horizontal, 4)
+                    .background(Color.white.opacity(0.2))
                 
-                TextFormatButton(icon: "h.square", label: "Heading") {
-                    applyHeading()
-                }
-                
-                TextFormatButton(icon: "list.bullet", label: "List") {
+                // List Styles
+                TextFormatButton(icon: "list.bullet") {
                     applyBulletPoint()
                 }
                 
-                TextFormatButton(icon: "quote.opening", label: "Quote") {
-                    applyBlockQuote()
+                TextFormatButton(icon: "list.number") {
+                    applyNumberedList()
                 }
                 
                 Divider()
                     .frame(height: 24)
-                    .padding(.horizontal, 4)
+                    .background(Color.white.opacity(0.2))
                 
-                TextFormatButton(icon: "link", label: "Link") {
-                    applyLink()
+                // Quote/Indent
+                TextFormatButton(icon: "quote.opening") {
+                    applyBlockQuote()
                 }
                 
-                TextFormatButton(icon: "checkmark.square", label: "Checkbox") {
-                    applyCheckbox()
+                TextFormatButton(icon: "increase.indent") {
+                    applyIndent()
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
         }
-        .background(.ultraThinMaterial)
-        .cornerRadius(12)
-        .padding(.horizontal, 12)
-        .padding(.bottom, 8)
+        .background(Color.white.opacity(0.05))
+        .overlay(
+            Rectangle()
+                .fill(Color.white.opacity(0.1))
+                .frame(height: 0.5),
+            alignment: .bottom
+        )
     }
     
     // Apply markdown formatting to selected text or at cursor
@@ -128,14 +139,21 @@ struct FormattingToolbar: View {
         haptic.impactOccurred()
     }
     
-    private func applyHeading() {
-        text += "\n## Heading\n"
+    private func applyHeading(level: Int = 2) {
+        let prefix = String(repeating: "#", count: level)
+        text += "\n\(prefix) Heading\n"
         let haptic = UIImpactFeedbackGenerator(style: .light)
         haptic.impactOccurred()
     }
     
     private func applyBulletPoint() {
-        text += "\n- "
+        text += "\n• "
+        let haptic = UIImpactFeedbackGenerator(style: .light)
+        haptic.impactOccurred()
+    }
+    
+    private func applyNumberedList() {
+        text += "\n1. "
         let haptic = UIImpactFeedbackGenerator(style: .light)
         haptic.impactOccurred()
     }
@@ -146,14 +164,8 @@ struct FormattingToolbar: View {
         haptic.impactOccurred()
     }
     
-    private func applyLink() {
-        text += "[link text](url)"
-        let haptic = UIImpactFeedbackGenerator(style: .light)
-        haptic.impactOccurred()
-    }
-    
-    private func applyCheckbox() {
-        text += "\n- [ ] "
+    private func applyIndent() {
+        text += "    "
         let haptic = UIImpactFeedbackGenerator(style: .light)
         haptic.impactOccurred()
     }
@@ -163,24 +175,25 @@ struct FormattingToolbar: View {
 
 struct TextFormatButton: View {
     let icon: String
-    let label: String
+    var label: String? = nil
     let action: () -> Void
     
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 4) {
-                Image(systemName: icon)
-                    .font(.system(size: 18, weight: .medium))
-                    .frame(width: 28, height: 28)
-                
-                Text(label)
-                    .font(.system(size: 10, weight: .medium))
+            ZStack {
+                if let label = label {
+                    Text(label)
+                        .font(.custom("OpenSans-Bold", size: 12))
+                        .foregroundStyle(.white.opacity(0.8))
+                } else {
+                    Image(systemName: icon)
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.8))
+                }
             }
-            .foregroundStyle(.white.opacity(0.9))
-            .padding(.horizontal, 8)
-            .padding(.vertical, 6)
+            .frame(width: 36, height: 36)
             .background(
-                RoundedRectangle(cornerRadius: 8)
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .fill(Color.white.opacity(0.1))
             )
         }

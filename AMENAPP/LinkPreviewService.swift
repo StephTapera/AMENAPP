@@ -172,77 +172,57 @@ struct LinkPreviewCard: View {
     
     var body: some View {
         Button(action: onTap) {
-            VStack(alignment: .leading, spacing: 0) {
-                // Image (if available)
-                if let imageURL = metadata.imageURL {
-                    AsyncImage(url: imageURL) { phase in
-                        switch phase {
-                        case .empty:
-                            Rectangle()
-                                .fill(Color.gray.opacity(0.2))
-                                .frame(height: 160)
-                                .overlay(
-                                    ProgressView()
-                                )
-                        case .success(let image):
-                            image
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                                .frame(height: 160)
-                                .clipped()
-                        case .failure:
-                            Rectangle()
-                                .fill(Color.gray.opacity(0.2))
-                                .frame(height: 160)
-                                .overlay(
-                                    Image(systemName: "photo")
-                                        .foregroundColor(.gray)
-                                )
-                        @unknown default:
-                            EmptyView()
-                        }
-                    }
+            HStack(spacing: 6) {
+                // Small link icon
+                Image(systemName: "link")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(.black.opacity(0.6))
+                
+                // Compact text - just show host/title
+                if let title = metadata.title, !title.isEmpty {
+                    Text(title)
+                        .font(.custom("OpenSans-SemiBold", size: 11))
+                        .foregroundStyle(.black.opacity(0.7))
+                        .lineLimit(1)
+                } else if let host = metadata.url.host {
+                    Text(host)
+                        .font(.custom("OpenSans-SemiBold", size: 11))
+                        .foregroundStyle(.black.opacity(0.7))
+                        .lineLimit(1)
+                } else {
+                    Text("Link")
+                        .font(.custom("OpenSans-SemiBold", size: 11))
+                        .foregroundStyle(.black.opacity(0.7))
+                        .lineLimit(1)
                 }
                 
-                // Content
-                VStack(alignment: .leading, spacing: 6) {
-                    // Title
-                    if let title = metadata.title {
-                        Text(title)
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(.primary)
-                            .lineLimit(2)
-                    }
-                    
-                    // Description
-                    if let description = metadata.description {
-                        Text(description)
-                            .font(.system(size: 12))
-                            .foregroundColor(.secondary)
-                            .lineLimit(2)
-                    }
-                    
-                    // Site name / URL
-                    HStack(spacing: 4) {
-                        Image(systemName: "link")
-                            .font(.system(size: 10))
-                            .foregroundColor(.secondary)
-                        
-                        Text(metadata.siteName ?? metadata.url.host ?? metadata.url.absoluteString)
-                            .font(.system(size: 11))
-                            .foregroundColor(.secondary)
-                            .lineLimit(1)
-                    }
-                }
-                .padding(12)
+                // Tiny external arrow
+                Image(systemName: "arrow.up.forward")
+                    .font(.system(size: 8, weight: .medium))
+                    .foregroundStyle(.black.opacity(0.4))
             }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
             .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(.ultraThinMaterial)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .strokeBorder(Color.gray.opacity(0.2), lineWidth: 1)
+                Capsule()
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.9),
+                                Color(white: 0.95).opacity(0.9)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .overlay(
+                        Capsule()
+                            .strokeBorder(
+                                Color.black.opacity(0.1),
+                                lineWidth: 0.5
+                            )
+                    )
+                    .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
             )
         }
         .buttonStyle(PlainButtonStyle())

@@ -62,10 +62,10 @@
             filePath = "AMENAPP/UserProfileView.swift"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "148"
-            endingLineNumber = "148"
-            landmarkName = "UserProfileTab"
-            landmarkType = "13">
+            startingLineNumber = "155"
+            endingLineNumber = "155"
+            landmarkName = "icon"
+            landmarkType = "24">
          </BreakpointContent>
       </BreakpointProxy>
    </Breakpoints>

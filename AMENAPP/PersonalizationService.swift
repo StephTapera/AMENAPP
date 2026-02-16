@@ -237,6 +237,8 @@ class PersonalizationService: ObservableObject {
             score.engagement = min(Double(post.lightbulbCount) / 10.0, 10.0)
         case .testimonies, .prayer:
             score.engagement = min(Double(post.amenCount) / 20.0, 10.0)
+        case .tip, .funFact:
+            score.engagement = min(Double(post.amenCount) / 15.0, 10.0)
         }
         
         // Comment bonus

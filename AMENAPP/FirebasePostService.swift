@@ -377,6 +377,8 @@ class FirebasePostService: ObservableObject {
             case .openTable: return "openTable"
             case .testimonies: return "testimonies"
             case .prayer: return "prayer"
+            case .tip: return "tip"
+            case .funFact: return "funFact"
             }
         }()
         
@@ -605,6 +607,8 @@ class FirebasePostService: ObservableObject {
             case .openTable: return "openTable"
             case .testimonies: return "testimonies"
             case .prayer: return "prayer"
+            case .tip: return "tip"
+            case .funFact: return "funFact"
             }
         }()
         
@@ -754,6 +758,8 @@ class FirebasePostService: ObservableObject {
                 case .openTable: return "openTable"
                 case .testimonies: return "testimonies"
                 case .prayer: return "prayer"
+                case .tip: return "tip"
+                case .funFact: return "funFact"
                 }
             }()
             
@@ -786,6 +792,8 @@ class FirebasePostService: ObservableObject {
                             self.testimoniesPosts = cachedPosts
                         case .openTable:
                             self.openTablePosts = cachedPosts
+                        case .tip, .funFact:
+                            break  // Tip and funFact posts stay in main feed only
                         }
                         self.posts = self.prayerPosts + self.testimoniesPosts + self.openTablePosts
                     } else {
@@ -848,6 +856,8 @@ class FirebasePostService: ObservableObject {
                             self.testimoniesPosts = newPosts
                         case .openTable:
                             self.openTablePosts = newPosts
+                        case .tip, .funFact:
+                            break  // Tip and funFact posts stay in main feed only
                         }
 
                         // Update the main posts array by combining all categories
@@ -888,6 +898,8 @@ class FirebasePostService: ObservableObject {
                                 self.testimoniesPosts = enrichedPosts
                             case .openTable:
                                 self.openTablePosts = enrichedPosts
+                            case .tip, .funFact:
+                                break  // Tip and funFact posts stay in main feed only
                             }
                             self.posts = self.prayerPosts + self.testimoniesPosts + self.openTablePosts
                         } else {

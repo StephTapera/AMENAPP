@@ -30,8 +30,8 @@ class AINoteSummarizationService {
     
     /// Generate AI summary of sermon notes
     /// - Parameter noteContent: Raw note content
-    /// - Returns: Structured summary with theme, scripture, points, actions
-    func summarizeNote(content: String) async throws -> NoteSummary {
+    /// - Returns: Structured summary with theme, scripture, points, actions (nil if Cloud Function unavailable)
+    func summarizeNote(content: String) async -> NoteSummary? {
         
         print("📝 [AI SUMMARY] Generating summary for note (\(content.count) chars)")
         
@@ -54,9 +54,14 @@ class AINoteSummarizationService {
             print("✅ [AI SUMMARY] Summary generated: \(summary.mainTheme)")
             return summary
             
+        } catch let error as NSError where error.code == 408 {
+            // Timeout error - Cloud Function may not be deployed
+            print("⚠️ [AI SUMMARY] Timeout - Cloud Function may not be deployed. Summary unavailable.")
+            return nil
         } catch {
             print("❌ [AI SUMMARY] Error: \(error)")
-            throw error
+            // Return nil for other errors too (graceful degradation)
+            return nil
         }
     }
     

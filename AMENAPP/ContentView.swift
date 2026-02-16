@@ -265,6 +265,9 @@ struct ContentView: View {
                 pushManager.setupFCMToken()
                 print("✅ Push notifications already enabled")
             }
+            
+            // Setup smart break reminder notification categories
+            await SmartBreakReminderService.shared.setupNotificationCategories()
         } else {
             // Request permission after a short delay (don't overwhelm user on launch)
             try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
@@ -276,6 +279,9 @@ struct ContentView: View {
                     pushManager.setupFCMToken()
                     print("✅ Push notifications enabled")
                 }
+                
+                // Setup smart break reminder notification categories
+                await SmartBreakReminderService.shared.setupNotificationCategories()
             } else {
                 print("⚠️ Push notifications denied")
             }
@@ -852,7 +858,7 @@ struct CompactTabBar: View {
                     )
                     .shadow(color: .black.opacity(0.2), radius: 6, y: 2)
                 
-                Image(systemName: "plus")
+                Image(systemName: "pencil")
                     .font(.system(size: 16, weight: .bold))  // Reduced from 18 to 16
                     .foregroundStyle(.white)
             }
@@ -1009,7 +1015,7 @@ struct HomeView: View {
                 ToolbarItem(placement: .principal) {
                     Button {
                         // Tap AMEN title - toggle categories expand/collapse
-                        withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                        withAnimation(.spring(response: 0.15, dampingFraction: 0.8)) {
                             isCategoriesExpanded.toggle()
                             showToolbar = true // Also show toolbar
                         }
@@ -1150,6 +1156,12 @@ struct HomeView: View {
                             .padding(.bottom, 8)
                     }
                     
+                    // Subtle collaboration suggestions (only in OpenTable)
+                    if viewModel.selectedCategory == "#OPENTABLE" {
+                        SubtleCollaborationSuggestionsView()
+                            .padding(.top, 8)
+                    }
+                    
                     // Dynamic Content Based on Selected Category
                     selectedCategoryView
                 }
@@ -1202,7 +1214,7 @@ struct HomeView: View {
         // GESTURE 2: Auto-collapse category pills when scrolling down
         if delta < -30 && offset < -50 {
             if isCategoriesExpanded {
-                withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                withAnimation(.spring(response: 0.15, dampingFraction: 0.8)) {
                     isCategoriesExpanded = false
                 }
             }
@@ -1243,7 +1255,7 @@ struct HomeView: View {
                         isSelected: viewModel.selectedCategory == category
                     ) {
                         viewModel.selectCategory(category)
-                        withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                        withAnimation(.spring(response: 0.15, dampingFraction: 0.8)) {
                             isCategoriesExpanded = false
                         }
                     }
@@ -1255,8 +1267,8 @@ struct HomeView: View {
         .frame(maxWidth: .infinity)
         .padding(.horizontal, 16)
         .transition(.asymmetric(
-            insertion: .move(edge: .top).combined(with: .opacity).animation(.spring(response: 0.25, dampingFraction: 0.85)),
-            removal: .move(edge: .top).combined(with: .opacity).animation(.spring(response: 0.25, dampingFraction: 0.85))
+            insertion: .move(edge: .top).combined(with: .opacity).animation(.spring(response: 0.15, dampingFraction: 0.8)),
+            removal: .move(edge: .top).combined(with: .opacity).animation(.spring(response: 0.15, dampingFraction: 0.8))
         ))
     }
     
@@ -3395,8 +3407,8 @@ struct CollapsibleCommunitySection: View {
                     LiquidGlassCommunityCard(
                         icon: "lightbulb.fill",
                         iconColor: Color.white, // White lightbulb
-                        backgroundGradientTop: Color(red: 0.55, green: 0.09, blue: 0.13), // Rich red-burgundy
-                        backgroundGradientBottom: Color(red: 0.65, green: 0.12, blue: 0.16), // Brighter burgundy
+                        backgroundGradientTop: Color(red: 0.75, green: 0.08, blue: 0.12), // Rich red-burgundy
+                        backgroundGradientBottom: Color(red: 0.85, green: 0.10, blue: 0.14), // Brighter burgundy
                         useBurgundyStyle: true,
                         title: "Spotlight",
                         subtitle: "Featured"
@@ -3743,6 +3755,7 @@ struct SmartTrendingCard: View {
 struct TopIdeasView: View {
     @Environment(\.dismiss) var dismiss
     @StateObject private var trendingService = TrendingService.shared
+    @StateObject private var filteringService = SmartIdeaFilteringService.shared
     @State private var selectedTimeframe: IdeaTimeframe = .week
     @State private var selectedCategory: TopIdea.IdeaCategory = .all
     @State private var showFilters = false
@@ -3764,9 +3777,13 @@ struct TopIdeasView: View {
     }
     
     var filteredTopIdeas: [TopIdea] {
-        trendingService.topIdeas.filter { idea in
-            selectedCategory == .all || idea.category == selectedCategory
-        }
+        // Use smart filtering algorithm for accurate categorization
+        filteringService.filterIdeas(
+            trendingService.topIdeas,
+            category: selectedCategory,
+            timeframe: selectedTimeframe.timeInterval,
+            minEngagement: 0
+        )
     }
     
     var body: some View {

@@ -11,7 +11,8 @@ import UserNotifications
 import SwiftUI
 import Combine
 
-/// Manages prayer break notifications with accurate timing based on user preferences
+/// Manages daily inspiration notifications (verses & app reminders) - NOT break reminders
+/// Break reminders are now handled by SmartBreakReminderService based on actual usage
 @MainActor
 class BreakTimeNotificationManager: ObservableObject {
     static let shared = BreakTimeNotificationManager()
@@ -21,6 +22,23 @@ class BreakTimeNotificationManager: ObservableObject {
     
     private let center = UNUserNotificationCenter.current()
     private let breakTimeKey = "break_time_schedule"
+    
+    // Rotating verses for variety
+    private let morningVerses = [
+        ("This is the day that the Lord has made; let us rejoice and be glad in it", "Psalm 118:24"),
+        ("The steadfast love of the Lord never ceases; his mercies never come to an end; they are new every morning", "Lamentations 3:22-23"),
+        ("Satisfy us in the morning with your steadfast love, that we may rejoice and be glad all our days", "Psalm 90:14"),
+        ("My soul is satisfied as with a rich feast, and my mouth praises you with joyful lips", "Psalm 63:5"),
+        ("In the morning, O Lord, you hear my voice; in the morning I lay my requests before you", "Psalm 5:3")
+    ]
+    
+    private let nightVerses = [
+        ("Be still, and know that I am God", "Psalm 46:10"),
+        ("In peace I will both lie down and sleep; for you alone, O Lord, make me dwell in safety", "Psalm 4:8"),
+        ("The Lord is my light and my salvation; whom shall I fear?", "Psalm 27:1"),
+        ("Cast all your anxieties on him, because he cares for you", "1 Peter 5:7"),
+        ("Come to me, all who labor and are heavy laden, and I will give you rest", "Matthew 11:28")
+    ]
     
     struct BreakTime: Codable, Identifiable {
         let id: UUID
@@ -87,7 +105,7 @@ class BreakTimeNotificationManager: ObservableObject {
     
     // MARK: - Schedule Break Notifications
     
-    /// Schedule break notifications based on prayer time preference from onboarding
+    /// Schedule break notifications (ONLY 2 daily: morning + night to avoid duplicates)
     func scheduleBreakNotifications(for prayerTime: String) async {
         guard isAuthorized else {
             print("⚠️ Not authorized for break notifications")
@@ -95,32 +113,54 @@ class BreakTimeNotificationManager: ObservableObject {
             return
         }
         
-        // Remove existing break notifications
-        center.removePendingNotificationRequests(withIdentifiers: getAllBreakIdentifiers())
-        
-        // Get break times based on user preference
+        // CRITICAL: Remove ALL existing break notifications first
+        await removeAllBreakNotifications()
+
+        // Get break times (strictly morning + night only, ignoring prayerTime parameter)
         let breakTimes = getBreakTimes(for: prayerTime)
         scheduledBreakTimes = breakTimes
         saveScheduledBreakTimes()
         
-        // Schedule each break notification
+        // Schedule each break notification with unique identifiers
         for breakTime in breakTimes {
             await scheduleBreakNotification(for: breakTime)
         }
         
-        print("✅ Scheduled \(breakTimes.count) break notifications for: \(prayerTime)")
+        print("✅ Scheduled EXACTLY \(breakTimes.count) break notifications (morning & night only)")
+        
+        // Verify no duplicates
+        let count = await getPendingNotificationsCount()
+        if count > 2 {
+            print("⚠️ WARNING: Found \(count) pending break notifications! Expected 2.")
+        }
     }
     
     private func scheduleBreakNotification(for breakTime: BreakTime) async {
         let content = UNMutableNotificationContent()
-        content.title = "Time for a Break"
-        content.body = "Step away from the screen and spend time in prayer with God"
+        
+        // Select a random verse based on time of day
+        let isMorning = breakTime.hour < 12
+        let verses = isMorning ? morningVerses : nightVerses
+        let randomVerse = verses.randomElement()!
+        
+        // Format notification
+        if isMorning {
+            content.title = "Good Morning"
+            content.body = "\"\(randomVerse.0)\" - \(randomVerse.1)"
+        } else {
+            content.title = "Evening Reflection"
+            content.body = "\"\(randomVerse.0)\" - \(randomVerse.1)"
+        }
+        
         content.sound = .default
-        content.categoryIdentifier = "PRAYER_BREAK"
+        content.categoryIdentifier = "DAILY_INSPIRATION"
         content.userInfo = [
+            "type": "daily_inspiration",
             "break_time_id": breakTime.id.uuidString,
             "break_hour": breakTime.hour,
-            "break_minute": breakTime.minute
+            "break_minute": breakTime.minute,
+            "verse": randomVerse.0,
+            "reference": randomVerse.1
         ]
         
         // Create date components for daily repeat
@@ -133,55 +173,28 @@ class BreakTimeNotificationManager: ObservableObject {
         
         // Create request
         let request = UNNotificationRequest(
-            identifier: "break_\(breakTime.id.uuidString)",
+            identifier: "inspiration_\(breakTime.id.uuidString)",
             content: content,
             trigger: trigger
         )
         
         do {
             try await center.add(request)
-            print("✅ Scheduled break notification for \(breakTime.timeString)")
+            print("✅ Scheduled daily inspiration for \(breakTime.timeString)")
         } catch {
-            print("❌ Failed to schedule break notification: \(error)")
+            print("❌ Failed to schedule inspiration notification: \(error)")
         }
     }
     
     // MARK: - Break Time Calculation
     
     private func getBreakTimes(for prayerTime: String) -> [BreakTime] {
-        switch prayerTime {
-        case "Morning":
-            return [
-                BreakTime(hour: 8, minute: 0, title: "Morning Prayer Break", icon: "sunrise.fill")
-            ]
-            
-        case "Afternoon":
-            return [
-                BreakTime(hour: 14, minute: 0, title: "Afternoon Prayer Break", icon: "sun.max.fill")
-            ]
-            
-        case "Evening":
-            return [
-                BreakTime(hour: 18, minute: 0, title: "Evening Prayer Break", icon: "sunset.fill")
-            ]
-            
-        case "Night":
-            return [
-                BreakTime(hour: 21, minute: 0, title: "Night Prayer Break", icon: "moon.stars.fill")
-            ]
-            
-        case "Day & Night":
-            return [
-                BreakTime(hour: 8, minute: 0, title: "Morning Prayer Break", icon: "sunrise.fill"),
-                BreakTime(hour: 21, minute: 0, title: "Night Prayer Break", icon: "moon.stars.fill")
-            ]
-            
-        default:
-            // Default to morning
-            return [
-                BreakTime(hour: 8, minute: 0, title: "Morning Prayer Break", icon: "sunrise.fill")
-            ]
-        }
+        // STRICTLY enforce only two daily inspirations (ignore prayerTime parameter)
+        // These send verses and encouragement, NOT break reminders
+        [
+            BreakTime(hour: 8, minute: 0, title: "Morning Inspiration", icon: "sunrise.fill"),
+            BreakTime(hour: 21, minute: 0, title: "Evening Reflection", icon: "moon.stars.fill")
+        ]
     }
     
     // MARK: - Persistence
@@ -203,34 +216,28 @@ class BreakTimeNotificationManager: ObservableObject {
     // MARK: - Notification Categories
     
     private func setupNotificationCategories() {
-        let prayNowAction = UNNotificationAction(
-            identifier: "PRAY_NOW",
-            title: "Pray Now",
+        let reflectAction = UNNotificationAction(
+            identifier: "REFLECT_NOW",
+            title: "Reflect",
             options: .foreground
         )
         
-        let remindLaterAction = UNNotificationAction(
-            identifier: "REMIND_LATER_15",
-            title: "Remind in 15 min",
+        let shareAction = UNNotificationAction(
+            identifier: "SHARE_VERSE",
+            title: "Share",
             options: []
         )
         
-        let skipAction = UNNotificationAction(
-            identifier: "SKIP_BREAK",
-            title: "Skip",
-            options: .destructive
-        )
-        
         let category = UNNotificationCategory(
-            identifier: "PRAYER_BREAK",
-            actions: [prayNowAction, remindLaterAction, skipAction],
+            identifier: "DAILY_INSPIRATION",
+            actions: [reflectAction, shareAction],
             intentIdentifiers: [],
-            hiddenPreviewsBodyPlaceholder: "Prayer Break Reminder",
+            hiddenPreviewsBodyPlaceholder: "Daily Inspiration",
             options: .customDismissAction
         )
         
         center.setNotificationCategories([category])
-        print("✅ Break notification categories configured")
+        print("✅ Daily inspiration notification categories configured")
     }
     
     // MARK: - Reminder Actions
@@ -265,6 +272,18 @@ class BreakTimeNotificationManager: ObservableObject {
     private func getAllBreakIdentifiers() -> [String] {
         scheduledBreakTimes.map { "break_\($0.id.uuidString)" }
     }
+
+    private func removeAllBreakNotifications() async {
+        let pending = await center.pendingNotificationRequests()
+        // Remove old "break_" notifications AND new "inspiration_" notifications
+        let notificationIdentifiers = pending
+            .filter { $0.identifier.hasPrefix("break_") || $0.identifier.hasPrefix("inspiration_") }
+            .map { $0.identifier }
+        if !notificationIdentifiers.isEmpty {
+            center.removePendingNotificationRequests(withIdentifiers: notificationIdentifiers)
+            print("🗑️ Removed \(notificationIdentifiers.count) old notification(s)")
+        }
+    }
     
     /// Remove all break notifications
     func clearAllBreakNotifications() {
@@ -277,7 +296,9 @@ class BreakTimeNotificationManager: ObservableObject {
     /// Get pending notifications count
     func getPendingNotificationsCount() async -> Int {
         let pending = await center.pendingNotificationRequests()
-        let breakNotifications = pending.filter { $0.identifier.hasPrefix("break_") }
-        return breakNotifications.count
+        let inspirationNotifications = pending.filter { 
+            $0.identifier.hasPrefix("inspiration_") || $0.identifier.hasPrefix("break_") 
+        }
+        return inspirationNotifications.count
     }
 }

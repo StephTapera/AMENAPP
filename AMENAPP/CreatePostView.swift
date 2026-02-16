@@ -71,6 +71,8 @@ struct CreatePostView: View {
         case openTable = "openTable"      // ✅ Firebase-safe (no special chars)
         case testimonies = "testimonies"  // ✅ Firebase-safe (lowercase)
         case prayer = "prayer"            // ✅ Firebase-safe (lowercase)
+        case tip = "tip"                  // ✅ NEW: Tips category
+        case funFact = "funFact"          // ✅ NEW: Fun Facts category
         
         /// Display name for UI (with special formatting)
         var displayName: String {
@@ -78,6 +80,8 @@ struct CreatePostView: View {
             case .openTable: return "#OPENTABLE"
             case .testimonies: return "Testimonies"
             case .prayer: return "Prayer"
+            case .tip: return "Tip"
+            case .funFact: return "Fun Fact"
             }
         }
         
@@ -86,6 +90,8 @@ struct CreatePostView: View {
             case .openTable: return "lightbulb.fill"
             case .testimonies: return "star.fill"
             case .prayer: return "hands.sparkles.fill"
+            case .tip: return "info.circle.fill"
+            case .funFact: return "sparkles"
             }
         }
         
@@ -94,6 +100,8 @@ struct CreatePostView: View {
             case .openTable: return .orange
             case .testimonies: return .yellow
             case .prayer: return .blue
+            case .tip: return .green
+            case .funFact: return .purple
             }
         }
         
@@ -102,6 +110,8 @@ struct CreatePostView: View {
             case .openTable: return .yellow
             case .testimonies: return .orange
             case .prayer: return .cyan
+            case .tip: return .mint
+            case .funFact: return .pink
             }
         }
         
@@ -110,6 +120,8 @@ struct CreatePostView: View {
             case .openTable: return "Discussions about AI, tech & faith"
             case .testimonies: return "Share your faith journey"
             case .prayer: return "Prayer requests & praise reports"
+            case .tip: return "Share helpful tips & advice"
+            case .funFact: return "Share interesting facts"
             }
         }
         
@@ -119,6 +131,8 @@ struct CreatePostView: View {
             case .openTable: return .openTable
             case .testimonies: return .testimonies
             case .prayer: return .prayer
+            case .tip: return .tip
+            case .funFact: return .funFact
             }
         }
     }
@@ -489,6 +503,10 @@ struct CreatePostView: View {
             return "Share how God has been working in your life..."
         case .prayer:
             return "Share a prayer request or praise report..."
+        case .tip:
+            return "Share a helpful tip or advice..."
+        case .funFact:
+            return "Share an interesting fun fact..."
         }
     }
     
@@ -1141,6 +1159,10 @@ struct CreatePostView: View {
             hashtagSuggestions = ["#Testimony", "#FaithJourney", "#Blessed", "#Miracle", "#GodIsGood"]
         case .prayer:
             hashtagSuggestions = ["#PrayerRequest", "#PraiseReport", "#Intercession", "#DailyPrayer", "#PrayerWarrior"]
+        case .tip:
+            hashtagSuggestions = ["#TipOfTheDay", "#HelpfulTips", "#ProTip", "#LifeHack", "#Advice"]
+        case .funFact:
+            hashtagSuggestions = ["#FunFact", "#DidYouKnow", "#Interesting", "#TodayILearned", "#Facts"]
         }
     }
     
@@ -2180,6 +2202,7 @@ struct TopicTagSheet: View {
     // OpenTable topic tags
     var openTableTags: [(String, String, Color)] {
         var tags: [(String, String, Color)] = []
+        // Technical topics
         tags.append(("AI & Technology", "cpu", .blue))
         tags.append(("Machine Learning", "brain", .purple))
         tags.append(("Ethics & Morality", "scale.3d", .indigo))
@@ -2196,6 +2219,28 @@ struct TopicTagSheet: View {
         tags.append(("Artificial Intelligence", "sparkles", .yellow))
         tags.append(("Quantum Computing", "atom", .cyan))
         tags.append(("Biotechnology", "cross.vial.fill", .green))
+        
+        // Non-technical topics
+        tags.append(("Faith & Culture", "globe.americas.fill", .blue))
+        tags.append(("Relationships", "heart.circle.fill", .pink))
+        tags.append(("Family Life", "house.fill", .orange))
+        tags.append(("Mental Health", "brain.head.profile", .teal))
+        tags.append(("Worship & Music", "music.note", .purple))
+        tags.append(("Biblical Studies", "book.closed.fill", .indigo))
+        tags.append(("Leadership", "person.3.fill", .green))
+        tags.append(("Community", "person.2.fill", .mint))
+        tags.append(("Apologetics", "shield.fill", .red))
+        tags.append(("Evangelism", "megaphone.fill", .orange))
+        tags.append(("Spiritual Growth", "leaf.fill", .green))
+        tags.append(("Church Life", "building.columns.fill", .blue))
+        tags.append(("Missions", "airplane", .cyan))
+        tags.append(("Justice & Mercy", "hand.raised.fill", .yellow))
+        tags.append(("Forgiveness", "heart.fill", .pink))
+        tags.append(("Hope & Encouragement", "sun.max.fill", .orange))
+        tags.append(("Wisdom & Discernment", "eye.fill", .purple))
+        tags.append(("Creativity & Arts", "paintpalette.fill", .pink))
+        tags.append(("Health & Wellness", "heart.text.square.fill", .red))
+        tags.append(("Finance & Stewardship", "dollarsign.circle.fill", .green))
         return tags
     }
     
@@ -2331,7 +2376,7 @@ struct TopicTagCard: View {
     }
 }
 
-// Schedule Post Sheet
+// Schedule Post Sheet - Black & White Glassmorphic Design
 struct SchedulePostSheet: View {
     @Binding var isPresented: Bool
     @Binding var scheduledDate: Date?
@@ -2343,33 +2388,49 @@ struct SchedulePostSheet: View {
     }
     
     var body: some View {
-        NavigationStack {
+        ZStack(alignment: .topTrailing) {
+            // Main content
             VStack(spacing: 24) {
+                // Header with glassmorphic design
                 VStack(alignment: .leading, spacing: 12) {
                     HStack(spacing: 12) {
-                        Image(systemName: "calendar.badge.clock")
-                            .font(.system(size: 32))
-                            .foregroundStyle(.green)
+                        ZStack {
+                            Circle()
+                                .fill(.ultraThinMaterial)
+                                .frame(width: 48, height: 48)
+                                .overlay(
+                                    Circle()
+                                        .stroke(Color.black.opacity(0.1), lineWidth: 1)
+                                )
+                            
+                            Image(systemName: "calendar.badge.clock")
+                                .font(.system(size: 24, weight: .semibold))
+                                .foregroundStyle(.black)
+                        }
                         
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Schedule Post")
                                 .font(.custom("OpenSans-Bold", size: 20))
+                                .foregroundStyle(.black)
                             
-                            Text("Choose when to publish your post")
+                            Text("Choose when to publish")
                                 .font(.custom("OpenSans-Regular", size: 14))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(.black.opacity(0.6))
                         }
+                        
+                        Spacer()
                     }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 20)
-                .padding(.top, 20)
+                .padding(.top, 60) // Space for X button
                 
+                // Date picker with glassmorphic background
                 VStack(spacing: 16) {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Date & Time")
-                            .font(.custom("OpenSans-Bold", size: 15))
-                            .foregroundStyle(.secondary)
+                        Text("DATE & TIME")
+                            .font(.custom("OpenSans-Bold", size: 13))
+                            .foregroundStyle(.black.opacity(0.5))
+                            .tracking(1)
                         
                         DatePicker(
                             "Schedule Time",
@@ -2378,32 +2439,57 @@ struct SchedulePostSheet: View {
                             displayedComponents: [.date, .hourAndMinute]
                         )
                         .datePickerStyle(.graphical)
-                        .padding()
+                        .padding(16)
                         .background(
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(Color(.systemGray6))
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 20)
+                                    .fill(.ultraThinMaterial)
+                                
+                                RoundedRectangle(cornerRadius: 20)
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [
+                                                Color.white.opacity(0.3),
+                                                Color.white.opacity(0.1)
+                                            ],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
+                                    )
+                                
+                                RoundedRectangle(cornerRadius: 20)
+                                    .stroke(Color.black.opacity(0.1), lineWidth: 1)
+                            }
                         )
                     }
                     
-                    // Info box
+                    // Info box with glassmorphic design
                     HStack(spacing: 12) {
                         Image(systemName: "info.circle.fill")
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(.black.opacity(0.7))
                         
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Your post will be published automatically at the selected time.")
-                                .font(.custom("OpenSans-Regular", size: 12))
-                                .foregroundStyle(.secondary)
+                            Text("Auto-publishes at selected time")
+                                .font(.custom("OpenSans-SemiBold", size: 13))
+                                .foregroundStyle(.black.opacity(0.8))
                             
                             Text("Minimum: 5 minutes from now")
-                                .font(.custom("OpenSans-SemiBold", size: 11))
-                                .foregroundStyle(.blue)
+                                .font(.custom("OpenSans-Regular", size: 12))
+                                .foregroundStyle(.black.opacity(0.6))
                         }
                     }
-                    .padding(12)
+                    .padding(14)
                     .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color.blue.opacity(0.1))
+                        ZStack {
+                            Capsule()
+                                .fill(.ultraThinMaterial)
+                            
+                            Capsule()
+                                .fill(Color.black.opacity(0.03))
+                            
+                            Capsule()
+                                .stroke(Color.black.opacity(0.1), lineWidth: 1)
+                        }
                     )
                 }
                 .padding(.horizontal, 20)
@@ -2411,15 +2497,15 @@ struct SchedulePostSheet: View {
                 Spacer()
                 
                 VStack(spacing: 12) {
-                    // Schedule button
+                    // Schedule button - Black glassmorphic
                     Button {
                         scheduledDate = selectedDateTime
                         isPresented = false
                         
                     } label: {
-                        HStack {
+                        HStack(spacing: 10) {
                             Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 18))
+                                .font(.system(size: 18, weight: .semibold))
                             
                             Text("Schedule Post")
                                 .font(.custom("OpenSans-Bold", size: 16))
@@ -2428,11 +2514,17 @@ struct SchedulePostSheet: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
                         .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(Color.green)
-                                .shadow(color: .green.opacity(0.3), radius: 12, y: 4)
+                            ZStack {
+                                Capsule()
+                                    .fill(Color.black)
+                                
+                                Capsule()
+                                    .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                            }
+                            .shadow(color: .black.opacity(0.2), radius: 12, y: 4)
                         )
                     }
+                    .buttonStyle(.plain)
                     
                     // Clear schedule button (if already scheduled)
                     if scheduledDate != nil {
@@ -2441,22 +2533,43 @@ struct SchedulePostSheet: View {
                             isPresented = false
                         } label: {
                             Text("Remove Schedule")
-                                .font(.custom("OpenSans-SemiBold", size: 14))
-                                .foregroundStyle(.red)
+                                .font(.custom("OpenSans-SemiBold", size: 15))
+                                .foregroundStyle(.black.opacity(0.6))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 14)
+                                .background(
+                                    Capsule()
+                                        .stroke(Color.black.opacity(0.2), lineWidth: 1.5)
+                                )
                         }
+                        .buttonStyle(.plain)
                     }
                 }
                 .padding(.horizontal, 20)
-                .padding(.bottom, 20)
+                .padding(.bottom, 30)
             }
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        isPresented = false
-                    }
+            
+            // X button - Top right
+            Button {
+                isPresented = false
+            } label: {
+                ZStack {
+                    Circle()
+                        .fill(.ultraThinMaterial)
+                        .frame(width: 36, height: 36)
+                        .overlay(
+                            Circle()
+                                .stroke(Color.black.opacity(0.1), lineWidth: 1)
+                        )
+                    
+                    Image(systemName: "xmark")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(.black.opacity(0.7))
                 }
             }
+            .buttonStyle(.plain)
+            .padding(.top, 16)
+            .padding(.trailing, 20)
         }
         .presentationDetents([.large])
         .onAppear {

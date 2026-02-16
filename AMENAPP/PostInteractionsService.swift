@@ -401,6 +401,14 @@ class PostInteractionsService: ObservableObject {
         // Update local state
         postComments[postId] = (postComments[postId] ?? 0) + 1
         
+        // ✅ Create notification for post author
+        Task.detached { [weak self] in
+            guard let self = self else { return }
+            if let postAuthorId = try? await self.getPostAuthorId(postId: postId) {
+                try? await self.createNotification(type: "comment", postId: postId, postAuthorId: postAuthorId)
+            }
+        }
+        
         print("💬 Comment added to post: \(postId) by @\(authorUsername)")
         print("🔍 You can verify at: postInteractions/\(postId)/comments")
         
@@ -585,6 +593,14 @@ class PostInteractionsService: ObservableObject {
             // Update local state
             userRepostedPosts.insert(postId)
             postReposts[postId] = (postReposts[postId] ?? 0) + 1
+            
+            // ✅ Create notification for post author
+            Task.detached { [weak self] in
+                guard let self = self else { return }
+                if let postAuthorId = try? await self.getPostAuthorId(postId: postId) {
+                    try? await self.createNotification(type: "repost", postId: postId, postAuthorId: postAuthorId)
+                }
+            }
             
             print("🔄 [DEBUG] Repost added to post: \(postId)")
             print("   - User: \(currentUserId)")

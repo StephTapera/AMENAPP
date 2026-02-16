@@ -107,6 +107,8 @@ final class SmartNotificationEngine {
             return 12.0  // Helpful but not urgent
         case .prayerAnswered:
             return 20.0  // Meaningful but not immediate
+        case .churchNoteShared:
+            return 21.0  // Shared church notes are meaningful content
         case .unknown:
             return 5.0
         }

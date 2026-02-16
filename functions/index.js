@@ -397,3 +397,14 @@ exports.detectCrisis = aiModeration.detectCrisis;
 
 // Smart Notifications
 exports.deliverBatchedNotifications = aiModeration.deliverBatchedNotifications;
+
+// ============================================================================
+// AI CHURCH NOTES - SCRIPTURE REFERENCES & SUMMARIZATION
+// ============================================================================
+const aiChurchNotes = require("./aiChurchNotes");
+
+// Scripture Cross-References
+exports.findScriptureReferences = aiChurchNotes.findScriptureReferences;
+
+// Note Summarization
+exports.summarizeNote = aiChurchNotes.summarizeNote;

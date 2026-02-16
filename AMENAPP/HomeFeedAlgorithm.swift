@@ -56,7 +56,26 @@ class HomeFeedAlgorithm: ObservableObject {
         // 5. Diversity Bonus (10%) - Prevent echo chamber
         score += calculateDiversityScore(post, interests: interests) * 0.10
         
+        // 6. Category Boost - Special boost for Tips and Fun Facts
+        score += calculateCategoryBoost(post, interests: interests)
+        
         return min(100, max(0, score))
+    }
+    
+    // MARK: - Category Boost
+    
+    /// Give special boost to Tip and Fun Fact posts to help them surface
+    private func calculateCategoryBoost(_ post: Post, interests: UserInterests) -> Double {
+        switch post.category {
+        case .tip:
+            // Tips are valuable - give them a boost to help discovery
+            return 8.0
+        case .funFact:
+            // Fun Facts are engaging - give them a boost to surface well
+            return 8.0
+        default:
+            return 0.0
+        }
     }
     
     // MARK: - Recency Scoring

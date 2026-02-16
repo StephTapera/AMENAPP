@@ -909,6 +909,8 @@ struct UserProfileView: View {
                 postType = .testimony
             case .openTable:
                 postType = .openTable
+            case .tip, .funFact:
+                postType = nil  // Tip and funFact don't have specific badges
             }
             
             return ProfilePost(
@@ -1177,8 +1179,8 @@ struct UserProfileView: View {
             
             print("✅ Successfully \(isFollowing ? "followed" : "unfollowed") user: \(userId)")
             
-            // Refetch the profile to get the updated follower count from backend
-            await refreshFollowerCount()
+            // DON'T manually refresh - the real-time listener will handle the update
+            // await refreshFollowerCount() // ❌ REMOVED: Causes double increment
             
         } catch {
             // Rollback on error
@@ -2046,18 +2048,22 @@ struct UserPostsContentView: View {
     }
     
     private func handleReply(postId: String) {
+        print("💬 handleReply called for postId: \(postId)")
         let haptic = UIImpactFeedbackGenerator(style: .light)
         haptic.impactOccurred()
         
         // Fetch full post and show comments
         Task {
             do {
+                print("📥 Fetching post by ID: \(postId)")
                 let firebasePostService = FirebasePostService.shared
                 // Fetch the full post object by ID
                 if let post = try await firebasePostService.fetchPostById(postId: postId) {
+                    print("✅ Fetched post: \(postId)")
                     await MainActor.run {
                         selectedPostForComments = post
                         showCommentsSheet = true
+                        print("📱 Comments sheet should now be visible")
                     }
                 } else {
                     print("⚠️ Post not found: \(postId)")
@@ -2632,43 +2638,45 @@ struct ReadOnlyProfilePostCard: View {
         } else if swipeOffset < -threshold {
             // Trigger comment
             triggerCommentSwipe()
+        } else {
+            // Reset swipe if threshold not met
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                swipeOffset = 0
+                swipeDirection = nil
+            }
         }
+    }
+    
+    // ✅ NEW: Trigger amen from swipe
+    private func triggerAmenSwipe() {
+        let haptic = UIImpactFeedbackGenerator(style: .medium)
+        haptic.impactOccurred()
         
-        // Reset swipe
+        // Trigger action immediately (onLike handles the state update)
+        onLike()
+        
+        // Reset swipe with animation AFTER triggering action
         withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
             swipeOffset = 0
             swipeDirection = nil
         }
     }
     
-    // ✅ NEW: Trigger amen from swipe
-    private func triggerAmenSwipe() {
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
-            swipeOffset = 0
-        }
-        
-        let haptic = UIImpactFeedbackGenerator(style: .medium)
-        haptic.impactOccurred()
-        
-        // Small delay for visual feedback
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            onLike()
-        }
-    }
-    
     // ✅ NEW: Trigger comment from swipe
     private func triggerCommentSwipe() {
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
-            swipeOffset = 0
-        }
-        
         let haptic = UIImpactFeedbackGenerator(style: .light)
         haptic.impactOccurred()
         
-        // Small delay for visual feedback
+        // Small delay before reset to allow sheet to present properly
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            onReply()
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                swipeOffset = 0
+                swipeDirection = nil
+            }
         }
+        
+        // Trigger action immediately
+        onReply()
     }
 }
 

@@ -493,6 +493,33 @@
     "admin": {
       ".read": false,
       ".write": false
+    },
+
+    "user-login-history": {
+      "$userId": {
+        ".read": "auth != null && auth.uid == $userId",
+        ".write": "auth != null && auth.uid == $userId",
+
+        "$sessionId": {
+          ".validate": "newData.hasChildren(['timestamp', 'deviceType']) || !newData.exists()",
+
+          "timestamp": {
+            ".validate": "newData.isNumber()"
+          },
+          "deviceType": {
+            ".validate": "newData.isString()"
+          },
+          "osVersion": {
+            ".validate": "newData.isString()"
+          },
+          "appVersion": {
+            ".validate": "newData.isString()"
+          },
+          "ipAddress": {
+            ".validate": "newData.isString()"
+          }
+        }
+      }
     }
   }
 }

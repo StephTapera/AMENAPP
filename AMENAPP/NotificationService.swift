@@ -600,6 +600,78 @@ final class NotificationService: ObservableObject {
         }
     }
     
+    // MARK: - Church Note Sharing Notifications
+    
+    /// Send notifications to users when a church note is shared with them
+    /// - Parameters:
+    ///   - noteId: ID of the shared church note
+    ///   - noteTitle: Title of the church note
+    ///   - recipientIds: Array of user IDs to notify
+    ///   - sharerId: ID of user who shared the note
+    ///   - sharerName: Name of user who shared the note
+    ///   - sharerUsername: Username of user who shared the note
+    func sendChurchNoteSharedNotifications(
+        noteId: String,
+        noteTitle: String,
+        recipientIds: [String],
+        sharerId: String,
+        sharerName: String,
+        sharerUsername: String?
+    ) async {
+        guard !recipientIds.isEmpty else {
+            print("ℹ️ No recipients to notify for church note sharing")
+            return
+        }
+        
+        print("📧 Sending \(recipientIds.count) church note sharing notifications...")
+        
+        let batch = db.batch()
+        var batchCount = 0
+        
+        for recipientId in recipientIds {
+            // Don't notify yourself
+            guard recipientId != sharerId else { continue }
+            
+            let notificationData: [String: Any] = [
+                "userId": recipientId,
+                "type": "church_note_shared",
+                "actorId": sharerId,
+                "actorName": sharerName,
+                "actorUsername": sharerUsername ?? "",
+                "postId": noteId,  // Using postId field for noteId
+                "commentText": noteTitle,  // Using commentText field for note title
+                "read": false,
+                "createdAt": Timestamp(date: Date())
+            ]
+            
+            let notificationRef = db.collection("users")
+                .document(recipientId)
+                .collection("notifications")
+                .document()
+            
+            batch.setData(notificationData, forDocument: notificationRef)
+            batchCount += 1
+            
+            // Firestore batch limit is 500 operations
+            if batchCount >= 500 {
+                print("⚠️ Reached Firestore batch limit for church note sharing")
+                break
+            }
+        }
+        
+        guard batchCount > 0 else {
+            print("ℹ️ No church note sharing notifications to send")
+            return
+        }
+        
+        do {
+            try await batch.commit()
+            print("✅ Sent \(batchCount) church note sharing notifications")
+        } catch {
+            print("❌ Failed to send church note sharing notifications: \(error.localizedDescription)")
+        }
+    }
+    
     // MARK: - Helper Methods for Extensions
     
     /// Remove notifications from local array (used by extensions)
@@ -808,6 +880,7 @@ struct AppNotification: Identifiable, Codable, Hashable {
         case prayerAnswered = "prayer_answered"
         case followRequestAccepted = "follow_request_accepted"  // ✅ NEW: When follow request is accepted
         case messageRequestAccepted = "message_request_accepted"  // ✅ NEW: When message request is accepted
+        case churchNoteShared = "church_note_shared"  // When someone shares a church note with you
         case unknown = "unknown"
         
         init(from decoder: Decoder) throws {
@@ -888,6 +961,8 @@ struct AppNotification: Identifiable, Codable, Hashable {
             return "accepted your follow request"  // ✅ NEW
         case .messageRequestAccepted:
             return "accepted your message request"  // ✅ NEW
+        case .churchNoteShared:
+            return "shared a church note with you"
         case .unknown:
             return "interacted with you"
         }
@@ -915,6 +990,8 @@ struct AppNotification: Identifiable, Codable, Hashable {
             return "person.fill.checkmark"  // ✅ NEW
         case .messageRequestAccepted:
             return "message.fill.badge.checkmark"  // ✅ NEW
+        case .churchNoteShared:
+            return "note.text.badge.plus"
         case .unknown:
             return "bell.fill"
         }
@@ -942,6 +1019,8 @@ struct AppNotification: Identifiable, Codable, Hashable {
             return .green  // ✅ NEW
         case .messageRequestAccepted:
             return .blue  // ✅ NEW
+        case .churchNoteShared:
+            return .purple
         case .unknown:
             return .gray
         }
