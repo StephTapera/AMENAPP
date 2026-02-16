@@ -77,6 +77,7 @@
 		EF6873C52F40F194006DC25E /* CloudStorageService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF6873C42F40F194006DC25E /* CloudStorageService.swift */; };
 		EF6873D52F40F394006DC25E /* RichTextEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF6873D42F40F394006DC25E /* RichTextEditorView.swift */; };
 		EF6873E72F4170D7006DC25E /* CHURCH_NOTES_USER_FLOWS.md in Resources */ = {isa = PBXBuildFile; fileRef = EF6873E62F4170D7006DC25E /* CHURCH_NOTES_USER_FLOWS.md */; };
+		EF688D052F42CBF7006DC25E /* SmartPrayerReminderScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF688D042F42CBF7006DC25E /* SmartPrayerReminderScheduler.swift */; };
 		EF72C05D2F3C195F000CA5A6 /* CHURCH_NOTES_SHARE_TO_OPENTABLE_COMPLETE.md in Resources */ = {isa = PBXBuildFile; fileRef = EF72C05C2F3C195F000CA5A6 /* CHURCH_NOTES_SHARE_TO_OPENTABLE_COMPLETE.md */; };
 		EF72C05F2F3C1A94000CA5A6 /* POST_IMAGES_DISPLAY_COMPLETE.md in Resources */ = {isa = PBXBuildFile; fileRef = EF72C05E2F3C1A94000CA5A6 /* POST_IMAGES_DISPLAY_COMPLETE.md */; };
 		EF72C0612F3C1C01000CA5A6 /* PROFILE_PHOTOS_ON_POSTS_COMPLETE.md in Resources */ = {isa = PBXBuildFile; fileRef = EF72C0602F3C1C01000CA5A6 /* PROFILE_PHOTOS_ON_POSTS_COMPLETE.md */; };
@@ -147,6 +148,7 @@
 		EF6873C42F40F194006DC25E /* CloudStorageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudStorageService.swift; sourceTree = "<group>"; };
 		EF6873D42F40F394006DC25E /* RichTextEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RichTextEditorView.swift; sourceTree = "<group>"; };
 		EF6873E62F4170D7006DC25E /* CHURCH_NOTES_USER_FLOWS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CHURCH_NOTES_USER_FLOWS.md; sourceTree = "<group>"; };
+		EF688D042F42CBF7006DC25E /* SmartPrayerReminderScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartPrayerReminderScheduler.swift; sourceTree = "<group>"; };
 		EF72C05C2F3C195F000CA5A6 /* CHURCH_NOTES_SHARE_TO_OPENTABLE_COMPLETE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CHURCH_NOTES_SHARE_TO_OPENTABLE_COMPLETE.md; sourceTree = "<group>"; };
 		EF72C05E2F3C1A94000CA5A6 /* POST_IMAGES_DISPLAY_COMPLETE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = POST_IMAGES_DISPLAY_COMPLETE.md; sourceTree = "<group>"; };
 		EF72C0602F3C1C01000CA5A6 /* PROFILE_PHOTOS_ON_POSTS_COMPLETE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = PROFILE_PHOTOS_ON_POSTS_COMPLETE.md; sourceTree = "<group>"; };
@@ -342,6 +344,7 @@
 				EF6873C42F40F194006DC25E /* CloudStorageService.swift */,
 				EF6873D42F40F394006DC25E /* RichTextEditorView.swift */,
 				EF6873E62F4170D7006DC25E /* CHURCH_NOTES_USER_FLOWS.md */,
+				EF688D042F42CBF7006DC25E /* SmartPrayerReminderScheduler.swift */,
 			);
 			sourceTree = "<group>";
 		};
@@ -577,6 +580,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				EF6873C52F40F194006DC25E /* CloudStorageService.swift in Sources */,
+				EF688D052F42CBF7006DC25E /* SmartPrayerReminderScheduler.swift in Sources */,
 				EF6873D52F40F394006DC25E /* RichTextEditorView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
