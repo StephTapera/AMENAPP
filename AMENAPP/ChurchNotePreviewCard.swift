@@ -317,79 +317,153 @@ private struct NoteMetadataRow: View {
 struct ChurchNoteShareOptionsSheet: View {
     let note: ChurchNote
     @Environment(\.dismiss) var dismiss
-    @State private var showingShareCommunityConfirmation = false
+    @State private var isSharingToOpenTable = false
     @State private var shareSuccessMessage: String?
 
     var body: some View {
-        NavigationStack {
-            List {
-                Section {
-                    // Share as Text
+        ZStack {
+            Color.black.opacity(0.25)
+                .ignoresSafeArea()
+
+            VStack(spacing: 16) {
+                HStack {
+                    Text("Share Church Note")
+                        .font(.custom("OpenSans-SemiBold", size: 18))
+                        .foregroundStyle(.black)
+
+                    Spacer()
+
                     Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(.black.opacity(0.7))
+                            .frame(width: 28, height: 28)
+                            .background(Color.white.opacity(0.6))
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                Text("Choose how you want to share this note.")
+                    .font(.custom("OpenSans-Regular", size: 14))
+                    .foregroundStyle(.black.opacity(0.6))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                VStack(spacing: 10) {
+                    GlassDialogButton(title: "Share to OpenTable", subtitle: "Posts to your community feed", systemImage: "bubble.left.and.bubble.right") {
+                        guard !isSharingToOpenTable else { return }
+                        isSharingToOpenTable = true
+                        shareToCommunit()
+                    }
+
+                    GlassDialogButton(title: "Share as Text", subtitle: "Share note content", systemImage: "doc.text") {
                         ChurchNotesShareHelper.shareNote(note, from: nil)
                         dismiss()
-                    } label: {
-                        Label("Share as Text", systemImage: "doc.text")
                     }
 
-                    // Share as PDF
-                    Button {
+                    GlassDialogButton(title: "Share as PDF", subtitle: "Export a PDF", systemImage: "doc.richtext") {
                         ChurchNotesShareHelper.sharePDF(for: note, from: nil)
                         dismiss()
-                    } label: {
-                        Label("Share as PDF", systemImage: "doc.richtext")
                     }
-                } header: {
-                    Text("Export Options")
                 }
 
-                Section {
-                    // Share to Community
-                    Button {
-                        showingShareCommunityConfirmation = true
-                    } label: {
-                        Label("Share to Community Feed", systemImage: "person.3.fill")
-                    }
-                } header: {
-                    Text("Share on AMEN")
-                }
-            }
-            .navigationTitle("Share Church Note")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") {
-                        dismiss()
-                    }
-                }
-            }
-            .alert("Share to Community?", isPresented: $showingShareCommunityConfirmation) {
-                Button("Cancel", role: .cancel) { }
-                Button("Share") {
-                    shareToCommunit()
-                }
-            } message: {
-                Text("This will create a post in your feed with this church note attached.")
-            }
-            .alert("Success", isPresented: .constant(shareSuccessMessage != nil)) {
-                Button("OK") {
-                    shareSuccessMessage = nil
-                    dismiss()
-                }
-            } message: {
                 if let message = shareSuccessMessage {
                     Text(message)
+                        .font(.custom("OpenSans-Regular", size: 13))
+                        .foregroundStyle(.black.opacity(0.6))
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
+
+                Button("Cancel") {
+                    dismiss()
+                }
+                .font(.custom("OpenSans-SemiBold", size: 15))
+                .foregroundStyle(.black)
+                .padding(.top, 4)
             }
+            .padding(20)
+            .background(
+                ZStack {
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color.white.opacity(0.7),
+                                    Color.white.opacity(0.4)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .stroke(Color.black.opacity(0.08), lineWidth: 1)
+                }
+            )
+            .shadow(color: Color.black.opacity(0.15), radius: 20, y: 12)
+            .padding(.horizontal, 24)
         }
     }
 
     private func shareToCommunit() {
         ChurchNotesShareHelper.shareToCommunit(note) { success in
             if success {
-                shareSuccessMessage = "Church note shared to your community feed!"
+                shareSuccessMessage = "Shared to OpenTable."
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                    dismiss()
+                }
+            } else {
+                isSharingToOpenTable = false
             }
         }
+    }
+}
+
+private struct GlassDialogButton: View {
+    let title: String
+    let subtitle: String
+    let systemImage: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(.black)
+                    .frame(width: 36, height: 36)
+                    .background(Color.white.opacity(0.6))
+                    .clipShape(Circle())
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.custom("OpenSans-SemiBold", size: 15))
+                        .foregroundStyle(.black)
+                    Text(subtitle)
+                        .font(.custom("OpenSans-Regular", size: 12))
+                        .foregroundStyle(.black.opacity(0.5))
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.black.opacity(0.4))
+            }
+            .padding(14)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Color.white.opacity(0.5))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(Color.black.opacity(0.06), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
     }
 }
 

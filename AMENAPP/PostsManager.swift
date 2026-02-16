@@ -55,6 +55,8 @@ struct Post: Identifiable, Codable, Equatable {
         case openTable = "openTable"      // ✅ Firebase-safe (no special chars)
         case testimonies = "testimonies"  // ✅ Firebase-safe (lowercase)
         case prayer = "prayer"            // ✅ Firebase-safe (lowercase)
+        case tip = "tip"                  // ✅ NEW: Tips category
+        case funFact = "funFact"          // ✅ NEW: Fun Facts category
         
         /// Display name for UI (with special formatting)
         var displayName: String {
@@ -62,6 +64,18 @@ struct Post: Identifiable, Codable, Equatable {
             case .openTable: return "#OPENTABLE"
             case .testimonies: return "Testimonies"
             case .prayer: return "Prayer"
+            case .tip: return "Tip"
+            case .funFact: return "Fun Fact"
+            }
+        }
+        
+        /// Whether this category should show its badge on post cards
+        var showCategoryBadge: Bool {
+            switch self {
+            case .openTable, .testimonies, .prayer:
+                return true
+            case .tip, .funFact:
+                return false  // Hide category badge for Tips and Fun Facts
             }
         }
         
@@ -70,6 +84,8 @@ struct Post: Identifiable, Codable, Equatable {
             case .openTable: return .openTable
             case .testimonies: return .testimonies
             case .prayer: return .prayer
+            case .tip: return .openTable  // Use openTable style for now
+            case .funFact: return .openTable  // Use openTable style for now
             }
         }
     }
@@ -417,6 +433,8 @@ class PostsManager: ObservableObject {
             return testimoniesPosts
         case .prayer:
             return prayerPosts
+        case .tip, .funFact:
+            return allPosts.filter { $0.category == category }
         }
     }
     
@@ -454,6 +472,9 @@ class PostsManager: ObservableObject {
                 self.testimoniesPosts = finalPosts
             case .prayer:
                 self.prayerPosts = finalPosts
+            case .tip, .funFact:
+                // Tip and funFact posts are shown in the main feed, not separate arrays
+                break
             }
             
             print("✅ Updated \(category.rawValue) posts with \(finalPosts.count) items (personalized: \(filter == "For You"))")
@@ -929,6 +950,9 @@ class PostsManager: ObservableObject {
                     updatedTestimoniesPosts.append(updatedPost)
                 case .prayer:
                     updatedPrayerPosts.append(updatedPost)
+                case .tip, .funFact:
+                    // Tip and funFact posts stay in allPosts only
+                    break
                 }
             }
             

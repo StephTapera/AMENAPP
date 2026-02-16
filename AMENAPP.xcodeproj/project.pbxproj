@@ -76,6 +76,7 @@
 		EF6873442F4064B8006DC25E /* firestore.rules in Resources */ = {isa = PBXBuildFile; fileRef = EF6873432F4064B8006DC25E /* firestore.rules */; };
 		EF6873C52F40F194006DC25E /* CloudStorageService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF6873C42F40F194006DC25E /* CloudStorageService.swift */; };
 		EF6873D52F40F394006DC25E /* RichTextEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF6873D42F40F394006DC25E /* RichTextEditorView.swift */; };
+		EF6873E72F4170D7006DC25E /* CHURCH_NOTES_USER_FLOWS.md in Resources */ = {isa = PBXBuildFile; fileRef = EF6873E62F4170D7006DC25E /* CHURCH_NOTES_USER_FLOWS.md */; };
 		EF72C05D2F3C195F000CA5A6 /* CHURCH_NOTES_SHARE_TO_OPENTABLE_COMPLETE.md in Resources */ = {isa = PBXBuildFile; fileRef = EF72C05C2F3C195F000CA5A6 /* CHURCH_NOTES_SHARE_TO_OPENTABLE_COMPLETE.md */; };
 		EF72C05F2F3C1A94000CA5A6 /* POST_IMAGES_DISPLAY_COMPLETE.md in Resources */ = {isa = PBXBuildFile; fileRef = EF72C05E2F3C1A94000CA5A6 /* POST_IMAGES_DISPLAY_COMPLETE.md */; };
 		EF72C0612F3C1C01000CA5A6 /* PROFILE_PHOTOS_ON_POSTS_COMPLETE.md in Resources */ = {isa = PBXBuildFile; fileRef = EF72C0602F3C1C01000CA5A6 /* PROFILE_PHOTOS_ON_POSTS_COMPLETE.md */; };
@@ -145,6 +146,7 @@
 		EF6873432F4064B8006DC25E /* firestore.rules */ = {isa = PBXFileReference; lastKnownFileType = text; path = firestore.rules; sourceTree = "<group>"; };
 		EF6873C42F40F194006DC25E /* CloudStorageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudStorageService.swift; sourceTree = "<group>"; };
 		EF6873D42F40F394006DC25E /* RichTextEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RichTextEditorView.swift; sourceTree = "<group>"; };
+		EF6873E62F4170D7006DC25E /* CHURCH_NOTES_USER_FLOWS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CHURCH_NOTES_USER_FLOWS.md; sourceTree = "<group>"; };
 		EF72C05C2F3C195F000CA5A6 /* CHURCH_NOTES_SHARE_TO_OPENTABLE_COMPLETE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CHURCH_NOTES_SHARE_TO_OPENTABLE_COMPLETE.md; sourceTree = "<group>"; };
 		EF72C05E2F3C1A94000CA5A6 /* POST_IMAGES_DISPLAY_COMPLETE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = POST_IMAGES_DISPLAY_COMPLETE.md; sourceTree = "<group>"; };
 		EF72C0602F3C1C01000CA5A6 /* PROFILE_PHOTOS_ON_POSTS_COMPLETE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = PROFILE_PHOTOS_ON_POSTS_COMPLETE.md; sourceTree = "<group>"; };
@@ -339,6 +341,7 @@
 				EF6873432F4064B8006DC25E /* firestore.rules */,
 				EF6873C42F40F194006DC25E /* CloudStorageService.swift */,
 				EF6873D42F40F394006DC25E /* RichTextEditorView.swift */,
+				EF6873E62F4170D7006DC25E /* CHURCH_NOTES_USER_FLOWS.md */,
 			);
 			sourceTree = "<group>";
 		};
@@ -513,6 +516,7 @@
 				EF3AD0702F32F5B500596905 /* genkit-Dockerfile in Resources */,
 				EF3AD0722F32F5E400596905 /* DEPLOY_COMPLETE_GENKIT_SERVER.md in Resources */,
 				EF3ACF7E2F30027C00596905 /* FIX_CONTACTS_PERMISSION_CRASH.md in Resources */,
+				EF6873E72F4170D7006DC25E /* CHURCH_NOTES_USER_FLOWS.md in Resources */,
 				EF6873442F4064B8006DC25E /* firestore.rules in Resources */,
 				EF3AD06C2F32F5AD00596905 /* genkit-server-index.js in Resources */,
 				EF3AD06E2F32F5B200596905 /* genkit-package.json in Resources */,

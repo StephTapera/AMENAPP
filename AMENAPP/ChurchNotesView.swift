@@ -12,10 +12,12 @@ import SwiftUI
 import Combine
 import FirebaseAuth
 import FirebaseFirestore
+import UIKit
 
 struct ChurchNotesView: View {
     @StateObject private var notesService = ChurchNotesService()
     @ObservedObject private var postsManager = PostsManager.shared
+    @ObservedObject private var followService = FollowService.shared
     @State private var showingNewNote = false
     @State private var searchText = ""
     @State private var selectedFilter: FilterOption = .all
@@ -24,46 +26,87 @@ struct ChurchNotesView: View {
     @State private var errorMessage = ""
     @State private var scrollOffset: CGFloat = 0
     @State private var isSearchFocused = false
+    @AppStorage("hasSeenChurchNotesOnboarding") private var hasSeenOnboarding = false
+    @State private var showOnboarding = false
     @Namespace private var animation
     
     enum FilterOption: String, CaseIterable {
-        case all = "All"
-        case favorites = "Favorites"
+        case forYou = "For You"
         case recent = "Recent"
-        case community = "Shared"
-        
+        case following = "Following"
+        case sharedWithMe = "Shared"
+        case all = "All"
+        case community = "Community"
+        case favorites = "Favorites"
+
         var icon: String {
             switch self {
-            case .all: return "note.text"
-            case .favorites: return "star.fill"
+            case .forYou: return "sparkles"
             case .recent: return "clock.fill"
-            case .community: return "person.3.fill"
+            case .following: return "person.2.fill"
+            case .sharedWithMe: return "person.crop.circle.badge.checkmark"
+            case .all: return "note.text"
+            case .community: return "globe"
+            case .favorites: return "star.fill"
             }
         }
     }
     
     var filteredNotes: [ChurchNote] {
         var filtered = notesService.notes
-        
-        // Apply filter
+        let discoveryService = ChurchNotesDiscoveryService.shared
+
+        // Apply filter with discovery algorithm
         switch selectedFilter {
+        case .forYou:
+            // Personalized "For You" feed with ranking algorithm
+            let userFollowing = followService.following
+            // TODO: Get user church and tags from profile once implemented
+            let userChurch: String? = nil
+            let userTags: Set<String> = []
+            return discoveryService.getForYouFeed(
+                from: filtered,
+                userFollowing: userFollowing,
+                userChurch: userChurch,
+                userTags: userTags
+            )
+
+        case .recent:
+            // Chronological feed - all recent notes
+            return discoveryService.getRecentFeed(from: filtered)
+
+        case .following:
+            // Notes from followed users only
+            let userFollowing = followService.following
+            return discoveryService.getFollowingFeed(
+                from: filtered,
+                userFollowing: userFollowing
+            )
+
+        case .sharedWithMe:
+            // Filter notes shared with current user
+            guard let currentUserId = Auth.auth().currentUser?.uid else { break }
+            filtered = filtered.filter { note in
+                note.sharedWith.contains(currentUserId)
+            }
+
         case .all:
+            // All notes, sorted by date
             break
+
+        case .community:
+            // Community notes shown in OpenTable feed - handled separately in UI
+            break
+
         case .favorites:
             filtered = filtered.filter { $0.isFavorite }
-        case .recent:
-            let sevenDaysAgo = Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date()
-            filtered = filtered.filter { $0.date >= sevenDaysAgo }
-        case .community:
-            // Community notes are shown separately, return empty for this filter
-            return []
         }
-        
+
         // Apply search
         if !searchText.isEmpty {
             filtered = notesService.searchNotes(query: searchText)
         }
-        
+
         return filtered.sorted { $0.date > $1.date }
     }
     
@@ -74,7 +117,7 @@ struct ChurchNotesView: View {
                 .ignoresSafeArea()
             
             VStack(spacing: 0) {
-                // Minimal Typography Header
+                // Minimal Typography Header (respects safe area for back button)
                 MinimalTypographyHeader(
                     searchText: $searchText,
                     selectedFilter: $selectedFilter,
@@ -89,7 +132,7 @@ struct ChurchNotesView: View {
                 )
                 
                 // Content with minimal list design or community feed
-                ZStack {
+                Group {
                     if selectedFilter == .community {
                         // Show community church notes from OpenTable
                         ElegantChurchNotesFeedForChurchNotesView(
@@ -128,9 +171,10 @@ struct ChurchNotesView: View {
                         .transition(.opacity)
                     }
                 }
-                .animation(.spring(response: 0.5, dampingFraction: 0.8), value: notesService.isLoading)
-                .animation(.spring(response: 0.5, dampingFraction: 0.8), value: filteredNotes.isEmpty)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .layoutPriority(1)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
         .fullScreenCover(isPresented: $showingNewNote) {
             MinimalNewNoteSheet(notesService: notesService)
@@ -140,6 +184,9 @@ struct ChurchNotesView: View {
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
         }
+        .sheet(isPresented: $showOnboarding) {
+            ChurchNotesOnboardingView()
+        }
         .alert("Error", isPresented: $showErrorAlert) {
             Button("OK", role: .cancel) { }
         } message: {
@@ -148,10 +195,21 @@ struct ChurchNotesView: View {
         .onAppear {
             // Start real-time listener when view appears
             notesService.startListening()
+            
+            // Start follow service listener for discovery algorithm
+            followService.startListening()
+
+            // Show onboarding on first open
+            if !hasSeenOnboarding {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    showOnboarding = true
+                }
+            }
         }
         .onDisappear {
             // Stop listener when view disappears
             notesService.stopListening()
+            // Note: We keep followService listening as it's used app-wide
         }
     }
 }
@@ -796,6 +854,12 @@ struct EmptyStateGlassView: View {
             return "No Favorites"
         case .recent:
             return "No Recent Notes"
+        case .forYou:
+            return "No Recommended Notes"
+        case .following:
+            return "No Notes from Following"
+        case .sharedWithMe:
+            return "No Shared Notes"
         case .community:
             return "No Community Notes"
         }
@@ -812,6 +876,12 @@ struct EmptyStateGlassView: View {
             return "Star notes to add them to your favorites"
         case .recent:
             return "Notes from the last 7 days will appear here"
+        case .forYou:
+            return "Personalized notes based on your interests will appear here"
+        case .following:
+            return "Notes from people you follow will appear here"
+        case .sharedWithMe:
+            return "Notes that friends have shared with you will appear here"
         case .community:
             return "Community shared notes will appear here"
         }
@@ -863,6 +933,7 @@ struct NotesGridView: View {
         .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
             scrollOffset = value
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 }
 
@@ -1445,6 +1516,8 @@ struct NewChurchNoteView: View {
     @State private var isSaving = false
     @State private var showErrorAlert = false
     @State private var errorMessage = ""
+    @State private var showSaveConfirmation = false
+    @State private var saveConfirmationScale: CGFloat = 0.5
     
     var canSave: Bool {
         !title.isEmpty && !content.isEmpty
@@ -1488,14 +1561,37 @@ struct NewChurchNoteView: View {
                         haptic.impactOccurred()
                         saveNote()
                     } label: {
-                        if isSaving {
-                            ProgressView()
-                                .tint(.white)
-                        } else {
-                            Text("Save")
-                                .font(.custom("OpenSans-Bold", size: 17))
-                                .foregroundStyle(canSave ? .white : .white.opacity(0.4))
+                        ZStack {
+                            if isSaving {
+                                ProgressView()
+                                    .tint(.white)
+                            } else {
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 18, weight: .semibold))
+                                    .foregroundStyle(canSave ? .white : .white.opacity(0.4))
+                            }
                         }
+                        .frame(width: 40, height: 40)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [
+                                            .white.opacity(canSave ? 0.15 : 0.05),
+                                            .white.opacity(canSave ? 0.08 : 0.02)
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .strokeBorder(
+                                    .white.opacity(canSave ? 0.2 : 0.1),
+                                    lineWidth: 0.5
+                                )
+                        )
                     }
                     .disabled(!canSave || isSaving)
                 }
@@ -1525,6 +1621,43 @@ struct NewChurchNoteView: View {
                                     text: $sermonTitle
                                 )
                                 
+                                // Date Picker - Left Aligned with Glassmorphic Design
+                                HStack {
+                                    HStack(spacing: 10) {
+                                        Image(systemName: "calendar")
+                                            .font(.system(size: 16, weight: .medium))
+                                            .foregroundStyle(.white.opacity(0.7))
+                                        
+                                        DatePicker("", selection: $selectedDate, displayedComponents: .date)
+                                            .datePickerStyle(.compact)
+                                            .labelsHidden()
+                                            .tint(.white)
+                                            .colorScheme(.dark)
+                                    }
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 11)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                            .fill(
+                                                LinearGradient(
+                                                    colors: [
+                                                        .white.opacity(0.12),
+                                                        .white.opacity(0.06)
+                                                    ],
+                                                    startPoint: .topLeading,
+                                                    endPoint: .bottomTrailing
+                                                )
+                                            )
+                                    )
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                            .strokeBorder(.white.opacity(0.15), lineWidth: 0.5)
+                                    )
+                                    .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
+                                    
+                                    Spacer()
+                                }
+                                
                                 HStack(spacing: 12) {
                                     GlassTextField(
                                         icon: "building.2",
@@ -1538,22 +1671,6 @@ struct NewChurchNoteView: View {
                                         text: $pastor
                                     )
                                 }
-                                
-                                // Date Picker
-                                HStack {
-                                    Image(systemName: "calendar")
-                                        .font(.system(size: 16))
-                                        .foregroundStyle(.white.opacity(0.6))
-                                        .frame(width: 24)
-                                    
-                                    DatePicker("", selection: $selectedDate, displayedComponents: .date)
-                                        .datePickerStyle(.compact)
-                                        .labelsHidden()
-                                        .tint(.purple)
-                                }
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 14)
-                                .glassEffect(GlassEffectStyle.regular, in: RoundedRectangle(cornerRadius: 16))
                             }
                         }
                         .padding(20)
@@ -1628,11 +1745,83 @@ struct NewChurchNoteView: View {
                     .padding(.bottom, 40)
                 }
             }
+            .scrollDismissesKeyboard(.interactively)
+            .scrollIndicators(.hidden)
         }
         .alert("Error", isPresented: $showErrorAlert) {
             Button("OK", role: .cancel) { }
         } message: {
             Text(errorMessage)
+        }
+        .overlay {
+            if showSaveConfirmation {
+                ZStack {
+                    // Backdrop blur
+                    Color.black.opacity(0.3)
+                        .ignoresSafeArea()
+                        .transition(.opacity)
+                    
+                    // Confirmation Card
+                    VStack(spacing: 16) {
+                        // Success Icon
+                        ZStack {
+                            Circle()
+                                .fill(
+                                    LinearGradient(
+                                        colors: [
+                                            .white.opacity(0.15),
+                                            .white.opacity(0.08)
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                                .frame(width: 64, height: 64)
+                            
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 32, weight: .semibold))
+                                .foregroundStyle(.white)
+                        }
+                        .scaleEffect(saveConfirmationScale)
+                        .animation(.spring(response: 0.5, dampingFraction: 0.6).delay(0.1), value: saveConfirmationScale)
+                        
+                        VStack(spacing: 8) {
+                            Text("Note Saved!")
+                                .font(.custom("OpenSans-Bold", size: 22))
+                                .foregroundStyle(.white)
+                            
+                            Text("Your sermon notes have been saved successfully")
+                                .font(.custom("OpenSans-Regular", size: 15))
+                                .foregroundStyle(.white.opacity(0.7))
+                                .multilineTextAlignment(.center)
+                                .lineSpacing(2)
+                        }
+                    }
+                    .padding(32)
+                    .background(
+                        RoundedRectangle(cornerRadius: 24, style: .continuous)
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        .white.opacity(0.15),
+                                        .white.opacity(0.08)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                                    .strokeBorder(.white.opacity(0.2), lineWidth: 1)
+                            )
+                            .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: 10)
+                    )
+                    .padding(.horizontal, 40)
+                    .scaleEffect(saveConfirmationScale)
+                    .transition(.scale.combined(with: .opacity))
+                }
+                .animation(.spring(response: 0.4, dampingFraction: 0.7), value: showSaveConfirmation)
+            }
         }
     }
     
@@ -1678,9 +1867,21 @@ struct NewChurchNoteView: View {
                 try await notesService.createNote(note)
                 
                 await MainActor.run {
+                    isSaving = false
+                    
+                    // Show save confirmation
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                        showSaveConfirmation = true
+                        saveConfirmationScale = 1.0
+                    }
+                    
                     let haptic = UINotificationFeedbackGenerator()
                     haptic.notificationOccurred(.success)
-                    dismiss()
+                    
+                    // Dismiss after showing confirmation
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                        dismiss()
+                    }
                 }
             } catch {
                 await MainActor.run {
@@ -1764,6 +1965,7 @@ struct ChurchNoteDetailView: View {
     @State private var showShareSheet = false
     @State private var showCopiedToast = false
     @State private var showShareToOpenTableSheet = false
+    @State private var showShareWithFriendsSheet = false
     
     var body: some View {
         ZStack {
@@ -1820,9 +2022,15 @@ struct ChurchNoteDetailView: View {
                         Divider()
                         
                         Button {
+                            showShareWithFriendsSheet = true
+                        } label: {
+                            Label("Share with Friends", systemImage: "person.2.fill")
+                        }
+                        
+                        Button {
                             showShareSheet = true
                         } label: {
-                            Label("Share", systemImage: "square.and.arrow.up")
+                            Label("Share Externally", systemImage: "square.and.arrow.up")
                         }
                         
                         Button {
@@ -1955,6 +2163,9 @@ struct ChurchNoteDetailView: View {
         }
         .sheet(isPresented: $showShareToOpenTableSheet) {
             ShareNoteToOpenTableSheet(note: note)
+        }
+        .sheet(isPresented: $showShareWithFriendsSheet) {
+            ShareWithFriendsSheet(note: note, notesService: notesService)
         }
         .overlay(alignment: .bottom) {
             // Toast notification for copy confirmation
@@ -2264,6 +2475,9 @@ struct MonochromeFilterPill: View {
         case .all: return .blue
         case .favorites: return .orange
         case .recent: return .cyan
+        case .forYou: return .pink
+        case .following: return .green
+        case .sharedWithMe: return .indigo
         case .community: return .purple
         }
     }
@@ -2640,6 +2854,9 @@ struct MonochromeEmptyState: View {
         case .all: return "No Notes Yet"
         case .favorites: return "No Favorites"
         case .recent: return "No Recent Notes"
+        case .forYou: return "No Recommendations"
+        case .following: return "No Notes from Following"
+        case .sharedWithMe: return "No Shared Notes"
         case .community: return "No Community Notes"
         }
     }
@@ -2650,6 +2867,9 @@ struct MonochromeEmptyState: View {
         case .all: return "Start capturing your sermon insights"
         case .favorites: return "Star notes to save them here"
         case .recent: return "Notes from the last 7 days appear here"
+        case .forYou: return "Your personalized feed will appear here"
+        case .following: return "Notes from people you follow appear here"
+        case .sharedWithMe: return "Shared notes appear here"
         case .community: return "Community notes appear here"
         }
     }
@@ -3775,7 +3995,7 @@ struct ElegantChurchNotesFeedForChurchNotesView: View {
                 await loadChurchNote(churchNoteId: churchNoteId)
             }
         }
-        .onChange(of: selectedPost) { newValue in
+        .onChange(of: selectedPost) { _, newValue in
             if let post = newValue, let churchNoteId = post.churchNoteId {
                 Task {
                     await loadChurchNote(churchNoteId: churchNoteId)
@@ -3814,49 +4034,59 @@ struct ElegantChurchNoteCardForChurchNotesView: View {
     @State private var isLoading = true
     
     var body: some View {
-        HStack(spacing: 16) {
-            // Profile image
-            if let profileImageURL = post.authorProfileImageURL, !profileImageURL.isEmpty {
-                AsyncImage(url: URL(string: profileImageURL)) { image in
-                    image
-                        .resizable()
-                        .scaledToFill()
-                } placeholder: {
-                    Circle()
-                        .fill(Color.black.opacity(0.08))
-                }
-                .frame(width: 48, height: 48)
-                .clipShape(Circle())
-            } else {
+        // Compact Liquid Glass Pill Card
+        HStack(spacing: 12) {
+            // Note icon with Liquid Glass background
+            ZStack {
                 Circle()
-                    .fill(Color.black.opacity(0.08))
-                    .frame(width: 48, height: 48)
-                    .overlay(
-                        Text(post.authorInitials)
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundStyle(Color.black.opacity(0.6))
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.black.opacity(0.06),
+                                Color.black.opacity(0.10)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
                     )
+                    .frame(width: 36, height: 36)
+                
+                Image(systemName: "note.text")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(.black.opacity(0.7))
             }
             
-            // Content
-            VStack(alignment: .leading, spacing: 6) {
-                Text(post.authorName)
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(Color.black.opacity(0.85))
-                
+            // Compact content
+            VStack(alignment: .leading, spacing: 3) {
                 if let note = churchNote {
                     Text(note.title)
-                        .font(.custom("Georgia", size: 17))
-                        .foregroundStyle(Color.black.opacity(0.7))
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
+                        .font(.custom("OpenSans-SemiBold", size: 15))
+                        .foregroundStyle(.black.opacity(0.85))
+                        .lineLimit(1)
+                    
+                    HStack(spacing: 6) {
+                        Text(post.authorName)
+                            .font(.custom("OpenSans-Regular", size: 13))
+                            .foregroundStyle(.black.opacity(0.5))
+                        
+                        if let churchName = note.churchName, !churchName.isEmpty {
+                            Text("•")
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundStyle(.black.opacity(0.3))
+                            
+                            Text(churchName)
+                                .font(.custom("OpenSans-Regular", size: 13))
+                                .foregroundStyle(.black.opacity(0.5))
+                                .lineLimit(1)
+                        }
+                    }
                 } else if isLoading {
                     HStack(spacing: 6) {
                         ProgressView()
-                            .scaleEffect(0.7)
-                        Text("Loading...")
-                            .font(.system(size: 13, weight: .regular))
-                            .foregroundStyle(Color.black.opacity(0.4))
+                            .scaleEffect(0.6)
+                        Text("Loading note...")
+                            .font(.custom("OpenSans-Regular", size: 13))
+                            .foregroundStyle(.black.opacity(0.4))
                     }
                 }
             }
@@ -3864,21 +4094,24 @@ struct ElegantChurchNoteCardForChurchNotesView: View {
             Spacer()
             
             Image(systemName: "chevron.right")
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(Color.black.opacity(0.3))
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.black.opacity(0.25))
         }
-        .padding(20)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
         .background(
             ZStack {
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.white.opacity(0.9))
+                // Liquid Glass base
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(.white.opacity(0.95))
                 
-                RoundedRectangle(cornerRadius: 12)
+                // Subtle gradient overlay
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
                     .fill(
                         LinearGradient(
                             colors: [
-                                Color.white.opacity(0.3),
-                                Color.clear
+                                .white.opacity(0.4),
+                                .clear
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
@@ -3887,21 +4120,21 @@ struct ElegantChurchNoteCardForChurchNotesView: View {
             }
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 12)
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .strokeBorder(
                     LinearGradient(
                         colors: [
-                            Color.black.opacity(0.06),
-                            Color.black.opacity(0.03)
+                            .black.opacity(0.08),
+                            .black.opacity(0.04)
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     ),
-                    lineWidth: 1
+                    lineWidth: 0.5
                 )
         )
-        .shadow(color: Color.black.opacity(0.04), radius: 8, y: 2)
-        .shadow(color: Color.black.opacity(0.02), radius: 2, y: 1)
+        .shadow(color: .black.opacity(0.03), radius: 4, x: 0, y: 2)
+        .shadow(color: .black.opacity(0.02), radius: 1, x: 0, y: 1)
         .task {
             await loadChurchNote()
         }
@@ -3917,7 +4150,7 @@ struct ElegantChurchNoteCardForChurchNotesView: View {
             let db = FirebaseManager.shared.firestore
             let document = try await db.collection("churchNotes").document(churchNoteId).getDocument()
             
-            if let data = document.data() {
+            if document.exists {
                 churchNote = try? document.data(as: ChurchNote.self)
             }
             isLoading = false
@@ -3935,6 +4168,11 @@ struct ElegantChurchNoteReadView: View {
     let post: Post
     @Environment(\.dismiss) var dismiss
     @State private var showShareSheet = false
+    @State private var showCommentsSheet = false
+    @State private var hasAmenned = false
+    @State private var amenCount = 0
+    @State private var commentCount = 0
+    @StateObject private var interactionsService = PostInteractionsService.shared
     
     var body: some View {
         ZStack {
@@ -4077,14 +4315,75 @@ struct ElegantChurchNoteReadView: View {
                         }
                     }
                     .padding(.horizontal, 20)
-                    .padding(.bottom, 40)
+                    .padding(.bottom, 100)
+                }
+                
+                // AMEN + Comment Interaction Toolbar
+                VStack(spacing: 0) {
+                    Divider()
+                        .background(Color.black.opacity(0.08))
+                    
+                    HStack(spacing: 20) {
+                        // AMEN Button
+                        Button {
+                            toggleAmen()
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: hasAmenned ? "hands.clap.fill" : "hands.clap")
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundStyle(hasAmenned ? .orange : .black.opacity(0.6))
+                                
+                                Text("AMEN")
+                                    .font(.custom("OpenSans-SemiBold", size: 14))
+                                    .foregroundStyle(hasAmenned ? .orange : .black.opacity(0.6))
+                            }
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 12)
+                            .background(
+                                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                    .fill(hasAmenned ? Color.orange.opacity(0.12) : Color.black.opacity(0.04))
+                            )
+                        }
+                        
+                        // Comment Button
+                        Button {
+                            showCommentsSheet = true
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: commentCount > 0 ? "bubble.left.fill" : "bubble.left")
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundStyle(commentCount > 0 ? .blue : .black.opacity(0.6))
+                                
+                                Text("Comment")
+                                    .font(.custom("OpenSans-SemiBold", size: 14))
+                                    .foregroundStyle(commentCount > 0 ? .blue : .black.opacity(0.6))
+                            }
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 12)
+                            .background(
+                                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                    .fill(commentCount > 0 ? Color.blue.opacity(0.12) : Color.black.opacity(0.04))
+                            )
+                        }
+                        
+                        Spacer()
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 12)
+                    .background(Color(red: 0.98, green: 0.97, blue: 0.95).opacity(0.98))
                 }
             }
+        }
+        .task {
+            await loadInteractions()
         }
         .sheet(isPresented: $showShareSheet) {
             if let shareText = generateShareText() {
                 ShareSheet(items: [shareText])
             }
+        }
+        .sheet(isPresented: $showCommentsSheet) {
+            CommentsView(post: post)
         }
     }
     
@@ -4113,6 +4412,53 @@ struct ElegantChurchNoteReadView: View {
         text += "\n\nShared by \(post.authorName) on AMEN"
         
         return text
+    }
+    
+    // MARK: - Load Interactions
+    
+    private func loadInteractions() async {
+        let postId = post.firestoreId
+        
+        // Check if user has amenned using published property
+        await MainActor.run {
+            hasAmenned = interactionsService.userAmenedPosts.contains(postId)
+        }
+        
+        // Get interaction counts
+        let counts = await interactionsService.getInteractionCounts(postId: postId)
+        await MainActor.run {
+            amenCount = counts.amenCount
+            commentCount = counts.commentCount
+        }
+    }
+    
+    // MARK: - Toggle AMEN
+    
+    private func toggleAmen() {
+        let postId = post.firestoreId
+        
+        // Optimistic update
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            hasAmenned.toggle()
+        }
+        
+        // Haptic feedback
+        let haptic = UINotificationFeedbackGenerator()
+        haptic.notificationOccurred(.success)
+        
+        // Update backend
+        Task {
+            do {
+                try await interactionsService.toggleAmen(postId: postId)
+            } catch {
+                // Revert on error
+                await MainActor.run {
+                    withAnimation {
+                        hasAmenned.toggle()
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -4146,6 +4492,358 @@ struct ElegantMetadataRow: View {
     }
 }
 
+// MARK: - Share With Friends Sheet
+
+struct ShareWithFriendsSheet: View {
+    @Environment(\.dismiss) var dismiss
+    let note: ChurchNote
+    @ObservedObject var notesService: ChurchNotesService
+    
+    @StateObject private var followService = FollowService.shared
+    @State private var selectedFriends = Set<String>()
+    @State private var isSharing = false
+    @State private var showSuccessToast = false
+    @State private var searchText = ""
+    
+    var filteredFriends: [FollowUserProfile] {
+        if searchText.isEmpty {
+            return followService.followingList
+        } else {
+            return followService.followingList.filter { friend in
+                friend.displayName.localizedCaseInsensitiveContains(searchText) ||
+                friend.username.localizedCaseInsensitiveContains(searchText)
+            }
+        }
+    }
+    
+    var body: some View {
+        NavigationView {
+            ZStack {
+                // Dark gradient background
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.08, green: 0.08, blue: 0.12),
+                        Color(red: 0.12, green: 0.10, blue: 0.18)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .ignoresSafeArea()
+                
+                VStack(spacing: 0) {
+                    // Header
+                    HStack {
+                        Button {
+                            dismiss()
+                        } label: {
+                            Text("Cancel")
+                                .font(.custom("OpenSans-SemiBold", size: 16))
+                                .foregroundStyle(.white.opacity(0.7))
+                        }
+                        
+                        Spacer()
+                        
+                        Text("Share with Friends")
+                            .font(.custom("OpenSans-Bold", size: 18))
+                            .foregroundStyle(.white)
+                        
+                        Spacer()
+                        
+                        Button {
+                            shareWithSelectedFriends()
+                        } label: {
+                            if isSharing {
+                                ProgressView()
+                                    .tint(.white)
+                            } else {
+                                Text("Share")
+                                    .font(.custom("OpenSans-Bold", size: 16))
+                                    .foregroundStyle(selectedFriends.isEmpty ? .white.opacity(0.3) : .white)
+                            }
+                        }
+                        .disabled(selectedFriends.isEmpty || isSharing)
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 16)
+                    
+                    // Search Bar
+                    HStack(spacing: 12) {
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(.white.opacity(0.5))
+                        
+                        TextField("Search friends...", text: $searchText)
+                            .font(.custom("OpenSans-Regular", size: 16))
+                            .foregroundStyle(.white)
+                            .autocorrectionDisabled()
+                            .textInputAutocapitalization(.never)
+                        
+                        if !searchText.isEmpty {
+                            Button {
+                                searchText = ""
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .font(.system(size: 16))
+                                    .foregroundStyle(.white.opacity(0.5))
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(.white.opacity(0.1))
+                    )
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 16)
+                    
+                    // Selected Count
+                    if !selectedFriends.isEmpty {
+                        HStack {
+                            Text("\(selectedFriends.count) friend\(selectedFriends.count == 1 ? "" : "s") selected")
+                                .font(.custom("OpenSans-SemiBold", size: 14))
+                                .foregroundStyle(.white.opacity(0.7))
+                            
+                            Spacer()
+                            
+                            Button {
+                                selectedFriends.removeAll()
+                            } label: {
+                                Text("Clear All")
+                                    .font(.custom("OpenSans-SemiBold", size: 14))
+                                    .foregroundStyle(.purple)
+                            }
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 12)
+                    }
+                    
+                    // Friends List
+                    if followService.followingList.isEmpty {
+                        VStack(spacing: 16) {
+                            Image(systemName: "person.2.slash")
+                                .font(.system(size: 48))
+                                .foregroundStyle(.white.opacity(0.3))
+                            
+                            Text("No Friends Yet")
+                                .font(.custom("OpenSans-Bold", size: 20))
+                                .foregroundStyle(.white)
+                            
+                            Text("Follow people to share notes with them")
+                                .font(.custom("OpenSans-Regular", size: 15))
+                                .foregroundStyle(.white.opacity(0.6))
+                                .multilineTextAlignment(.center)
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .padding(.horizontal, 40)
+                    } else if filteredFriends.isEmpty {
+                        VStack(spacing: 16) {
+                            Image(systemName: "magnifyingglass")
+                                .font(.system(size: 48))
+                                .foregroundStyle(.white.opacity(0.3))
+                            
+                            Text("No Results")
+                                .font(.custom("OpenSans-Bold", size: 20))
+                                .foregroundStyle(.white)
+                            
+                            Text("Try a different search term")
+                                .font(.custom("OpenSans-Regular", size: 15))
+                                .foregroundStyle(.white.opacity(0.6))
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .padding(.horizontal, 40)
+                    } else {
+                        ScrollView {
+                            VStack(spacing: 8) {
+                                ForEach(filteredFriends) { friend in
+                                    FriendSelectionRow(
+                                        friend: friend,
+                                        isSelected: selectedFriends.contains(friend.id)
+                                    ) {
+                                        toggleFriendSelection(friend.id)
+                                    }
+                                }
+                            }
+                            .padding(.horizontal, 20)
+                            .padding(.bottom, 20)
+                        }
+                    }
+                }
+            }
+            .navigationBarHidden(true)
+        }
+        .overlay {
+            if showSuccessToast {
+                VStack {
+                    Spacer()
+                    
+                    HStack(spacing: 12) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 20))
+                            .foregroundStyle(.green)
+                        
+                        Text("Note shared with \(selectedFriends.count) friend\(selectedFriends.count == 1 ? "" : "s")")
+                            .font(.custom("OpenSans-SemiBold", size: 15))
+                            .foregroundStyle(.white)
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 16)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(.black.opacity(0.9))
+                    )
+                    .padding(.bottom, 40)
+                }
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .task {
+            // Load following list when sheet appears
+            if followService.followingList.isEmpty {
+                followService.startListening()
+            }
+        }
+    }
+    
+    private func toggleFriendSelection(_ friendId: String) {
+        if selectedFriends.contains(friendId) {
+            selectedFriends.remove(friendId)
+        } else {
+            selectedFriends.insert(friendId)
+        }
+        
+        let haptic = UISelectionFeedbackGenerator()
+        haptic.selectionChanged()
+    }
+    
+    private func shareWithSelectedFriends() {
+        guard !selectedFriends.isEmpty else { return }
+        
+        isSharing = true
+        
+        Task {
+            do {
+                try await notesService.shareWithUsers(note: note, userIds: Array(selectedFriends))
+                
+                await MainActor.run {
+                    let haptic = UINotificationFeedbackGenerator()
+                    haptic.notificationOccurred(.success)
+                    
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        showSuccessToast = true
+                    }
+                    
+                    // Auto-hide toast and dismiss sheet
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            showSuccessToast = false
+                        }
+                        
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            dismiss()
+                        }
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    isSharing = false
+                    let haptic = UINotificationFeedbackGenerator()
+                    haptic.notificationOccurred(.error)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Friend Selection Row
+
+struct FriendSelectionRow: View {
+    let friend: FollowUserProfile
+    let isSelected: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 14) {
+                // Profile Image / Initial
+                ZStack {
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    .purple.opacity(0.8),
+                                    .purple.opacity(0.6)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 52, height: 52)
+                    
+                    if let imageURL = friend.profileImageURL, !imageURL.isEmpty {
+                        AsyncImage(url: URL(string: imageURL)) { image in
+                            image
+                                .resizable()
+                                .scaledToFill()
+                        } placeholder: {
+                            Text(friend.initials)
+                                .font(.custom("OpenSans-Bold", size: 18))
+                                .foregroundStyle(.white)
+                        }
+                        .frame(width: 52, height: 52)
+                        .clipShape(Circle())
+                    } else {
+                        Text(friend.initials)
+                            .font(.custom("OpenSans-Bold", size: 18))
+                            .foregroundStyle(.white)
+                    }
+                }
+                
+                // Friend Info
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(friend.displayName)
+                        .font(.custom("OpenSans-Bold", size: 16))
+                        .foregroundStyle(.white)
+                    
+                    Text("@\(friend.username)")
+                        .font(.custom("OpenSans-Regular", size: 14))
+                        .foregroundStyle(.white.opacity(0.6))
+                }
+                
+                Spacer()
+                
+                // Selection Indicator
+                ZStack {
+                    Circle()
+                        .strokeBorder(.white.opacity(0.3), lineWidth: 2)
+                        .frame(width: 28, height: 28)
+                    
+                    if isSelected {
+                        Circle()
+                            .fill(.purple)
+                            .frame(width: 28, height: 28)
+                        
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundStyle(.white)
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(isSelected ? .white.opacity(0.15) : .white.opacity(0.08))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .strokeBorder(isSelected ? .purple.opacity(0.5) : .clear, lineWidth: 1.5)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 #Preview {
     ChurchNotesView()
 }
@@ -4162,71 +4860,87 @@ struct MinimalTypographyHeader: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // Top navigation tabs (like "Gentle Systems | Work | About")
-            HStack(spacing: 0) {
-                ForEach(ChurchNotesView.FilterOption.allCases, id: \.self) { filter in
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text("Church Notes")
+                        .font(.system(size: isScrolled ? 24 : 36, weight: .medium))
+                        .foregroundStyle(.black)
+                        .tracking(-1)
+                        .animation(.easeInOut(duration: 0.2), value: isScrolled)
+                    
+                    Spacer()
+                    
                     Button {
                         withAnimation(.easeInOut(duration: 0.2)) {
-                            selectedFilter = filter
+                            isSearching.toggle()
                         }
                         let haptic = UISelectionFeedbackGenerator()
                         haptic.selectionChanged()
                     } label: {
-                        Text(filter.rawValue)
-                            .font(.system(size: 15, weight: selectedFilter == filter ? .medium : .regular))
-                            .foregroundStyle(selectedFilter == filter ? Color.black : Color.black.opacity(0.5))
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 12)
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(.black)
+                            .frame(width: 36, height: 36)
                     }
+                    .buttonStyle(.plain)
+                    
+                    Button(action: onNewNote) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(.black)
+                            .frame(width: 36, height: 36)
+                    }
+                    .buttonStyle(.plain)
                 }
                 
-                Spacer()
-                
-                // New note button (minimal)
-                Button(action: onNewNote) {
-                    Image(systemName: "plus")
-                        .font(.system(size: 18, weight: .medium))
-                        .foregroundStyle(.black)
-                        .frame(width: 44, height: 44)
+                if !isScrolled {
+                    Text("Capture sermon insights, reflections, and scriptures. Your notes help you grow in faith and remember what matters most.")
+                        .font(.system(size: 16, weight: .regular))
+                        .foregroundStyle(Color.black.opacity(0.6))
+                        .lineSpacing(3)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
                 }
             }
-            .padding(.horizontal, 8)
-            .padding(.top, 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 20)
+            .padding(.top, 12)
+            .padding(.bottom, 16)
+            
+            // Filter tabs (horizontal scrollable)
+            HStack(spacing: 0) {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 4) {
+                        ForEach(ChurchNotesView.FilterOption.allCases, id: \.self) { filter in
+                            Button {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    selectedFilter = filter
+                                }
+                                let haptic = UISelectionFeedbackGenerator()
+                                haptic.selectionChanged()
+                            } label: {
+                                Text(filter.rawValue)
+                                    .font(.system(size: 14, weight: selectedFilter == filter ? .semibold : .regular))
+                                    .foregroundStyle(selectedFilter == filter ? Color.white : Color.black.opacity(0.6))
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 8)
+                                    .background(
+                                        Capsule()
+                                            .fill(selectedFilter == filter ? Color.black : Color.black.opacity(0.06))
+                                    )
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 12)
+                }
+                
+                Spacer(minLength: 0)
+            }
+            .padding(.vertical, 8)
             .background(Color(red: 0.96, green: 0.96, blue: 0.96))
             
             Divider()
                 .background(Color.black.opacity(0.1))
-                .padding(.top, 8)
-            
-            // Large title (like "Work")
-            if !isScrolled {
-                HStack {
-                    Text("Church Notes")
-                        .font(.system(size: 48, weight: .medium))
-                        .foregroundStyle(.black)
-                        .tracking(-1)
-                    
-                    Spacer()
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 32)
-                .padding(.bottom, 16)
-                .transition(.opacity.combined(with: .move(edge: .top)))
-                
-                // Subtitle description (like the work description)
-                HStack {
-                    Text("Capture sermon insights, reflections, and scriptures. Your notes help you grow in faith and remember what matters most.")
-                        .font(.system(size: 17, weight: .regular))
-                        .foregroundStyle(Color.black.opacity(0.6))
-                        .lineSpacing(4)
-                        .fixedSize(horizontal: false, vertical: true)
-                    
-                    Spacer()
-                }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 24)
-                .transition(.opacity.combined(with: .move(edge: .top)))
-            }
             
             // Search bar (minimal, appears when searching)
             if isSearching || !searchText.isEmpty {
@@ -4475,6 +5189,9 @@ struct MinimalEmptyState: View {
         case .all: return "No Notes Yet"
         case .favorites: return "No Favorites"
         case .recent: return "No Recent Notes"
+        case .forYou: return "No Recommendations"
+        case .following: return "No Notes from Following"
+        case .sharedWithMe: return "No Shared Notes"
         case .community: return "No Community Notes"
         }
     }
@@ -4485,6 +5202,9 @@ struct MinimalEmptyState: View {
         case .all: return "Start capturing your sermon insights and reflections"
         case .favorites: return "Star notes to save them here"
         case .recent: return "Notes from the last 7 days will appear here"
+        case .forYou: return "Your personalized feed will appear here"
+        case .following: return "Notes from people you follow will appear here"
+        case .sharedWithMe: return "Shared notes will appear here"
         case .community: return "Community notes will appear here"
         }
     }
@@ -4507,7 +5227,8 @@ struct MinimalNewNoteSheet: View {
     @State private var showErrorAlert = false
     @State private var errorMessage = ""
     @State private var showingToolbar = false
-    @FocusState private var isContentFocused: Bool
+    @State private var editorSelection = NSRange(location: 0, length: 0)
+    @State private var isEditorFocused = false
     
     var canSave: Bool {
         !title.isEmpty && !content.isEmpty
@@ -4658,7 +5379,13 @@ struct MinimalNewNoteSheet: View {
                             
                             // Formatting toolbar
                             if showingToolbar {
-                                TextFormattingToolbar(content: $content)
+                                TextFormattingToolbar(
+                                    content: $content,
+                                    selectedRange: $editorSelection,
+                                    onApplyFormatting: {
+                                        isEditorFocused = true
+                                    }
+                                )
                                     .padding(.horizontal, 20)
                                     .padding(.bottom, 8)
                                     .transition(.asymmetric(
@@ -4676,24 +5403,23 @@ struct MinimalNewNoteSheet: View {
                                         .padding(.vertical, 30)
                                 }
                                 
-                                TextEditor(text: $content)
-                                    .font(.system(size: 17, weight: .regular))
-                                    .foregroundStyle(.black)
-                                    .scrollContentBackground(.hidden)
-                                    .background(Color.clear)
-                                    .frame(minHeight: 300)
-                                    .padding(.horizontal, 20)
-                                    .padding(.vertical, 14)
-                                    .focused($isContentFocused)
+                                RichTextEditor(
+                                    text: $content,
+                                    selectedRange: $editorSelection,
+                                    isFocused: $isEditorFocused
+                                )
+                                .frame(minHeight: 300)
+                                .padding(.horizontal, 20)
+                                .padding(.vertical, 14)
                             }
                             .background(Color.white)
                             .cornerRadius(8)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 8)
-                                    .stroke(isContentFocused ? Color.black.opacity(0.2) : Color.black.opacity(0.1), lineWidth: 1)
+                                    .stroke(isEditorFocused ? Color.black.opacity(0.2) : Color.black.opacity(0.1), lineWidth: 1)
                             )
                             .padding(.horizontal, 20)
-                            .animation(.easeInOut(duration: 0.2), value: isContentFocused)
+                            .animation(.easeInOut(duration: 0.2), value: isEditorFocused)
                         }
                     }
                     .padding(.bottom, 40)
@@ -4763,6 +5489,68 @@ struct MinimalNewNoteSheet: View {
         }
     }
 }
+
+// MARK: - Rich Text Editor
+struct RichTextEditor: UIViewRepresentable {
+    @Binding var text: String
+    @Binding var selectedRange: NSRange
+    @Binding var isFocused: Bool
+
+    func makeUIView(context: Context) -> UITextView {
+        let textView = UITextView()
+        textView.font = .systemFont(ofSize: 17, weight: .regular)
+        textView.textColor = UIColor.black
+        textView.backgroundColor = .clear
+        textView.isScrollEnabled = false
+        textView.textContainerInset = .zero
+        textView.textContainer.lineFragmentPadding = 0
+        textView.delegate = context.coordinator
+        return textView
+    }
+
+    func updateUIView(_ uiView: UITextView, context: Context) {
+        if uiView.text != text {
+            uiView.text = text
+        }
+        if uiView.selectedRange != selectedRange {
+            uiView.selectedRange = selectedRange
+        }
+        if isFocused && !uiView.isFirstResponder {
+            uiView.becomeFirstResponder()
+        } else if !isFocused && uiView.isFirstResponder {
+            uiView.resignFirstResponder()
+        }
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+
+    final class Coordinator: NSObject, UITextViewDelegate {
+        private let parent: RichTextEditor
+
+        init(_ parent: RichTextEditor) {
+            self.parent = parent
+        }
+
+        func textViewDidChange(_ textView: UITextView) {
+            parent.text = textView.text
+        }
+
+        func textViewDidChangeSelection(_ textView: UITextView) {
+            parent.selectedRange = textView.selectedRange
+        }
+
+        func textViewDidBeginEditing(_ textView: UITextView) {
+            parent.isFocused = true
+        }
+
+        func textViewDidEndEditing(_ textView: UITextView) {
+            parent.isFocused = false
+        }
+    }
+}
+
 // MARK: - Minimal Text Field
 struct MinimalTextField: View {
     let icon: String
@@ -5166,25 +5954,21 @@ struct MinimalNoteDetailSheet: View {
         isGeneratingSummary = true
         
         Task {
-            do {
-                let summary = try await AINoteSummarizationService.shared.summarizeNote(content: note.content)
-                
-                await MainActor.run {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
-                        noteSummary = summary
-                        isGeneratingSummary = false
-                    }
-                }
-                
-                let haptic = UINotificationFeedbackGenerator()
-                haptic.notificationOccurred(.success)
-                
-                print("✅ AI Summary generated successfully")
-            } catch {
-                print("❌ Failed to generate summary: \(error)")
-                await MainActor.run {
+            let summary = await AINoteSummarizationService.shared.summarizeNote(content: note.content)
+            
+            await MainActor.run {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                    noteSummary = summary
                     isGeneratingSummary = false
                 }
+            }
+            
+            if summary != nil {
+                let haptic = UINotificationFeedbackGenerator()
+                haptic.notificationOccurred(.success)
+                print("✅ AI Summary generated successfully")
+            } else {
+                print("⚠️ AI Summary unavailable (Cloud Function not deployed)")
             }
         }
     }
@@ -5218,12 +6002,16 @@ struct MinimalNoteDetailSheet: View {
                         }
                     }
                     
-                    let haptic = UINotificationFeedbackGenerator()
-                    haptic.notificationOccurred(.success)
-                    
-                    print("✅ Found \(references.count) related scripture references")
+                    if !references.isEmpty {
+                        let haptic = UINotificationFeedbackGenerator()
+                        haptic.notificationOccurred(.success)
+                        print("✅ Found \(references.count) related scripture references")
+                    } else {
+                        print("⚠️ Scripture references unavailable (Cloud Function not deployed)")
+                    }
                 }
             } catch {
+                // This shouldn't happen anymore since findRelatedVerses doesn't throw
                 print("❌ Failed to load scripture references: \(error)")
                 await MainActor.run {
                     isLoadingScripture = false
@@ -5256,6 +6044,8 @@ struct MinimalMetadataRow: View {
 // MARK: - Text Formatting Toolbar
 struct TextFormattingToolbar: View {
     @Binding var content: String
+    @Binding var selectedRange: NSRange
+    let onApplyFormatting: () -> Void
     @State private var selectedButton: FormattingOption? = nil
     
     enum FormattingOption {
@@ -5341,25 +6131,33 @@ struct TextFormattingToolbar: View {
             }
         }
         
-        // Apply formatting to content
+        // Apply formatting to selection or insert at cursor
+        let nsText = content as NSString
+        let range = selectedRange
         if option == .bulletList || option == .numberedList || option == .heading || option == .quote {
-            // Line-based formatting
-            if content.isEmpty {
-                content = option.prefix
-            } else if let lastLine = content.components(separatedBy: "\n").last, !lastLine.isEmpty {
-                content += "\n" + option.prefix
-            } else {
-                content += option.prefix
-            }
+            let lineRange = nsText.lineRange(for: range)
+            let prefix = option.prefix
+            let updated = nsText.replacingCharacters(in: NSRange(location: lineRange.location, length: 0), with: prefix)
+            content = updated
+            let newCursor = lineRange.location + prefix.count
+            selectedRange = NSRange(location: newCursor, length: 0)
         } else {
-            // Wrap formatting (bold, italic, etc.)
-            if content.isEmpty {
-                content = option.prefix + option.suffix
+            if range.length == 0 {
+                let insert = option.prefix + option.suffix
+                let updated = nsText.replacingCharacters(in: NSRange(location: range.location, length: 0), with: insert)
+                content = updated
+                let cursor = range.location + option.prefix.count
+                selectedRange = NSRange(location: cursor, length: 0)
             } else {
-                // Add formatting at the end
-                content += "\n" + option.prefix + option.suffix
+                let selectedText = nsText.substring(with: range)
+                let wrapped = option.prefix + selectedText + option.suffix
+                let updated = nsText.replacingCharacters(in: range, with: wrapped)
+                content = updated
+                let newLocation = range.location + option.prefix.count
+                selectedRange = NSRange(location: newLocation, length: selectedText.count)
             }
         }
+        onApplyFormatting()
     }
 }
 

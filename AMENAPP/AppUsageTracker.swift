@@ -21,12 +21,16 @@ class AppUsageTracker: ObservableObject {
     @Published var hasShownLimitDialog: Bool = false
     
     private var sessionStartTime: Date?
+    private var currentSessionStartTime: Date?  // Track current continuous session
     private var timer: Timer?
     private var lastSaveDate: Date?
     
     private let usageKey = "app_usage_today"
     private let limitKey = "daily_time_limit"
     private let lastSaveDateKey = "last_save_date"
+    
+    // Smart break reminder integration
+    private let smartBreakReminder = SmartBreakReminderService.shared
     
     private init() {
         loadUsageData()
@@ -38,6 +42,7 @@ class AppUsageTracker: ObservableObject {
     /// Start tracking session when app becomes active
     func startSession() {
         sessionStartTime = Date()
+        currentSessionStartTime = Date()  // Start continuous session tracking
         print("📊 AppUsageTracker: Session started")
     }
     
@@ -51,6 +56,7 @@ class AppUsageTracker: ObservableObject {
         todayUsageMinutes += sessionMinutes
         saveUsageData()
         sessionStartTime = nil
+        currentSessionStartTime = nil  // End continuous session tracking
         
         print("📊 AppUsageTracker: Session ended. Duration: \(sessionMinutes) minutes. Total today: \(todayUsageMinutes) minutes")
     }
@@ -67,6 +73,10 @@ class AppUsageTracker: ObservableObject {
         todayUsageMinutes = 0
         hasShownLimitDialog = false
         saveUsageData()
+        
+        // Also reset smart break reminder counters
+        smartBreakReminder.resetDailyCounters()
+        
         print("🔄 AppUsageTracker: Daily usage reset")
     }
     
@@ -103,6 +113,23 @@ class AppUsageTracker: ObservableObject {
         // Increment usage by 1 minute
         todayUsageMinutes += 1
         saveUsageData()
+        
+        // Calculate continuous session duration
+        let continuousMinutes: Int
+        if let sessionStart = currentSessionStartTime {
+            continuousMinutes = Int(Date().timeIntervalSince(sessionStart) / 60)
+        } else {
+            continuousMinutes = 0
+        }
+        
+        // Check smart break reminder (AI-driven logic)
+        Task {
+            await smartBreakReminder.analyzeUsageAndRemind(
+                continuousMinutes: continuousMinutes,
+                totalMinutesToday: todayUsageMinutes,
+                dailyLimit: dailyLimitMinutes
+            )
+        }
         
         // Check if we've JUST reached the limit and haven't shown dialog yet
         // Only show dialog when we FIRST hit the exact limit

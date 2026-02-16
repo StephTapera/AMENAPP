@@ -69,9 +69,14 @@ class AIScriptureCrossRefService {
             print("✅ [AI SCRIPTURE] Found \(references.count) related verses")
             return references
             
+        } catch let error as NSError where error.code == 408 {
+            // Timeout error - return empty array instead of throwing
+            print("⚠️ [AI SCRIPTURE] Timeout - Cloud Function may not be deployed. Returning empty results.")
+            return []
         } catch {
             print("❌ [AI SCRIPTURE] Error: \(error)")
-            throw error
+            // Return empty array for other errors too (graceful degradation)
+            return []
         }
     }
     
@@ -134,5 +139,12 @@ class AIScriptureCrossRefService {
     /// Clear cache (e.g., when user logs out)
     func clearCache() {
         cache.removeAll()
+        print("🗑️ [AI SCRIPTURE] Cache cleared")
+    }
+    
+    /// Clear cache for a specific verse
+    func clearCache(for verse: String) {
+        cache.removeValue(forKey: verse)
+        print("🗑️ [AI SCRIPTURE] Cleared cache for: \(verse)")
     }
 }

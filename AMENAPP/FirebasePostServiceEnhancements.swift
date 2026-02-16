@@ -321,6 +321,8 @@ extension FirebasePostService {
             case .openTable: return "openTable"
             case .testimonies: return "testimonies"
             case .prayer: return "prayer"
+            case .tip: return "tip"
+            case .funFact: return "funFact"
             }
         }()
         
@@ -444,6 +446,8 @@ extension FirebasePostService {
             case .openTable: return "openTable"
             case .testimonies: return "testimonies"
             case .prayer: return "prayer"
+            case .tip: return "tip"
+            case .funFact: return "funFact"
             }
         }()
         

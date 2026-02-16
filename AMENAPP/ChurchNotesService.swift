@@ -398,7 +398,7 @@ class ChurchNotesService: ObservableObject {
         print("✅ Updated permission for note: \(note.title) to \(permission.rawValue)")
     }
     
-    /// Share note with specific users
+    /// Share note with specific users (replaces existing shared list)
     func shareNoteWith(_ note: ChurchNote, userIds: [String]) async throws {
         var updatedNote = note
         updatedNote.sharedWith = userIds
@@ -406,6 +406,37 @@ class ChurchNotesService: ObservableObject {
         updatedNote.updatedAt = Date()
         try await updateNote(updatedNote)
         print("✅ Shared note with \(userIds.count) users")
+    }
+    
+    /// Share note with additional users (adds to existing shared list)
+    func shareWithUsers(note: ChurchNote, userIds: [String]) async throws {
+        guard let currentUser = firebaseManager.currentUser else {
+            throw FirebaseError.unauthorized
+        }
+        
+        var updatedNote = note
+        // Merge with existing sharedWith array, avoiding duplicates
+        let existingShared = Set(updatedNote.sharedWith)
+        let newShared = Set(userIds)
+        let newlySharedUsers = Array(newShared.subtracting(existingShared))
+        
+        updatedNote.sharedWith = Array(existingShared.union(newShared))
+        updatedNote.permission = .shared
+        updatedNote.updatedAt = Date()
+        try await updateNote(updatedNote)
+        print("✅ Shared note with \(userIds.count) additional users (total: \(updatedNote.sharedWith.count))")
+        
+        // Send notifications to newly shared users
+        if !newlySharedUsers.isEmpty {
+            await NotificationService.shared.sendChurchNoteSharedNotifications(
+                noteId: updatedNote.id ?? "",
+                noteTitle: updatedNote.title,
+                recipientIds: newlySharedUsers,
+                sharerId: currentUser.uid,
+                sharerName: currentUser.displayName ?? "Someone",
+                sharerUsername: nil  // Username will be fetched from user profile if needed
+            )
+        }
     }
     
     /// Get shared notes (notes shared with current user)

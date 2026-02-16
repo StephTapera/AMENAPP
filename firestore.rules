@@ -945,6 +945,56 @@ service cloud.firestore {
     }
 
     // ============================================================================
+    // AI SCRIPTURE CROSS-REFERENCE COLLECTIONS
+    // ============================================================================
+
+    // Scripture Reference Requests - Created by app, processed by Cloud Functions
+    match /scriptureReferenceRequests/{requestId} {
+      // Users can create scripture reference requests
+      allow create: if isAuthenticated();
+
+      // Users can read their own requests
+      allow read: if isAuthenticated();
+
+      // No update/delete - only Cloud Functions process these
+      allow update, delete: if false;
+    }
+
+    // Scripture Reference Results - Created by Cloud Functions, read by app
+    match /scriptureReferenceResults/{resultId} {
+      // Users can read results for their requests
+      allow read: if isAuthenticated();
+
+      // Only Cloud Functions can write results
+      allow create, update, delete: if false;
+    }
+
+    // ============================================================================
+    // AI NOTE SUMMARIZATION COLLECTIONS
+    // ============================================================================
+
+    // Note Summary Requests - Created by app, processed by Cloud Functions
+    match /noteSummaryRequests/{requestId} {
+      // Users can create note summary requests
+      allow create: if isAuthenticated();
+
+      // Users can read their own requests
+      allow read: if isAuthenticated();
+
+      // No update/delete - only Cloud Functions process these
+      allow update, delete: if false;
+    }
+
+    // Note Summary Results - Created by Cloud Functions, read by app
+    match /noteSummaryResults/{resultId} {
+      // Users can read results for their requests
+      allow read: if isAuthenticated();
+
+      // Only Cloud Functions can write results
+      allow create, update, delete: if false;
+    }
+
+    // ============================================================================
     // DEFAULT DENY ALL OTHER COLLECTIONS
     // ============================================================================
 

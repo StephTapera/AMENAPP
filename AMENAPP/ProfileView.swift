@@ -103,72 +103,62 @@ struct ProfileView: View {
     
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                // Profile Header (scrollable) - WITH tab selector at bottom
-                // 🎯 PULL-TO-REFRESH AT THE TOP
-                ScrollView {
-                    VStack(spacing: 0) {
-                        profileHeaderViewWithoutTabs
-                            .background(
-                                GeometryReader { geometry in
-                                    Color.clear
-                                        .preference(
-                                            key: ScrollOffsetPreferenceKey.self,
-                                            value: geometry.frame(in: .named("scroll")).minY
-                                        )
-                                }
-                            )
-                        
-                        // 🎯 ACHIEVEMENT BADGES - Encourage engagement
-                        achievementBadgesView
-                        
-                        // 🎯 STICKY TAB BAR - Right under action buttons
-                        stickyTabBar
-                    }
-                }
-                .frame(height: calculateHeaderHeight()) // Full height now includes tab bar
-                .coordinateSpace(name: "scroll")
-                .refreshable {
-                    await fastRefreshProfile()
-                }
-                .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
-                    scrollOffset = value
-                    // Show compact header when scrolled past 200 points
-                    let shouldShow = value < -200
-                    if showCompactHeader != shouldShow {
-                        withAnimation(.easeOut(duration: 0.15)) {
-                            showCompactHeader = shouldShow
-                        }
-                    }
-                }
-                
-                // Content (scrollable) - starts immediately under tabs
-                ScrollView {
-                    VStack(spacing: 0) {
-                        if isLoading {
-                            VStack(spacing: 20) {
-                                ProgressView()
-                                    .scaleEffect(1.2)
-
-                                Text("Loading...")
-                                    .font(.custom("OpenSans-SemiBold", size: 16))
-                                    .foregroundStyle(.secondary)
+            // 🎯 SINGLE UNIFIED SCROLLVIEW - Everything scrolls together seamlessly
+            ScrollView {
+                VStack(spacing: 0) {
+                    // Profile Header
+                    profileHeaderViewWithoutTabs
+                        .background(
+                            GeometryReader { geometry in
+                                Color.clear
+                                    .preference(
+                                        key: ScrollOffsetPreferenceKey.self,
+                                        value: geometry.frame(in: .named("scroll")).minY
+                                    )
                             }
-                            .frame(maxWidth: .infinity, alignment: .top)
-                            .padding(.top, 0)
-                        } else {
-                            contentView
-                                .padding(.top, 0)  // ✅ Posts sit RIGHT under tabs with no gap
+                        )
+                    
+                    // 🎯 ACHIEVEMENT BADGES - Encourage engagement
+                    achievementBadgesView
+                    
+                    // 🎯 TAB BAR - Right under action buttons (like Threads)
+                    stickyTabBar
+                        .padding(.top, 0)
+                    
+                    // Content - flows naturally after tabs
+                    if isLoading {
+                        VStack(spacing: 20) {
+                            ProgressView()
+                                .scaleEffect(1.2)
+
+                            Text("Loading...")
+                                .font(.custom("OpenSans-SemiBold", size: 16))
+                                .foregroundStyle(.secondary)
                         }
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 40)
+                    } else {
+                        contentView
+                            .padding(.top, 12)
                     }
-                    .frame(maxWidth: .infinity, alignment: .top)
-                    .padding(.top, 0)  // ✅ Remove any top padding from VStack
                 }
-                .scrollContentBackground(.hidden)
-                .contentMargins(.top, 0, for: .scrollContent)
-                .safeAreaPadding(.top, 0)  // ✅ Remove safe area padding at top
-                .background(Color.white)
             }
+            .coordinateSpace(name: "scroll")
+            .refreshable {
+                await fastRefreshProfile()
+            }
+            .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
+                scrollOffset = value
+                // Show compact header when scrolled past 200 points
+                let shouldShow = value < -200
+                if showCompactHeader != shouldShow {
+                    withAnimation(.easeOut(duration: 0.15)) {
+                        showCompactHeader = shouldShow
+                    }
+                }
+            }
+            .scrollContentBackground(.hidden)
+            .background(Color.white)
             .overlay(
                 // Toast notification for new posts
                 Group {
@@ -1428,15 +1418,9 @@ struct ProfileView: View {
                 }
             }
             .padding(.horizontal, 20)
-            .padding(.vertical, 12)
+            .padding(.vertical, 8)
         }
         .background(Color.white)
-        .overlay(
-            Rectangle()
-                .fill(Color.black.opacity(0.05))
-                .frame(height: 1),
-            alignment: .bottom
-        )
     }
     
     // MARK: - Profile Header
@@ -1803,15 +1787,8 @@ struct ProfileView: View {
         }
         .padding(.horizontal, 20)
         .padding(.top, 16)
-        .padding(.bottom, 12)
+        .padding(.bottom, 0)
         .background(Color.white)
-        .overlay(
-            Rectangle()
-                .fill(Color.black.opacity(0.05))
-                .frame(height: 1)
-                .padding(.horizontal, 20),
-            alignment: .bottom
-        )
     }
     
     // Keep old header for backwards compatibility (may be referenced elsewhere)
@@ -2012,6 +1989,12 @@ struct ProfilePostCard: View {
     @StateObject private var postsManager = PostsManager.shared
     @StateObject private var interactionsService = PostInteractionsService.shared
     
+    // Check if current user is the post owner
+    private var isCurrentUserPost: Bool {
+        guard let currentUserId = Auth.auth().currentUser?.uid else { return false }
+        return currentUserId == post.authorId
+    }
+    
     // Category icon helper
     private var categoryIcon: String {
         switch post.category {
@@ -2021,6 +2004,10 @@ struct ProfilePostCard: View {
             return "star.fill"
         case .prayer:
             return "hands.sparkles.fill"
+        case .tip:
+            return "info.circle.fill"
+        case .funFact:
+            return "sparkles"
         }
     }
     
@@ -2074,20 +2061,20 @@ struct ProfilePostCard: View {
                 .lineSpacing(4)
                 .fixedSize(horizontal: false, vertical: true)
             
-            // INTERACTIONS: Glassmorphic buttons
+            // INTERACTIONS: Glassmorphic buttons (counts only visible to post owner)
             HStack(spacing: 12) {
                 // Amen/Lightbulb button
                 if post.category == .openTable {
                     Button {
                         toggleLightbulb()
                     } label: {
-                        lightbulbButtonLabel
+                        lightbulbButtonLabel(showCount: isCurrentUserPost)
                     }
                     .buttonStyle(.plain)
                 } else {
                     glassmorphicButton(
                         icon: hasSaidAmen ? "hands.clap.fill" : "hands.clap",
-                        count: amenCount,
+                        count: isCurrentUserPost ? amenCount : 0,
                         isActive: hasSaidAmen,
                         activeColor: .purple
                     ) {
@@ -2095,11 +2082,11 @@ struct ProfilePostCard: View {
                     }
                 }
                 
-                // Comment button
+                // Comment button - illuminates when there are comments (count only for owner)
                 glassmorphicButton(
                     icon: "bubble.left",
-                    count: commentCount,
-                    isActive: false,
+                    count: isCurrentUserPost ? commentCount : 0,
+                    isActive: commentCount > 0,
                     activeColor: .blue
                 ) {
                     showCommentsSheet = true
@@ -2109,9 +2096,9 @@ struct ProfilePostCard: View {
             }
             .padding(.top, 4)
         }
-        .padding(20)
+        .padding(16)
         .background(
-            // ✨ BLACK & WHITE GLASSMORPHIC DESIGN
+            // ✨ THREADS-STYLE MINIMAL DESIGN
             ZStack {
                 // Swipe action indicators
                 if abs(swipeOffset) > 20 {
@@ -2140,40 +2127,17 @@ struct ProfilePostCard: View {
                     }
                 }
                 
-                // Base white background
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                // Clean white background like Threads
+                RoundedRectangle(cornerRadius: 0, style: .continuous)
                     .fill(Color.white)
-                
-                // Subtle gradient overlay
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                .white,
-                                .black.opacity(0.01)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                
-                // Glass border
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .strokeBorder(
-                        LinearGradient(
-                            colors: [
-                                .white.opacity(0.8),
-                                .black.opacity(0.15),
-                                .black.opacity(0.08)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 1.5
-                    )
             }
-            .shadow(color: .black.opacity(0.08), radius: 16, x: 0, y: 4)
-            .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
+        )
+        .overlay(
+            // Minimal bottom separator like Threads
+            Rectangle()
+                .fill(Color.black.opacity(0.08))
+                .frame(height: 0.5),
+            alignment: .bottom
         )
         .offset(x: swipeOffset)
         .gesture(
@@ -2250,30 +2214,30 @@ struct ProfilePostCard: View {
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
-            HStack(spacing: 6) {
+            HStack(spacing: 4) {
                 Image(systemName: icon)
-                    .font(.system(size: 18, weight: isActive ? .semibold : .medium))
+                    .font(.system(size: 15, weight: isActive ? .semibold : .medium))
                     .foregroundStyle(isActive ? activeColor : .black.opacity(0.5))
                 
                 if count > 0 {
                     Text("\(count)")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(isActive ? activeColor : .black.opacity(0.6))
                 }
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
             .background(
                 ZStack {
                     // Glass background
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
                         .fill(isActive ? activeColor.opacity(0.08) : .black.opacity(0.02))
                     
                     // Border
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
                         .strokeBorder(
                             isActive ? activeColor.opacity(0.2) : .black.opacity(0.08),
-                            lineWidth: 1
+                            lineWidth: 0.5
                         )
                 }
             )
@@ -2283,17 +2247,19 @@ struct ProfilePostCard: View {
     
     // MARK: - Lightbulb Styling (matching PostCard)
     
-    private var lightbulbButtonLabel: some View {
-        HStack(spacing: 4) {
+    private func lightbulbButtonLabel(showCount: Bool) -> some View {
+        HStack(spacing: 3) {
             lightbulbIcon
             
-            Text("\(lightbulbCount)")
-                .font(.custom("OpenSans-SemiBold", size: 11))
-                .foregroundStyle(hasLitLightbulb ? Color.orange : Color.black.opacity(0.5))
-                .contentTransition(.numericText())
+            if showCount && lightbulbCount > 0 {
+                Text("\(lightbulbCount)")
+                    .font(.custom("OpenSans-SemiBold", size: 10))
+                    .foregroundStyle(hasLitLightbulb ? Color.orange : Color.black.opacity(0.5))
+                    .contentTransition(.numericText())
+            }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 7)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
         .background(lightbulbBackground)
         .overlay(lightbulbOverlay)
     }
@@ -2311,15 +2277,15 @@ struct ProfilePostCard: View {
     
     private var lightbulbGlowEffect: some View {
         Image(systemName: "lightbulb.fill")
-            .font(.system(size: 13, weight: .bold))
+            .font(.system(size: 11, weight: .bold))
             .foregroundStyle(.yellow)
-            .blur(radius: 8)
+            .blur(radius: 6)
             .opacity(0.6)
     }
     
     private var lightbulbMainIcon: some View {
         Image(systemName: hasLitLightbulb ? "lightbulb.fill" : "lightbulb")
-            .font(.system(size: 13, weight: .semibold))
+            .font(.system(size: 11, weight: .semibold))
             .foregroundStyle(hasLitLightbulb ? lightbulbGradientActive : lightbulbGradientInactive)
     }
     
@@ -3085,7 +3051,9 @@ struct EditProfileView: View {
                     // Profile photo, URL, or other changes - save directly
                     saveProfile()
                 } else {
-                    print("   -> No changes to save")
+                    print("   -> No changes to save, just dismissing")
+                    // No changes - just dismiss
+                    dismiss()
                 }
             } label: {
                 if isSaving {
@@ -3094,10 +3062,10 @@ struct EditProfileView: View {
                 } else {
                     Text("Done")
                         .font(.custom("OpenSans-Bold", size: 16))
-                        .foregroundStyle(canSave ? .blue : .gray)
+                        .foregroundStyle(hasValidationErrors ? .gray : .blue)
                 }
             }
-            .disabled(isSaving || !canSave || hasValidationErrors)
+            .disabled(isSaving || hasValidationErrors)
         }
     }
     

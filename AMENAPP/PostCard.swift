@@ -63,6 +63,8 @@ struct PostCard: View {
     @State private var showBlockConfirmation = false
     @State private var showMuteSuccess = false
     @State private var showBlockSuccess = false
+    @State private var showNotInterestedConfirmation = false
+    @State private var showNotInterestedSuccess = false
     
     // Error handling
     @State private var showErrorAlert = false
@@ -358,14 +360,18 @@ struct PostCard: View {
         ZStack {
             // Background circle
             Circle()
-                .fill(isFollowing ? Color.green : Color.blue)
+                .fill(isFollowing ? Color.black : Color.white)
                 .frame(width: 20, height: 20)
+                .overlay(
+                    Circle()
+                        .strokeBorder(Color.black.opacity(0.2), lineWidth: 0.5)
+                )
                 .shadow(color: .black.opacity(0.2), radius: 2, y: 1)
             
             // Icon - smaller "+" symbol
             Image(systemName: isFollowing ? "checkmark" : "plus")
                 .font(.system(size: 9, weight: .bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(isFollowing ? .white : .black)
         }
     }
     
@@ -489,6 +495,12 @@ struct PostCard: View {
     
     @ViewBuilder
     private var moderationMenuOptions: some View {
+        Button {
+            showNotInterestedConfirmation = true
+        } label: {
+            Label("Not Interested", systemImage: "eye.slash")
+        }
+        
         Button(role: .destructive) {
             showReportSheet = true
         } label: {
@@ -695,8 +707,11 @@ struct PostCard: View {
             }
             .buttonStyle(PlainButtonStyle())
 
-            // Category badge - only show for non-OpenTable posts
-            if category != .openTable {
+            // Category badge - only show if category allows it (not for Tip, Fun Fact)
+            if let post = post, post.category.showCategoryBadge {
+                categoryBadge
+            } else if post == nil && category != .openTable {
+                // Fallback for preview posts without full Post object
                 categoryBadge
             }
         }
@@ -808,6 +823,19 @@ struct PostCard: View {
                 Button("OK") { }
             } message: {
                 Text("\(authorName) has been blocked.")
+            }
+            .alert("Not Interested?", isPresented: $showNotInterestedConfirmation) {
+                Button("Cancel", role: .cancel) { }
+                Button("Confirm") {
+                    markNotInterested()
+                }
+            } message: {
+                Text("You'll see fewer posts like this. This helps us personalize your feed.")
+            }
+            .alert("Feedback Received", isPresented: $showNotInterestedSuccess) {
+                Button("OK") { }
+            } message: {
+                Text("We'll show you fewer posts like this.")
             }
             .alert("Error", isPresented: $showErrorAlert) {
                 Button("OK") { }
@@ -1077,15 +1105,29 @@ struct PostCard: View {
                     if swipeDirection == .right && swipeOffset > threshold {
                         // Trigger like/amen action
                         triggerSwipeLikeAction()
+                        
+                        // Reset with animation
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            swipeOffset = 0
+                            swipeDirection = .none
+                        }
                     } else if swipeDirection == .left && abs(swipeOffset) > threshold {
-                        // Trigger comment action
+                        // Trigger comment action - delay reset to allow sheet to present
                         triggerSwipeCommentAction()
-                    }
-                    
-                    // Reset with animation
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                        swipeOffset = 0
-                        swipeDirection = .none
+                        
+                        // Small delay before reset to ensure sheet presents properly
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                swipeOffset = 0
+                                swipeDirection = .none
+                            }
+                        }
+                    } else {
+                        // Reset with animation if threshold not met
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            swipeOffset = 0
+                            swipeDirection = .none
+                        }
                     }
                 }
         )
@@ -1105,19 +1147,23 @@ struct PostCard: View {
     }
     
     private func triggerSwipeLikeAction() {
+        // Prevent users from liking their own posts
+        guard !isUserPost else {
+            let haptic = UINotificationFeedbackGenerator()
+            haptic.notificationOccurred(.warning)
+            print("⚠️ Users cannot like their own posts")
+            return
+        }
+        
         let haptic = UIImpactFeedbackGenerator(style: .medium)
         haptic.impactOccurred()
         
         if category == .openTable {
             // Toggle lightbulb
-            Task {
-                await toggleLightbulb()
-            }
+            toggleLightbulb()
         } else {
             // Toggle amen
-            Task {
-                await toggleAmen()
-            }
+            toggleAmen()
         }
     }
     
@@ -1294,34 +1340,54 @@ struct PostCard: View {
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
-            // Just show the icon - no count numbers
+            // Clean liquid glass design - blends with card, illuminates when active
             ZStack {
-                // Background circle - black and white only
-                Circle()
-                    .fill(isActive ? Color.black : Color(.systemGray6))
-                    .frame(width: 32, height: 32)
-                
-                // Subtle gradient accent border when active
                 if isActive {
+                    // Active state: Illuminated liquid glass
                     Circle()
-                        .strokeBorder(
+                        .fill(
                             LinearGradient(
                                 colors: [
-                                    activeColor.opacity(0.4),
-                                    activeColor.opacity(0.1)
+                                    Color.black.opacity(0.9),
+                                    Color.black.opacity(0.75)
                                 ],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1.5
+                            )
                         )
-                        .frame(width: 32, height: 32)
+                        .frame(width: 28, height: 28)
+                        .overlay(
+                            Circle()
+                                .strokeBorder(
+                                    LinearGradient(
+                                        colors: [
+                                            Color.white.opacity(0.4),
+                                            Color.white.opacity(0.1)
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    ),
+                                    lineWidth: 0.5
+                                )
+                        )
+                } else {
+                    // Inactive state: Transparent, blends with card
+                    Circle()
+                        .fill(Color.clear)
+                        .frame(width: 28, height: 28)
+                        .overlay(
+                            Circle()
+                                .strokeBorder(
+                                    Color.black.opacity(0.08),
+                                    lineWidth: 0.5
+                                )
+                        )
                 }
                 
-                // Icon - white when active, black when inactive
+                // Icon - illuminates when active
                 Image(systemName: icon)
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(isActive ? Color.white : Color.black)
+                    .font(.system(size: 13, weight: isActive ? .semibold : .medium))
+                    .foregroundStyle(isActive ? Color.white : Color.black.opacity(0.5))
             }
         }
         .buttonStyle(PlainButtonStyle())
@@ -1834,6 +1900,48 @@ struct PostCard: View {
                 
                 await MainActor.run {
                     errorMessage = "Failed to block user. Please try again."
+                    showErrorAlert = true
+                    
+                    let haptic = UINotificationFeedbackGenerator()
+                    haptic.notificationOccurred(.error)
+                }
+            }
+        }
+    }
+    
+    private func markNotInterested() {
+        guard let post = post else { return }
+        guard let currentUserId = Auth.auth().currentUser?.uid else { return }
+        
+        Task {
+            do {
+                let db = Firestore.firestore()
+                
+                // Store "not interested" feedback for personalization
+                try await db.collection("users")
+                    .document(currentUserId)
+                    .collection("notInterested")
+                    .document(post.firestoreId)
+                    .setData([
+                        "postId": post.firestoreId,
+                        "postCategory": post.category.rawValue,
+                        "postAuthorId": post.authorId,
+                        "timestamp": FieldValue.serverTimestamp()
+                    ])
+                
+                print("👎 Marked post as not interested: \(post.firestoreId)")
+                
+                await MainActor.run {
+                    showNotInterestedSuccess = true
+                    
+                    let haptic = UINotificationFeedbackGenerator()
+                    haptic.notificationOccurred(.success)
+                }
+            } catch {
+                print("❌ Failed to mark not interested: \(error)")
+                
+                await MainActor.run {
+                    errorMessage = "Failed to save feedback. Please try again."
                     showErrorAlert = true
                     
                     let haptic = UINotificationFeedbackGenerator()
