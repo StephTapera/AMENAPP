@@ -9,8 +9,8 @@ import Foundation
 import SwiftUI
 import Combine
 
-/// Service for AI-powered Bible study using Firebase Genkit
-/// Genkit provides structured AI flows with better observability and testing
+/// Service for AI-powered Bible study using OpenAI API
+/// Now uses OpenAI directly for better performance and reliability
 @MainActor
 class BereanGenkitService: ObservableObject {
     static let shared = BereanGenkitService()
@@ -18,40 +18,17 @@ class BereanGenkitService: ObservableObject {
     @Published var isProcessing = false
     @Published var lastError: Error?
     
-    // ⚡ Response cache for faster repeat queries (15-minute TTL)
-    private var responseCache: [String: CachedResponse] = [:]
-    private let cacheTTL: TimeInterval = 900 // 15 minutes
+    // Use OpenAI service for all AI operations
+    private let openAIService = OpenAIService.shared
     
-    // Genkit configuration
-    private let genkitEndpoint: String
-    private let apiKey: String?
-    
-    // Feature flag to disable AI when server is offline
+    // Feature flag to check if AI is available
     var isEnabled: Bool {
-        // AI is always enabled - production uses Cloud Run
+        // AI is enabled if OpenAI service is configured
         return true
     }
     
     init() {
-        // Configure your Genkit endpoint
-        // Priority: Info.plist -> Default Cloud Run URL
-        if let endpoint = Bundle.main.object(forInfoDictionaryKey: "GENKIT_ENDPOINT") as? String {
-            self.genkitEndpoint = endpoint
-        } else {
-            // Production & TestFlight: Use Cloud Run
-            self.genkitEndpoint = "https://genkit-amen-78278013543.us-central1.run.app"
-            
-            // 💡 For local development, you can override this in Info.plist:
-            // <key>GENKIT_ENDPOINT</key>
-            // <string>http://localhost:3400</string>
-        }
-        
-        // Optional: API key for production (recommended for security)
-        self.apiKey = Bundle.main.object(forInfoDictionaryKey: "GENKIT_API_KEY") as? String
-        
-        print("✅ BereanGenkitService initialized")
-        print("   Endpoint: \(genkitEndpoint)")
-        print("   API Key: \(apiKey != nil ? "✓ Configured" : "⚠️ Not set (consider adding for production)")")
+        print("✅ BereanGenkitService initialized (using OpenAI)")
     }
     
     // MARK: - Core AI Chat

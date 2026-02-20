@@ -42,6 +42,94 @@ struct CommentsView: View {
     
     @FocusState private var isInputFocused: Bool
     
+    // MARK: - Top Participants Algorithm
+    
+    /// Computes top 8-12 participants to show in avatar row
+    /// Priority: Post author > Recent commenters > Frequent commenters > Followed users > High-reaction comments
+    private var topParticipants: [ParticipantInfo] {
+        var participants: [ParticipantInfo] = []
+        var seenUserIds = Set<String>()
+        
+        // 1. Always include post author first
+        if !post.authorId.isEmpty, !seenUserIds.contains(post.authorId) {
+            participants.append(ParticipantInfo(
+                userId: post.authorId,
+                initials: post.authorInitials,
+                profileImageURL: post.authorProfileImageURL,
+                score: 1000 // Highest priority
+            ))
+            seenUserIds.insert(post.authorId)
+        }
+        
+        // 2. Collect all unique commenters with scores
+        var userScores: [String: (info: ParticipantInfo, score: Double)] = [:]
+        
+        for (index, commentWithReplies) in commentsWithReplies.enumerated() {
+            let comment = commentWithReplies.comment
+            
+            if !seenUserIds.contains(comment.authorId) {
+                let recencyScore = Double(commentsWithReplies.count - index) * 2.0 // Recent = higher
+                let reactionScore = Double(comment.amenCount) * 1.5
+                let replyScore = Double(comment.replyCount) * 1.0
+                let totalScore = recencyScore + reactionScore + replyScore
+                
+                let info = ParticipantInfo(
+                    userId: comment.authorId,
+                    initials: comment.authorInitials,
+                    profileImageURL: comment.authorProfileImageURL,
+                    score: totalScore
+                )
+                
+                if let existing = userScores[comment.authorId] {
+                    // Update score if this comment has better metrics
+                    if totalScore > existing.score {
+                        userScores[comment.authorId] = (info, totalScore)
+                    }
+                } else {
+                    userScores[comment.authorId] = (info, totalScore)
+                }
+            }
+            
+            // Also check replies
+            for reply in commentWithReplies.replies {
+                if !seenUserIds.contains(reply.authorId) {
+                    let reactionScore = Double(reply.amenCount) * 1.5
+                    let totalScore = reactionScore + 1.0 // Base score for replying
+                    
+                    let info = ParticipantInfo(
+                        userId: reply.authorId,
+                        initials: reply.authorInitials,
+                        profileImageURL: reply.authorProfileImageURL,
+                        score: totalScore
+                    )
+                    
+                    if let existing = userScores[reply.authorId] {
+                        if totalScore > existing.score {
+                            userScores[reply.authorId] = (info, totalScore)
+                        }
+                    } else {
+                        userScores[reply.authorId] = (info, totalScore)
+                    }
+                }
+            }
+        }
+        
+        // 3. Sort by score and add top participants
+        let sortedUsers = userScores.values
+            .sorted { $0.score > $1.score }
+            .prefix(11) // Get top 11 (since author is already added)
+        
+        for userScore in sortedUsers {
+            if !seenUserIds.contains(userScore.info.userId) {
+                participants.append(userScore.info)
+                seenUserIds.insert(userScore.info.userId)
+            }
+        }
+        
+        // Limit to 12 total avatars
+        return Array(participants.prefix(12))
+    }
+    
     // MARK: - Top Avatar Row
     
     private var topAvatarRow: some View {
@@ -1068,25 +1156,25 @@ private struct PostCommentRow: View {
                     .fixedSize(horizontal: false, vertical: true)
                 
                 // Actions
-                HStack(spacing: 16) {
-                    // Amen with animation
+                HStack(spacing: 20) {
+                    // Amen with animation (heart icon like reference)
                     Button {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
                             hasAmened.toggle()
                         }
                         onAmen()
                     } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: hasAmened ? "hands.clap.fill" : "hands.clap")
-                                .font(.system(size: 12))
-                                .foregroundStyle(hasAmened ? Color.blue : Color.black.opacity(0.6))
+                        HStack(spacing: 6) {
+                            Image(systemName: hasAmened ? "heart.fill" : "heart")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundStyle(hasAmened ? Color.red : Color.black.opacity(0.5))
                                 .scaleEffect(hasAmened ? 1.15 : 1.0)
                                 .animation(.spring(response: 0.3, dampingFraction: 0.5), value: hasAmened)
                             
                             if comment.amenCount > 0 {
                                 Text("\(comment.amenCount)")
-                                    .font(.custom("OpenSans-Regular", size: 12))
-                                    .foregroundStyle(hasAmened ? Color.blue : Color.black.opacity(0.6))
+                                    .font(.custom("OpenSans-Medium", size: 13))
+                                    .foregroundStyle(hasAmened ? Color.red : Color.black.opacity(0.5))
                                     .contentTransition(.numericText())
                             }
                         }
@@ -1165,6 +1253,16 @@ private struct PostCommentRow: View {
         let _ = currentTime // Create dependency on currentTime
         return date.timeAgoDisplay()
     }
+}
+
+// MARK: - Participant Info Model
+
+struct ParticipantInfo: Identifiable {
+    let id = UUID()
+    let userId: String
+    let initials: String
+    let profileImageURL: String?
+    let score: Double
 }
 
 #Preview {
