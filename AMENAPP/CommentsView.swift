@@ -9,6 +9,7 @@
 
 import SwiftUI
 import FirebaseAuth
+import Combine
 
 struct CommentsView: View {
     let post: Post
@@ -33,6 +34,9 @@ struct CommentsView: View {
     @State private var newCommentIds: Set<String> = []  // Track newly added comments for animation
     @State private var scrollProxy: ScrollViewProxy?  // For smooth scrolling to replies
     @Namespace private var animationNamespace  // For matched geometry effects
+    
+    // ✅ Timestamp auto-refresh (updates "5m ago" -> "6m ago")
+    @State private var currentTime = Date()
     
     private var postId: String { post.firestoreId }
     
@@ -148,7 +152,8 @@ struct CommentsView: View {
                                             }
                                         },
                                         isThreadExpanded: expandedThreads.contains(commentWithReplies.comment.id ?? ""),
-                                        replyCount: commentWithReplies.replies.count
+                                        replyCount: commentWithReplies.replies.count,
+                                        currentTime: currentTime
                                     )
                                     .id("\(commentWithReplies.comment.id ?? "")-main")
                                     .transition(.asymmetric(
@@ -193,7 +198,8 @@ struct CommentsView: View {
                                                         onProfileTap: {
                                                             selectedUserId = reply.authorId
                                                             showUserProfile = true
-                                                        }
+                                                        },
+                                                        currentTime: currentTime
                                                     )
                                                 }
                                                 .id("\(reply.id ?? "")-reply")
@@ -364,6 +370,11 @@ struct CommentsView: View {
                     await updateCommentsFromService()
                 }
             }
+        }
+        .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { _ in
+            // ✅ Timestamp auto-refresh: Update current time every 60 seconds
+            // This triggers view refresh, causing "5m ago" → "6m ago" updates
+            currentTime = Date()
         }
         .alert("Error", isPresented: $showError) {
             Button("OK", role: .cancel) { }
@@ -794,6 +805,19 @@ struct CommentsView: View {
         // No changes detected
         return false
     }
+    
+    // MARK: - Timestamp Auto-Refresh Helper
+    
+    /// ✅ Computes relative time string that updates when currentTime changes
+    /// This creates a dependency on currentTime, so when the timer updates currentTime,
+    /// this function re-evaluates and the UI shows updated timestamps
+    private func timeAgoString(for date: Date) -> String {
+        // Include currentTime in computation to create SwiftUI dependency
+        let _ = currentTime
+        
+        // Use the standard timeAgoDisplay extension
+        return date.timeAgoDisplay()
+    }
 }
 
 // MARK: - Comment Row
@@ -809,6 +833,7 @@ private struct PostCommentRow: View {
     var onToggleThread: (() -> Void)? = nil
     var isThreadExpanded: Bool = true
     var replyCount: Int = 0
+    var currentTime: Date = Date() // ✅ For timestamp auto-refresh
     
     @State private var showOptions = false
     @State private var hasAmened = false
@@ -902,7 +927,8 @@ private struct PostCommentRow: View {
                         .font(.custom("OpenSans-Regular", size: isReply ? 11 : 12))
                         .foregroundStyle(.black.opacity(0.3))
 
-                    Text(comment.timeAgo)
+                    // ✅ Timestamp auto-refresh: Recomputes when currentTime changes
+                    Text(timeAgoString(for: comment.createdAt, currentTime: currentTime))
                         .font(.custom("OpenSans-Regular", size: isReply ? 11 : 12))
                         .foregroundStyle(.black.opacity(0.5))
                 }
@@ -1004,6 +1030,12 @@ private struct PostCommentRow: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.horizontal, isReply ? 12 : 16)
+    }
+    
+    // Helper function to compute time ago string with currentTime dependency
+    private func timeAgoString(for date: Date, currentTime: Date) -> String {
+        let _ = currentTime // Create dependency on currentTime
+        return date.timeAgoDisplay()
     }
 }
 
