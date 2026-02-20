@@ -1253,6 +1253,7 @@ private struct PostCommentRow: View {
         let _ = currentTime // Create dependency on currentTime
         return date.timeAgoDisplay()
     }
+<<<<<<< HEAD
 }
 
 // MARK: - Participant Info Model
@@ -1263,6 +1264,8 @@ struct ParticipantInfo: Identifiable {
     let initials: String
     let profileImageURL: String?
     let score: Double
+=======
+>>>>>>> origin/main
 }
 
 #Preview {
