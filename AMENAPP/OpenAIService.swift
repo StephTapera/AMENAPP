@@ -8,6 +8,7 @@
 
 import Foundation
 import SwiftUI
+import Combine
 
 /// Service for direct OpenAI API communication
 @MainActor
@@ -45,7 +46,7 @@ class OpenAIService: ObservableObject {
     // MARK: - Chat Completion
     
     /// Send a message to OpenAI and get streaming response
-    func sendMessage(_ message: String, conversationHistory: [ChatMessage] = []) -> AsyncThrowingStream<String, Error> {
+    func sendMessage(_ message: String, conversationHistory: [OpenAIChatMessage] = []) -> AsyncThrowingStream<String, Error> {
         guard !apiKey.isEmpty else {
             return AsyncThrowingStream { continuation in
                 continuation.finish(throwing: OpenAIError.missingAPIKey)
@@ -146,7 +147,7 @@ class OpenAIService: ObservableObject {
     }
     
     /// Send message synchronously (for non-streaming use cases)
-    func sendMessageSync(_ message: String, conversationHistory: [ChatMessage] = []) async throws -> String {
+    func sendMessageSync(_ message: String, conversationHistory: [OpenAIChatMessage] = []) async throws -> String {
         guard !apiKey.isEmpty else {
             throw OpenAIError.missingAPIKey
         }
@@ -344,7 +345,7 @@ class OpenAIService: ObservableObject {
 
 // MARK: - Supporting Types
 
-struct ChatMessage {
+struct OpenAIChatMessage {
     let content: String
     let isFromUser: Bool
 }

@@ -1408,9 +1408,11 @@ struct BereanAIAssistantView: View {
                 
                 // Determine error type
                 let bereanError: BereanError
-                if let genkitError = error as? GenkitError {
-                    switch genkitError {
-                    case .invalidURL, .invalidResponse:
+                if let openAIError = error as? OpenAIError {
+                    switch openAIError {
+                    case .missingAPIKey:
+                        bereanError = .invalidResponse
+                    case .invalidResponse:
                         bereanError = .invalidResponse
                     case .httpError(let statusCode):
                         if statusCode == 429 {
@@ -1420,8 +1422,6 @@ struct BereanAIAssistantView: View {
                         } else {
                             bereanError = .unknown("Server error (\(statusCode))")
                         }
-                    case .networkError:
-                        bereanError = .networkUnavailable
                     }
                 } else if let urlError = error as? URLError {
                     if urlError.code == .notConnectedToInternet || urlError.code == .networkConnectionLost {
@@ -2485,11 +2485,11 @@ class BereanViewModel: ObservableObject {
                 // Task was cancelled - don't report as error
                 print("⏸️ Generation task cancelled")
                 return
-            } catch let error as GenkitError {
+            } catch let error as OpenAIError {
                 // ✅ Don't show error if cancelled
                 guard !Task.isCancelled else { return }
                 
-                print("❌ Genkit error: \(error.localizedDescription)")
+                print("❌ OpenAI error: \(error.localizedDescription)")
                 await MainActor.run {
                     onError(error)
                 }

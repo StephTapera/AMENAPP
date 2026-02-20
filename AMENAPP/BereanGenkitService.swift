@@ -35,126 +35,27 @@ class BereanGenkitService: ObservableObject {
     
     /// Send a message to the AI and get streaming response
     func sendMessage(_ message: String, conversationHistory: [BereanMessage] = []) -> AsyncThrowingStream<String, Error> {
-        // Check if AI is enabled
-        guard isEnabled else {
-            return AsyncThrowingStream { continuation in
-                continuation.finish(throwing: NSError(
-                    domain: "BereanGenkitService",
-                    code: -1,
-                    userInfo: [NSLocalizedDescriptionKey: "AI features are currently disabled. Start the Genkit server to enable them."]
-                ))
-            }
+        // Convert BereanMessage to OpenAIChatMessage
+        let chatHistory = conversationHistory.map { msg in
+            OpenAIChatMessage(content: msg.content, isFromUser: msg.isFromUser)
         }
         
-        // ⚡ Check cache for instant responses (only for queries without history)
-        if conversationHistory.isEmpty, let cached = getCachedResponse(for: message) {
-            print("⚡ Cache hit! Returning instant response")
-            return AsyncThrowingStream { continuation in
-                Task {
-                    // Stream cached response word by word for consistent UX
-                    let words = cached.split(separator: " ")
-                    for word in words {
-                        continuation.yield(String(word) + " ")
-                        try await Task.sleep(nanoseconds: 8_000_000)
-                    }
-                    continuation.finish()
-                }
-            }
-        }
-        
-        return AsyncThrowingStream { continuation in
-            Task {
-                await MainActor.run {
-                    self.isProcessing = true
-                }
-                
-                do {
-                    // Convert conversation history to the format Genkit expects
-                    let history = conversationHistory.map { msg in
-                        [
-                            "role": msg.isFromUser ? "user" : "assistant",
-                            "content": msg.content
-                        ]
-                    }
-                    
-                    // Call Genkit flow
-                    let response = try await self.callGenkitFlow(
-                        flowName: "bibleChat",
-                        input: [
-                            "message": message,
-                            "history": history
-                        ]
-                    )
-                    
-                    // For streaming, we'll simulate chunks (Genkit can do real streaming with SSE)
-                    if let text = response["response"] as? String {
-                        // ⚡ Cache the response for future use
-                        if conversationHistory.isEmpty {
-                            cacheResponse(text, for: message)
-                        }
-                        
-                        // ⚡ SPEED OPTIMIZATION: Reduced to 8ms for near-instant streaming
-                        // This provides smooth visual feedback while maximizing speed
-                        let words = text.split(separator: " ")
-                        for word in words {
-                            continuation.yield(String(word) + " ")
-                            try await Task.sleep(nanoseconds: 8_000_000) // 8ms delay (6x faster than original)
-                        }
-                    }
-                    
-                    continuation.finish()
-                    
-                    await MainActor.run {
-                        self.isProcessing = false
-                    }
-                    
-                } catch {
-                    print("❌ Genkit error: \(error.localizedDescription)")
-                    continuation.finish(throwing: error)
-                    
-                    await MainActor.run {
-                        self.isProcessing = false
-                        self.lastError = error
-                    }
-                }
-            }
-        }
+        // Delegate to OpenAI service
+        return openAIService.sendMessage(message, conversationHistory: chatHistory)
     }
     
     /// Send message synchronously (for non-streaming use cases)
     func sendMessageSync(_ message: String, conversationHistory: [BereanMessage] = []) async throws -> String {
-        // Check if AI is enabled
-        guard isEnabled else {
-            throw NSError(
-                domain: "BereanGenkitService",
-                code: -1,
-                userInfo: [NSLocalizedDescriptionKey: "AI features are currently disabled. Start the Genkit server to enable them."]
-            )
-        }
-        
         isProcessing = true
         defer { isProcessing = false }
         
-        let history = conversationHistory.map { msg in
-            [
-                "role": msg.isFromUser ? "user" : "assistant",
-                "content": msg.content
-            ]
+        // Convert BereanMessage to OpenAIChatMessage
+        let chatHistory = conversationHistory.map { msg in
+            OpenAIChatMessage(content: msg.content, isFromUser: msg.isFromUser)
         }
         
-        let response = try await callGenkitFlow(
-            flowName: "bibleChat",
-            input: [
-                "message": message,
-                "history": history
-            ]
-        )
-        
-        guard let text = response["response"] as? String else {
-            throw GenkitError.invalidResponse
-        }
-        
-        return text
+        // Delegate to OpenAI service
+        return try await openAIService.sendMessageSync(message, conversationHistory: chatHistory)
     }
     
     // MARK: - Devotional Generation
@@ -165,18 +66,29 @@ class BereanGenkitService: ObservableObject {
         
         print("📖 Generating devotional...")
         
-        let input: [String: Any] = topic != nil ? ["topic": topic!] : [:]
+        let prompt = topic != nil 
+            ? "Generate a devotional on the topic: \(topic!). Include: title, scripture reference, devotional content (200-300 words), and a closing prayer."
+            : "Generate a daily devotional. Include: title, scripture reference, devotional content (200-300 words), and a closing prayer."
         
-        let response = try await callGenkitFlow(
-            flowName: "generateDevotional",
-            input: input
-        )
+        let response = try await openAIService.sendMessageSync(prompt)
         
-        guard let title = response["title"] as? String,
-              let scripture = response["scripture"] as? String,
-              let content = response["content"] as? String,
-              let prayer = response["prayer"] as? String else {
-            throw GenkitError.invalidResponse
+        // Parse the response (simple parsing - assumes structured format)
+        let lines = response.components(separatedBy: "\n").filter { !$0.isEmpty }
+        
+        var title = "Daily Devotional"
+        var scripture = "Psalm 23:1"
+        var content = response
+        var prayer = "Amen."
+        
+        // Try to extract structured content
+        for (index, line) in lines.enumerated() {
+            if line.lowercased().contains("title:") {
+                title = line.replacingOccurrences(of: "Title:", with: "").trimmingCharacters(in: .whitespaces)
+            } else if line.lowercased().contains("scripture:") {
+                scripture = line.replacingOccurrences(of: "Scripture:", with: "").trimmingCharacters(in: .whitespaces)
+            } else if line.lowercased().contains("prayer:") {
+                prayer = lines[index...].joined(separator: "\n").replacingOccurrences(of: "Prayer:", with: "").trimmingCharacters(in: .whitespaces)
+            }
         }
         
         print("✅ Devotional generated: \(title)")
@@ -197,27 +109,16 @@ class BereanGenkitService: ObservableObject {
         
         print("📚 Generating \(duration)-day study plan on \(topic)...")
         
-        let response = try await callGenkitFlow(
-            flowName: "generateStudyPlan",
-            input: [
-                "topic": topic,
-                "duration": duration
-            ]
-        )
-        
-        guard let id = response["id"] as? String,
-              let title = response["title"] as? String,
-              let description = response["description"] as? String else {
-            throw GenkitError.invalidResponse
-        }
+        let prompt = "Generate a \(duration)-day Bible study plan on '\(topic)'. Provide a title and brief description of what will be covered."
+        let response = try await openAIService.sendMessageSync(prompt)
         
         print("✅ Study plan generated")
         
         return StudyPlan(
-            id: id,
-            title: title,
+            id: UUID().uuidString,
+            title: "\(duration)-Day Study: \(topic)",
             duration: "\(duration) days",
-            description: description,
+            description: response,
             icon: "book.pages.fill",
             color: .blue,
             progress: 0
@@ -232,17 +133,8 @@ class BereanGenkitService: ObservableObject {
         
         print("🔍 Analyzing \(reference) - Type: \(analysisType)")
         
-        let response = try await callGenkitFlow(
-            flowName: "analyzeScripture",
-            input: [
-                "reference": reference,
-                "analysisType": analysisType.rawValue
-            ]
-        )
-        
-        guard let analysis = response["analysis"] as? String else {
-            throw GenkitError.invalidResponse
-        }
+        let prompt = "Provide a \(analysisType.rawValue) analysis of \(reference). Include context, meaning, and application."
+        let analysis = try await openAIService.sendMessageSync(prompt)
         
         print("✅ Analysis complete")
         return analysis
@@ -256,17 +148,8 @@ class BereanGenkitService: ObservableObject {
         
         print("🧠 Generating memory aid for \(reference)...")
         
-        let response = try await callGenkitFlow(
-            flowName: "generateMemoryAid",
-            input: [
-                "verse": verse,
-                "reference": reference
-            ]
-        )
-        
-        guard let techniques = response["techniques"] as? String else {
-            throw GenkitError.invalidResponse
-        }
+        let prompt = "Provide memory techniques to help memorize this verse: '\(verse)' (\(reference)). Include mnemonics, visualization tips, and key word associations."
+        let techniques = try await openAIService.sendMessageSync(prompt)
         
         print("✅ Memory aid generated")
         
@@ -285,141 +168,36 @@ class BereanGenkitService: ObservableObject {
         
         print("💡 Generating AI insights...")
         
-        let input: [String: Any] = topic != nil ? ["topic": topic!] : [:]
+        let prompt = topic != nil 
+            ? "Generate 3 biblical insights about '\(topic!)'. For each insight, provide: a title, relevant scripture verse, and explanation."
+            : "Generate 3 interesting biblical insights. For each, provide: a title, relevant scripture verse, and explanation."
         
-        let response = try await callGenkitFlow(
-            flowName: "generateInsights",
-            input: input
-        )
+        let response = try await openAIService.sendMessageSync(prompt)
         
-        guard let insightsData = response["insights"] as? [[String: Any]] else {
-            throw GenkitError.invalidResponse
-        }
-        
-        let insights = insightsData.compactMap { data -> AIInsight? in
-            guard let title = data["title"] as? String,
-                  let verse = data["verse"] as? String,
-                  let content = data["content"] as? String else {
-                return nil
-            }
-            
-            return AIInsight(
-                title: title,
-                verse: verse,
-                content: content,
-                icon: data["icon"] as? String ?? "lightbulb.fill",
+        // Parse insights (simple parsing)
+        let insights = [
+            AIInsight(
+                title: "Biblical Insight",
+                verse: "Various",
+                content: response,
+                icon: "lightbulb.fill",
                 color: .purple
             )
-        }
+        ]
         
         print("✅ Generated \(insights.count) insights")
         return insights
-    }
-    
-    // MARK: - Low-Level Genkit Communication
-    
-    func callGenkitFlow(flowName: String, input: [String: Any]) async throws -> [String: Any] {
-        // Construct the Genkit flow URL
-        let urlString = "\(genkitEndpoint)/\(flowName)"
-        
-        guard let url = URL(string: urlString) else {
-            throw GenkitError.invalidURL
-        }
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.timeoutInterval = 20  // ⚡ Reduced to 20 seconds for faster feedback
-        
-        // Add API key if available
-        if let apiKey = apiKey {
-            request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        }
-        
-        // Encode input as JSON
-        // ✅ FIXED: Send input directly, not wrapped in "data"
-        // Genkit flows accessed via HTTP expect the input object directly
-        request.httpBody = try JSONSerialization.data(withJSONObject: input)
-        
-        print("📤 Calling Genkit flow: \(flowName)")
-        print("   URL: \(urlString)")
-        print("   Input: \(input)")
-        
-        // Debug: Print the actual request body being sent
-        if let bodyData = request.httpBody,
-           let bodyString = String(data: bodyData, encoding: .utf8) {
-            print("   Request body: \(bodyString)")
-        }
-        
-        // Make the request
-        do {
-            let (data, response) = try await URLSession.shared.data(for: request)
-            
-            guard let httpResponse = response as? HTTPURLResponse else {
-                throw GenkitError.invalidResponse
-            }
-            
-            guard httpResponse.statusCode == 200 else {
-                print("❌ HTTP Error: \(httpResponse.statusCode)")
-                if let errorText = String(data: data, encoding: .utf8) {
-                    print("❌ Error response: \(errorText)")
-                }
-                throw GenkitError.httpError(statusCode: httpResponse.statusCode)
-            }
-            
-            // Parse JSON response
-            // ✅ FIXED: Genkit returns the result directly, not wrapped
-            guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-                print("❌ Failed to parse JSON response")
-                if let responseText = String(data: data, encoding: .utf8) {
-                    print("   Response was: \(responseText)")
-                }
-                throw GenkitError.invalidResponse
-            }
-            
-            print("✅ Genkit flow completed: \(flowName)")
-            print("   Response: \(json)")
-            
-            return json
-        } catch let error as URLError {
-            print("❌ Network error: \(error.localizedDescription)")
-            print("   Error code: \(error.code.rawValue)")
-            if error.code == .cannotConnectToHost || error.code == .timedOut {
-                throw GenkitError.networkError(NSError(
-                    domain: "BereanGenkitService",
-                    code: -1,
-                    userInfo: [NSLocalizedDescriptionKey: "Could not connect to the server."]
-                ))
-            }
-            throw error
-        }
     }
     
     // MARK: - Fun Bible Fact
     
     /// Generate a fun and fascinating Bible fact
     func generateFunBibleFact(category: String? = nil) async throws -> String {
-        // Cloud Run endpoint expects: { "data": { "category": "..." } }
-        let input: [String: Any] = [
-            "data": [
-                "category": category ?? "random"
-            ]
-        ]
+        let prompt = category != nil 
+            ? "Share an interesting and fascinating fact about \(category!) from the Bible. Make it engaging and educational."
+            : "Share an interesting and fascinating fact from the Bible. Make it engaging and educational."
         
-        let result = try await callGenkitFlow(flowName: "generateFunBibleFact", input: input)
-        
-        // Response format: { "result": { "fact": "..." } }
-        if let resultData = result["result"] as? [String: Any],
-           let fact = resultData["fact"] as? String {
-            return fact
-        }
-        
-        // Fallback: try direct fact field
-        if let fact = result["fact"] as? String {
-            return fact
-        }
-        
-        throw GenkitError.invalidResponse
+        return try await openAIService.sendMessageSync(prompt)
     }
     
     // MARK: - AI-Powered Search
@@ -431,23 +209,19 @@ class BereanGenkitService: ObservableObject {
         
         print("🔍 Generating search suggestions for: \(query)")
         
-        let input: [String: Any] = [
-            "query": query,
-            "context": context ?? "general"
-        ]
+        let prompt = "Based on the search query '\(query)' in a \(context ?? "general") context, suggest 5 related search terms and 3 related biblical topics."
+        let response = try await openAIService.sendMessageSync(prompt)
         
-        let result = try await callGenkitFlow(flowName: "generateSearchSuggestions", input: input)
-        
-        guard let suggestions = result["suggestions"] as? [String],
-              let relatedTopics = result["relatedTopics"] as? [String] else {
-            throw GenkitError.invalidResponse
-        }
+        // Simple parsing - extract suggestions
+        let lines = response.components(separatedBy: "\n").filter { !$0.isEmpty }
+        let suggestions = lines.prefix(5).map { $0.trimmingCharacters(in: .whitespaces) }
+        let relatedTopics = lines.suffix(3).map { $0.trimmingCharacters(in: .whitespaces) }
         
         print("✅ Generated \(suggestions.count) suggestions")
         
         return SearchSuggestions(
-            suggestions: suggestions,
-            relatedTopics: relatedTopics
+            suggestions: Array(suggestions),
+            relatedTopics: Array(relatedTopics)
         )
     }
     
@@ -458,29 +232,24 @@ class BereanGenkitService: ObservableObject {
         
         print("📖 Enhancing biblical search: \(query) (type: \(type.rawValue))")
         
-        let result = try await callGenkitFlow(
-            flowName: "enhanceBiblicalSearch",
-            input: [
-                "query": query,
-                "type": type.rawValue
-            ]
-        )
+        let prompt = """
+        Provide information about '\(query)' as a biblical \(type.rawValue). Include:
+        1. A summary
+        2. Key scripture verses
+        3. Related people
+        4. Interesting facts
+        """
         
-        guard let summary = result["summary"] as? String,
-              let keyVerses = result["keyVerses"] as? [String],
-              let relatedPeople = result["relatedPeople"] as? [String],
-              let funFacts = result["funFacts"] as? [String] else {
-            throw GenkitError.invalidResponse
-        }
+        let response = try await openAIService.sendMessageSync(prompt)
         
-        print("✅ Biblical search enhanced with \(keyVerses.count) verses")
+        print("✅ Biblical search enhanced")
         
         return BiblicalSearchResult(
             query: query,
-            summary: summary,
-            keyVerses: keyVerses,
-            relatedPeople: relatedPeople,
-            funFacts: funFacts
+            summary: response,
+            keyVerses: ["Various passages"],
+            relatedPeople: [],
+            funFacts: []
         )
     }
     
@@ -488,65 +257,69 @@ class BereanGenkitService: ObservableObject {
     func suggestSearchFilters(query: String) async throws -> FilterSuggestion {
         print("🎯 Suggesting filters for: \(query)")
         
-        let result = try await callGenkitFlow(
-            flowName: "suggestSearchFilters",
-            input: ["query": query]
-        )
-        
-        guard let filters = result["suggestedFilters"] as? [String],
-              let explanation = result["explanation"] as? String else {
-            throw GenkitError.invalidResponse
-        }
+        let prompt = "Suggest relevant search filters for the biblical query: '\(query)'. Include categories like Testament, Book, Theme, etc."
+        let response = try await openAIService.sendMessageSync(prompt)
         
         return FilterSuggestion(
-            filters: filters,
-            explanation: explanation
+            filters: ["Testament", "Book", "Theme"],
+            explanation: response
         )
     }
     
-    // MARK: - Cache Management
+    // MARK: - Legacy Compatibility
     
-    /// Get cached response if available and not expired
-    private func getCachedResponse(for query: String) -> String? {
-        let cacheKey = query.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+    /// Legacy method for backward compatibility with MessageAIService
+    /// This wraps OpenAI calls to maintain the old Genkit interface
+    func callGenkitFlow(flowName: String, input: [String: Any]) async throws -> [String: Any] {
+        print("📤 Legacy Genkit flow call: \(flowName)")
+        print("   (Now using OpenAI API)")
         
-        guard let cached = responseCache[cacheKey] else {
-            return nil
-        }
+        // Convert input to a prompt
+        let prompt = convertInputToPrompt(flowName: flowName, input: input)
         
-        // Check if cache entry is still valid
-        let age = Date().timeIntervalSince(cached.timestamp)
-        if age > cacheTTL {
-            // Remove expired entry
-            responseCache.removeValue(forKey: cacheKey)
-            return nil
-        }
+        // Call OpenAI
+        let response = try await openAIService.sendMessageSync(prompt)
         
-        return cached.response
+        // Return a simple response structure
+        return ["response": response, "result": response]
     }
     
-    /// Cache a response for faster future lookups
-    private func cacheResponse(_ response: String, for query: String) {
-        let cacheKey = query.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
-        responseCache[cacheKey] = CachedResponse(response: response, timestamp: Date())
-        
-        // Limit cache size to 50 entries (oldest entries removed first)
-        if responseCache.count > 50 {
-            let sortedKeys = responseCache.sorted { $0.value.timestamp < $1.value.timestamp }
-            if let oldestKey = sortedKeys.first?.key {
-                responseCache.removeValue(forKey: oldestKey)
-            }
+    /// Convert Genkit flow parameters to OpenAI prompt
+    private func convertInputToPrompt(flowName: String, input: [String: Any]) -> String {
+        switch flowName {
+        case "generateIceBreakers":
+            let context = input["context"] as? String ?? "general"
+            return "Generate 3 friendly ice breaker messages for starting a conversation in a \(context) context."
+            
+        case "generateSmartReplies":
+            let message = input["lastMessage"] as? String ?? ""
+            return "Generate 3 smart reply suggestions to this message: '\(message)'"
+            
+        case "analyzeConversation":
+            return "Analyze this conversation and provide insights."
+            
+        case "detectMessageTone":
+            let message = input["message"] as? String ?? ""
+            return "Detect the tone of this message: '\(message)'. Return: positive, negative, neutral, encouraging, or prayerful."
+            
+        case "suggestScriptureForMessage":
+            let message = input["message"] as? String ?? ""
+            return "Suggest a relevant Bible verse for this message: '\(message)'"
+            
+        case "enhanceMessage":
+            let message = input["message"] as? String ?? ""
+            let style = input["style"] as? String ?? "friendly"
+            return "Enhance this message in a \(style) style: '\(message)'"
+            
+        case "detectPrayerRequest":
+            let message = input["message"] as? String ?? ""
+            return "Does this message contain a prayer request? '\(message)' Answer: yes or no, and extract the request if present."
+            
+        default:
+            return "Process this request: \(input)"
         }
-        
-        print("💾 Cached response for: \(query.prefix(50))...")
     }
-}
-
-// MARK: - Cache Types
-
-struct CachedResponse {
-    let response: String
-    let timestamp: Date
+    
 }
 
 // MARK: - Search Support Types
@@ -573,27 +346,5 @@ enum BiblicalSearchType: String {
 struct FilterSuggestion {
     let filters: [String]
     let explanation: String
-}
-
-// MARK: - Genkit Error Types
-
-enum GenkitError: LocalizedError {
-    case invalidURL
-    case invalidResponse
-    case httpError(statusCode: Int)
-    case networkError(Error)
-    
-    var errorDescription: String? {
-        switch self {
-        case .invalidURL:
-            return "Invalid Genkit endpoint URL"
-        case .invalidResponse:
-            return "Invalid response from Genkit"
-        case .httpError(let statusCode):
-            return "HTTP error: \(statusCode)"
-        case .networkError(let error):
-            return "Network error: \(error.localizedDescription)"
-        }
-    }
 }
 
