@@ -39,6 +39,7 @@ enum MessageSheetType: Identifiable, Equatable {
 struct MessagesView: View {
     @ObservedObject private var messagingService = FirebaseMessagingService.shared
     @ObservedObject private var messagingCoordinator = MessagingCoordinator.shared
+    @ObservedObject private var userService = UserService.shared
     @State private var searchText = ""
     @State private var activeSheet: MessageSheetType?
     @State private var selectedTab: MessageTab = .messages
@@ -48,6 +49,16 @@ struct MessagesView: View {
     @State private var isArchiving = false
     @State private var isDeleting = false
     @State private var isRefreshing = false
+    @State private var showNewMessageSheet = false
+    
+    // ✅ Scroll tracking for collapsing header
+    @State private var scrollOffset: CGFloat = 0
+    @State private var lastScrollOffset: CGFloat = 0
+    @State private var showHeader = true
+    
+    // ✅ Tab bar visibility control (passed from ContentView)
+    @Environment(\.tabBarVisible) private var tabBarVisible
+    @Environment(\.dismiss) private var dismiss
     
     enum MessageTab {
         case messages
@@ -161,84 +172,569 @@ struct MessagesView: View {
     
     var body: some View {
         NavigationStack {
-            mainContentView
-                .navigationBarHidden(true)
-                .sheet(item: $activeSheet) { sheetType in
-                    Group {
-                        switch sheetType {
-                        case .chat(let conversation):
-                            UnifiedChatView(conversation: conversation)
-                                .onAppear {
-                                    print("\n🎬 SHEET OPENED: Chat with \(conversation.name)")
-                                }
-                        
-                        case .newMessage:
-                            ProductionMessagingUserSearchView { selectedUser in
-                                Task {
-                                    await startConversation(with: selectedUser)
-                                }
-                            }
-                            .onAppear {
-                                print("\n🎬 SHEET OPENED: New Message Search")
-                            }
-                        
-                        case .createGroup:
-                            CreateGroupView()
-                                .onAppear {
-                                    print("\n🎬 SHEET OPENED: Create Group")
-                                }
-                        
-                        case .settings:
-                            MessageSettingsView()
-                                .onAppear {
-                                    print("\n🎬 SHEET OPENED: Settings")
-                                }
-                        }
+            ZStack {
+                Color(.systemBackground)
+                    .ignoresSafeArea()
+                
+                VStack(spacing: 0) {
+                    // ✅ Modern header with back button + compose (collapses on scroll)
+                    if showHeader {
+                        modernHeaderSection
+                            .transition(.move(edge: .top).combined(with: .opacity))
                     }
-                    .presentationDragIndicator(.visible)
+                    
+                    // ✅ Content with scroll tracking
+                    modernContentSection
                 }
-                .onChange(of: activeSheet) { oldValue, newValue in
-                    print("\n🔄 SHEET STATE CHANGED")
-                    print("   - Old: \(oldValue?.id ?? "nil")")
-                    print("   - New: \(newValue?.id ?? "nil")")
+            }
+            .navigationBarHidden(true)
+            .onAppear {
+                // ✅ Hide tab bar when entering Messages (full-screen experience)
+                tabBarVisible.wrappedValue = false
+            }
+            .onDisappear {
+                // ✅ Show tab bar when leaving Messages
+                tabBarVisible.wrappedValue = true
+            }
+            .sheet(item: $activeSheet) { sheetType in
+                Group {
+                    switch sheetType {
+                    case .chat(let conversation):
+                        UnifiedChatView(conversation: conversation)
+                    case .newMessage:
+                        ProductionMessagingUserSearchView { selectedUser in
+                            Task {
+                                await startConversation(with: selectedUser)
+                            }
+                        }
+                    case .createGroup:
+                        CreateGroupView()
+                    case .settings:
+                        MessageSettingsView()
+                    }
                 }
-                .modifier(LifecycleModifier(
-                    messagingService: messagingService,
-                    loadMessageRequests: loadMessageRequests,
-                    startListeningToMessageRequests: startListeningToMessageRequests,
-                    stopListeningToMessageRequests: stopListeningToMessageRequests
-                ))
-                .modifier(DeleteConfirmationModifier(
-                    showDeleteConfirmation: $showDeleteConfirmation,
-                    conversationToDelete: $conversationToDelete,
-                    deleteConversation: deleteConversation
-                ))
-                .modifier(CoordinatorModifier(
-                    messagingCoordinator: messagingCoordinator,
-                    messagingService: messagingService,
-                    conversations: conversations,
-                    activeSheet: $activeSheet,
-                    selectedTab: $selectedTab
-                ))
+                .presentationDragIndicator(.visible)
+            }
+            .sheet(isPresented: $showNewMessageSheet) {
+                modernNewMessageSheet
+            }
+            .onChange(of: activeSheet) { oldValue, newValue in
+                print("🔄 Sheet: \(oldValue?.id ?? "nil") -> \(newValue?.id ?? "nil")")
+            }
+            .modifier(LifecycleModifier(
+                messagingService: messagingService,
+                loadMessageRequests: loadMessageRequests,
+                startListeningToMessageRequests: startListeningToMessageRequests,
+                stopListeningToMessageRequests: stopListeningToMessageRequests
+            ))
+            .modifier(DeleteConfirmationModifier(
+                showDeleteConfirmation: $showDeleteConfirmation,
+                conversationToDelete: $conversationToDelete,
+                deleteConversation: deleteConversation
+            ))
+            .modifier(CoordinatorModifier(
+                messagingCoordinator: messagingCoordinator,
+                messagingService: messagingService,
+                conversations: conversations,
+                activeSheet: $activeSheet,
+                selectedTab: $selectedTab
+            ))
         }
     }
     
-    // MARK: - Main Content View
+    // MARK: - Modern Header Section (Reference Style)
     
-    private var mainContentView: some View {
-        ZStack {
-            // Clean background consistent with app
-            Color(.systemGroupedBackground)
-                .ignoresSafeArea()
+    private var modernHeaderSection: some View {
+        VStack(spacing: 16) {
+            // Top row: Back button + Title + Compose
+            HStack(spacing: 16) {
+                // ✅ Back button (chevron)
+                Button {
+                    dismiss()
+                    let haptic = UIImpactFeedbackGenerator(style: .light)
+                    haptic.impactOccurred()
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .frame(width: 40, height: 40)
+                        .background(
+                            Circle()
+                                .fill(.ultraThinMaterial)
+                                .shadow(color: .black.opacity(0.05), radius: 4, y: 2)
+                        )
+                }
+                
+                // ✅ Title (clean, simple - matches reference)
+                Text(greetingTitle)
+                    .font(.custom("OpenSans-Bold", size: 28))
+                    .foregroundStyle(.primary)
+                
+                Spacer()
+                
+                // ✅ Compose button (liquid glass, like reference)
+                Button {
+                    showNewMessageSheet = true
+                    let haptic = UIImpactFeedbackGenerator(style: .light)
+                    haptic.impactOccurred()
+                } label: {
+                    Image(systemName: "square.and.pencil")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .frame(width: 44, height: 44)
+                        .background(
+                            Circle()
+                                .fill(.ultraThinMaterial)
+                                .shadow(color: .black.opacity(0.08), radius: 8, y: 4)
+                        )
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
             
-            VStack(spacing: 0) {
-                headerSection
-                tabContentSection
+            // ✅ Segmented control (3 tabs, compact pill style)
+            modernTabSelector
+                .padding(.horizontal, 20)
+            
+            // ✅ Search bar (liquid glass, like reference)
+            modernSearchBar
+                .padding(.horizontal, 20)
+                .padding(.bottom, 12)
+        }
+        .background(Color(.systemBackground))
+    }
+    
+    private var greetingTitle: String {
+        if let displayName = userService.currentUser?.displayName, !displayName.isEmpty {
+            let firstName = displayName.components(separatedBy: " ").first ?? displayName
+            return "Hi \(firstName)"
+        }
+        return "Messages"
+    }
+    
+    // ✅ Modern tab selector (compact pills, like reference)
+    private var modernTabSelector: some View {
+        HStack(spacing: 8) {
+            ForEach([MessageTab.messages, MessageTab.requests, MessageTab.archived], id: \.self) { tab in
+                Button {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        selectedTab = tab
+                    }
+                    let haptic = UIImpactFeedbackGenerator(style: .light)
+                    haptic.impactOccurred()
+                } label: {
+                    HStack(spacing: 6) {
+                        Text(tabTitle(for: tab))
+                            .font(.custom("OpenSans-SemiBold", size: 14))
+                            .foregroundStyle(selectedTab == tab ? .white : .primary)
+                        
+                        // Badge for requests
+                        if tab == .requests && pendingRequestsCount > 0 {
+                            Text("\(pendingRequestsCount)")
+                                .font(.custom("OpenSans-Bold", size: 11))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(
+                                    Capsule()
+                                        .fill(Color.red)
+                                )
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(
+                        Capsule()
+                            .fill(selectedTab == tab ? Color.primary : Color.clear)
+                    )
+                }
+            }
+        }
+        .padding(4)
+        .background(
+            Capsule()
+                .fill(.ultraThinMaterial)
+        )
+    }
+    
+    // ✅ Modern search bar (glass pill, like reference)
+    private var modernSearchBar: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(.secondary)
+            
+            TextField("Search conversations", text: $searchText)
+                .font(.custom("OpenSans-Regular", size: 15))
+                .foregroundStyle(.primary)
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+            
+            if !searchText.isEmpty {
+                Button {
+                    searchText = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 16))
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(
+            Capsule()
+                .fill(.ultraThinMaterial)
+                .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
+        )
+    }
+    
+    // MARK: - Modern Content Section (Reference Style)
+    
+    private var modernContentSection: some View {
+        GeometryReader { geometry in
+            ScrollView {
+                VStack(spacing: 0) {
+                    // Scroll offset tracking
+                    GeometryReader { scrollGeometry in
+                        Color.clear.preference(
+                            key: ScrollOffsetPreferenceKey.self,
+                            value: scrollGeometry.frame(in: .named("scroll")).minY
+                        )
+                    }
+                    .frame(height: 0)
+                    
+                    // Content based on selected tab
+                    Group {
+                        if selectedTab == .messages && !pinnedConversations.isEmpty {
+                            // Pinned section
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("PINNED")
+                                    .font(.custom("OpenSans-Bold", size: 12))
+                                    .foregroundStyle(.secondary)
+                                    .padding(.horizontal, 20)
+                                    .padding(.top, 8)
+                                
+                                ForEach(pinnedConversations) { conversation in
+                                    modernConversationRow(conversation)
+                                        .contextMenu {
+                                            conversationContextMenu(for: conversation)
+                                        }
+                                }
+                                
+                                Divider()
+                                    .padding(.horizontal, 20)
+                                    .padding(.vertical, 8)
+                            }
+                        }
+                        
+                        // Regular conversations
+                        if filteredConversations.isEmpty {
+                            modernEmptyState
+                                .padding(.top, 60)
+                        } else {
+                            LazyVStack(spacing: 0) {
+                                ForEach(filteredConversations) { conversation in
+                                    modernConversationRow(conversation)
+                                        .contextMenu {
+                                            conversationContextMenu(for: conversation)
+                                        }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            .coordinateSpace(name: "scroll")
+            .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
+                handleScrollOffset(value)
+            }
+            .refreshable {
+                await refreshConversations()
             }
         }
     }
     
-    // MARK: - Header Section
+    // ✅ Modern conversation row (matches reference)
+    private func modernConversationRow(_ conversation: ChatConversation) -> some View {
+        Button {
+            openChat(conversation)
+        } label: {
+            HStack(spacing: 12) {
+                // ✅ Avatar (circular, 52pt like reference)
+                modernAvatarView(for: conversation)
+                
+                // ✅ Content (name + preview)
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text(conversation.name)
+                            .font(.custom("OpenSans-SemiBold", size: 16))
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                        
+                        if conversation.isGroup {
+                            Image(systemName: "person.2.fill")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.secondary)
+                        }
+                        
+                        Spacer()
+                        
+                        // ✅ Timestamp (small, right-aligned)
+                        Text(conversation.timestamp)
+                            .font(.custom("OpenSans-Regular", size: 13))
+                            .foregroundStyle(.secondary)
+                    }
+                    
+                    HStack(spacing: 4) {
+                        // Group indicator
+                        if conversation.isGroup {
+                            Text("Group • ")
+                                .font(.custom("OpenSans-Regular", size: 14))
+                                .foregroundStyle(.secondary)
+                        }
+                        
+                        Text(conversation.lastMessage)
+                            .font(.custom("OpenSans-Regular", size: 14))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                        
+                        Spacer()
+                        
+                        // ✅ Unread indicator (dot, like reference)
+                        if conversation.unreadCount > 0 {
+                            Circle()
+                                .fill(Color.blue)
+                                .frame(width: 8, height: 8)
+                        }
+                    }
+                }
+                
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PlainButtonStyle())
+        .background(Color(.systemBackground))
+    }
+    
+    private func modernAvatarView(for conversation: ChatConversation) -> some View {
+        Group {
+            if let photoURL = conversation.profilePhotoURL, !photoURL.isEmpty, let url = URL(string: photoURL) {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(width: 52, height: 52)
+                            .clipShape(Circle())
+                    case .failure(_):
+                        fallbackAvatar(for: conversation)
+                    case .empty:
+                        ProgressView()
+                            .frame(width: 52, height: 52)
+                    @unknown default:
+                        fallbackAvatar(for: conversation)
+                    }
+                }
+            } else {
+                fallbackAvatar(for: conversation)
+            }
+        }
+    }
+    
+    private func fallbackAvatar(for conversation: ChatConversation) -> some View {
+        ZStack {
+            Circle()
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color.blue.opacity(0.7),
+                            Color.purple.opacity(0.7)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: 52, height: 52)
+            
+            Text(conversation.name.prefix(1).uppercased())
+                .font(.custom("OpenSans-Bold", size: 20))
+                .foregroundStyle(.white)
+        }
+    }
+    
+    // ✅ Modern empty state (clean, minimal, like reference)
+    private var modernEmptyState: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "bubble.left.and.bubble.right")
+                .font(.system(size: 64))
+                .foregroundStyle(.secondary.opacity(0.5))
+            
+            Text("No messages yet")
+                .font(.custom("OpenSans-Bold", size: 20))
+                .foregroundStyle(.primary)
+            
+            Text("Start a conversation with someone")
+                .font(.custom("OpenSans-Regular", size: 15))
+                .foregroundStyle(.secondary)
+            
+            Button {
+                showNewMessageSheet = true
+            } label: {
+                Text("New Message")
+                    .font(.custom("OpenSans-SemiBold", size: 16))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 12)
+                    .background(
+                        Capsule()
+                            .fill(Color.primary)
+                    )
+            }
+            .padding(.top, 8)
+        }
+        .frame(maxWidth: .infinity)
+    }
+    
+    // ✅ Modern new message sheet (like reference)
+    private var modernNewMessageSheet: some View {
+        VStack(spacing: 0) {
+            // Handle indicator
+            Capsule()
+                .fill(Color.secondary.opacity(0.3))
+                .frame(width: 40, height: 4)
+                .padding(.top, 12)
+                .padding(.bottom, 20)
+            
+            // Options
+            VStack(spacing: 0) {
+                modernSheetOption(
+                    icon: "bubble.left.and.bubble.right",
+                    title: "New Chat",
+                    subtitle: "Send a message to your contact"
+                ) {
+                    showNewMessageSheet = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        activeSheet = .newMessage
+                    }
+                }
+                
+                Divider()
+                    .padding(.leading, 68)
+                
+                modernSheetOption(
+                    icon: "person.crop.circle.badge.plus",
+                    title: "New Contact",
+                    subtitle: "Add a contact to be able to send message"
+                ) {
+                    showNewMessageSheet = false
+                    // Add contact logic here
+                }
+                
+                Divider()
+                    .padding(.leading, 68)
+                
+                modernSheetOption(
+                    icon: "person.3",
+                    title: "New Community",
+                    subtitle: "Join the community around you"
+                ) {
+                    showNewMessageSheet = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        activeSheet = .createGroup
+                    }
+                }
+            }
+            .padding(.horizontal, 20)
+            
+            Spacer()
+            
+            // Cancel button
+            Button {
+                showNewMessageSheet = false
+            } label: {
+                Text("Cancel")
+                    .font(.custom("OpenSans-SemiBold", size: 16))
+                    .foregroundStyle(.primary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color(.systemGray6))
+                    )
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 20)
+        }
+        .presentationDetents([.height(380)])
+        .presentationDragIndicator(.hidden)
+    }
+    
+    private func modernSheetOption(icon: String, title: String, subtitle: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 16) {
+                Image(systemName: icon)
+                    .font(.system(size: 24))
+                    .foregroundStyle(.primary)
+                    .frame(width: 44, height: 44)
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.custom("OpenSans-SemiBold", size: 16))
+                        .foregroundStyle(.primary)
+                    
+                    Text(subtitle)
+                        .font(.custom("OpenSans-Regular", size: 13))
+                        .foregroundStyle(.secondary)
+                }
+                
+                Spacer()
+            }
+            .padding(.vertical, 12)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+    
+    // MARK: - Scroll Handling (Collapse on Scroll)
+    
+    private func handleScrollOffset(_ offset: CGFloat) {
+        let delta = offset - lastScrollOffset
+        lastScrollOffset = offset
+        
+        // Hide header when scrolling down
+        if delta < -20 && offset < -50 {
+            if showHeader {
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    showHeader = false
+                }
+            }
+        }
+        // Show header when scrolling up or at top
+        else if delta > 10 || offset >= -10 {
+            if !showHeader {
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    showHeader = true
+                }
+            }
+        }
+    }
+    
+    // MARK: - Helper Functions
+    
+    private func openChat(_ conversation: ChatConversation) {
+        withAnimation(.easeOut(duration: 0.2)) {
+            activeSheet = .chat(conversation)
+        }
+        let haptic = UIImpactFeedbackGenerator(style: .light)
+        haptic.impactOccurred()
+    }
+    
+    // MARK: - Header Section (OLD - Keep for compatibility)
     
     private var headerSection: some View {
         VStack(spacing: 16) {

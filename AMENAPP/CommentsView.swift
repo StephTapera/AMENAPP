@@ -42,43 +42,243 @@ struct CommentsView: View {
     
     @FocusState private var isInputFocused: Bool
     
+    // MARK: - Top Participants Algorithm
+    
+    /// Computes top 8-12 participants to show in avatar row
+    /// Priority: Post author > Recent commenters > Frequent commenters > Followed users > High-reaction comments
+    private var topParticipants: [ParticipantInfo] {
+        var participants: [ParticipantInfo] = []
+        var seenUserIds = Set<String>()
+        
+        // 1. Always include post author first
+        if !post.authorId.isEmpty, !seenUserIds.contains(post.authorId) {
+            participants.append(ParticipantInfo(
+                userId: post.authorId,
+                initials: post.authorInitials,
+                profileImageURL: post.authorProfileImageURL,
+                score: 1000 // Highest priority
+            ))
+            seenUserIds.insert(post.authorId)
+        }
+        
+        // 2. Collect all unique commenters with scores
+        var userScores: [String: (info: ParticipantInfo, score: Double)] = [:]
+        
+        for (index, commentWithReplies) in commentsWithReplies.enumerated() {
+            let comment = commentWithReplies.comment
+            
+            if !seenUserIds.contains(comment.authorId) {
+                let recencyScore = Double(commentsWithReplies.count - index) * 2.0 // Recent = higher
+                let reactionScore = Double(comment.amenCount) * 1.5
+                let replyScore = Double(comment.replyCount) * 1.0
+                let totalScore = recencyScore + reactionScore + replyScore
+                
+                let info = ParticipantInfo(
+                    userId: comment.authorId,
+                    initials: comment.authorInitials,
+                    profileImageURL: comment.authorProfileImageURL,
+                    score: totalScore
+                )
+                
+                if let existing = userScores[comment.authorId] {
+                    // Update score if this comment has better metrics
+                    if totalScore > existing.score {
+                        userScores[comment.authorId] = (info, totalScore)
+                    }
+                } else {
+                    userScores[comment.authorId] = (info, totalScore)
+                }
+            }
+            
+            // Also check replies
+            for reply in commentWithReplies.replies {
+                if !seenUserIds.contains(reply.authorId) {
+                    let reactionScore = Double(reply.amenCount) * 1.5
+                    let totalScore = reactionScore + 1.0 // Base score for replying
+                    
+                    let info = ParticipantInfo(
+                        userId: reply.authorId,
+                        initials: reply.authorInitials,
+                        profileImageURL: reply.authorProfileImageURL,
+                        score: totalScore
+                    )
+                    
+                    if let existing = userScores[reply.authorId] {
+                        if totalScore > existing.score {
+                            userScores[reply.authorId] = (info, totalScore)
+                        }
+                    } else {
+                        userScores[reply.authorId] = (info, totalScore)
+                    }
+                }
+            }
+        }
+        
+        // 3. Sort by score and add top participants
+        let sortedUsers = userScores.values
+            .sorted { $0.score > $1.score }
+            .prefix(11) // Get top 11 (since author is already added)
+        
+        for userScore in sortedUsers {
+            if !seenUserIds.contains(userScore.info.userId) {
+                participants.append(userScore.info)
+                seenUserIds.insert(userScore.info.userId)
+            }
+        }
+        
+        // Limit to 12 total avatars
+        return Array(participants.prefix(12))
+    }
+    
+    // MARK: - Top Avatar Row
+    
+    private var topAvatarRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 12) {
+                ForEach(topParticipants, id: \.id) { participant in
+                    Button {
+                        selectedUserId = participant.userId
+                        showUserProfile = true
+                        
+                        let haptic = UIImpactFeedbackGenerator(style: .light)
+                        haptic.impactOccurred()
+                    } label: {
+                        if let imageURL = participant.profileImageURL,
+                           !imageURL.isEmpty,
+                           let url = URL(string: imageURL) {
+                            AsyncImage(url: url) { phase in
+                                switch phase {
+                                case .success(let image):
+                                    image
+                                        .resizable()
+                                        .scaledToFill()
+                                        .frame(width: 52, height: 52)
+                                        .clipShape(Circle())
+                                case .failure, .empty:
+                                    Circle()
+                                        .fill(.black)
+                                        .frame(width: 52, height: 52)
+                                        .overlay(
+                                            Text(participant.initials)
+                                                .font(.custom("OpenSans-SemiBold", size: 16))
+                                                .foregroundStyle(.white)
+                                        )
+                                @unknown default:
+                                    Circle()
+                                        .fill(.black)
+                                        .frame(width: 52, height: 52)
+                                        .overlay(
+                                            Text(participant.initials)
+                                                .font(.custom("OpenSans-SemiBold", size: 16))
+                                                .foregroundStyle(.white)
+                                        )
+                                }
+                            }
+                        } else {
+                            Circle()
+                                .fill(.black)
+                                .frame(width: 52, height: 52)
+                                .overlay(
+                                    Text(participant.initials)
+                                        .font(.custom("OpenSans-SemiBold", size: 16))
+                                        .foregroundStyle(.white)
+                                )
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
+        }
+    }
+    
+    // MARK: - Header with Avatar Row
+    
     private var headerView: some View {
         VStack(spacing: 0) {
-            HStack {
-                Text("Comments")
-                    .font(.custom("OpenSans-Bold", size: 18))
-                    .foregroundStyle(.black)
+            // Avatar Row
+            topAvatarRow
+            
+            Divider()
+                .padding(.horizontal, 20)
+            
+            // Header with title and actions
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Comments")
+                        .font(.custom("OpenSans-Bold", size: 18))
+                        .foregroundStyle(.black)
+                    
+                    Text("for \(post.authorName)")
+                        .font(.custom("OpenSans-Regular", size: 13))
+                        .foregroundStyle(.black.opacity(0.5))
+                }
                 
                 Spacer()
                 
-                Text("\(commentsWithReplies.count)")
-                    .font(.custom("OpenSans-Regular", size: 14))
-                    .foregroundStyle(.black.opacity(0.6))
-                
-                Button {
-                    dismiss()
-                    let haptic = UIImpactFeedbackGenerator(style: .light)
-                    haptic.impactOccurred()
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(.black)
-                        .frame(width: 32, height: 32)
-                        .background(
-                            Circle()
-                                .fill(Color(white: 0.93))
-                                .overlay(
-                                    Circle()
-                                        .stroke(Color.white.opacity(0.5), lineWidth: 1)
-                                )
-                                .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 4)
-                        )
+                HStack(spacing: 12) {
+                    // Bookmark button
+                    Button {
+                        let haptic = UIImpactFeedbackGenerator(style: .light)
+                        haptic.impactOccurred()
+                    } label: {
+                        Image(systemName: "bookmark")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(.black.opacity(0.6))
+                            .frame(width: 32, height: 32)
+                            .background(
+                                Circle()
+                                    .fill(Color(white: 0.93))
+                                    .overlay(
+                                        Circle()
+                                            .stroke(Color.white.opacity(0.5), lineWidth: 0.5)
+                                    )
+                            )
+                    }
+                    
+                    // Share button
+                    Button {
+                        let haptic = UIImpactFeedbackGenerator(style: .light)
+                        haptic.impactOccurred()
+                    } label: {
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(.black.opacity(0.6))
+                            .frame(width: 32, height: 32)
+                            .background(
+                                Circle()
+                                    .fill(Color(white: 0.93))
+                                    .overlay(
+                                        Circle()
+                                            .stroke(Color.white.opacity(0.5), lineWidth: 0.5)
+                                    )
+                            )
+                    }
+                    
+                    // Close button
+                    Button {
+                        dismiss()
+                        let haptic = UIImpactFeedbackGenerator(style: .light)
+                        haptic.impactOccurred()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(.black)
+                            .frame(width: 32, height: 32)
+                            .background(
+                                Circle()
+                                    .fill(Color.yellow)
+                                    .overlay(
+                                        Circle()
+                                            .stroke(Color.white.opacity(0.5), lineWidth: 0.5)
+                                    )
+                            )
+                    }
                 }
-                .buttonStyle(PlainButtonStyle())
             }
             .padding(.horizontal, 20)
-            .padding(.vertical, 16)
-            .background(Color(red: 0.98, green: 0.98, blue: 0.98))
+            .padding(.vertical, 12)
+            .background(Color.white)
             
             Divider()
         }
@@ -228,7 +428,7 @@ struct CommentsView: View {
             
             Divider()
             
-            // Input Area
+            // Input Area with Liquid Glass Buttons
             VStack(spacing: 0) {
                 // Replying indicator
                 if let replyingTo = replyingTo {
@@ -240,7 +440,9 @@ struct CommentsView: View {
                         Spacer()
                         
                         Button {
-                            self.replyingTo = nil
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                self.replyingTo = nil
+                            }
                         } label: {
                             Image(systemName: "xmark")
                                 .font(.system(size: 12, weight: .medium))
@@ -252,7 +454,7 @@ struct CommentsView: View {
                     .background(Color(red: 0.95, green: 0.95, blue: 0.95))
                 }
                 
-                // Input field
+                // Input field with glass buttons
                 HStack(alignment: .bottom, spacing: 12) {
                     // User avatar - Show actual profile photo
                     if let imageURL = currentUserProfileImageURL,
@@ -264,21 +466,21 @@ struct CommentsView: View {
                                 image
                                     .resizable()
                                     .scaledToFill()
-                                    .frame(width: 32, height: 32)
+                                    .frame(width: 36, height: 36)
                                     .clipShape(Circle())
                             case .failure:
                                 Circle()
                                     .fill(.black)
-                                    .frame(width: 32, height: 32)
+                                    .frame(width: 36, height: 36)
                                     .overlay(
                                         Text(currentUserInitials)
-                                            .font(.custom("OpenSans-SemiBold", size: 12))
+                                            .font(.custom("OpenSans-SemiBold", size: 14))
                                             .foregroundStyle(.white)
                                     )
                             case .empty:
                                 Circle()
                                     .fill(.black.opacity(0.1))
-                                    .frame(width: 32, height: 32)
+                                    .frame(width: 36, height: 36)
                                     .overlay(
                                         ProgressView()
                                             .scaleEffect(0.7)
@@ -286,10 +488,10 @@ struct CommentsView: View {
                             @unknown default:
                                 Circle()
                                     .fill(.black)
-                                    .frame(width: 32, height: 32)
+                                    .frame(width: 36, height: 36)
                                     .overlay(
                                         Text(currentUserInitials)
-                                            .font(.custom("OpenSans-SemiBold", size: 12))
+                                            .font(.custom("OpenSans-SemiBold", size: 14))
                                             .foregroundStyle(.white)
                                     )
                             }
@@ -297,34 +499,48 @@ struct CommentsView: View {
                     } else {
                         Circle()
                             .fill(.black)
-                            .frame(width: 32, height: 32)
+                            .frame(width: 36, height: 36)
                             .overlay(
                                 Text(currentUserInitials)
-                                    .font(.custom("OpenSans-SemiBold", size: 12))
+                                    .font(.custom("OpenSans-SemiBold", size: 14))
                                     .foregroundStyle(.white)
                             )
                     }
                     
-                    // Text field
-                    TextField(replyingTo != nil ? "Write a reply..." : "Add a comment...", text: $commentText, axis: .vertical)
-                        .font(.custom("OpenSans-Regular", size: 15))
-                        .lineLimit(1...4)
-                        .focused($isInputFocused)
-                    
-                    // Send button with animation
-                    Button {
-                        submitComment()
-                    } label: {
-                        Image(systemName: "arrow.up.circle.fill")
-                            .font(.system(size: 28))
-                            .foregroundStyle(commentText.isEmpty ? .black.opacity(0.3) : .black)
-                            .scaleEffect(commentText.isEmpty ? 1.0 : 1.1)
-                            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: commentText.isEmpty)
+                    VStack(alignment: .leading, spacing: 8) {
+                        // Text field
+                        TextField(replyingTo != nil ? "Write a reply..." : "Add a comment...", text: $commentText, axis: .vertical)
+                            .font(.custom("OpenSans-Regular", size: 15))
+                            .lineLimit(1...4)
+                            .focused($isInputFocused)
+                        
+                        // Action buttons row
+                        HStack(spacing: 12) {
+                            // Glass Action Pill (attachment options)
+                            GlassActionPill(
+                                icons: ["paperclip", "face.smiling", "photo"],
+                                actions: [
+                                    { print("Attach file") },
+                                    { print("Add emoji") },
+                                    { print("Add photo") }
+                                ]
+                            )
+                            
+                            Spacer()
+                            
+                            // Glass Circular Send Button
+                            GlassCircularButton(
+                                icon: "paperplane.fill",
+                                action: {
+                                    submitComment()
+                                },
+                                isDisabled: commentText.isEmpty
+                            )
+                        }
                     }
-                    .disabled(commentText.isEmpty)
                 }
                 .padding(.horizontal, 16)
-                .padding(.vertical, 12)
+                .padding(.vertical, 16)
                 .background(Color.white)
             }
         }
@@ -940,25 +1156,25 @@ private struct PostCommentRow: View {
                     .fixedSize(horizontal: false, vertical: true)
                 
                 // Actions
-                HStack(spacing: 16) {
-                    // Amen with animation
+                HStack(spacing: 20) {
+                    // Amen with animation (heart icon like reference)
                     Button {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
                             hasAmened.toggle()
                         }
                         onAmen()
                     } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: hasAmened ? "hands.clap.fill" : "hands.clap")
-                                .font(.system(size: 12))
-                                .foregroundStyle(hasAmened ? Color.blue : Color.black.opacity(0.6))
+                        HStack(spacing: 6) {
+                            Image(systemName: hasAmened ? "heart.fill" : "heart")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundStyle(hasAmened ? Color.red : Color.black.opacity(0.5))
                                 .scaleEffect(hasAmened ? 1.15 : 1.0)
                                 .animation(.spring(response: 0.3, dampingFraction: 0.5), value: hasAmened)
                             
                             if comment.amenCount > 0 {
                                 Text("\(comment.amenCount)")
-                                    .font(.custom("OpenSans-Regular", size: 12))
-                                    .foregroundStyle(hasAmened ? Color.blue : Color.black.opacity(0.6))
+                                    .font(.custom("OpenSans-Medium", size: 13))
+                                    .foregroundStyle(hasAmened ? Color.red : Color.black.opacity(0.5))
                                     .contentTransition(.numericText())
                             }
                         }
@@ -1037,6 +1253,19 @@ private struct PostCommentRow: View {
         let _ = currentTime // Create dependency on currentTime
         return date.timeAgoDisplay()
     }
+<<<<<<< HEAD
+}
+
+// MARK: - Participant Info Model
+
+struct ParticipantInfo: Identifiable {
+    let id = UUID()
+    let userId: String
+    let initials: String
+    let profileImageURL: String?
+    let score: Double
+=======
+>>>>>>> origin/main
 }
 
 #Preview {
