@@ -23,6 +23,7 @@ struct ContentView: View {
     @State private var postSuccessCategory: String = ""
     @State private var savedSearchObserver: NSObjectProtocol?
     @State private var postSuccessObserver: NSObjectProtocol?
+    @State private var showTabBar = true  // ✅ Control tab bar visibility
     @Environment(\.scenePhase) private var scenePhase
     
     init() {
@@ -124,7 +125,7 @@ struct ContentView: View {
         .onChange(of: messagingCoordinator.shouldOpenMessagesTab) { oldValue, newValue in
             if newValue {
                 print("💬 Opening Messages tab from notification")
-                viewModel.selectedTab = 1  // Switch to Messages tab
+                viewModel.selectedTab = 2  // Switch to Messages tab (now at index 2)
             }
         }
         .onChange(of: scenePhase) { oldPhase, newPhase in
@@ -145,19 +146,31 @@ struct ContentView: View {
             }
             
             if viewModel.selectedTab == 1 {
+                PeopleDiscoveryView()
+                    .id("people")
+                    .transition(.opacity.animation(.easeInOut(duration: 0.15)))
+            }
+            
+            if viewModel.selectedTab == 2 {
                 MessagesView()
                     .id("messages")
                     .environmentObject(messagingCoordinator)
                     .transition(.opacity.animation(.easeInOut(duration: 0.15)))
             }
             
-            if viewModel.selectedTab == 3 {
+            if viewModel.selectedTab == 4 {
                 ResourcesView()
                     .id("resources")
                     .transition(.opacity.animation(.easeInOut(duration: 0.15)))
             }
             
-            if viewModel.selectedTab == 4 {
+            if viewModel.selectedTab == 5 {
+                NotificationsView()
+                    .id("notifications")
+                    .transition(.opacity.animation(.easeInOut(duration: 0.15)))
+            }
+            
+            if viewModel.selectedTab == 6 {
                 ProfileView()
                     .environmentObject(authViewModel)
                     .id("profile")
@@ -198,10 +211,13 @@ struct ContentView: View {
         }
         .moderationToast() // ✅ Add moderation toast overlay
         .overlay(alignment: .bottom) {
-            // Custom compact tab bar (fixed at bottom)
+            // Custom compact tab bar (fixed at bottom) with smooth hide/show animation
             CompactTabBar(selectedTab: $viewModel.selectedTab, showCreatePost: $showCreatePost)
+                .offset(y: showTabBar ? 0 : 100)  // ✅ Slide down to hide
+                .animation(.easeInOut(duration: 0.25), value: showTabBar)
                 .ignoresSafeArea(.keyboard) // Don't move when keyboard appears
         }
+        .environment(\.tabBarVisible, $showTabBar)  // ✅ Pass visibility to child views
         .sheet(isPresented: $showCreatePost) {
             CreatePostView()
         }
@@ -459,6 +475,7 @@ struct CompactTabBar: View {
     @ObservedObject private var messagingService = FirebaseMessagingService.shared
     @ObservedObject private var postsManager = PostsManager.shared
     @ObservedObject private var userService = UserService.shared
+    @ObservedObject private var notificationService = NotificationService.shared
     @State private var previousUnreadCount: Int = 0
     @State private var badgePulse: Bool = false
     @State private var newPostsBadgePulse: Bool = false
@@ -468,12 +485,14 @@ struct CompactTabBar: View {
     // ✅ REAL-TIME PROFILE PHOTO UPDATE
     @State private var profilePhotoUpdateTrigger = UUID() // Force AsyncImage to reload
     
-    // All tabs in order: Home, Messages, Create (center), Resources, Profile
+    // All tabs in order: Home, People, Messages, Create (center), Resources, Notifications, Profile
     let allTabs: [(icon: String, tag: Int)] = [
         ("house.fill", 0),
-        ("message.fill", 1),
-        ("books.vertical.fill", 3),
-        ("person.fill", 4)
+        ("person.2.fill", 1),
+        ("message.fill", 2),
+        ("books.vertical.fill", 4),
+        ("bell.fill", 5),
+        ("person.fill", 6)
     ]
     
     // Computed property for total unread count
@@ -493,8 +512,8 @@ struct CompactTabBar: View {
                 // Tab Button
                 tabButton(for: tab, isSelected: selectedTab == tab.tag)
                 
-                // Add Create button after Messages (index 1)
-                if index == 1 {
+                // Add Create button after Messages (index 2)
+                if index == 2 {
                     createButton
                 }
             }
@@ -691,8 +710,8 @@ struct CompactTabBar: View {
                 
                 // Icon with badge OR profile photo for Profile tab
                 ZStack(alignment: .topTrailing) {
-                    // Profile tab (tag 4) shows user's profile photo if available
-                    if tab.tag == 4 {
+                    // Profile tab (tag 6) shows user's profile photo if available
+                    if tab.tag == 6 {
                         profileTabContent(isSelected: isSelected)
                     } else {
                         // Regular icon for other tabs
@@ -703,7 +722,7 @@ struct CompactTabBar: View {
                     }
                     
                     // Smart badge for Messages tab (shows count then transitions to dot)
-                    if tab.tag == 1 && totalUnreadCount > 0 {
+                    if tab.tag == 2 && totalUnreadCount > 0 {
                         SmartMessageBadge(unreadCount: totalUnreadCount, pulse: badgePulse)
                             .offset(x: 8, y: -6)
                     }
@@ -712,6 +731,12 @@ struct CompactTabBar: View {
                     if tab.tag == 0 && hasNewPosts {
                         UnreadDot(pulse: newPostsBadgePulse)
                             .offset(x: 8, y: -6)
+                    }
+                    
+                    // Red dot for Notifications tab (tight offset, real-time)
+                    if tab.tag == 5 && notificationService.unreadCount > 0 {
+                        UnreadDot(pulse: false)
+                            .offset(x: 6, y: -4)
                     }
                 }
                 .frame(width: 46, height: 36)
@@ -973,19 +998,17 @@ struct HomeView: View {
     @ObservedObject private var notificationService = NotificationService.shared
     @ObservedObject private var postsManager = PostsManager.shared  // ✅ FIXED: Use @ObservedObject for singletons
     @State private var isCategoriesExpanded = false
-    @State private var showNotifications = false
-    @State private var showSearch = false
     @State private var showBereanAssistant = false
     @State private var showAdminCleanup = false
     @State private var showMigrationPanel = false  // NEW: Migration panel
     @State private var tapCount = 0
-    @State private var notificationBadgePulse = false
     
     // MARK: - Scroll Detection for Dynamic UI
     @State private var scrollOffset: CGFloat = 0
     @State private var lastScrollOffset: CGFloat = 0
     @State private var isScrollingUp = false
     @State private var showToolbar = true
+    @Environment(\.tabBarVisible) private var tabBarVisible  // ✅ Access tab bar visibility
     
     // Helper function for adaptive spacing
     private func adaptiveSpacing(for width: CGFloat) -> CGFloat {
@@ -1043,58 +1066,9 @@ struct HomeView: View {
                     }
                 }
                 
-                ToolbarItem(placement: .topBarTrailing) {
-                    HStack(spacing: 16) {
-                        // People Discovery button
-                        Button {
-                            showSearch = true
-                        } label: {
-                            Image(systemName: "person.2.fill")
-                                .font(.system(size: 16, weight: .medium))
-                                .foregroundStyle(.primary)
-                        }
-
-                        // Notifications button with liquid glass glow
-                        Button {
-                            showNotifications = true
-                        } label: {
-                            ZStack {
-                                // Liquid glass glow effect when unread notifications exist
-                                if notificationService.unreadCount > 0 {
-                                    Circle()
-                                        .fill(
-                                            RadialGradient(
-                                                colors: [
-                                                    Color.blue.opacity(0.3),
-                                                    Color.blue.opacity(0.15),
-                                                    Color.clear
-                                                ],
-                                                center: .center,
-                                                startRadius: 0,
-                                                endRadius: 20
-                                            )
-                                        )
-                                        .frame(width: 40, height: 40)
-                                        .blur(radius: 4)
-                                        .scaleEffect(notificationBadgePulse ? 1.15 : 1.0)
-                                        .opacity(notificationBadgePulse ? 0.8 : 0.5)
-                                        .animation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true), value: notificationBadgePulse)
-                                }
-                                
-                                Image(systemName: "bell.fill")
-                                    .font(.system(size: 16, weight: .medium))
-                                    .foregroundStyle(.primary)
-                            }
-                        }
-                    }
-                }
+                // People and Notifications removed from toolbar - now in bottom tab bar
             }
-            .sheet(isPresented: $showNotifications) {
-                NotificationsView()
-            }
-            .fullScreenCover(isPresented: $showSearch) {
-                PeopleDiscoveryView()
-            }
+            // People and Notifications now accessed via bottom tab bar
             .fullScreenCover(isPresented: $showBereanAssistant) {
                 BereanAIAssistantView()
             }
@@ -1104,25 +1078,7 @@ struct HomeView: View {
             .sheet(isPresented: $showMigrationPanel) {
                 UserSearchMigrationView()
             }
-            .onChange(of: notificationService.unreadCount) { oldValue, newValue in
-                // Trigger pulse animation when notification count increases
-                if newValue > oldValue {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.5)) {
-                        notificationBadgePulse = true
-                    }
-                    
-                    // Haptic feedback for new notification
-                    let haptic = UINotificationFeedbackGenerator()
-                    haptic.notificationOccurred(.success)
-                    
-                    // Reset pulse after animation
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                        withAnimation {
-                            notificationBadgePulse = false
-                        }
-                    }
-                }
-            }
+            // Notification badge now handled in bottom tab bar
             .onAppear {
                 // Start listening to notifications
                 notificationService.startListening()
@@ -1187,7 +1143,7 @@ struct HomeView: View {
         }
     }
     
-    // MARK: - Scroll Offset Handler (GESTURE 1 & 2)
+    // MARK: - Scroll Offset Handler (GESTURE 1 & 2 + Tab Bar)
     
     private func handleScrollOffset(_ offset: CGFloat) {
         let delta = offset - lastScrollOffset
@@ -1201,12 +1157,24 @@ struct HomeView: View {
                     showToolbar = true
                 }
             }
+            // ✅ Show tab bar when scrolling up
+            if !tabBarVisible.wrappedValue {
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    tabBarVisible.wrappedValue = true
+                }
+            }
         }
         // Scrolling down (delta < -10)
         else if delta < -10 && offset < -100 {
             if showToolbar {
                 withAnimation(.easeInOut(duration: 0.3)) {
                     showToolbar = false
+                }
+            }
+            // ✅ Hide tab bar when scrolling down
+            if tabBarVisible.wrappedValue {
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    tabBarVisible.wrappedValue = false
                 }
             }
         }
@@ -3087,7 +3055,7 @@ struct OpenTableView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                // Header Section
+                // Header Section (cleaned up - removed grey icon and divider)
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Where AI meets faith, ideas meet innovation")
                         .font(.custom("OpenSans-Regular", size: 12))
@@ -3105,14 +3073,6 @@ struct OpenTableView: View {
                             ProgressView()
                                 .scaleEffect(0.8)
                         }
-
-                        Button {
-                            // Discussion action
-                        } label: {
-                            Image(systemName: "bubble.left.and.bubble.right.fill")
-                                .font(.body)
-                                .foregroundStyle(.gray)
-                        }
                     }
                     
                     Text("AI • Bible & Tech • Business • Ideas")
@@ -3128,10 +3088,7 @@ struct OpenTableView: View {
                     showSpotlight: $showSpotlight
                 )
                 
-                // Trending Section - Collapsible
-                CollapsibleTrendingSection()
-                
-                // Feed Section - Dynamic posts from PostsManager
+                // Feed Section - Dynamic posts from PostsManager (Trending section removed)
                 LazyVStack(spacing: 16) {
                     let displayPosts = hasPersonalized && !personalizedPosts.isEmpty ? personalizedPosts : postsManager.openTablePosts
 
@@ -4432,4 +4389,17 @@ struct PostSuccessToast: View {
 #Preview("ContentView") {
     ContentView()
 }
+
+// MARK: - Environment Key for Tab Bar Visibility
+private struct TabBarVisibleKey: EnvironmentKey {
+    static let defaultValue: Binding<Bool> = .constant(true)
+}
+
+extension EnvironmentValues {
+    var tabBarVisible: Binding<Bool> {
+        get { self[TabBarVisibleKey.self] }
+        set { self[TabBarVisibleKey.self] = newValue }
+    }
+}
+
 
