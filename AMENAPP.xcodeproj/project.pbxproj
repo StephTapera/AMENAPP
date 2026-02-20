@@ -31,6 +31,11 @@
 		EF3AD06E2F32F5B200596905 /* genkit-package.json in Resources */ = {isa = PBXBuildFile; fileRef = EF3AD06D2F32F5B200596905 /* genkit-package.json */; };
 		EF3AD0702F32F5B500596905 /* genkit-Dockerfile in Resources */ = {isa = PBXBuildFile; fileRef = EF3AD06F2F32F5B500596905 /* genkit-Dockerfile */; };
 		EF3AD0722F32F5E400596905 /* DEPLOY_COMPLETE_GENKIT_SERVER.md in Resources */ = {isa = PBXBuildFile; fileRef = EF3AD0712F32F5E400596905 /* DEPLOY_COMPLETE_GENKIT_SERVER.md */; };
+		EF3B22812F484A3F001DA241 /* PostTranslationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF3B22802F484A3F001DA241 /* PostTranslationService.swift */; };
+		EF3B22832F484B78001DA241 /* POST_TRANSLATION_AND_UI_CLEANUP_COMPLETE.md in Resources */ = {isa = PBXBuildFile; fileRef = EF3B22822F484B78001DA241 /* POST_TRANSLATION_AND_UI_CLEANUP_COMPLETE.md */; };
+		EF3B228B2F4851D8001DA241 /* ThreadSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF3B228A2F4851D8001DA241 /* ThreadSummaryView.swift */; };
+		EF3B228D2F485215001DA241 /* ToneFeedbackView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF3B228C2F485215001DA241 /* ToneFeedbackView.swift */; };
+		EF3B228F2F4854D9001DA241 /* PostDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF3B228E2F4854D9001DA241 /* PostDetailView.swift */; };
 		EF4BA9DA2F29FDD3000B930F /* Abtesting in Frameworks */ = {isa = PBXBuildFile; productRef = EF4BA9D92F29FDD3000B930F /* Abtesting */; };
 		EF4BA9DC2F29FDD3000B930F /* AbtestingV3 in Frameworks */ = {isa = PBXBuildFile; productRef = EF4BA9DB2F29FDD3000B930F /* AbtestingV3 */; };
 		EF4BA9DE2F29FDD3000B930F /* Analytics in Frameworks */ = {isa = PBXBuildFile; productRef = EF4BA9DD2F29FDD3000B930F /* Analytics */; };
@@ -138,6 +143,11 @@
 		EF3AD06D2F32F5B200596905 /* genkit-package.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "genkit-package.json"; sourceTree = "<group>"; };
 		EF3AD06F2F32F5B500596905 /* genkit-Dockerfile */ = {isa = PBXFileReference; lastKnownFileType = text; path = "genkit-Dockerfile"; sourceTree = "<group>"; };
 		EF3AD0712F32F5E400596905 /* DEPLOY_COMPLETE_GENKIT_SERVER.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = DEPLOY_COMPLETE_GENKIT_SERVER.md; sourceTree = "<group>"; };
+		EF3B22802F484A3F001DA241 /* PostTranslationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostTranslationService.swift; sourceTree = "<group>"; };
+		EF3B22822F484B78001DA241 /* POST_TRANSLATION_AND_UI_CLEANUP_COMPLETE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = POST_TRANSLATION_AND_UI_CLEANUP_COMPLETE.md; sourceTree = "<group>"; };
+		EF3B228A2F4851D8001DA241 /* ThreadSummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadSummaryView.swift; sourceTree = "<group>"; };
+		EF3B228C2F485215001DA241 /* ToneFeedbackView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToneFeedbackView.swift; sourceTree = "<group>"; };
+		EF3B228E2F4854D9001DA241 /* PostDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostDetailView.swift; sourceTree = "<group>"; };
 		EF56F7412F2881A30019B94A /* AMENAPPTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AMENAPPTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		EF5D8D8F2F3C46D9000BB6C9 /* MENTIONS_AND_MESSAGING_COMPLETE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = MENTIONS_AND_MESSAGING_COMPLETE.md; sourceTree = "<group>"; };
 		EF5D8D932F3C47EC000BB6C9 /* MESSAGING_UI_FIXES_COMPLETE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = MESSAGING_UI_FIXES_COMPLETE.md; sourceTree = "<group>"; };
@@ -345,6 +355,11 @@
 				EF6873D42F40F394006DC25E /* RichTextEditorView.swift */,
 				EF6873E62F4170D7006DC25E /* CHURCH_NOTES_USER_FLOWS.md */,
 				EF688D042F42CBF7006DC25E /* SmartPrayerReminderScheduler.swift */,
+				EF3B22802F484A3F001DA241 /* PostTranslationService.swift */,
+				EF3B22822F484B78001DA241 /* POST_TRANSLATION_AND_UI_CLEANUP_COMPLETE.md */,
+				EF3B228A2F4851D8001DA241 /* ThreadSummaryView.swift */,
+				EF3B228C2F485215001DA241 /* ToneFeedbackView.swift */,
+				EF3B228E2F4854D9001DA241 /* PostDetailView.swift */,
 			);
 			sourceTree = "<group>";
 		};
@@ -519,6 +534,7 @@
 				EF3AD0702F32F5B500596905 /* genkit-Dockerfile in Resources */,
 				EF3AD0722F32F5E400596905 /* DEPLOY_COMPLETE_GENKIT_SERVER.md in Resources */,
 				EF3ACF7E2F30027C00596905 /* FIX_CONTACTS_PERMISSION_CRASH.md in Resources */,
+				EF3B22832F484B78001DA241 /* POST_TRANSLATION_AND_UI_CLEANUP_COMPLETE.md in Resources */,
 				EF6873E72F4170D7006DC25E /* CHURCH_NOTES_USER_FLOWS.md in Resources */,
 				EF6873442F4064B8006DC25E /* firestore.rules in Resources */,
 				EF3AD06C2F32F5AD00596905 /* genkit-server-index.js in Resources */,
@@ -580,6 +596,10 @@
 			buildActionMask = 2147483647;
 			files = (
 				EF6873C52F40F194006DC25E /* CloudStorageService.swift in Sources */,
+				EF3B228F2F4854D9001DA241 /* PostDetailView.swift in Sources */,
+				EF3B22812F484A3F001DA241 /* PostTranslationService.swift in Sources */,
+				EF3B228B2F4851D8001DA241 /* ThreadSummaryView.swift in Sources */,
+				EF3B228D2F485215001DA241 /* ToneFeedbackView.swift in Sources */,
 				EF688D052F42CBF7006DC25E /* SmartPrayerReminderScheduler.swift in Sources */,
 				EF6873D52F40F394006DC25E /* RichTextEditorView.swift in Sources */,
 			);

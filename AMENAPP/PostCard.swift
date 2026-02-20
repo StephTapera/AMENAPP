@@ -83,6 +83,13 @@ struct PostCard: View {
     // ✅ Real-time profile image
     @State private var currentProfileImageURL: String?
     
+    // Translation state
+    @State private var showTranslatedContent = false
+    @State private var translatedContent: String?
+    @State private var detectedLanguage: String?
+    @State private var isTranslating = false
+    @StateObject private var translationService = PostTranslationService.shared
+    
     enum PostCardCategory {
         case openTable
         case testimonies
@@ -98,7 +105,7 @@ struct PostCard: View {
         
         var color: Color {
             switch self {
-            case .openTable: return .orange
+            case .openTable: return .primary // Changed from orange to neutral
             case .testimonies: return .yellow
             case .prayer: return .blue
             }
@@ -106,7 +113,7 @@ struct PostCard: View {
         
         var displayName: String {
             switch self {
-            case .openTable: return "#OPENTABLE"
+            case .openTable: return "" // Remove #OPENTABLE badge entirely
             case .testimonies: return "Testimonies"
             case .prayer: return "Prayer"
             }
@@ -718,19 +725,48 @@ struct PostCard: View {
     }
     
     private var categoryBadge: some View {
-        HStack(spacing: 4) {
-            Image(systemName: category.icon)
-                .font(.system(size: 10, weight: .semibold))
-            Text(category.displayName)
-                .font(.custom("OpenSans-Bold", size: 11))
+        Group {
+            if !category.displayName.isEmpty {
+                HStack(spacing: 4) {
+                    Image(systemName: category.icon)
+                        .font(.system(size: 10, weight: .semibold))
+                    Text(category.displayName)
+                        .font(.custom("OpenSans-Bold", size: 11))
+                }
+                .foregroundStyle(category.color)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(
+                    Capsule()
+                        .fill(category.color.opacity(0.15))
+                )
+            }
         }
-        .foregroundStyle(category.color)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(
-            Capsule()
-                .fill(category.color.opacity(0.15))
-        )
+    }
+    
+    private var translationToggleButton: some View {
+        Button {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                showTranslatedContent.toggle()
+            }
+            let haptic = UIImpactFeedbackGenerator(style: .light)
+            haptic.impactOccurred()
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "globe")
+                    .font(.system(size: 11, weight: .medium))
+                Text(showTranslatedContent ? "View original" : "View translation")
+                    .font(.custom("OpenSans-SemiBold", size: 12))
+            }
+            .foregroundStyle(.blue)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(
+                Capsule()
+                    .fill(Color.blue.opacity(0.1))
+            )
+        }
+        .buttonStyle(.plain)
     }
     
     private var timeAndTagRow: some View {
@@ -739,12 +775,19 @@ struct PostCard: View {
                 .font(.custom("OpenSans-Regular", size: 13))
                 .foregroundStyle(.secondary)
             
-            if let tag = topicTag {
+            if let tag = topicTag, !tag.isEmpty {
                 Text("•")
                     .foregroundStyle(.secondary)
+                // Topic tag as neutral pill
                 Text(tag)
-                    .font(.custom("OpenSans-SemiBold", size: 12))
-                    .foregroundStyle(category.color)
+                    .font(.custom("OpenSans-SemiBold", size: 11))
+                    .foregroundStyle(.primary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(
+                        Capsule()
+                            .fill(Color.primary.opacity(0.08))
+                    )
             }
         }
     }
@@ -860,6 +903,61 @@ struct PostCard: View {
             logDebug("Debug overlay toggled: \(showDebugOverlay)", category: "DEBUG")
         }
         #endif
+        .task {
+            // Detect language and pre-translate if needed
+            await detectAndTranslatePost()
+        }
+    }
+    
+    // MARK: - Translation Logic
+    
+    private func detectAndTranslatePost() async {
+        guard let post = post, !content.isEmpty else { return }
+        
+        do {
+            // Detect language
+            let sourceLang = try await translationService.detectLanguage(content)
+            await MainActor.run {
+                detectedLanguage = sourceLang
+            }
+            
+            let deviceLang = translationService.getDeviceLanguage()
+            
+            // Only translate if different from device language
+            if sourceLang != deviceLang {
+                // Try to get cached translation first
+                if let cached = try await translationService.fetchTranslationFromFirestore(
+                    text: content,
+                    sourceLanguage: sourceLang,
+                    targetLanguage: deviceLang
+                ) {
+                    await MainActor.run {
+                        translatedContent = cached
+                    }
+                } else {
+                    // Translate in background
+                    await MainActor.run {
+                        isTranslating = true
+                    }
+                    
+                    let translation = try await translationService.translateText(
+                        content,
+                        from: sourceLang,
+                        to: deviceLang
+                    )
+                    
+                    await MainActor.run {
+                        translatedContent = translation
+                        isTranslating = false
+                    }
+                }
+            }
+        } catch {
+            print("❌ Translation detection failed: \(error.localizedDescription)")
+            await MainActor.run {
+                isTranslating = false
+            }
+        }
     }
     
     #if DEBUG
@@ -964,7 +1062,7 @@ struct PostCard: View {
             
             // Post content with mention support
             MentionTextView(
-                text: content,
+                text: showTranslatedContent && translatedContent != nil ? translatedContent! : content,
                 mentions: post?.mentions,
                 font: .custom("OpenSans-Regular", size: 16),
                 lineSpacing: 6
@@ -976,6 +1074,13 @@ struct PostCard: View {
             .foregroundStyle(.primary)
             .padding(.horizontal, 20)
             .padding(.top, 16)
+            
+            // Translation toggle button (only show if post is in different language)
+            if detectedLanguage != nil && detectedLanguage != translationService.getDeviceLanguage() {
+                translationToggleButton
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+            }
             
             // ✅ Display post images if available
             if let post = post, let imageURLs = post.imageURLs, !imageURLs.isEmpty {

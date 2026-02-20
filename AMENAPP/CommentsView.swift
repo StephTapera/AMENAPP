@@ -17,6 +17,8 @@ struct CommentsView: View {
     @Environment(\.dismiss) var dismiss
     @StateObject private var commentService = CommentService.shared
     @StateObject private var userService = UserService.shared // ✅ Use shared instance instead of environment
+    @StateObject private var summarizationService = AIThreadSummarizationService.shared
+    @StateObject private var toneGuidanceService = AIToneGuidanceService.shared
     
     @State private var commentText = ""
     @State private var replyingTo: Comment?
@@ -25,6 +27,9 @@ struct CommentsView: View {
     @State private var showError = false
     @State private var errorMessage = ""
     @State private var isListening = false
+    
+    // P0-1 FIX: Prevent duplicate submissions
+    @State private var isSubmittingComment = false
     @State private var currentUserProfileImageURL: String?
     @State private var currentUserInitials: String = "U"
     @State private var selectedUserId: String?
@@ -34,6 +39,7 @@ struct CommentsView: View {
     @State private var newCommentIds: Set<String> = []  // Track newly added comments for animation
     @State private var scrollProxy: ScrollViewProxy?  // For smooth scrolling to replies
     @Namespace private var animationNamespace  // For matched geometry effects
+    @State private var threadSummaries: [String: AIThreadSummarizationService.ThreadSummary] = [:]  // Cache thread summaries
     
     // ✅ Timestamp auto-refresh (updates "5m ago" -> "6m ago")
     @State private var currentTime = Date()
@@ -130,12 +136,12 @@ struct CommentsView: View {
         return Array(participants.prefix(12))
     }
     
-    // MARK: - Top Avatar Row
+    // MARK: - Top Avatar Row (Premium iOS Style with Real-time Updates)
     
     private var topAvatarRow: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 12) {
-                ForEach(topParticipants, id: \.id) { participant in
+            HStack(spacing: -8) {  // Overlapping avatars for premium look
+                ForEach(Array(topParticipants.enumerated()), id: \.element.id) { index, participant in
                     Button {
                         selectedUserId = participant.userId
                         showUserProfile = true
@@ -143,53 +149,135 @@ struct CommentsView: View {
                         let haptic = UIImpactFeedbackGenerator(style: .light)
                         haptic.impactOccurred()
                     } label: {
-                        if let imageURL = participant.profileImageURL,
-                           !imageURL.isEmpty,
-                           let url = URL(string: imageURL) {
-                            AsyncImage(url: url) { phase in
-                                switch phase {
-                                case .success(let image):
-                                    image
-                                        .resizable()
-                                        .scaledToFill()
-                                        .frame(width: 52, height: 52)
-                                        .clipShape(Circle())
-                                case .failure, .empty:
-                                    Circle()
-                                        .fill(.black)
-                                        .frame(width: 52, height: 52)
-                                        .overlay(
-                                            Text(participant.initials)
-                                                .font(.custom("OpenSans-SemiBold", size: 16))
-                                                .foregroundStyle(.white)
-                                        )
-                                @unknown default:
-                                    Circle()
-                                        .fill(.black)
-                                        .frame(width: 52, height: 52)
-                                        .overlay(
-                                            Text(participant.initials)
-                                                .font(.custom("OpenSans-SemiBold", size: 16))
-                                                .foregroundStyle(.white)
-                                        )
+                        ZStack {
+                            // Avatar with premium styling
+                            if let imageURL = participant.profileImageURL,
+                               !imageURL.isEmpty,
+                               let url = URL(string: imageURL) {
+                                AsyncImage(url: url) { phase in
+                                    switch phase {
+                                    case .success(let image):
+                                        image
+                                            .resizable()
+                                            .scaledToFill()
+                                            .frame(width: 48, height: 48)
+                                            .clipShape(Circle())
+                                            .overlay(
+                                                Circle()
+                                                    .strokeBorder(Color(.systemBackground), lineWidth: 3)
+                                            )
+                                            .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
+                                    case .failure, .empty:
+                                        Circle()
+                                            .fill(
+                                                LinearGradient(
+                                                    colors: [Color.black, Color.black.opacity(0.8)],
+                                                    startPoint: .topLeading,
+                                                    endPoint: .bottomTrailing
+                                                )
+                                            )
+                                            .frame(width: 48, height: 48)
+                                            .overlay(
+                                                Text(participant.initials)
+                                                    .font(.custom("OpenSans-Bold", size: 15))
+                                                    .foregroundStyle(.white)
+                                            )
+                                            .overlay(
+                                                Circle()
+                                                    .strokeBorder(Color(.systemBackground), lineWidth: 3)
+                                            )
+                                            .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
+                                    @unknown default:
+                                        Circle()
+                                            .fill(
+                                                LinearGradient(
+                                                    colors: [Color.black, Color.black.opacity(0.8)],
+                                                    startPoint: .topLeading,
+                                                    endPoint: .bottomTrailing
+                                                )
+                                            )
+                                            .frame(width: 48, height: 48)
+                                            .overlay(
+                                                Text(participant.initials)
+                                                    .font(.custom("OpenSans-Bold", size: 15))
+                                                    .foregroundStyle(.white)
+                                            )
+                                            .overlay(
+                                                Circle()
+                                                    .strokeBorder(Color(.systemBackground), lineWidth: 3)
+                                            )
+                                            .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
+                                    }
                                 }
+                                .id(participant.profileImageURL)  // Force refresh on URL change
+                            } else {
+                                Circle()
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [Color.black, Color.black.opacity(0.8)],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
+                                    )
+                                    .frame(width: 48, height: 48)
+                                    .overlay(
+                                        Text(participant.initials)
+                                            .font(.custom("OpenSans-Bold", size: 15))
+                                            .foregroundStyle(.white)
+                                    )
+                                    .overlay(
+                                        Circle()
+                                            .strokeBorder(Color(.systemBackground), lineWidth: 3)
+                                    )
+                                    .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
                             }
-                        } else {
-                            Circle()
-                                .fill(.black)
-                                .frame(width: 52, height: 52)
-                                .overlay(
-                                    Text(participant.initials)
-                                        .font(.custom("OpenSans-SemiBold", size: 16))
-                                        .foregroundStyle(.white)
-                                )
+                            
+                            // Post author indicator (only for first avatar)
+                            if index == 0 {
+                                VStack {
+                                    Spacer()
+                                    HStack {
+                                        Spacer()
+                                        Circle()
+                                            .fill(Color.blue)
+                                            .frame(width: 16, height: 16)
+                                            .overlay(
+                                                Image(systemName: "pencil")
+                                                    .font(.system(size: 8, weight: .bold))
+                                                    .foregroundStyle(.white)
+                                            )
+                                            .overlay(
+                                                Circle()
+                                                    .strokeBorder(Color(.systemBackground), lineWidth: 2)
+                                            )
+                                            .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+                                    }
+                                }
+                                .frame(width: 48, height: 48)
+                            }
                         }
                     }
+                    .zIndex(Double(topParticipants.count - index))  // Stack properly
+                    .transition(.scale.combined(with: .opacity))
+                    .animation(.spring(response: 0.3, dampingFraction: 0.7), value: topParticipants.count)
                 }
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 12)
+            .padding(.horizontal, 24)
+            .padding(.vertical, 16)
         }
+        .background(
+            Rectangle()
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color(.systemBackground),
+                            Color(.systemBackground).opacity(0.95)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+        )
     }
     
     // MARK: - Header with Avatar Row
@@ -202,83 +290,86 @@ struct CommentsView: View {
             Divider()
                 .padding(.horizontal, 20)
             
-            // Header with title and actions
+            // Header with title and close button
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Comments")
-                        .font(.custom("OpenSans-Bold", size: 18))
-                        .foregroundStyle(.black)
+                        .font(.custom("OpenSans-Bold", size: 20))
+                        .foregroundStyle(.primary)
                     
-                    Text("for \(post.authorName)")
-                        .font(.custom("OpenSans-Regular", size: 13))
-                        .foregroundStyle(.black.opacity(0.5))
+                    Text("\(commentsWithReplies.count) \(commentsWithReplies.count == 1 ? "comment" : "comments")")
+                        .font(.custom("OpenSans-Regular", size: 14))
+                        .foregroundStyle(.secondary)
                 }
                 
                 Spacer()
                 
-                HStack(spacing: 12) {
-                    // Bookmark button
-                    Button {
-                        let haptic = UIImpactFeedbackGenerator(style: .light)
-                        haptic.impactOccurred()
-                    } label: {
-                        Image(systemName: "bookmark")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundStyle(.black.opacity(0.6))
-                            .frame(width: 32, height: 32)
-                            .background(
+                // Premium styled close button
+                Button {
+                    dismiss()
+                    let haptic = UIImpactFeedbackGenerator(style: .light)
+                    haptic.impactOccurred()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .frame(width: 36, height: 36)
+                        .background(
+                            ZStack {
+                                // Glass morphic background
                                 Circle()
-                                    .fill(Color(white: 0.93))
-                                    .overlay(
-                                        Circle()
-                                            .stroke(Color.white.opacity(0.5), lineWidth: 0.5)
-                                    )
-                            )
-                    }
-                    
-                    // Share button
-                    Button {
-                        let haptic = UIImpactFeedbackGenerator(style: .light)
-                        haptic.impactOccurred()
-                    } label: {
-                        Image(systemName: "square.and.arrow.up")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundStyle(.black.opacity(0.6))
-                            .frame(width: 32, height: 32)
-                            .background(
+                                    .fill(.ultraThinMaterial)
+                                    .opacity(0.8)
+                                
+                                // Subtle gradient overlay
                                 Circle()
-                                    .fill(Color(white: 0.93))
-                                    .overlay(
-                                        Circle()
-                                            .stroke(Color.white.opacity(0.5), lineWidth: 0.5)
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [
+                                                Color.white.opacity(0.15),
+                                                Color.white.opacity(0.05)
+                                            ],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
                                     )
-                            )
-                    }
-                    
-                    // Close button
-                    Button {
-                        dismiss()
-                        let haptic = UIImpactFeedbackGenerator(style: .light)
-                        haptic.impactOccurred()
-                    } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(.black)
-                            .frame(width: 32, height: 32)
-                            .background(
+                                
+                                // Border with gradient
                                 Circle()
-                                    .fill(Color.yellow)
-                                    .overlay(
-                                        Circle()
-                                            .stroke(Color.white.opacity(0.5), lineWidth: 0.5)
+                                    .strokeBorder(
+                                        LinearGradient(
+                                            colors: [
+                                                Color.white.opacity(0.4),
+                                                Color.white.opacity(0.15)
+                                            ],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        ),
+                                        lineWidth: 0.5
                                     )
-                            )
-                    }
+                            }
+                        )
+                        .shadow(color: .black.opacity(0.08), radius: 4, x: 0, y: 2)
                 }
             }
             .padding(.horizontal, 20)
-            .padding(.vertical, 12)
-            .background(Color.white)
+            .padding(.vertical, 16)
+            .background(
+                Color(.systemBackground)
+                    .overlay(
+                        Rectangle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        Color.white.opacity(0.03),
+                                        Color.clear
+                                    ],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
+                    )
+            )
             
             Divider()
         }
@@ -348,6 +439,26 @@ struct CommentsView: View {
                                                     expandedThreads.remove(commentWithReplies.comment.id ?? "")
                                                 } else {
                                                     expandedThreads.insert(commentWithReplies.comment.id ?? "")
+                                                    
+                                                    // Load thread summary for 10+ reply threads
+                                                    if commentWithReplies.replies.count >= 10,
+                                                       let commentId = commentWithReplies.comment.id,
+                                                       threadSummaries[commentId] == nil {
+                                                        Task {
+                                                            do {
+                                                                if let summary = try await summarizationService.getSummary(
+                                                                    for: commentId,
+                                                                    replies: commentWithReplies.replies
+                                                                ) {
+                                                                    await MainActor.run {
+                                                                        threadSummaries[commentId] = summary
+                                                                    }
+                                                                }
+                                                            } catch {
+                                                                print("❌ [SUMMARY] Failed to load: \(error)")
+                                                            }
+                                                        }
+                                                    }
                                                 }
                                             }
                                         },
@@ -365,6 +476,30 @@ struct CommentsView: View {
                                     if !commentWithReplies.replies.isEmpty && 
                                        expandedThreads.contains(commentWithReplies.comment.id ?? "") {
                                         VStack(spacing: 0) {
+                                            // Thread Summary (for 10+ replies)
+                                            if commentWithReplies.replies.count >= 10,
+                                               let commentId = commentWithReplies.comment.id {
+                                                if let summary = threadSummaries[commentId] {
+                                                    ThreadSummaryView(summary: summary)
+                                                        .padding(.horizontal, 20)
+                                                        .padding(.vertical, 12)
+                                                        .transition(.move(edge: .top).combined(with: .opacity))
+                                                } else if summarizationService.isGeneratingSummary {
+                                                    // Loading state
+                                                    HStack(spacing: 12) {
+                                                        ProgressView()
+                                                            .tint(.secondary)
+                                                        
+                                                        Text("Generating thread summary...")
+                                                            .font(.system(size: 13))
+                                                            .foregroundStyle(.secondary)
+                                                    }
+                                                    .padding(.horizontal, 20)
+                                                    .padding(.vertical, 16)
+                                                    .transition(.move(edge: .top).combined(with: .opacity))
+                                                }
+                                            }
+                                            
                                             ForEach(commentWithReplies.replies, id: \.id) { reply in
                                                 HStack(spacing: 0) {
                                                     // Animated reply indicator line
@@ -513,6 +648,22 @@ struct CommentsView: View {
                             .font(.custom("OpenSans-Regular", size: 15))
                             .lineLimit(1...4)
                             .focused($isInputFocused)
+                            .onChange(of: commentText) { _, newValue in
+                                // Trigger debounced tone analysis
+                                toneGuidanceService.analyzeText(newValue)
+                            }
+                        
+                        // Tone guidance feedback (if present)
+                        if let feedback = toneGuidanceService.currentFeedback {
+                            ToneFeedbackView(feedback: feedback) {
+                                // Use suggestion
+                                if let suggestion = feedback.suggestion {
+                                    commentText = suggestion
+                                    toneGuidanceService.clearFeedback()
+                                }
+                            }
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                        }
                         
                         // Action buttons row
                         HStack(spacing: 12) {
@@ -534,7 +685,7 @@ struct CommentsView: View {
                                 action: {
                                     submitComment()
                                 },
-                                isDisabled: commentText.isEmpty
+                                isDisabled: commentText.isEmpty || isSubmittingComment
                             )
                         }
                     }
@@ -639,15 +790,45 @@ struct CommentsView: View {
             return
         }
         
+        // P0-1 FIX: Prevent duplicate submissions
+        guard !isSubmittingComment else {
+            print("⚠️ [P0-1] Submit blocked - already submitting")
+            return
+        }
+        
         let text = commentText
-        commentText = ""
         
         print("📝 [COMMENT] Starting submission process")
         print("   Post ID: \(postId)")
         print("   Content: \(text)")
         print("   Current comments count: \(commentsWithReplies.count)")
         
+        isSubmittingComment = true
+        
         Task {
+            defer { 
+                Task { @MainActor in
+                    isSubmittingComment = false
+                }
+            }
+            // Validate tone before submitting
+            if let feedback = await toneGuidanceService.analyzeTextImmediate(text),
+               feedback.type == .flagged {
+                // Block flagged content
+                await MainActor.run {
+                    errorMessage = feedback.message
+                    showError = true
+                    print("🚫 [TONE] Comment blocked: \(feedback.message)")
+                }
+                return
+            }
+            
+            // Clear comment text after validation passes
+            await MainActor.run {
+                commentText = ""
+                toneGuidanceService.clearFeedback()
+            }
+            
             do {
                 var newCommentId: String?
                 
@@ -914,7 +1095,8 @@ struct CommentsView: View {
         pollingTask?.cancel()
         pollingTask = nil
         
-        commentService.stopListening()
+        // P0-3 FIX: Stop listener for this specific post (not all listeners)
+        commentService.stopListening(to: postId)
         isListening = false
     }
     
@@ -1253,7 +1435,6 @@ private struct PostCommentRow: View {
         let _ = currentTime // Create dependency on currentTime
         return date.timeAgoDisplay()
     }
-<<<<<<< HEAD
 }
 
 // MARK: - Participant Info Model
@@ -1264,8 +1445,6 @@ struct ParticipantInfo: Identifiable {
     let initials: String
     let profileImageURL: String?
     let score: Double
-=======
->>>>>>> origin/main
 }
 
 #Preview {

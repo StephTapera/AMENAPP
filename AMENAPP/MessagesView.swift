@@ -58,7 +58,7 @@ struct MessagesView: View {
     
     // ✅ Tab bar visibility control (passed from ContentView)
     @Environment(\.tabBarVisible) private var tabBarVisible
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.mainTabSelection) private var mainTabSelection
     
     enum MessageTab {
         case messages
@@ -250,8 +250,10 @@ struct MessagesView: View {
             HStack(spacing: 16) {
                 // ✅ Back button (chevron)
                 Button {
-                    dismiss()
-                    let haptic = UIImpactFeedbackGenerator(style: .light)
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        mainTabSelection.wrappedValue = 0  // Navigate to home tab
+                    }
+                    let haptic = UIImpactFeedbackGenerator(style: .medium)
                     haptic.impactOccurred()
                 } label: {
                     Image(systemName: "chevron.left")
@@ -4272,13 +4274,15 @@ struct LifecycleModifier: ViewModifier {
                 }
             }
             .onDisappear {
-                print("👋 MessagesView disappearing - stopping listeners")
-                hasAppeared = false
+                print("👋 MessagesView disappearing")
                 
-                // Stop listening when view disappears
-                messagingService.stopListeningToConversations()
-                messagingService.stopListeningToArchivedConversations()
+                // P0-3 FIX: DO NOT stop conversation listeners when view disappears
+                // They must stay active to keep thread list updated in real-time
+                // Only stop message request listener since it's UI-specific
                 stopListeningToMessageRequests()
+                
+                // Note: hasAppeared is intentionally NOT reset here
+                // This prevents duplicate listener setup when navigating back
             }
     }
 }
@@ -4342,6 +4346,7 @@ struct CoordinatorModifier: ViewModifier {
 
 struct ModernConversationDetailView: View {
     @Environment(\.dismiss) var dismiss
+    @Environment(\.mainTabSelection) private var mainTabSelection
     let conversation: ChatConversation
     @State private var messageText = ""
     @State private var messages: [AppMessage] = []
@@ -4510,7 +4515,11 @@ struct ModernConversationDetailView: View {
     
     private var backButton: some View {
         Button {
-            dismiss()
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                mainTabSelection.wrappedValue = 0  // Navigate to home tab
+            }
+            let haptic = UIImpactFeedbackGenerator(style: .medium)
+            haptic.impactOccurred()
         } label: {
             Image(systemName: "chevron.left")
                 .font(.system(size: 18, weight: .semibold))

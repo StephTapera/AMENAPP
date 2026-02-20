@@ -50,6 +50,11 @@ struct Post: Identifiable, Codable, Equatable {
     var originalAuthorId: String? = nil // Track original author ID if repost
     var churchNoteId: String? = nil // Optional church note ID if post contains a shared note
     var mentions: [MentionedUser]? = nil // User mentions in this post
+    
+    // Translation metadata
+    var originalContent: String? = nil // Original content before translation
+    var detectedLanguage: String? = nil // Detected source language (ISO 639-1 code)
+    var isTranslated: Bool = false // Whether this post is currently showing translated content
 
     enum PostCategory: String, Codable, CaseIterable {
         case openTable = "openTable"      // ✅ Firebase-safe (no special chars)
@@ -120,6 +125,7 @@ struct Post: Identifiable, Codable, Equatable {
         case imageURLs, linkURL, linkPreviewTitle, linkPreviewDescription, linkPreviewImageURL, linkPreviewSiteName, createdAt
         case amenCount, lightbulbCount, commentCount, repostCount
         case isRepost, originalAuthorName, originalAuthorId, churchNoteId, mentions
+        case originalContent, detectedLanguage, isTranslated
     }
     
     init(from decoder: Decoder) throws {
@@ -161,6 +167,9 @@ struct Post: Identifiable, Codable, Equatable {
         originalAuthorId = try container.decodeIfPresent(String.self, forKey: .originalAuthorId)
         churchNoteId = try container.decodeIfPresent(String.self, forKey: .churchNoteId)
         mentions = try container.decodeIfPresent([MentionedUser].self, forKey: .mentions)
+        originalContent = try container.decodeIfPresent(String.self, forKey: .originalContent)
+        detectedLanguage = try container.decodeIfPresent(String.self, forKey: .detectedLanguage)
+        isTranslated = try container.decodeIfPresent(Bool.self, forKey: .isTranslated) ?? false
     }
     
     func encode(to encoder: Encoder) throws {
@@ -196,6 +205,9 @@ struct Post: Identifiable, Codable, Equatable {
         try container.encodeIfPresent(originalAuthorId, forKey: .originalAuthorId)
         try container.encodeIfPresent(churchNoteId, forKey: .churchNoteId)
         try container.encodeIfPresent(mentions, forKey: .mentions)
+        try container.encodeIfPresent(originalContent, forKey: .originalContent)
+        try container.encodeIfPresent(detectedLanguage, forKey: .detectedLanguage)
+        try container.encode(isTranslated, forKey: .isTranslated)
     }
     
     init(

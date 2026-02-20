@@ -60,6 +60,16 @@ struct UnifiedChatView: View {
     @State private var showReactionPicker = false
     @State private var selectedMessageForReaction: AppMessage?
     @State private var reactionPickerOffset: CGPoint = .zero
+    
+    // P0-1 FIX: Prevent duplicate message sends
+    @State private var isSendingMessage = false
+    @State private var inFlightMessageRequests: Set<Int> = []
+    
+    // P0-2 FIX: Listener lifecycle management
+    @State private var listenerTask: Task<Void, Never>?
+    
+    // P0-4 FIX: Track optimistic messages by content hash
+    @State private var optimisticMessageHashes: [String: Int] = [:]
 
     var body: some View {
         ZStack {
@@ -613,6 +623,8 @@ struct UnifiedChatView: View {
                 }
             }
             .buttonStyle(SpringButtonStyle())
+            .disabled(isSendingMessage) // P0-1 FIX: Prevent duplicate sends
+            .opacity(isSendingMessage ? 0.5 : 1.0) // Visual feedback while sending
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
@@ -644,10 +656,17 @@ struct UnifiedChatView: View {
     
     private func setupChatView() {
         print("🎬 Chat view opened: \(conversation.name)")
-        loadMessages()
-        startListeningToTypingStatus()
-        detectFirstUnreadMessage()
-        startListeningToProfilePhotoUpdates()
+        
+        // P0-2 FIX: Cancel any existing listener task before starting new one
+        listenerTask?.cancel()
+        
+        // P0-2 FIX: Wrap listeners in a Task for proper lifecycle management
+        listenerTask = Task {
+            loadMessages()
+            startListeningToTypingStatus()
+            detectFirstUnreadMessage()
+            startListeningToProfilePhotoUpdates()
+        }
     }
     
     private func detectFirstUnreadMessage() {
@@ -661,6 +680,11 @@ struct UnifiedChatView: View {
     
     private func cleanupChatView() {
         print("👋 Chat view closed: \(conversation.name)")
+        
+        // P0-2 FIX: Cancel listener task immediately to prevent memory leaks
+        listenerTask?.cancel()
+        listenerTask = nil
+        
         messagingService.stopListeningToMessages(conversationId: conversation.id)
         typingDebounceTimer?.invalidate()
         typingDebounceTimer = nil
@@ -685,18 +709,49 @@ struct UnifiedChatView: View {
                     conversationId: conversation.id
                 ) { [self] fetchedMessages in
                     Task { @MainActor in
+                        // P0-4 FIX: Match messages by content hash instead of ID
+                        // Build hash map for fetched messages
+                        var fetchedMessagesByHash: [Int: AppMessage] = [:]
+                        for message in fetchedMessages {
+                            let contentHash = message.text.hashValue
+                            fetchedMessagesByHash[contentHash] = message
+                        }
+                        
+                        // Remove optimistic messages that have been confirmed by Firebase
+                        var optimisticIdsToRemove: [String] = []
+                        for (optimisticId, contentHash) in optimisticMessageHashes {
+                            if fetchedMessagesByHash[contentHash] != nil {
+                                // Found matching real message - remove optimistic version
+                                if let pendingMessage = pendingMessages[optimisticId] {
+                                    let latencyMs = Int(Date().timeIntervalSince(pendingMessage.timestamp) * 1000)
+                                    print("⏱️ [P0-4] Message confirmed (hash: \(contentHash)): \(latencyMs)ms")
+                                }
+                                pendingMessages.removeValue(forKey: optimisticId)
+                                optimisticIdsToRemove.append(optimisticId)
+                            }
+                        }
+                        
+                        // Clean up confirmed messages from hash tracking
+                        for id in optimisticIdsToRemove {
+                            optimisticMessageHashes.removeValue(forKey: id)
+                        }
+                        
+                        // Also check for ID-based matches (backward compatibility)
                         let fetchedIds = Set(fetchedMessages.map { $0.id })
                         for id in fetchedIds {
-                            if let pendingMessage = pendingMessages[id] {
-                                let latencyMs = Int(Date().timeIntervalSince(pendingMessage.timestamp) * 1000)
-                                print("⏱️ Message round-trip: \(latencyMs)ms for \(conversation.id)")
+                            if pendingMessages[id] != nil {
+                                pendingMessages.removeValue(forKey: id)
+                                optimisticMessageHashes.removeValue(forKey: id)
                             }
-                            pendingMessages.removeValue(forKey: id)
                         }
 
+                        // Merge: real messages + any remaining optimistic messages
                         var mergedMessages = fetchedMessages
-                        for (id, pendingMessage) in pendingMessages where !fetchedIds.contains(id) {
-                            mergedMessages.append(pendingMessage)
+                        for (id, pendingMessage) in pendingMessages {
+                            // Only add pending if not already in fetched (double-check)
+                            if !fetchedIds.contains(id) {
+                                mergedMessages.append(pendingMessage)
+                            }
                         }
                         mergedMessages.sort { $0.timestamp < $1.timestamp }
                         self.messages = mergedMessages
@@ -733,6 +788,21 @@ struct UnifiedChatView: View {
             return
         }
         
+        // P0-1 FIX: Prevent duplicate in-flight requests
+        let contentHash = messageText.hashValue
+        guard !inFlightMessageRequests.contains(contentHash) else {
+            print("⚠️ [P0-1] Duplicate send blocked: \(contentHash)")
+            return
+        }
+        
+        guard !isSendingMessage else {
+            print("⚠️ [P0-1] Already sending message")
+            return
+        }
+        
+        isSendingMessage = true
+        inFlightMessageRequests.insert(contentHash)
+        
         let textToSend = messageText
         let conversationId = conversation.id
         let messageId = UUID().uuidString
@@ -754,6 +824,9 @@ struct UnifiedChatView: View {
         pendingMessages[messageId] = optimisticMessage
         messages.append(optimisticMessage)
         
+        // P0-4 FIX: Track optimistic message by content hash
+        optimisticMessageHashes[messageId] = contentHash
+        
         // Clear input immediately
         messageText = ""
         isInputFocused = false
@@ -763,6 +836,12 @@ struct UnifiedChatView: View {
         haptic.impactOccurred()
         
         Task {
+            defer {
+                Task { @MainActor in
+                    isSendingMessage = false
+                    inFlightMessageRequests.remove(contentHash)
+                }
+            }
             // Fetch link previews in background if URLs detected
             if !detectedURLs.isEmpty {
                 print("🔗 Detected \(detectedURLs.count) URL(s) in message")

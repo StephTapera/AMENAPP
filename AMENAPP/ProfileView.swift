@@ -92,6 +92,14 @@ struct ProfileView: View {
     
     @Namespace private var tabNamespace
     
+    // NEW: Toolbar expand/collapse
+    @State private var isToolbarExpanded = false
+    
+    // NEW: Tab bar visibility on scroll
+    @Environment(\.tabBarVisible) private var tabBarVisible
+    @State private var lastScrollOffset: CGFloat = 0
+    @State private var scrollVelocity: CGFloat = 0
+    
     // Scroll offset tracking for header animation
     @State private var scrollOffset: CGFloat = 0
     @State private var showCompactHeader = false
@@ -147,14 +155,41 @@ struct ProfileView: View {
             .refreshable {
                 await fastRefreshProfile()
             }
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { value in
+                        let currentOffset = value.translation.height
+                        scrollVelocity = currentOffset - lastScrollOffset
+                        lastScrollOffset = currentOffset
+                        
+                        // Auto-hide tab bar based on scroll direction
+                        if scrollVelocity < -5 && scrollOffset < -100 {
+                            // Scrolling down fast, hide tab bar
+                            tabBarVisible.wrappedValue = false
+                        } else if scrollVelocity > 5 || scrollOffset > -50 {
+                            // Scrolling up or at top, show tab bar
+                            tabBarVisible.wrappedValue = true
+                        }
+                    }
+                    .onEnded { _ in
+                        lastScrollOffset = 0
+                        scrollVelocity = 0
+                    }
+            )
             .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
                 scrollOffset = value
+                
                 // Show compact header when scrolled past 200 points
                 let shouldShow = value < -200
                 if showCompactHeader != shouldShow {
                     withAnimation(.easeOut(duration: 0.15)) {
                         showCompactHeader = shouldShow
                     }
+                }
+                
+                // Show tab bar when at top of scroll
+                if value >= 0 {
+                    tabBarVisible.wrappedValue = true
                 }
             }
             .scrollContentBackground(.hidden)
@@ -224,36 +259,97 @@ struct ProfileView: View {
                 
                 ToolbarItem(placement: .topBarTrailing) {
                     HStack(spacing: 10) {
-                        Button {
-                            showLoginHistory = true
-                        } label: {
-                            Image(systemName: "clock.arrow.circlepath")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundStyle(.black)
+                        // Conditionally show the 4 buttons when expanded
+                        if isToolbarExpanded {
+                            Button {
+                                showLoginHistory = true
+                            } label: {
+                                Image(systemName: "clock.arrow.circlepath")
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundStyle(.black)
+                            }
+                            .transition(.scale.combined(with: .opacity))
+                            
+                            Button {
+                                showQRCode = true
+                            } label: {
+                                Image(systemName: "qrcode")
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundStyle(.black)
+                            }
+                            .transition(.scale.combined(with: .opacity))
+                            
+                            Button {
+                                shareProfile()
+                            } label: {
+                                Image(systemName: "square.and.arrow.up")
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundStyle(.black)
+                            }
+                            .transition(.scale.combined(with: .opacity))
+                            
+                            Button {
+                                showSettings = true
+                            } label: {
+                                Image(systemName: "line.3.horizontal")
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundStyle(.black)
+                            }
+                            .transition(.scale.combined(with: .opacity))
                         }
                         
+                        // Toggle button with glassmorphic design
                         Button {
-                            showQRCode = true
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                isToolbarExpanded.toggle()
+                            }
+                            
+                            // Haptic feedback
+                            let haptic = UIImpactFeedbackGenerator(style: .light)
+                            haptic.impactOccurred()
                         } label: {
-                            Image(systemName: "qrcode")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundStyle(.black)
-                        }
-                        
-                        Button {
-                            shareProfile()
-                        } label: {
-                            Image(systemName: "square.and.arrow.up")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundStyle(.black)
-                        }
-                        
-                        Button {
-                            showSettings = true
-                        } label: {
-                            Image(systemName: "line.3.horizontal")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundStyle(.black)
+                            ZStack {
+                                // Glassmorphic background
+                                Circle()
+                                    .fill(.ultraThinMaterial)
+                                    .opacity(0.95)
+                                    .overlay(
+                                        Circle()
+                                            .fill(
+                                                LinearGradient(
+                                                    colors: [
+                                                        Color.white.opacity(0.25),
+                                                        Color.white.opacity(0.08)
+                                                    ],
+                                                    startPoint: .topLeading,
+                                                    endPoint: .bottomTrailing
+                                                )
+                                            )
+                                    )
+                                    .overlay(
+                                        Circle()
+                                            .strokeBorder(
+                                                LinearGradient(
+                                                    colors: [
+                                                        Color.white.opacity(0.5),
+                                                        Color.white.opacity(0.2)
+                                                    ],
+                                                    startPoint: .topLeading,
+                                                    endPoint: .bottomTrailing
+                                                ),
+                                                lineWidth: 0.8
+                                            )
+                                    )
+                                    .frame(width: 32, height: 32)
+                                    .shadow(color: .black.opacity(0.12), radius: 8, x: 0, y: 2)
+                                    .shadow(color: .black.opacity(0.06), radius: 3, x: 0, y: 1)
+                                
+                                // Icon (chevron or ellipsis)
+                                Image(systemName: isToolbarExpanded ? "chevron.right" : "ellipsis")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(.black)
+                                    .rotationEffect(.degrees(isToolbarExpanded ? 0 : 0))
+                            }
                         }
                     }
                 }

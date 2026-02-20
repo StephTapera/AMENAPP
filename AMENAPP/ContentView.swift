@@ -218,6 +218,7 @@ struct ContentView: View {
                 .ignoresSafeArea(.keyboard) // Don't move when keyboard appears
         }
         .environment(\.tabBarVisible, $showTabBar)  // ✅ Pass visibility to child views
+        .environment(\.mainTabSelection, $viewModel.selectedTab)  // ✅ Pass tab selection to child views
         .sheet(isPresented: $showCreatePost) {
             CreatePostView()
         }
@@ -507,7 +508,7 @@ struct CompactTabBar: View {
     }
     
     var body: some View {
-        HStack(spacing: 8) {  // Reduced from 12 to 8
+        HStack(spacing: 4) {  // Reduced from 6 to 4 for tighter spacing
             ForEach(Array(allTabs.enumerated()), id: \.element.tag) { index, tab in
                 // Tab Button
                 tabButton(for: tab, isSelected: selectedTab == tab.tag)
@@ -519,14 +520,15 @@ struct CompactTabBar: View {
             }
         }
         .fixedSize()
-        .padding(.horizontal, 10)  // Reduced from 12 to 10
-        .padding(.vertical, 6)     // Reduced from 10 to 6
+        .padding(.horizontal, 6)   // Reduced from 8 to 6
+        .padding(.vertical, 4)     // Reduced from 5 to 4
         .background(glassmorphicBackground)
         .clipShape(Capsule())
-        .shadow(color: .black.opacity(0.12), radius: 16, x: 0, y: 6)
-        .shadow(color: .black.opacity(0.06), radius: 4, x: 0, y: 2)
-        .padding(.horizontal, 16)  // Reduced from 20 to 16
-        .padding(.bottom, 6)       // Reduced from 8 to 6
+        .shadow(color: .black.opacity(0.18), radius: 20, x: 0, y: 8)  // Stronger shadow for depth
+        .shadow(color: .black.opacity(0.10), radius: 6, x: 0, y: 3)   // Mid-tone shadow
+        .shadow(color: .white.opacity(0.1), radius: 1, x: 0, y: -1)  // Subtle top highlight
+        .padding(.horizontal, 12)  // Reduced from 14 to 12
+        .padding(.bottom, 3)       // Reduced from 4 to 3
         .onChange(of: totalUnreadCount) { oldValue, newValue in
             // Trigger pulse animation when unread count increases
             if newValue > oldValue {
@@ -595,34 +597,34 @@ struct CompactTabBar: View {
         }
     }
     
-    // MARK: - Enhanced Glassmorphic Background (Ultra Transparent Liquid Glass)
+    // MARK: - Enhanced Glassmorphic Background (More Visible Liquid Glass)
 
     private var glassmorphicBackground: some View {
         ZStack {
-            // Base ultra-thin frosted glass
+            // Base frosted glass (more opaque for better visibility)
             Capsule()
                 .fill(.ultraThinMaterial)
-                .opacity(0.7)  // More transparent base
+                .opacity(0.95)  // Increased from 0.7 for better visibility
 
-            // Liquid glass gradient overlay (very subtle)
+            // Liquid glass gradient overlay (stronger)
             Capsule()
                 .fill(
                     LinearGradient(
                         colors: [
-                            Color.white.opacity(0.12),
-                            Color.white.opacity(0.04)
+                            Color.white.opacity(0.25),  // Increased from 0.12
+                            Color.white.opacity(0.08)   // Increased from 0.04
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
                 )
 
-            // Delicate shimmer highlight at top
+            // Shimmer highlight at top (more pronounced)
             Capsule()
                 .fill(
                     LinearGradient(
                         colors: [
-                            Color.white.opacity(0.25),
+                            Color.white.opacity(0.4),  // Increased from 0.25
                             Color.clear
                         ],
                         startPoint: .top,
@@ -632,18 +634,18 @@ struct CompactTabBar: View {
                 .padding(0.5)
                 .blur(radius: 0.5)
 
-            // Refined border with gradient (thinner and more transparent)
+            // Border with gradient (more visible)
             Capsule()
                 .strokeBorder(
                     LinearGradient(
                         colors: [
-                            Color.white.opacity(0.3),
-                            Color.white.opacity(0.1)
+                            Color.white.opacity(0.5),  // Increased from 0.3
+                            Color.white.opacity(0.2)   // Increased from 0.1
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     ),
-                    lineWidth: 0.5
+                    lineWidth: 0.8  // Increased from 0.5
                 )
 
             // Subtle inner glow for depth
@@ -716,7 +718,7 @@ struct CompactTabBar: View {
                     } else {
                         // Regular icon for other tabs
                         Image(systemName: tab.icon)
-                            .font(.system(size: 19, weight: isSelected ? .semibold : .medium))
+                            .font(.system(size: 17, weight: isSelected ? .semibold : .medium))  // Reduced from 19 to 17
                             .foregroundStyle(isSelected ? .primary : .secondary)
                             .symbolEffect(.bounce, value: isSelected)
                     }
@@ -724,24 +726,24 @@ struct CompactTabBar: View {
                     // Smart badge for Messages tab (shows count then transitions to dot)
                     if tab.tag == 2 && totalUnreadCount > 0 {
                         SmartMessageBadge(unreadCount: totalUnreadCount, pulse: badgePulse)
-                            .offset(x: 8, y: -6)
+                            .offset(x: 7, y: -5)  // Adjusted for smaller button
                     }
                     
                     // Simple dot indicator for Home tab (closer to button)
                     if tab.tag == 0 && hasNewPosts {
                         UnreadDot(pulse: newPostsBadgePulse)
-                            .offset(x: 8, y: -6)
+                            .offset(x: 7, y: -5)  // Adjusted for smaller button
                     }
                     
                     // Red dot for Notifications tab (tight offset, real-time)
                     if tab.tag == 5 && notificationService.unreadCount > 0 {
                         UnreadDot(pulse: false)
-                            .offset(x: 6, y: -4)
+                            .offset(x: 5, y: -3)  // Adjusted for smaller button
                     }
                 }
-                .frame(width: 46, height: 36)
+                .frame(width: 40, height: 32)  // Reduced from 46x36 to 40x32
             }
-            .frame(width: 46, height: 36)
+            .frame(width: 40, height: 32)  // Reduced from 46x36 to 40x32
             .contentShape(Rectangle())
         }
         .buttonStyle(PlainButtonStyle())
@@ -765,35 +767,35 @@ struct CompactTabBar: View {
                         image
                             .resizable()
                             .aspectRatio(contentMode: .fill)
-                            .frame(width: 28, height: 28)
+                            .frame(width: 24, height: 24)  // Reduced from 28 to 24
                             .clipShape(Circle())
                             .overlay(
                                 Circle()
                                     .strokeBorder(
                                         isSelected ? Color.primary : Color.secondary.opacity(0.5),
-                                        lineWidth: isSelected ? 2 : 1.5
+                                        lineWidth: isSelected ? 1.5 : 1  // Reduced from 2/1.5 to 1.5/1
                                     )
                             )
-                            .shadow(color: .black.opacity(0.15), radius: 4, y: 2)
+                            .shadow(color: .black.opacity(0.15), radius: 3, y: 1)  // Reduced shadow
                             .symbolEffect(.bounce, value: isSelected)
                     case .failure(_):
                         // Fallback to icon if image fails to load
                         Image(systemName: "person.fill")
-                            .font(.system(size: 19, weight: isSelected ? .semibold : .medium))
+                            .font(.system(size: 17, weight: isSelected ? .semibold : .medium))  // Reduced from 19 to 17
                             .foregroundStyle(isSelected ? .primary : .secondary)
                             .symbolEffect(.bounce, value: isSelected)
                     case .empty:
                         // Show loading placeholder
                         Circle()
                             .fill(Color.gray.opacity(0.2))
-                            .frame(width: 28, height: 28)
+                            .frame(width: 24, height: 24)  // Reduced from 28 to 24
                             .overlay(
                                 ProgressView()
-                                    .scaleEffect(0.6)
+                                    .scaleEffect(0.5)  // Reduced from 0.6 to 0.5
                             )
                     @unknown default:
                         Image(systemName: "person.fill")
-                            .font(.system(size: 19, weight: isSelected ? .semibold : .medium))
+                            .font(.system(size: 17, weight: isSelected ? .semibold : .medium))  // Reduced from 19 to 17
                             .foregroundStyle(isSelected ? .primary : .secondary)
                     }
                 }
@@ -801,7 +803,7 @@ struct CompactTabBar: View {
             } else {
                 // No profile photo - show default icon
                 Image(systemName: "person.fill")
-                    .font(.system(size: 19, weight: isSelected ? .semibold : .medium))
+                    .font(.system(size: 17, weight: isSelected ? .semibold : .medium))  // Reduced from 19 to 17
                     .foregroundStyle(isSelected ? .primary : .secondary)
                     .symbolEffect(.bounce, value: isSelected)
             }
@@ -834,11 +836,11 @@ struct CompactTabBar: View {
                                 Color.clear
                             ],
                             center: .center,
-                            startRadius: 4,
-                            endRadius: 18
+                            startRadius: 3,
+                            endRadius: 15
                         )
                     )
-                    .frame(width: 38, height: 38)  // Reduced from 44 to 38
+                    .frame(width: 34, height: 34)  // Reduced from 38 to 34
                 
                 // Main circular button with glassmorphic touch
                 Circle()
@@ -852,7 +854,7 @@ struct CompactTabBar: View {
                             endPoint: .bottomTrailing
                         )
                     )
-                    .frame(width: 38, height: 38)
+                    .frame(width: 34, height: 34)  // Reduced from 38 to 34
                     .overlay(
                         Circle()
                             .stroke(
@@ -884,10 +886,10 @@ struct CompactTabBar: View {
                     .shadow(color: .black.opacity(0.2), radius: 6, y: 2)
                 
                 Image(systemName: "pencil")
-                    .font(.system(size: 16, weight: .bold))  // Reduced from 18 to 16
+                    .font(.system(size: 14, weight: .bold))  // Reduced from 16 to 14
                     .foregroundStyle(.white)
             }
-            .frame(width: 38, height: 38)
+            .frame(width: 34, height: 34)  // Reduced from 38 to 34
             .contentShape(Circle())
         }
         .buttonStyle(PlainButtonStyle())
@@ -1024,9 +1026,8 @@ struct HomeView: View {
             mainScrollContent
                 .navigationTitle("AMEN")
                 .navigationBarTitleDisplayMode(.inline)
-                // GESTURE 1: Hide toolbar on scroll down
-                .toolbar(showToolbar ? .visible : .hidden, for: .navigationBar)
-                .animation(.easeInOut(duration: 0.3), value: showToolbar)
+                // Keep AMEN header always visible
+                .toolbar(.visible, for: .navigationBar)
                 .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     // Berean AI Assistant Button
@@ -1040,7 +1041,6 @@ struct HomeView: View {
                         // Tap AMEN title - toggle categories expand/collapse
                         withAnimation(.spring(response: 0.15, dampingFraction: 0.8)) {
                             isCategoriesExpanded.toggle()
-                            showToolbar = true // Also show toolbar
                         }
                         
                         let haptic = UIImpactFeedbackGenerator(style: .light)
@@ -1091,15 +1091,7 @@ struct HomeView: View {
     private var mainScrollContent: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                GeometryReader { geometry in
-                    Color.clear.preference(
-                        key: ScrollOffsetPreferenceKey.self,
-                        value: geometry.frame(in: .named("scroll")).minY
-                    )
-                }
-                .frame(height: 0)
-                
-                VStack(alignment: .leading, spacing: 0) {
+                LazyVStack(alignment: .leading, spacing: 0) {
                     // GESTURE 3: Invisible top anchor for scroll-to-top
                     Color.clear
                         .frame(height: 1)
@@ -1122,16 +1114,55 @@ struct HomeView: View {
                     selectedCategoryView
                 }
                 .padding(.bottom)
+                .background(
+                    GeometryReader { geometry in
+                        Color.clear.preference(
+                            key: ScrollOffsetPreferenceKey.self,
+                            value: geometry.frame(in: .named("scroll")).minY
+                        )
+                    }
+                )
             }
             .coordinateSpace(name: "scroll")
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { value in
+                        let delta = value.translation.height
+                        
+                        // Scrolling up (positive delta, pulling down) - show tab bar
+                        if delta > 3 {
+                            if !tabBarVisible.wrappedValue {
+                                withAnimation(.easeInOut(duration: 0.25)) {
+                                    tabBarVisible.wrappedValue = true
+                                }
+                            }
+                        }
+                        // Scrolling down (negative delta, pushing up) - hide tab bar
+                        else if delta < -3 {
+                            if tabBarVisible.wrappedValue {
+                                withAnimation(.easeInOut(duration: 0.25)) {
+                                    tabBarVisible.wrappedValue = false
+                                }
+                            }
+                        }
+                    }
+            )
             .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
-                handleScrollOffset(value)
+                // Keep this for detecting when at top
+                lastScrollOffset = value
+                
+                // Show tab bar when at top
+                if value >= -5 && !tabBarVisible.wrappedValue {
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        tabBarVisible.wrappedValue = true
+                    }
+                }
             }
             // GESTURE 3: Tap status bar area to scroll to top
             .onTapGesture(count: 2) {
                 withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
                     proxy.scrollTo("top", anchor: .top)
-                    showToolbar = true
+                    tabBarVisible.wrappedValue = true
                 }
                 
                 let haptic = UIImpactFeedbackGenerator(style: .light)
@@ -1149,6 +1180,10 @@ struct HomeView: View {
         let delta = offset - lastScrollOffset
         lastScrollOffset = offset
         
+        #if DEBUG
+        print("📜 Scroll: offset=\(offset), delta=\(delta), tabBarVisible=\(tabBarVisible.wrappedValue)")
+        #endif
+        
         // GESTURE 1: Hide toolbar on scroll down
         // Scrolling up (delta > 0) or at top (offset >= -5)
         if delta > 5 || offset >= -5 {
@@ -1159,13 +1194,14 @@ struct HomeView: View {
             }
             // ✅ Show tab bar when scrolling up
             if !tabBarVisible.wrappedValue {
+                print("🔼 Showing tab bar")
                 withAnimation(.easeInOut(duration: 0.25)) {
                     tabBarVisible.wrappedValue = true
                 }
             }
         }
-        // Scrolling down (delta < -10)
-        else if delta < -10 && offset < -100 {
+        // Scrolling down (delta < -5 and offset < -50) - More sensitive thresholds
+        else if delta < -5 && offset < -50 {
             if showToolbar {
                 withAnimation(.easeInOut(duration: 0.3)) {
                     showToolbar = false
@@ -1173,6 +1209,7 @@ struct HomeView: View {
             }
             // ✅ Hide tab bar when scrolling down
             if tabBarVisible.wrappedValue {
+                print("🔽 Hiding tab bar")
                 withAnimation(.easeInOut(duration: 0.25)) {
                     tabBarVisible.wrappedValue = false
                 }
@@ -3057,9 +3094,6 @@ struct OpenTableView: View {
             VStack(alignment: .leading, spacing: 20) {
                 // Header Section (cleaned up - removed grey icon and divider)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Where AI meets faith, ideas meet innovation")
-                        .font(.custom("OpenSans-Regular", size: 12))
-                        .foregroundStyle(.secondary)
                     
                     HStack {
                         Text("#OPENTABLE")
@@ -4399,6 +4433,18 @@ extension EnvironmentValues {
     var tabBarVisible: Binding<Bool> {
         get { self[TabBarVisibleKey.self] }
         set { self[TabBarVisibleKey.self] = newValue }
+    }
+}
+
+// MARK: - Environment Key for Main Tab Selection
+private struct MainTabSelectionKey: EnvironmentKey {
+    static let defaultValue: Binding<Int> = .constant(0)
+}
+
+extension EnvironmentValues {
+    var mainTabSelection: Binding<Int> {
+        get { self[MainTabSelectionKey.self] }
+        set { self[MainTabSelectionKey.self] = newValue }
     }
 }
 

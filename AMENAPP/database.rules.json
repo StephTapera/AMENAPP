@@ -104,6 +104,12 @@
             },
             "parentCommentId": {
               ".validate": "newData.isString()"
+            },
+            "likedBy": {
+              "$userId": {
+                ".write": "auth != null && auth.uid == $userId",
+                ".validate": "newData.isBoolean() || newData.isNumber() || !newData.exists()"
+              }
             }
           }
         },

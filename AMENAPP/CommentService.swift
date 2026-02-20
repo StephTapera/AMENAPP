@@ -35,7 +35,19 @@ class CommentService: ObservableObject {
     private var listeners: [DatabaseHandle] = []
     private var listenerPaths: [String: DatabaseHandle] = [:]
     
+    // P0-1 FIX: Prevent duplicate comment creation
+    private var inFlightCommentRequests: Set<String> = []
+    
+    // P0-2 FIX: Track optimistic comments for replacement
+    private var optimisticComments: [String: (content: String, hash: Int)] = [:]
+    
     private init() {}
+    
+    // MARK: - Helper Types
+    
+    struct TimeoutError: Error {
+        let operation: String
+    }
     
     // MARK: - Comment Permissions
     
@@ -98,77 +110,82 @@ class CommentService: ObservableObject {
         mentionedUserIds: [String]? = nil
     ) async throws -> Comment {
         print("💬 Adding comment to post: \(postId)")
-        
+
         guard let userId = firebaseManager.currentUser?.uid else {
             throw NSError(domain: "CommentService", code: -1, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
         }
+
+        // P0-1 FIX: Prevent duplicate in-flight requests
+        let requestId = "\(postId)_\(content.hashValue)_\(userId)"
+        guard !inFlightCommentRequests.contains(requestId) else {
+            print("⚠️ [P0-1] Duplicate comment request blocked: \(requestId)")
+            throw NSError(domain: "CommentService", code: -10, 
+                         userInfo: [NSLocalizedDescriptionKey: "Comment already being submitted"])
+        }
         
-        // ============================================================================
-        // ✅ STEP 1: AI CONTENT MODERATION
-        // ============================================================================
-        print("🛡️ Running AI moderation check for comment...")
-        let moderationResult = try await ContentModerationService.shared.moderateContent(
+        inFlightCommentRequests.insert(requestId)
+        defer { inFlightCommentRequests.remove(requestId) }
+
+        // ⚡ OPTIMIZATION: Fetch user profile and run moderation IN PARALLEL
+        async let userProfileTask: UserModel? = {
+            do {
+                return try await userService.fetchUserProfile(userId: userId)
+            } catch {
+                print("⚠️ Failed to fetch user profile: \(error)")
+                return nil
+            }
+        }()
+
+        async let moderationTask = ContentModerationService.shared.moderateContent(
             content,
             type: .comment,
             userId: userId
         )
-        
+
+        // ⚡ Wait for both to complete in parallel
+        let (userProfile, moderationResult) = try await (userProfileTask, moderationTask)
+
         // Block comment if moderation fails
         if !moderationResult.isApproved {
             let reasons = moderationResult.flaggedReasons
             print("❌ Comment blocked by moderation: \(reasons.joined(separator: ", "))")
-            
-            // Show liquid glass toast notification
+
             await MainActor.run {
                 ModerationToastManager.shared.show(reasons: reasons)
             }
-            
+
             throw NSError(
                 domain: "CommentService",
                 code: -2,
                 userInfo: [NSLocalizedDescriptionKey: "Content flagged"]
             )
         }
-        
+
         print("✅ Comment passed moderation check")
-        
-        // ✅ Fetch user data (username AND profile image) BEFORE adding comment
+
+        // Get username and profile image from parallel fetch
         let authorUsername: String
         let authorProfileImageURL: String?
-        do {
-            let userProfile = try await userService.fetchUserProfile(userId: userId)
-            authorUsername = userProfile.username
-            authorProfileImageURL = userProfile.profileImageURL
+        if let profile = userProfile {
+            authorUsername = profile.username
+            authorProfileImageURL = profile.profileImageURL
             print("✅ Using username: @\(authorUsername)")
-            print("✅ Profile image URL: \(authorProfileImageURL ?? "none")")
-        } catch {
-            print("⚠️ Failed to fetch user profile, generating fallback")
+        } else {
             authorUsername = "user\(userId.prefix(8))"
             authorProfileImageURL = nil
+            print("⚠️ Using fallback username")
         }
-        
-        // ✅ Add comment to PostInteractionsService with profile image URL
-        let interactionsService = PostInteractionsService.shared
-        let commentId = try await interactionsService.addComment(
-            postId: postId,
-            content: content,
-            authorInitials: firebaseManager.currentUser?.displayName?.prefix(2).uppercased() ?? "??",
-            authorUsername: authorUsername,
-            authorProfileImageURL: authorProfileImageURL  // ← NEW PARAMETER
-        )
-        
-        print("✅ Comment created with ID: \(commentId)")
-        
-        // ✅ DON'T manually update local cache - let real-time listener handle it
-        // This prevents duplicate comments in the UI
-        
-        // Haptic feedback
+
+        // ⚡ Immediate haptic feedback BEFORE database write
         let haptic = UIImpactFeedbackGenerator(style: .medium)
         haptic.impactOccurred()
+
+        // P0-2 FIX: Create optimistic comment with tracking
+        let tempId = UUID().uuidString
+        let contentHash = content.hashValue
         
-        // Return a temporary comment object (won't be used by UI due to listener)
-        let comment = Comment(
-            id: commentId,
+        let optimisticComment = Comment(
+            id: tempId,
             postId: postId,
             authorId: userId,
             authorName: firebaseManager.currentUser?.displayName ?? "Unknown User",
@@ -184,24 +201,126 @@ class CommentService: ObservableObject {
             parentCommentId: nil,
             mentionedUserIds: mentionedUserIds
         )
+
+        // P0-2: Track optimistic comment for replacement
+        optimisticComments[tempId] = (content: content, hash: contentHash)
         
-        print("✅ Comment will be added to UI via real-time listener")
+        // ⚡ Post optimistic update IMMEDIATELY for instant UI
+        NotificationCenter.default.post(
+            name: Notification.Name("newCommentCreated"),
+            object: nil,
+            userInfo: [
+                "comment": optimisticComment,
+                "isOptimistic": true,
+                "tempId": tempId,
+                "contentHash": contentHash
+            ]
+        )
+        print("⚡ Posted optimistic comment to UI (tempId: \(tempId))")
+
+        // P1-3 FIX: Write to database with retry logic and timeout
+        let interactionsService = PostInteractionsService.shared
+        var commentId: String?
+        var retryCount = 0
+        let maxRetries = 3
+        var lastError: Error?
         
-        // 📧 Send mention notifications (extract mentions from content)
+        while retryCount < maxRetries {
+            do {
+                // Attempt write with 10 second timeout
+                commentId = try await withTimeout(seconds: 10) {
+                    try await interactionsService.addComment(
+                        postId: postId,
+                        content: content,
+                        authorInitials: self.firebaseManager.currentUser?.displayName?.prefix(2).uppercased() ?? "??",
+                        authorUsername: authorUsername,
+                        authorProfileImageURL: authorProfileImageURL
+                    )
+                }
+                
+                print("✅ [P1-3] Comment created with ID: \(commentId!) (attempt \(retryCount + 1))")
+                break // Success, exit retry loop
+                
+            } catch {
+                lastError = error
+                retryCount += 1
+                
+                if retryCount < maxRetries {
+                    let backoffDelay = Double(retryCount) * 1.0 // 1s, 2s, 3s
+                    print("⚠️ [P1-3] Comment submission failed (attempt \(retryCount)/\(maxRetries)), retrying in \(backoffDelay)s...")
+                    try await Task.sleep(nanoseconds: UInt64(backoffDelay * 1_000_000_000))
+                } else {
+                    print("❌ [P1-3] All \(maxRetries) attempts failed")
+                }
+            }
+        }
+        
+        // If all retries failed, clean up and throw
+        guard let finalCommentId = commentId else {
+            // Remove optimistic comment
+            optimisticComments.removeValue(forKey: tempId)
+            
+            NotificationCenter.default.post(
+                name: Notification.Name("commentFailed"),
+                object: nil,
+                userInfo: ["tempId": tempId, "postId": postId, "error": lastError!]
+            )
+            
+            throw lastError!
+        }
+        
+        print("✅ Comment created with ID: \(finalCommentId)")
+
+        // P0-2: Clean up optimistic tracking
+        optimisticComments.removeValue(forKey: tempId)
+        
+        // Post confirmation notification for UI to replace optimistic with real
+        NotificationCenter.default.post(
+            name: Notification.Name("commentConfirmed"),
+            object: nil,
+            userInfo: [
+                "realId": finalCommentId,
+                "tempId": tempId,
+                "postId": postId,
+                "contentHash": contentHash
+            ]
+        )
+        print("✅ Posted comment confirmation (real ID: \(finalCommentId), replacing temp: \(tempId))")
+
+        // Final comment with real ID
+        let finalComment = Comment(
+            id: finalCommentId,
+            postId: postId,
+            authorId: userId,
+            authorName: firebaseManager.currentUser?.displayName ?? "Unknown User",
+            authorUsername: authorUsername,
+            authorInitials: firebaseManager.currentUser?.displayName?.prefix(2).uppercased() ?? "??",
+            authorProfileImageURL: authorProfileImageURL,
+            content: content,
+            createdAt: Date(),
+            updatedAt: Date(),
+            amenCount: 0,
+            replyCount: 0,
+            amenUserIds: [],
+            parentCommentId: nil,
+            mentionedUserIds: mentionedUserIds
+        )
+
+        // ⚡ FIRE-AND-FORGET: Mention notifications (don't block UI)
         let mentionUsernames = extractMentionUsernames(from: content)
         if !mentionUsernames.isEmpty {
-            Task {
+            Task.detached { [weak self] in
+                guard let self = self else { return }
                 var mentions: [MentionedUser] = []
-                
-                // Fetch user data for each mentioned username
+
                 for username in mentionUsernames {
                     do {
-                        let userQuery = try await firebaseManager.firestore
+                        let userQuery = try await self.firebaseManager.firestore
                             .collection("users")
                             .whereField("username", isEqualTo: username)
                             .limit(to: 1)
                             .getDocuments()
-                        
+
                         if let userDoc = userQuery.documents.first {
                             let mentionUserId = userDoc.documentID
                             let displayName = userDoc.data()["displayName"] as? String ?? username
@@ -215,13 +334,12 @@ class CommentService: ObservableObject {
                         print("⚠️ Failed to resolve @\(username): \(error)")
                     }
                 }
-                
-                // Send notifications
+
                 if !mentions.isEmpty {
-                    await NotificationService.shared.sendMentionNotifications(
+                    try? await NotificationService.shared.sendMentionNotifications(
                         mentions: mentions,
                         actorId: userId,
-                        actorName: firebaseManager.currentUser?.displayName ?? "User",
+                        actorName: self.firebaseManager.currentUser?.displayName ?? "User",
                         actorUsername: authorUsername,
                         postId: postId,
                         contentType: "comment"
@@ -229,16 +347,8 @@ class CommentService: ObservableObject {
                 }
             }
         }
-        
-        // ✅ Post notification so ProfileView can update Replies tab
-        NotificationCenter.default.post(
-            name: Notification.Name("newCommentCreated"),
-            object: nil,
-            userInfo: ["comment": comment]
-        )
-        print("📬 Posted newCommentCreated notification for ProfileView")
-        
-        return comment
+
+        return finalComment
     }
     
     // MARK: - Helper: Extract Mentions
@@ -269,32 +379,44 @@ class CommentService: ObservableObject {
         mentionedUserIds: [String]? = nil
     ) async throws -> Comment {
         print("↩️ Adding reply to comment: \(parentCommentId)")
-        
-        // ✅ Add comment first (moderation happens inside addComment)
+
+        // ⚡ Immediate haptic feedback BEFORE any async work
+        let haptic = UIImpactFeedbackGenerator(style: .light)
+        haptic.impactOccurred()
+
+        // ✅ Add comment first (moderation + optimistic update happens inside)
         let comment = try await addComment(postId: postId, content: content, mentionedUserIds: mentionedUserIds)
+
+        // P1-1 FIX: Set parentCommentId SYNCHRONOUSLY (not fire-and-forget)
+        guard let commentId = comment.id else {
+            print("⚠️ Comment has no ID, cannot set parentCommentId")
+            return comment
+        }
+
+        // CRITICAL: Update parent BEFORE returning (prevents background race condition)
+        let commentRef = ref.child("postInteractions")
+            .child(postId)
+            .child("comments")
+            .child(commentId)
         
-        // Update to mark it as a reply
-        let commentRef = ref.child("postInteractions").child(postId).child("comments").child(comment.id ?? "")
-        try await commentRef.child("parentCommentId").setValue(parentCommentId)
+        try await commentRef.updateChildValues([
+            "parentCommentId": parentCommentId
+        ])
         
-        // ✅ Don't manually update reply cache; real-time listener will update
+        print("✅ [P1-1] Reply linked to parent: \(parentCommentId) (synchronous)")
+
+        // Create updated comment with parent ID
         var updatedComment = comment
         updatedComment.parentCommentId = parentCommentId
-        
-        print("✅ Reply added")
-        
-        // ✅ Post notification so ProfileView can update Replies tab
+
+        // Post notification (real-time listener will also update)
         NotificationCenter.default.post(
             name: Notification.Name("newCommentCreated"),
             object: nil,
-            userInfo: ["comment": updatedComment]
+            userInfo: ["comment": updatedComment, "isReply": true, "parentCommentId": parentCommentId]
         )
         print("📬 Posted newCommentCreated notification for reply")
-        
-        // Haptic feedback
-        let haptic = UIImpactFeedbackGenerator(style: .light)
-        haptic.impactOccurred()
-        
+
         return updatedComment
     }
     
@@ -576,6 +698,14 @@ class CommentService: ObservableObject {
             throw NSError(domain: "CommentService", code: -4, userInfo: [NSLocalizedDescriptionKey: "You can only delete your own comments"])
         }
         
+        // P2-2 FIX: Check if comment has replies before deletion
+        let replies = commentReplies[commentId] ?? []
+        if !replies.isEmpty {
+            print("⚠️ [P2-2] Cannot delete comment with \(replies.count) replies")
+            throw NSError(domain: "CommentService", code: -5, 
+                         userInfo: [NSLocalizedDescriptionKey: "Cannot delete a comment that has replies. Delete the replies first."])
+        }
+        
         // Remove the comment
         try await commentRef.removeValue()
         
@@ -733,14 +863,14 @@ class CommentService: ObservableObject {
                         print("✅ Profile image URL found: \(imageURL)")
                     }
                     
-                    let comment = Comment(
+                    var comment = Comment(
                         id: childSnapshot.key,
                         postId: postId,
                         authorId: authorId,
                         authorName: authorName,
                         authorUsername: authorUsername,
                         authorInitials: authorInitials,
-                        authorProfileImageURL: authorProfileImageURL,  // ✅ Now includes profile image
+                        authorProfileImageURL: authorProfileImageURL,
                         content: content,
                         createdAt: Date(timeIntervalSince1970: Double(timestamp) / 1000.0),
                         updatedAt: Date(timeIntervalSince1970: Double(timestamp) / 1000.0),
@@ -750,6 +880,26 @@ class CommentService: ObservableObject {
                         parentCommentId: commentData["parentCommentId"] as? String,
                         mentionedUserIds: nil
                     )
+                    
+                    // P0-2 FIX: Check if this comment replaces an optimistic one
+                    let contentHash = content.hashValue
+                    if let (tempId, tracked) = self.optimisticComments.first(where: { $0.value.hash == contentHash }) {
+                        print("🔄 [P0-2] Real comment \(childSnapshot.key) replaces optimistic \(tempId)")
+                        
+                        // Post replacement notification
+                        NotificationCenter.default.post(
+                            name: Notification.Name("commentConfirmed"),
+                            object: nil,
+                            userInfo: [
+                                "realId": childSnapshot.key,
+                                "tempId": tempId,
+                                "postId": postId
+                            ]
+                        )
+                        
+                        // Clean up tracking
+                        self.optimisticComments.removeValue(forKey: tempId)
+                    }
                     
                     fetchedComments.append(comment)
                 }
@@ -802,6 +952,24 @@ class CommentService: ObservableObject {
         listenerPaths[postId] = handle
     }
     
+    // P0-3 FIX: Stop listener for specific post (prevents memory leak)
+    func stopListening(to postId: String) {
+        guard let handle = listenerPaths[postId] else {
+            print("⚠️ [P0-3] No listener to stop for post: \(postId)")
+            return
+        }
+        
+        ref.child("postInteractions").child(postId).child("comments")
+            .removeObserver(withHandle: handle)
+        
+        listenerPaths.removeValue(forKey: postId)
+        
+        // Optionally clear cache for this post
+        comments.removeValue(forKey: postId)
+        
+        print("🔇 [P0-3] Stopped listener for post: \(postId) (active: \(listenerPaths.count))")
+    }
+    
     /// Stop all listeners
     func stopListening() {
         print("🔇 Stopping all comment listeners...")
@@ -811,9 +979,30 @@ class CommentService: ObservableObject {
         }
         
         listenerPaths.removeAll()
+        comments.removeAll()
+        
+        print("✅ All listeners stopped and cache cleared")
     }
     
     // MARK: - Helper Methods
+    
+    // P1-3: Timeout helper for network operations
+    private func withTimeout<T>(seconds: TimeInterval, operation: @escaping () async throws -> T) async throws -> T {
+        try await withThrowingTaskGroup(of: T.self) { group in
+            group.addTask {
+                try await operation()
+            }
+            
+            group.addTask {
+                try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+                throw TimeoutError(operation: "Comment submission timed out after \(seconds)s")
+            }
+            
+            let result = try await group.next()!
+            group.cancelAll()
+            return result
+        }
+    }
     
     /// Check if user has amened a comment
     /// - Parameters:
