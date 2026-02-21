@@ -26,7 +26,7 @@
 	<key>Location - When In Use Usage Description</key>
 	<string>We need your location to find churches near you and provide smart service reminders</string>
 	<key>Location Always And When In Use Usage Description</key>
-	<string>We need your location to send you reminders when you're near your saved churches</string>
+	<string>We need your location to send you reminders when you&apos;re near your saved churches</string>
 	<key>Photo - Library Usage Description</key>
 	<string>Choose a photo to personalize your AMEN profile</string>
 	<key>UIBackgroundModes</key>
@@ -35,12 +35,12 @@
 		<string>fetch</string>
 	</array>
 	<key>NSUserNotificationsUsageDescription</key>
-	<string>We'll send you reminders about church service times and when you're near your saved churches</string>
+	<string>We&apos;ll send you reminders about church service times and when you&apos;re near your saved churches</string>
 	<key>FirebaseAppDelegateProxyEnabled</key>
 	<false/>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>OPENAI_API_KEY</key>
-	<string><OPENAI_API_KEY></string>
+	<string>$(OPENAI_API_KEY))</string>
 </dict>
 </plist>
