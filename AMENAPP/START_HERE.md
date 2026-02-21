@@ -69,7 +69,7 @@ open .env
 
 This opens the file. Add your key like this:
 ```
-GOOGLE_AI_API_KEY=AIzaSyD... (paste your key here)
+GOOGLE_AI_API_KEY=<GOOGLE_AI_API_KEY> (paste your key here)
 ```
 
 Save and close the file.
