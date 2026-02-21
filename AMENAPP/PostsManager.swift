@@ -309,12 +309,14 @@ class PostsManager: ObservableObject {
 
     // ✅ Setup real-time sync with FirebasePostService using Combine publishers
     private func setupFirebaseSync() {
+        // P0 FIX: Add debouncing to reduce cascade re-renders from 4x to 1x
         // Listen to prayer posts changes
         firebasePostService.$prayerPosts
+            .debounce(for: .milliseconds(300), scheduler: RunLoop.main)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] newPosts in
                 guard let self = self else { return }
-                self.objectWillChange.send() // Force UI update
+                // P0-4: Removed objectWillChange.send() - @Published already triggers updates
                 self.prayerPosts = newPosts
                 print("🔄 Prayer posts updated: \(newPosts.count) posts")
             }
@@ -322,10 +324,11 @@ class PostsManager: ObservableObject {
 
         // Listen to testimonies posts changes
         firebasePostService.$testimoniesPosts
+            .debounce(for: .milliseconds(300), scheduler: RunLoop.main)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] newPosts in
                 guard let self = self else { return }
-                self.objectWillChange.send() // Force UI update
+                // P0-4: Removed objectWillChange.send() - @Published already triggers updates
                 self.testimoniesPosts = newPosts
                 print("🔄 Testimonies posts updated: \(newPosts.count) posts")
             }
@@ -333,10 +336,11 @@ class PostsManager: ObservableObject {
 
         // Listen to open table posts changes
         firebasePostService.$openTablePosts
+            .debounce(for: .milliseconds(300), scheduler: RunLoop.main)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] newPosts in
                 guard let self = self else { return }
-                self.objectWillChange.send() // Force UI update
+                // P0-4: Removed objectWillChange.send() - @Published already triggers updates
                 self.openTablePosts = newPosts
                 print("🔄 OpenTable posts updated: \(newPosts.count) posts (with profile images)")
             }
@@ -344,10 +348,11 @@ class PostsManager: ObservableObject {
 
         // Listen to all posts changes
         firebasePostService.$posts
+            .debounce(for: .milliseconds(300), scheduler: RunLoop.main)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] newPosts in
                 guard let self = self else { return }
-                self.objectWillChange.send() // Force UI update
+                // P0-4: Removed objectWillChange.send() - @Published already triggers updates
                 self.allPosts = newPosts
                 print("🔄 All posts updated: \(newPosts.count) posts")
             }
@@ -697,54 +702,79 @@ class PostsManager: ObservableObject {
     
     // MARK: - Profile Picture Sync
     
-    /// Start listening for profile picture updates in real-time
-    /// Automatically updates all posts when a user changes their profile picture
+    /// P0 FIX: Replace N+1 real-time listeners with periodic batch updates
+    /// Instead of 50-100 listeners, use a single timer to refresh profile images every 5 minutes
     private func startListeningForProfileUpdates() async {
-        print("👂 Starting real-time profile picture listeners...")
+        print("👂 [PERF FIX] Using batch profile updates instead of individual listeners")
         
+        // Start a timer to refresh profile images every 5 minutes
+        Task {
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 300_000_000_000) // 5 minutes
+                await refreshProfileImages()
+            }
+        }
+        
+        print("✅ Batch profile update timer started (5 min intervals)")
+    }
+    
+    /// Batch refresh profile images for all unique authors
+    private func refreshProfileImages() async {
         let db = Firestore.firestore()
         
-        // Get all unique author IDs
+        // Get unique author IDs
         var authorIds = Set<String>()
-        
         await MainActor.run {
             for post in allPosts {
                 authorIds.insert(post.authorId)
             }
         }
         
-        print("📊 Setting up listeners for \(authorIds.count) unique authors")
+        guard !authorIds.isEmpty else { return }
         
-        // Set up a listener for each author
-        for authorId in authorIds {
-            let listener = db.collection("users").document(authorId)
-                .addSnapshotListener { [weak self] documentSnapshot, error in
-                    guard let self = self else { return }
-                    
-                    if let error = error {
-                        print("⚠️ Profile listener error for \(authorId): \(error)")
-                        return
-                    }
-                    
-                    guard let document = documentSnapshot,
-                          let data = document.data(),
-                          let profileImageURL = data["profileImageURL"] as? String else {
-                        return
-                    }
-                    
-                    // User updated their profile picture - update all their posts
-                    Task { @MainActor in
-                        self.updatePostsForUser(userId: authorId, newProfileImageURL: profileImageURL)
+        print("🔄 Refreshing profile images for \(authorIds.count) authors...")
+        
+        // Batch fetch user profiles (10 at a time due to Firestore 'in' limit)
+        let authorIdArray = Array(authorIds)
+        for i in stride(from: 0, to: authorIdArray.count, by: 10) {
+            let batch = Array(authorIdArray[i..<min(i + 10, authorIdArray.count)])
+            
+            do {
+                let snapshot = try await db.collection("users")
+                    .whereField(FieldPath.documentID(), in: batch)
+                    .getDocuments()
+                
+                for document in snapshot.documents {
+                    if let profileImageURL = document.data()["profileImageURL"] as? String {
+                        await MainActor.run {
+                            self.updatePostsForUser(userId: document.documentID, newProfileImageURL: profileImageURL)
+                        }
                     }
                 }
-            
-            // Store listener reference
-            await MainActor.run {
-                profileUpdateListeners[authorId] = listener
+            } catch {
+                print("⚠️ Failed to batch fetch profiles: \(error)")
+            }
+        }
+    }
+    
+    // ✅ P0-1 FIX: Add cleanup method to remove all profile listeners
+    /// Stop all profile picture listeners to prevent memory leaks
+    /// Call this from view onDisappear blocks
+    @MainActor
+    func stopListeningForProfileUpdates() {
+        print("🛑 Stopping \(profileUpdateListeners.count) profile picture listeners...")
+        
+        // Remove all Firestore listeners
+        for (authorId, listener) in profileUpdateListeners {
+            if let firestoreListener = listener as? ListenerRegistration {
+                firestoreListener.remove()
             }
         }
         
-        print("✅ Profile picture listeners active")
+        // Clear the dictionary
+        profileUpdateListeners.removeAll()
+        
+        print("✅ All profile listeners stopped")
     }
     
     /// Update all posts from a specific user with their new profile image

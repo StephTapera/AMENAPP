@@ -14,15 +14,72 @@ struct SettingsView: View {
     
     var body: some View {
         NavigationStack {
-            List {
-            // Account Section
-            Section {
+            ZStack {
+                Color.black.ignoresSafeArea()
+                
+                ScrollView {
+                    VStack(spacing: 16) {
+                        // Account Section
+                        accountSection
+                        
+                        // Social & Connections Section
+                        socialSection
+                        
+                        // App Section
+                        appSection
+                        
+                        // Sign Out Button
+                        signOutButton
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 20)
+                }
+            }
+            .navigationTitle("Settings")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") {
+                        HapticManager.impact(style: .light)
+                        dismiss()
+                    }
+                    .font(.custom("OpenSans-SemiBold", size: 16))
+                    .foregroundStyle(.white)
+                }
+            }
+            .confirmationDialog("Sign Out", isPresented: $showSignOutConfirmation, titleVisibility: .visible) {
+                Button("Sign Out", role: .destructive) {
+                    signOut()
+                }
+                Button("Cancel", role: .cancel) {
+                    HapticManager.impact(style: .light)
+                }
+            } message: {
+                Text("Are you sure you want to sign out?")
+            }
+        }
+    }
+    
+    // MARK: - Account Section
+    
+    private var accountSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("ACCOUNT")
+                .font(.custom("OpenSans-Bold", size: 12))
+                .foregroundStyle(.white.opacity(0.6))
+                .padding(.horizontal, 16)
+            
+            VStack(spacing: 1) {
                 settingsNavigationLink(
                     destination: AccountSettingsView(),
                     icon: "person.circle.fill",
                     iconColor: .blue,
-                    title: "Account Settings"
+                    title: "Account Settings",
+                    isFirst: true
                 )
+                
+                Divider()
+                    .background(Color.white.opacity(0.1))
                 
                 settingsNavigationLink(
                     destination: PrivacySettingsView(),
@@ -31,101 +88,115 @@ struct SettingsView: View {
                     title: "Privacy & Security"
                 )
                 
+                Divider()
+                    .background(Color.white.opacity(0.1))
+                
                 settingsNavigationLink(
                     destination: NotificationSettingsView(),
                     icon: "bell.badge.fill",
                     iconColor: .orange,
-                    title: "Notifications"
+                    title: "Notifications",
+                    isLast: true
                 )
-            } header: {
-                Text("ACCOUNT")
-                    .font(.custom("OpenSans-Bold", size: 12))
             }
+            .glassEffect(GlassEffectStyle.regular, in: RoundedRectangle(cornerRadius: 16))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+        }
+    }
+    
+    // MARK: - Social Section
+    
+    private var socialSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("SOCIAL & CONNECTIONS")
+                .font(.custom("OpenSans-Bold", size: 12))
+                .foregroundStyle(.white.opacity(0.6))
+                .padding(.horizontal, 16)
             
-            // Social & Connections Section
-            Section {
+            VStack(spacing: 0) {
                 settingsNavigationLink(
                     destination: BlockedUsersView(),
                     icon: "hand.raised.fill",
                     iconColor: .red,
-                    title: "Blocked Users"
+                    title: "Blocked Users",
+                    isFirst: true,
+                    isLast: true
                 )
-            } header: {
-                Text("SOCIAL & CONNECTIONS")
-                    .font(.custom("OpenSans-Bold", size: 12))
             }
+            .glassEffect(GlassEffectStyle.regular, in: RoundedRectangle(cornerRadius: 16))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+        }
+    }
+    
+    // MARK: - App Section
+    
+    private var appSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("APP")
+                .font(.custom("OpenSans-Bold", size: 12))
+                .foregroundStyle(.white.opacity(0.6))
+                .padding(.horizontal, 16)
             
-            // App Section
-            Section {
+            VStack(spacing: 1) {
                 settingsNavigationLink(
                     destination: HelpSupportView(),
                     icon: "questionmark.circle.fill",
                     iconColor: .purple,
-                    title: "Help & Support"
+                    title: "Help & Support",
+                    isFirst: true
                 )
+                
+                Divider()
+                    .background(Color.white.opacity(0.1))
                 
                 settingsNavigationLink(
                     destination: AboutAmenView(),
                     icon: "info.circle.fill",
                     iconColor: .gray,
-                    title: "About AMEN"
+                    title: "About AMEN",
+                    isLast: true
                 )
-            } header: {
-                Text("APP")
-                    .font(.custom("OpenSans-Bold", size: 12))
             }
-            
-            // Sign Out
-            Section {
-                Button(role: .destructive) {
-                    HapticManager.impact(style: .medium)
-                    showSignOutConfirmation = true
-                } label: {
-                    HStack {
-                        Spacer()
-                        Label {
-                            Text("Sign Out")
-                                .font(.custom("OpenSans-SemiBold", size: 16))
-                        } icon: {
-                            Image(systemName: "rectangle.portrait.and.arrow.right")
-                        }
-                        Spacer()
-                    }
-                }
-            }
+            .glassEffect(GlassEffectStyle.regular, in: RoundedRectangle(cornerRadius: 16))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
         }
-        .listStyle(.insetGrouped)
-        .scrollContentBackground(.visible)
-        .navigationTitle("Settings")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button("Done") {
-                    HapticManager.impact(style: .light)
-                    dismiss()
-                }
-                .font(.custom("OpenSans-SemiBold", size: 16))
-            }
-        }
-        .confirmationDialog("Sign Out", isPresented: $showSignOutConfirmation, titleVisibility: .visible) {
-            Button("Sign Out", role: .destructive) {
-                signOut()
-            }
-            Button("Cancel", role: .cancel) {
-                HapticManager.impact(style: .light)
-            }
-        } message: {
-            Text("Are you sure you want to sign out?")
-        }
-        } // NavigationStack
     }
+    
+    // MARK: - Sign Out Button
+    
+    private var signOutButton: some View {
+        Button(role: .destructive) {
+            HapticManager.impact(style: .medium)
+            showSignOutConfirmation = true
+        } label: {
+            HStack {
+                Spacer()
+                Label {
+                    Text("Sign Out")
+                        .font(.custom("OpenSans-SemiBold", size: 16))
+                        .foregroundStyle(.red)
+                } icon: {
+                    Image(systemName: "rectangle.portrait.and.arrow.right")
+                        .foregroundStyle(.red)
+                }
+                Spacer()
+            }
+            .padding(16)
+        }
+        .glassEffect(GlassEffectStyle.regular.interactive(), in: RoundedRectangle(cornerRadius: 16))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+    
+    // MARK: - Navigation Link Helper
     
     @ViewBuilder
     private func settingsNavigationLink<Destination: View>(
         destination: Destination,
         icon: String,
         iconColor: Color,
-        title: String
+        title: String,
+        isFirst: Bool = false,
+        isLast: Bool = false
     ) -> some View {
         NavigationLink(destination: destination) {
             HStack(spacing: 12) {
@@ -136,10 +207,18 @@ struct SettingsView: View {
                 
                 Text(title)
                     .font(.custom("OpenSans-SemiBold", size: 16))
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(.white)
+                
+                Spacer()
+                
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.3))
             }
+            .padding(16)
+            .background(Color.white.opacity(0.05))
+            .contentShape(Rectangle())
         }
-        .listRowBackground(Color(.systemBackground))
     }
     
     private func signOut() {

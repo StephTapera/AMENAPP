@@ -112,11 +112,8 @@ final class NotificationService: ObservableObject {
     }
     
     private func updateBadgeCount() async {
-        // Update app badge with unread count
-        #if !targetEnvironment(simulator)
-        await UIApplication.shared.applicationIconBadgeNumber = unreadCount
-        #endif
-        print("📛 Badge count updated: \(unreadCount)")
+        // Delegate to BadgeCountManager for thread-safe, cached updates
+        await BadgeCountManager.shared.requestBadgeUpdate()
     }
     
     // MARK: - Start Listening to Notifications

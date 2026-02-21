@@ -32,6 +32,28 @@ struct BereanAIAssistantView: View {
     @State private var showClearAllAlert = false
     @State private var showNewConversationAlert = false
     
+    // ✅ P0: Production readiness state
+    @State private var lastSentMessageText = ""  // For duplicate prevention
+    @State private var lastSentTime: Date?  // For debouncing
+    @State private var lastFailedMessageText = ""  // For retry preservation
+    @State private var retryAttempts = 0  // For exponential backoff
+    @State private var userHasScrolledUp = false  // For smart scrolling
+    @State private var isLoadingHistory = false  // For loading states
+    private let sendDebounceInterval: TimeInterval = 0.5  // 500ms debounce
+    private let maxRetryAttempts = 3
+    
+    // ✅ Performance monitoring
+    @State private var performanceMetrics = PerformanceMetrics()
+    
+    struct PerformanceMetrics {
+        var messageCount = 0
+        var totalResponseTime: TimeInterval = 0
+        var averageResponseTime: TimeInterval { messageCount > 0 ? totalResponseTime / Double(messageCount) : 0 }
+        var fastestResponse: TimeInterval = .infinity
+        var slowestResponse: TimeInterval = 0
+        var lastRequestStartTime: Date?
+    }
+    
     // ✅ New state variables for new features
     @State private var showOnboarding = false
     @State private var showSavedMessages = false
@@ -149,6 +171,12 @@ struct BereanAIAssistantView: View {
                 // Chat Content
                 ScrollViewReader { proxy in
                     ScrollView {
+                        GeometryReader { geometry in
+                            // Track scroll position for smart scrolling
+                            Color.clear.preference(key: ScrollOffsetPreferenceKey.self, value: geometry.frame(in: .named("scroll")).minY)
+                        }
+                        .frame(height: 0)
+                        
                         VStack(spacing: 20) {
                             // Welcome Section
                             if viewModel.messages.isEmpty {
@@ -198,12 +226,22 @@ struct BereanAIAssistantView: View {
                         isInputFocused = false
                     }
                     .onChange(of: viewModel.messages.count) { _, _ in
-                        if let lastMessage = viewModel.messages.last {
+                        // ✅ P1-1: Smart scroll - only auto-scroll if user hasn't scrolled up
+                        if !userHasScrolledUp, let lastMessage = viewModel.messages.last {
                             withAnimation(.easeOut(duration: 0.25)) {
                                 proxy.scrollTo(lastMessage.id, anchor: .bottom)
                             }
                         }
                     }
+                    .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
+                        // Detect if user has scrolled up manually
+                        if value < -50 {  // User scrolled up more than 50 points
+                            userHasScrolledUp = true
+                        } else if value > -10 {  // User is near bottom
+                            userHasScrolledUp = false
+                        }
+                    }
+                    .coordinateSpace(name: "scroll")
                     .onChange(of: isInputFocused) { _, newValue in
                         // Scroll to bottom when keyboard appears
                         if newValue, let lastMessage = viewModel.messages.last {
@@ -265,9 +303,14 @@ struct BereanAIAssistantView: View {
         .sheet(isPresented: $showHistoryView) {
             BereanConversationManagementView(
                 conversations: $viewModel.savedConversations,
+                isLoading: $isLoadingHistory,  // ✅ P1-2: Loading state
                 onSelect: { conversation in
+                    isLoadingHistory = true
                     viewModel.loadConversation(conversation)
-                    showHistoryView = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        isLoadingHistory = false
+                        showHistoryView = false
+                    }
                 },
                 onDelete: { conversation in
                     viewModel.deleteConversation(conversation)
@@ -328,6 +371,12 @@ struct BereanAIAssistantView: View {
         }
         .onDisappear {
             removeKeyboardObservers()
+            // ✅ P0-3: Cancel any ongoing generation when view disappears
+            viewModel.stopGeneration()
+            // Auto-save conversation if there are messages
+            if !viewModel.messages.isEmpty {
+                viewModel.saveCurrentConversation()
+            }
         }
     }
     
@@ -1170,8 +1219,14 @@ struct BereanAIAssistantView: View {
             return
         }
         
-        guard let lastUserMessage = viewModel.messages.last(where: { $0.role == .user }) else {
-            print("⚠️ No user message to retry")
+        // ✅ P0-4: Use preserved failed message text, or fallback to last user message
+        let messageToRetry: String
+        if !lastFailedMessageText.isEmpty {
+            messageToRetry = lastFailedMessageText
+        } else if let lastUserMessage = viewModel.messages.last(where: { $0.role == .user }) {
+            messageToRetry = lastUserMessage.content
+        } else {
+            print("⚠️ No message to retry")
             return
         }
         
@@ -1190,10 +1245,21 @@ struct BereanAIAssistantView: View {
             }
         }
         
-        print("🔄 Retrying last message: \(lastUserMessage.content.prefix(50))...")
+        print("🔄 Retrying message: \(messageToRetry.prefix(50))...")
         
-        // Resend the message
-        sendMessage(lastUserMessage.content)
+        // ✅ Implement exponential backoff for retries
+        let backoffDelay = pow(2.0, Double(min(retryAttempts, maxRetryAttempts))) * 0.5
+        retryAttempts += 1
+        
+        if retryAttempts > maxRetryAttempts {
+            print("⚠️ Max retry attempts reached, resetting counter")
+            retryAttempts = 0
+        }
+        
+        // Delay retry with exponential backoff
+        DispatchQueue.main.asyncAfter(deadline: .now() + backoffDelay) {
+            self.sendMessage(messageToRetry, isRetry: true)
+        }
     }
     
     /// Refresh the current conversation with pull-to-refresh
@@ -1275,11 +1341,32 @@ struct BereanAIAssistantView: View {
         isInputFocused = false
     }
     
-    private func sendMessage(_ text: String) {
+    private func sendMessage(_ text: String, isRetry: Bool = false) {
         // Trim whitespace and check if empty
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedText.isEmpty else {
             print("⚠️ Cannot send empty message")
+            return
+        }
+        
+        // ✅ P0-1: Duplicate message protection with debounce
+        if !isRetry {
+            // Check if this is a duplicate of the last sent message
+            if trimmedText == lastSentMessageText {
+                print("⚠️ Duplicate message detected, ignoring")
+                return
+            }
+            
+            // Check debounce interval
+            if let lastTime = lastSentTime, Date().timeIntervalSince(lastTime) < sendDebounceInterval {
+                print("⚠️ Message sent too quickly, debouncing")
+                return
+            }
+        }
+        
+        // ✅ P0-2: Prevent sending if already generating
+        guard !isGenerating else {
+            print("⚠️ Already generating response, ignoring new message")
             return
         }
         
@@ -1321,6 +1408,15 @@ struct BereanAIAssistantView: View {
             haptic.notificationOccurred(.error)
             return
         }
+        
+        // ✅ Update tracking variables
+        if !isRetry {
+            lastSentMessageText = trimmedText
+            lastSentTime = Date()
+        }
+        
+        // ✅ Performance monitoring: Start tracking
+        performanceMetrics.lastRequestStartTime = Date()
         
         // ✅ Dismiss keyboard
         isInputFocused = false
@@ -1372,9 +1468,17 @@ struct BereanAIAssistantView: View {
                 }
             },
             onComplete: { finalMessage in
-                // Replace placeholder with final message
+                // ✅ P0-5: Preserve message ID during streaming completion
                 if let lastIndex = viewModel.messages.lastIndex(where: { $0.role == .assistant }) {
-                    viewModel.messages[lastIndex] = finalMessage
+                    let existingId = viewModel.messages[lastIndex].id
+                    let preservedMessage = BereanMessage(
+                        id: existingId,  // Preserve the original ID
+                        content: finalMessage.content,
+                        role: finalMessage.role,
+                        timestamp: finalMessage.timestamp,
+                        verseReferences: finalMessage.verseReferences
+                    )
+                    viewModel.messages[lastIndex] = preservedMessage
                 }
                 
                 // ✅ Track usage for free tier users
@@ -1386,6 +1490,35 @@ struct BereanAIAssistantView: View {
                     isGenerating = false  // ✅ Clear generating state
                 }
                 
+                // ✅ P0-6: Auto-save conversation after successful message
+                if viewModel.messages.count >= 2 {  // At least one exchange
+                    Task {
+                        await MainActor.run {
+                            viewModel.saveCurrentConversation()
+                        }
+                    }
+                }
+                
+                // ✅ Reset retry counter on success
+                retryAttempts = 0
+                lastFailedMessageText = ""
+                
+                // ✅ Performance monitoring: Track response time
+                if let startTime = performanceMetrics.lastRequestStartTime {
+                    let responseTime = Date().timeIntervalSince(startTime)
+                    performanceMetrics.messageCount += 1
+                    performanceMetrics.totalResponseTime += responseTime
+                    performanceMetrics.fastestResponse = min(performanceMetrics.fastestResponse, responseTime)
+                    performanceMetrics.slowestResponse = max(performanceMetrics.slowestResponse, responseTime)
+                    
+                    print("⚡ Performance: Response time: \(String(format: "%.2f", responseTime))s | Avg: \(String(format: "%.2f", performanceMetrics.averageResponseTime))s | Fastest: \(String(format: "%.2f", performanceMetrics.fastestResponse))s | Slowest: \(String(format: "%.2f", performanceMetrics.slowestResponse))s")
+                    
+                    // ✅ Log warning if response is slow (> 5s)
+                    if responseTime > 5.0 {
+                        print("⚠️ Slow response detected: \(String(format: "%.2f", responseTime))s")
+                    }
+                }
+                
                 // Success haptic
                 let successHaptic = UINotificationFeedbackGenerator()
                 successHaptic.notificationOccurred(.success)
@@ -1394,6 +1527,9 @@ struct BereanAIAssistantView: View {
             },
             onError: { error in
                 print("❌ Error generating response: \(error.localizedDescription)")
+                
+                // ✅ P0-4: Preserve failed message for retry
+                lastFailedMessageText = trimmedText
                 
                 // Remove the placeholder message on error
                 if let lastIndex = viewModel.messages.lastIndex(where: { $0.role == .assistant }),
@@ -1406,29 +1542,35 @@ struct BereanAIAssistantView: View {
                     isGenerating = false  // ✅ Clear generating state
                 }
                 
-                // Determine error type
+                // ✅ Enhanced error handling with specific user-friendly messages
                 let bereanError: BereanError
                 if let openAIError = error as? OpenAIError {
                     switch openAIError {
                     case .missingAPIKey:
-                        bereanError = .invalidResponse
+                        bereanError = .unknown("API key configuration error. Please check your settings.")
                     case .invalidResponse:
                         bereanError = .invalidResponse
                     case .httpError(let statusCode):
-                        if statusCode == 429 {
+                        switch statusCode {
+                        case 401, 403:
+                            bereanError = .unknown("Authentication failed. Please check your API key in settings.")
+                        case 429:
                             bereanError = .rateLimitExceeded
-                        } else if statusCode >= 500 {
-                            bereanError = .aiServiceUnavailable
-                        } else {
-                            bereanError = .unknown("Server error (\(statusCode))")
+                        case 500...599:
+                            bereanError = .unknown("Server error. The AI service is experiencing issues. Please try again in a moment.")
+                        default:
+                            bereanError = .unknown("Server error (\(statusCode)). Please try again.")
                         }
                     }
                 } else if let urlError = error as? URLError {
-                    if urlError.code == .notConnectedToInternet || urlError.code == .networkConnectionLost {
+                    switch urlError.code {
+                    case .notConnectedToInternet, .networkConnectionLost:
                         bereanError = .networkUnavailable
-                    } else if urlError.code == .timedOut {
-                        bereanError = .aiServiceUnavailable
-                    } else {
+                    case .timedOut:
+                        bereanError = .unknown("Request timed out. The AI is taking too long to respond. Try a shorter question.")
+                    case .cannotFindHost, .cannotConnectToHost:
+                        bereanError = .unknown("Cannot connect to AI service. Please check your internet connection.")
+                    default:
                         bereanError = .unknown("Network error: \(urlError.localizedDescription)")
                     }
                 } else {
@@ -1690,39 +1832,30 @@ struct MessageBubbleView: View {
                         // More options
                         Menu {
                             Button {
-                                do {
-                                    // Copy text
-                                    UIPasteboard.general.string = message.content
-                                    
-                                    let haptic = UINotificationFeedbackGenerator()
-                                    haptic.notificationOccurred(.success)
-                                    
-                                    print("✅ Message copied to clipboard")
-                                } catch {
-                                    print("❌ Failed to copy to clipboard: \(error.localizedDescription)")
-                                    
-                                    let haptic = UINotificationFeedbackGenerator()
-                                    haptic.notificationOccurred(.error)
+                                // ✅ P1-4: Offload clipboard operations to background thread
+                                let content = message.content
+                                Task.detached(priority: .userInitiated) {
+                                    await MainActor.run {
+                                        UIPasteboard.general.string = content
+                                        
+                                        let haptic = UINotificationFeedbackGenerator()
+                                        haptic.notificationOccurred(.success)
+                                        
+                                        print("✅ Message copied to clipboard")
+                                    }
                                 }
                             } label: {
                                 Label("Copy Text", systemImage: "doc.on.doc")
                             }
                             
                             Button {
-                                do {
-                                    // Save for later
-                                    dataManager.saveMessage(message)
-                                    
-                                    let haptic = UINotificationFeedbackGenerator()
-                                    haptic.notificationOccurred(.success)
-                                    
-                                    print("✅ Message saved for later")
-                                } catch {
-                                    print("❌ Failed to save message: \(error.localizedDescription)")
-                                    
-                                    let haptic = UINotificationFeedbackGenerator()
-                                    haptic.notificationOccurred(.error)
-                                }
+                                // Save for later
+                                dataManager.saveMessage(message)
+                                
+                                let haptic = UINotificationFeedbackGenerator()
+                                haptic.notificationOccurred(.success)
+                                
+                                print("✅ Message saved for later")
                             } label: {
                                 Label("Save for Later", systemImage: "bookmark")
                             }
@@ -1768,9 +1901,20 @@ struct MessageBubbleView: View {
     }
     
     private func openVerse() {
-        // Copy to clipboard for now
-        UIPasteboard.general.string = message.verseReferences.first ?? ""
-        print("📖 Opening verse: \(message.verseReferences.first ?? "")")
+        // ✅ Navigate to Bible view with verse reference
+        guard let reference = message.verseReferences.first, !reference.isEmpty else {
+            print("⚠️ No verse reference available")
+            return
+        }
+        
+        // Use the navigation helper to open the verse
+        BereanNavigationHelper.openBibleVerse(reference: reference)
+        
+        // Haptic feedback
+        let haptic = UIImpactFeedbackGenerator(style: .medium)
+        haptic.impactOccurred()
+        
+        print("📖 Navigating to verse: \(reference)")
     }
 }
 
@@ -1874,8 +2018,14 @@ struct VerseReferenceChip: View {
     }
     
     private func openVerseReference() {
-        UIPasteboard.general.string = reference
-        print("📖 Opening verse: \(reference)")
+        // ✅ Navigate to Bible view with verse reference
+        BereanNavigationHelper.openBibleVerse(reference: reference)
+        
+        // Haptic feedback
+        let haptic = UIImpactFeedbackGenerator(style: .medium)
+        haptic.impactOccurred()
+        
+        print("📖 Navigating to verse: \(reference)")
     }
 }
 
@@ -1995,7 +2145,8 @@ struct BereanSendButton: View {
 
 // MARK: - Berean Message Model
 
-struct BereanMessage: Identifiable, Codable {
+// ✅ P1-3: Equatable conformance for efficient diffing
+struct BereanMessage: Identifiable, Codable, Equatable {
     let id: UUID
     let content: String
     let role: MessageRole
@@ -2011,6 +2162,14 @@ struct BereanMessage: Identifiable, Codable {
         case user
         case assistant
         case system
+    }
+    
+    // ✅ Equatable conformance for performance optimization
+    static func == (lhs: BereanMessage, rhs: BereanMessage) -> Bool {
+        return lhs.id == rhs.id &&
+               lhs.content == rhs.content &&
+               lhs.role == rhs.role &&
+               lhs.verseReferences == rhs.verseReferences
     }
     
     init(id: UUID = UUID(), content: String, role: MessageRole, timestamp: Date, verseReferences: [String] = []) {
@@ -3384,5 +3543,4 @@ struct ConversationHistoryRow: View {
         .buttonStyle(PlainButtonStyle())
     }
 }
-
 

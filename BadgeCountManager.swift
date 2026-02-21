@@ -8,6 +8,7 @@
 
 import Foundation
 import UIKit
+import Combine
 import FirebaseAuth
 import FirebaseFirestore
 
@@ -34,8 +35,19 @@ class BadgeCountManager: ObservableObject {
     private var isUpdating = false
     private var pendingUpdate = false
     
+    // P0 FIX: Store listeners for proper cleanup
+    private var conversationsListener: ListenerRegistration?
+    private var notificationsListener: ListenerRegistration?
+    private var isListening = false
+    
     private init() {
         print("🔰 BadgeCountManager initialized")
+    }
+    
+    deinit {
+        // Cleanup listeners synchronously
+        conversationsListener?.remove()
+        notificationsListener?.remove()
     }
     
     // MARK: - Public API
@@ -187,10 +199,16 @@ class BadgeCountManager: ObservableObject {
 extension BadgeCountManager {
     /// Setup real-time listener for badge updates (optional, more responsive)
     func startRealtimeUpdates() {
+        // P0 FIX: Prevent duplicate listeners
+        guard !isListening else {
+            print("⚠️ Badge listeners already active")
+            return
+        }
+        
         guard let userId = Auth.auth().currentUser?.uid else { return }
         
-        // Listen to conversations for message updates
-        db.collection("conversations")
+        // P0 FIX: Store listener for cleanup
+        conversationsListener = db.collection("conversations")
             .whereField("participantIds", arrayContains: userId)
             .addSnapshotListener { [weak self] snapshot, error in
                 guard let self = self else { return }
@@ -205,8 +223,8 @@ extension BadgeCountManager {
                 }
             }
         
-        // Listen to notifications for notification updates
-        db.collection("users")
+        // P0 FIX: Store listener for cleanup
+        notificationsListener = db.collection("users")
             .document(userId)
             .collection("notifications")
             .whereField("read", isEqualTo: false)
@@ -223,6 +241,17 @@ extension BadgeCountManager {
                 }
             }
         
+        isListening = true
         print("✅ Real-time badge listeners started")
+    }
+    
+    /// Stop real-time updates and cleanup listeners
+    func stopRealtimeUpdates() {
+        conversationsListener?.remove()
+        notificationsListener?.remove()
+        conversationsListener = nil
+        notificationsListener = nil
+        isListening = false
+        print("🛑 Real-time badge listeners stopped")
     }
 }

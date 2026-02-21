@@ -21,6 +21,9 @@ struct PeopleDiscoveryViewNew: View {
     @State private var searchText = ""
     @State private var selectedFilter: DiscoveryFilter = .suggested
     @State private var showProfileSheet: UserModel?
+    @State private var scrollOffset: CGFloat = 0
+    @State private var searchDebounceTimer: Timer?
+    @State private var isLoadingTriggered = false
     
     enum DiscoveryFilter: String, CaseIterable {
         case suggested = "Suggested"
@@ -48,51 +51,71 @@ struct PeopleDiscoveryViewNew: View {
                 )
                 .ignoresSafeArea()
                 
-                VStack(spacing: 0) {
-                    // Header with back button (always shown)
-                    headerSection
-                    
-                    // Search bar
-                    liquidGlassSearchSection
-                    
-                    // Filter tabs
-                    liquidGlassFilterSection
-                    
-                    // People Discovery content
-                    ScrollView(showsIndicators: false) {
-                            LazyVStack(spacing: 12) {
-                                if viewModel.isLoading && viewModel.users.isEmpty {
-                                    loadingView
-                                } else if viewModel.users.isEmpty {
-                                    emptyStateView
-                                } else {
-                                    ForEach(viewModel.users.filter { $0.id != nil }) { user in
-                                        PeopleDiscoveryPersonCard(
-                                            user: user,
-                                            onTap: {
-                                                showProfileSheet = user
-                                            },
-                                            viewModel: viewModel
-                                        )
-                                    }
-                                    
-                                    // Load more trigger
-                                    if viewModel.hasMore {
-                                        ProgressView()
-                                            .progressViewStyle(CircularProgressViewStyle(tint: .white.opacity(0.5)))
-                                            .frame(height: 50)
-                                            .onAppear {
-                                                Task { await viewModel.loadMore() }
+                // UNIFIED SCROLL: Everything inside ScrollView
+                ScrollView(showsIndicators: false) {
+                    LazyVStack(spacing: 0, pinnedViews: []) {
+                        // Header with back button (collapses on scroll)
+                        headerSection
+                        
+                        // Search bar (shrinks on scroll)
+                        liquidGlassSearchSection
+                        
+                        // Filter tabs (fade out on scroll)
+                        liquidGlassFilterSection
+                        
+                        // People Discovery content
+                        LazyVStack(spacing: 12) {
+                            if viewModel.isLoading && viewModel.users.isEmpty {
+                                loadingView
+                            } else if let error = viewModel.networkError {
+                                errorStateView(message: error)
+                            } else if viewModel.users.isEmpty {
+                                emptyStateView
+                            } else {
+                                ForEach(viewModel.users.filter { $0.id != nil }) { user in
+                                    PeopleDiscoveryPersonCard(
+                                        user: user,
+                                        onTap: {
+                                            showProfileSheet = user
+                                        },
+                                        viewModel: viewModel
+                                    )
+                                }
+                                
+                                // Load more trigger (with double-trigger guard)
+                                if viewModel.hasMore && !viewModel.isLoadingMore {
+                                    ProgressView()
+                                        .progressViewStyle(CircularProgressViewStyle(tint: .black.opacity(0.5)))
+                                        .frame(height: 50)
+                                        .onAppear {
+                                            guard !isLoadingTriggered else { return }
+                                            isLoadingTriggered = true
+                                            Task {
+                                                await viewModel.loadMore()
+                                                isLoadingTriggered = false
                                             }
-                                    }
+                                        }
                                 }
                             }
-                            .padding(.horizontal, 16)
-                            .padding(.bottom, 20)
                         }
-                        .refreshable {
-                            await viewModel.refresh()
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 20)
+                    }
+                    .background(
+                        GeometryReader { geometry in
+                            Color.clear.preference(
+                                key: ScrollOffsetPreferenceKey.self,
+                                value: geometry.frame(in: .named("scroll")).minY
+                            )
                         }
+                    )
+                }
+                .coordinateSpace(name: "scroll")
+                .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
+                    scrollOffset = value
+                }
+                .refreshable {
+                    await viewModel.refresh()
                 }
             }
             .navigationBarHidden(true)
@@ -114,11 +137,23 @@ struct PeopleDiscoveryViewNew: View {
         }
     }
     
-    // MARK: - Header with Back Button
+    // MARK: - Header with Back Button (Scroll-Driven Collapse)
     
     private var headerSection: some View {
-        HStack(spacing: 16) {
-            // Back button with liquid glass
+        let collapsedHeight: CGFloat = 50
+        let expandedHeight: CGFloat = 80
+        let collapsedFontSize: CGFloat = 20
+        let expandedFontSize: CGFloat = 28
+        let scrollThreshold: CGFloat = 100
+        
+        // Calculate progress (0 = expanded, 1 = collapsed)
+        let progress = max(0, min(1, -scrollOffset / scrollThreshold))
+        let currentHeight = expandedHeight - (expandedHeight - collapsedHeight) * progress
+        let currentFontSize = expandedFontSize - (expandedFontSize - collapsedFontSize) * progress
+        let currentPadding = 20 - (8 * progress)
+        
+        return HStack(spacing: 16) {
+            // Back button with liquid glass (stays same size)
             Button {
                 let haptic = UIImpactFeedbackGenerator(style: .light)
                 haptic.impactOccurred()
@@ -153,20 +188,35 @@ struct PeopleDiscoveryViewNew: View {
             Spacer()
             
             Text("Discover People")
-                .font(.custom("OpenSans-Bold", size: 28))
+                .font(.custom("OpenSans-Bold", size: currentFontSize))
                 .foregroundColor(.black)
             
             Spacer()
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, currentPadding)
         .padding(.top, 16)
-        .padding(.bottom, 20)
+        .padding(.bottom, currentPadding)
+        .frame(height: currentHeight)
+        .animation(.easeOut(duration: 0.2), value: scrollOffset)
     }
     
-    // MARK: - Smart Search
+    // MARK: - Smart Search (Scroll-Driven Shrink + View-Level Debouncing)
     
     private var liquidGlassSearchSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        let scrollThreshold: CGFloat = 100
+        let progress = max(0, min(1, -scrollOffset / scrollThreshold))
+        
+        // Height shrink: 56pt → 44pt
+        let expandedHeight: CGFloat = 56
+        let collapsedHeight: CGFloat = 44
+        let currentHeight = expandedHeight - (expandedHeight - collapsedHeight) * progress
+        
+        // Padding shrink
+        let expandedPadding: CGFloat = 16
+        let collapsedPadding: CGFloat = 10
+        let currentPadding = expandedPadding - (expandedPadding - collapsedPadding) * progress
+        
+        return VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 12) {
                 // Animated search icon
                 Image(systemName: searchText.isEmpty ? "magnifyingglass" : "magnifyingglass.circle.fill")
@@ -180,13 +230,18 @@ struct PeopleDiscoveryViewNew: View {
                     .autocorrectionDisabled()
                     .textInputAutocapitalization(.never)
                     .onChange(of: searchText) { _, newValue in
-                        Task {
-                            await viewModel.searchUsers(query: newValue)
+                        // View-level debouncing (300ms)
+                        searchDebounceTimer?.invalidate()
+                        searchDebounceTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: false) { _ in
+                            Task {
+                                await viewModel.searchUsers(query: newValue)
+                            }
                         }
                     }
                 
                 if !searchText.isEmpty {
                     Button {
+                        searchDebounceTimer?.invalidate()
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                             searchText = ""
                             Task {
@@ -204,39 +259,29 @@ struct PeopleDiscoveryViewNew: View {
                     .transition(.scale.combined(with: .opacity))
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
+            .padding(.horizontal, currentPadding)
+            .padding(.vertical, currentPadding)
+            .frame(height: currentHeight)
             .background(
                 ZStack {
-                    // Liquid glass effect
+                    // Reduced opacity for GPU performance
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(.ultraThinMaterial.opacity(0.3))
+                        .fill(.ultraThinMaterial.opacity(0.1))
                     
-                    // Subtle gradient overlay - more prominent when searching
+                    // Static colors instead of animated gradients
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    Color.black.opacity(searchText.isEmpty ? 0.04 : 0.06),
-                                    Color.black.opacity(searchText.isEmpty ? 0.02 : 0.03)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .animation(.easeOut(duration: 0.2), value: searchText.isEmpty)
+                        .fill(Color.black.opacity(searchText.isEmpty ? 0.02 : 0.04))
                     
-                    // Border - darker when active
+                    // Border
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
                         .stroke(
                             Color.black.opacity(searchText.isEmpty ? 0.12 : 0.2),
                             lineWidth: searchText.isEmpty ? 0.5 : 1
                         )
-                        .animation(.easeOut(duration: 0.2), value: searchText.isEmpty)
                 }
             )
-            .shadow(color: .black.opacity(searchText.isEmpty ? 0.04 : 0.08), radius: searchText.isEmpty ? 4 : 8, y: searchText.isEmpty ? 2 : 4)
-            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: searchText.isEmpty)
+            .shadow(color: .black.opacity(0.04), radius: 4, y: 2)
+            .animation(.easeOut(duration: 0.2), value: scrollOffset)
             
             // Smart search status
             if !searchText.isEmpty {
@@ -264,10 +309,15 @@ struct PeopleDiscoveryViewNew: View {
         .padding(.bottom, 16)
     }
     
-    // MARK: - Liquid Glass Filters
+    // MARK: - Liquid Glass Filters (Scroll-Driven Fade Out)
     
     private var liquidGlassFilterSection: some View {
-        VStack(spacing: 12) {
+        let fadeThreshold: CGFloat = 50
+        let progress = max(0, min(1, -scrollOffset / fadeThreshold))
+        let opacity = 1.0 - progress
+        let height: CGFloat? = opacity > 0.1 ? nil : 0
+        
+        return VStack(spacing: 12) {
             // Filter buttons
             HStack(spacing: 12) {
                 ForEach(DiscoveryFilter.allCases, id: \.self) { filter in
@@ -301,22 +351,12 @@ struct PeopleDiscoveryViewNew: View {
                                         .fill(Color.black)
                                         .shadow(color: .black.opacity(0.2), radius: 8, y: 4)
                                 } else {
-                                    // Unselected: Transparent liquid glass pill
+                                    // Unselected: Reduced opacity for performance
                                     Capsule()
-                                        .fill(.ultraThinMaterial.opacity(0.3))
+                                        .fill(.ultraThinMaterial.opacity(0.1))
                                     
                                     Capsule()
-                                        .stroke(
-                                            LinearGradient(
-                                                colors: [
-                                                    Color.black.opacity(0.3),
-                                                    Color.black.opacity(0.1)
-                                                ],
-                                                startPoint: .topLeading,
-                                                endPoint: .bottomTrailing
-                                            ),
-                                            lineWidth: 1
-                                        )
+                                        .stroke(Color.black.opacity(0.2), lineWidth: 1)
                                 }
                             }
                         )
@@ -339,7 +379,7 @@ struct PeopleDiscoveryViewNew: View {
                 .padding(.vertical, 6)
                 .background(
                     Capsule()
-                        .fill(.ultraThinMaterial.opacity(0.2))
+                        .fill(.ultraThinMaterial.opacity(0.1))
                         .overlay(
                             Capsule()
                                 .stroke(Color.black.opacity(0.08), lineWidth: 0.5)
@@ -349,6 +389,9 @@ struct PeopleDiscoveryViewNew: View {
         }
         .padding(.horizontal, 20)
         .padding(.bottom, 16)
+        .opacity(opacity)
+        .frame(height: height.map { CGFloat($0) })
+        .animation(.easeOut(duration: 0.2), value: scrollOffset)
     }
     
     // MARK: - Loading
@@ -384,6 +427,55 @@ struct PeopleDiscoveryViewNew: View {
             Text("Try a different search or filter")
                 .font(.custom("OpenSans-Regular", size: 14))
                 .foregroundColor(.black.opacity(0.5))
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 80)
+        .transition(.opacity.combined(with: .move(edge: .top)))
+    }
+    
+    // MARK: - Error State (with Retry)
+    
+    private func errorStateView(message: String) -> some View {
+        VStack(spacing: 20) {
+            Image(systemName: "wifi.slash")
+                .font(.system(size: 48, weight: .light))
+                .foregroundColor(.red.opacity(0.6))
+                .symbolEffect(.pulse, value: message)
+            
+            Text("Connection Error")
+                .font(.custom("OpenSans-SemiBold", size: 18))
+                .foregroundColor(.black)
+            
+            Text(message)
+                .font(.custom("OpenSans-Regular", size: 14))
+                .foregroundColor(.black.opacity(0.5))
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+            
+            Button {
+                let haptic = UIImpactFeedbackGenerator(style: .medium)
+                haptic.impactOccurred()
+                
+                Task {
+                    await viewModel.loadUsers(filter: selectedFilter)
+                }
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 14, weight: .semibold))
+                    Text("Retry")
+                        .font(.custom("OpenSans-Bold", size: 15))
+                }
+                .foregroundColor(.white)
+                .padding(.horizontal, 24)
+                .padding(.vertical, 12)
+                .background(
+                    Capsule()
+                        .fill(Color.black)
+                        .shadow(color: .black.opacity(0.2), radius: 8, y: 4)
+                )
+            }
+            .buttonStyle(ScaleButtonStyle())
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 80)
@@ -655,23 +747,13 @@ struct PeopleDiscoveryPersonCard: View {
         .padding(.vertical, 10)
         .background(
             ZStack {
-                // Very subtle liquid glass background
+                // Optimized: Reduced opacity to 0.1 for GPU performance
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(.ultraThinMaterial.opacity(0.25))
+                    .fill(.ultraThinMaterial.opacity(0.1))
                 
-                // Minimal gradient overlay
+                // Static color instead of gradient (GPU-friendly)
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color.black.opacity(isHovering ? 0.04 : 0.02),
-                                Color.black.opacity(isHovering ? 0.02 : 0.01)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .animation(.easeOut(duration: 0.2), value: isHovering)
+                    .fill(Color.black.opacity(isHovering ? 0.03 : 0.015))
                 
                 // Subtle border
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
@@ -679,10 +761,9 @@ struct PeopleDiscoveryPersonCard: View {
                         Color.black.opacity(isHovering ? 0.15 : 0.08),
                         lineWidth: 0.5
                     )
-                    .animation(.easeOut(duration: 0.2), value: isHovering)
             }
         )
-        .shadow(color: .black.opacity(isHovering ? 0.08 : 0.04), radius: isHovering ? 8 : 4, y: isHovering ? 4 : 2)
+        .shadow(color: .black.opacity(0.04), radius: 4, y: 2)
         .scaleEffect(isHovering ? 1.01 : 1.0)
         .opacity(hasAppeared ? 1 : 0)
         .offset(y: hasAppeared ? 0 : 10)
@@ -699,17 +780,8 @@ struct PeopleDiscoveryPersonCard: View {
                 isFollowing = viewModel.followingUserIds.contains(userId)
             }
         }
-        .onChange(of: viewModel.followingUserIds) { oldValue, newValue in
-            // Smart update: only if THIS user's status changed
-            if let userId = user.id {
-                let wasFollowing = oldValue.contains(userId)
-                let nowFollowing = newValue.contains(userId)
-                
-                if wasFollowing != nowFollowing {
-                    isFollowing = nowFollowing
-                }
-            }
-        }
+        // MEMORY LEAK FIX: Removed onChange listener
+        // Follow status updates happen via optimistic UI in toggleFollow()
     }
     
     private func toggleFollow() {
@@ -835,6 +907,7 @@ class PeopleDiscoveryViewModelNew: ObservableObject {
     @Published var isLoadingMore = false
     @Published var hasMore = true
     @Published var error: String?
+    @Published var networkError: String? // For error recovery UI
     @Published var followingUserIds: Set<String> = [] // Cache follow status
     
     private let db = Firestore.firestore()
@@ -851,14 +924,20 @@ class PeopleDiscoveryViewModelNew: ObservableObject {
         isLoading = true
         lastDocument = nil
         currentFilter = filter // Track current filter
+        networkError = nil
         
         do {
             users = try await fetchUsers(filter: filter, limit: pageSize)
             hasMore = users.count >= pageSize
-            await loadFollowingStatus() // Batch load all at once
+            
+            // PERFORMANCE FIX: Only load following status once on initial load
+            if followingUserIds.isEmpty {
+                await loadFollowingStatus()
+            }
+            
             print("✅ Loaded \(users.count) users for filter: \(filter.rawValue)")
         } catch {
-            self.error = error.localizedDescription
+            networkError = "Unable to load users. Please check your connection."
             print("❌ Failed to load users: \(error)")
         }
         
@@ -900,13 +979,15 @@ class PeopleDiscoveryViewModelNew: ObservableObject {
         
         do {
             let newUsers = try await fetchUsers(
-                filter: currentFilter, // Use the current filter
+                filter: currentFilter,
                 limit: pageSize,
                 afterDocument: lastDocument
             )
             users.append(contentsOf: newUsers)
             hasMore = newUsers.count >= pageSize
-            await loadFollowingStatus() // Update follow status for new users
+            
+            // PERFORMANCE FIX: Don't reload all following status on pagination
+            // Follow status is already cached and updated optimistically in UI
             print("✅ Loaded \(newUsers.count) more users")
         } catch {
             print("❌ Failed to load more users: \(error)")
@@ -949,6 +1030,7 @@ class PeopleDiscoveryViewModelNew: ObservableObject {
     
     private func performSearch(query: String) async {
         isLoading = true
+        networkError = nil
         
         do {
             let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -958,12 +1040,17 @@ class PeopleDiscoveryViewModelNew: ObservableObject {
             // Use Algolia for fast, typo-tolerant search
             let algoliaUsers = try await AlgoliaSearchService.shared.searchUsers(query: trimmedQuery)
             
-            // Convert Algolia users to UserModel
+            // Convert Algolia users to UserModel (now parallel!)
             let results = try await convertAlgoliaUsersToUserModels(algoliaUsers)
             
             // Update users on main thread
             users = results
-            await loadFollowingStatus() // Load follow status for search results
+            
+            // Only load following status if not already cached
+            if followingUserIds.isEmpty {
+                await loadFollowingStatus()
+            }
+            
             print("✅ Algolia search found \(results.count) users for '\(query)'")
             
         } catch {
@@ -976,31 +1063,45 @@ class PeopleDiscoveryViewModelNew: ObservableObject {
         isLoading = false
     }
     
-    // MARK: - Algolia to UserModel Conversion
+    // MARK: - Algolia to UserModel Conversion (Parallel Batch Fetching)
     
     private func convertAlgoliaUsersToUserModels(_ algoliaUsers: [AlgoliaUser]) async throws -> [UserModel] {
         guard let currentUserId = Auth.auth().currentUser?.uid else {
             return []
         }
         
-        var userModels: [UserModel] = []
+        // Filter out current user first
+        let userIdsToFetch = algoliaUsers
+            .map { $0.objectID }
+            .filter { $0 != currentUserId }
         
-        // Batch fetch full user data from Firestore
-        for algoliaUser in algoliaUsers {
-            // Skip current user
-            guard algoliaUser.objectID != currentUserId else { continue }
+        // PERFORMANCE FIX: Batch fetch all users in parallel with TaskGroup
+        return await withTaskGroup(of: UserModel?.self, returning: [UserModel].self) { group in
+            // Add all fetch tasks to group
+            for userId in userIdsToFetch {
+                group.addTask {
+                    do {
+                        let doc = try await self.db.collection("users").document(userId).getDocument()
+                        if let user = try? doc.data(as: UserModel.self), user.id != nil {
+                            return user
+                        }
+                    } catch {
+                        print("⚠️ Failed to fetch user \(userId): \(error)")
+                    }
+                    return nil
+                }
+            }
             
-            do {
-                let doc = try await db.collection("users").document(algoliaUser.objectID).getDocument()
-                if let user = try? doc.data(as: UserModel.self), user.id != nil {
+            // Collect all results
+            var userModels: [UserModel] = []
+            for await user in group {
+                if let user = user {
                     userModels.append(user)
                 }
-            } catch {
-                print("⚠️ Failed to fetch user \(algoliaUser.objectID): \(error)")
             }
+            
+            return userModels
         }
-        
-        return userModels
     }
     
     // MARK: - Firestore Fallback Search

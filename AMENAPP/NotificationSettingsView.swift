@@ -34,18 +34,23 @@ struct NotificationSettingsView: View {
     private let db = Firestore.firestore()
     
     var body: some View {
-        Group {
-            if isLoading {
-                VStack {
-                    Spacer()
-                    ProgressView()
-                    Spacer()
+        ZStack {
+            Color.black.ignoresSafeArea()
+            
+            Group {
+                if isLoading {
+                    VStack {
+                        Spacer()
+                        ProgressView()
+                            .tint(.white)
+                        Spacer()
+                    }
+                } else {
+                    glassContent
                 }
-            } else {
-                listContent
             }
         }
-        .animation(.easeInOut(duration: 0.2), value: isLoading)
+        .animation(.standardUI, value: isLoading)
         .navigationTitle("Notifications")
         .navigationBarTitleDisplayMode(.inline)
         .alert("Enable Notifications", isPresented: $showPermissionAlert) {
@@ -86,185 +91,238 @@ struct NotificationSettingsView: View {
         .onChange(of: badgeEnabled) { _, _ in debouncedSave() }
     }
     
-    private var listContent: some View {
-        List {
-            systemSettingsSection
-            notificationPreferencesSection
-            
-            if allowNotifications {
-                notificationTypesSection
-                displaySection
+    private var glassContent: some View {
+        ScrollView {
+            VStack(spacing: 16) {
+                systemSettingsSection
+                notificationPreferencesSection
+                
+                if allowNotifications {
+                    notificationTypesSection
+                    displaySection
+                }
+                
+                if pushManager.notificationPermissionGranted {
+                    testingSection
+                }
             }
-            
-            if pushManager.notificationPermissionGranted {
-                testingSection
-            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 20)
         }
-        .listStyle(.insetGrouped)
-        .animation(.easeInOut(duration: 0.25), value: allowNotifications)
     }
     
     private var systemSettingsSection: some View {
-        Section {
-            HStack(spacing: 12) {
-                let isGranted = pushManager.notificationPermissionGranted
-                Image(systemName: isGranted ? "checkmark.circle.fill" : "xmark.circle.fill")
-                    .font(.system(size: 22))
-                    .foregroundStyle(isGranted ? .green : .red)
-                    .frame(width: 28)
-                
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Push Notifications")
-                        .font(.custom("OpenSans-SemiBold", size: 16))
-                    
-                    Text(isGranted ? "Enabled" : "Disabled")
-                        .font(.custom("OpenSans-Regular", size: 14))
-                        .foregroundStyle(.secondary)
-                }
-                
-                Spacer()
-                
-                if !isGranted {
-                    Button("Enable") {
-                        HapticManager.impact(style: .light)
-                        showPermissionAlert = true
-                    }
-                    .font(.custom("OpenSans-SemiBold", size: 15))
-                    .foregroundStyle(.blue)
-                }
-            }
-            .padding(.vertical, 4)
-        } header: {
+        VStack(alignment: .leading, spacing: 12) {
             Text("SYSTEM SETTINGS")
                 .font(.custom("OpenSans-Bold", size: 12))
-        } footer: {
+                .foregroundStyle(.white.opacity(0.6))
+                .padding(.horizontal, 16)
+            
+            VStack(spacing: 0) {
+                HStack(spacing: 12) {
+                    let isGranted = pushManager.notificationPermissionGranted
+                    Image(systemName: isGranted ? "checkmark.circle.fill" : "xmark.circle.fill")
+                        .font(.system(size: 22))
+                        .foregroundStyle(isGranted ? .green : .red)
+                        .frame(width: 28)
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Push Notifications")
+                            .font(.custom("OpenSans-SemiBold", size: 16))
+                            .foregroundStyle(.white)
+                        
+                        Text(isGranted ? "Enabled" : "Disabled")
+                            .font(.custom("OpenSans-Regular", size: 14))
+                            .foregroundStyle(.white.opacity(0.6))
+                    }
+                    
+                    Spacer()
+                    
+                    if !isGranted {
+                        Button("Enable") {
+                            HapticManager.impact(style: .light)
+                            showPermissionAlert = true
+                        }
+                        .font(.custom("OpenSans-SemiBold", size: 15))
+                        .foregroundStyle(.blue)
+                    }
+                }
+                .padding(16)
+            }
+            .glassEffect(GlassEffectStyle.regular, in: RoundedRectangle(cornerRadius: 16))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            
             Text("Enable push notifications to receive alerts when the app is closed")
                 .font(.custom("OpenSans-Regular", size: 13))
+                .foregroundStyle(.white.opacity(0.5))
+                .padding(.horizontal, 16)
         }
     }
     
     private var notificationPreferencesSection: some View {
-        Section {
-            Toggle(isOn: $allowNotifications.animation()) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Allow Notifications")
-                        .font(.custom("OpenSans-SemiBold", size: 16))
-                    Text("Receive all app notifications")
-                        .font(.custom("OpenSans-Regular", size: 14))
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .tint(.blue)
-            .disabled(!pushManager.notificationPermissionGranted)
-            .onChange(of: allowNotifications) { _, _ in
-                HapticManager.impact(style: .light)
-            }
-        } header: {
+        VStack(alignment: .leading, spacing: 12) {
             Text("NOTIFICATION PREFERENCES")
                 .font(.custom("OpenSans-Bold", size: 12))
+                .foregroundStyle(.white.opacity(0.6))
+                .padding(.horizontal, 16)
+            
+            VStack(spacing: 0) {
+                Toggle(isOn: $allowNotifications.animation(.standardUI)) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Allow Notifications")
+                            .font(.custom("OpenSans-SemiBold", size: 16))
+                            .foregroundStyle(.white)
+                        Text("Receive all app notifications")
+                            .font(.custom("OpenSans-Regular", size: 14))
+                            .foregroundStyle(.white.opacity(0.6))
+                    }
+                }
+                .tint(.blue)
+                .disabled(!pushManager.notificationPermissionGranted)
+                .padding(16)
+                .onChange(of: allowNotifications) { _, _ in
+                    HapticManager.impact(style: .light)
+                }
+            }
+            .glassEffect(GlassEffectStyle.regular, in: RoundedRectangle(cornerRadius: 16))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
         }
     }
     
     private var notificationTypesSection: some View {
-        Section {
-            notificationToggle(
-                isOn: $followNotifications,
-                icon: "person.fill.badge.plus",
-                iconColor: .green,
-                title: "New Followers",
-                subtitle: "When someone follows you"
-            )
-            
-            notificationToggle(
-                isOn: $amenNotifications,
-                icon: "hands.sparkles.fill",
-                iconColor: .blue,
-                title: "Amens",
-                subtitle: "When someone says Amen to your posts"
-            )
-            
-            notificationToggle(
-                isOn: $commentNotifications,
-                icon: "bubble.left.fill",
-                iconColor: .purple,
-                title: "Comments",
-                subtitle: "When someone comments on your posts"
-            )
-            
-            notificationToggle(
-                isOn: $messageNotifications,
-                icon: "message.fill",
-                iconColor: .blue,
-                title: "Messages",
-                subtitle: "When you receive a new message"
-            )
-            
-            notificationToggle(
-                isOn: $prayerReminderNotifications,
-                icon: "bell.fill",
-                iconColor: .orange,
-                title: "Prayer Reminders",
-                subtitle: "Daily prayer reminders"
-            )
-            
-            notificationToggle(
-                isOn: $savedSearchAlertNotifications,
-                icon: "bookmark.fill",
-                iconColor: .indigo,
-                title: "Saved Search Alerts",
-                subtitle: "New results match your saved searches"
-            )
-        } header: {
+        VStack(alignment: .leading, spacing: 12) {
             Text("NOTIFICATION TYPES")
                 .font(.custom("OpenSans-Bold", size: 12))
+                .foregroundStyle(.white.opacity(0.6))
+                .padding(.horizontal, 16)
+            
+            VStack(spacing: 1) {
+                notificationToggle(
+                    isOn: $followNotifications,
+                    icon: "person.fill.badge.plus",
+                    iconColor: .green,
+                    title: "New Followers",
+                    subtitle: "When someone follows you",
+                    isFirst: true
+                )
+                
+                notificationToggle(
+                    isOn: $amenNotifications,
+                    icon: "hands.sparkles.fill",
+                    iconColor: .blue,
+                    title: "Amens",
+                    subtitle: "When someone says Amen to your posts"
+                )
+                
+                notificationToggle(
+                    isOn: $commentNotifications,
+                    icon: "bubble.left.fill",
+                    iconColor: .purple,
+                    title: "Comments",
+                    subtitle: "When someone comments on your posts"
+                )
+                
+                notificationToggle(
+                    isOn: $messageNotifications,
+                    icon: "message.fill",
+                    iconColor: .blue,
+                    title: "Messages",
+                    subtitle: "When you receive a new message"
+                )
+                
+                notificationToggle(
+                    isOn: $prayerReminderNotifications,
+                    icon: "bell.fill",
+                    iconColor: .orange,
+                    title: "Prayer Reminders",
+                    subtitle: "Daily prayer reminders"
+                )
+                
+                notificationToggle(
+                    isOn: $savedSearchAlertNotifications,
+                    icon: "bookmark.fill",
+                    iconColor: .indigo,
+                    title: "Saved Search Alerts",
+                    subtitle: "New results match your saved searches",
+                    isLast: true
+                )
+            }
+            .glassEffect(GlassEffectStyle.regular, in: RoundedRectangle(cornerRadius: 16))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
         }
-        .transition(.opacity.combined(with: .move(edge: .top)))
+        .transition(.asymmetric(
+            insertion: .opacity.combined(with: .move(edge: .top)),
+            removal: .opacity.combined(with: .move(edge: .top))
+        ))
     }
     
     private var displaySection: some View {
-        Section {
-            Toggle(isOn: $soundEnabled) {
-                HStack(spacing: 12) {
-                    Image(systemName: "speaker.wave.2.fill")
-                        .font(.system(size: 18))
-                        .foregroundStyle(.blue)
-                        .frame(width: 28)
-                    
-                    Text("Sound")
-                        .font(.custom("OpenSans-SemiBold", size: 16))
-                }
-            }
-            .tint(.blue)
-            .disabled(!pushManager.notificationPermissionGranted)
-            .onChange(of: soundEnabled) { _, _ in
-                HapticManager.impact(style: .light)
-            }
-            
-            Toggle(isOn: $badgeEnabled) {
-                HStack(spacing: 12) {
-                    Image(systemName: "app.badge.fill")
-                        .font(.system(size: 18))
-                        .foregroundStyle(.red)
-                        .frame(width: 28)
-                    
-                    Text("Badge Count")
-                        .font(.custom("OpenSans-SemiBold", size: 16))
-                }
-            }
-            .tint(.blue)
-            .disabled(!pushManager.notificationPermissionGranted)
-            .onChange(of: badgeEnabled) { _, _ in
-                HapticManager.impact(style: .light)
-            }
-        } header: {
+        VStack(alignment: .leading, spacing: 12) {
             Text("DISPLAY")
                 .font(.custom("OpenSans-Bold", size: 12))
+                .foregroundStyle(.white.opacity(0.6))
+                .padding(.horizontal, 16)
+            
+            VStack(spacing: 1) {
+                Toggle(isOn: $soundEnabled) {
+                    HStack(spacing: 12) {
+                        Image(systemName: "speaker.wave.2.fill")
+                            .font(.system(size: 18))
+                            .foregroundStyle(.blue)
+                            .frame(width: 28)
+                        
+                        Text("Sound")
+                            .font(.custom("OpenSans-SemiBold", size: 16))
+                            .foregroundStyle(.white)
+                    }
+                }
+                .tint(.blue)
+                .disabled(!pushManager.notificationPermissionGranted)
+                .padding(16)
+                .background(Color.white.opacity(0.05))
+                .onChange(of: soundEnabled) { _, _ in
+                    HapticManager.impact(style: .light)
+                }
+                
+                Divider()
+                    .background(Color.white.opacity(0.1))
+                
+                Toggle(isOn: $badgeEnabled) {
+                    HStack(spacing: 12) {
+                        Image(systemName: "app.badge.fill")
+                            .font(.system(size: 18))
+                            .foregroundStyle(.red)
+                            .frame(width: 28)
+                        
+                        Text("Badge Count")
+                            .font(.custom("OpenSans-SemiBold", size: 16))
+                            .foregroundStyle(.white)
+                    }
+                }
+                .tint(.blue)
+                .disabled(!pushManager.notificationPermissionGranted)
+                .padding(16)
+                .background(Color.white.opacity(0.05))
+                .onChange(of: badgeEnabled) { _, _ in
+                    HapticManager.impact(style: .light)
+                }
+            }
+            .glassEffect(GlassEffectStyle.regular, in: RoundedRectangle(cornerRadius: 16))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
         }
-        .transition(.opacity.combined(with: .move(edge: .top)))
+        .transition(.asymmetric(
+            insertion: .opacity.combined(with: .move(edge: .top)),
+            removal: .opacity.combined(with: .move(edge: .top))
+        ))
     }
     
     private var testingSection: some View {
-        Section {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("TESTING")
+                .font(.custom("OpenSans-Bold", size: 12))
+                .foregroundStyle(.white.opacity(0.6))
+                .padding(.horizontal, 16)
+            
             Button {
                 HapticManager.impact(style: .medium)
                 testNotification()
@@ -277,14 +335,23 @@ struct NotificationSettingsView: View {
                     
                     Text("Send Test Notification")
                         .font(.custom("OpenSans-SemiBold", size: 16))
+                        .foregroundStyle(.white)
+                    
+                    Spacer()
+                    
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.3))
                 }
+                .padding(16)
             }
-        } header: {
-            Text("TESTING")
-                .font(.custom("OpenSans-Bold", size: 12))
-        } footer: {
+            .glassEffect(GlassEffectStyle.regular.interactive(), in: RoundedRectangle(cornerRadius: 16))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            
             Text("Test notification will appear in 5 seconds")
                 .font(.custom("OpenSans-Regular", size: 13))
+                .foregroundStyle(.white.opacity(0.5))
+                .padding(.horizontal, 16)
         }
     }
     
@@ -293,28 +360,40 @@ struct NotificationSettingsView: View {
         icon: String,
         iconColor: Color,
         title: String,
-        subtitle: String
+        subtitle: String,
+        isFirst: Bool = false,
+        isLast: Bool = false
     ) -> some View {
-        Toggle(isOn: isOn) {
-            HStack(spacing: 12) {
-                Image(systemName: icon)
-                    .font(.system(size: 18))
-                    .foregroundStyle(iconColor)
-                    .frame(width: 28)
-                
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(title)
-                        .font(.custom("OpenSans-SemiBold", size: 16))
-                    Text(subtitle)
-                        .font(.custom("OpenSans-Regular", size: 14))
-                        .foregroundStyle(.secondary)
+        VStack(spacing: 0) {
+            Toggle(isOn: isOn) {
+                HStack(spacing: 12) {
+                    Image(systemName: icon)
+                        .font(.system(size: 18))
+                        .foregroundStyle(iconColor)
+                        .frame(width: 28)
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(title)
+                            .font(.custom("OpenSans-SemiBold", size: 16))
+                            .foregroundStyle(.white)
+                        Text(subtitle)
+                            .font(.custom("OpenSans-Regular", size: 14))
+                            .foregroundStyle(.white.opacity(0.6))
+                    }
                 }
             }
-        }
-        .tint(.blue)
-        .disabled(!pushManager.notificationPermissionGranted)
-        .onChange(of: isOn.wrappedValue) { _, _ in
-            HapticManager.impact(style: .light)
+            .tint(.blue)
+            .disabled(!pushManager.notificationPermissionGranted)
+            .padding(16)
+            .background(Color.white.opacity(0.05))
+            .onChange(of: isOn.wrappedValue) { _, _ in
+                HapticManager.impact(style: .light)
+            }
+            
+            if !isLast {
+                Divider()
+                    .background(Color.white.opacity(0.1))
+            }
         }
     }
     

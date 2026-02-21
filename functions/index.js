@@ -27,6 +27,20 @@ const {
   onMessageReaction,
 } = require("./pushNotifications");
 
+// P0-4: Import church notes sharing functions
+const {
+  shareChurchNote,
+  revokeChurchNoteShare,
+  generateChurchNoteShareLink,
+} = require("./churchNotesShare");
+
+// AI Personalization: Import ML-powered feed and notification functions
+const {
+  generatePersonalizedFeed,
+  filterSmartNotifications,
+  exportEngagementData,
+} = require("./aiPersonalization");
+
 // Export all functions
 exports.sendPushNotification = sendPushNotification;
 exports.onUserFollow = onUserFollow;
@@ -40,6 +54,16 @@ exports.onAmenCreate = onAmenCreate;
 exports.onAmenDelete = onAmenDelete;
 exports.onRepostCreate = onRepostCreate;
 exports.onMessageReaction = onMessageReaction;
+
+// P0-4: Export church notes sharing functions
+exports.shareChurchNote = shareChurchNote;
+exports.revokeChurchNoteShare = revokeChurchNoteShare;
+exports.generateChurchNoteShareLink = generateChurchNoteShareLink;
+
+// AI Personalization: Export ML-powered functions
+exports.generatePersonalizedFeed = generatePersonalizedFeed;
+exports.filterSmartNotifications = filterSmartNotifications;
+exports.exportEngagementData = exportEngagementData;
 
 // ============================================================================
 // REALTIME DATABASE: COMMENT NOTIFICATIONS
@@ -408,3 +432,16 @@ exports.findScriptureReferences = aiChurchNotes.findScriptureReferences;
 
 // Note Summarization
 exports.summarizeNote = aiChurchNotes.summarizeNote;
+
+// ============================================================================
+// AUTHENTICATION - USERNAME UNIQUENESS & ACCOUNT DELETION CASCADE
+// ============================================================================
+const authenticationHelpers = require("./authenticationHelpers");
+
+// P0-2: Username Uniqueness Transaction
+exports.reserveUsername = authenticationHelpers.reserveUsername;
+exports.checkUsernameAvailability = authenticationHelpers.checkUsernameAvailability;
+
+// P0-3: Account Deletion Cascade
+exports.onUserDeleted = authenticationHelpers.onUserDeleted;
+exports.manualCascadeDelete = authenticationHelpers.manualCascadeDelete;

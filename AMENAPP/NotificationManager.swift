@@ -10,6 +10,8 @@
 import UserNotifications
 import SwiftUI
 import Combine
+import FirebaseFirestore
+import FirebaseAuth
 
 /// Manages notification permissions and scheduling
 @MainActor
@@ -25,10 +27,14 @@ class NotificationManager: ObservableObject {
     @Published var isAuthorized: Bool = false
     
     private let center = UNUserNotificationCenter.current()
+    private let db = Firestore.firestore()
+    // DEPRECATED: UserDefaults storage deprecated. Settings now stored in Firestore.
     private let settingsKey = "notification_preferences"
     
     private init() {
-        loadSettings()
+        Task {
+            await loadSettings()
+        }
         checkAuthorization()
     }
     
@@ -60,32 +66,88 @@ class NotificationManager: ObservableObject {
     
     // MARK: - Settings Management
     
-    /// Update notification preference
+    /// Update notification preference (saves to Firestore)
     func updatePreference(_ key: String, enabled: Bool) {
         notificationSettings[key] = enabled
-        saveSettings()
         
-        // Re-schedule notifications based on new settings
         Task {
+            await saveSettings()
             await scheduleAllNotifications()
         }
         
         print("🔔 Notification preference updated: \(key) = \(enabled)")
     }
     
-    /// Load saved notification preferences
-    func loadSettings() {
-        if let data = UserDefaults.standard.data(forKey: settingsKey),
-           let decoded = try? JSONDecoder().decode([String: Bool].self, from: data) {
-            notificationSettings = decoded
-            print("✅ Loaded notification settings: \(notificationSettings)")
+    /// Load saved notification preferences from Firestore
+    func loadSettings() async {
+        guard let userId = Auth.auth().currentUser?.uid else {
+            print("⚠️ No authenticated user to load notification settings")
+            // Migrate legacy UserDefaults settings if they exist
+            await migrateLegacySettings()
+            return
+        }
+        
+        do {
+            let document = try await db.collection("users").document(userId).getDocument()
+            
+            if let data = document.data(),
+               let firestoreSettings = data["notificationSettings"] as? [String: Bool] {
+                await MainActor.run {
+                    // Map Firestore keys to local keys
+                    notificationSettings["prayerReminders"] = firestoreSettings["prayerRequests"] ?? true
+                    notificationSettings["newMessages"] = firestoreSettings["messages"] ?? true
+                    notificationSettings["trendingPosts"] = firestoreSettings["communityUpdates"] ?? false
+                }
+                print("✅ Loaded notification settings from Firestore: \(notificationSettings)")
+            } else {
+                // No settings in Firestore, try migrating from UserDefaults
+                await migrateLegacySettings()
+            }
+        } catch {
+            print("❌ Error loading notification settings from Firestore: \(error.localizedDescription)")
+            // Fall back to UserDefaults if Firestore fails
+            await migrateLegacySettings()
         }
     }
     
-    /// Save notification preferences
-    func saveSettings() {
-        if let encoded = try? JSONEncoder().encode(notificationSettings) {
-            UserDefaults.standard.set(encoded, forKey: settingsKey)
+    /// Save notification preferences to Firestore
+    func saveSettings() async {
+        guard let userId = Auth.auth().currentUser?.uid else {
+            print("⚠️ No authenticated user to save notification settings")
+            return
+        }
+        
+        // Map local keys to Firestore keys
+        let firestoreSettings: [String: Bool] = [
+            "prayerRequests": notificationSettings["prayerReminders"] ?? true,
+            "messages": notificationSettings["newMessages"] ?? true,
+            "communityUpdates": notificationSettings["trendingPosts"] ?? false
+        ]
+        
+        do {
+            try await db.collection("users").document(userId).updateData([
+                "notificationSettings": firestoreSettings,
+                "notificationSettingsUpdatedAt": FieldValue.serverTimestamp()
+            ])
+            print("✅ Notification settings saved to Firestore")
+        } catch {
+            print("❌ Error saving notification settings to Firestore: \(error.localizedDescription)")
+        }
+    }
+    
+    /// Migrate legacy UserDefaults settings to Firestore (one-time migration)
+    private func migrateLegacySettings() async {
+        if let data = UserDefaults.standard.data(forKey: settingsKey),
+           let decoded = try? JSONDecoder().decode([String: Bool].self, from: data) {
+            await MainActor.run {
+                notificationSettings = decoded
+            }
+            print("✅ Migrated notification settings from UserDefaults: \(notificationSettings)")
+            
+            // Save to Firestore and remove from UserDefaults
+            await saveSettings()
+            UserDefaults.standard.removeObject(forKey: settingsKey)
+            print("🧹 Removed legacy UserDefaults settings")
         }
     }
     

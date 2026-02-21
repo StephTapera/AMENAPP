@@ -27,6 +27,7 @@ class AuthenticationViewModel: ObservableObject {
     
     private let firebaseManager = FirebaseManager.shared
     private var authStateListener: AuthStateDidChangeListenerHandle?
+    private var isAuthenticating = false  // Prevent concurrent auth requests
     
     // MARK: - Initialization
     
@@ -116,6 +117,15 @@ class AuthenticationViewModel: ObservableObject {
     // MARK: - Sign In
     
     func signIn(email: String, password: String) async {
+        // Prevent concurrent auth requests
+        guard !isAuthenticating else {
+            print("⚠️ Sign-in already in progress, ignoring duplicate request")
+            return
+        }
+        
+        isAuthenticating = true
+        defer { isAuthenticating = false }
+        
         print("🔐 Starting sign in for: \(email)")
         isLoading = true
         errorMessage = nil
@@ -150,6 +160,15 @@ class AuthenticationViewModel: ObservableObject {
     // MARK: - Sign Up
     
     func signUp(email: String, password: String, displayName: String, username: String) async {
+        // Prevent concurrent auth requests
+        guard !isAuthenticating else {
+            print("⚠️ Sign-up already in progress, ignoring duplicate request")
+            return
+        }
+        
+        isAuthenticating = true
+        defer { isAuthenticating = false }
+        
         print("🔐 Starting sign up for: \(email)")
         isLoading = true
         errorMessage = nil
@@ -247,6 +266,48 @@ class AuthenticationViewModel: ObservableObject {
             
         } catch {
             print("❌ Password change failed: \(error.localizedDescription)")
+            throw error
+        }
+    }
+    
+    // MARK: - Update Email
+    
+    /// Update user email address
+    func updateEmail(newEmail: String) async throws {
+        print("📧 Updating email to: \(newEmail)")
+        
+        guard let user = Auth.auth().currentUser else {
+            throw NSError(domain: "AuthError", code: -1, userInfo: [NSLocalizedDescriptionKey: "No user is currently signed in"])
+        }
+        
+        do {
+            try await user.updateEmail(to: newEmail)
+            print("✅ Email updated successfully in Firebase Auth")
+        } catch {
+            print("❌ Email update failed: \(error.localizedDescription)")
+            throw error
+        }
+    }
+    
+    /// Re-authenticate user with current password
+    func reauthenticate(password: String) async throws {
+        print("🔐 Re-authenticating user")
+        
+        guard let user = Auth.auth().currentUser else {
+            throw NSError(domain: "AuthError", code: -1, userInfo: [NSLocalizedDescriptionKey: "No user is currently signed in"])
+        }
+        
+        guard let email = user.email else {
+            throw NSError(domain: "AuthError", code: -1, userInfo: [NSLocalizedDescriptionKey: "User email not found"])
+        }
+        
+        let credential = EmailAuthProvider.credential(withEmail: email, password: password)
+        
+        do {
+            try await user.reauthenticate(with: credential)
+            print("✅ Re-authentication successful")
+        } catch {
+            print("❌ Re-authentication failed: \(error.localizedDescription)")
             throw error
         }
     }

@@ -13,8 +13,12 @@ import AuthenticationServices
 import CryptoKit
 import GoogleSignIn
 
+// Import for scene phase monitoring
+@preconcurrency import SwiftUI
+
 struct SignInView: View {
     @EnvironmentObject var viewModel: AuthenticationViewModel
+    @Environment(\.scenePhase) private var scenePhase
     @State private var isLogin = true
     @State private var email = ""
     @State private var password = ""
@@ -24,6 +28,7 @@ struct SignInView: View {
     @State private var isCheckingUsername = false
     @State private var usernameAvailable: Bool?
     @State private var usernameCheckTask: Task<Void, Never>? // Track the task
+    @State private var authTask: Task<Void, Never>? // Track auth request to prevent duplicates
     @State private var showPasswordReset = false
     @State private var resetEmail = ""
     @State private var showResetSuccess = false
@@ -367,6 +372,20 @@ struct SignInView: View {
             withAnimation(.easeIn(duration: 0.8).delay(0.2)) {
                 amenTitleOpacity = 1.0
             }
+            
+            // Pre-generate Apple Sign-In nonce for faster auth flow
+            generateAppleNonce()
+        }
+        .onChange(of: scenePhase) { newPhase in
+            // Regenerate nonce if app was backgrounded for >5 minutes
+            if newPhase == .active,
+               let timestamp = nonceGeneratedAt {
+                let elapsed = Date().timeIntervalSince(timestamp)
+                if elapsed > 300 {  // 5 minutes
+                    print("🔄 Regenerating expired Apple nonce")
+                    generateAppleNonce()
+                }
+            }
         }
     }
     
@@ -419,7 +438,16 @@ struct SignInView: View {
         // Dismiss keyboard
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
         
-        Task {
+        // Cancel any existing auth request to prevent duplicates
+        authTask?.cancel()
+        
+        // Create new auth task
+        authTask = Task {
+            // Early exit if already cancelled
+            guard !Task.isCancelled else {
+                print("⚠️ Auth request cancelled before starting")
+                return
+            }
             if isLogin {
                 // Check if user entered @username instead of email
                 let loginIdentifier = email.trimmingCharacters(in: .whitespaces).lowercased()
@@ -465,6 +493,11 @@ struct SignInView: View {
                     print("✅ User name cached for messaging")
                 }
             }
+            
+            // Clear task reference when complete
+            await MainActor.run {
+                authTask = nil
+            }
         }
     }
     
@@ -480,8 +513,9 @@ struct SignInView: View {
         let db = Firestore.firestore()
         
         do {
+            // Use usernameLowercase for case-insensitive search
             let snapshot = try await db.collection("users")
-                .whereField("username", isEqualTo: cleanUsername)
+                .whereField("usernameLowercase", isEqualTo: cleanUsername.lowercased())
                 .limit(to: 1)
                 .getDocuments()
             
@@ -541,10 +575,10 @@ struct SignInView: View {
             }
             
             do {
-                // Direct Firestore query
+                // Direct Firestore query (case-insensitive)
                 let db = Firestore.firestore()
                 let snapshot = try await db.collection("users")
-                    .whereField("username", isEqualTo: cleaned)
+                    .whereField("usernameLowercase", isEqualTo: cleaned.lowercased())
                     .limit(to: 1)
                     .getDocuments()
                 
@@ -636,6 +670,15 @@ struct SignInView: View {
     }
     
     // MARK: - Apple Sign-In Helpers
+    
+    /// Pre-generate Apple Sign-In nonce for faster authentication flow
+    /// Called on view appear and when app returns from background after 5+ minutes
+    private func generateAppleNonce() {
+        let nonce = randomNonceString()
+        currentNonce = nonce
+        nonceGeneratedAt = Date()
+        print("🍎 Apple nonce pre-generated: \(nonce.prefix(10))... (length: \(nonce.count))")
+    }
     
     private func handleAppleSignIn() {
         // Generate fresh nonce with timestamp

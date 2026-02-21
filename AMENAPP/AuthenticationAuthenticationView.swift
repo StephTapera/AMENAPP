@@ -314,7 +314,7 @@ struct AuthenticationView: View {
                     .padding(.horizontal, 20)
                     
                     // Terms and Privacy
-                    Text(!isLogin ? "By signing up, you agree to our\n[Terms of Service](https://example.com) and [Privacy Policy](https://example.com)" : "")
+                    Text(!isLogin ? "By signing up, you agree to our\n[Terms of Service](https://amenapp.com/terms) and [Privacy Policy](https://amenapp.com/privacy)" : "")
                         .font(.custom("OpenSans-Regular", size: 12))
                         .foregroundStyle(.white.opacity(0.8))
                         .multilineTextAlignment(.center)

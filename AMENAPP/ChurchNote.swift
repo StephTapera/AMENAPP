@@ -40,6 +40,9 @@ struct ChurchNote: Identifiable, Codable, Hashable {
     var createdAt: Date
     var updatedAt: Date
     
+    // P0-2: Optimistic concurrency control
+    var version: Int // Version number for conflict detection
+    
     // New features
     var folderId: String? // For organizing notes into folders
     var permission: NotePermission // Privacy setting
@@ -63,6 +66,7 @@ struct ChurchNote: Identifiable, Codable, Hashable {
         case isFavorite
         case createdAt
         case updatedAt
+        case version
         case folderId
         case permission
         case sharedWith
@@ -86,6 +90,7 @@ struct ChurchNote: Identifiable, Codable, Hashable {
         isFavorite: Bool = false,
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
+        version: Int = 0,
         folderId: String? = nil,
         permission: NotePermission = .privateNote,
         sharedWith: [String] = [],
@@ -106,6 +111,7 @@ struct ChurchNote: Identifiable, Codable, Hashable {
         self.isFavorite = isFavorite
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+        self.version = version
         self.folderId = folderId
         self.permission = permission
         self.sharedWith = sharedWith

@@ -805,10 +805,25 @@ public class FirebaseMessagingService: ObservableObject {
             throw FirebaseMessagingError.invalidInput("Message cannot be empty")
         }
         
-        // ✅ NEW: Check if user can send message (Instagram/Threads style limit)
+        // P1-4 FIX: Check if user can send message, create pending request if first message
         let (canSend, reason) = try await canSendMessage(conversationId: conversationId)
-        guard canSend else {
-            throw FirebaseMessagingError.invalidInput(reason ?? "Cannot send message")
+        let conversationRef = db.collection("conversations").document(conversationId)
+        
+        var shouldCreatePendingRequest = false
+        if !canSend {
+            // Check if this is first message (should create request)
+            let conversationDoc = try await conversationRef.getDocument()
+            let messageCount = conversationDoc.data()?["messageCount"] as? [String: Int] ?? [:]
+            let totalMessages = messageCount.values.reduce(0, +)
+            
+            if totalMessages == 0 {
+                // First message - create as pending request
+                shouldCreatePendingRequest = true
+                print("📩 [P1-4] Creating message request (first message to non-follower)")
+            } else {
+                // Not first message and can't send - throw error
+                throw FirebaseMessagingError.invalidInput(reason ?? "Cannot send message")
+            }
         }
         
         do {
@@ -890,6 +905,13 @@ public class FirebaseMessagingService: ObservableObject {
             
             // ✅ NEW: Increment message count for sender (Instagram/Threads style tracking)
             updates["messageCount.\(currentUserId)"] = FieldValue.increment(Int64(1))
+            
+            // P1-4 FIX: Set conversation to pending if this is a request
+            if shouldCreatePendingRequest {
+                updates["conversationStatus"] = "pending"
+                updates["requesterId"] = currentUserId
+                print("📩 [P1-4] Conversation set to pending (message request)")
+            }
             
             // ✅ NEW: Auto-accept if recipient sends a message (Instagram/Threads style)
             if status == "pending" && requesterId != currentUserId {
@@ -1142,6 +1164,19 @@ public class FirebaseMessagingService: ObservableObject {
         try await batch.commit()
         
         print("✅ Marked \(messageIds.count) messages as read and cleared unread count")
+    }
+    
+    // P1-1 FIX: Clear unread badge immediately when opening thread
+    func clearUnreadCount(conversationId: String) async throws {
+        guard isAuthenticated else { return }
+        
+        let conversationRef = db.collection("conversations").document(conversationId)
+        
+        try await conversationRef.updateData([
+            "unreadCounts.\(currentUserId)": 0
+        ])
+        
+        print("✅ [P1-1] Cleared unread count for conversation: \(conversationId)")
     }
     
     // MARK: - Typing Indicators

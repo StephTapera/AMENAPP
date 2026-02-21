@@ -267,6 +267,12 @@ class FirebasePostService: ObservableObject {
     @Published var isLoading = false
     @Published var error: String?
     
+    // P1-1: Pagination support
+    @Published var hasMorePosts = true
+    @Published var isLoadingMore = false
+    private var lastDocuments: [String: DocumentSnapshot] = [:]  // Category -> last document
+    private let pageSize = 25  // Load 25 posts per page
+    
     internal let firebaseManager = FirebaseManager.shared
     internal let db = Firestore.firestore()
     private let realtimeService = RealtimeDatabaseService.shared
@@ -274,6 +280,15 @@ class FirebasePostService: ObservableObject {
     private var realtimePostsHandle: UInt?
     private var activeListenerCategories: Set<String> = [] // ✅ Track active listeners per category
     private var profileImageCache: [String: String] = [:] // ✅ Cache user profile images (userId: imageURL)
+    
+    // P0 FIX: Track seen post IDs for deduplication
+    private var seenPostIds: Set<String> = []
+    
+    // P0 FIX: Map listeners to categories for proper cleanup
+    private var categoryListeners: [String: ListenerRegistration] = [:]
+    
+    // P0 FIX: Add refresh flag for pull-to-refresh
+    @Published var isRefreshing = false
     
     private init() {
         setupRealtimeFeed()
@@ -844,7 +859,15 @@ class FirebasePostService: ObservableObject {
                     return firestorePost
                 }
                 
+                // P1-1: Store last document for pagination
+                if let lastDoc = snapshot.documents.last {
+                    self.lastDocuments[categoryKey] = lastDoc
+                }
+                
                 var newPosts = firestorePosts.map { $0.toPost() }
+                
+                // P0 FIX: Deduplicate and sort posts
+                newPosts = self.deduplicateAndSort(newPosts)
 
                 // ✅ Update category-specific arrays IMMEDIATELY (non-blocking)
                 await MainActor.run {
@@ -860,10 +883,11 @@ class FirebasePostService: ObservableObject {
                             break  // Tip and funFact posts stay in main feed only
                         }
 
-                        // Update the main posts array by combining all categories
-                        self.posts = self.prayerPosts + self.testimoniesPosts + self.openTablePosts
+                        // P0 FIX: Deduplicate and sort combined posts
+                        let combined = self.prayerPosts + self.testimoniesPosts + self.openTablePosts
+                        self.posts = self.deduplicateAndSort(combined)
 
-                        print("✅ Updated \(category.displayName): \(newPosts.count) posts with profile images")
+                        print("✅ Updated \(category.displayName): \(newPosts.count) posts (deduplicated)")
                     } else {
                         // No category filter - update all posts
                         self.posts = newPosts
@@ -888,6 +912,9 @@ class FirebasePostService: ObservableObject {
                     var enrichedPosts = newPosts
                     await self.enrichPostsWithProfileImages(&enrichedPosts)
                     
+                    // P0 FIX: Deduplicate enriched posts too
+                    enrichedPosts = await self.deduplicateAndSort(enrichedPosts)
+                    
                     // Update posts again with profile images
                     await MainActor.run {
                         if let category = category {
@@ -901,7 +928,9 @@ class FirebasePostService: ObservableObject {
                             case .tip, .funFact:
                                 break  // Tip and funFact posts stay in main feed only
                             }
-                            self.posts = self.prayerPosts + self.testimoniesPosts + self.openTablePosts
+                            // P0 FIX: Deduplicate combined posts
+                            let combined = self.prayerPosts + self.testimoniesPosts + self.openTablePosts
+                            self.posts = self.deduplicateAndSort(combined)
                         } else {
                             self.posts = enrichedPosts
                             self.updateCategoryArrays()
@@ -919,7 +948,117 @@ class FirebasePostService: ObservableObject {
         print("🔇 Stopping all listeners...")
         listeners.forEach { $0.remove() }
         listeners.removeAll()
+        categoryListeners.forEach { $0.value.remove() }
+        categoryListeners.removeAll()
         activeListenerCategories.removeAll() // ✅ Clear all active categories
+    }
+    
+    // P0 FIX: Stop listening for a specific category
+    func stopListening(category: Post.PostCategory) {
+        let categoryKey = category.rawValue
+        
+        if let listener = categoryListeners[categoryKey] {
+            print("🔇 Stopping listener for category: \(categoryKey)")
+            listener.remove()
+            categoryListeners.removeValue(forKey: categoryKey)
+            activeListenerCategories.remove(categoryKey)
+        }
+    }
+    
+    // MARK: - Pagination (P1-1)
+    
+    /// Load more posts for a specific category (pagination)
+    func loadMorePosts(category: Post.PostCategory? = nil) async {
+        let categoryKey = category?.rawValue ?? "all"
+        
+        guard hasMorePosts, !isLoadingMore else {
+            print("⏭️ Skipping load more: hasMore=\(hasMorePosts), isLoading=\(isLoadingMore)")
+            return
+        }
+        
+        guard let lastDocument = lastDocuments[categoryKey] else {
+            print("⚠️ No last document for pagination - use initial fetch instead")
+            return
+        }
+        
+        await MainActor.run {
+            isLoadingMore = true
+        }
+        
+        do {
+            var query: Query
+            
+            if let category = category {
+                let categoryString = category.rawValue
+                query = db.collection(FirebaseManager.CollectionPath.posts)
+                    .whereField("category", isEqualTo: categoryString)
+                    .order(by: "createdAt", descending: true)
+                    .start(afterDocument: lastDocument)
+                    .limit(to: pageSize)
+            } else {
+                query = db.collection(FirebaseManager.CollectionPath.posts)
+                    .order(by: "createdAt", descending: true)
+                    .start(afterDocument: lastDocument)
+                    .limit(to: pageSize)
+            }
+            
+            let snapshot = try await query.getDocuments()
+            
+            guard !snapshot.documents.isEmpty else {
+                await MainActor.run {
+                    hasMorePosts = false
+                    isLoadingMore = false
+                }
+                print("✅ No more posts to load")
+                return
+            }
+            
+            // Update last document for next pagination
+            if let last = snapshot.documents.last {
+                lastDocuments[categoryKey] = last
+            }
+            
+            let firestorePosts = snapshot.documents.compactMap { doc -> FirestorePost? in
+                var firestorePost = try? doc.data(as: FirestorePost.self)
+                firestorePost?.id = doc.documentID
+                return firestorePost
+            }
+            
+            var newPosts = firestorePosts.map { $0.toPost() }
+            
+            // Enrich with profile images
+            await enrichPostsWithProfileImages(&newPosts)
+            
+            await MainActor.run {
+                if let category = category {
+                    switch category {
+                    case .prayer:
+                        prayerPosts.append(contentsOf: newPosts)
+                    case .testimonies:
+                        testimoniesPosts.append(contentsOf: newPosts)
+                    case .openTable:
+                        openTablePosts.append(contentsOf: newPosts)
+                    case .tip, .funFact:
+                        break
+                    }
+                    posts = prayerPosts + testimoniesPosts + openTablePosts
+                } else {
+                    posts.append(contentsOf: newPosts)
+                    updateCategoryArrays()
+                }
+                
+                hasMorePosts = snapshot.documents.count == pageSize
+                isLoadingMore = false
+            }
+            
+            print("✅ Loaded \(newPosts.count) more posts (hasMore: \(hasMorePosts))")
+            
+        } catch {
+            print("❌ Error loading more posts: \(error)")
+            await MainActor.run {
+                isLoadingMore = false
+            }
+        }
     }
     
     // MARK: - Update Post
@@ -1328,6 +1467,27 @@ class FirebasePostService: ObservableObject {
         openTablePosts = posts.filter { $0.category == .openTable }
         testimoniesPosts = posts.filter { $0.category == .testimonies }
         prayerPosts = posts.filter { $0.category == .prayer }
+    }
+    
+    // MARK: - P0 FIX: Deduplication & Sorting
+    
+    /// Deduplicate posts array using firebaseId or UUID
+    private func deduplicatePosts(_ posts: [Post]) -> [Post] {
+        var seen = Set<String>()
+        return posts.filter { post in
+            let key = post.firebaseId ?? post.id.uuidString
+            let isNew = seen.insert(key).inserted
+            if !isNew {
+                print("⚠️ [DEDUP] Filtered duplicate post: \(key)")
+            }
+            return isNew
+        }
+    }
+    
+    /// Deduplicate and sort posts by createdAt (newest first)
+    private func deduplicateAndSort(_ posts: [Post]) -> [Post] {
+        let deduplicated = deduplicatePosts(posts)
+        return deduplicated.sorted { $0.createdAt > $1.createdAt }
     }
     
     // MARK: - User-Specific Posts (for Profile View)

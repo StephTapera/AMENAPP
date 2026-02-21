@@ -36,6 +36,35 @@
 		EF3B228B2F4851D8001DA241 /* ThreadSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF3B228A2F4851D8001DA241 /* ThreadSummaryView.swift */; };
 		EF3B228D2F485215001DA241 /* ToneFeedbackView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF3B228C2F485215001DA241 /* ToneFeedbackView.swift */; };
 		EF3B228F2F4854D9001DA241 /* PostDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF3B228E2F4854D9001DA241 /* PostDetailView.swift */; };
+		EF3B22992F490E57001DA241 /* FollowOperationActor.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF3B22982F490E57001DA241 /* FollowOperationActor.swift */; };
+		EF3B229B2F491110001DA241 /* PROFILE_P0_FIXES_COMPLETE.md in Resources */ = {isa = PBXBuildFile; fileRef = EF3B229A2F491110001DA241 /* PROFILE_P0_FIXES_COMPLETE.md */; };
+		EF3B229D2F4911A8001DA241 /* PROFILE_IMPLEMENTATION_STATUS.md in Resources */ = {isa = PBXBuildFile; fileRef = EF3B229C2F4911A8001DA241 /* PROFILE_IMPLEMENTATION_STATUS.md */; };
+		EF3B229F2F4912BC001DA241 /* ListenerRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF3B229E2F4912BB001DA241 /* ListenerRegistry.swift */; };
+		EF3B22EE2F49182A001DA241 /* ChurchNotesEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF3B22ED2F49182A001DA241 /* ChurchNotesEditor.swift */; };
+		EF3B22F02F4918B8001DA241 /* ChurchNotesAIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF3B22EF2F4918B8001DA241 /* ChurchNotesAIService.swift */; };
+		EF3B22F22F4918E5001DA241 /* ChurchNotesPDFExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF3B22F12F4918E5001DA241 /* ChurchNotesPDFExporter.swift */; };
+		EF3B22F42F491920001DA241 /* ChurchNotesStressTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF3B22F32F491920001DA241 /* ChurchNotesStressTests.swift */; };
+		EF3B22F62F492DF5001DA241 /* ChurchNotesShareService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF3B22F52F492DF5001DA241 /* ChurchNotesShareService.swift */; };
+		EF3B22F82F4954CE001DA241 /* NOTIFICATIONS_FIRESTORE_INDEXES_REQUIRED.md in Resources */ = {isa = PBXBuildFile; fileRef = EF3B22F72F4954CE001DA241 /* NOTIFICATIONS_FIRESTORE_INDEXES_REQUIRED.md */; };
+		EF3B22FA2F495502001DA241 /* BadgeCountManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF3B22F92F495502001DA241 /* BadgeCountManager.swift */; };
+		EF3B22FC2F495615001DA241 /* NOTIFICATIONS_PRODUCTION_FIXES_COMPLETE.md in Resources */ = {isa = PBXBuildFile; fileRef = EF3B22FB2F495614001DA241 /* NOTIFICATIONS_PRODUCTION_FIXES_COMPLETE.md */; };
+		EF3B22FE2F495DC2001DA241 /* AUTHENTICATION_PRODUCTION_AUDIT.md in Resources */ = {isa = PBXBuildFile; fileRef = EF3B22FD2F495DC2001DA241 /* AUTHENTICATION_PRODUCTION_AUDIT.md */; };
+		EF3B23002F49666B001DA241 /* AnimationPresets.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF3B22FF2F49666B001DA241 /* AnimationPresets.swift */; };
+		EF3B23022F49680E001DA241 /* PostCardViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF3B23012F49680E001DA241 /* PostCardViewModel.swift */; };
+		EF3B23082F49E0C9001DA241 /* AdvancedModerationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF3B23072F49E0C9001DA241 /* AdvancedModerationService.swift */; };
+		EF3B230A2F49E108001DA241 /* SemanticSearchService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF3B23092F49E108001DA241 /* SemanticSearchService.swift */; };
+		EF3B230C2F49E158001DA241 /* VertexAIPersonalizationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF3B230B2F49E158001DA241 /* VertexAIPersonalizationService.swift */; };
+		EF3B230E2F49E21E001DA241 /* ADVANCED_AI_FEATURES_COMPLETE.md in Resources */ = {isa = PBXBuildFile; fileRef = EF3B230D2F49E21E001DA241 /* ADVANCED_AI_FEATURES_COMPLETE.md */; };
+		EF3B23102F49E302001DA241 /* AI_IMPLEMENTATION_SUMMARY.md in Resources */ = {isa = PBXBuildFile; fileRef = EF3B230F2F49E302001DA241 /* AI_IMPLEMENTATION_SUMMARY.md */; };
+		EF3B23122F4A023A001DA241 /* AI_SETUP_COMPLETE.md in Resources */ = {isa = PBXBuildFile; fileRef = EF3B23112F4A023A001DA241 /* AI_SETUP_COMPLETE.md */; };
+		EF3B23142F4A06D5001DA241 /* BUTTON_INTERACTION_AUDIT_COMPLETE.md in Resources */ = {isa = PBXBuildFile; fileRef = EF3B23132F4A06D5001DA241 /* BUTTON_INTERACTION_AUDIT_COMPLETE.md */; };
+		EF3B23162F4A16C9001DA241 /* PinnedPostService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF3B23152F4A16C9001DA241 /* PinnedPostService.swift */; };
+		EF3B23182F4A1848001DA241 /* SHIP_READY_FIXES_COMPLETE.md in Resources */ = {isa = PBXBuildFile; fileRef = EF3B23172F4A1848001DA241 /* SHIP_READY_FIXES_COMPLETE.md */; };
+		EF3B231A2F4A5159001DA241 /* FEED_REFRESH_REALTIME_SHIP_READY.md in Resources */ = {isa = PBXBuildFile; fileRef = EF3B23192F4A5159001DA241 /* FEED_REFRESH_REALTIME_SHIP_READY.md */; };
+		EF3B231C2F4A60BB001DA241 /* ThumbnailService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF3B231B2F4A60BB001DA241 /* ThumbnailService.swift */; };
+		EF3B231E2F4A6167001DA241 /* AIContentDetectionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF3B231D2F4A6167001DA241 /* AIContentDetectionService.swift */; };
+		EF3B23202F4A6197001DA241 /* P0_BUGS_FIXED_COMPLETE.md in Resources */ = {isa = PBXBuildFile; fileRef = EF3B231F2F4A6197001DA241 /* P0_BUGS_FIXED_COMPLETE.md */; };
+		EF3B23222F4A624C001DA241 /* P0_FIXES_IMPLEMENTATION_SUMMARY.md in Resources */ = {isa = PBXBuildFile; fileRef = EF3B23212F4A624C001DA241 /* P0_FIXES_IMPLEMENTATION_SUMMARY.md */; };
 		EF4BA9DA2F29FDD3000B930F /* Abtesting in Frameworks */ = {isa = PBXBuildFile; productRef = EF4BA9D92F29FDD3000B930F /* Abtesting */; };
 		EF4BA9DC2F29FDD3000B930F /* AbtestingV3 in Frameworks */ = {isa = PBXBuildFile; productRef = EF4BA9DB2F29FDD3000B930F /* AbtestingV3 */; };
 		EF4BA9DE2F29FDD3000B930F /* Analytics in Frameworks */ = {isa = PBXBuildFile; productRef = EF4BA9DD2F29FDD3000B930F /* Analytics */; };
@@ -148,6 +177,35 @@
 		EF3B228A2F4851D8001DA241 /* ThreadSummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadSummaryView.swift; sourceTree = "<group>"; };
 		EF3B228C2F485215001DA241 /* ToneFeedbackView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToneFeedbackView.swift; sourceTree = "<group>"; };
 		EF3B228E2F4854D9001DA241 /* PostDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostDetailView.swift; sourceTree = "<group>"; };
+		EF3B22982F490E57001DA241 /* FollowOperationActor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FollowOperationActor.swift; sourceTree = "<group>"; };
+		EF3B229A2F491110001DA241 /* PROFILE_P0_FIXES_COMPLETE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = PROFILE_P0_FIXES_COMPLETE.md; sourceTree = "<group>"; };
+		EF3B229C2F4911A8001DA241 /* PROFILE_IMPLEMENTATION_STATUS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = PROFILE_IMPLEMENTATION_STATUS.md; sourceTree = "<group>"; };
+		EF3B229E2F4912BB001DA241 /* ListenerRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListenerRegistry.swift; sourceTree = "<group>"; };
+		EF3B22ED2F49182A001DA241 /* ChurchNotesEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChurchNotesEditor.swift; sourceTree = "<group>"; };
+		EF3B22EF2F4918B8001DA241 /* ChurchNotesAIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChurchNotesAIService.swift; sourceTree = "<group>"; };
+		EF3B22F12F4918E5001DA241 /* ChurchNotesPDFExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChurchNotesPDFExporter.swift; sourceTree = "<group>"; };
+		EF3B22F32F491920001DA241 /* ChurchNotesStressTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChurchNotesStressTests.swift; sourceTree = "<group>"; };
+		EF3B22F52F492DF5001DA241 /* ChurchNotesShareService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChurchNotesShareService.swift; sourceTree = "<group>"; };
+		EF3B22F72F4954CE001DA241 /* NOTIFICATIONS_FIRESTORE_INDEXES_REQUIRED.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = NOTIFICATIONS_FIRESTORE_INDEXES_REQUIRED.md; sourceTree = "<group>"; };
+		EF3B22F92F495502001DA241 /* BadgeCountManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BadgeCountManager.swift; sourceTree = "<group>"; };
+		EF3B22FB2F495614001DA241 /* NOTIFICATIONS_PRODUCTION_FIXES_COMPLETE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = NOTIFICATIONS_PRODUCTION_FIXES_COMPLETE.md; sourceTree = "<group>"; };
+		EF3B22FD2F495DC2001DA241 /* AUTHENTICATION_PRODUCTION_AUDIT.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AUTHENTICATION_PRODUCTION_AUDIT.md; sourceTree = "<group>"; };
+		EF3B22FF2F49666B001DA241 /* AnimationPresets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnimationPresets.swift; sourceTree = "<group>"; };
+		EF3B23012F49680E001DA241 /* PostCardViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostCardViewModel.swift; sourceTree = "<group>"; };
+		EF3B23072F49E0C9001DA241 /* AdvancedModerationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdvancedModerationService.swift; sourceTree = "<group>"; };
+		EF3B23092F49E108001DA241 /* SemanticSearchService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SemanticSearchService.swift; sourceTree = "<group>"; };
+		EF3B230B2F49E158001DA241 /* VertexAIPersonalizationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VertexAIPersonalizationService.swift; sourceTree = "<group>"; };
+		EF3B230D2F49E21E001DA241 /* ADVANCED_AI_FEATURES_COMPLETE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = ADVANCED_AI_FEATURES_COMPLETE.md; sourceTree = "<group>"; };
+		EF3B230F2F49E302001DA241 /* AI_IMPLEMENTATION_SUMMARY.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AI_IMPLEMENTATION_SUMMARY.md; sourceTree = "<group>"; };
+		EF3B23112F4A023A001DA241 /* AI_SETUP_COMPLETE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AI_SETUP_COMPLETE.md; sourceTree = "<group>"; };
+		EF3B23132F4A06D5001DA241 /* BUTTON_INTERACTION_AUDIT_COMPLETE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = BUTTON_INTERACTION_AUDIT_COMPLETE.md; sourceTree = "<group>"; };
+		EF3B23152F4A16C9001DA241 /* PinnedPostService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinnedPostService.swift; sourceTree = "<group>"; };
+		EF3B23172F4A1848001DA241 /* SHIP_READY_FIXES_COMPLETE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = SHIP_READY_FIXES_COMPLETE.md; sourceTree = "<group>"; };
+		EF3B23192F4A5159001DA241 /* FEED_REFRESH_REALTIME_SHIP_READY.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = FEED_REFRESH_REALTIME_SHIP_READY.md; sourceTree = "<group>"; };
+		EF3B231B2F4A60BB001DA241 /* ThumbnailService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailService.swift; sourceTree = "<group>"; };
+		EF3B231D2F4A6167001DA241 /* AIContentDetectionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIContentDetectionService.swift; sourceTree = "<group>"; };
+		EF3B231F2F4A6197001DA241 /* P0_BUGS_FIXED_COMPLETE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = P0_BUGS_FIXED_COMPLETE.md; sourceTree = "<group>"; };
+		EF3B23212F4A624C001DA241 /* P0_FIXES_IMPLEMENTATION_SUMMARY.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = P0_FIXES_IMPLEMENTATION_SUMMARY.md; sourceTree = "<group>"; };
 		EF56F7412F2881A30019B94A /* AMENAPPTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AMENAPPTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		EF5D8D8F2F3C46D9000BB6C9 /* MENTIONS_AND_MESSAGING_COMPLETE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = MENTIONS_AND_MESSAGING_COMPLETE.md; sourceTree = "<group>"; };
 		EF5D8D932F3C47EC000BB6C9 /* MESSAGING_UI_FIXES_COMPLETE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = MESSAGING_UI_FIXES_COMPLETE.md; sourceTree = "<group>"; };
@@ -360,6 +418,35 @@
 				EF3B228A2F4851D8001DA241 /* ThreadSummaryView.swift */,
 				EF3B228C2F485215001DA241 /* ToneFeedbackView.swift */,
 				EF3B228E2F4854D9001DA241 /* PostDetailView.swift */,
+				EF3B22982F490E57001DA241 /* FollowOperationActor.swift */,
+				EF3B229A2F491110001DA241 /* PROFILE_P0_FIXES_COMPLETE.md */,
+				EF3B229C2F4911A8001DA241 /* PROFILE_IMPLEMENTATION_STATUS.md */,
+				EF3B229E2F4912BB001DA241 /* ListenerRegistry.swift */,
+				EF3B22ED2F49182A001DA241 /* ChurchNotesEditor.swift */,
+				EF3B22EF2F4918B8001DA241 /* ChurchNotesAIService.swift */,
+				EF3B22F12F4918E5001DA241 /* ChurchNotesPDFExporter.swift */,
+				EF3B22F32F491920001DA241 /* ChurchNotesStressTests.swift */,
+				EF3B22F52F492DF5001DA241 /* ChurchNotesShareService.swift */,
+				EF3B22F72F4954CE001DA241 /* NOTIFICATIONS_FIRESTORE_INDEXES_REQUIRED.md */,
+				EF3B22F92F495502001DA241 /* BadgeCountManager.swift */,
+				EF3B22FB2F495614001DA241 /* NOTIFICATIONS_PRODUCTION_FIXES_COMPLETE.md */,
+				EF3B22FD2F495DC2001DA241 /* AUTHENTICATION_PRODUCTION_AUDIT.md */,
+				EF3B22FF2F49666B001DA241 /* AnimationPresets.swift */,
+				EF3B23012F49680E001DA241 /* PostCardViewModel.swift */,
+				EF3B23072F49E0C9001DA241 /* AdvancedModerationService.swift */,
+				EF3B23092F49E108001DA241 /* SemanticSearchService.swift */,
+				EF3B230B2F49E158001DA241 /* VertexAIPersonalizationService.swift */,
+				EF3B230D2F49E21E001DA241 /* ADVANCED_AI_FEATURES_COMPLETE.md */,
+				EF3B230F2F49E302001DA241 /* AI_IMPLEMENTATION_SUMMARY.md */,
+				EF3B23112F4A023A001DA241 /* AI_SETUP_COMPLETE.md */,
+				EF3B23132F4A06D5001DA241 /* BUTTON_INTERACTION_AUDIT_COMPLETE.md */,
+				EF3B23152F4A16C9001DA241 /* PinnedPostService.swift */,
+				EF3B23172F4A1848001DA241 /* SHIP_READY_FIXES_COMPLETE.md */,
+				EF3B23192F4A5159001DA241 /* FEED_REFRESH_REALTIME_SHIP_READY.md */,
+				EF3B231B2F4A60BB001DA241 /* ThumbnailService.swift */,
+				EF3B231D2F4A6167001DA241 /* AIContentDetectionService.swift */,
+				EF3B231F2F4A6197001DA241 /* P0_BUGS_FIXED_COMPLETE.md */,
+				EF3B23212F4A624C001DA241 /* P0_FIXES_IMPLEMENTATION_SUMMARY.md */,
 			);
 			sourceTree = "<group>";
 		};
@@ -527,14 +614,26 @@
 				EF03BCA52F2B37000026395A /* QUICK_FIX.md in Resources */,
 				EF72C05F2F3C1A94000CA5A6 /* POST_IMAGES_DISPLAY_COMPLETE.md in Resources */,
 				EF72C0612F3C1C01000CA5A6 /* PROFILE_PHOTOS_ON_POSTS_COMPLETE.md in Resources */,
+				EF3B22FC2F495615001DA241 /* NOTIFICATIONS_PRODUCTION_FIXES_COMPLETE.md in Resources */,
 				EF72C0632F3C1C84000CA5A6 /* PROFILE_PHOTOS_DEBUG_GUIDE.md in Resources */,
 				EF72C0652F3C2095000CA5A6 /* POSTCARD_ONCHANGE_WARNING_FIX.md in Resources */,
 				EF72C05D2F3C195F000CA5A6 /* CHURCH_NOTES_SHARE_TO_OPENTABLE_COMPLETE.md in Resources */,
 				EF3ACF9E2F30603500596905 /* UNIFIED_CHAT_ENHANCEMENTS.md in Resources */,
+				EF3B230E2F49E21E001DA241 /* ADVANCED_AI_FEATURES_COMPLETE.md in Resources */,
 				EF3AD0702F32F5B500596905 /* genkit-Dockerfile in Resources */,
 				EF3AD0722F32F5E400596905 /* DEPLOY_COMPLETE_GENKIT_SERVER.md in Resources */,
 				EF3ACF7E2F30027C00596905 /* FIX_CONTACTS_PERMISSION_CRASH.md in Resources */,
+				EF3B231A2F4A5159001DA241 /* FEED_REFRESH_REALTIME_SHIP_READY.md in Resources */,
+				EF3B22FE2F495DC2001DA241 /* AUTHENTICATION_PRODUCTION_AUDIT.md in Resources */,
+				EF3B23222F4A624C001DA241 /* P0_FIXES_IMPLEMENTATION_SUMMARY.md in Resources */,
+				EF3B229D2F4911A8001DA241 /* PROFILE_IMPLEMENTATION_STATUS.md in Resources */,
+				EF3B23142F4A06D5001DA241 /* BUTTON_INTERACTION_AUDIT_COMPLETE.md in Resources */,
+				EF3B229B2F491110001DA241 /* PROFILE_P0_FIXES_COMPLETE.md in Resources */,
 				EF3B22832F484B78001DA241 /* POST_TRANSLATION_AND_UI_CLEANUP_COMPLETE.md in Resources */,
+				EF3B23102F49E302001DA241 /* AI_IMPLEMENTATION_SUMMARY.md in Resources */,
+				EF3B23122F4A023A001DA241 /* AI_SETUP_COMPLETE.md in Resources */,
+				EF3B23202F4A6197001DA241 /* P0_BUGS_FIXED_COMPLETE.md in Resources */,
+				EF3B23182F4A1848001DA241 /* SHIP_READY_FIXES_COMPLETE.md in Resources */,
 				EF6873E72F4170D7006DC25E /* CHURCH_NOTES_USER_FLOWS.md in Resources */,
 				EF6873442F4064B8006DC25E /* firestore.rules in Resources */,
 				EF3AD06C2F32F5AD00596905 /* genkit-server-index.js in Resources */,
@@ -549,6 +648,7 @@
 				EF1524092F37021400AA3119 /* COMMENTS_REAL_TIME_FIX_COMPLETE.md in Resources */,
 				EF5D8D962F3C488F000BB6C9 /* APP_ICON_BADGE_IMPLEMENTATION_GUIDE.md in Resources */,
 				EF5D8D9F2F3D17EB000BB6C9 /* LIGHTBULB_PERSISTENCE_FIX_COMPLETE.md in Resources */,
+				EF3B22F82F4954CE001DA241 /* NOTIFICATIONS_FIRESTORE_INDEXES_REQUIRED.md in Resources */,
 				EF5D8D902F3C46D9000BB6C9 /* MENTIONS_AND_MESSAGING_COMPLETE.md in Resources */,
 				EF5D8DA12F3D195A000BB6C9 /* REPOST_DOUBLE_TAP_FIX_COMPLETE.md in Resources */,
 				EF1524012F36F78A00AA3119 /* POSTS_NOT_DISPLAYING_FIX.md in Resources */,
@@ -596,10 +696,26 @@
 			buildActionMask = 2147483647;
 			files = (
 				EF6873C52F40F194006DC25E /* CloudStorageService.swift in Sources */,
+				EF3B23082F49E0C9001DA241 /* AdvancedModerationService.swift in Sources */,
 				EF3B228F2F4854D9001DA241 /* PostDetailView.swift in Sources */,
+				EF3B22F22F4918E5001DA241 /* ChurchNotesPDFExporter.swift in Sources */,
+				EF3B23002F49666B001DA241 /* AnimationPresets.swift in Sources */,
+				EF3B22FA2F495502001DA241 /* BadgeCountManager.swift in Sources */,
+				EF3B229F2F4912BC001DA241 /* ListenerRegistry.swift in Sources */,
 				EF3B22812F484A3F001DA241 /* PostTranslationService.swift in Sources */,
+				EF3B22F62F492DF5001DA241 /* ChurchNotesShareService.swift in Sources */,
+				EF3B22EE2F49182A001DA241 /* ChurchNotesEditor.swift in Sources */,
 				EF3B228B2F4851D8001DA241 /* ThreadSummaryView.swift in Sources */,
+				EF3B231E2F4A6167001DA241 /* AIContentDetectionService.swift in Sources */,
+				EF3B22F42F491920001DA241 /* ChurchNotesStressTests.swift in Sources */,
+				EF3B230C2F49E158001DA241 /* VertexAIPersonalizationService.swift in Sources */,
+				EF3B23022F49680E001DA241 /* PostCardViewModel.swift in Sources */,
+				EF3B230A2F49E108001DA241 /* SemanticSearchService.swift in Sources */,
+				EF3B231C2F4A60BB001DA241 /* ThumbnailService.swift in Sources */,
 				EF3B228D2F485215001DA241 /* ToneFeedbackView.swift in Sources */,
+				EF3B22F02F4918B8001DA241 /* ChurchNotesAIService.swift in Sources */,
+				EF3B22992F490E57001DA241 /* FollowOperationActor.swift in Sources */,
+				EF3B23162F4A16C9001DA241 /* PinnedPostService.swift in Sources */,
 				EF688D052F42CBF7006DC25E /* SmartPrayerReminderScheduler.swift in Sources */,
 				EF6873D52F40F394006DC25E /* RichTextEditorView.swift in Sources */,
 			);

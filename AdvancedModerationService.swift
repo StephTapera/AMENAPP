@@ -9,6 +9,7 @@
 import Foundation
 import FirebaseFirestore
 import FirebaseAuth
+import FirebaseRemoteConfig
 
 // MARK: - Advanced Moderation Models
 
@@ -72,9 +73,14 @@ class AdvancedModerationService {
     static let shared = AdvancedModerationService()
     private let db = Firestore.firestore()
     
-    // API Configuration (store in Firebase Remote Config or environment variables)
-    private let googleNLAPIKey = "" // TODO: Add from Firebase Remote Config
-    private let openAIAPIKey = "" // TODO: Add from Firebase Remote Config
+    // API Configuration from Firebase Remote Config
+    private var googleNLAPIKey: String {
+        RemoteConfig.remoteConfig().configValue(forKey: "google_nl_api_key").stringValue ?? ""
+    }
+    
+    private var openAIAPIKey: String {
+        RemoteConfig.remoteConfig().configValue(forKey: "openai_api_key").stringValue ?? ""
+    }
     
     // Shadow ban cache
     private var shadowBannedUsers: Set<String> = []
@@ -114,7 +120,12 @@ class AdvancedModerationService {
         }
         
         // Step 1: Detect language (if not provided)
-        let detectedLanguage = language ?? await detectLanguage(content)
+        let detectedLanguage: String
+        if let providedLanguage = language {
+            detectedLanguage = providedLanguage
+        } else {
+            detectedLanguage = await detectLanguage(content)
+        }
         print("🌍 [LANGUAGE] Detected: \(detectedLanguage)")
         
         // Step 2: Detect content context (Bible quote, prayer, etc.)

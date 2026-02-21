@@ -24,6 +24,14 @@ class ChurchNotesService: ObservableObject {
     private var notesListener: ListenerRegistration?
     private var foldersListener: ListenerRegistration?
     
+    // P0-3: Cleanup listeners in deinit to prevent memory leaks
+    deinit {
+        Task { @MainActor in
+            self.stopListening()
+            print("🧹 ChurchNotesService deallocated, listeners removed")
+        }
+    }
+    
     /// Start real-time listener for notes
     func startListening() {
         guard let userId = firebaseManager.currentUser?.uid else {
@@ -201,18 +209,61 @@ class ChurchNotesService: ObservableObject {
         // Real-time listener will automatically update the notes array
     }
     
-    /// Update an existing note
+    /// Update an existing note with optimistic concurrency control
     func updateNote(_ note: ChurchNote) async throws {
         guard let noteId = note.id else {
             throw NSError(domain: "ChurchNotesService", code: 400, userInfo: [NSLocalizedDescriptionKey: "Note ID is missing"])
         }
         
-        var updatedNote = note
-        updatedNote.updatedAt = Date()
-        
-        try db.collection("churchNotes").document(noteId).setData(from: updatedNote, merge: true)
-        
-        print("✅ Updated church note: \(note.title)")
+        // P0-2: Use transaction for optimistic concurrency control
+        try await db.runTransaction { transaction, errorPointer in
+            let ref = self.db.collection("churchNotes").document(noteId)
+            
+            do {
+                let snapshot = try transaction.getDocument(ref)
+                
+                guard snapshot.exists else {
+                    let error = NSError(
+                        domain: "ChurchNotesService",
+                        code: 404,
+                        userInfo: [NSLocalizedDescriptionKey: "Note not found"]
+                    )
+                    errorPointer?.pointee = error
+                    return nil
+                }
+                
+                // Check version for conflict detection
+                let currentVersion = snapshot.data()?["version"] as? Int ?? 0
+                
+                if currentVersion != note.version {
+                    let error = NSError(
+                        domain: "ChurchNotesService",
+                        code: 409,
+                        userInfo: [
+                            NSLocalizedDescriptionKey: "This note was updated by someone else. Please refresh and try again.",
+                            "isConflict": true
+                        ]
+                    )
+                    errorPointer?.pointee = error
+                    print("⚠️ Version conflict detected: current=\(currentVersion), expected=\(note.version)")
+                    return nil
+                }
+                
+                // Update with incremented version
+                var updatedNote = note
+                updatedNote.version = currentVersion + 1
+                updatedNote.updatedAt = Date()
+                
+                try transaction.setData(from: updatedNote, forDocument: ref)
+                
+                print("✅ Updated church note: \(note.title) (version: \(updatedNote.version))")
+                
+                return nil
+            } catch {
+                errorPointer?.pointee = error as NSError
+                return nil
+            }
+        }
         
         // Real-time listener will automatically update
     }

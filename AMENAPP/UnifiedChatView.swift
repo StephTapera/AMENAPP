@@ -70,6 +70,13 @@ struct UnifiedChatView: View {
     
     // P0-4 FIX: Track optimistic messages by content hash
     @State private var optimisticMessageHashes: [String: Int] = [:]
+    
+    // P1-2 FIX: Scroll position preservation
+    @State private var isNearBottom = true
+    @Namespace private var bottomID
+    
+    // P1-3 FIX: Pagination state
+    @State private var isLoadingMoreMessages = false
 
     var body: some View {
         ZStack {
@@ -154,6 +161,11 @@ struct UnifiedChatView: View {
         .onAppear {
             setupChatView()
             generateRandomPlaceholder()
+            
+            // P1-1 FIX: Clear unread badge immediately when opening thread
+            Task {
+                try? await messagingService.clearUnreadCount(conversationId: conversation.id)
+            }
         }
         .onDisappear {
             cleanupChatView()
@@ -314,6 +326,33 @@ struct UnifiedChatView: View {
             ScrollViewReader { proxy in
                 ScrollView(showsIndicators: false) {
                     LazyVStack(spacing: 12) {
+                        // P1-3 FIX: Pagination load more button
+                        if messagingService.canLoadMoreMessages(conversationId: conversation.id) {
+                            Button {
+                                loadMoreMessages()
+                            } label: {
+                                HStack(spacing: 8) {
+                                    if isLoadingMoreMessages {
+                                        ProgressView()
+                                            .tint(.secondary)
+                                    } else {
+                                        Image(systemName: "arrow.up.circle.fill")
+                                            .font(.system(size: 16))
+                                    }
+                                    Text(isLoadingMoreMessages ? "Loading..." : "Load older messages")
+                                        .font(.system(size: 14, weight: .medium))
+                                }
+                                .foregroundStyle(.secondary)
+                                .padding(.vertical, 12)
+                                .frame(maxWidth: .infinity)
+                                .background(Color(.systemGray6))
+                                .cornerRadius(12)
+                            }
+                            .disabled(isLoadingMoreMessages)
+                            .padding(.horizontal, 16)
+                            .padding(.top, 8)
+                        }
+                        
                         ForEach(Array(messages.enumerated()), id: \.element.id) { index, message in
                             VStack(spacing: 0) {
                                 // Unread separator
@@ -355,20 +394,33 @@ struct UnifiedChatView: View {
                         //     LiquidGlassTypingIndicator()
                         //         .transition(.scale.combined(with: .opacity))
                         // }
+                        
+                        // P1-2 FIX: Bottom anchor for scroll tracking
+                        Color.clear
+                            .frame(height: 1)
+                            .id(bottomID)
                     }
                     .padding(.horizontal, 16)
                     .padding(.top, 8)
                     .padding(.bottom, 120) // Extra padding so messages don't hide under input bar
                 }
-                .onChange(of: messages.count) { _, _ in
-                    if let lastMessage = messages.last {
+                .onChange(of: messages.count) { oldCount, newCount in
+                    // P1-2 FIX: Only auto-scroll if near bottom
+                    if isNearBottom && newCount > oldCount {
                         withAnimation(.easeOut(duration: 0.3)) {
-                            proxy.scrollTo(lastMessage.id, anchor: .bottom)
+                            proxy.scrollTo(bottomID, anchor: .bottom)
                         }
                     }
                 }
                 .onAppear {
-                    // Scroll to unread on appear if exists
+                    // Scroll to bottom on first load
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        withAnimation {
+                            proxy.scrollTo(bottomID, anchor: .bottom)
+                        }
+                    }
+                    
+                    // Then scroll to unread if exists
                     if let firstUnreadId = firstUnreadMessageId {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                             withAnimation {
@@ -705,9 +757,10 @@ struct UnifiedChatView: View {
         Task {
             do {
                 // Start real-time listener
+                // P0 FIX: Avoid capturing self strongly (struct - no leak but good practice)
                 try await messagingService.startListeningToMessages(
                     conversationId: conversation.id
-                ) { [self] fetchedMessages in
+                ) { fetchedMessages in
                     Task { @MainActor in
                         // P0-4 FIX: Match messages by content hash instead of ID
                         // Build hash map for fetched messages
@@ -779,6 +832,33 @@ struct UnifiedChatView: View {
                     errorMessage = "Failed to load messages"
                     showErrorAlert = true
                 }
+            }
+        }
+    }
+    
+    // P1-3 FIX: Load more messages (pagination)
+    private func loadMoreMessages() {
+        guard !isLoadingMoreMessages else { return }
+        
+        isLoadingMoreMessages = true
+        
+        Task {
+            do {
+                try await messagingService.loadMoreMessages(
+                    conversationId: conversation.id
+                ) { olderMessages in
+                    Task { @MainActor in
+                        // Prepend older messages to beginning
+                        self.messages.insert(contentsOf: olderMessages, at: 0)
+                        print("✅ [P1-3] Loaded \(olderMessages.count) older messages")
+                    }
+                }
+            } catch {
+                print("❌ [P1-3] Error loading more messages: \(error)")
+            }
+            
+            await MainActor.run {
+                isLoadingMoreMessages = false
             }
         }
     }

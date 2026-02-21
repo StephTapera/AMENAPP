@@ -10,6 +10,7 @@ import FirebaseCore
 import FirebaseAuth
 import FirebaseFirestore
 import FirebaseDatabase  // ✅ Added for Realtime Database
+import FirebaseRemoteConfig  // ✅ Added for AI API keys
 import GoogleSignIn
 import StoreKit  // ✅ Added for In-App Purchases
 // import FirebaseVertexAI  // TODO: Add Firebase VertexAI package later to enable AI features
@@ -28,6 +29,11 @@ struct AMENAPPApp: App {
         // Note: Firebase.configure() is called in AppDelegate.didFinishLaunchingWithOptions
         // Database persistence is also configured in AppDelegate after Firebase.configure()
         
+        // ✅ Initialize Firebase Remote Config for AI API keys
+        Task {
+            Self.setupRemoteConfig()
+        }
+        
         // ✅ Force PostsManager initialization early (ensures posts load immediately)
         Task { @MainActor in
             _ = PostsManager.shared
@@ -43,6 +49,24 @@ struct AMENAPPApp: App {
         // ✅ Initialize Premium Manager for In-App Purchases
         Task {
             await PremiumManager.shared.loadProducts()
+        }
+    }
+    
+    /// Setup Firebase Remote Config to fetch AI API keys
+    private static func setupRemoteConfig() {
+        let remoteConfig = RemoteConfig.remoteConfig()
+        let settings = RemoteConfigSettings()
+        settings.minimumFetchInterval = 3600 // Fetch at most once per hour
+        remoteConfig.configSettings = settings
+        
+        remoteConfig.fetch { status, error in
+            if status == .success {
+                remoteConfig.activate { _, _ in
+                    print("✅ Remote Config activated - AI features enabled")
+                }
+            } else {
+                print("⚠️ Remote Config fetch failed: \(error?.localizedDescription ?? "unknown")")
+            }
         }
     }
     
@@ -114,6 +138,9 @@ struct AMENAPPApp: App {
             .onOpenURL { url in
                 // Handle Google Sign-In callback
                 GIDSignIn.sharedInstance.handle(url)
+                
+                // P1-2: Handle church notes deep links
+                handleChurchNoteDeepLink(url)
             }
         }
     }
@@ -203,6 +230,33 @@ struct AMENAPPApp: App {
             await UserProfileImageCache.shared.cacheCurrentUserProfile()
             
             print("✅ User profile cached!")
+        }
+    }
+    
+    // MARK: - P1-2: Deep Link Handling
+    
+    private func handleChurchNoteDeepLink(_ url: URL) {
+        print("🔗 Handling deep link: \(url)")
+        
+        // Parse URL scheme: amenapp://notes/{shareLinkId}
+        guard url.scheme == "amenapp" || url.host == "amenapp.com" else {
+            print("⚠️ Unknown URL scheme: \(url.scheme ?? "none")")
+            return
+        }
+        
+        let pathComponents = url.pathComponents.filter { $0 != "/" }
+        
+        // Check if this is a church note link
+        if pathComponents.count >= 2 && pathComponents[0] == "notes" {
+            let shareLinkId = pathComponents[1]
+            print("📖 Opening church note with share link: \(shareLinkId)")
+            
+            // Post notification to open the note
+            NotificationCenter.default.post(
+                name: NSNotification.Name("OpenChurchNoteFromDeepLink"),
+                object: nil,
+                userInfo: ["shareLinkId": shareLinkId]
+            )
         }
     }
 }

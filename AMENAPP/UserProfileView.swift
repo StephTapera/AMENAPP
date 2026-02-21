@@ -209,9 +209,11 @@ struct UserProfileView: View {
     @State private var showErrorAlert = false
     @State private var errorMessage = ""
     @State private var isFollowing = false
-    @State private var isBlocked = false
+    @State private var isBlocked = false  // Current user has blocked this user
+    @State private var isBlockedBy = false  // P0-4: This user has blocked current user
     @State private var isMuted = false  // Privacy: Mute status
     @State private var isHidden = false  // Privacy: Hidden from this user
+    @State private var followRequestPending = false  // P0-5: Track pending follow request for private accounts
     @State private var profileData: UserProfile?
     @State private var posts: [ProfilePost] = []
     @State private var reposts: [UserProfileRepost] = []
@@ -222,6 +224,9 @@ struct UserProfileView: View {
     @State private var hasMorePosts = true
     @State private var isLoadingMore = false
     @State private var followerCountListener: ListenerRegistration?
+    @State private var postsListener: ListenerRegistration?  // P0-2: Store posts listener
+    @State private var newPostObserver: NSObjectProtocol?  // P0-2: Store NotificationCenter observer
+    @State private var repostObserver: NSObjectProtocol?  // P0-2: Store NotificationCenter observer
     @State private var selectedPostForComments: Post?
     @State private var showCommentsSheet = false
     @State private var showUnfollowAlert = false  // New: Unfollow confirmation
@@ -230,6 +235,7 @@ struct UserProfileView: View {
     @State private var showInlineError = false  // Error recovery
     @State private var inlineErrorMessage = ""
     @StateObject private var scrollManager = SmartScrollManager()
+    @StateObject private var pinnedPostService = PinnedPostService.shared
     @Namespace private var tabNamespace
     
     // Additional production-ready states
@@ -238,10 +244,40 @@ struct UserProfileView: View {
     @State private var notificationsEnabled = false  // Post notifications for this user
     @State private var hasLoadedInitially = false  // Prevent duplicate loads
     @State private var profileImageCache: UIImage?  // Cache for avatar
+    @State private var profileCachedAt: Date?  // P1-3: Track when profile was cached
     
     // Computed property to determine if buttons should be in toolbar
     private var shouldShowToolbarButtons: Bool {
         scrollOffset > 200  // Show in toolbar after scrolling 200 points
+    }
+    
+    // P0-5: Computed properties for follow button states
+    private var followButtonText: String {
+        if isFollowing {
+            return "Following"
+        } else if followRequestPending {
+            return "Requested"
+        } else {
+            return "Follow"
+        }
+    }
+    
+    private var followButtonTextColor: Color {
+        if isFollowing || followRequestPending {
+            return .black
+        } else {
+            return .white
+        }
+    }
+    
+    private var followButtonBackground: Color {
+        if isFollowing {
+            return Color(white: 0.93)
+        } else if followRequestPending {
+            return Color(white: 0.88)
+        } else {
+            return .black
+        }
     }
     
     var body: some View {
@@ -420,8 +456,9 @@ struct UserProfileView: View {
             }
         }
         .onDisappear {
-            // Clean up listener when leaving profile
+            // P0-2: Clean up ALL listeners when leaving profile
             removeFollowerCountListener()
+            removeRealtimeListeners()
             
             // Cache profile for offline viewing
             cacheProfileData()
@@ -485,13 +522,18 @@ struct UserProfileView: View {
     private func setupFollowerCountListener() {
         print("🔊 Setting up real-time listener for user \(userId)'s follower counts...")
         
+        // P1-5: Use global registry to prevent duplicate listeners
+        let listenerKey = ListenerRegistry.shared.followerCountListenerKey(userId: userId)
+        
         // Remove existing listener if any
         followerCountListener?.remove()
+        ListenerRegistry.shared.removeListener(key: listenerKey)
         
         // Listen to Firestore user document for count updates
         let db = Firestore.firestore()
-        followerCountListener = db.collection("users").document(userId)
-            .addSnapshotListener { snapshot, error in
+        followerCountListener = ListenerRegistry.shared.getOrCreateListener(key: listenerKey) {
+            db.collection("users").document(userId)
+                .addSnapshotListener { snapshot, error in
                 if let error = error {
                     print("❌ Follower count listener error: \(error)")
                     return
@@ -527,15 +569,45 @@ struct UserProfileView: View {
                         print("✅ Real-time follower count update: \(followersCount) followers, \(followingCount) following")
                     }
                 }
-            }
+                }
+        }
     }
     
     /// Remove follower count listener
     @MainActor
     private func removeFollowerCountListener() {
+        // P1-5: Remove from global registry
+        let listenerKey = ListenerRegistry.shared.followerCountListenerKey(userId: userId)
+        ListenerRegistry.shared.removeListener(key: listenerKey)
+        
         followerCountListener?.remove()
         followerCountListener = nil
         print("🔇 Removed follower count listener")
+    }
+    
+    /// P0-2: Remove all real-time listeners to prevent memory leaks
+    @MainActor
+    private func removeRealtimeListeners() {
+        // P1-5: Remove from global registry
+        let postsKey = ListenerRegistry.shared.postsListenerKey(userId: userId)
+        ListenerRegistry.shared.removeListener(key: postsKey)
+        
+        // Remove Firestore posts listener
+        postsListener?.remove()
+        postsListener = nil
+        
+        // Remove NotificationCenter observers
+        if let observer = newPostObserver {
+            NotificationCenter.default.removeObserver(observer)
+            newPostObserver = nil
+        }
+        
+        if let observer = repostObserver {
+            NotificationCenter.default.removeObserver(observer)
+            repostObserver = nil
+        }
+        
+        print("🔇 Removed all real-time listeners (posts + observers)")
     }
     
     // ✅ NEW: Set up real-time listeners for posts and reposts (Threads-like instant updates)
@@ -543,12 +615,16 @@ struct UserProfileView: View {
     private func setupRealtimeListeners() {
         print("🔊 Setting up real-time listeners for posts and reposts...")
         
+        // P1-5: Use global registry for posts listener
+        let postsKey = ListenerRegistry.shared.postsListenerKey(userId: userId)
+        
         // ✅ Firestore snapshot listener for real-time posts
         let db = Firestore.firestore()
-        db.collection("posts")
-            .whereField("authorId", isEqualTo: userId)
-            .order(by: "createdAt", descending: true)
-            .addSnapshotListener { querySnapshot, error in
+        postsListener = ListenerRegistry.shared.getOrCreateListener(key: postsKey) {
+            db.collection("posts")
+                .whereField("authorId", isEqualTo: userId)
+                .order(by: "createdAt", descending: true)
+                .addSnapshotListener { querySnapshot, error in
                 if let error = error {
                     print("❌ Firestore listener error: \(error)")
                     return
@@ -589,14 +665,20 @@ struct UserProfileView: View {
                 // Update posts array
                 self.posts = updatedPosts
                 
+                // Sort posts: pinned post first, then chronological
+                Task { @MainActor in
+                    await self.sortPostsWithPinnedFirst()
+                }
+                
                 // Rebuild unified feed
                 self.buildUnifiedFeed()
                 
                 print("✅ Real-time: \(updatedPosts.count) posts loaded")
-            }
+                }
+        }
         
         // Also keep NotificationCenter for optimistic updates
-        NotificationCenter.default.addObserver(
+        newPostObserver = NotificationCenter.default.addObserver(
             forName: .newPostCreated,
             object: nil,
             queue: .main
@@ -610,7 +692,7 @@ struct UserProfileView: View {
         }
         
         // Listen for new reposts
-        NotificationCenter.default.addObserver(
+        repostObserver = NotificationCenter.default.addObserver(
             forName: Notification.Name("postReposted"),
             object: nil,
             queue: .main
@@ -690,6 +772,9 @@ struct UserProfileView: View {
     private func refreshProfile() async {
         isRefreshing = true
         
+        // P1-3: Invalidate cache on manual refresh
+        profileCachedAt = nil
+        
         // Simulate network delay
         try? await Task.sleep(nanoseconds: 1_500_000_000) // 1.5 seconds
         
@@ -704,6 +789,14 @@ struct UserProfileView: View {
     
     @MainActor
     private func loadProfileData() async {
+        // P1-3: Check cache TTL (5 minutes)
+        if let cachedAt = profileCachedAt,
+           let profile = profileData,
+           Date().timeIntervalSince(cachedAt) < 300 { // 5 minutes
+            print("✅ Using cached profile data (age: \(Int(Date().timeIntervalSince(cachedAt)))s)")
+            return
+        }
+        
         isLoading = true
         errorMessage = ""
         
@@ -810,7 +903,10 @@ struct UserProfileView: View {
                 isPrivateAccount: isPrivateAccount  // ✅ FIX: Include in UserProfile
             )
             
-            print("✅ Profile data converted successfully")
+            // P1-3: Set cache timestamp
+            profileCachedAt = Date()
+            
+            print("✅ Profile data converted successfully (cached at \(Date()))")
             
             // Fetch user's content in parallel
             print("📥 Starting parallel fetch for posts, reposts, follow status, and privacy status...")
@@ -1000,17 +1096,37 @@ struct UserProfileView: View {
         
         print("✅ Follow status for \(userId): \(isFollowing ? "following" : "not following")")
         
+        // P0-5: Check for pending follow request if not following and account is private
+        if !isFollowing, let profile = profileData, profile.isPrivateAccount {
+            await checkFollowRequestStatus()
+        }
+        
         return isFollowing
     }
     
-    /// Check privacy status (mute, hide, block)
+    /// P0-5: Check if there's a pending follow request for this user
+    @MainActor
+    private func checkFollowRequestStatus() async {
+        let followRequestService = FollowRequestService.shared
+        followRequestPending = await followRequestService.hasPendingRequest(toUserId: userId)
+        
+        if followRequestPending {
+            print("✅ Follow request pending for user: \(userId)")
+        }
+    }
+    
+    /// Check privacy status (mute, hide, block, blocked_by)
     @MainActor
     private func checkPrivacyStatus() async {
         do {
             let moderationService = ModerationService.shared
+            let blockService = BlockService.shared
             
-            // Check if user is blocked
+            // Check if current user has blocked this user
             isBlocked = await moderationService.isBlocked(userId: userId)
+            
+            // P0-4: Check if this user has blocked current user (BLOCKED_BY detection)
+            isBlockedBy = await blockService.isBlockedBy(userId: userId)
             
             // Check if user is muted
             isMuted = await moderationService.isMuted(userId: userId)
@@ -1019,7 +1135,8 @@ struct UserProfileView: View {
             isHidden = await moderationService.isHiddenFrom(userId: userId)
             
             print("✅ Privacy status loaded:")
-            print("   - Blocked: \(isBlocked)")
+            print("   - Blocked (you blocked them): \(isBlocked)")
+            print("   - Blocked By (they blocked you): \(isBlockedBy)")
             print("   - Muted: \(isMuted)")
             print("   - Hidden: \(isHidden)")
             
@@ -1153,7 +1270,21 @@ struct UserProfileView: View {
     private func performFollowAction() async {
         guard let profile = profileData else { return }
         
-        // Prevent duplicate taps
+        // P0-3: Actor-isolated guard prevents TOCTOU race conditions
+        // Check if operation is already in progress using the actor guard
+        guard await FollowOperationGuard.shared.actor.startOperation(for: userId) else {
+            print("⚠️ Follow operation blocked by actor guard - duplicate tap prevented")
+            return
+        }
+        
+        // Ensure we complete the operation when done
+        defer {
+            Task {
+                await FollowOperationGuard.shared.actor.completeOperation(for: userId)
+            }
+        }
+        
+        // Double-check state flag
         guard !isFollowActionInProgress else {
             print("⚠️ Follow action already in progress, ignoring duplicate tap")
             return
@@ -1161,6 +1292,13 @@ struct UserProfileView: View {
         
         isFollowActionInProgress = true
         defer { isFollowActionInProgress = false }
+        
+        // P0-5: Handle private accounts with follow requests
+        if profile.isPrivateAccount && !isFollowing {
+            // For private accounts, send/cancel follow request instead
+            await handlePrivateAccountFollow()
+            return
+        }
         
         let previousState = isFollowing
         
@@ -1184,30 +1322,67 @@ struct UserProfileView: View {
             
         } catch {
             // Rollback on error
-            await MainActor.run {
-                isFollowing = previousState
+            isFollowing = previousState
+            
+            // Provide more specific error message
+            if let nsError = error as NSError? {
+                print("❌ Failed to toggle follow: \(nsError)")
+                print("   Domain: \(nsError.domain), Code: \(nsError.code)")
+                print("   Description: \(nsError.localizedDescription)")
                 
-                // Provide more specific error message
-                if let nsError = error as NSError? {
-                    print("❌ Failed to toggle follow: \(nsError)")
-                    print("   Domain: \(nsError.domain), Code: \(nsError.code)")
-                    print("   Description: \(nsError.localizedDescription)")
-                    
-                    // Show more helpful error based on error type
-                    if nsError.domain == NSURLErrorDomain {
-                        errorMessage = "Network error. Check your connection and try again."
-                    } else if nsError.localizedDescription.contains("permission") || nsError.localizedDescription.contains("unauthorized") {
-                        errorMessage = "Permission denied. Please try signing out and back in."
-                    } else {
-                        errorMessage = "Failed to \(previousState ? "unfollow" : "follow") user. Please try again.\n\nError: \(nsError.localizedDescription)"
-                    }
+                // Show more helpful error based on error type
+                if nsError.domain == NSURLErrorDomain {
+                    errorMessage = "Network error. Check your connection and try again."
+                } else if nsError.localizedDescription.contains("permission") || nsError.localizedDescription.contains("unauthorized") {
+                    errorMessage = "Permission denied. Please try signing out and back in."
                 } else {
-                    errorMessage = "Failed to \(previousState ? "unfollow" : "follow") user. Please try again."
-                    print("❌ Failed to toggle follow: \(error)")
+                    errorMessage = "Failed to \(previousState ? "unfollow" : "follow") user. Please try again.\n\nError: \(nsError.localizedDescription)"
+                }
+            } else {
+                errorMessage = "Failed to \(previousState ? "unfollow" : "follow") user. Please try again."
+                print("❌ Failed to toggle follow: \(error)")
+            }
+            
+            showErrorAlert = true
+        }
+    }
+    
+    /// P0-5: Handle follow/unfollow for private accounts using follow requests
+    @MainActor
+    private func handlePrivateAccountFollow() async {
+        let followRequestService = FollowRequestService.shared
+        let previousRequestState = followRequestPending
+        
+        do {
+            if followRequestPending {
+                // Cancel pending request
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    followRequestPending = false
                 }
                 
-                showErrorAlert = true
+                try await followRequestService.cancelFollowRequest(toUserId: userId)
+                print("✅ Cancelled follow request to user: \(userId)")
+                
+            } else {
+                // Send new follow request
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    followRequestPending = true
+                }
+                
+                try await followRequestService.sendFollowRequest(toUserId: userId)
+                print("✅ Sent follow request to user: \(userId)")
             }
+            
+            let haptic = UINotificationFeedbackGenerator()
+            haptic.notificationOccurred(.success)
+            
+        } catch {
+            // Rollback on error
+            followRequestPending = previousRequestState
+            
+            print("❌ Failed to handle follow request: \(error)")
+            errorMessage = "Failed to send follow request. Please try again."
+            showErrorAlert = true
         }
     }
     
@@ -1763,46 +1938,66 @@ struct UserProfileView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     
-                    // Action Buttons
-                    HStack(spacing: 12) {
-                        // Follow/Following Button (hide when scrolled to toolbar)
-                        if !shouldShowToolbarButtons {
-                            Button {
-                                toggleFollow()
-                            } label: {
-                                Text(isFollowing ? "Following" : "Follow")
-                                    .font(.custom("OpenSans-Bold", size: 15))
-                                    .foregroundStyle(isFollowing ? .black : .white)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 12)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 20)
-                                            .fill(isFollowing ? Color(white: 0.93) : Color.black)
-                                            .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 4)
-                                    )
+                    // Action Buttons - P0-4: Hide when blocked or blockedBy
+                    if !isBlocked && !isBlockedBy {
+                        HStack(spacing: 12) {
+                            // Follow/Following Button (hide when scrolled to toolbar)
+                            // P0-5: Show "Requested" state for private accounts
+                            if !shouldShowToolbarButtons {
+                                Button {
+                                    toggleFollow()
+                                } label: {
+                                    Text(followButtonText)
+                                        .font(.custom("OpenSans-Bold", size: 15))
+                                        .foregroundStyle(followButtonTextColor)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 12)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 20)
+                                                .fill(followButtonBackground)
+                                                .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 4)
+                                        )
+                                }
+                                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isFollowing)
+                                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: followRequestPending)
+                                .transition(.scale.combined(with: .opacity))
+                                
+                                // Message Button (hide when scrolled to toolbar)
+                                Button {
+                                    sendMessage()
+                                } label: {
+                                    Text("Message")
+                                        .font(.custom("OpenSans-Bold", size: 15))
+                                        .foregroundStyle(.black)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 12)
+                                        .background(messageButtonBackground)
+                                }
+                                .transition(.scale.combined(with: .opacity))
                             }
-                            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isFollowing)
-                            .transition(.scale.combined(with: .opacity))
-                            
-                            // Message Button (hide when scrolled to toolbar)
-                            Button {
-                                sendMessage()
-                            } label: {
-                                Text("Message")
-                                    .font(.custom("OpenSans-Bold", size: 15))
-                                    .foregroundStyle(.black)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 12)
-                                    .background(messageButtonBackground)
-                            }
-                            .transition(.scale.combined(with: .opacity))
                         }
+                        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: shouldShowToolbarButtons)
                     }
-                    .animation(.spring(response: 0.3, dampingFraction: 0.8), value: shouldShowToolbarButtons)
                     
-                    // Privacy Status Indicators
-                    if isMuted || isHidden {
+                    // Privacy Status Indicators - P0-4: Include BLOCKED_BY status
+                    if isBlockedBy || isBlocked || isMuted || isHidden {
                         VStack(spacing: 8) {
+                            if isBlockedBy {
+                                PrivacyStatusBadge(
+                                    icon: "hand.raised.fill",
+                                    text: "This user has blocked you",
+                                    color: .red
+                                )
+                            }
+                            
+                            if isBlocked {
+                                PrivacyStatusBadge(
+                                    icon: "hand.raised.slash.fill",
+                                    text: "You've blocked this user",
+                                    color: .red
+                                )
+                            }
+                            
                             if isMuted {
                                 PrivacyStatusBadge(
                                     icon: "speaker.slash.fill",
@@ -1820,6 +2015,8 @@ struct UserProfileView: View {
                             }
                         }
                         .transition(.move(edge: .top).combined(with: .opacity))
+                        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: isBlockedBy)
+                        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: isBlocked)
                         .animation(.spring(response: 0.4, dampingFraction: 0.8), value: isMuted)
                         .animation(.spring(response: 0.4, dampingFraction: 0.8), value: isHidden)
                     }
@@ -1898,14 +2095,34 @@ struct UserProfileView: View {
     
     @ViewBuilder
     private var contentView: some View {
-        switch selectedTab {
-        case .posts:
-            // Show user's posts
-            postsTabContent
-            
-        case .reposts:
-            // Show user's reposts
-            repostsTabContent
+        // P0-4: Check if user has blocked current user (BLOCKED_BY)
+        if isBlockedBy {
+            // Show blocked message when they blocked you
+            UserProfileEmptyStateView(
+                icon: "hand.raised.fill",
+                title: "Profile Unavailable",
+                message: "You can't view this user's content."
+            )
+            .padding(.top, 40)
+        } else if isBlocked {
+            // Show different message when you blocked them
+            UserProfileEmptyStateView(
+                icon: "hand.raised.slash.fill",
+                title: "User Blocked",
+                message: "You've blocked this user. Unblock to see their content."
+            )
+            .padding(.top, 40)
+        } else {
+            // Normal content display
+            switch selectedTab {
+            case .posts:
+                // Show user's posts
+                postsTabContent
+                
+            case .reposts:
+                // Show user's reposts
+                repostsTabContent
+            }
         }
     }
     
@@ -4451,6 +4668,30 @@ extension UserProfileView {
             let formatter = DateFormatter()
             formatter.dateFormat = "MMM d"
             return formatter.string(from: date)
+        }
+    }
+    
+    /// Sort posts with pinned post first (like Threads)
+    private func sortPostsWithPinnedFirst() async {
+        guard !posts.isEmpty else { return }
+        
+        // Get pinned post ID for this user
+        let pinnedPostId = try? await pinnedPostService.getPinnedPostId(for: userId)
+        
+        guard let pinnedId = pinnedPostId else {
+            // No pinned post - keep chronological order
+            return
+        }
+        
+        // Sort: pinned post first, then chronological
+        posts.sort { lhs, rhs in
+            if lhs.id == pinnedId {
+                return true // Pinned post comes first
+            } else if rhs.id == pinnedId {
+                return false
+            } else {
+                return lhs.createdAt > rhs.createdAt // Chronological for rest
+            }
         }
     }
 }

@@ -87,22 +87,31 @@ struct AccountSettingsView: View {
                     }
                     .buttonStyle(PlainButtonStyle())
                     
-                    // Email (read-only)
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Email")
-                                .font(.custom("OpenSans-SemiBold", size: 15))
-                                .foregroundStyle(.primary)
-                            
-                            if let user = userService.currentUser {
-                                Text(user.email)
-                                    .font(.custom("OpenSans-Regular", size: 13))
-                                    .foregroundStyle(.secondary)
+                    // Email
+                    Button {
+                        showChangeEmail = true
+                    } label: {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Email")
+                                    .font(.custom("OpenSans-SemiBold", size: 15))
+                                    .foregroundStyle(.primary)
+                                
+                                if let user = userService.currentUser {
+                                    Text(user.email)
+                                        .font(.custom("OpenSans-Regular", size: 13))
+                                        .foregroundStyle(.secondary)
+                                }
                             }
+                            
+                            Spacer()
+                            
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(.secondary)
                         }
-                        
-                        Spacer()
                     }
+                    .buttonStyle(PlainButtonStyle())
                 } header: {
                     Text("ACCOUNT INFORMATION")
                         .font(.custom("OpenSans-Bold", size: 12))
@@ -178,6 +187,9 @@ struct AccountSettingsView: View {
             }
             .sheet(isPresented: $showChangeUsername) {
                 ChangeUsernameView()
+            }
+            .sheet(isPresented: $showChangeEmail) {
+                ChangeEmailView()
             }
             .sheet(isPresented: $showChangePassword) {
                 ChangePasswordView()
@@ -726,6 +738,212 @@ struct InfoRow: View {
             Text(text)
                 .font(.custom("OpenSans-Regular", size: 12))
                 .foregroundStyle(.secondary)
+        }
+    }
+}
+
+// MARK: - Change Email View
+
+struct ChangeEmailView: View {
+    @Environment(\.dismiss) var dismiss
+    @StateObject private var authViewModel = AuthenticationViewModel()
+    @StateObject private var userService = UserService()
+    
+    @State private var newEmail = ""
+    @State private var password = ""
+    @State private var isLoading = false
+    @State private var errorMessage: String?
+    @State private var showError = false
+    @State private var showSuccess = false
+    
+    private var isPasswordlessUser: Bool {
+        authViewModel.isPasswordlessUser()
+    }
+    
+    private var authProviderName: String {
+        authViewModel.getAuthProviderName()
+    }
+    
+    private var isValidEmail: Bool {
+        let emailRegex = "^[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,64}$"
+        let predicate = NSPredicate(format: "SELF MATCHES %@", emailRegex)
+        return predicate.evaluate(with: newEmail)
+    }
+    
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 24) {
+                    // Header
+                    VStack(spacing: 16) {
+                        Image(systemName: isPasswordlessUser ? (authProviderName == "Apple ID" ? "apple.logo" : "globe") : "envelope.fill")
+                            .font(.system(size: 60))
+                            .foregroundStyle(isPasswordlessUser ? .orange : .blue)
+                            .padding(.top, 20)
+                        
+                        Text(isPasswordlessUser ? "Email Change Not Available" : "Change Email")
+                            .font(.custom("OpenSans-Bold", size: 24))
+                        
+                        Text(isPasswordlessUser ? "You signed in with \(authProviderName)" : "Enter your new email address")
+                            .font(.custom("OpenSans-Regular", size: 14))
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 40)
+                    }
+                    
+                    // Show info card for passwordless users
+                    if isPasswordlessUser {
+                        VStack(alignment: .leading, spacing: 16) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "info.circle.fill")
+                                    .foregroundStyle(.blue)
+                                Text("About Your Account")
+                                    .font(.custom("OpenSans-Bold", size: 16))
+                            }
+                            
+                            Text("Your account is managed by \(authProviderName). To change your email, update it through your \(authProviderName) account settings.")
+                                .font(.custom("OpenSans-Regular", size: 14))
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding()
+                        .background(Color.blue.opacity(0.1))
+                        .cornerRadius(12)
+                        .padding(.horizontal)
+                    } else {
+                        // Email change form for password-based users
+                        VStack(spacing: 20) {
+                            // New Email Field
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("New Email")
+                                    .font(.custom("OpenSans-SemiBold", size: 13))
+                                    .foregroundStyle(.secondary)
+                                
+                                TextField("", text: $newEmail)
+                                    .textContentType(.emailAddress)
+                                    .keyboardType(.emailAddress)
+                                    .autocapitalization(.none)
+                                    .font(.custom("OpenSans-Regular", size: 16))
+                                    .padding()
+                                    .background(Color(.systemGray6))
+                                    .cornerRadius(12)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .strokeBorder(newEmail.isEmpty ? Color.clear : (isValidEmail ? Color.green : Color.red), lineWidth: 1)
+                                    )
+                                
+                                if !newEmail.isEmpty && !isValidEmail {
+                                    Text("Please enter a valid email address")
+                                        .font(.custom("OpenSans-Regular", size: 12))
+                                        .foregroundStyle(.red)
+                                }
+                            }
+                            
+                            // Current Password Field (for re-authentication)
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Current Password")
+                                    .font(.custom("OpenSans-SemiBold", size: 13))
+                                    .foregroundStyle(.secondary)
+                                
+                                SecureField("", text: $password)
+                                    .textContentType(.password)
+                                    .font(.custom("OpenSans-Regular", size: 16))
+                                    .padding()
+                                    .background(Color(.systemGray6))
+                                    .cornerRadius(12)
+                            }
+                            
+                            // Info
+                            VStack(alignment: .leading, spacing: 12) {
+                                InfoRow(icon: "checkmark.circle.fill", text: "You'll receive a verification email at your new address")
+                                InfoRow(icon: "lock.fill", text: "For security, we need your current password")
+                                InfoRow(icon: "envelope.badge.fill", text: "Your old email will receive a confirmation notice")
+                            }
+                            .padding(.vertical, 8)
+                            
+                            // Change Email Button
+                            Button {
+                                HapticManager.impact(style: .medium)
+                                changeEmail()
+                            } label: {
+                                ZStack {
+                                    if isLoading {
+                                        ProgressView()
+                                            .tint(.white)
+                                    } else {
+                                        Text("Change Email")
+                                            .font(.custom("OpenSans-SemiBold", size: 16))
+                                            .foregroundStyle(.white)
+                                    }
+                                }
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 50)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .fill(isValidEmail && !password.isEmpty && !isLoading ? Color.blue : Color.gray)
+                                )
+                            }
+                            .disabled(!isValidEmail || password.isEmpty || isLoading)
+                            .padding(.top)
+                        }
+                        .padding(.horizontal)
+                    }
+                    
+                    Spacer(minLength: 40)
+                }
+            }
+            .navigationTitle("Change Email")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
+            }
+            .alert("Success", isPresented: $showSuccess) {
+                Button("OK") {
+                    dismiss()
+                }
+            } message: {
+                Text("Email updated successfully! Please check your new email for verification.")
+            }
+            .alert("Error", isPresented: $showError) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(errorMessage ?? "An error occurred")
+            }
+        }
+    }
+    
+    private func changeEmail() {
+        guard isValidEmail && !password.isEmpty else { return }
+        
+        isLoading = true
+        
+        Task {
+            do {
+                // Re-authenticate first
+                try await authViewModel.reauthenticate(password: password)
+                
+                // Change email
+                try await authViewModel.updateEmail(newEmail: newEmail)
+                
+                // Update in Firestore
+                try await userService.updateUserEmail(newEmail: newEmail)
+                
+                await MainActor.run {
+                    isLoading = false
+                    showSuccess = true
+                    HapticManager.notification(type: .success)
+                }
+            } catch {
+                await MainActor.run {
+                    isLoading = false
+                    errorMessage = error.localizedDescription
+                    showError = true
+                    HapticManager.notification(type: .error)
+                }
+            }
         }
     }
 }

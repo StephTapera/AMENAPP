@@ -27,6 +27,10 @@ class FirebaseManager {
         self.auth = Auth.auth()
         self.firestore = Firestore.firestore()
         self.storage = Storage.storage()
+        
+        // ✅ Firestore settings are configured in AppDelegate.swift
+        // (must be set ONCE, immediately after FirebaseApp.configure())
+        print("✅ FirebaseManager initialized")
     }
     
     // MARK: - Collection Paths

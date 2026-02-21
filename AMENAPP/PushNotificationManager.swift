@@ -23,9 +23,20 @@ class PushNotificationManager: NSObject, ObservableObject {
     @Published var notificationPermissionGranted = false
     
     private let db = Firestore.firestore()
+    private var fcmTokenObserver: NSObjectProtocol?
+    
+    // P0 FIX: Prevent duplicate FCM setup
+    private var hasSetupFCM = false
     
     private override init() {
         super.init()
+    }
+    
+    deinit {
+        if let observer = fcmTokenObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        print("🧹 PushNotificationManager deallocated, observers removed")
     }
     
     // MARK: - Request Permissions
@@ -96,6 +107,13 @@ class PushNotificationManager: NSObject, ObservableObject {
     // MARK: - FCM Token Management
     
     func setupFCMToken() {
+        // P0 FIX: Prevent duplicate setup (called 3x in codebase)
+        guard !hasSetupFCM else {
+            print("⚠️ FCM already set up, skipping duplicate setup")
+            return
+        }
+        hasSetupFCM = true
+        
         #if targetEnvironment(simulator)
         print("⚠️ Skipping FCM setup on simulator (APNS not available)")
         return
@@ -120,16 +138,24 @@ class PushNotificationManager: NSObject, ObservableObject {
         }
         #endif
         
-        // Listen for token refresh
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(fcmTokenRefreshed),
-            name: Notification.Name.MessagingRegistrationTokenRefreshed,
-            object: nil
-        )
+        // P0 FIX: Remove old observer before adding new one
+        if let observer = fcmTokenObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        
+        // Listen for token refresh - store observer for cleanup
+        fcmTokenObserver = NotificationCenter.default.addObserver(
+            forName: Notification.Name.MessagingRegistrationTokenRefreshed,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.fcmTokenRefreshed()
+        }
+        
+        print("✅ FCM setup complete")
     }
     
-    @objc private func fcmTokenRefreshed() {
+    private func fcmTokenRefreshed() {
         Messaging.messaging().token { [weak self] token, error in
             guard let self = self, let token = token else { return }
             
@@ -243,51 +269,18 @@ class PushNotificationManager: NSObject, ObservableObject {
     
     // MARK: - Badge Management
     
+    /// Update badge count (delegates to BadgeCountManager for thread-safety and caching)
     func updateBadgeCount() {
-        Task {
-            guard let userId = Auth.auth().currentUser?.uid else { return }
-            
-            do {
-                // Calculate total unread from conversations (messages)
-                let conversationsSnapshot = try await db.collection("conversations")
-                    .whereField("participantIds", arrayContains: userId)
-                    .whereField("conversationStatus", isEqualTo: "accepted")
-                    .getDocuments()
-                
-                var totalUnreadMessages = 0
-                for document in conversationsSnapshot.documents {
-                    if let unreadCounts = document.data()["unreadCounts"] as? [String: Int],
-                       let count = unreadCounts[userId] {
-                        totalUnreadMessages += count
-                    }
-                }
-                
-                // Add general notifications count
-                let notificationsSnapshot = try await db.collection("users")
-                    .document(userId)
-                    .collection("notifications")
-                    .whereField("read", isEqualTo: false)
-                    .getDocuments()
-                
-                let totalNotifications = notificationsSnapshot.documents.count
-                
-                // Total badge = messages + notifications
-                let totalBadge = totalUnreadMessages + totalNotifications
-                
-                await MainActor.run {
-                    UIApplication.shared.applicationIconBadgeNumber = totalBadge
-                }
-                
-                print("📛 Badge count updated: \(totalBadge) (Messages: \(totalUnreadMessages), Notifications: \(totalNotifications))")
-            } catch {
-                print("❌ Error updating badge count: \(error)")
-            }
+        Task { @MainActor in
+            BadgeCountManager.shared.requestBadgeUpdate()
         }
     }
     
+    /// Clear badge count
     func clearBadge() {
-        UIApplication.shared.applicationIconBadgeNumber = 0
-        print("📛 Badge cleared")
+        Task { @MainActor in
+            BadgeCountManager.shared.clearBadge()
+        }
     }
     
     // MARK: - Test Notification

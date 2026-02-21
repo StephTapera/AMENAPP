@@ -7,6 +7,8 @@
 
 import Foundation
 import SwiftUI
+import Combine
+import FirebaseAuth
 
 @MainActor
 class ChurchNotesAIService: ObservableObject {
@@ -391,7 +393,7 @@ struct ChurchNoteAIAssistantView: View {
     }
     
     private func runAIFeature(_ feature: AIFeature) {
-        guard let userId = FirebaseAuth.Auth.auth().currentUser?.uid else {
+        guard let userId = Auth.auth().currentUser?.uid else {
             errorMessage = "You must be signed in to use AI features"
             showError = true
             return

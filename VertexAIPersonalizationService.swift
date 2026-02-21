@@ -9,6 +9,7 @@
 import Foundation
 import FirebaseFirestore
 import FirebaseAuth
+import FirebaseRemoteConfig
 
 // MARK: - Personalization Models
 
@@ -71,8 +72,10 @@ class VertexAIPersonalizationService {
     static let shared = VertexAIPersonalizationService()
     private let db = Firestore.firestore()
     
-    // Vertex AI Configuration
-    private let vertexAIProjectId = "" // TODO: Add from Firebase Remote Config
+    // Vertex AI Configuration from Firebase Remote Config
+    private var vertexAIProjectId: String {
+        RemoteConfig.remoteConfig().configValue(forKey: "vertex_ai_project_id").stringValue ?? ""
+    }
     private let vertexAIRegion = "us-central1"
     private let modelEndpoint = "" // TODO: Deploy model and add endpoint
     
@@ -233,7 +236,7 @@ class VertexAIPersonalizationService {
                 postId: candidatePosts[index],
                 relevanceScore: relevanceScore,
                 confidenceScore: prediction["confidence"] as? Double ?? 0.5,
-                features: PredictionFeatures(
+                features: FeedPrediction.PredictionFeatures(
                     topicMatch: prediction["topicMatch"] as? Double ?? 0.0,
                     authorAffinity: prediction["authorAffinity"] as? Double ?? 0.0,
                     engagementQuality: prediction["engagementQuality"] as? Double ?? 0.0,
@@ -359,10 +362,10 @@ class VertexAIPersonalizationService {
     }
     
     /// Filter notifications before sending
-    func filterNotifications(_ notifications: [PendingNotification]) async throws -> [PendingNotification] {
+    func filterNotifications(_ notifications: [AIFilteredNotification]) async throws -> [AIFilteredNotification] {
         print("🔔 [FILTER] Processing \(notifications.count) notifications...")
         
-        var filtered: [PendingNotification] = []
+        var filtered: [AIFilteredNotification] = []
         
         for notification in notifications {
             let prediction = try await predictNotificationRelevance(
@@ -430,7 +433,7 @@ class VertexAIPersonalizationService {
 
 // MARK: - Supporting Types
 
-struct PendingNotification {
+struct AIFilteredNotification {
     let userId: String
     let type: String
     let metadata: [String: Any]

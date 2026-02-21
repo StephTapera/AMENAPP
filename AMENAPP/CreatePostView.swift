@@ -67,6 +67,9 @@ struct CreatePostView: View {
     @State private var uploadProgress: Double = 0.0
     @State private var isUploadingImages = false
     
+    // P0-1 FIX: Prevent duplicate post creation
+    @State private var inFlightPostHash: Int? = nil
+    
     enum PostCategory: String, CaseIterable {
         case openTable = "openTable"      // ✅ Firebase-safe (no special chars)
         case testimonies = "testimonies"  // ✅ Firebase-safe (lowercase)
@@ -356,7 +359,8 @@ struct CreatePostView: View {
                 bottomToolbar
             }
             .sheet(isPresented: $showingImagePicker) {
-                PhotosPicker(selection: $selectedImages, maxSelectionCount: 4, matching: .images) {
+                // P0 FIX: Changed from 4 to 2 photos max (as per requirements)
+                PhotosPicker(selection: $selectedImages, maxSelectionCount: 2, matching: .images) {
                     Text("Select Photos")
                 }
                 .onChange(of: selectedImages) { _, newItems in
@@ -1227,10 +1231,20 @@ struct CreatePostView: View {
         print("   isPublishing: \(isPublishing)")
         print("   canPost: \(canPost)")
         
+        // P0-1 FIX: Block duplicate post attempts with content hash
+        let contentHash = postText.hashValue
+        if let existingHash = inFlightPostHash, existingHash == contentHash {
+            print("⚠️ [P0-1] Duplicate post blocked (hash: \(contentHash))")
+            return
+        }
+        
         guard !isPublishing else {
             print("⚠️ Already publishing, skipping")
             return
         }
+        
+        // Set in-flight hash immediately to block duplicates
+        inFlightPostHash = contentHash
         
         // Dismiss keyboard
         isTextFieldFocused = false
@@ -1377,17 +1391,32 @@ struct CreatePostView: View {
                         .getDocument()
                 }
                 
-                // ⚡ PARALLEL: Upload images while other tasks run
+                // P0-3 FIX: Make image upload BLOCKING if images attached
                 var imageURLs: [String]? = nil
-                let imageUploadTask: Task<[String]?, Error>? = selectedImageData.isEmpty ? nil : Task {
-                    print("📤 Uploading \(selectedImageData.count) images in parallel...")
+                if !selectedImageData.isEmpty {
+                    print("📤 Uploading \(selectedImageData.count) images (blocking)...")
                     do {
-                        let urls = try await uploadImages()
-                        print("✅ Images uploaded: \(urls.count)")
-                        return urls
+                        imageURLs = try await uploadImages()
+                        print("✅ Images uploaded: \(imageURLs?.count ?? 0)")
+                        
+                        // Verify we got URLs back
+                        if imageURLs == nil || imageURLs!.isEmpty {
+                            throw NSError(
+                                domain: "ImageUpload",
+                                code: -1,
+                                userInfo: [NSLocalizedDescriptionKey: "All images failed to upload. Please check your connection and try again."]
+                            )
+                        }
                     } catch {
-                        print("❌ Image upload failed (non-critical): \(error)")
-                        return nil
+                        // P0-3 FIX: Show error and STOP post creation if images fail
+                        await MainActor.run {
+                            isPublishing = false
+                            inFlightPostHash = nil
+                            let friendlyError = getUserFriendlyError(from: error)
+                            showError(title: friendlyError.title, message: friendlyError.message)
+                        }
+                        print("❌ [P0-3] Image upload failed - aborting post creation")
+                        return
                     }
                 }
                 
@@ -1396,16 +1425,13 @@ struct CreatePostView: View {
                 let userData = userDoc.data()
                 let authorProfileImageURL = userData?["profileImageURL"] as? String
                 
-                if let imageTask = imageUploadTask {
-                    imageURLs = try await imageTask.value
-                }
-                
                 // Check moderation result (should be fast since it started first)
                 let moderationResult = try await moderationTask.value
                 
                 if !moderationResult.isApproved {
                     await MainActor.run {
                         isPublishing = false
+                        inFlightPostHash = nil  // P0-1 FIX: Clear hash on moderation failure
                         let reasons = moderationResult.flaggedReasons.joined(separator: ", ")
                         showError(
                             title: "Content Flagged",
@@ -1418,35 +1444,50 @@ struct CreatePostView: View {
                 
                 print("✅ Content passed moderation")
                 
-                // Extract mentions from content
+                // P1-3 FIX: Parallelize mention resolution
                 let mentionUsernames = Post.extractMentionUsernames(from: content)
                 var mentions: [MentionedUser] = []
                 
                 if !mentionUsernames.isEmpty {
-                    print("📧 Found \(mentionUsernames.count) mentions: \(mentionUsernames)")
-                    // Fetch user data for each mentioned username
-                    for username in mentionUsernames {
-                        do {
-                            let userQuery = try await FirebaseManager.shared.firestore
-                                .collection("users")
-                                .whereField("username", isEqualTo: username)
-                                .limit(to: 1)
-                                .getDocuments()
-                            
-                            if let userDoc = userQuery.documents.first {
-                                let userId = userDoc.documentID
-                                let displayName = userDoc.data()["displayName"] as? String ?? username
-                                mentions.append(MentionedUser(
-                                    userId: userId,
-                                    username: username,
-                                    displayName: displayName
-                                ))
-                                print("   ✓ Resolved @\(username) -> \(userId)")
+                    print("📧 [P1-3] Found \(mentionUsernames.count) mentions: \(mentionUsernames)")
+                    
+                    // Fetch all mentions in parallel using TaskGroup
+                    await withTaskGroup(of: MentionedUser?.self) { group in
+                        for username in mentionUsernames {
+                            group.addTask {
+                                do {
+                                    let userQuery = try await FirebaseManager.shared.firestore
+                                        .collection("users")
+                                        .whereField("username", isEqualTo: username)
+                                        .limit(to: 1)
+                                        .getDocuments()
+                                    
+                                    if let userDoc = userQuery.documents.first {
+                                        let userId = userDoc.documentID
+                                        let displayName = userDoc.data()["displayName"] as? String ?? username
+                                        print("   ✓ Resolved @\(username) -> \(userId)")
+                                        return MentionedUser(
+                                            userId: userId,
+                                            username: username,
+                                            displayName: displayName
+                                        )
+                                    }
+                                } catch {
+                                    print("   ⚠️ Failed to resolve @\(username): \(error)")
+                                }
+                                return nil
                             }
-                        } catch {
-                            print("   ⚠️ Failed to resolve @\(username): \(error)")
+                        }
+                        
+                        // Collect all results
+                        for await mention in group {
+                            if let mention = mention {
+                                mentions.append(mention)
+                            }
                         }
                     }
+                    
+                    print("✅ [P1-3] Resolved \(mentions.count)/\(mentionUsernames.count) mentions in parallel")
                 }
                 
                 // Create Post object with mentions
@@ -1554,7 +1595,7 @@ struct CreatePostView: View {
                     }
                 }
                 
-                // 📬 INSTANT: Send notification to update UI + dismiss immediately
+                // P0-2 FIX: Only dismiss AFTER Firestore confirms success
                 await MainActor.run {
                     print("📬 Sending notification to update UI...")
                     NotificationCenter.default.post(
@@ -1568,14 +1609,18 @@ struct CreatePostView: View {
                     )
                     print("✅ Notification sent successfully")
                     
-                    // ⚡ INSTAGRAM-FAST: Show success and dismiss immediately
+                    // Clear state (P0-1, P1-2)
+                    inFlightPostHash = nil
+                    UserDefaults.standard.removeObject(forKey: "autoSavedDraft")
+                    
+                    // ✅ Show success and dismiss ONLY after Firestore success
                     withAnimation {
                         showingSuccessNotice = true
                     }
                     
-                    // ⚡ INSTANT DISMISS: No 0.3s delay - dismiss right away
+                    // Dismiss after brief delay (Firestore already confirmed)
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                        print("👋 Dismissing CreatePostView (Instagram-fast)")
+                        print("👋 Dismissing CreatePostView (safe after Firestore)")
                         dismiss()
                     }
                     
@@ -1627,6 +1672,7 @@ struct CreatePostView: View {
                 
                 await MainActor.run {
                     isPublishing = false
+                    inFlightPostHash = nil  // P0-1 FIX: Clear hash on error
                 }
             } catch {
                 // ⚠️ Post creation failed in background - user already saw success
@@ -1647,6 +1693,7 @@ struct CreatePostView: View {
                 
                 await MainActor.run {
                     isPublishing = false
+                    inFlightPostHash = nil  // P0-1 FIX: Clear hash on error
                 }
             }
         }
@@ -1722,8 +1769,12 @@ struct CreatePostView: View {
                     .child(userId)
                     .child(filename)
                 
-                // Compress image before upload (max 1MB)
-                guard let compressedData = compressImage(imageData, maxSizeInMB: 1.0) else {
+                // PERF-1 FIX: Compress image on background thread (CPU-intensive)
+                let compressedData = await Task.detached {
+                    self.compressImage(imageData, maxSizeInMB: 1.0)
+                }.value
+                
+                guard let compressedData = compressedData else {
                     print("⚠️ Failed to compress image \(index)")
                     failedUploads += 1
                     continue
@@ -1927,6 +1978,12 @@ struct CreatePostView: View {
     
     /// Auto-save draft silently
     private func autoSaveDraft() {
+        // P1-2 FIX: Don't auto-save while publishing
+        guard !isPublishing else {
+            print("⏭️ [P1-2] Skipping auto-save - post is publishing")
+            return
+        }
+        
         // Only auto-save if there's content
         guard !postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return

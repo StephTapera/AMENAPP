@@ -12,6 +12,7 @@ import UniformTypeIdentifiers
 
 struct BereanConversationManagementView: View {
     @Binding var conversations: [SavedConversation]
+    @Binding var isLoading: Bool  // ✅ P1-2: Loading state binding
     let onSelect: (SavedConversation) -> Void
     let onDelete: (SavedConversation) -> Void
     let onUpdate: (SavedConversation, String) -> Void
@@ -54,6 +55,28 @@ struct BereanConversationManagementView: View {
                     } else {
                         conversationsList
                     }
+                }
+                
+                // ✅ P1-2: Loading overlay
+                if isLoading {
+                    Color.black.opacity(0.4)
+                        .ignoresSafeArea()
+                    
+                    VStack(spacing: 16) {
+                        ProgressView()
+                            .scaleEffect(1.5)
+                            .tint(.white)
+                        
+                        Text("Loading conversation...")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundStyle(.white)
+                    }
+                    .padding(32)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(Color(white: 0.1))
+                            .shadow(radius: 20)
+                    )
                 }
             }
             .navigationTitle("Conversations")
@@ -577,6 +600,7 @@ struct ExportConversationSheet: View {
 #Preview {
     BereanConversationManagementView(
         conversations: .constant([]),
+        isLoading: .constant(false),
         onSelect: { _ in },
         onDelete: { _ in },
         onUpdate: { _, _ in }

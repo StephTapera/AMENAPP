@@ -220,13 +220,13 @@ struct EnhancedChurchNoteEditor: View {
                 .padding(.horizontal, 20)
             
             VStack(spacing: 12) {
-                MinimalTextField(icon: "mic", placeholder: "Sermon title", text: $sermonTitle)
+                EditorMinimalTextField(icon: "mic", placeholder: "Sermon title", text: $sermonTitle)
                     .onChange(of: sermonTitle) { _, _ in trackUnsavedChanges() }
                 
-                MinimalTextField(icon: "building.2", placeholder: "Church name", text: $churchName)
+                EditorMinimalTextField(icon: "building.2", placeholder: "Church name", text: $churchName)
                     .onChange(of: churchName) { _, _ in trackUnsavedChanges() }
                 
-                MinimalTextField(icon: "person", placeholder: "Pastor", text: $pastor)
+                EditorMinimalTextField(icon: "person", placeholder: "Pastor", text: $pastor)
                     .onChange(of: pastor) { _, _ in trackUnsavedChanges() }
                 
                 // Date picker
@@ -265,7 +265,7 @@ struct EnhancedChurchNoteEditor: View {
                 .tracking(1)
                 .padding(.horizontal, 20)
             
-            MinimalTextField(icon: "book", placeholder: "e.g., John 3:16", text: $scripture)
+            EditorMinimalTextField(icon: "book", placeholder: "e.g., John 3:16", text: $scripture)
                 .onChange(of: scripture) { _, _ in trackUnsavedChanges() }
             
             // UX-3: Show detected scriptures from content
@@ -610,9 +610,9 @@ struct QuickInsertButton: View {
     }
 }
 
-// MARK: - Minimal Text Field (reused from main view)
+// MARK: - Minimal Text Field (local to editor)
 
-struct MinimalTextField: View {
+private struct EditorMinimalTextField: View {
     let icon: String
     let placeholder: String
     @Binding var text: String

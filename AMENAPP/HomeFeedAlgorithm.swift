@@ -277,6 +277,45 @@ class HomeFeedAlgorithm: ObservableObject {
         }
     }
     
+    // MARK: - Debounced Personalization (P1-3 Performance Fix)
+    
+    private var personalizationTask: Task<Void, Never>?
+    private var lastPersonalizationTime: Date?
+    private let debounceInterval: TimeInterval = 0.3  // 300ms debounce
+    
+    /// Debounced personalization - prevents excessive re-ranking during rapid updates
+    func personalizePostsDebounced(_ posts: [Post]) {
+        // Cancel any pending personalization task
+        personalizationTask?.cancel()
+        
+        // Check if we need to debounce (if called within debounce interval)
+        if let lastTime = lastPersonalizationTime,
+           Date().timeIntervalSince(lastTime) < debounceInterval {
+            // Create debounced task
+            personalizationTask = Task { @MainActor in
+                try? await Task.sleep(nanoseconds: UInt64(debounceInterval * 1_000_000_000))
+                
+                // Only proceed if not cancelled
+                guard !Task.isCancelled else { return }
+                
+                self.lastPersonalizationTime = Date()
+                self.personalizedPosts = self.rankPosts(posts, for: self.userInterests)
+                
+                #if DEBUG
+                print("🎯 [DEBOUNCED] Personalized \(posts.count) posts")
+                #endif
+            }
+        } else {
+            // First call or outside debounce window - execute immediately
+            lastPersonalizationTime = Date()
+            personalizedPosts = rankPosts(posts, for: userInterests)
+            
+            #if DEBUG
+            print("🎯 [IMMEDIATE] Personalized \(posts.count) posts")
+            #endif
+        }
+    }
+    
     // MARK: - Smart Refresh
     
     /// Determine if feed should refresh based on user behavior

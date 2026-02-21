@@ -18,15 +18,24 @@ class NotificationDeepLinkHandler: ObservableObject {
     @Published var pendingDeepLink: DeepLink?
     @Published var shouldNavigate = false
     
+    private var notificationObserver: NSObjectProtocol?
+    
     private init() {
         setupNotificationHandlers()
+    }
+    
+    deinit {
+        if let observer = notificationObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        print("🧹 NotificationDeepLinkHandler deallocated, observers removed")
     }
     
     // MARK: - Setup
     
     private func setupNotificationHandlers() {
         // Listen for push notification taps
-        NotificationCenter.default.addObserver(
+        notificationObserver = NotificationCenter.default.addObserver(
             forName: NSNotification.Name("didReceiveNotificationResponse"),
             object: nil,
             queue: .main

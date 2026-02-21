@@ -121,19 +121,26 @@ struct BereanNavigationHelper {
         //     UIApplication.shared.open(url)
         // }
         
-        // OPTION 4: Using NotificationCenter
-        // Example:
+        // ✅ Using NotificationCenter for verse navigation
         NotificationCenter.default.post(
             name: Notification.Name("OpenBibleVerse"),
             object: nil,
             userInfo: [
-                "reference": parsed,
-                "translation": translation
+                "book": parsed.book,
+                "chapter": parsed.chapter,
+                "startVerse": parsed.startVerse,
+                "endVerse": parsed.endVerse as Any,
+                "translation": translation,
+                "fullReference": parsed.fullReference
             ]
         )
         
-        // For now, just copy to clipboard as fallback
-        UIPasteboard.general.string = reference
+        // Copy to clipboard as backup (in case navigation fails)
+        Task.detached(priority: .background) {
+            await MainActor.run {
+                UIPasteboard.general.string = reference
+            }
+        }
     }
     
     /// Open Bible to a specific book and chapter

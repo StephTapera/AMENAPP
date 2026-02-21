@@ -74,13 +74,20 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         
         // ✅ Enable Firebase Realtime Database offline persistence
         // This must be called AFTER Firebase.configure() and BEFORE any database operations
-        // CRITICAL: Enable persistence on the CORRECT database instance with the URL
-        let databaseURL = "https://amen-5e359-default-rtdb.firebaseio.com"
-        let database = Database.database(url: databaseURL)
-        database.isPersistenceEnabled = true
-        database.persistenceCacheSizeBytes = 50 * 1024 * 1024  // 50MB cache
-        print("✅ Firebase Realtime Database offline persistence enabled (50MB cache)")
-        print("✅ Realtime Database URL configured: \(databaseURL)")
+        // Get database URL dynamically from Firebase configuration (not hardcoded)
+        if let app = FirebaseApp.app(),
+           let databaseURL = app.options.databaseURL {
+            let database = Database.database(url: databaseURL)
+            database.isPersistenceEnabled = true
+            database.persistenceCacheSizeBytes = 50 * 1024 * 1024  // 50MB cache
+            print("✅ Firebase Realtime Database offline persistence enabled (50MB cache)")
+            print("✅ Realtime Database URL configured: \(databaseURL)")
+        } else {
+            // Fallback to default database instance
+            Database.database().isPersistenceEnabled = true
+            Database.database().persistenceCacheSizeBytes = 50 * 1024 * 1024
+            print("⚠️ Using default Firebase Realtime Database (no URL specified in config)")
+        }
         
         // Setup push notifications
         setupPushNotifications()

@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import Combine
 import FirebaseAuth
 import FirebaseFirestore
 
@@ -102,8 +103,8 @@ class ChurchNotesStressTests: ObservableObject {
             let note = ChurchNote(
                 userId: testUserId,
                 title: "Test Note \(i)",
-                content: "This is test content for note number \(i). Lorem ipsum dolor sit amet.",
-                date: Date()
+                date: Date(),
+                content: "This is test content for note number \(i). Lorem ipsum dolor sit amet."
             )
             
             try await notesService.createNote(note)
@@ -141,8 +142,8 @@ class ChurchNotesStressTests: ObservableObject {
         let note = ChurchNote(
             userId: testUserId,
             title: "Long Note Test",
-            content: longContent,
-            date: Date()
+            date: Date(),
+            content: longContent
         )
         
         let startTime = Date()
@@ -168,8 +169,8 @@ class ChurchNotesStressTests: ObservableObject {
         let note = ChurchNote(
             userId: testUserId,
             title: "Navigation Test",
-            content: "Test content",
-            date: Date()
+            date: Date(),
+            content: "Test content"
         )
         
         try await notesService.createNote(note)
@@ -213,8 +214,8 @@ class ChurchNotesStressTests: ObservableObject {
         let note = ChurchNote(
             userId: testUserId,
             title: "Offline Test",
-            content: "This note tests offline persistence",
-            date: Date()
+            date: Date(),
+            content: "This note tests offline persistence"
         )
         
         try await notesService.createNote(note)
@@ -236,8 +237,8 @@ class ChurchNotesStressTests: ObservableObject {
         var note = ChurchNote(
             userId: testUserId,
             title: "Share Test",
-            content: "Test sharing",
-            date: Date()
+            date: Date(),
+            content: "Test sharing"
         )
         
         try await notesService.createNote(note)
@@ -245,7 +246,7 @@ class ChurchNotesStressTests: ObservableObject {
         // Generate 20 share links
         for i in 1...20 {
             // Update permission
-            note.permission = .shared
+            note.permission = NotePermission.shared
             note.shareLinkId = "test_link_\(i)_\(UUID().uuidString)"
             try await notesService.updateNote(note)
             
@@ -256,7 +257,7 @@ class ChurchNotesStressTests: ObservableObject {
         }
         
         // Revoke sharing
-        note.permission = .privateNote
+        note.permission = NotePermission.privateNote
         note.sharedWith = []
         try await notesService.updateNote(note)
         
@@ -274,8 +275,8 @@ class ChurchNotesStressTests: ObservableObject {
         var note = ChurchNote(
             userId: testUserId,
             title: "Conflict Test",
-            content: "Original content",
-            date: Date()
+            date: Date(),
+            content: "Original content"
         )
         
         try await notesService.createNote(note)
@@ -320,8 +321,8 @@ class ChurchNotesStressTests: ObservableObject {
                 let note = ChurchNote(
                     userId: testUserId,
                     title: "Memory Test \(i)",
-                    content: String(repeating: "Test ", count: 1000),
-                    date: Date()
+                    date: Date(),
+                    content: String(repeating: "Test ", count: 1000)
                 )
                 
                 // Use the note
@@ -351,9 +352,9 @@ class ChurchNotesStressTests: ObservableObject {
             let note = ChurchNote(
                 userId: testUserId,
                 title: "Search Test \(i)",
+                date: Date(),
                 content: "Content with keyword searchterm\(i)",
-                tags: ["test", "search"],
-                date: Date()
+                tags: ["test", "search"]
             )
             
             try await notesService.createNote(note)

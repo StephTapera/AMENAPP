@@ -32,12 +32,12 @@ To enable Berean AI features, you need to add your OpenAI API key to the project
 3. Add a new key with these values:
    - **Key**: `OPENAI_API_KEY`
    - **Type**: String
-   - **Value**: Your OpenAI API key (e.g., `sk-proj-xxxxx...`)
+   - **Value**: Your OpenAI API key (e.g., `<OPENAI_API_KEY>`)
 
 **XML format** (if editing the plist directly):
 ```xml
 <key>OPENAI_API_KEY</key>
-<string>sk-proj-YOUR-API-KEY-HERE</string>
+<string><OPENAI_API_KEY></string>
 ```
 
 ### Step 3: Security Best Practices

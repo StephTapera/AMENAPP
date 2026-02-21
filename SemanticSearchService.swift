@@ -9,6 +9,7 @@
 import Foundation
 import FirebaseFirestore
 import FirebaseAuth
+import FirebaseRemoteConfig
 
 // MARK: - Embedding Models
 
@@ -46,8 +47,10 @@ class SemanticSearchService {
     static let shared = SemanticSearchService()
     private let db = Firestore.firestore()
     
-    // OpenAI Configuration
-    private let openAIAPIKey = "" // TODO: Add from Firebase Remote Config
+    // OpenAI Configuration from Firebase Remote Config
+    private var openAIAPIKey: String {
+        RemoteConfig.remoteConfig().configValue(forKey: "openai_api_key").stringValue ?? ""
+    }
     private let embeddingModel = "text-embedding-3-large"
     private let embeddingDimensions = 1536
     

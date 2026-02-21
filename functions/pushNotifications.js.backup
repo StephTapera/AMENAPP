@@ -376,22 +376,16 @@ exports.onCommentReply = onDocumentCreated(
           userId: parentCommentAuthorId,
           read: false,
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         };
-
-        // ✅ FIX: Use deterministic ID to prevent reply spam
-        // Same person replying multiple times = one notification (like comments)
-        const notificationId = `reply_${replyAuthorId}_${parentCommentId}`;
 
         await db.collection("users")
             .doc(parentCommentAuthorId)
             .collection("notifications")
-            .doc(notificationId)
-            .set(notification, {merge: true});
+            .add(notification);
 
         console.log(`✅ Reply notification created for ${parentCommentAuthorId}`);
 
-        // ✅ NEW: Send push notification with preference check
+        // Send push notification
         await sendPushNotificationToUser(
             parentCommentAuthorId,
             "New Reply",
@@ -401,7 +395,6 @@ exports.onCommentReply = onDocumentCreated(
               actorId: replyAuthorId,
               postId: postId,
             },
-            "reply", // Notification type for preference check
         );
 
         return null;

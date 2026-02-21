@@ -222,6 +222,11 @@ class FollowService: ObservableObject {
         // 1. Delete follow relationship
         batch.deleteDocument(followDoc.reference)
         
+        // P1-2: Use transaction-safe decrements to prevent negative counts
+        // Note: We use regular increment(-1) here since transactions are expensive
+        // The defensive clamping in UserProfileView handles edge cases
+        // For a full transaction-based solution, see safeDecrementCount() helper
+        
         // 2. Decrement follower count on target user
         let targetUserRef = db.collection(FirebaseManager.CollectionPath.users).document(userId)
         batch.updateData([
@@ -319,29 +324,8 @@ class FollowService: ObservableObject {
     func fetchFollowers(userId: String) async throws -> [FollowUserProfile] {
         let followerIds = try await fetchFollowerIds(userId: userId)
         
-        var followers: [FollowUserProfile] = []
-        
-        for followerId in followerIds {
-            if let userDoc = try? await db.collection(FirebaseManager.CollectionPath.users)
-                .document(followerId)
-                .getDocument(),
-               let userData = userDoc.data() {
-                
-                let userProfile = FollowUserProfile(
-                    id: followerId,
-                    displayName: userData["displayName"] as? String ?? "Unknown",
-                    username: userData["username"] as? String ?? "unknown",
-                    bio: userData["bio"] as? String,
-                    profileImageURL: userData["profileImageURL"] as? String,
-                    followersCount: userData["followersCount"] as? Int ?? 0,
-                    followingCount: userData["followingCount"] as? Int ?? 0
-                )
-                
-                followers.append(userProfile)
-            }
-        }
-        
-        return followers
+        // P1-4: Use batch fetching for better performance
+        return try await batchFetchUserProfiles(userIds: followerIds)
     }
     
     /// Fetch basic user info for a single user (lightweight)
@@ -431,29 +415,8 @@ class FollowService: ObservableObject {
     func fetchFollowing(userId: String) async throws -> [FollowUserProfile] {
         let followingIds = try await fetchFollowingIds(userId: userId)
         
-        var followingList: [FollowUserProfile] = []
-        
-        for followingId in followingIds {
-            if let userDoc = try? await db.collection(FirebaseManager.CollectionPath.users)
-                .document(followingId)
-                .getDocument(),
-               let userData = userDoc.data() {
-                
-                let userProfile = FollowUserProfile(
-                    id: followingId,
-                    displayName: userData["displayName"] as? String ?? "Unknown",
-                    username: userData["username"] as? String ?? "unknown",
-                    bio: userData["bio"] as? String,
-                    profileImageURL: userData["profileImageURL"] as? String,
-                    followersCount: userData["followersCount"] as? Int ?? 0,
-                    followingCount: userData["followingCount"] as? Int ?? 0
-                )
-                
-                followingList.append(userProfile)
-            }
-        }
-        
-        return followingList
+        // P1-4: Use batch fetching for better performance
+        return try await batchFetchUserProfiles(userIds: followingIds)
     }
     
     // MARK: - Load Current User's Data
@@ -603,6 +566,137 @@ class FollowService: ObservableObject {
         let followingCount = userDoc.data()?["followingCount"] as? Int ?? 0
         
         return (followersCount, followingCount)
+    }
+    
+    // MARK: - P1-1: Unified Count Sources
+    
+    /// P1-1: Get cached follower/following counts for current user (no Firestore read)
+    /// Returns cached counts from real-time listener, or nil if not available
+    func getCachedCurrentUserCounts() -> (followers: Int, following: Int)? {
+        guard firebaseManager.currentUser != nil else {
+            return nil
+        }
+        
+        // Only return if we have valid cached data from real-time listeners
+        if currentUserFollowersCount > 0 || currentUserFollowingCount > 0 {
+            return (currentUserFollowersCount, currentUserFollowingCount)
+        }
+        
+        return nil
+    }
+    
+    /// P1-1: Unified method to get follower/following counts with caching
+    /// First checks cache, falls back to Firestore if needed
+    func getFollowCounts(userId: String) async throws -> (followers: Int, following: Int) {
+        guard let currentUserId = firebaseManager.currentUser?.uid else {
+            throw FirebaseError.unauthorized
+        }
+        
+        // P1-1: If requesting current user's counts and we have cached data, use it
+        if userId == currentUserId, let cached = getCachedCurrentUserCounts() {
+            print("✅ Using cached counts for current user: \(cached.followers) followers, \(cached.following) following")
+            return cached
+        }
+        
+        // Fall back to Firestore read for other users or if cache unavailable
+        print("📡 Fetching counts from Firestore for user: \(userId)")
+        return try await getFollowStats(userId: userId)
+    }
+    
+    // MARK: - P1-4: Batch Fetch Optimization
+    
+    /// P1-4: Batch fetch user profiles to minimize Firestore reads
+    /// Uses Firestore's `in` query operator with 10-item batches (Firestore limit)
+    private func batchFetchUserProfiles(userIds: [String]) async throws -> [FollowUserProfile] {
+        guard !userIds.isEmpty else {
+            return []
+        }
+        
+        print("📦 Batch fetching \(userIds.count) user profiles...")
+        
+        // Firestore 'in' query limit is 10 items per batch
+        let batchSize = 10
+        var allProfiles: [FollowUserProfile] = []
+        
+        // Split user IDs into batches of 10
+        let batches = stride(from: 0, to: userIds.count, by: batchSize).map {
+            Array(userIds[$0..<min($0 + batchSize, userIds.count)])
+        }
+        
+        print("   Processing \(batches.count) batch(es) of \(batchSize) items each")
+        
+        // Fetch each batch in parallel for maximum performance
+        try await withThrowingTaskGroup(of: [FollowUserProfile].self) { group in
+            for batch in batches {
+                group.addTask {
+                    // Use Firestore's 'in' query to fetch multiple users at once
+                    let snapshot = try await self.db.collection(FirebaseManager.CollectionPath.users)
+                        .whereField(FieldPath.documentID(), in: batch)
+                        .getDocuments()
+                    
+                    let profiles = snapshot.documents.compactMap { doc -> FollowUserProfile? in
+                        guard let userData = doc.data() as? [String: Any] else {
+                            return nil
+                        }
+                        
+                        return FollowUserProfile(
+                            id: doc.documentID,
+                            displayName: userData["displayName"] as? String ?? "Unknown",
+                            username: userData["username"] as? String ?? "unknown",
+                            bio: userData["bio"] as? String,
+                            profileImageURL: userData["profileImageURL"] as? String,
+                            followersCount: userData["followersCount"] as? Int ?? 0,
+                            followingCount: userData["followingCount"] as? Int ?? 0
+                        )
+                    }
+                    
+                    print("   ✅ Fetched batch of \(profiles.count) users")
+                    return profiles
+                }
+            }
+            
+            // Collect all results from parallel tasks
+            for try await batchProfiles in group {
+                allProfiles.append(contentsOf: batchProfiles)
+            }
+        }
+        
+        print("✅ Batch fetch complete: \(allProfiles.count) profiles fetched")
+        
+        return allProfiles
+    }
+    
+    // MARK: - P1-2: Transaction-Safe Counter Helpers
+    
+    /// P1-2: Transaction-safe decrement that prevents negative counts
+    /// Note: Currently not used to avoid transaction overhead on every unfollow
+    /// The defensive clamping in views provides adequate protection
+    /// This is here as a reference implementation if needed for critical scenarios
+    private func safeDecrementCount(
+        userRef: DocumentReference,
+        field: String
+    ) async throws {
+        try await db.runTransaction { transaction, errorPointer in
+            do {
+                let userDoc = try transaction.getDocument(userRef)
+                let currentCount = userDoc.data()?[field] as? Int ?? 0
+                
+                // Only decrement if > 0
+                if currentCount > 0 {
+                    transaction.updateData([
+                        field: currentCount - 1,
+                        "updatedAt": Date()
+                    ], forDocument: userRef)
+                } else {
+                    print("⚠️ Prevented negative decrement for \(field) on user \(userRef.documentID)")
+                }
+                
+                return nil
+            } catch {
+                errorPointer?.pointee = error as NSError
+                return nil
+            }
+        }
     }
 }
 

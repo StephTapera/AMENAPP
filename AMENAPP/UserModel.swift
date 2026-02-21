@@ -425,6 +425,23 @@ class UserService: ObservableObject {
         await fetchCurrentUser()
     }
     
+    /// Update user email in Firestore
+    func updateUserEmail(newEmail: String) async throws {
+        guard let userId = firebaseManager.currentUser?.uid else {
+            throw FirebaseError.unauthorized
+        }
+        
+        let updates: [String: Any] = [
+            "email": newEmail,
+            "updatedAt": Date()
+        ]
+        
+        let path = "\(FirebaseManager.CollectionPath.users)/\(userId)"
+        try await firebaseManager.updateDocument(updates, at: path)
+        
+        await fetchCurrentUser()
+    }
+    
     /// Save onboarding preferences (interests, goals, prayer time, profile image)
     func saveOnboardingPreferences(
         interests: [String],
