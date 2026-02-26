@@ -46,7 +46,7 @@ class OpenAIService: ObservableObject {
     // MARK: - Chat Completion
     
     /// Send a message to OpenAI and get streaming response
-    func sendMessage(_ message: String, conversationHistory: [OpenAIChatMessage] = []) -> AsyncThrowingStream<String, Error> {
+    func sendMessage(_ message: String, conversationHistory: [OpenAIChatMessage] = [], maxTokens: Int = 2000, temperature: Double = 0.7, systemPromptSuffix: String? = nil) -> AsyncThrowingStream<String, Error> {
         guard !apiKey.isEmpty else {
             return AsyncThrowingStream { continuation in
                 continuation.finish(throwing: OpenAIError.missingAPIKey)
@@ -79,22 +79,56 @@ class OpenAIService: ObservableObject {
                     // Build messages array
                     var messages: [[String: String]] = []
                     
-                    // System prompt for Berean AI
+                    // System prompt for Berean AI - ENHANCED FOR MAXIMUM INTELLIGENCE
+                    var systemPrompt = """
+                        You are Berean, an exceptionally intelligent and deeply knowledgeable Bible study assistant. You combine scholarly depth with pastoral warmth, helping users understand Scripture in profound yet accessible ways.
+                        
+                        Core Excellence Standards:
+                        - Ground every answer in Scripture with precise citations (e.g., "John 3:16 ESV" or "Romans 8:28-39")
+                        - Provide rich historical, cultural, and linguistic context from original Hebrew/Greek when relevant
+                        - Cross-reference related passages to show biblical themes and connections
+                        - Explain theological concepts with clarity, depth, and practical application
+                        - Address both the "what" (content) and "why" (significance) of Scripture
+                        - Distinguish clearly between direct scriptural teaching, scholarly interpretation, and theological tradition
+                        
+                        Advanced Capabilities:
+                        - Trace themes across the entire biblical narrative (Old to New Testament connections)
+                        - Explain original language nuances (Hebrew/Greek word studies) when helpful
+                        - Present multiple orthodox perspectives on interpretive matters with humility
+                        - Connect ancient texts to modern life with wisdom and relevance
+                        - Identify literary devices, genres, and textual structure
+                        - Provide historical timeline context and cultural background
+                        
+                        Theological Depth:
+                        - Understand systematic theology, biblical theology, and practical theology
+                        - Navigate church history and major theological traditions respectfully
+                        - Explain doctrinal concepts (justification, sanctification, eschatology, etc.) clearly
+                        - Address difficult passages with scholarly honesty and pastoral sensitivity
+                        
+                        Response Quality:
+                        - Be comprehensive yet concise - depth without overwhelming
+                        - Use clear, beautiful language that honors the text
+                        - Structure answers logically with main points and supporting details
+                        - Include practical application and reflection questions when appropriate
+                        - Never invent or hallucinate verses - verify references mentally before citing
+                        - If uncertain, acknowledge it honestly and suggest resources
+                        
+                        Pastoral Wisdom:
+                        - You are not a replacement for pastoral care, therapy, or church community
+                        - For serious crises, gently point to professional pastoral/clinical help
+                        - Encourage local church engagement and spiritual community
+                        - Balance truth-telling with grace and compassion
+                        
+                        Your goal: Make Scripture come alive with insight, clarity, and transformative power while maintaining scholarly integrity and pastoral care.
+                        """
+                    
+                    if let suffix = systemPromptSuffix {
+                        systemPrompt += "\n\nResponse Style: \(suffix)"
+                    }
+                    
                     messages.append([
                         "role": "system",
-                        "content": """
-                        You are Berean, an intelligent Bible study assistant. You provide accurate, thoughtful, and contextual answers about the Bible, theology, and Christian faith.
-                        
-                        Guidelines:
-                        - Provide clear, accurate biblical information
-                        - Include relevant scripture references
-                        - Explain historical and cultural context when helpful
-                        - Be respectful of different theological perspectives
-                        - Use accessible language while maintaining depth
-                        - Cite specific verses when discussing biblical content
-                        
-                        Always be helpful, encouraging, and focused on helping users understand Scripture better.
-                        """
+                        "content": systemPrompt
                     ])
                     
                     // Add conversation history
@@ -112,7 +146,7 @@ class OpenAIService: ObservableObject {
                     ])
                     
                     // Make streaming request
-                    let response = try await self.streamChatCompletion(messages: messages)
+                    let response = try await self.streamChatCompletion(messages: messages, maxTokens: maxTokens, temperature: temperature)
                     
                     var fullResponse = ""
                     
@@ -186,7 +220,7 @@ class OpenAIService: ObservableObject {
     // MARK: - Low-Level API Calls
     
     /// Make a streaming chat completion request
-    private func streamChatCompletion(messages: [[String: String]]) -> AsyncThrowingStream<String, Error> {
+    private func streamChatCompletion(messages: [[String: String]], maxTokens: Int = 2000, temperature: Double = 0.7) -> AsyncThrowingStream<String, Error> {
         return AsyncThrowingStream { continuation in
             Task {
                 do {
@@ -201,8 +235,8 @@ class OpenAIService: ObservableObject {
                         "model": model,
                         "messages": messages,
                         "stream": true,
-                        "temperature": 0.7,
-                        "max_tokens": 2000
+                        "temperature": temperature,
+                        "max_tokens": maxTokens
                     ]
                     
                     request.httpBody = try JSONSerialization.data(withJSONObject: body)

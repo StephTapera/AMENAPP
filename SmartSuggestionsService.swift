@@ -91,8 +91,8 @@ class SmartSuggestionsService {
     // MARK: - OpenAI Integration
     
     private func generateInsight(
-        currentUser: UserProfile,
-        targetUser: UserProfile,
+        currentUser: SuggestionUserProfile,
+        targetUser: SuggestionUserProfile,
         mutualFollows: Int
     ) async throws -> String {
         let endpoint = "https://api.openai.com/v1/chat/completions"
@@ -183,14 +183,14 @@ class SmartSuggestionsService {
     
     // MARK: - Data Fetching
     
-    private func fetchUserProfile(userId: String) async throws -> UserProfile {
+    private func fetchUserProfile(userId: String) async throws -> SuggestionUserProfile {
         let doc = try await db.collection("users").document(userId).getDocument()
         
         guard let data = doc.data() else {
             throw SuggestionError.userNotFound
         }
         
-        return UserProfile(
+        return SuggestionUserProfile(
             id: userId,
             name: data["displayName"] as? String ?? data["name"] as? String ?? "User",
             location: data["location"] as? String ?? data["city"] as? String,
@@ -287,7 +287,7 @@ class SmartSuggestionsService {
 
 // MARK: - Supporting Models
 
-struct UserProfile {
+struct SuggestionUserProfile {
     let id: String
     let name: String
     let location: String?

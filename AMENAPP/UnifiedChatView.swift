@@ -86,6 +86,11 @@ struct UnifiedChatView: View {
             VStack(spacing: 0) {
                 // Header
                 liquidGlassHeader
+                
+                // Accept/Decline banner for pending requests
+                if conversation.status == "pending" && conversation.requesterId != Auth.auth().currentUser?.uid {
+                    messageRequestBanner
+                }
 
                 // Messages
                 messagesScrollView
@@ -158,17 +163,20 @@ struct UnifiedChatView: View {
         } message: {
             Text(errorMessage)
         }
+        .task {
+            // P0 FIX: Move all setup to async task for instant view appearance
+            await setupChatViewAsync()
+        }
         .onAppear {
-            setupChatView()
+            // Only do lightweight, synchronous work here
             generateRandomPlaceholder()
-            
-            // P1-1 FIX: Clear unread badge immediately when opening thread
-            Task {
-                try? await messagingService.clearUnreadCount(conversationId: conversation.id)
-            }
+            NotificationAggregationService.shared.trackConversationViewing(conversation.id)
         }
         .onDisappear {
             cleanupChatView()
+            
+            // ✅ Reset screen tracking
+            NotificationAggregationService.shared.updateCurrentScreen(.messages)
         }
         .onChange(of: messageText) { _, newValue in
             handleTypingIndicator(isTyping: !newValue.isEmpty)
@@ -316,6 +324,74 @@ struct UnifiedChatView: View {
             Rectangle()
                 .fill(.ultraThinMaterial)
                 .shadow(color: .black.opacity(0.04), radius: 8, y: 2)
+        )
+    }
+    
+    // MARK: - Message Request Banner
+    
+    private var messageRequestBanner: some View {
+        VStack(spacing: 12) {
+            // Info text
+            VStack(spacing: 8) {
+                Image(systemName: "envelope.badge")
+                    .font(.system(size: 32))
+                    .foregroundStyle(.blue)
+                
+                Text("Message Request")
+                    .font(.custom("OpenSans-Bold", size: 16))
+                    .foregroundStyle(.primary)
+                
+                Text("\(conversation.name) wants to message you")
+                    .font(.custom("OpenSans-Regular", size: 14))
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            .padding(.top, 16)
+            
+            // Action buttons
+            HStack(spacing: 12) {
+                // Decline button
+                Button {
+                    declineMessageRequest()
+                } label: {
+                    Text("Delete")
+                        .font(.custom("OpenSans-SemiBold", size: 15))
+                        .foregroundStyle(.red)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color.red.opacity(0.1))
+                        )
+                }
+                
+                // Accept button
+                Button {
+                    acceptMessageRequest()
+                } label: {
+                    Text("Accept")
+                        .font(.custom("OpenSans-SemiBold", size: 15))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color.blue)
+                        )
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 16)
+        }
+        .background(
+            Rectangle()
+                .fill(.ultraThinMaterial)
+        )
+        .overlay(
+            Rectangle()
+                .fill(Color(.systemGray5))
+                .frame(height: 1),
+            alignment: .bottom
         )
     }
     
@@ -721,6 +797,25 @@ struct UnifiedChatView: View {
         }
     }
     
+    // P0 FIX: Async version for instant view appearance
+    private func setupChatViewAsync() async {
+        print("🎬 Chat view opened: \(conversation.name)")
+        
+        // Cancel any existing listener task before starting new one
+        listenerTask?.cancel()
+        
+        // Clear unread badge immediately
+        try? await messagingService.clearUnreadCount(conversationId: conversation.id)
+        
+        // Wrap listeners in a Task for proper lifecycle management
+        listenerTask = Task {
+            loadMessages()
+            startListeningToTypingStatus()
+            detectFirstUnreadMessage()
+            startListeningToProfilePhotoUpdates()
+        }
+    }
+    
     private func detectFirstUnreadMessage() {
         // Find first unread message from another user
         if let currentUserId = Auth.auth().currentUser?.uid {
@@ -775,10 +870,6 @@ struct UnifiedChatView: View {
                         for (optimisticId, contentHash) in optimisticMessageHashes {
                             if fetchedMessagesByHash[contentHash] != nil {
                                 // Found matching real message - remove optimistic version
-                                if let pendingMessage = pendingMessages[optimisticId] {
-                                    let latencyMs = Int(Date().timeIntervalSince(pendingMessage.timestamp) * 1000)
-                                    print("⏱️ [P0-4] Message confirmed (hash: \(contentHash)): \(latencyMs)ms")
-                                }
                                 pendingMessages.removeValue(forKey: optimisticId)
                                 optimisticIdsToRemove.append(optimisticId)
                             }
@@ -910,6 +1001,16 @@ struct UnifiedChatView: View {
         // Clear input immediately
         messageText = ""
         isInputFocused = false
+        
+        // P1-6 FIX: Stop typing indicator immediately when message sent
+        typingDebounceTimer?.invalidate()
+        typingDebounceTimer = nil
+        Task {
+            try? await messagingService.updateTypingStatus(
+                conversationId: conversationId,
+                isTyping: false
+            )
+        }
         
         // Haptic feedback
         let haptic = UIImpactFeedbackGenerator(style: .light)
@@ -1243,6 +1344,57 @@ struct UnifiedChatView: View {
             "Share your thoughts..."
         ]
         placeholderText = placeholders.randomElement() ?? "Type a new message here..."
+    }
+    
+    private func acceptMessageRequest() {
+        Task {
+            do {
+                try await messagingService.acceptMessageRequest(conversationId: conversation.id)
+                print("✅ Message request accepted")
+                
+                await MainActor.run {
+                    toastManager.showSuccess("Request accepted")
+                    
+                    // Haptic feedback
+                    let haptic = UINotificationFeedbackGenerator()
+                    haptic.notificationOccurred(.success)
+                    
+                    // Dismiss the chat view to return to messages list
+                    dismiss()
+                }
+            } catch {
+                print("❌ Error accepting request: \(error)")
+                await MainActor.run {
+                    toastManager.showError("Failed to accept request")
+                }
+            }
+        }
+    }
+    
+    private func declineMessageRequest() {
+        Task {
+            do {
+                // Delete the conversation (Instagram-style decline)
+                try await messagingService.deleteConversation(conversationId: conversation.id)
+                print("✅ Message request declined and deleted")
+                
+                await MainActor.run {
+                    toastManager.showSuccess("Request deleted")
+                    
+                    // Haptic feedback
+                    let haptic = UINotificationFeedbackGenerator()
+                    haptic.notificationOccurred(.success)
+                    
+                    // Dismiss the chat view to return to messages list
+                    dismiss()
+                }
+            } catch {
+                print("❌ Error declining request: \(error)")
+                await MainActor.run {
+                    toastManager.showError("Failed to delete request")
+                }
+            }
+        }
     }
 }
 
@@ -1785,10 +1937,12 @@ struct LiquidGlassMessageBubble: View {
                         }
                         
                         HStack(spacing: 8) {
-                            // Message text
+                            // P1-2 FIX: Message text with proper layout constraints
                             Text(message.text)
                                 .font(.system(size: 15))
                                 .foregroundColor(isFromCurrentUser ? .white : .primary)
+                                .fixedSize(horizontal: false, vertical: true)  // Allow vertical expansion, constrain horizontal
+                                .frame(maxWidth: 280, alignment: isFromCurrentUser ? .trailing : .leading)  // Max bubble width
                             
                             // Failed message indicator with retry button
                             if isFromCurrentUser && message.isSendFailed {

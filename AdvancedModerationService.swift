@@ -97,7 +97,7 @@ class AdvancedModerationService {
     /// Comprehensive content moderation using multiple AI providers
     func moderateContent(
         _ content: String,
-        type: ContentType,
+        type: ContentCategory,
         userId: String,
         language: String? = nil
     ) async throws -> AdvancedModerationResult {
@@ -640,7 +640,7 @@ class AdvancedModerationService {
     /// Log advanced moderation result for analytics
     private func logAdvancedModeration(
         content: String,
-        type: ContentType,
+        type: ContentCategory,
         userId: String,
         result: AdvancedModerationResult
     ) async {

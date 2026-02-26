@@ -26,6 +26,15 @@ struct PrayerView: View {
     @State private var isBannerExpanded = true  // ✅ NEW: Toggle for banner visibility
     @State private var rankedPrayers: [Post] = []
     @State private var hasRanked = false
+    @State private var scrollViewDelegate: ScrollViewDelegateHandler?
+    @State private var showHeader = true
+    
+    // MARK: - Pagination State
+    @State private var visiblePostCount = 20
+    @State private var isLoadingMore = false
+    
+    @Environment(\.tabBarVisible) private var tabBarVisible
+    @Environment(\.toolbarVisible) private var toolbarVisible
     
     // Timer for auto-swipe
     let timer = Timer.publish(every: 4.0, on: .main, in: .common).autoconnect()
@@ -40,20 +49,23 @@ struct PrayerView: View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 20) {
             // Header
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Pray together, grow together")
-                    .font(.custom("OpenSans-Regular", size: 12))
-                    .foregroundStyle(.secondary)
-                
-                Text("Prayer")
-                    .font(.custom("OpenSans-Bold", size: 24))
-                    .foregroundStyle(.black)
-                
-                Text("Share requests • Lift each other up")
-                    .font(.custom("OpenSans-Regular", size: 12))
-                    .foregroundStyle(.secondary)
+            if showHeader {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Pray together, grow together")
+                        .font(.custom("OpenSans-Regular", size: 12))
+                        .foregroundStyle(.secondary)
+                    
+                    Text("Prayer")
+                        .font(.custom("OpenSans-Bold", size: 24))
+                        .foregroundStyle(.black)
+                    
+                    Text("Share requests • Lift each other up")
+                        .font(.custom("OpenSans-Regular", size: 12))
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal)
+                .transition(.move(edge: .top).combined(with: .opacity))
             }
-            .padding(.horizontal)
             
             // Tabs - Center Aligned
             HStack {
@@ -210,7 +222,7 @@ struct PrayerView: View {
             ScrollView {
                 VStack(spacing: 16) {
                     // Filter posts from PostsManager based on selected tab
-                    let filteredPrayerPosts = {
+                    let allFilteredPosts = {
                         var posts = postsManager.prayerPosts.filter { post in
                             guard let topicTag = post.topicTag else { return false }
 
@@ -233,14 +245,32 @@ struct PrayerView: View {
 
                         return posts
                     }()
+                    
+                    let filteredPrayerPosts = Array(allFilteredPosts.prefix(visiblePostCount))
 
                     // Display filtered posts
-                    ForEach(filteredPrayerPosts) { post in
+                    ForEach(Array(filteredPrayerPosts.enumerated()), id: \.element.id) { index, post in
                         PrayerPostCard(post: post)
                             .onAppear {
                                 // Track view interaction
                                 prayerAlgorithm.recordView(for: post)
+                                
+                                // PAGINATION: Load more when approaching the end
+                                if index >= filteredPrayerPosts.count - 3 && !isLoadingMore && visiblePostCount < allFilteredPosts.count {
+                                    loadMorePosts()
+                                }
                             }
+                    }
+                    
+                    // Loading indicator for pagination
+                    if isLoadingMore && visiblePostCount < allFilteredPosts.count {
+                        HStack {
+                            Spacer()
+                            ProgressView()
+                                .scaleEffect(0.8)
+                                .padding(.vertical, 20)
+                            Spacer()
+                        }
                     }
                     
                     // Show empty state if no posts
@@ -264,9 +294,28 @@ struct PrayerView: View {
                 }
                 .padding(.horizontal)
             }
-            .refreshable {
-                await refreshPrayers()
+        }
+        .onScrollViewScroll { delta in
+            // Hysteresis: Only trigger animation if scroll delta exceeds threshold
+            let threshold: CGFloat = 5.0
+            
+            withAnimation(.easeInOut(duration: 0.25)) {
+                if delta > threshold {
+                    // Scrolling down - hide header, toolbar, and tab bar
+                    showHeader = false
+                    toolbarVisible.wrappedValue = false
+                    tabBarVisible.wrappedValue = false
+                } else if delta < -threshold {
+                    // Scrolling up - show header, toolbar, and tab bar
+                    showHeader = true
+                    toolbarVisible.wrappedValue = true
+                    tabBarVisible.wrappedValue = true
+                }
+                // If delta is within [-threshold, threshold], do nothing (prevents flicker)
             }
+        }
+        .refreshable {
+            await refreshPrayers()
         }
             .sheet(isPresented: $showDailyPrayer) {
                 DailyPrayerView()
@@ -298,11 +347,21 @@ struct PrayerView: View {
                     hasRanked = true
                 }
             }
+            .onAppear {
+                // ✅ Refresh posts every time view appears (fixes tab switching issue)
+                Task {
+                    await refreshPrayers()
+                }
+            }
             .onChange(of: postsManager.prayerPosts) { oldValue, newValue in
                 // Re-rank when new prayers arrive
                 if oldValue.count != newValue.count {
                     rankPrayerRequests()
                 }
+            }
+            .onChange(of: selectedTab) { _, _ in
+                // Reset pagination when switching tabs
+                visiblePostCount = 20
             }
         }
     }
@@ -360,6 +419,26 @@ struct PrayerView: View {
             let haptic = UINotificationFeedbackGenerator()
             haptic.notificationOccurred(.success)
             print("✅ Prayer posts refreshed!")
+        }
+        
+        // Reset pagination after refresh
+        visiblePostCount = 20
+    }
+    
+    // MARK: - Pagination
+    
+    /// Load more posts when user scrolls near the bottom
+    private func loadMorePosts() {
+        guard !isLoadingMore else { return }
+        
+        isLoadingMore = true
+        
+        // Simulate a brief delay for smooth loading
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            let increment = 10
+            let maxCount = postsManager.prayerPosts.count
+            visiblePostCount = min(visiblePostCount + increment, maxCount)
+            isLoadingMore = false
         }
     }
     

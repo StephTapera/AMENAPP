@@ -231,7 +231,7 @@ exports.onUserUnfollow = onDocumentDeleted(
 );
 
 // ============================================================================
-// 2. COMMENT NOTIFICATIONS (NEW)
+// 2. COMMENT NOTIFICATIONS WITH THREADS-STYLE GROUPING
 // ============================================================================
 
 exports.onCommentCreate = onDocumentCreated(
@@ -250,53 +250,118 @@ exports.onCommentCreate = onDocumentCreated(
           return null;
         }
 
-        const postAuthorId = postData.authorId;
+        const postAuthorId = postData.authorId || postData.userId;
         const commentAuthorId = commentData.userId || commentData.authorId;
 
-        // Don't notify if user comments on their own post
+        // ✅ SELF-ACTION SUPPRESSION: Don't notify if user comments on their own post
         if (postAuthorId === commentAuthorId) {
+          console.log("🔕 Suppressing self-action: user commented on own post");
+          return null;
+        }
+
+        // ✅ BLOCK/PRIVACY RULES: Check if user has blocked commenter
+        const blockDoc = await db.collection("users")
+            .doc(postAuthorId)
+            .collection("blocked")
+            .doc(commentAuthorId)
+            .get();
+
+        if (blockDoc.exists) {
+          console.log("🚫 Blocking comment notification: user has blocked commenter");
+          return null;
+        }
+
+        // Check if commenter has blocked post author
+        const blockedByDoc = await db.collection("users")
+            .doc(commentAuthorId)
+            .collection("blocked")
+            .doc(postAuthorId)
+            .get();
+
+        if (blockedByDoc.exists) {
+          console.log("🚫 Blocking comment notification: commenter has blocked post author");
           return null;
         }
 
         // Get commenter's profile
         const commenterDoc = await db.collection("users").doc(commentAuthorId).get();
         const commenterData = commenterDoc.data();
-        const commenterName = commenterData?.displayName || "Someone";
+        const commenterName = commenterData?.displayName ||
+                              commenterData?.username ||
+                              "Someone";
 
-        // ✅ NEW: Include profile photo
         const actorProfileImageURL = commenterData?.profileImageURL ||
                                      commenterData?.profilePictureURL ||
                                      "";
 
-        // Create notification
-        const notification = {
-          type: "comment",
-          actorId: commentAuthorId,
-          actorName: commenterName,
-          actorUsername: commenterData?.username || "",
-          actorProfileImageURL: actorProfileImageURL,  // ✅ NEW
-          postId: postId,
-          commentText: commentData.text,
-          userId: postAuthorId,
-          read: false,
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-          commentCount: 1, // ✅ For Threads-style grouping
-        };
-
-        // ✅ IDEMPOTENCY: Use deterministic ID (comment_actorId_postId)
-        // Multiple comments from same person get merged into one notification
-        const notificationId = `comment_${commentAuthorId}_${postId}`;
-
-        await db.collection("users")
+        // ✅ THREADS-STYLE GROUPING: Use grouped notification per post
+        const groupedNotificationId = `comment_group_${postId}`;
+        const notificationRef = db.collection("users")
             .doc(postAuthorId)
             .collection("notifications")
-            .doc(notificationId)
-            .set(notification, {merge: true});
+            .doc(groupedNotificationId);
 
-        console.log(`✅ Comment notification created for ${postAuthorId}`);
+        const existingNotif = await notificationRef.get();
 
-        // ✅ NEW: Send push notification with preference check
+        if (existingNotif.exists) {
+          // Update existing grouped notification
+          const existingData = existingNotif.data();
+          const actors = existingData.actors || [];
+
+          // Check if this user is already in the actors list
+          const userExists = actors.some(actor => actor.id === commentAuthorId);
+
+          if (!userExists) {
+            // Add new actor to the beginning (most recent first)
+            actors.unshift({
+              id: commentAuthorId,
+              name: commenterName,
+              username: commenterData?.username || "",
+              profileImageURL: actorProfileImageURL,
+            });
+
+            await notificationRef.update({
+              actors: actors,
+              actorCount: actors.length,
+              actorId: commentAuthorId,
+              actorName: commenterName,
+              actorUsername: commenterData?.username || "",
+              actorProfileImageURL: actorProfileImageURL,
+              commentText: commentData.text || commentData.content || "",
+              updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+              read: false,
+            });
+
+            console.log(`✅ Updated grouped comment notification (${actors.length} commenters)`);
+          }
+        } else {
+          // Create new grouped notification
+          const notification = {
+            type: "comment",
+            actorId: commentAuthorId,
+            actorName: commenterName,
+            actorUsername: commenterData?.username || "",
+            actorProfileImageURL: actorProfileImageURL,
+            postId: postId,
+            commentText: commentData.text || commentData.content || "",
+            userId: postAuthorId,
+            read: false,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            actors: [{
+              id: commentAuthorId,
+              name: commenterName,
+              username: commenterData?.username || "",
+              profileImageURL: actorProfileImageURL,
+            }],
+            actorCount: 1,
+          };
+
+          await notificationRef.set(notification);
+          console.log(`✅ Created new grouped comment notification`);
+        }
+
+        // Send push notification with preference check
         await sendPushNotificationToUser(
             postAuthorId,
             "New Comment",
@@ -306,7 +371,7 @@ exports.onCommentCreate = onDocumentCreated(
               actorId: commentAuthorId,
               postId: postId,
             },
-            "comment", // Notification type for preference check
+            "comment",
         );
 
         return null;
@@ -800,10 +865,13 @@ exports.onFollowRequestAccepted = onDocumentCreated(
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
         };
 
+        // ✅ P0-9 FIX: Use deterministic ID to prevent duplicate notifications on retry
+        const notificationId = `followAccepted_${fromUserId}_${toUserId}`;
         await db.collection("users")
             .doc(fromUserId)
             .collection("notifications")
-            .add(notification);
+            .doc(notificationId)
+            .set(notification, {merge: true});
 
         console.log(`✅ Follow request accepted notification created for ${fromUserId}`);
 

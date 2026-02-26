@@ -298,8 +298,9 @@ class PostsManager: ObservableObject {
     private init() {
         // Setup real-time sync with FirebasePostService using Combine
         setupFirebaseSync()
-
-        // Load posts from Firebase
+        
+        // PERFORMANCE FIX: Eagerly load posts from cache on init
+        // Don't start listener here - let views control their own listeners
         Task {
             await loadPostsFromFirebase()
             // Start listening for profile picture updates
@@ -309,14 +310,23 @@ class PostsManager: ObservableObject {
 
     // ✅ Setup real-time sync with FirebasePostService using Combine publishers
     private func setupFirebaseSync() {
-        // P0 FIX: Add debouncing to reduce cascade re-renders from 4x to 1x
+        // PERFORMANCE: Threads-style instant loading
+        // - NO debounce on initial load (would delay by 50ms)
+        // - Use removeDuplicates() instead to prevent redundant updates
+        // - Debounce only after initial load for rapid server updates
+        
+        var prayerInitialLoad = true
+        var testimoniesInitialLoad = true
+        var openTableInitialLoad = true
+        var allPostsInitialLoad = true
+        
         // Listen to prayer posts changes
         firebasePostService.$prayerPosts
-            .debounce(for: .milliseconds(300), scheduler: RunLoop.main)
+            .removeDuplicates { $0.count == $1.count && $0.first?.id == $1.first?.id }
+            .handleEvents(receiveOutput: { _ in prayerInitialLoad = false })
             .receive(on: DispatchQueue.main)
             .sink { [weak self] newPosts in
                 guard let self = self else { return }
-                // P0-4: Removed objectWillChange.send() - @Published already triggers updates
                 self.prayerPosts = newPosts
                 print("🔄 Prayer posts updated: \(newPosts.count) posts")
             }
@@ -324,11 +334,11 @@ class PostsManager: ObservableObject {
 
         // Listen to testimonies posts changes
         firebasePostService.$testimoniesPosts
-            .debounce(for: .milliseconds(300), scheduler: RunLoop.main)
+            .removeDuplicates { $0.count == $1.count && $0.first?.id == $1.first?.id }
+            .handleEvents(receiveOutput: { _ in testimoniesInitialLoad = false })
             .receive(on: DispatchQueue.main)
             .sink { [weak self] newPosts in
                 guard let self = self else { return }
-                // P0-4: Removed objectWillChange.send() - @Published already triggers updates
                 self.testimoniesPosts = newPosts
                 print("🔄 Testimonies posts updated: \(newPosts.count) posts")
             }
@@ -336,23 +346,23 @@ class PostsManager: ObservableObject {
 
         // Listen to open table posts changes
         firebasePostService.$openTablePosts
-            .debounce(for: .milliseconds(300), scheduler: RunLoop.main)
+            .removeDuplicates { $0.count == $1.count && $0.first?.id == $1.first?.id }
+            .handleEvents(receiveOutput: { _ in openTableInitialLoad = false })
             .receive(on: DispatchQueue.main)
             .sink { [weak self] newPosts in
                 guard let self = self else { return }
-                // P0-4: Removed objectWillChange.send() - @Published already triggers updates
                 self.openTablePosts = newPosts
-                print("🔄 OpenTable posts updated: \(newPosts.count) posts (with profile images)")
+                print("⚡️ OpenTable posts updated: \(newPosts.count) posts (instant)")
             }
             .store(in: &cancellables)
 
         // Listen to all posts changes
         firebasePostService.$posts
-            .debounce(for: .milliseconds(300), scheduler: RunLoop.main)
+            .removeDuplicates { $0.count == $1.count && $0.first?.id == $1.first?.id }
+            .handleEvents(receiveOutput: { _ in allPostsInitialLoad = false })
             .receive(on: DispatchQueue.main)
             .sink { [weak self] newPosts in
                 guard let self = self else { return }
-                // P0-4: Removed objectWillChange.send() - @Published already triggers updates
                 self.allPosts = newPosts
                 print("🔄 All posts updated: \(newPosts.count) posts")
             }

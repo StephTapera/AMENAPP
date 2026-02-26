@@ -140,13 +140,16 @@ struct FindChurchView: View {
     @State private var headerCollapsed = false
     @State private var headerHidden = false
     @State private var currentLocationName = "Locating..."
-    @State private var isPerformingSearch = false
+    // P0 FIX: Removed duplicate search state variables (isPerformingSearch, isSearching)
+    // Single source of truth: searchTask != nil means searching
+    @State private var searchTask: Task<Void, Never>?
+    private var isSearching: Bool {
+        searchTask != nil
+    }
     @State private var searchRadius: Double = 8046.72 // 5 miles default search radius (in meters)
     @State private var sortMode: ChurchSortMode = .smartMatch
     @State private var selectedChurchesForComparison: Set<UUID> = []
     @State private var showComparisonView = false
-    @State private var isSearching = false
-    @State private var searchTask: Task<Void, Never>?
     @State private var selectedChurch: Church?
     @State private var showFilters = false
     @State private var navigationPath = NavigationPath()
@@ -164,6 +167,8 @@ struct FindChurchView: View {
     @State private var userPreferences = UserChurchPreferences()
     @State private var showScheduleView = false
     @State private var journeyInsights: [JourneyInsights.Insight] = []
+    @State private var showFirstVisitCompanion = false
+    @State private var selectedChurchForVisit: VisitCompanionChurch?
     @Environment(\.dismiss) private var dismiss
     
     // AI Recommendations
@@ -1284,6 +1289,10 @@ struct FindChurchView: View {
                     onAddToSchedule: { 
                         addToSchedule(church)
                         showScheduleView = true
+                    },
+                    onPlanFirstVisit: {
+                        selectedChurchForVisit = VisitCompanionChurch(from: church)
+                        showFirstVisitCompanion = true
                     }
                 )
             }
@@ -1300,6 +1309,11 @@ struct FindChurchView: View {
                     savedChurches: persistenceManager.savedChurches,
                     onDismiss: { showScheduleView = false }
                 )
+            }
+            .sheet(isPresented: $showFirstVisitCompanion) {
+                if let church = selectedChurchForVisit {
+                    FirstVisitCompanionView(church: church)
+                }
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar(.hidden, for: .navigationBar)
@@ -1376,27 +1390,31 @@ struct FindChurchView: View {
         .onChange(of: searchText) { oldValue, newValue in
             // Cancel any existing search task
             searchTask?.cancel()
-            
+
             // Only trigger search if text is not empty and has changed
             if !newValue.isEmpty && newValue != oldValue {
-                isSearching = true
-                
+                // P0 FIX: searchTask != nil means isSearching = true automatically
+
                 // Debounced search - wait 0.3 seconds after user stops typing (faster)
                 searchTask = Task { @MainActor in
+                    defer {
+                        // Clear task when done (sets isSearching = false automatically)
+                        searchTask = nil
+                    }
+
                     try? await Task.sleep(nanoseconds: 300_000_000) // 0.3 seconds (faster than before)
-                    
+
                     // Check if task wasn't cancelled and text hasn't changed
                     guard !Task.isCancelled, searchText == newValue else {
-                        isSearching = false
                         return
                     }
-                    
+
                     // Perform search
                     performSearchWithText()
-                    isSearching = false
                 }
             } else if newValue.isEmpty {
-                isSearching = false
+                // Clear search task (sets isSearching = false automatically)
+                searchTask = nil
                 // Reset to show all churches when search is cleared
                 performRealSearch()
             }
@@ -1481,86 +1499,92 @@ struct FindChurchView: View {
             showErrorAlert = true
             return
         }
-        
-        guard !isPerformingSearch else {
+
+        // P0 FIX: Cancel existing search and start new one
+        // Single source of truth: searchTask != nil means searching
+        guard !isSearching else {
             print("⚠️ Search already in progress")
             return
         }
-        
+
         // Mark that we've searched at least once
         hasSearchedOnce = true
-        isPerformingSearch = true
-        
-        Task {
+
+        // Cancel any existing search task and start new one
+        searchTask?.cancel()
+        searchTask = Task {
+            defer {
+                // Always clear task when done (success or error)
+                Task { @MainActor in
+                    searchTask = nil
+                }
+            }
+
             do {
                 let haptic = UIImpactFeedbackGenerator(style: .light)
                 haptic.impactOccurred()
-                
+
                 print("🔍 Starting church search at (\(userLoc.latitude), \(userLoc.longitude)) within \(searchRadius)m")
-                
+
                 let results = try await churchSearchService.searchChurches(near: userLoc, radius: searchRadius)
-                
+
                 await MainActor.run {
-                    isPerformingSearch = false
-                    
                     if results.isEmpty {
                         errorMessage = "No churches found within \(Int(searchRadius / 1609.34)) miles. Try increasing the search radius."
                         showErrorAlert = true
                     } else {
                         print("✅ Found \(results.count) churches nearby")
-                        
+
                         // Success haptic
                         let successHaptic = UINotificationFeedbackGenerator()
                         successHaptic.notificationOccurred(.success)
                     }
                 }
-                
+
             } catch ChurchSearchError.noInternetConnection {
                 print("❌ No internet connection")
-                
+
                 await MainActor.run {
-                    isPerformingSearch = false
                     errorMessage = "No internet connection. Please check your network and try again."
                     showErrorAlert = true
-                    
+
                     // Error haptic
                     let errorHaptic = UINotificationFeedbackGenerator()
                     errorHaptic.notificationOccurred(.error)
                 }
-                
+
             } catch ChurchSearchError.noResultsFound {
                 print("❌ No results found")
-                
+
                 await MainActor.run {
-                    isPerformingSearch = false
                     errorMessage = "No churches found in this area. Try increasing the search radius to \(Int(searchRadius / 1609.34) + 5) miles."
                     showErrorAlert = true
                 }
-                
+
             } catch ChurchSearchError.tooManyRequests {
                 print("❌ Too many requests")
-                
+
                 await MainActor.run {
-                    isPerformingSearch = false
                     errorMessage = "Search limit reached. Please wait a moment and try again."
                     showErrorAlert = true
                 }
-                
+
             } catch ChurchSearchError.locationUnavailable {
                 print("❌ Location unavailable")
-                
+
                 await MainActor.run {
-                    isPerformingSearch = false
                     errorMessage = "Location services are unavailable. Please enable location access in Settings."
                     showErrorAlert = true
                 }
-                
+
+            } catch is CancellationError {
+                print("🔄 Search cancelled (new search started)")
+                // Don't show error for cancellation - this is expected when user starts new search
+
             } catch {
                 print("❌ Church search failed: \(error.localizedDescription)")
-                
+
                 await MainActor.run {
-                    isPerformingSearch = false
-                    
                     // Provide more specific error messages
                     if error.localizedDescription.contains("network") || error.localizedDescription.contains("Internet") {
                         errorMessage = "Network error. Please check your internet connection and try again."
@@ -1569,9 +1593,9 @@ struct FindChurchView: View {
                     } else {
                         errorMessage = "Unable to search for churches. \(error.localizedDescription)"
                     }
-                    
+
                     showErrorAlert = true
-                    
+
                     // Error haptic
                     let errorHaptic = UINotificationFeedbackGenerator()
                     errorHaptic.notificationOccurred(.error)
@@ -4514,6 +4538,7 @@ struct EnhancedChurchDetailSheet: View {
     var onShare: () -> Void
     var onCheckIn: () -> Void
     var onAddToSchedule: () -> Void
+    var onPlanFirstVisit: () -> Void
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
@@ -4630,6 +4655,23 @@ struct EnhancedChurchDetailSheet: View {
                                     .fill(Color(white: 0.96))
                             )
                         }
+                    }
+                    
+                    // Plan First Visit Button
+                    Button(action: onPlanFirstVisit) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "heart.text.square.fill")
+                                .font(.system(size: 18))
+                            Text("Plan First Visit")
+                                .font(.system(size: 16, weight: .semibold))
+                        }
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color.amenGold)
+                        )
                     }
                     
                     Divider()

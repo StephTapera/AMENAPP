@@ -109,6 +109,8 @@ final class SmartNotificationEngine {
             return 20.0  // Meaningful but not immediate
         case .churchNoteShared:
             return 21.0  // Shared church notes are meaningful content
+        case .message, .messageRequest:
+            return 0.0  // ✅ P0-1: These are filtered from feed, should never appear here
         case .unknown:
             return 5.0
         }

@@ -181,6 +181,10 @@ struct FirestorePost: Codable, Identifiable {
                 return .testimonies
             case "prayer":
                 return .prayer
+            case "tip":
+                return .tip
+            case "funfact":
+                return .funFact
             default:
                 print("⚠️ Unknown category '\(category)', defaulting to openTable")
                 return .openTable
@@ -294,6 +298,18 @@ class FirebasePostService: ObservableObject {
         setupRealtimeFeed()
     }
     
+    deinit {
+        // Clean up all Firestore listeners
+        listeners.forEach { $0.remove() }
+        listeners.removeAll()
+        categoryListeners.values.forEach { $0.remove() }
+        categoryListeners.removeAll()
+        
+        #if DEBUG
+        print("✅ FirebasePostService deinitialized - all listeners cleaned up")
+        #endif
+    }
+    
     // MARK: - Realtime Feed Setup
     
     /// Setup real-time feed updates
@@ -310,7 +326,12 @@ class FirebasePostService: ObservableObject {
     
     /// Fetch posts by their IDs from Firestore
     private func fetchPostsByIds(_ postIds: [String]) async {
-        guard !postIds.isEmpty else { return }
+        // P0 FIX: Don't process empty post ID arrays from Realtime Database
+        // This prevents overwriting cached Firestore posts with empty arrays
+        guard !postIds.isEmpty else {
+            print("⏭️ Skipping fetchPostsByIds - empty post IDs array (Realtime DB may be disconnected)")
+            return
+        }
         
         // Skip fetching if user is not authenticated
         guard Auth.auth().currentUser != nil else {
@@ -347,12 +368,18 @@ class FirebasePostService: ObservableObject {
                 allPosts.append(contentsOf: batchPosts)
             }
             
-            // Update posts maintaining order from realtime feed
-            self.posts = postIds.compactMap { postId in
-                allPosts.first { $0.id.uuidString == postId }
+            // P0 FIX: Only update posts if we actually fetched some
+            // Don't overwrite existing posts with empty results
+            if !allPosts.isEmpty {
+                // Update posts maintaining order from realtime feed
+                self.posts = postIds.compactMap { postId in
+                    allPosts.first { $0.id.uuidString == postId }
+                }
+                
+                updateCategoryArrays()
+            } else {
+                print("⏭️ Skipping post update - no posts fetched from Realtime DB IDs")
             }
-            
-            updateCategoryArrays()
             
         } catch {
             print("❌ Failed to fetch posts by IDs: \(error)")
@@ -386,6 +413,32 @@ class FirebasePostService: ObservableObject {
         let profileImageURL = UserDefaults.standard.string(forKey: "currentUserProfileImageURL")
         
         print("✅ Using cached user data (INSTANT)")
+        
+        // 🤖 STEP 1.5: Check for AI-generated content
+        print("🔍 Checking for AI-generated content...")
+        let aiDetectionResult = await AIContentDetectionService.shared.detectAIContent(content)
+        
+        if aiDetectionResult.isAIGenerated {
+            print("🚫 AI content detected - blocking post")
+            print("   Confidence: \(String(format: "%.1f%%", aiDetectionResult.confidence * 100))")
+            print("   Reason: \(aiDetectionResult.reason)")
+            
+            // Notify user immediately
+            await MainActor.run {
+                NotificationCenter.default.post(
+                    name: Notification.Name("aiContentDetected"),
+                    object: nil,
+                    userInfo: [
+                        "confidence": aiDetectionResult.confidence,
+                        "reason": aiDetectionResult.reason
+                    ]
+                )
+            }
+            
+            throw FirebaseError.invalidData
+        }
+        
+        print("✅ Content appears genuine - proceeding with post creation")
         
         let categoryString: String = {
             switch category {
@@ -567,21 +620,23 @@ class FirebasePostService: ObservableObject {
         defer { isLoading = false }
         
         do {
-            // ✅ Try server first, then fall back to cache if offline
+            // PERFORMANCE FIX: Load from cache first for instant display, then upgrade with server data
             var snapshot: QuerySnapshot
+            
+            // Try cache first for instant display
             do {
+                snapshot = try await db.collection(FirebaseManager.CollectionPath.posts)
+                    .order(by: "createdAt", descending: true)
+                    .limit(to: limit)
+                    .getDocuments(source: .cache)
+                print("⚡️ INSTANT: Loaded \(snapshot.documents.count) posts from cache")
+            } catch {
+                print("📱 No cache available, fetching from server...")
                 snapshot = try await db.collection(FirebaseManager.CollectionPath.posts)
                     .order(by: "createdAt", descending: true)
                     .limit(to: limit)
                     .getDocuments(source: .server)
                 print("🌐 Fetched \(snapshot.documents.count) posts from server")
-            } catch {
-                print("⚠️ Server unavailable, loading from cache...")
-                snapshot = try await db.collection(FirebaseManager.CollectionPath.posts)
-                    .order(by: "createdAt", descending: true)
-                    .limit(to: limit)
-                    .getDocuments(source: .cache)
-                print("📦 Loaded \(snapshot.documents.count) posts from cache")
             }
             
             let firestorePosts = try snapshot.documents.compactMap { doc in
@@ -605,6 +660,41 @@ class FirebasePostService: ObservableObject {
             print("❌ Failed to fetch posts: \(error)")
             self.error = error.localizedDescription
             throw error
+        }
+    }
+    
+    /// THREADS-STYLE: Synchronous cache preload during app splash screen
+    /// This loads posts from Firestore cache BEFORE views appear
+    @MainActor
+    func preloadCacheSync() async {
+        guard Auth.auth().currentUser != nil else { return }
+        
+        let startTime = CFAbsoluteTimeGetCurrent()
+        
+        do {
+            // Load OpenTable posts from cache synchronously (most important)
+            let query = db.collection(FirebaseManager.CollectionPath.posts)
+                .whereField("category", isEqualTo: "openTable")
+                .order(by: "createdAt", descending: true)
+                .limit(to: 50)
+            
+            let snapshot = try await query.getDocuments(source: .cache)
+            
+            let cachedPosts = snapshot.documents.compactMap { doc -> FirestorePost? in
+                var firestorePost = try? doc.data(as: FirestorePost.self)
+                firestorePost?.id = doc.documentID
+                return firestorePost
+            }.map { $0.toPost() }
+            
+            if !cachedPosts.isEmpty {
+                self.openTablePosts = cachedPosts
+                self.posts = cachedPosts
+                
+                let elapsed = (CFAbsoluteTimeGetCurrent() - startTime) * 1000
+                print("⚡️ PRELOAD: \(cachedPosts.count) posts loaded in \(String(format: "%.0f", elapsed))ms")
+            }
+        } catch {
+            print("📱 No cache available - will load from server")
         }
     }
     
@@ -749,20 +839,24 @@ class FirebasePostService: ObservableObject {
         // ✅ If listeners array is empty but categories are marked active, clear the categories
         // This handles app restarts or cases where listeners were removed but categories weren't cleared
         if listeners.isEmpty && !activeListenerCategories.isEmpty {
+            print("🔄 Clearing stale active categories (listeners were removed)")
             activeListenerCategories.removeAll()
         }
         
         // ✅ Prevent duplicate listeners for the same category
         guard !activeListenerCategories.contains(categoryKey) else {
+            print("⏭️ Listener already active for category: \(categoryKey)")
             return
         }
         
         // Check if user is authenticated
         guard firebaseManager.isAuthenticated else {
             self.error = "Please sign in to view posts"
+            print("❌ Cannot start listener - user not authenticated")
             return
         }
         
+        print("🎧 Starting real-time listener for category: \(categoryKey)")
         activeListenerCategories.insert(categoryKey) // ✅ Mark this category as active
         
         let query: Query
@@ -849,7 +943,6 @@ class FirebasePostService: ObservableObject {
                 // ✅ CRITICAL FIX: Skip empty cache snapshots (we already loaded from cache manually)
                 let metadata = snapshot.metadata
                 if snapshot.documents.isEmpty && metadata.isFromCache {
-                    print("⏭️ Skipping empty cache snapshot (already loaded from cache)")
                     return
                 }
                 

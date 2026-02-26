@@ -7,6 +7,7 @@
 //
 
 import SwiftUI
+import FirebaseFirestore
 
 struct ProfilePinnedPostsSection: View {
     @EnvironmentObject private var services: PostCardServices
@@ -76,8 +77,7 @@ struct ProfilePinnedPostsSection: View {
                         ForEach(pinnedPosts, id: \.firestoreId) { post in
                             PostCard(
                                 post: post,
-                                isUserPost: post.authorId == userId,
-                                isPinned: true
+                                isUserPost: post.authorId == userId
                             )
                             .padding(.horizontal)
                             .transition(.asymmetric(
@@ -101,7 +101,7 @@ struct ProfilePinnedPostsSection: View {
         defer { isLoading = false }
         
         do {
-            let posts = try await services.pinned.getPinnedPosts(for: userId)
+            let posts = try await ProfilePinnedPostService.shared.getPinnedPosts(for: userId)
             
             await MainActor.run {
                 withAnimation(AppAnimation.fade) {
@@ -119,8 +119,8 @@ struct ProfilePinnedPostsSection: View {
 
 // MARK: - Pinned Post Service
 
-actor PinnedPostService {
-    static let shared = PinnedPostService()
+actor ProfilePinnedPostService {
+    static let shared = ProfilePinnedPostService()
     
     private var pinnedPostsCache: [String: [Post]] = [:]
     private let maxPinnedPosts = 3

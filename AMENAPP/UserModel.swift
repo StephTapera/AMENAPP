@@ -13,7 +13,7 @@ import FirebaseFirestore
 /// User model for Firebase Firestore
 struct UserModel: Codable, Identifiable {
     @DocumentID var id: String?
-    var email: String
+    var email: String?  // ✅ Optional for phone-authenticated users
     var displayName: String
     var username: String  // Unique username (e.g., @johndoe)
     var initials: String
@@ -125,7 +125,7 @@ struct UserModel: Codable, Identifiable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         
         // Required fields
-        email = try container.decode(String.self, forKey: .email)
+        email = try container.decodeIfPresent(String.self, forKey: .email)  // ✅ Optional for phone auth
         displayName = try container.decode(String.self, forKey: .displayName)
         username = try container.decode(String.self, forKey: .username)
         

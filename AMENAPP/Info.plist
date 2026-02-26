@@ -20,6 +20,16 @@
 				<string>com.googleusercontent.apps.78278013543-ipl34cmeo3qrkcrma2scqc70o5pvh1f6</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.amenapp</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>amenapp</string>
+			</array>
+		</dict>
 	</array>
 	<key>Camera- Usage Description</key>
 	<string>Take a photo to personalize your AMEN profile</string>
@@ -36,11 +46,15 @@
 	</array>
 	<key>NSUserNotificationsUsageDescription</key>
 	<string>We&apos;ll send you reminders about church service times and when you&apos;re near your saved churches</string>
+	<key>NSContactsUsageDescription</key>
+	<string>Find and connect with your friends who are already on AMEN</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Use Face ID to quickly and securely sign in to your AMEN account</string>
 	<key>FirebaseAppDelegateProxyEnabled</key>
 	<false/>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>OPENAI_API_KEY</key>
-	<string>$(OPENAI_API_KEY))</string>
+	<string>YOUR_OPENAI_API_KEY_HERE </string>
 </dict>
 </plist>

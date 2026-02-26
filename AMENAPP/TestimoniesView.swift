@@ -25,6 +25,15 @@ struct TestimoniesView: View {
     @State private var isInitialLoad = true
     @State private var personalizedPosts: [Post] = []
     @State private var hasPersonalized = false
+    @State private var scrollViewDelegate: ScrollViewDelegateHandler?
+    @State private var showHeader = true
+    
+    // MARK: - Pagination State
+    @State private var visiblePostCount = 20
+    @State private var isLoadingMore = false
+    
+    @Environment(\.tabBarVisible) private var tabBarVisible
+    @Environment(\.toolbarVisible) private var toolbarVisible
     
     // Animation timing constants
     private let fastAnimationDuration: Double = 0.15
@@ -74,43 +83,46 @@ struct TestimoniesView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 // Header
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Share your testimony, encourage others")
-                        .font(.custom("OpenSans-Regular", size: 12))
-                        .foregroundStyle(.secondary)
-                    
-                    HStack {
-                        Text("Testimonies")
-                            .font(.custom("OpenSans-Bold", size: 24))
-                            .foregroundStyle(.black)
+                if showHeader {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Share your testimony, encourage others")
+                            .font(.custom("OpenSans-Regular", size: 12))
+                            .foregroundStyle(.secondary)
                         
-                        Spacer()
-                        
-                        // Loading indicator
-                        if isLoadingPosts {
-                            ProgressView()
-                                .scaleEffect(0.8)
-                        }
-                        
-                        // Clear category filter if selected
-                        if selectedCategory != nil {
-                            Button {
-                                selectedCategory = nil
-                            } label: {
-                                HStack(spacing: 4) {
-                                    Text("Clear filter")
-                                        .font(.custom("OpenSans-SemiBold", size: 12))
-                                    Image(systemName: "xmark.circle.fill")
-                                        .font(.system(size: 14))
-                                }
-                                .foregroundStyle(.blue)
+                        HStack {
+                            Text("Testimonies")
+                                .font(.custom("OpenSans-Bold", size: 24))
+                                .foregroundStyle(.black)
+                            
+                            Spacer()
+                            
+                            // Loading indicator
+                            if isLoadingPosts {
+                                ProgressView()
+                                    .scaleEffect(0.8)
                             }
-                            .buttonStyle(.plain)
-                            .animation(.easeOut(duration: fastAnimationDuration), value: selectedCategory)
+                            
+                            // Clear category filter if selected
+                            if selectedCategory != nil {
+                                Button {
+                                    selectedCategory = nil
+                                } label: {
+                                    HStack(spacing: 4) {
+                                        Text("Clear filter")
+                                            .font(.custom("OpenSans-SemiBold", size: 12))
+                                        Image(systemName: "xmark.circle.fill")
+                                            .font(.system(size: 14))
+                                    }
+                                    .foregroundStyle(.blue)
+                                }
+                                .buttonStyle(.plain)
+                                .animation(.easeOut(duration: fastAnimationDuration), value: selectedCategory)
+                            }
                         }
                     }
+                    .padding(.horizontal)
+                    .transition(.move(edge: .top).combined(with: .opacity))
                 }
-                .padding(.horizontal)
                 
                 // Error banner (if any)
                 if let errorMessage = errorMessage {
@@ -134,6 +146,23 @@ struct TestimoniesView: View {
                 else {
                     contentView
                 }
+            }
+        }
+        .onScrollViewScroll { delta in
+            // Hysteresis: Only trigger animation if scroll delta exceeds threshold
+            let threshold: CGFloat = 5.0
+            
+            withAnimation(.easeInOut(duration: 0.25)) {
+                if delta > threshold {
+                    showHeader = false
+                    toolbarVisible.wrappedValue = false
+                    tabBarVisible.wrappedValue = false
+                } else if delta < -threshold {
+                    showHeader = true
+                    toolbarVisible.wrappedValue = true
+                    tabBarVisible.wrappedValue = true
+                }
+                // If delta is within [-threshold, threshold], do nothing (prevents flicker)
             }
         }
         .refreshable {
@@ -276,7 +305,10 @@ struct TestimoniesView: View {
             
             // Filtered testimonies feed
             VStack(spacing: 16) {
-                ForEach(filteredPosts) { post in
+                let allPosts = filteredPosts
+                let displayPosts = Array(allPosts.prefix(visiblePostCount))
+                
+                ForEach(Array(displayPosts.enumerated()), id: \.element.id) { index, post in
                     PostCard(
                         post: post,
                         isUserPost: post.authorId == Auth.auth().currentUser?.uid
@@ -284,6 +316,22 @@ struct TestimoniesView: View {
                     .onAppear {
                         // Track view interaction for learning
                         testimonyAlgorithm.recordInteraction(with: post, type: .view)
+                        
+                        // PAGINATION: Load more when approaching the end
+                        if index >= displayPosts.count - 3 && !isLoadingMore && visiblePostCount < allPosts.count {
+                            loadMorePosts()
+                        }
+                    }
+                }
+                
+                // Loading indicator for pagination
+                if isLoadingMore && visiblePostCount < allPosts.count {
+                    HStack {
+                        Spacer()
+                        ProgressView()
+                            .scaleEffect(0.8)
+                            .padding(.vertical, 20)
+                        Spacer()
                     }
                 }
                 
@@ -331,11 +379,25 @@ struct TestimoniesView: View {
                 hasPersonalized = true
             }
         }
+        .onAppear {
+            // ✅ Refresh posts every time view appears (fixes tab switching issue)
+            fetchPosts()
+            // Re-personalize with fresh data
+            personalizeTestimoniesFeed()
+        }
         .onChange(of: postsManager.testimoniesPosts) { oldValue, newValue in
             // Re-personalize when posts change
             if oldValue.count != newValue.count {
                 personalizeTestimoniesFeed()
             }
+        }
+        .onChange(of: selectedFilter) { _, _ in
+            // Reset pagination when filter changes
+            visiblePostCount = 20
+        }
+        .onChange(of: selectedCategory) { _, _ in
+            // Reset pagination when category changes
+            visiblePostCount = 20
         }
         .onReceive(NotificationCenter.default.publisher(for: .newPostCreated)) { notification in
             // ✅ Handle new post creation with instant feedback
@@ -515,6 +577,26 @@ struct TestimoniesView: View {
             let haptic = UINotificationFeedbackGenerator()
             haptic.notificationOccurred(.success)
             print("✅ Testimonies posts refreshed!")
+        }
+        
+        // Reset pagination after refresh
+        visiblePostCount = 20
+    }
+    
+    // MARK: - Pagination
+    
+    /// Load more posts when user scrolls near the bottom
+    private func loadMorePosts() {
+        guard !isLoadingMore else { return }
+        
+        isLoadingMore = true
+        
+        // Simulate a brief delay for smooth loading
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            let increment = 10
+            let maxCount = filteredPosts.count
+            visiblePostCount = min(visiblePostCount + increment, maxCount)
+            isLoadingMore = false
         }
     }
 }

@@ -89,15 +89,28 @@ public class FirebaseMessagingService: ObservableObject {
     private var conversationsListener: ListenerRegistration?
     private var archivedConversationsListener: ListenerRegistration?
     private var messagesListeners: [String: ListenerRegistration] = [:]
+    private var isListeningToConversations = false
     
     // Message pagination state
     private var lastDocuments: [String: DocumentSnapshot] = [:] // conversationId: lastDoc
     private var hasMoreMessages: [String: Bool] = [:] // conversationId: hasMore
     
+    // P0 FIX: Prevent duplicate conversation creation during rapid calls
+    private var inflightConversationCreations: [String: Task<String, Error>] = [:] // userId: creation task
+    private let conversationCreationLock = NSLock()
+    
     private init() {
         // Note: Offline persistence is already configured in AppDelegate
         // Do NOT configure cache settings here - it must be done immediately after FirebaseApp.configure()
         print("✅ FirebaseMessagingService initialized (using global Firestore settings)")
+    }
+    
+    // P0-5 FIX: Clean up all message listeners on deallocation
+    deinit {
+        print("🧹 Cleaning up FirebaseMessagingService listeners")
+        stopListeningToConversations()
+        messagesListeners.values.forEach { $0.remove() }
+        messagesListeners.removeAll()
     }
     
     // MARK: - Current User
@@ -187,8 +200,15 @@ public class FirebaseMessagingService: ObservableObject {
             return
         }
         
+        // Skip if already listening (prevents redundant calls)
+        if isListeningToConversations {
+            print("⏭️ Already listening to conversations, skipping redundant call")
+            return
+        }
+        
         // Stop existing listener to prevent duplicates
         stopListeningToConversations()
+        isListeningToConversations = true
         
         isLoading = true
         lastError = nil
@@ -210,11 +230,11 @@ public class FirebaseMessagingService: ObservableObject {
                     self.isLoading = false
                     return
                 }
+
                 
-                print("📥 Received \(documents.count) total conversation documents from Firestore")
-                
-                // Use a dictionary to deduplicate by ID
+                // P0-2 FIX: Deduplicate by ID immediately at source
                 var conversationsDict: [String: ChatConversation] = [:]
+                var skippedDuplicates = 0
                 
                 // Filter out archived and deleted conversations
                 for doc in documents {
@@ -223,20 +243,21 @@ public class FirebaseMessagingService: ObservableObject {
                     do {
                         firebaseConv = try doc.data(as: FirebaseConversation.self)
                     } catch {
-                        print("   ❌ DECODING ERROR for document \(doc.documentID):")
-                        print("      Error: \(error)")
-                        let data = doc.data()
-                        print("      Data keys: \(data.keys.joined(separator: ", "))")
+                        Logger.error("Failed to decode conversation \(doc.documentID)", error: error)
                         continue
                     }
                     
                     // ✅ FIX: Use document ID if @DocumentID didn't populate
-                    let convId: String
-                    if let id = firebaseConv.id {
-                        convId = id
-                    } else {
-                        convId = doc.documentID
+                    let convId = firebaseConv.id ?? doc.documentID
+                    if firebaseConv.id == nil {
                         firebaseConv.id = doc.documentID  // Manually set the ID
+                    }
+                    
+                    // P0-2 FIX: Skip if we've already processed this ID
+                    if conversationsDict[convId] != nil {
+                        skippedDuplicates += 1
+                        print("   ⏭️ [P0-2] Skipping duplicate conversation ID: \(convId)")
+                        continue
                     }
                     
                     // Debug: Log each conversation
@@ -256,43 +277,24 @@ public class FirebaseMessagingService: ObservableObject {
                         continue
                     }
                     
-                    // ✅ FIX: Skip pending conversations where current user is NOT the requester
-                    // (Those should appear in Message Requests, not main Messages tab)
-                    
                     // 🔍 DEBUG: Log conversation status details
                     print("   📊 Conversation \(convId):")
                     print("      Status: \(firebaseConv.conversationStatus ?? "nil")")
                     print("      RequesterID: \(firebaseConv.requesterId ?? "nil")")
                     print("      CurrentUserID: \(self.currentUserId)")
-                    
-                    if let status = firebaseConv.conversationStatus,
-                       status == "pending" {
-                        if let requesterId = firebaseConv.requesterId {
-                            if requesterId != self.currentUserId {
-                                print("      ❌ FILTERING OUT: Pending request from someone else (should be in requests tab)")
-                                continue
-                            } else {
-                                print("      ✅ KEEPING: Pending request sent by current user")
-                            }
-                        } else {
-                            print("      ⚠️ WARNING: Pending conversation missing requesterId!")
-                        }
-                    } else {
-                        print("      ✅ KEEPING: Accepted conversation or nil status")
-                    }
+                    print("      ✅ KEEPING: All conversations (filtering handled in MessagesView)")
                     
                     let conversation = firebaseConv.toConversation()
                     conversationsDict[convId] = conversation
                     print("      ➕ Added to conversations list")
                 }
                 
-                // Convert back to array and sort by timestamp
-                self.conversations = Array(conversationsDict.values)
-                    .sorted { conv1, conv2 in
-                        // Sort by timestamp (most recent first)
-                        // Since timestamp is a string, this is a simple comparison
-                        return conv1.timestamp > conv2.timestamp
-                    }
+                if skippedDuplicates > 0 {
+                    print("⚠️ [P0-2] Prevented \(skippedDuplicates) duplicate conversations at source")
+                }
+                
+                // P0-2 FIX: Convert to sorted array (already deduplicated)
+                self.conversations = conversationsDict.values.sorted { $0.timestamp > $1.timestamp }
                 
                 print("✅ Loaded \(self.conversations.count) unique conversations")
                 
@@ -323,6 +325,7 @@ public class FirebaseMessagingService: ObservableObject {
     func stopListeningToConversations() {
         conversationsListener?.remove()
         conversationsListener = nil
+        isListeningToConversations = false
     }
     
     /// Start listening to archived conversations for the current user
@@ -351,8 +354,7 @@ public class FirebaseMessagingService: ObservableObject {
                 guard let documents = snapshot?.documents else {
                     return
                 }
-                
-                print("📥 Received \(documents.count) total documents for archived check")
+
                 
                 // Use a dictionary to deduplicate by ID
                 var archivedDict: [String: ChatConversation] = [:]
@@ -505,8 +507,7 @@ public class FirebaseMessagingService: ObservableObject {
         guard isAuthenticated else {
             throw FirebaseMessagingError.notAuthenticated
         }
-        
-        print("🔍 Searching for existing conversation with user: \(userId)")
+
         
         // ✅ STEP 1: Check if conversation already exists
         let conversationsRef = db.collection("conversations")
@@ -522,6 +523,21 @@ public class FirebaseMessagingService: ObservableObject {
             if let conversation = try? doc.data(as: FirebaseConversation.self),
                conversation.participantIds.contains(userId),
                conversation.participantIds.count == 2 {
+                
+                // Skip if conversation is deleted by current user
+                if let deletedBy = conversation.deletedBy,
+                   deletedBy[currentUserId] == true {
+                    print("   ⏭️ Skipping deleted conversation: \(doc.documentID)")
+                    continue
+                }
+                
+                // Skip if conversation is archived by current user
+                if let archivedBy = conversation.archivedByArray,
+                   archivedBy.contains(currentUserId) {
+                    print("   ⏭️ Skipping archived conversation: \(doc.documentID)")
+                    continue
+                }
+                
                 print("✅ Found existing conversation: \(doc.documentID)")
                 return doc.documentID
             }
@@ -579,6 +595,37 @@ public class FirebaseMessagingService: ObservableObject {
             throw FirebaseMessagingError.selfConversation
         }
         
+        // P0 FIX: Check if there's already an inflight creation for this user
+        conversationCreationLock.lock()
+        if let existingTask = inflightConversationCreations[userId] {
+            conversationCreationLock.unlock()
+            print("⏭️ Conversation creation already in progress for user: \(userId), waiting...")
+            return try await existingTask.value
+        }
+        
+        // Create a new task for this conversation creation
+        let creationTask = Task<String, Error> {
+            defer {
+                // Clean up the inflight task when done
+                conversationCreationLock.lock()
+                inflightConversationCreations.removeValue(forKey: userId)
+                conversationCreationLock.unlock()
+            }
+            
+            return try await self._performConversationCreation(withUserId: userId, userName: userName)
+        }
+        
+        inflightConversationCreations[userId] = creationTask
+        conversationCreationLock.unlock()
+        
+        return try await creationTask.value
+    }
+    
+    /// Internal method that actually performs the conversation creation logic
+    private func _performConversationCreation(
+        withUserId userId: String,
+        userName: String
+    ) async throws -> String {
         do {
             // Check if user is blocked - using the extension's methods
             let isBlocked = try await checkIfBlocked(userId: userId)
@@ -597,7 +644,23 @@ public class FirebaseMessagingService: ObservableObject {
             for document in querySnapshot.documents {
                 if let conversation = try? document.data(as: FirebaseConversation.self),
                    let conversationId = conversation.id,
-                   conversation.participantIds.contains(userId) {
+                   conversation.participantIds.contains(userId),
+                   conversation.participantIds.count == 2 {
+                    
+                    // Skip if conversation is deleted by current user
+                    if let deletedBy = conversation.deletedBy,
+                       deletedBy[currentUserId] == true {
+                        print("   ⏭️ Skipping deleted conversation: \(conversationId)")
+                        continue
+                    }
+                    
+                    // Skip if conversation is archived by current user
+                    if let archivedBy = conversation.archivedByArray,
+                       archivedBy.contains(currentUserId) {
+                        print("   ⏭️ Skipping archived conversation: \(conversationId)")
+                        continue
+                    }
+                    
                     print("✅ Found existing conversation: \(conversationId)")
                     return conversationId
                 }
@@ -1169,13 +1232,16 @@ public class FirebaseMessagingService: ObservableObject {
     // P1-1 FIX: Clear unread badge immediately when opening thread
     func clearUnreadCount(conversationId: String) async throws {
         guard isAuthenticated else { return }
-        
+
         let conversationRef = db.collection("conversations").document(conversationId)
-        
+
         try await conversationRef.updateData([
             "unreadCounts.\(currentUserId)": 0
         ])
-        
+
+        // P0 FIX: Update badge count immediately when clearing unread messages
+        await BadgeCountManager.shared.immediateUpdate()
+
         print("✅ [P1-1] Cleared unread count for conversation: \(conversationId)")
     }
     
@@ -2722,6 +2788,14 @@ struct FirebaseConversation: Codable {
         }
 
         let unreadCount = unreadCounts[currentUserId] ?? 0
+        
+        // 🔍 Debug logging for unread count extraction
+        if !unreadCounts.isEmpty {
+            print("🔍 Unread counts for conversation \(id ?? "unknown"):")
+            print("   Full unreadCounts dict: \(unreadCounts)")
+            print("   CurrentUserId: \(currentUserId)")
+            print("   Extracted unreadCount: \(unreadCount)")
+        }
 
         let timestamp = lastMessageTimestamp?.dateValue() ?? Date()
 

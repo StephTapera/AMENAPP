@@ -7,10 +7,12 @@
 
 import SwiftUI
 import FirebaseAuth
+import UIKit
 
 struct SettingsView: View {
     @Environment(\.dismiss) var dismiss
     @State private var showSignOutConfirmation = false
+    @State private var navigateToAccountSettings = false
     
     var body: some View {
         NavigationStack {
@@ -37,6 +39,9 @@ struct SettingsView: View {
             }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
+            .navigationDestination(isPresented: $navigateToAccountSettings) {
+                AccountSettingsView()
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") {
@@ -56,6 +61,10 @@ struct SettingsView: View {
                 }
             } message: {
                 Text("Are you sure you want to sign out?")
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .navigateToAccountSettings)) { _ in
+                // Auto-navigate to Account Settings when triggered from Shabbat Mode gate
+                navigateToAccountSettings = true
             }
         }
     }
@@ -95,7 +104,17 @@ struct SettingsView: View {
                     destination: NotificationSettingsView(),
                     icon: "bell.badge.fill",
                     iconColor: .orange,
-                    title: "Notifications",
+                    title: "Notifications"
+                )
+
+                Divider()
+                    .background(Color.white.opacity(0.1))
+
+                settingsNavigationLink(
+                    destination: SafetyDashboardView(),
+                    icon: "shield.checkered",
+                    iconColor: .purple,
+                    title: "Safety & Community",
                     isLast: true
                 )
             }
@@ -153,13 +172,48 @@ struct SettingsView: View {
                     destination: AboutAmenView(),
                     icon: "info.circle.fill",
                     iconColor: .gray,
-                    title: "About AMEN",
-                    isLast: true
+                    title: "About AMEN"
                 )
+                
+                Divider()
+                    .background(Color.white.opacity(0.1))
+                
+                ftueReplayButton
             }
             .glassEffect(GlassEffectStyle.regular, in: RoundedRectangle(cornerRadius: 16))
             .clipShape(RoundedRectangle(cornerRadius: 16))
         }
+    }
+    
+    // MARK: - FTUE Replay Button
+    
+    private var ftueReplayButton: some View {
+        Button {
+            HapticManager.impact(style: .medium)
+            FTUEManager.shared.resetFTUE()
+            FTUEManager.shared.checkAndShowFTUE()
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "graduationcap.fill")
+                    .font(.system(size: 18))
+                    .foregroundStyle(.purple)
+                    .frame(width: 24)
+                
+                Text("Replay Tutorial")
+                    .font(.custom("OpenSans-Regular", size: 16))
+                    .foregroundStyle(.white)
+                
+                Spacer()
+                
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.3))
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PlainButtonStyle())
     }
     
     // MARK: - Sign Out Button
@@ -233,9 +287,8 @@ struct SettingsView: View {
             await MainActor.run {
                 do {
                     try Auth.auth().signOut()
-                    print("✅ Successfully signed out")
                 } catch {
-                    print("❌ Error signing out: \(error.localizedDescription)")
+                    Logger.error("Sign out failed", error: error)
                 }
                 dismiss()
             }
@@ -243,24 +296,7 @@ struct SettingsView: View {
     }
 }
 
-// MARK: - Haptic Manager
 
-class HapticManager {
-    static func impact(style: UIImpactFeedbackGenerator.FeedbackStyle) {
-        let generator = UIImpactFeedbackGenerator(style: style)
-        generator.impactOccurred()
-    }
-    
-    static func notification(type: UINotificationFeedbackGenerator.FeedbackType) {
-        let generator = UINotificationFeedbackGenerator()
-        generator.notificationOccurred(type)
-    }
-    
-    static func selection() {
-        let generator = UISelectionFeedbackGenerator()
-        generator.selectionChanged()
-    }
-}
 
 #Preview {
     NavigationStack {

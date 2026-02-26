@@ -5,6 +5,9 @@
       location = "self:">
    </FileRef>
    <FileRef
-      location = "group:BUTTON_INTERACTION_FIXES_COMPLETE.md">
+      location = "group:PHONE_OTP_IMPLEMENTATION_COMPLETE.md">
+   </FileRef>
+   <FileRef
+      location = "group:PHONE_OTP_QUICK_START.md">
    </FileRef>
 </Workspace>

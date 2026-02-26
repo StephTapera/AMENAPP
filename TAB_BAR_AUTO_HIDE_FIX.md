@@ -21,7 +21,9 @@ The tab bar visibility was being controlled through environment values correctly
 
 ## Solution
 
-Replaced the DragGesture-based approach with a pure scroll offset-based solution using `ScrollOffsetPreferenceKey`:
+Replaced the DragGesture-based approach with a two-step scroll tracking solution:
+1. Track scroll offset with `ScrollOffsetPreferenceKey` 
+2. React to offset changes with `.onChange` modifier
 
 ### Before (Not Working)
 ```swift
@@ -42,25 +44,19 @@ Replaced the DragGesture-based approach with a pure scroll offset-based solution
 ### After (Working)
 ```swift
 .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
-    // Calculate scroll direction
-    let delta = value - lastScrollOffset
-    lastScrollOffset = scrollOffset
     scrollOffset = value
-    
+}
+.onChange(of: scrollOffset) { oldValue, newValue in
     // Smart tab bar auto-hide based on scroll position
-    if value < -200 {
+    if newValue < -200 && tabBarVisible.wrappedValue {
         // Scrolled down significantly, hide tab bar
-        if tabBarVisible.wrappedValue {
-            withAnimation(.easeOut(duration: 0.25)) {
-                tabBarVisible.wrappedValue = false
-            }
+        withAnimation(.easeOut(duration: 0.25)) {
+            tabBarVisible.wrappedValue = false
         }
-    } else if value > -50 {
+    } else if newValue > -50 && !tabBarVisible.wrappedValue {
         // Near top, show tab bar
-        if !tabBarVisible.wrappedValue {
-            withAnimation(.easeOut(duration: 0.25)) {
-                tabBarVisible.wrappedValue = true
-            }
+        withAnimation(.easeOut(duration: 0.25)) {
+            tabBarVisible.wrappedValue = true
         }
     }
 }

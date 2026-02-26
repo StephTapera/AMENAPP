@@ -9,6 +9,7 @@ const {onValueCreated} = require("firebase-functions/v2/database");
 const {onDocumentCreated} = require("firebase-functions/v2/firestore");
 
 // Initialize Firebase Admin
+// Storage bucket is auto-detected from Firebase project
 admin.initializeApp();
 
 // Import all notification functions
@@ -41,6 +42,32 @@ const {
   exportEngagementData,
 } = require("./aiPersonalization");
 
+// Content Moderation: Import organic content integrity system
+const {
+  moderateContent,
+} = require("./contentModeration");
+
+// Image Moderation: Import Cloud Vision SafeSearch moderation
+const {
+  moderateUploadedImage,
+} = require("./imageModeration");
+
+// P0: Phone Authentication Rate Limiting
+const {
+  checkPhoneVerificationRateLimit,
+  reportPhoneVerificationFailure,
+  unblockPhoneNumber,
+} = require("./phoneAuthRateLimit");
+
+// P0: Two-Factor Authentication
+const {
+  request2FAOTP,
+  verify2FAOTP,
+  send2FAEmail,
+  send2FASMS,
+  cleanupExpiredOTPs,
+} = require("./twoFactorAuth");
+
 // Export all functions
 exports.sendPushNotification = sendPushNotification;
 exports.onUserFollow = onUserFollow;
@@ -64,6 +91,24 @@ exports.generateChurchNoteShareLink = generateChurchNoteShareLink;
 exports.generatePersonalizedFeed = generatePersonalizedFeed;
 exports.filterSmartNotifications = filterSmartNotifications;
 exports.exportEngagementData = exportEngagementData;
+
+// Content Moderation: Export organic content integrity system
+exports.moderateContent = moderateContent;
+
+// Image Moderation: Export Cloud Vision SafeSearch moderation
+exports.moderateUploadedImage = moderateUploadedImage;
+
+// P0: Phone Authentication Rate Limiting
+exports.checkPhoneVerificationRateLimit = checkPhoneVerificationRateLimit;
+exports.reportPhoneVerificationFailure = reportPhoneVerificationFailure;
+exports.unblockPhoneNumber = unblockPhoneNumber;
+
+// P0: Two-Factor Authentication
+exports.request2FAOTP = request2FAOTP;
+exports.verify2FAOTP = verify2FAOTP;
+exports.send2FAEmail = send2FAEmail;
+exports.send2FASMS = send2FASMS;
+exports.cleanupExpiredOTPs = cleanupExpiredOTPs;
 
 // ============================================================================
 // REALTIME DATABASE: COMMENT NOTIFICATIONS
@@ -341,18 +386,41 @@ exports.onMessageSent = onDocumentCreated(
 
         const senderData = senderDoc.data();
         const senderName = senderData?.displayName || "Someone";
+        const senderIsPrivate = senderData?.isPrivateAccount || false;
 
         // Send notification to all participants except sender
         const recipients = participantIds.filter((id) => id !== senderId);
 
         for (const recipientId of recipients) {
+          // ✅ P0-7 FIX: Get recipient info for privacy checks
+          const recipientDoc = await admin.firestore()
+              .collection("users")
+              .doc(recipientId)
+              .get();
+
+          const recipientData = recipientDoc.data();
+          const recipientIsPrivate = recipientData?.isPrivateAccount || false;
+
+          // ✅ P0-7 FIX: Check if users are blocked
+          const senderBlockedUsers = senderData?.blockedUsers || [];
+          const recipientBlockedUsers = recipientData?.blockedUsers || [];
+          const isBlocked = senderBlockedUsers.includes(recipientId) ||
+                          recipientBlockedUsers.includes(senderId);
+
+          // ✅ P0-7 FIX: Determine if message preview should be hidden
+          // Hide preview if: either user is private, OR users are blocked
+          const shouldHidePreview = senderIsPrivate || recipientIsPrivate || isBlocked;
+
+          // ✅ P0-7 FIX: Use generic message if privacy settings prevent preview
+          const safeMessageText = shouldHidePreview ? "" : messageText.substring(0, 100);
+
           // Create notification
           const notification = {
             type: conversationStatus === "pending" ? "message_request" : "message",
             actorId: senderId,
             actorName: senderName,
             conversationId: conversationId,
-            messageText: messageText.substring(0, 100), // Truncate long messages
+            messageText: safeMessageText, // ✅ P0-7: Privacy-aware message text
             userId: recipientId,
             read: false,
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -364,24 +432,20 @@ exports.onMessageSent = onDocumentCreated(
               .collection("notifications")
               .add(notification);
 
-          console.log(`✅ Message notification created for user ${recipientId}`);
+          console.log(`✅ Message notification created for user ${recipientId}${shouldHidePreview ? " (preview hidden)" : ""}`);
 
           // Send push notification
-          const recipientDoc = await admin.firestore()
-              .collection("users")
-              .doc(recipientId)
-              .get();
-
-          const fcmToken = recipientDoc.data()?.fcmToken;
+          const fcmToken = recipientData?.fcmToken;
 
           if (fcmToken) {
             const notificationTitle = conversationStatus === "pending" ?
               "New Message Request" :
               isGroup ? groupName || "Group Message" : senderName;
 
+            // ✅ P0-7 FIX: Use generic body if preview should be hidden
             const notificationBody = conversationStatus === "pending" ?
               `${senderName} wants to message you` :
-              messageText.substring(0, 100);
+              shouldHidePreview ? "New message" : messageText.substring(0, 100);
 
             await admin.messaging().send({
               notification: {
@@ -396,7 +460,7 @@ exports.onMessageSent = onDocumentCreated(
               token: fcmToken,
             });
 
-            console.log(`✅ Push notification sent to ${recipientId}`);
+            console.log(`✅ Push notification sent to ${recipientId}${shouldHidePreview ? " (generic message)" : ""}`);
           }
         }
 

@@ -13,6 +13,17 @@ import FirebaseAuth
 import FirebaseFirestore
 import Contacts
 
+// MARK: - Pressable Button Style
+
+struct PressableButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
+            .opacity(configuration.isPressed ? 0.8 : 1.0)
+            .animation(.spring(response: 0.2, dampingFraction: 0.6), value: configuration.isPressed)
+    }
+}
+
 struct OnboardingView: View {
     @EnvironmentObject var authViewModel: AuthenticationViewModel
     
@@ -43,6 +54,17 @@ struct OnboardingView: View {
     @State private var onboardingRating: Int = 0
     @State private var onboardingFeedback: String = ""
     
+    // 2FA Security
+    @State private var enable2FA = false
+    @State private var backupCodes: [String] = []
+    
+    // Biometric Authentication
+    @State private var enableBiometric = false
+    
+    // Privacy Settings
+    @State private var isAccountPrivate = false
+    @State private var whoCanMessage: PrivacySettingsOnboardingPage.MessagingPrivacy = .everyone
+    
     // Error handling & retry
     @State private var isSaving = false
     @State private var saveError: String?
@@ -52,7 +74,7 @@ struct OnboardingView: View {
     
     @Environment(\.dismiss) var dismiss
     
-    let totalPages = 11  // Updated to include new pages: Contacts, Feedback
+    let totalPages = 13  // Updated to include combined security page (2FA + Biometric)
     
     enum PrayerTime: String, CaseIterable {
         case morning = "Morning"
@@ -85,14 +107,9 @@ struct OnboardingView: View {
     
     var body: some View {
         ZStack {
-            // Dynamic background based on page (black on pages 0, 1, 5, 7 - gradient on others)
-            if currentPage == 0 || currentPage == 1 || currentPage == 5 || currentPage == 7 {
-                Color.black
-                    .ignoresSafeArea()
-            } else {
-                backgroundGradient
-                    .ignoresSafeArea()
-            }
+            // Consistent black background for all pages
+            Color.black
+                .ignoresSafeArea()
             
             VStack(spacing: 0) {
                 // Progress bar (hidden on welcome page)
@@ -128,6 +145,16 @@ struct OnboardingView: View {
                             withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                                 currentPage = 2
                             }
+                        },
+                        currentPage: currentPage,
+                        totalPages: totalPages,
+                        onBack: {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                currentPage -= 1
+                            }
+                        },
+                        onSkip: {
+                            currentPage = totalPages - 1
                         }
                     )
                         .tag(1)
@@ -135,142 +162,254 @@ struct OnboardingView: View {
                     // Page 3: Profile Photo
                     ProfilePhotoPage(
                         selectedImage: $selectedProfileImage,
-                        isUploading: $isUploadingImage
+                        isUploading: $isUploadingImage,
+                        currentPage: currentPage,
+                        totalPages: totalPages,
+                        canContinue: canContinue,
+                        onBack: {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                currentPage -= 1
+                            }
+                        },
+                        onSkip: {
+                            currentPage = totalPages - 1
+                        },
+                        onNext: {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                currentPage += 1
+                            }
+                        }
                     )
                         .tag(2)
                     
                     // Page 4: Features
-                    FeaturesPage()
+                    FeaturesPage(
+                        currentPage: currentPage,
+                        totalPages: totalPages,
+                        canContinue: canContinue,
+                        onBack: {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                currentPage -= 1
+                            }
+                        },
+                        onSkip: {
+                            currentPage = totalPages - 1
+                        },
+                        onNext: {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                currentPage += 1
+                            }
+                        }
+                    )
                         .tag(3)
                     
                     // Page 5: Interests (with dialog overlay)
-                    InterestsPage(selectedInterests: $selectedInterests)
+                    InterestsPage(
+                        selectedInterests: $selectedInterests,
+                        currentPage: currentPage,
+                        totalPages: totalPages,
+                        canContinue: canContinue,
+                        onBack: {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                currentPage -= 1
+                            }
+                        },
+                        onSkip: {
+                            currentPage = totalPages - 1
+                        },
+                        onNext: {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                currentPage += 1
+                            }
+                        }
+                    )
                         .tag(4)
                     
                     // Page 6: Your Pace Dialog (NEW)
                     YourPaceDialogPage(
                         dailyTimeLimit: $dailyTimeLimit,
-                        notificationPreferences: $notificationPreferences
+                        notificationPreferences: $notificationPreferences,
+                        currentPage: currentPage,
+                        totalPages: totalPages,
+                        canContinue: canContinue,
+                        onBack: {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                currentPage -= 1
+                            }
+                        },
+                        onSkip: {
+                            currentPage = totalPages - 1
+                        },
+                        onNext: {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                currentPage += 1
+                            }
+                        }
                     )
                         .tag(5)
                     
                     // Page 7: Goals
-                    GoalsPage(selectedGoals: $selectedGoals)
+                    GoalsPage(
+                        selectedGoals: $selectedGoals,
+                        currentPage: currentPage,
+                        totalPages: totalPages,
+                        canContinue: canContinue,
+                        onBack: {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                currentPage -= 1
+                            }
+                        },
+                        onSkip: {
+                            currentPage = totalPages - 1
+                        },
+                        onNext: {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                currentPage += 1
+                            }
+                        }
+                    )
                         .tag(6)
                     
                     // Page 8: Privacy Promise (NEW)
                     PrivacyPromisePage(
-                        acceptedPrivacyPolicy: $acceptedPrivacyPolicy
+                        acceptedPrivacyPolicy: $acceptedPrivacyPolicy,
+                        currentPage: currentPage,
+                        totalPages: totalPages,
+                        canContinue: canContinue,
+                        onBack: {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                currentPage -= 1
+                            }
+                        },
+                        onSkip: {
+                            currentPage = totalPages - 1
+                        },
+                        onNext: {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                currentPage += 1
+                            }
+                        }
                     )
                         .tag(7)
                     
-                    // Page 9: Prayer Time
-                    PrayerTimePage(prayerTime: $prayerTime)
+                    // Page 9: Privacy Settings (NEW - CONFIGURE PRIVACY)
+                    PrivacySettingsOnboardingPage(
+                        isAccountPrivate: $isAccountPrivate,
+                        whoCanMessage: $whoCanMessage,
+                        currentPage: currentPage,
+                        totalPages: totalPages,
+                        canContinue: canContinue,
+                        onBack: {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                currentPage -= 1
+                            }
+                        },
+                        onSkip: {
+                            currentPage = totalPages - 1
+                        },
+                        onNext: {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                currentPage += 1
+                            }
+                        }
+                    )
                         .tag(8)
                     
-                    // Page 10: Find Friends / Contacts (NEW)
-                    FindFriendsPage(
-                        contactsPermissionGranted: $contactsPermissionGranted
+                    // Page 10: Prayer Time
+                    PrayerTimePage(
+                        prayerTime: $prayerTime,
+                        currentPage: currentPage,
+                        totalPages: totalPages,
+                        canContinue: canContinue,
+                        onBack: {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                currentPage -= 1
+                            }
+                        },
+                        onSkip: {
+                            currentPage = totalPages - 1
+                        },
+                        onNext: {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                currentPage += 1
+                            }
+                        }
                     )
                         .tag(9)
                     
-                    // Page 11: Feedback & Recommendations (NEW - FINAL PAGE)
+                    // Page 11: Find Friends / Contacts
+                    FindFriendsPage(
+                        contactsPermissionGranted: $contactsPermissionGranted,
+                        currentPage: currentPage,
+                        totalPages: totalPages,
+                        canContinue: canContinue,
+                        onBack: {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                currentPage -= 1
+                            }
+                        },
+                        onSkip: {
+                            currentPage = totalPages - 1
+                        },
+                        onNext: {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                currentPage += 1
+                            }
+                        }
+                    )
+                        .tag(10)
+                    
+                    // Page 12: Two-Factor Authentication (SECURITY)
+                    // Page 12: Combined Security Settings (2FA + Biometric)
+                    CombinedSecurityOnboardingPage(
+                        enable2FA: $enable2FA,
+                        backupCodes: $backupCodes,
+                        enableBiometric: $enableBiometric,
+                        currentPage: currentPage,
+                        totalPages: totalPages,
+                        canContinue: canContinue,
+                        onBack: {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                currentPage -= 1
+                            }
+                        },
+                        onSkip: {
+                            currentPage = totalPages - 1
+                        },
+                        onNext: {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                currentPage += 1
+                            }
+                        }
+                    )
+                        .tag(11)
+                    
+                    // Page 13: Feedback & Recommendations (FINAL PAGE)
                     FeedbackRecommendationsPage(
                         rating: $onboardingRating,
                         feedback: $onboardingFeedback,
                         selectedInterests: selectedInterests,
-                        selectedGoals: selectedGoals
+                        selectedGoals: selectedGoals,
+                        currentPage: currentPage,
+                        totalPages: totalPages,
+                        canContinue: canContinue,
+                        onBack: {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                currentPage -= 1
+                            }
+                        },
+                        onSkip: {
+                            currentPage = totalPages - 1
+                        },
+                        onNext: {
+                            // ✅ FIX: On final page, save data and complete onboarding
+                            // Don't just increment currentPage - that causes a loop!
+                            saveOnboardingDataWithRetry()
+                        }
                     )
-                        .tag(10)
+                        .tag(12)
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
-                
-                // Navigation Buttons (hidden on page 0 since WelcomePage has its own)
-                if currentPage > 0 {
-                    HStack(spacing: 16) {
-                        if currentPage > 1 {
-                            Button {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                    currentPage -= 1
-                                }
-                            } label: {
-                                HStack {
-                                    Image(systemName: "arrow.left")
-                                        .font(.system(size: 16, weight: .bold))
-                                    Text("Back")
-                                        .font(.custom("OpenSans-Bold", size: 15))
-                                }
-                                .foregroundStyle(.secondary)
-                                .padding(.horizontal, 24)
-                                .padding(.vertical, 14)
-                                .background(
-                                    Capsule()
-                                        .fill(Color(.secondarySystemBackground))
-                                )
-                            }
-                            .transition(.opacity.combined(with: .move(edge: .leading)))
-                        }
-                        
-                        Spacer()
-                        
-                        Button {
-                            if currentPage < totalPages - 1 {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                    currentPage += 1
-                                }
-                            } else {
-                                // Finish onboarding with retry logic
-                                saveOnboardingDataWithRetry()
-                            }
-                        } label: {
-                            HStack(spacing: 8) {
-                                Text(currentPage == totalPages - 1 ? "Get Started" : "Continue")
-                                    .font(.custom("OpenSans-Bold", size: 16))
-                                
-                                Image(systemName: currentPage == totalPages - 1 ? "checkmark" : "arrow.right")
-                                    .font(.system(size: 16, weight: .bold))
-                                    .symbolEffect(.bounce, value: currentPage)
-                            }
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 32)
-                            .padding(.vertical, 16)
-                            .background(
-                                Capsule()
-                                    .fill(Color.blue)
-                                    .shadow(color: .blue.opacity(0.3), radius: 12, y: 6)
-                            )
-                        }
-                        .disabled(!canContinue || isSaving)
-                        .opacity((canContinue && !isSaving) ? 1.0 : 0.5)
-                    }
-                    .padding(.horizontal)
-                    .padding(.bottom, 32)
-                    .transition(.opacity)
-                }
-            }
-            
-            // Skip button (not on first or last page)
-            if currentPage > 0 && currentPage < totalPages - 1 {
-                VStack {
-                    HStack {
-                        Spacer()
-                        
-                        Button {
-                            currentPage = totalPages - 1
-                        } label: {
-                            Text("Skip")
-                                .font(.custom("OpenSans-SemiBold", size: 14))
-                                .foregroundStyle(.secondary)
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 8)
-                        }
-                    }
-                    .padding(.horizontal)
-                    .padding(.top, 60)
-                    
-                    Spacer()
-                }
-                .transition(.opacity)
             }
         }
         .alert("Error Saving Data", isPresented: $showSaveError) {
@@ -278,7 +417,11 @@ struct OnboardingView: View {
                 saveOnboardingDataWithRetry()
             }
             Button("Skip for Now", role: .cancel) {
-                authViewModel.completeOnboarding()
+                // Show Welcome screen before completing to prevent glitch
+                authViewModel.showWelcomeToAMENScreen()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    authViewModel.completeOnboarding()
+                }
             }
         } message: {
             Text(saveError ?? "Something went wrong while saving your preferences. Please try again.")
@@ -299,18 +442,20 @@ struct OnboardingView: View {
             do {
                 try await saveOnboardingDataWithExponentialBackoff(maxAttempts: 3)
                 
-                // Success - complete onboarding
-                authViewModel.completeOnboarding()
-                
+                // Success - show Welcome to AMEN screen BEFORE completing onboarding
+                // This prevents the main app from flashing before the welcome screen appears
                 print("✅ Onboarding completed successfully!")
                 
                 // Success haptic
                 let haptic = UINotificationFeedbackGenerator()
                 haptic.notificationOccurred(.success)
                 
-                // Show exciting Welcome to AMEN screen
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                    authViewModel.showWelcomeToAMENScreen()
+                // Show Welcome to AMEN screen immediately (before state change)
+                authViewModel.showWelcomeToAMENScreen()
+                
+                // Complete onboarding after a brief delay to ensure fullScreenCover is active
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    authViewModel.completeOnboarding()
                 }
                 
             } catch {
@@ -394,10 +539,22 @@ struct OnboardingView: View {
             profileImageURL: imageURL
         )
         
+        // Save Terms of Service and Privacy Policy acceptance
+        try await saveTermsAcceptance()
+        
         // Save contacts permission preference
         if contactsPermissionGranted {
             try await saveContactsPermission()
         }
+        
+        // Save 2FA settings and backup codes
+        try await save2FASettings()
+        
+        // Save privacy settings
+        try await savePrivacySettings()
+        
+        // Save biometric authentication preference
+        saveBiometricSettings()
         
         // Save feedback if provided
         if onboardingRating > 0 {
@@ -412,6 +569,14 @@ struct OnboardingView: View {
         for (key, value) in notificationPreferences {
             notificationManager.updatePreference(key, enabled: value)
         }
+        
+        // Save notification preferences to Firestore
+        guard let userId = Auth.auth().currentUser?.uid else { throw NSError(domain: "OnboardingError", code: -1) }
+        let db = Firestore.firestore()
+        try await db.collection("users").document(userId).updateData([
+            "notificationPreferences": notificationPreferences
+        ])
+        print("✅ Notification preferences saved to Firestore: \(notificationPreferences)")
         
         // Request notification permissions if prayer reminders are enabled
         if notificationPreferences["prayerReminders"] == true {
@@ -438,6 +603,21 @@ struct OnboardingView: View {
     
     // MARK: - Helper Functions
     
+    /// Save Terms of Service and Privacy Policy acceptance
+    private func saveTermsAcceptance() async throws {
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+        
+        let db = Firestore.firestore()
+        try await db.collection("users").document(userId).updateData([
+            "acceptedTermsOfService": acceptedGuidelines,
+            "acceptedPrivacyPolicy": acceptedPrivacyPolicy,
+            "termsAcceptedAt": Timestamp(date: Date()),
+            "privacyPolicyAcceptedAt": Timestamp(date: Date())
+        ])
+        
+        print("✅ Terms & Privacy Policy acceptance saved to Firestore")
+    }
+    
     /// Save contacts permission preference
     private func saveContactsPermission() async throws {
         guard let userId = Auth.auth().currentUser?.uid else { return }
@@ -447,6 +627,73 @@ struct OnboardingView: View {
             "contactsPermissionGranted": true,
             "contactsPermissionGrantedAt": Timestamp(date: Date())
         ])
+    }
+    
+    /// Save 2FA settings and backup codes
+    private func save2FASettings() async throws {
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+        
+        let db = Firestore.firestore()
+        
+        if enable2FA {
+            // Save 2FA enabled status and backup codes
+            try await db.collection("users").document(userId).updateData([
+                "twoFactorEnabled": true,
+                "twoFactorEnabledAt": Timestamp(date: Date()),
+                "backupCodes": backupCodes,
+                "backupCodesGeneratedAt": Timestamp(date: Date())
+            ])
+            print("✅ 2FA settings saved with \(backupCodes.count) backup codes")
+        } else {
+            // Ensure 2FA is disabled
+            try await db.collection("users").document(userId).updateData([
+                "twoFactorEnabled": false
+            ])
+        }
+    }
+    
+    /// Save privacy settings to Firestore
+    private func savePrivacySettings() async throws {
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+        
+        let db = Firestore.firestore()
+        
+        // Convert messaging privacy to database format
+        let allowMessagesFromEveryone: Bool
+        let allowMessagesFromFollowersOnly: Bool
+        
+        switch whoCanMessage {
+        case .everyone:
+            allowMessagesFromEveryone = true
+            allowMessagesFromFollowersOnly = false
+        case .followersOnly:
+            allowMessagesFromEveryone = false
+            allowMessagesFromFollowersOnly = true
+        case .nobody:
+            allowMessagesFromEveryone = false
+            allowMessagesFromFollowersOnly = false
+        }
+        
+        // Save privacy settings
+        try await db.collection("users").document(userId).updateData([
+            "isPrivateAccount": isAccountPrivate,
+            "allowMessagesFromEveryone": allowMessagesFromEveryone,
+            "allowMessagesFromFollowersOnly": allowMessagesFromFollowersOnly,
+            "privacySettingsConfiguredAt": Timestamp(date: Date())
+        ])
+        
+        print("✅ Privacy settings saved: Private=\(isAccountPrivate), Messaging=\(whoCanMessage.rawValue)")
+    }
+    
+    /// Save biometric authentication preference
+    private func saveBiometricSettings() {
+        // Biometric preference is saved locally via BiometricAuthService
+        // It's already persisted in UserDefaults when user toggles it on during onboarding
+        if enableBiometric {
+            print("✅ Biometric authentication enabled locally")
+        } else {
+            print("ℹ️ Biometric authentication not enabled")
+        }
     }
     
     /// Save onboarding feedback
@@ -690,100 +937,135 @@ struct WelcomePage: View {
 struct ProfilePhotoPage: View {
     @Binding var selectedImage: UIImage?
     @Binding var isUploading: Bool
+    var currentPage: Int = 2
+    var totalPages: Int = 12
+    var canContinue: Bool = true
+    var onBack: () -> Void = {}
+    var onSkip: () -> Void = {}
+    var onNext: () -> Void = {}
     
     @State private var selectedItem: PhotosPickerItem?
     @State private var animate = false
     
     var body: some View {
-        VStack(spacing: 32) {
-            VStack(spacing: 12) {
-                Text("Add a Profile Photo")
-                    .font(.custom("OpenSans-Bold", size: 28))
-                    .foregroundStyle(.primary)
-                    .offset(y: animate ? 0 : -20)
-                    .opacity(animate ? 1.0 : 0)
-                
-                Text("Show the community who you are")
-                    .font(.custom("OpenSans-Regular", size: 16))
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .offset(y: animate ? 0 : -20)
-                    .opacity(animate ? 1.0 : 0)
-            }
-            .padding(.top, 60)
+        ZStack {
+            // Black background extending into ALL safe areas
+            Color.black
+                .ignoresSafeArea()
             
-            // Profile photo preview or placeholder
-            ZStack {
-                if let selectedImage {
-                    Image(uiImage: selectedImage)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: 200, height: 200)
-                        .clipShape(Circle())
-                        .overlay(
-                            Circle()
-                                .stroke(Color.blue.opacity(0.3), lineWidth: 4)
-                        )
-                        .shadow(color: .black.opacity(0.1), radius: 20, y: 10)
-                        .scaleEffect(animate ? 1.0 : 0.8)
-                        .opacity(animate ? 1.0 : 0)
-                } else {
-                    ZStack {
-                        Circle()
-                            .fill(Color(.secondarySystemBackground))
-                            .frame(width: 200, height: 200)
-                        
-                        Circle()
-                            .stroke(Color.blue.opacity(0.3), lineWidth: 3)
-                            .strokeBorder(style: StrokeStyle(lineWidth: 3, dash: [10, 10]))
-                            .frame(width: 200, height: 200)
-                        
-                        Image(systemName: "person.crop.circle.fill.badge.plus")
-                            .font(.system(size: 80))
-                            .foregroundStyle(Color.secondary)
-                    }
-                    .scaleEffect(animate ? 1.0 : 0.8)
-                    .opacity(animate ? 1.0 : 0)
-                }
-            }
-            
-            // Photo picker button
-            PhotosPicker(selection: $selectedItem, matching: .images) {
-                HStack(spacing: 12) {
-                    Image(systemName: selectedImage == nil ? "photo.on.rectangle" : "arrow.triangle.2.circlepath.circle.fill")
-                        .font(.system(size: 20))
+            VStack(spacing: 0) {
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 32) {
+                        VStack(spacing: 12) {
+                            Text("Add a Profile Photo")
+                                .font(.custom("OpenSans-Bold", size: 28))
+                                .foregroundStyle(.white)
+                                .offset(y: animate ? 0 : -20)
+                                .opacity(animate ? 1.0 : 0)
+                            
+                            Text("Show the community who you are")
+                                .font(.custom("OpenSans-Regular", size: 16))
+                                .foregroundStyle(.white.opacity(0.7))
+                                .multilineTextAlignment(.center)
+                                .offset(y: animate ? 0 : -20)
+                                .opacity(animate ? 1.0 : 0)
+                        }
+                        .padding(.top, 60)
                     
-                    Text(selectedImage == nil ? "Choose Photo" : "Change Photo")
-                        .font(.custom("OpenSans-Bold", size: 16))
+                    // Profile photo preview or placeholder
+                    ZStack {
+                        if let selectedImage {
+                            Image(uiImage: selectedImage)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 200, height: 200)
+                                .clipShape(Circle())
+                                .overlay(
+                                    Circle()
+                                        .stroke(Color.blue.opacity(0.5), lineWidth: 4)
+                                )
+                                .shadow(color: .blue.opacity(0.3), radius: 20, y: 10)
+                                .scaleEffect(animate ? 1.0 : 0.8)
+                                .opacity(animate ? 1.0 : 0)
+                        } else {
+                            ZStack {
+                                Circle()
+                                    .fill(Color.white.opacity(0.1))
+                                    .frame(width: 200, height: 200)
+                                
+                                Circle()
+                                    .stroke(Color.blue.opacity(0.5), lineWidth: 3)
+                                    .strokeBorder(style: StrokeStyle(lineWidth: 3, dash: [10, 10]))
+                                    .frame(width: 200, height: 200)
+                                
+                                Image(systemName: "person.crop.circle.fill.badge.plus")
+                                    .font(.system(size: 80))
+                                    .foregroundStyle(Color.white.opacity(0.5))
+                            }
+                            .scaleEffect(animate ? 1.0 : 0.8)
+                            .opacity(animate ? 1.0 : 0)
+                        }
+                    }
+                    
+                    // Photo picker button
+                    PhotosPicker(selection: $selectedItem, matching: .images) {
+                        HStack(spacing: 12) {
+                            Image(systemName: selectedImage == nil ? "photo.on.rectangle" : "arrow.triangle.2.circlepath.circle.fill")
+                                .font(.system(size: 20))
+                            
+                            Text(selectedImage == nil ? "Choose Photo" : "Change Photo")
+                                .font(.custom("OpenSans-Bold", size: 16))
+                        }
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 18)
+                        .background(
+                            RoundedRectangle(cornerRadius: 28)
+                                .fill(Color.blue)
+                                .shadow(color: .blue.opacity(0.4), radius: 12, y: 6)
+                        )
+                    }
+                        .padding(.horizontal, 40)
+                        .offset(y: animate ? 0 : 20)
+                        .opacity(animate ? 1.0 : 0)
+                        
+                        if selectedImage == nil {
+                            Text("You can also add a photo later")
+                                .font(.custom("OpenSans-Regular", size: 14))
+                                .foregroundStyle(.white.opacity(0.6))
+                                .offset(y: animate ? 0 : 20)
+                                .opacity(animate ? 1.0 : 0)
+                        }
+                        
+                        Spacer(minLength: 100)
+                        
+                        // Navigation buttons inside scroll view
+                        OnboardingNavigationButtons(
+                            currentPage: currentPage,
+                            totalPages: totalPages,
+                            canContinue: canContinue,
+                            onBack: onBack,
+                            onSkip: onSkip,
+                            onNext: onNext
+                        )
+                        .padding(.horizontal, 40)
+                        .padding(.bottom, 40)
+                    }
                 }
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 18)
-                .background(
-                    RoundedRectangle(cornerRadius: 28)
-                        .fill(Color.blue)
-                        .shadow(color: .blue.opacity(0.3), radius: 12, y: 6)
-                )
             }
-            .padding(.horizontal, 40)
-            .offset(y: animate ? 0 : 20)
-            .opacity(animate ? 1.0 : 0)
-            
-            if selectedImage == nil {
-                Text("You can also add a photo later")
-                    .font(.custom("OpenSans-Regular", size: 14))
-                    .foregroundStyle(.secondary)
-                    .offset(y: animate ? 0 : 20)
-                    .opacity(animate ? 1.0 : 0)
-            }
-            
-            Spacer()
         }
+        .background(Color.black.ignoresSafeArea())
         .onChange(of: selectedItem) { _, newItem in
+            // Haptic feedback
+            let haptic = UIImpactFeedbackGenerator(style: .medium)
+            haptic.impactOccurred()
+            
             Task {
                 if let data = try? await newItem?.loadTransferable(type: Data.self),
                    let image = UIImage(data: data) {
-                    selectedImage = image
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+                        selectedImage = image
+                    }
                 }
             }
         }
@@ -798,6 +1080,13 @@ struct ProfilePhotoPage: View {
 // MARK: - Features Page (Black & White Design with Colorful Icons)
 
 struct FeaturesPage: View {
+    var currentPage: Int = 3
+    var totalPages: Int = 12
+    var canContinue: Bool = true
+    var onBack: () -> Void = {}
+    var onSkip: () -> Void = {}
+    var onNext: () -> Void = {}
+    
     @State private var animate = false
     
     let features = [
@@ -834,37 +1123,54 @@ struct FeaturesPage: View {
     ]
     
     var body: some View {
-        VStack(spacing: 32) {
-            VStack(spacing: 12) {
-                Text("Everything You Need")
-                    .font(.custom("OpenSans-Bold", size: 32))
-                    .foregroundStyle(.black)
-                    .offset(y: animate ? 0 : -20)
-                    .opacity(animate ? 1.0 : 0)
-                
-                Text("Powerful features to strengthen your faith")
-                    .font(.custom("OpenSans-Regular", size: 16))
-                    .foregroundStyle(.black.opacity(0.6))
-                    .multilineTextAlignment(.center)
-                    .offset(y: animate ? 0 : -20)
-                    .opacity(animate ? 1.0 : 0)
-            }
-            .padding(.top, 40)
-            
-            VStack(spacing: 16) {
-                ForEach(Array(features.enumerated()), id: \.element.id) { index, feature in
-                    OnboardingFeatureCard(feature: feature)
-                        .offset(x: animate ? 0 : -50)
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 32) {
+                VStack(spacing: 12) {
+                    Text("Everything You Need")
+                        .font(.custom("OpenSans-Bold", size: 26))
+                        .foregroundStyle(.white)
+                        .offset(y: animate ? 0 : -20)
                         .opacity(animate ? 1.0 : 0)
-                        .animation(.spring(response: 0.6, dampingFraction: 0.7).delay(Double(index) * 0.1), value: animate)
+                    
+                    Text("Powerful features to strengthen your faith")
+                        .font(.custom("OpenSans-Regular", size: 16))
+                        .foregroundStyle(.white.opacity(0.7))
+                        .multilineTextAlignment(.center)
+                        .offset(y: animate ? 0 : -20)
+                        .opacity(animate ? 1.0 : 0)
                 }
+                .padding(.top, 60)
+                
+                VStack(spacing: 16) {
+                    ForEach(Array(features.enumerated()), id: \.element.id) { index, feature in
+                        OnboardingFeatureCard(feature: feature)
+                            .offset(x: animate ? 0 : -50)
+                            .opacity(animate ? 1.0 : 0)
+                            .animation(.spring(response: 0.6, dampingFraction: 0.7).delay(Double(index) * 0.1), value: animate)
+                    }
+                }
+                .padding(.horizontal, 40)
+                
+                Spacer(minLength: 100)
+                
+                // Navigation buttons inside ScrollView
+                OnboardingNavigationButtons(
+                    currentPage: currentPage,
+                    totalPages: totalPages,
+                    canContinue: canContinue,
+                    onBack: onBack,
+                    onSkip: onSkip,
+                    onNext: onNext
+                )
+                .padding(.horizontal, 40)
+                .padding(.bottom, 40)
             }
-            .padding(.horizontal)
-            
-            Spacer()
         }
+        .background(Color.black.ignoresSafeArea())
         .onAppear {
-            animate = true
+            withAnimation(.spring(response: 0.6, dampingFraction: 0.7)) {
+                animate = true
+            }
         }
     }
 }
@@ -882,12 +1188,11 @@ struct OnboardingFeatureCard: View {
     
     var body: some View {
         HStack(spacing: 16) {
-            // Colorful icon on clean white/black background
+            // Colorful icon on dark background
             ZStack {
                 Circle()
-                    .fill(Color.white)
+                    .fill(Color.white.opacity(0.1))
                     .frame(width: 56, height: 56)
-                    .shadow(color: .black.opacity(0.06), radius: 8, y: 2)
                 
                 Image(systemName: feature.icon)
                     .font(.system(size: 24, weight: .semibold))
@@ -897,11 +1202,11 @@ struct OnboardingFeatureCard: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(feature.title)
                     .font(.custom("OpenSans-Bold", size: 16))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.white)
                 
                 Text(feature.description)
                     .font(.custom("OpenSans-Regular", size: 13))
-                    .foregroundStyle(.black.opacity(0.6))
+                    .foregroundStyle(.white.opacity(0.7))
                     .lineLimit(2)
             }
             
@@ -910,12 +1215,11 @@ struct OnboardingFeatureCard: View {
         .padding(14)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color.white)
+                .fill(Color.white.opacity(0.05))
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.black.opacity(0.08), lineWidth: 1)
+                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
                 )
-                .shadow(color: .black.opacity(0.04), radius: 12, y: 4)
         )
     }
 }
@@ -924,6 +1228,13 @@ struct OnboardingFeatureCard: View {
 
 struct InterestsPage: View {
     @Binding var selectedInterests: Set<String>
+    var currentPage: Int = 4
+    var totalPages: Int = 12
+    var canContinue: Bool = true
+    var onBack: () -> Void = {}
+    var onSkip: () -> Void = {}
+    var onNext: () -> Void = {}
+    
     @State private var animate = false
     @State private var showMaxReachedAlert = false
     
@@ -936,7 +1247,6 @@ struct InterestsPage: View {
         ("Prayer", "hands.sparkles.fill"),
         ("Worship", "music.note"),
         ("Fasting", "heart.circle.fill"),
-        ("Meditation", "leaf.fill"),
         
         // Community & Ministry
         ("Community", "person.3.fill"),
@@ -982,18 +1292,18 @@ struct InterestsPage: View {
     ]
     
     var body: some View {
-        ScrollView {
+        ScrollView(showsIndicators: false) {
             VStack(spacing: 24) {
                 VStack(spacing: 12) {
                     Text("What interests you?")
                         .font(.custom("OpenSans-Bold", size: 28))
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(.white)
                         .offset(y: animate ? 0 : -20)
                         .opacity(animate ? 1.0 : 0)
                     
                     Text("Select up to 3 topics you'd like to explore")
                         .font(.custom("OpenSans-Regular", size: 16))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.white.opacity(0.7))
                         .offset(y: animate ? 0 : -20)
                         .opacity(animate ? 1.0 : 0)
                     
@@ -1005,18 +1315,18 @@ struct InterestsPage: View {
                                 .foregroundStyle(selectedInterests.count == maxInterests ? .orange : .blue)
                             Text("/ \(maxInterests) selected")
                                 .font(.custom("OpenSans-SemiBold", size: 13))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(.white.opacity(0.7))
                         }
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
                         .background(
                             Capsule()
-                                .fill((selectedInterests.count == maxInterests ? Color.orange : Color.blue).opacity(0.1))
+                                .fill((selectedInterests.count == maxInterests ? Color.orange : Color.blue).opacity(0.2))
                         )
                         .transition(.scale.combined(with: .opacity))
                     }
                 }
-                .padding(.top, 40)
+                .padding(.top, 60)
                 
                 // Interest chips
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
@@ -1051,17 +1361,33 @@ struct InterestsPage: View {
                         .animation(.spring(response: 0.6, dampingFraction: 0.7).delay(Double(index) * 0.03), value: animate)
                     }
                 }
-                .padding(.horizontal)
+                .padding(.horizontal, 40)
+                
+                Spacer(minLength: 100)
+                
+                // Navigation buttons inside ScrollView
+                OnboardingNavigationButtons(
+                    currentPage: currentPage,
+                    totalPages: totalPages,
+                    canContinue: canContinue,
+                    onBack: onBack,
+                    onSkip: onSkip,
+                    onNext: onNext
+                )
+                .padding(.horizontal, 40)
+                .padding(.bottom, 40)
             }
-            .padding(.bottom, 120)
         }
+        .background(Color.black.ignoresSafeArea())
         .alert("Maximum Reached", isPresented: $showMaxReachedAlert) {
             Button("OK", role: .cancel) { }
         } message: {
             Text("You can select up to \(maxInterests) interests. Deselect one to choose a different topic.")
         }
         .onAppear {
-            animate = true
+            withAnimation(.spring(response: 0.6, dampingFraction: 0.7)) {
+                animate = true
+            }
         }
     }
 }
@@ -1078,11 +1404,11 @@ struct OnboardingInterestChip: View {
             VStack(spacing: 12) {
                 Image(systemName: icon)
                     .font(.system(size: 32))
-                    .foregroundStyle(isSelected ? Color.blue : (isDisabled ? .secondary.opacity(0.5) : .secondary))
+                    .foregroundStyle(isSelected ? Color.blue : (isDisabled ? .white.opacity(0.3) : .white.opacity(0.6)))
                 
                 Text(title)
                     .font(.custom("OpenSans-Bold", size: 14))
-                    .foregroundStyle(isSelected ? Color.blue : (isDisabled ? .primary.opacity(0.5) : .primary))
+                    .foregroundStyle(isSelected ? Color.white : (isDisabled ? .white.opacity(0.4) : .white.opacity(0.8)))
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
                     .minimumScaleFactor(0.8)
@@ -1091,12 +1417,11 @@ struct OnboardingInterestChip: View {
             .padding(.vertical, 20)
             .background(
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(isSelected ? Color.blue.opacity(0.1) : (isDisabled ? Color(.secondarySystemBackground).opacity(0.5) : Color(.secondarySystemBackground)))
+                    .fill(isSelected ? Color.blue.opacity(0.2) : (isDisabled ? Color.white.opacity(0.05) : Color.white.opacity(0.1)))
                     .overlay(
                         RoundedRectangle(cornerRadius: 16)
-                            .stroke(isSelected ? Color.blue.opacity(0.3) : Color.clear, lineWidth: 2)
+                            .stroke(isSelected ? Color.blue : Color.white.opacity(0.2), lineWidth: isSelected ? 2 : 1)
                     )
-                    .shadow(color: isSelected ? .blue.opacity(0.2) : .clear, radius: 12, y: 4)
             )
             .scaleEffect(isSelected ? 1.05 : 1.0)
             .opacity(isDisabled ? 0.6 : 1.0)
@@ -1110,34 +1435,41 @@ struct OnboardingInterestChip: View {
 
 struct GoalsPage: View {
     @Binding var selectedGoals: Set<String>
+    var currentPage: Int = 6
+    var totalPages: Int = 12
+    var canContinue: Bool = true
+    var onBack: () -> Void = {}
+    var onSkip: () -> Void = {}
+    var onNext: () -> Void = {}
+    
     @State private var animate = false
     
     let goals = [
-        ("Grow in Faith", "chart.line.uptrend.xyaxis", Color.blue),
-        ("Daily Bible Reading", "book.fill", Color.blue),
-        ("Consistent Prayer", "hands.sparkles.fill", Color.blue),
+        ("Grow in Faith", "chart.line.uptrend.xyaxis", Color.green),
+        ("Daily Bible Reading", "book.fill", Color.purple),
+        ("Consistent Prayer", "hands.sparkles.fill", Color.cyan),
         ("Build Community", "person.3.fill", Color.orange),
-        ("Share the Gospel", "megaphone.fill", Color.orange),
-        ("Serve Others", "heart.fill", Color.orange)
+        ("Share the Gospel", "megaphone.fill", Color.red),
+        ("Serve Others", "heart.fill", Color.pink)
     ]
     
     var body: some View {
-        ScrollView {
+        ScrollView(showsIndicators: false) {
             VStack(spacing: 24) {
                 VStack(spacing: 12) {
                     Text("What are your goals?")
                         .font(.custom("OpenSans-Bold", size: 28))
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(.white)
                         .offset(y: animate ? 0 : -20)
                         .opacity(animate ? 1.0 : 0)
                     
                     Text("We'll personalize your experience")
                         .font(.custom("OpenSans-Regular", size: 16))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.white.opacity(0.7))
                         .offset(y: animate ? 0 : -20)
                         .opacity(animate ? 1.0 : 0)
                 }
-                .padding(.top, 40)
+                .padding(.top, 60)
                 
                 VStack(spacing: 12) {
                     ForEach(Array(goals.enumerated()), id: \.element.0) { index, goal in
@@ -1162,12 +1494,28 @@ struct GoalsPage: View {
                         .animation(.spring(response: 0.6, dampingFraction: 0.7).delay(Double(index) * 0.1), value: animate)
                     }
                 }
-                .padding(.horizontal)
+                .padding(.horizontal, 40)
+                
+                Spacer(minLength: 100)
+                
+                // Navigation buttons inside ScrollView
+                OnboardingNavigationButtons(
+                    currentPage: currentPage,
+                    totalPages: totalPages,
+                    canContinue: canContinue,
+                    onBack: onBack,
+                    onSkip: onSkip,
+                    onNext: onNext
+                )
+                .padding(.horizontal, 40)
+                .padding(.bottom, 40)
             }
-            .padding(.bottom, 120)
         }
+        .background(Color.black.ignoresSafeArea())
         .onAppear {
-            animate = true
+            withAnimation(.spring(response: 0.6, dampingFraction: 0.7)) {
+                animate = true
+            }
         }
     }
 }
@@ -1184,34 +1532,33 @@ struct GoalCard: View {
             HStack(spacing: 16) {
                 ZStack {
                     Circle()
-                        .fill(isSelected ? color : color.opacity(0.2))
+                        .fill(isSelected ? color : color.opacity(0.3))
                         .frame(width: 50, height: 50)
                     
                     Image(systemName: icon)
                         .font(.system(size: 22))
-                        .foregroundStyle(isSelected ? .white : color)
+                        .foregroundStyle(.white)
                 }
                 
                 Text(title)
                     .font(.custom("OpenSans-Bold", size: 17))
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(.white)
                 
                 Spacer()
                 
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                     .font(.system(size: 28))
-                    .foregroundStyle(isSelected ? color : .secondary.opacity(0.5))
+                    .foregroundStyle(isSelected ? color : .white.opacity(0.3))
                     .symbolEffect(.bounce, value: isSelected)
             }
             .padding()
             .background(
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(isSelected ? color.opacity(0.1) : Color(.secondarySystemBackground))
+                    .fill(isSelected ? color.opacity(0.2) : Color.white.opacity(0.05))
                     .overlay(
                         RoundedRectangle(cornerRadius: 16)
-                            .stroke(isSelected ? color.opacity(0.3) : Color.clear, lineWidth: 2)
+                            .stroke(isSelected ? color : Color.white.opacity(0.2), lineWidth: isSelected ? 2 : 1)
                     )
-                    .shadow(color: isSelected ? color.opacity(0.2) : .clear, radius: 12, y: 4)
             )
             .scaleEffect(isSelected ? 1.02 : 1.0)
         }
@@ -1223,16 +1570,23 @@ struct GoalCard: View {
 
 struct PrayerTimePage: View {
     @Binding var prayerTime: OnboardingView.PrayerTime
+    var currentPage: Int = 8
+    var totalPages: Int = 12
+    var canContinue: Bool = true
+    var onBack: () -> Void = {}
+    var onSkip: () -> Void = {}
+    var onNext: () -> Void = {}
+    
     @State private var animate = false
     
     var body: some View {
-        ScrollView {
+        ScrollView(showsIndicators: false) {
             VStack(spacing: 32) {
                 VStack(spacing: 12) {
                     // Icon with animation
                     ZStack {
                         Circle()
-                            .fill(Color.blue.opacity(0.1))
+                            .fill(Color.blue.opacity(0.2))
                             .frame(width: 80, height: 80)
                         
                         Image(systemName: "bell.badge.fill")
@@ -1251,19 +1605,19 @@ struct PrayerTimePage: View {
                     
                     Text("Prayer Reminders")
                         .font(.custom("OpenSans-Bold", size: 28))
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(.white)
                         .offset(y: animate ? 0 : -20)
                         .opacity(animate ? 1.0 : 0)
                     
                     Text("Set gentle reminders to take a break from the app and spend time in prayer")
                         .font(.custom("OpenSans-Regular", size: 15))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.white.opacity(0.7))
                         .multilineTextAlignment(.center)
-                        .padding(.horizontal)
+                        .padding(.horizontal, 40)
                         .offset(y: animate ? 0 : -20)
                         .opacity(animate ? 1.0 : 0)
                 }
-                .padding(.top, 40)
+                .padding(.top, 60)
                 
                 // Accountability Message
                 VStack(spacing: 12) {
@@ -1275,11 +1629,11 @@ struct PrayerTimePage: View {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Stay Accountable")
                                 .font(.custom("OpenSans-Bold", size: 15))
-                                .foregroundStyle(.primary)
+                                .foregroundStyle(.white)
                             
                             Text("Regular reminders help build consistent prayer habits")
                                 .font(.custom("OpenSans-Regular", size: 13))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(.white.opacity(0.7))
                         }
                         
                         Spacer()
@@ -1287,14 +1641,14 @@ struct PrayerTimePage: View {
                     .padding()
                     .background(
                         RoundedRectangle(cornerRadius: 14)
-                            .fill(Color.green.opacity(0.08))
+                            .fill(Color.green.opacity(0.15))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 14)
-                                    .stroke(Color.green.opacity(0.2), lineWidth: 1)
+                                    .stroke(Color.green.opacity(0.3), lineWidth: 1)
                             )
                     )
                 }
-                .padding(.horizontal)
+                .padding(.horizontal, 40)
                 .offset(y: animate ? 0 : 20)
                 .opacity(animate ? 1.0 : 0)
                 
@@ -1302,8 +1656,7 @@ struct PrayerTimePage: View {
                 VStack(alignment: .leading, spacing: 16) {
                     Text("When should we remind you?")
                         .font(.custom("OpenSans-Bold", size: 16))
-                        .foregroundStyle(.primary)
-                        .padding(.horizontal)
+                        .foregroundStyle(.white)
                     
                     VStack(spacing: 12) {
                         ForEach(Array(OnboardingView.PrayerTime.allCases.enumerated()), id: \.element) { index, time in
@@ -1322,8 +1675,8 @@ struct PrayerTimePage: View {
                             .animation(.spring(response: 0.6, dampingFraction: 0.7).delay(Double(index) * 0.08), value: animate)
                         }
                     }
-                    .padding(.horizontal)
                 }
+                .padding(.horizontal, 40)
                 
                 // Benefits Section
                 VStack(spacing: 12) {
@@ -1334,7 +1687,7 @@ struct PrayerTimePage: View {
                         
                         Text("Why prayer reminders work")
                             .font(.custom("OpenSans-Bold", size: 14))
-                            .foregroundStyle(.primary)
+                            .foregroundStyle(.white)
                         
                         Spacer()
                     }
@@ -1349,22 +1702,36 @@ struct PrayerTimePage: View {
                 .padding()
                 .background(
                     RoundedRectangle(cornerRadius: 16)
-                        .fill(Color(.secondarySystemBackground))
+                        .fill(Color.white.opacity(0.05))
                 )
-                .padding(.horizontal)
+                .padding(.horizontal, 40)
                 .offset(y: animate ? 0 : 20)
                 .opacity(animate ? 1.0 : 0)
                 
                 // Disclaimer
                 Text("You can change this anytime in Settings")
                     .font(.custom("OpenSans-Regular", size: 12))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.white.opacity(0.5))
                     .padding(.top, 8)
                     .offset(y: animate ? 0 : 20)
                     .opacity(animate ? 1.0 : 0)
+                
+                Spacer(minLength: 100)
+                
+                // Navigation buttons inside ScrollView
+                OnboardingNavigationButtons(
+                    currentPage: currentPage,
+                    totalPages: totalPages,
+                    canContinue: canContinue,
+                    onBack: onBack,
+                    onSkip: onSkip,
+                    onNext: onNext
+                )
+                .padding(.horizontal, 40)
+                .padding(.bottom, 40)
             }
-            .padding(.bottom, 120)
         }
+        .background(Color.black.ignoresSafeArea())
         .onAppear {
             withAnimation(.spring(response: 0.8, dampingFraction: 0.7)) {
                 animate = true
@@ -1389,7 +1756,7 @@ struct BenefitRow: View {
             
             Text(text)
                 .font(.custom("OpenSans-Regular", size: 13))
-                .foregroundStyle(.primary)
+                .foregroundStyle(.white)
             
             Spacer()
         }
@@ -1406,34 +1773,33 @@ struct PrayerTimeCard: View {
             HStack(spacing: 16) {
                 ZStack {
                     Circle()
-                        .fill(isSelected ? time.color.opacity(0.2) : Color(.tertiarySystemBackground))
+                        .fill(isSelected ? time.color.opacity(0.3) : Color.white.opacity(0.1))
                         .frame(width: 60, height: 60)
                     
                     Image(systemName: time.icon)
                         .font(.system(size: 28))
-                        .foregroundStyle(isSelected ? time.color : .secondary)
+                        .foregroundStyle(isSelected ? time.color : .white.opacity(0.6))
                         .symbolEffect(.bounce, value: isSelected)
                 }
                 
                 Text(time.rawValue)
                     .font(.custom("OpenSans-Bold", size: 20))
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(.white)
                 
                 Spacer()
                 
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                     .font(.system(size: 32))
-                    .foregroundStyle(isSelected ? time.color : .secondary.opacity(0.5))
+                    .foregroundStyle(isSelected ? time.color : .white.opacity(0.3))
             }
             .padding()
             .background(
                 RoundedRectangle(cornerRadius: 18)
-                    .fill(isSelected ? time.color.opacity(0.1) : Color(.secondarySystemBackground))
+                    .fill(isSelected ? time.color.opacity(0.2) : Color.white.opacity(0.05))
                     .overlay(
                         RoundedRectangle(cornerRadius: 18)
-                            .stroke(isSelected ? time.color.opacity(0.3) : Color.clear, lineWidth: 2)
+                            .stroke(isSelected ? time.color : Color.white.opacity(0.2), lineWidth: isSelected ? 2 : 1)
                     )
-                    .shadow(color: isSelected ? time.color.opacity(0.2) : .clear, radius: 12, y: 4)
             )
             .scaleEffect(isSelected ? 1.03 : 1.0)
         }
@@ -1446,18 +1812,26 @@ struct PrayerTimeCard: View {
 struct WelcomeValuesPage: View {
     @Binding var acceptedGuidelines: Bool
     let onContinue: () -> Void
+    var currentPage: Int = 1
+    var totalPages: Int = 12
+    var canContinue: Bool { acceptedGuidelines }
+    var onBack: () -> Void = {}
+    var onSkip: () -> Void = {}
     
     @State private var animate = false
     @State private var showTermsSheet = false
     
     var body: some View {
-        ZStack {
-            // Dark background matching welcome page
-            Color.black
-                .ignoresSafeArea()
-            
-            VStack(spacing: 0) {
-                Spacer()
+        VStack(spacing: 0) {
+            ZStack {
+                // Dark background matching welcome page
+                Color.black
+                    .ignoresSafeArea()
+                
+                ScrollView {
+                    VStack(spacing: 0) {
+                        Spacer()
+                            .frame(height: 100)
                 
                 // Main content
                 VStack(spacing: 32) {
@@ -1548,10 +1922,25 @@ struct WelcomeValuesPage: View {
                     }
                     .offset(y: animate ? 0 : 20)
                     .opacity(animate ? 1.0 : 0)
+                    .padding(.bottom, 16)
                 }
-                
-                Spacer()
             }
+            }
+            }
+            
+            // Navigation buttons fixed at bottom (outside ScrollView and ZStack)
+            OnboardingNavigationButtons(
+            currentPage: currentPage,
+            totalPages: totalPages,
+            canContinue: canContinue,
+            onBack: onBack,
+            onSkip: onSkip,
+            onNext: onContinue
+        )
+        .padding(.horizontal, 40)
+        .padding(.top, 16)
+        .padding(.bottom, 32)
+        .background(Color.black)
         }
         .sheet(isPresented: $showTermsSheet) {
             GuidelinesTermsView()
@@ -1639,6 +2028,12 @@ struct GuidelinesTermsView: View {
 struct YourPaceDialogPage: View {
     @Binding var dailyTimeLimit: Int
     @Binding var notificationPreferences: [String: Bool]
+    var currentPage: Int = 5
+    var totalPages: Int = 12
+    var canContinue: Bool = true
+    var onBack: () -> Void = {}
+    var onSkip: () -> Void = {}
+    var onNext: () -> Void = {}
     
     @State private var animate = false
     
@@ -1650,10 +2045,27 @@ struct YourPaceDialogPage: View {
             Color.black
                 .ignoresSafeArea()
             
-            ScrollView {
-                VStack(spacing: 32) {
+            VStack(spacing: 0) {
+                ScrollView {
+                    VStack(spacing: 32) {
+                    // Skip button at top
+                    HStack {
+                        Spacer()
+                        Button {
+                            onSkip()
+                        } label: {
+                            Text("Skip")
+                                .font(.custom("OpenSans-SemiBold", size: 14))
+                                .foregroundStyle(.white.opacity(0.7))
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 8)
+                        }
+                    }
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+                    
                     Spacer()
-                        .frame(height: 40)
+                        .frame(height: 16)
                     
                     // Header
                     VStack(spacing: 16) {
@@ -1807,15 +2219,44 @@ struct YourPaceDialogPage: View {
                                     set: { notificationPreferences["trendingPosts"] = $0 }
                                 )
                             )
+                            
+                            NotificationToggle(
+                                title: "Follow requests",
+                                isOn: Binding(
+                                    get: { notificationPreferences["followRequests"] ?? true },
+                                    set: { notificationPreferences["followRequests"] = $0 }
+                                )
+                            )
+                            
+                            NotificationToggle(
+                                title: "Post interactions",
+                                isOn: Binding(
+                                    get: { notificationPreferences["postInteractions"] ?? true },
+                                    set: { notificationPreferences["postInteractions"] = $0 }
+                                )
+                            )
                         }
                         .offset(y: animate ? 0 : 20)
                         .opacity(animate ? 1.0 : 0)
                     }
                     .padding(.horizontal, 40)
-                    
-                    Spacer()
-                        .frame(height: 100)
+                    .padding(.bottom, 16)
                 }
+            }
+            
+            // Navigation buttons fixed at bottom
+            OnboardingNavigationButtons(
+                currentPage: currentPage,
+                totalPages: totalPages,
+                canContinue: canContinue,
+                onBack: onBack,
+                onSkip: onSkip,
+                onNext: onNext
+            )
+            .padding(.horizontal, 40)
+            .padding(.top, 16)
+            .padding(.bottom, 32)
+            .background(Color.black)
             }
         }
         .onAppear {
@@ -1867,6 +2308,12 @@ struct NotificationToggle: View {
 
 struct PrivacyPromisePage: View {
     @Binding var acceptedPrivacyPolicy: Bool
+    var currentPage: Int = 7
+    var totalPages: Int = 12
+    var canContinue: Bool = true
+    var onBack: () -> Void = {}
+    var onSkip: () -> Void = {}
+    var onNext: () -> Void = {}
     
     @State private var animate = false
     @State private var showPrivacyPolicy = false
@@ -1877,132 +2324,162 @@ struct PrivacyPromisePage: View {
             Color.black
                 .ignoresSafeArea()
             
-            ScrollView {
-                VStack(spacing: 32) {
-                    Spacer()
-                        .frame(height: 40)
-                    
-                    // Header
-                    VStack(spacing: 16) {
-                        Text("🔒")
-                            .font(.system(size: 60))
-                            .scaleEffect(animate ? 1.0 : 0.8)
-                            .opacity(animate ? 1.0 : 0)
-                        
-                        Text("Your Data, Your Control")
-                            .font(.custom("OpenSans-Bold", size: 32))
-                            .foregroundStyle(.white)
-                            .multilineTextAlignment(.center)
-                            .opacity(animate ? 1.0 : 0)
-                    }
-                    
-                    // What we collect
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text("What We Collect:")
-                            .font(.custom("OpenSans-Bold", size: 18))
-                            .foregroundStyle(.white)
-                        
-                        VStack(alignment: .leading, spacing: 12) {
-                            PrivacyRow(icon: "person.circle", text: "Name, email, profile photo", color: .blue)
-                            PrivacyRow(icon: "text.bubble", text: "Posts, prayers, testimonies", color: .blue)
-                            PrivacyRow(icon: "chart.bar", text: "Anonymous analytics", color: .blue)
-                        }
-                    }
-                    .padding(.horizontal, 40)
-                    .offset(y: animate ? 0 : 20)
-                    .opacity(animate ? 1.0 : 0)
-                    
-                    // What we DON'T do
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text("What We DON'T Do:")
-                            .font(.custom("OpenSans-Bold", size: 18))
-                            .foregroundStyle(.white)
-                        
-                        VStack(alignment: .leading, spacing: 12) {
-                            PrivacyRow(icon: "xmark.circle", text: "Sell your data", color: .red)
-                            PrivacyRow(icon: "xmark.circle", text: "Track across other apps", color: .red)
-                            PrivacyRow(icon: "xmark.circle", text: "Use data for ads", color: .red)
-                            PrivacyRow(icon: "xmark.circle", text: "Share with third parties", color: .red)
-                        }
-                    }
-                    .padding(.horizontal, 40)
-                    .offset(y: animate ? 0 : 20)
-                    .opacity(animate ? 1.0 : 0)
-                    
-                    // What you can do
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text("You Can Always:")
-                            .font(.custom("OpenSans-Bold", size: 18))
-                            .foregroundStyle(.white)
-                        
-                        VStack(alignment: .leading, spacing: 12) {
-                            PrivacyRow(icon: "arrow.down.doc", text: "Export your data (Settings)", color: .green)
-                            PrivacyRow(icon: "trash", text: "Delete your account", color: .green)
-                            PrivacyRow(icon: "eye.slash", text: "Control what's public", color: .green)
-                        }
-                    }
-                    .padding(.horizontal, 40)
-                    .offset(y: animate ? 0 : 20)
-                    .opacity(animate ? 1.0 : 0)
-                    
-                    // Privacy policy link
-                    Button(action: { showPrivacyPolicy = true }) {
-                        HStack(spacing: 8) {
-                            Image(systemName: "doc.text")
-                                .font(.system(size: 14))
-                            Text("View Privacy Policy")
-                                .font(.custom("OpenSans-SemiBold", size: 14))
-                        }
-                        .foregroundStyle(.white.opacity(0.7))
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 12)
-                        .background(
-                            Capsule()
-                                .stroke(.white.opacity(0.2), lineWidth: 1)
-                        )
-                    }
-                    .offset(y: animate ? 0 : 20)
-                    .opacity(animate ? 1.0 : 0)
-                    
-                    // Checkbox
-                    Button(action: {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                            acceptedPrivacyPolicy.toggle()
-                        }
-                        let haptic = UIImpactFeedbackGenerator(style: .medium)
-                        haptic.impactOccurred()
-                    }) {
-                        VStack(spacing: 12) {
-                            HStack(spacing: 12) {
-                                Image(systemName: acceptedPrivacyPolicy ? "checkmark.circle.fill" : "circle")
-                                    .font(.system(size: 24))
-                                    .foregroundStyle(acceptedPrivacyPolicy ? .blue : .white.opacity(0.5))
-                                    .symbolEffect(.bounce, value: acceptedPrivacyPolicy)
-                                
-                                Text("I understand how my data is used and protected")
-                                    .font(.custom("OpenSans-SemiBold", size: 15))
-                                    .foregroundStyle(.white)
-                                    .multilineTextAlignment(.leading)
+            VStack(spacing: 0) {
+                ScrollView {
+                    VStack(spacing: 32) {
+                        // Skip button at top
+                        HStack {
+                            Spacer()
+                            Button {
+                                onSkip()
+                            } label: {
+                                Text("Skip")
+                                    .font(.custom("OpenSans-SemiBold", size: 14))
+                                    .foregroundStyle(.white.opacity(0.7))
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 8)
                             }
                         }
-                        .padding(.horizontal, 24)
-                        .padding(.vertical, 16)
-                        .background(
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(.ultraThinMaterial)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 16)
-                                        .stroke(acceptedPrivacyPolicy ? Color.blue.opacity(0.5) : Color.white.opacity(0.2), lineWidth: 2)
-                                )
-                        )
+                        .padding(.horizontal)
+                        .padding(.top, 8)
+                        
+                        Spacer()
+                            .frame(height: 16)
+                        
+                        // Header
+                        VStack(spacing: 16) {
+                            Text("🔒")
+                                .font(.system(size: 60))
+                                .scaleEffect(animate ? 1.0 : 0.8)
+                                .opacity(animate ? 1.0 : 0)
+                            
+                            Text("Your Data, Your Control")
+                                .font(.custom("OpenSans-Bold", size: 32))
+                                .foregroundStyle(.white)
+                                .multilineTextAlignment(.center)
+                                .opacity(animate ? 1.0 : 0)
+                        }
+                        
+                        // What we collect
+                        VStack(alignment: .leading, spacing: 16) {
+                            Text("What We Collect:")
+                                .font(.custom("OpenSans-Bold", size: 18))
+                                .foregroundStyle(.white)
+                            
+                            VStack(alignment: .leading, spacing: 12) {
+                                PrivacyRow(icon: "person.circle", text: "Name, email, profile photo", color: .blue)
+                                PrivacyRow(icon: "text.bubble", text: "Posts, prayers, testimonies", color: .blue)
+                                PrivacyRow(icon: "chart.bar", text: "Anonymous analytics", color: .blue)
+                            }
+                        }
+                        .padding(.horizontal, 40)
+                        .offset(y: animate ? 0 : 20)
+                        .opacity(animate ? 1.0 : 0)
+                        
+                        // What we DON'T do
+                        VStack(alignment: .leading, spacing: 16) {
+                            Text("What We DON'T Do:")
+                                .font(.custom("OpenSans-Bold", size: 18))
+                                .foregroundStyle(.white)
+                            
+                            VStack(alignment: .leading, spacing: 12) {
+                                PrivacyRow(icon: "xmark.circle", text: "Sell your data", color: .red)
+                                PrivacyRow(icon: "xmark.circle", text: "Track across other apps", color: .red)
+                                PrivacyRow(icon: "xmark.circle", text: "Use data for ads", color: .red)
+                                PrivacyRow(icon: "xmark.circle", text: "Share with third parties", color: .red)
+                            }
+                        }
+                        .padding(.horizontal, 40)
+                        .offset(y: animate ? 0 : 20)
+                        .opacity(animate ? 1.0 : 0)
+                        
+                        // What you can do
+                        VStack(alignment: .leading, spacing: 16) {
+                            Text("You Can Always:")
+                                .font(.custom("OpenSans-Bold", size: 18))
+                                .foregroundStyle(.white)
+                            
+                            VStack(alignment: .leading, spacing: 12) {
+                                PrivacyRow(icon: "arrow.down.doc", text: "Export your data (Settings)", color: .green)
+                                PrivacyRow(icon: "trash", text: "Delete your account", color: .green)
+                                PrivacyRow(icon: "eye.slash", text: "Control what's public", color: .green)
+                            }
+                        }
+                        .padding(.horizontal, 40)
+                        .offset(y: animate ? 0 : 20)
+                        .opacity(animate ? 1.0 : 0)
+                        
+                        // Privacy policy link
+                        Button(action: { showPrivacyPolicy = true }) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "doc.text")
+                                    .font(.system(size: 14))
+                                Text("View Privacy Policy")
+                                    .font(.custom("OpenSans-SemiBold", size: 14))
+                            }
+                            .foregroundStyle(.white.opacity(0.7))
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 12)
+                            .background(
+                                Capsule()
+                                    .stroke(.white.opacity(0.2), lineWidth: 1)
+                            )
+                        }
+                        .offset(y: animate ? 0 : 20)
+                        .opacity(animate ? 1.0 : 0)
+                        
+                        // Checkbox
+                        Button(action: {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                acceptedPrivacyPolicy.toggle()
+                            }
+                            let haptic = UIImpactFeedbackGenerator(style: .medium)
+                            haptic.impactOccurred()
+                        }) {
+                            VStack(spacing: 12) {
+                                HStack(spacing: 12) {
+                                    Image(systemName: acceptedPrivacyPolicy ? "checkmark.circle.fill" : "circle")
+                                        .font(.system(size: 24))
+                                        .foregroundStyle(acceptedPrivacyPolicy ? .blue : .white.opacity(0.5))
+                                        .symbolEffect(.bounce, value: acceptedPrivacyPolicy)
+                                    
+                                    Text("I understand how my data is used and protected")
+                                        .font(.custom("OpenSans-SemiBold", size: 15))
+                                        .foregroundStyle(.white)
+                                        .multilineTextAlignment(.leading)
+                                }
+                            }
+                            .padding(.horizontal, 24)
+                            .padding(.vertical, 16)
+                            .background(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .fill(.ultraThinMaterial)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 16)
+                                            .stroke(acceptedPrivacyPolicy ? Color.blue.opacity(0.5) : Color.white.opacity(0.2), lineWidth: 2)
+                                    )
+                            )
+                        }
+                        .padding(.horizontal, 40)
+                        .offset(y: animate ? 0 : 20)
+                        .opacity(animate ? 1.0 : 0)
+                        .padding(.bottom, 16)
                     }
-                    .padding(.horizontal, 40)
-                    .offset(y: animate ? 0 : 20)
-                    .opacity(animate ? 1.0 : 0)
-                    
-                    Spacer()
-                        .frame(height: 100)
                 }
+                
+                // Navigation buttons fixed at bottom (outside ScrollView)
+                OnboardingNavigationButtons(
+                    currentPage: currentPage,
+                    totalPages: totalPages,
+                    canContinue: canContinue,
+                    onBack: onBack,
+                    onSkip: onSkip,
+                    onNext: onNext
+                )
+                .padding(.horizontal, 40)
+                .padding(.top, 16)
+                .padding(.bottom, 32)
+                .background(Color.black)
             }
         }
         .sheet(isPresented: $showPrivacyPolicy) {
@@ -2112,13 +2589,20 @@ struct ReferralCodePage: View {
     @Binding var referralCode: String
     @Binding var referralApplied: Bool
     @Binding var referralError: String?
+    var currentPage: Int = 10
+    var totalPages: Int = 12
+    var canContinue: Bool = true
+    var onBack: () -> Void = {}
+    var onSkip: () -> Void = {}
+    var onNext: () -> Void = {}
     
     @State private var animate = false
     @State private var isValidating = false
     @FocusState private var isCodeFocused: Bool
     
     var body: some View {
-        ScrollView {
+        VStack(spacing: 0) {
+            ScrollView {
             VStack(spacing: 32) {
                 Spacer()
                     .frame(height: 40)
@@ -2278,10 +2762,23 @@ struct ReferralCodePage: View {
                     .padding(.horizontal, 40)
                     .offset(y: animate ? 0 : 20)
                     .opacity(animate ? 1.0 : 0)
-                
-                Spacer()
-                    .frame(height: 100)
+                    .padding(.bottom, 16)
             }
+        }
+        
+        // Navigation buttons fixed at bottom (outside ScrollView)
+        OnboardingNavigationButtons(
+            currentPage: currentPage,
+            totalPages: totalPages,
+            canContinue: canContinue,
+            onBack: onBack,
+            onSkip: onSkip,
+            onNext: onNext
+        )
+        .padding(.horizontal, 40)
+        .padding(.top, 16)
+        .padding(.bottom, 32)
+        .background(Color(.systemBackground))
         }
         .onAppear {
             withAnimation(.spring(response: 0.6, dampingFraction: 0.7)) {
@@ -2295,16 +2792,19 @@ struct ReferralCodePage: View {
 
 struct FindFriendsPage: View {
     @Binding var contactsPermissionGranted: Bool
+    var currentPage: Int = 9
+    var totalPages: Int = 12
+    var canContinue: Bool = true
+    var onBack: () -> Void = {}
+    var onSkip: () -> Void = {}
+    var onNext: () -> Void = {}
     
     @State private var animate = false
     @State private var isRequesting = false
     
     var body: some View {
-        ScrollView {
+        ScrollView(showsIndicators: false) {
             VStack(spacing: 32) {
-                Spacer()
-                    .frame(height: 40)
-                
                 // Header
                 VStack(spacing: 16) {
                     ZStack {
@@ -2358,19 +2858,20 @@ struct FindFriendsPage: View {
                     
                     Text("Find Friends from Contacts")
                         .font(.custom("OpenSans-Bold", size: 26))
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(.white)
                         .multilineTextAlignment(.center)
                         .opacity(animate ? 1.0 : 0)
                     
                     Text("We'll help you find friends who are already on AMEN. Your contacts are private and never shared.")
                         .font(.custom("OpenSans-Regular", size: 15))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.white.opacity(0.7))
                         .multilineTextAlignment(.center)
                         .lineSpacing(4)
                         .padding(.horizontal, 40)
                         .offset(y: animate ? 0 : 20)
                         .opacity(animate ? 1.0 : 0)
                 }
+                .padding(.top, 60)
                 
                 // Privacy assurance
                 VStack(alignment: .leading, spacing: 16) {
@@ -2382,21 +2883,21 @@ struct FindFriendsPage: View {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Your Privacy Matters")
                                 .font(.custom("OpenSans-Bold", size: 16))
-                                .foregroundStyle(.primary)
+                                .foregroundStyle(.white)
                             
                             Text("We only use contacts to suggest connections. They're never stored or shared.")
                                 .font(.custom("OpenSans-Regular", size: 13))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(.white.opacity(0.7))
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
                     .padding()
                     .background(
                         RoundedRectangle(cornerRadius: 16)
-                            .fill(Color.green.opacity(0.08))
+                            .fill(Color.green.opacity(0.15))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 16)
-                                    .stroke(Color.green.opacity(0.2), lineWidth: 1)
+                                    .stroke(Color.green.opacity(0.3), lineWidth: 1)
                             )
                     )
                 }
@@ -2408,7 +2909,7 @@ struct FindFriendsPage: View {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Why connect?")
                         .font(.custom("OpenSans-Bold", size: 16))
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(.white)
                     
                     VStack(alignment: .leading, spacing: 12) {
                         BenefitRow(
@@ -2474,7 +2975,7 @@ struct FindFriendsPage: View {
                             
                             Text("Contacts access granted!")
                                 .font(.custom("OpenSans-Bold", size: 16))
-                                .foregroundStyle(.primary)
+                                .foregroundStyle(.white)
                         }
                         .padding()
                         .frame(maxWidth: .infinity)
@@ -2494,16 +2995,28 @@ struct FindFriendsPage: View {
                 
                 Text("You can change this anytime in Settings")
                     .font(.custom("OpenSans-Regular", size: 12))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.white.opacity(0.5))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 40)
                     .offset(y: animate ? 0 : 20)
                     .opacity(animate ? 1.0 : 0)
                 
-                Spacer()
-                    .frame(height: 100)
+                Spacer(minLength: 100)
+                
+                // Navigation buttons inside ScrollView
+                OnboardingNavigationButtons(
+                    currentPage: currentPage,
+                    totalPages: totalPages,
+                    canContinue: canContinue,
+                    onBack: onBack,
+                    onSkip: onSkip,
+                    onNext: onNext
+                )
+                .padding(.horizontal, 40)
+                .padding(.bottom, 40)
             }
         }
+        .background(Color.black.ignoresSafeArea())
         .onAppear {
             withAnimation(.spring(response: 0.6, dampingFraction: 0.7)) {
                 animate = true
@@ -2545,6 +3058,12 @@ struct FeedbackRecommendationsPage: View {
     @Binding var feedback: String
     let selectedInterests: Set<String>
     let selectedGoals: Set<String>
+    var currentPage: Int = 11
+    var totalPages: Int = 12
+    var canContinue: Bool = true
+    var onBack: () -> Void = {}
+    var onSkip: () -> Void = {}
+    var onNext: () -> Void = {}
     
     @State private var animate = false
     @FocusState private var isFeedbackFocused: Bool
@@ -2613,10 +3132,15 @@ struct FeedbackRecommendationsPage: View {
     }
     
     var body: some View {
-        ScrollView {
-            VStack(spacing: 32) {
-                Spacer()
-                    .frame(height: 40)
+        ZStack {
+            Color.black
+                .ignoresSafeArea()
+            
+            VStack(spacing: 0) {
+                ScrollView {
+                    VStack(spacing: 32) {
+                        Spacer()
+                            .frame(height: 60)
                 
                 // Header - Black & White Liquid Glass
                 VStack(spacing: 16) {
@@ -2693,12 +3217,12 @@ struct FeedbackRecommendationsPage: View {
 
                     Text("You're All Set!")
                         .font(.custom("OpenSans-Bold", size: 32))
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(.white)
                         .opacity(animate ? 1.0 : 0)
 
                     Text("Here's what we recommend based on your interests")
                         .font(.custom("OpenSans-Regular", size: 15))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.white.opacity(0.7))
                         .multilineTextAlignment(.center)
                         .lineSpacing(4)
                         .padding(.horizontal, 40)
@@ -2710,7 +3234,7 @@ struct FeedbackRecommendationsPage: View {
                 VStack(alignment: .leading, spacing: 16) {
                     Text("Personalized for You")
                         .font(.custom("OpenSans-Bold", size: 18))
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(.white)
 
                     VStack(spacing: 12) {
                         ForEach(recommendations, id: \.self) { recommendation in
@@ -2720,8 +3244,8 @@ struct FeedbackRecommendationsPage: View {
                                     .foregroundStyle(
                                         LinearGradient(
                                             colors: [
-                                                Color.primary.opacity(0.8),
-                                                Color.primary.opacity(0.5)
+                                                Color.white.opacity(0.8),
+                                                Color.white.opacity(0.5)
                                             ],
                                             startPoint: .topLeading,
                                             endPoint: .bottomTrailing
@@ -2730,7 +3254,7 @@ struct FeedbackRecommendationsPage: View {
 
                                 Text(recommendation)
                                     .font(.custom("OpenSans-Regular", size: 14))
-                                    .foregroundStyle(.primary)
+                                    .foregroundStyle(.white)
                                     .fixedSize(horizontal: false, vertical: true)
 
                                 Spacer()
@@ -2782,7 +3306,7 @@ struct FeedbackRecommendationsPage: View {
                 VStack(alignment: .leading, spacing: 16) {
                     Text("How was your experience?")
                         .font(.custom("OpenSans-Bold", size: 18))
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(.white)
                     
                     // Star rating
                     HStack(spacing: 12) {
@@ -2806,7 +3330,7 @@ struct FeedbackRecommendationsPage: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Tell us more (optional)")
                             .font(.custom("OpenSans-SemiBold", size: 14))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.white.opacity(0.7))
                         
                         TextEditor(text: $feedback)
                             .font(.custom("OpenSans-Regular", size: 14))
@@ -2814,27 +3338,41 @@ struct FeedbackRecommendationsPage: View {
                             .padding(8)
                             .background(
                                 RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color(.systemGray6))
+                                    .fill(Color.white.opacity(0.05))
                             )
                             .overlay(
                                 RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                                    .stroke(Color.white.opacity(0.2), lineWidth: 1)
                             )
                             .focused($isFeedbackFocused)
                     }
                     
                     Text("Your feedback helps us improve AMEN for everyone")
                         .font(.custom("OpenSans-Regular", size: 12))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.white.opacity(0.5))
                 }
                 .padding(.horizontal, 40)
                 .offset(y: animate ? 0 : 20)
                 .opacity(animate ? 1.0 : 0)
                 
-                Spacer()
-                    .frame(height: 100)
+                Spacer(minLength: 100)
+                
+                // Navigation buttons inside ScrollView
+                OnboardingNavigationButtons(
+                    currentPage: currentPage,
+                    totalPages: totalPages,
+                    canContinue: canContinue,
+                    onBack: onBack,
+                    onSkip: onSkip,
+                    onNext: onNext
+                )
+                .padding(.horizontal, 40)
+                .padding(.bottom, 40)
             }
         }
+            }
+        }
+        .background(Color.black.ignoresSafeArea())
         .onAppear {
             withAnimation(.spring(response: 0.6, dampingFraction: 0.7).delay(0.2)) {
                 animate = true
@@ -2882,4 +3420,338 @@ struct SavingOverlay: View {
     }
 }
 
+// MARK: - Onboarding Navigation Buttons
 
+struct OnboardingNavigationButtons: View {
+    var currentPage: Int
+    var totalPages: Int
+    var canContinue: Bool
+    var onBack: () -> Void
+    var onSkip: (() -> Void)? = nil
+    var onNext: () -> Void
+    
+    var body: some View {
+        HStack(spacing: 16) {
+            if currentPage > 1 {
+                Button {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    onBack()
+                } label: {
+                    HStack {
+                        Image(systemName: "arrow.left")
+                            .font(.system(size: 16, weight: .bold))
+                        Text("Back")
+                            .font(.custom("OpenSans-Bold", size: 15))
+                    }
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 14)
+                    .background(
+                        Capsule()
+                            .fill(Color(.secondarySystemBackground))
+                    )
+                }
+                .buttonStyle(PressableButtonStyle())
+            }
+            
+            Spacer()
+            
+            Button {
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                onNext()
+            } label: {
+                HStack(spacing: 8) {
+                    Text(currentPage == totalPages - 1 ? "Get Started" : "Continue")
+                        .font(.custom("OpenSans-Bold", size: 16))
+                    
+                    Image(systemName: currentPage == totalPages - 1 ? "checkmark" : "arrow.right")
+                        .font(.system(size: 16, weight: .bold))
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 32)
+                .padding(.vertical, 16)
+                .background(
+                    Capsule()
+                        .fill(Color.blue)
+                        .shadow(color: .blue.opacity(0.3), radius: 12, y: 6)
+                )
+            }
+            .buttonStyle(PressableButtonStyle())
+            .disabled(!canContinue)
+            .opacity(canContinue ? 1.0 : 0.5)
+            .animation(.easeInOut(duration: 0.2), value: canContinue)
+        }
+    }
+}
+
+// MARK: - Combined Security Onboarding Page (2FA + Biometric)
+
+struct CombinedSecurityOnboardingPage: View {
+    @Binding var enable2FA: Bool
+    @Binding var backupCodes: [String]
+    @Binding var enableBiometric: Bool
+    var currentPage: Int = 11
+    var totalPages: Int = 13
+    var canContinue: Bool = true
+    var onBack: () -> Void = {}
+    var onSkip: () -> Void = {}
+    var onNext: () -> Void = {}
+    
+    @ObservedObject private var biometricService = BiometricAuthService.shared
+    @State private var animate = false
+    
+    var body: some View {
+        ZStack {
+            Color.black
+                .ignoresSafeArea()
+            
+            VStack(spacing: 0) {
+                ScrollView {
+                    VStack(spacing: 32) {
+                        Spacer()
+                            .frame(height: 60)
+                        
+                        headerSection
+                        twoFactorSection
+                        
+                        if biometricService.isBiometricAvailable {
+                            biometricSection
+                        }
+                        
+                        footerText
+                        
+                        Spacer(minLength: 100)
+                        
+                        navigationButtons
+                            .padding(.bottom, 40)
+                    }
+                }
+            }
+        }
+        .background(Color.black.ignoresSafeArea())
+        .onChange(of: enableBiometric) { _, newValue in
+            if newValue {
+                BiometricAuthService.shared.enableBiometric()
+            } else {
+                BiometricAuthService.shared.disableBiometric()
+            }
+        }
+        .onAppear {
+            withAnimation(.spring(response: 0.6, dampingFraction: 0.7)) {
+                animate = true
+            }
+        }
+    }
+    
+    private var headerSection: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "lock.shield.fill")
+                .font(.system(size: 70))
+                .foregroundStyle(.green.opacity(0.9))
+                .scaleEffect(animate ? 1.0 : 0.8)
+                .opacity(animate ? 1.0 : 0)
+            
+            Text("Secure Your Account")
+                .font(.custom("OpenSans-Bold", size: 28))
+                .foregroundStyle(.white)
+                .opacity(animate ? 1.0 : 0)
+            
+            Text("Add extra layers of security to protect your account")
+                .font(.custom("OpenSans-Regular", size: 15))
+                .foregroundStyle(.white.opacity(0.7))
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+                .offset(y: animate ? 0 : 20)
+                .opacity(animate ? 1.0 : 0)
+        }
+    }
+    
+    private var twoFactorSection: some View {
+        VStack(spacing: 16) {
+            twoFactorToggle
+            
+            if enable2FA {
+                twoFactorInfoView
+            }
+        }
+        .padding(.horizontal, 24)
+        .offset(y: animate ? 0 : 20)
+        .opacity(animate ? 1.0 : 0)
+    }
+    
+    private var twoFactorToggle: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 8) {
+                    Image(systemName: "lock.shield.fill")
+                        .foregroundStyle(.green)
+                    Text("Two-Factor Authentication")
+                        .font(.custom("OpenSans-Bold", size: 16))
+                        .foregroundStyle(.white)
+                }
+                
+                Text("Recommended for account security")
+                    .font(.custom("OpenSans-Regular", size: 12))
+                    .foregroundStyle(.white.opacity(0.7))
+            }
+            
+            Spacer()
+            
+            Toggle("", isOn: $enable2FA)
+                .labelsHidden()
+                .tint(.green)
+        }
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.white.opacity(0.05))
+        )
+    }
+    
+    private var twoFactorInfoView: some View {
+        VStack(spacing: 12) {
+            HStack(spacing: 8) {
+                Image(systemName: "envelope.fill")
+                    .foregroundStyle(.green)
+                Text("Verification Codes")
+                    .font(.custom("OpenSans-SemiBold", size: 14))
+                    .foregroundStyle(.white)
+            }
+            
+            Text("When enabled, we'll send verification codes to your email or phone when you sign in from a new device.")
+                .font(.custom("OpenSans-Regular", size: 12))
+                .foregroundStyle(.white.opacity(0.7))
+                .multilineTextAlignment(.center)
+            
+            VStack(alignment: .leading, spacing: 10) {
+                SecurityBenefitRow(icon: "checkmark.shield.fill", text: "Extra layer of security", color: .green)
+                SecurityBenefitRow(icon: "envelope.badge.fill", text: "Codes sent to your email", color: .blue)
+                SecurityBenefitRow(icon: "message.fill", text: "Or via SMS to your phone", color: .orange)
+            }
+        }
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(.green.opacity(0.1))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(.green.opacity(0.3), lineWidth: 1)
+                )
+        )
+        .transition(.opacity.combined(with: .scale))
+    }
+    
+    private var biometricSection: some View {
+        VStack(spacing: 16) {
+            biometricToggle
+            
+            if enableBiometric {
+                biometricBenefits
+            }
+        }
+        .padding(.horizontal, 24)
+        .offset(y: animate ? 0 : 20)
+        .opacity(animate ? 1.0 : 0)
+    }
+    
+    private var biometricToggle: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 8) {
+                    Image(systemName: biometricService.biometricType.icon)
+                        .foregroundStyle(.blue)
+                    Text("Enable \(biometricService.biometricType.displayName)")
+                        .font(.custom("OpenSans-Bold", size: 16))
+                        .foregroundStyle(.white)
+                }
+                
+                Text("Recommended for convenience")
+                    .font(.custom("OpenSans-Regular", size: 12))
+                    .foregroundStyle(.white.opacity(0.7))
+            }
+            
+            Spacer()
+            
+            Toggle("", isOn: $enableBiometric)
+                .labelsHidden()
+                .tint(.blue)
+        }
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.white.opacity(0.05))
+        )
+    }
+    
+    private var biometricBenefits: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Image(systemName: "checkmark.shield.fill")
+                    .foregroundStyle(.green)
+                Text("Quick & Secure")
+                    .font(.custom("OpenSans-SemiBold", size: 14))
+                    .foregroundStyle(.white)
+            }
+            
+            VStack(alignment: .leading, spacing: 10) {
+                SecurityBenefitRow(icon: "bolt.fill", text: "Instant sign-in", color: .orange)
+                SecurityBenefitRow(icon: "lock.shield.fill", text: "More secure than passwords", color: .green)
+                SecurityBenefitRow(icon: "iphone.gen3", text: "Data stays on device", color: .blue)
+            }
+        }
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(.blue.opacity(0.1))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(.blue.opacity(0.3), lineWidth: 1)
+                )
+        )
+        .transition(.opacity.combined(with: .scale))
+    }
+    
+    private var footerText: some View {
+        Text("You can change these anytime in Settings")
+            .font(.custom("OpenSans-Regular", size: 12))
+            .foregroundStyle(.white.opacity(0.5))
+            .padding(.horizontal, 40)
+            .padding(.bottom, 16)
+            .offset(y: animate ? 0 : 20)
+            .opacity(animate ? 1.0 : 0)
+    }
+    
+    private var navigationButtons: some View {
+        OnboardingNavigationButtons(
+            currentPage: currentPage,
+            totalPages: totalPages,
+            canContinue: canContinue,
+            onBack: onBack,
+            onSkip: onSkip,
+            onNext: onNext
+        )
+        .padding(.horizontal, 40)
+    }
+    
+}
+
+struct SecurityBenefitRow: View {
+    let icon: String
+    let text: String
+    let color: Color
+    
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: icon)
+                .font(.system(size: 14))
+                .foregroundStyle(color)
+                .frame(width: 24)
+            
+            Text(text)
+                .font(.custom("OpenSans-Regular", size: 14))
+                .foregroundStyle(.white)
+            
+            Spacer()
+        }
+    }
+}

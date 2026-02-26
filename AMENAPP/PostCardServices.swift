@@ -30,7 +30,7 @@ class PostCardServices: ObservableObject {
     /// Content moderation
     let moderation: ModerationService
     
-    /// Pinned posts (new feature)
+    /// Pinned posts (existing feature - 1 post per user)
     let pinned: PinnedPostService
     
     /// Interaction throttling
@@ -80,9 +80,9 @@ class PostCardServices: ObservableObject {
         return post.authorId == userId
     }
     
-    /// Check if post is pinned for a user
-    func isPostPinned(_ postId: String, userId: String) async -> Bool {
-        return await pinned.isPostPinned(postId, for: userId)
+    /// Check if post is pinned (existing service uses sync method)
+    func isPostPinned(_ postId: String) -> Bool {
+        return pinned.isPostPinned(postId)
     }
 }
 

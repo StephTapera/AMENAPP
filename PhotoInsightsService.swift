@@ -80,20 +80,34 @@ class PhotoInsightsService {
     ]
     
     private init() {
-        // Use the Google API key from configuration
-        self.apiKey = "AIzaSyBRg7axwpIAxoKjuSuCBSqCtMuxfkqfE-k"
+        // SECURITY FIX: Load API key from Info.plist instead of hardcoding
+        if let key = Bundle.main.object(forInfoDictionaryKey: "GOOGLE_VISION_API_KEY") as? String,
+           !key.isEmpty {
+            self.apiKey = key
+        } else {
+            self.apiKey = ""
+            print("⚠️ GOOGLE_VISION_API_KEY not found in Info.plist")
+            print("   Photo insights will be disabled")
+        }
     }
     
     // MARK: - Main Analysis Function
     
-    func analyzeProfilePhoto(imageURL: String, userId: String) async throws -> PhotoInsight {
-        // Check cache first
+    func analyzeProfilePhoto(imageURL: String, userId: String, currentUserId: String) async throws -> PhotoInsight {
+        // Check cache first (can read anyone's cached insights)
         if let cached = try? await getCachedInsight(userId: userId) {
             print("✅ Using cached photo insights for user: \(userId)")
             return cached
         }
         
-        print("🔍 Analyzing photo for user: \(userId)")
+        // Determine if we should cache the result
+        let shouldCache = (userId == currentUserId)
+        
+        if shouldCache {
+            print("🔍 Analyzing photo for current user: \(userId)")
+        } else {
+            print("🔍 Analyzing photo for other user: \(userId) (read-only mode)")
+        }
         
         // Download image data
         guard let url = URL(string: imageURL) else {
@@ -116,8 +130,16 @@ class PhotoInsightsService {
             analyzedAt: Date()
         )
         
-        // Cache result
-        try await cacheInsight(insight, userId: userId)
+        // Only cache if this is the current user's own photo
+        if shouldCache {
+            do {
+                try await cacheInsight(insight, userId: userId)
+                print("✅ Cached photo insights for current user: \(userId)")
+            } catch {
+                print("⚠️ Failed to cache photo insights: \(error)")
+                // Continue anyway - we still have the result
+            }
+        }
         
         print("✅ Generated \(badges.count) badges for user: \(userId)")
         return insight
@@ -142,6 +164,9 @@ class PhotoInsightsService {
                         [
                             "type": "LABEL_DETECTION",
                             "maxResults": 10
+                        ],
+                        [
+                            "type": "SAFE_SEARCH_DETECTION"
                         ]
                     ]
                 ]
@@ -170,8 +195,26 @@ class PhotoInsightsService {
         // Parse response
         let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
         guard let responses = json?["responses"] as? [[String: Any]],
-              let firstResponse = responses.first,
-              let labelAnnotations = firstResponse["labelAnnotations"] as? [[String: Any]] else {
+              let firstResponse = responses.first else {
+            return []
+        }
+        
+        // ✅ CHECK SAFESEARCH FIRST - Block inappropriate profile pictures
+        if let safeSearch = firstResponse["safeSearchAnnotation"] as? [String: String] {
+            let adult = safeSearch["adult"] ?? "UNKNOWN"
+            let racy = safeSearch["racy"] ?? "UNKNOWN"
+            let violence = safeSearch["violence"] ?? "UNKNOWN"
+            
+            // Strict thresholds for profile pictures
+            if adult == "POSSIBLE" || adult == "LIKELY" || adult == "VERY_LIKELY" ||
+               racy == "POSSIBLE" || racy == "LIKELY" || racy == "VERY_LIKELY" ||
+               violence == "LIKELY" || violence == "VERY_LIKELY" {
+                print("❌ SafeSearch blocked profile picture: adult=\(adult), racy=\(racy), violence=\(violence)")
+                throw PhotoInsightError.unsafeContent
+            }
+        }
+        
+        guard let labelAnnotations = firstResponse["labelAnnotations"] as? [[String: Any]] else {
             return []
         }
         
@@ -243,7 +286,7 @@ class PhotoInsightsService {
     
     // MARK: - Batch Processing
     
-    func batchAnalyzeUsers(userIds: [String]) async {
+    func batchAnalyzeUsers(userIds: [String], currentUserId: String) async {
         print("📸 Starting batch analysis for \(userIds.count) users")
         
         for userId in userIds {
@@ -256,7 +299,7 @@ class PhotoInsightsService {
                 }
                 
                 // Analyze (will use cache if available)
-                _ = try await analyzeProfilePhoto(imageURL: imageURL, userId: userId)
+                _ = try await analyzeProfilePhoto(imageURL: imageURL, userId: userId, currentUserId: currentUserId)
                 
                 // Rate limit: 1 request per second (free tier safe)
                 try await Task.sleep(nanoseconds: 1_000_000_000)
@@ -276,4 +319,18 @@ enum PhotoInsightError: Error {
     case networkError
     case apiError(Int)
     case parsingError
+    case unsafeContent
+    
+    var userMessage: String {
+        switch self {
+        case .unsafeContent:
+            return "This image cannot be used as a profile picture. Please choose a different image that aligns with our community guidelines."
+        case .networkError:
+            return "Network connection issue. Please try again."
+        case .apiError:
+            return "Unable to process image. Please try again."
+        default:
+            return "Something went wrong. Please try again."
+        }
+    }
 }

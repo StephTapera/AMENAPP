@@ -34,14 +34,14 @@ class BereanGenkitService: ObservableObject {
     // MARK: - Core AI Chat
     
     /// Send a message to the AI and get streaming response
-    func sendMessage(_ message: String, conversationHistory: [BereanMessage] = []) -> AsyncThrowingStream<String, Error> {
+    func sendMessage(_ message: String, conversationHistory: [BereanMessage] = [], maxTokens: Int = 2000, temperature: Double = 0.7, systemPromptSuffix: String? = nil) -> AsyncThrowingStream<String, Error> {
         // Convert BereanMessage to OpenAIChatMessage
         let chatHistory = conversationHistory.map { msg in
             OpenAIChatMessage(content: msg.content, isFromUser: msg.isFromUser)
         }
         
         // Delegate to OpenAI service
-        return openAIService.sendMessage(message, conversationHistory: chatHistory)
+        return openAIService.sendMessage(message, conversationHistory: chatHistory, maxTokens: maxTokens, temperature: temperature, systemPromptSuffix: systemPromptSuffix)
     }
     
     /// Send message synchronously (for non-streaming use cases)

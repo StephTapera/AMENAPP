@@ -533,8 +533,8 @@ class LegacyUserService: ObservableObject {
     
     // MARK: - Update Interests & Preferences
     
-    /// Save onboarding preferences (interests, goals, prayer time)
-    func saveOnboardingPreferences(interests: [String], goals: [String], prayerTime: String) async throws {
+    /// Save onboarding preferences (interests, goals, prayer time, profile image)
+    func saveOnboardingPreferences(interests: [String], goals: [String], prayerTime: String, profileImageURL: String? = nil) async throws {
         guard let userId = firebaseManager.currentUser?.uid else {
             throw UserServiceError.unauthorized
         }
@@ -543,14 +543,20 @@ class LegacyUserService: ObservableObject {
         print("   Interests: \(interests)")
         print("   Goals: \(goals)")
         print("   Prayer Time: \(prayerTime)")
+        print("   Profile Image URL: \(profileImageURL ?? "none")")
         
-        let updateData: [String: Any] = [
+        var updateData: [String: Any] = [
             "interests": interests,
             "goals": goals,
             "preferredPrayerTime": prayerTime,
             "hasCompletedOnboarding": true,
             "updatedAt": Timestamp(date: Date())
         ]
+        
+        // P0 FIX: Add profile image URL if provided
+        if let imageURL = profileImageURL {
+            updateData["profileImageURL"] = imageURL
+        }
         
         // Use setData with merge to create document if it doesn't exist
         try await db.collection("users").document(userId).setData(updateData, merge: true)
@@ -563,8 +569,16 @@ class LegacyUserService: ObservableObject {
             user.goals = goals
             user.preferredPrayerTime = prayerTime
             user.hasCompletedOnboarding = true
+            if let imageURL = profileImageURL {
+                user.profileImageURL = imageURL
+            }
             user.updatedAt = Date()
             currentUser = user
+        }
+        
+        // Cache profile image URL in UserDefaults
+        if let imageURL = profileImageURL {
+            UserDefaults.standard.set(imageURL, forKey: "currentUserProfileImageURL")
         }
     }
     

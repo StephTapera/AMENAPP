@@ -78,14 +78,15 @@ class DailyVerseGenkitService: ObservableObject {
         print("⚠️ Using fallback verse (Genkit server not available)")
         let fallbackData = createFallbackVerse()
         
+        // Safely unwrap all fallback data with guaranteed defaults
         let verse = PersonalizedDailyVerse(
-            reference: fallbackData["reference"] as? String ?? "Philippians 4:13",
-            text: fallbackData["text"] as? String ?? "I can do all things through Christ who strengthens me.",
-            theme: fallbackData["theme"] as? String ?? "Strength",
-            reflection: fallbackData["reflection"] as? String ?? "God's strength is always available.",
-            actionPrompt: fallbackData["actionPrompt"] as? String ?? "Trust God today.",
-            relatedVerses: fallbackData["relatedVerses"] as? [String] ?? [],
-            prayerPrompt: fallbackData["prayerPrompt"] as? String ?? "Lord, strengthen me.",
+            reference: fallbackData["reference"] as! String,
+            text: fallbackData["text"] as! String,
+            theme: fallbackData["theme"] as! String,
+            reflection: fallbackData["reflection"] as! String,
+            actionPrompt: fallbackData["actionPrompt"] as! String,
+            relatedVerses: fallbackData["relatedVerses"] as! [String],
+            prayerPrompt: fallbackData["prayerPrompt"] as! String,
             personalizedFor: nil,
             date: Date()
         )
@@ -97,6 +98,8 @@ class DailyVerseGenkitService: ObservableObject {
         cacheVerse(verse)
         
         print("✅ Fallback verse generated: \(verse.reference)")
+        print("   Theme: \(verse.theme)")
+        print("   Text: \(verse.text)")
         
         return verse
         
@@ -322,10 +325,30 @@ class DailyVerseGenkitService: ObservableObject {
                 "actionPrompt": "Take 5 minutes today to be still and quiet before God.",
                 "relatedVerses": ["Psalm 23:1-3", "Matthew 11:28"],
                 "prayerPrompt": "God, help me find stillness in your presence today."
+            ],
+            [
+                "reference": "Romans 8:28",
+                "text": "And we know that in all things God works for the good of those who love him, who have been called according to his purpose.",
+                "theme": "Trust",
+                "reflection": "Even when we can't see it, God is working everything together for our good.",
+                "actionPrompt": "Reflect on a difficult situation and trust God is working in it.",
+                "relatedVerses": ["Jeremiah 29:11", "Proverbs 3:5-6"],
+                "prayerPrompt": "Lord, help me trust that you're working all things for my good."
+            ],
+            [
+                "reference": "Matthew 11:28",
+                "text": "Come to me, all you who are weary and burdened, and I will give you rest.",
+                "theme": "Rest",
+                "reflection": "Jesus invites us to bring our burdens to Him and find rest for our souls.",
+                "actionPrompt": "Identify what's weighing you down and give it to Jesus in prayer.",
+                "relatedVerses": ["Psalm 55:22", "1 Peter 5:7"],
+                "prayerPrompt": "Jesus, I bring my burdens to you. Give me your rest."
             ]
         ]
         
-        return fallbackVerses.randomElement() ?? fallbackVerses[0]
+        let selectedVerse = fallbackVerses.randomElement() ?? fallbackVerses[0]
+        print("📖 Selected fallback verse: \(selectedVerse["reference"] ?? "Unknown")")
+        return selectedVerse
     }
     
     nonisolated private func createThemedFallbackVerse(theme: VerseTheme) -> [String: Any] {
@@ -459,7 +482,7 @@ class DailyVerseGenkitService: ObservableObject {
     
     // MARK: - Caching
     
-    nonisolated private func cacheVerse(_ verse: PersonalizedDailyVerse) {
+    private func cacheVerse(_ verse: PersonalizedDailyVerse) {
         if let encoded = try? JSONEncoder().encode(verse) {
             UserDefaults.standard.set(encoded, forKey: cacheKey)
             UserDefaults.standard.set(Date(), forKey: cacheDate)

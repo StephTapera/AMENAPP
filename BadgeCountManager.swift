@@ -11,6 +11,7 @@ import UIKit
 import Combine
 import FirebaseAuth
 import FirebaseFirestore
+import UserNotifications
 
 @MainActor
 class BadgeCountManager: ObservableObject {
@@ -76,6 +77,15 @@ class BadgeCountManager: ObservableObject {
     
     /// Force immediate badge update (bypasses cache)
     func forceUpdateBadgeCount() async {
+        updateTask?.cancel()
+        cachedBadgeCount = nil
+        cacheTimestamp = nil
+        await performBadgeUpdate()
+    }
+
+    /// Immediate badge update for user-triggered actions (no debounce, no cache)
+    /// Use this when user marks notifications as read or performs actions that should update badge instantly
+    func immediateUpdate() async {
         updateTask?.cancel()
         cachedBadgeCount = nil
         cacheTimestamp = nil
@@ -188,9 +198,17 @@ class BadgeCountManager: ObservableObject {
     }
     
     private func applyBadgeCount(_ count: Int) {
-        #if !targetEnvironment(simulator)
-        UIApplication.shared.applicationIconBadgeNumber = count
-        #endif
+        // P0 FIX: Use UNUserNotificationCenter (modern API) instead of UIApplication
+        // This is the correct iOS 16+ API and prevents conflicts
+        // Note: Also works in simulator for testing (previously was disabled)
+        Task {
+            do {
+                try await UNUserNotificationCenter.current().setBadgeCount(count)
+                print("📱 App icon badge set to: \(count)")
+            } catch {
+                print("⚠️ Failed to set badge count: \(error)")
+            }
+        }
     }
 }
 

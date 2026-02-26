@@ -107,7 +107,8 @@ class CommentService: ObservableObject {
     func addComment(
         postId: String,
         content: String,
-        mentionedUserIds: [String]? = nil
+        mentionedUserIds: [String]? = nil,
+        post: Post? = nil  // Optional post object (avoid refetch if already available)
     ) async throws -> Comment {
         print("💬 Adding comment to post: \(postId)")
 
@@ -125,6 +126,50 @@ class CommentService: ObservableObject {
         
         inFlightCommentRequests.insert(requestId)
         defer { inFlightCommentRequests.remove(requestId) }
+        
+        // ============================================================================
+        // ✅ PRIVACY CHECK: Verify user can comment on this post
+        // ============================================================================
+        print("🔒 Checking comment permissions for post: \(postId)")
+        
+        // Fetch post if not provided
+        let postData: Post
+        if let providedPost = post {
+            postData = providedPost
+        } else {
+            // Fetch post from Firestore
+            let db = Firestore.firestore()
+            let postDoc = try await db.collection("posts").document(postId).getDocument()
+            guard let post = try? postDoc.data(as: Post.self) else {
+                throw NSError(domain: "CommentService", code: -3,
+                             userInfo: [NSLocalizedDescriptionKey: "Post not found"])
+            }
+            postData = post
+        }
+        
+        // Check comment permissions using TrustByDesignService
+        let canCommentOnPost = try await TrustByDesignService.shared.canComment(
+            userId: userId,
+            on: postId,
+            authorId: postData.authorId,
+            postPermission: postData.commentPermissions.map { perm in
+                // Map Post.CommentPermissions to CommentPermissionLevel
+                switch perm {
+                case .everyone: return .everyone
+                case .following: return .followersOnly
+                case .mentioned: return .mutualsOnly  // Map "mentioned only" to mutuals
+                case .off: return .nobody
+                }
+            }
+        )
+        
+        if !canCommentOnPost {
+            print("❌ Comment permission denied for post: \(postId)")
+            throw NSError(domain: "CommentService", code: -4,
+                         userInfo: [NSLocalizedDescriptionKey: "You don't have permission to comment on this post"])
+        }
+        
+        print("✅ Comment permission granted")
 
         // ⚡ OPTIMIZATION: Fetch user profile and run moderation IN PARALLEL
         async let userProfileTask: UserModel? = {
@@ -136,18 +181,44 @@ class CommentService: ObservableObject {
             }
         }()
 
-        async let moderationTask = ContentModerationService.shared.moderateContent(
-            content,
-            type: .comment,
-            userId: userId
-        )
+        async let moderationTask: ModerationDecision = {
+            let signals = AuthenticitySignals(
+                typedCharacters: content.count,
+                pastedCharacters: 0,
+                typedVsPastedRatio: 1.0,
+                largestPasteLength: 0,
+                pasteEventCount: 0,
+                typingDurationSeconds: 0,
+                hasLargePaste: false
+            )
+            return try await ContentModerationService.moderateContent(
+                text: content,
+                category: .comment,
+                signals: signals
+            )
+        }()
 
-        // ⚡ Wait for both to complete in parallel
-        let (userProfile, moderationResult) = try await (userProfileTask, moderationTask)
+        // 🛡️ ENHANCED SAFETY: Run CommentSafetySystem checks (pile-on, repeat harassment)
+        async let safetyCheckTask: CommentSafetySystem.SafetyCheckResult? = {
+            do {
+                return try await CommentSafetySystem.shared.checkCommentSafety(
+                    content: content,
+                    postId: postId,
+                    postAuthorId: postData.authorId,
+                    commenterId: userId
+                )
+            } catch {
+                print("⚠️ Safety check failed (allowing with fallback): \(error)")
+                return nil  // Fail-open: allow if safety check fails
+            }
+        }()
+
+        // ⚡ Wait for all parallel tasks to complete
+        let (userProfile, moderationResult, safetyResult) = try await (userProfileTask, moderationTask, safetyCheckTask)
 
         // Block comment if moderation fails
-        if !moderationResult.isApproved {
-            let reasons = moderationResult.flaggedReasons
+        if moderationResult.shouldBlock {
+            let reasons = moderationResult.reasons
             print("❌ Comment blocked by moderation: \(reasons.joined(separator: ", "))")
 
             await MainActor.run {
@@ -161,7 +232,44 @@ class CommentService: ObservableObject {
             )
         }
 
-        print("✅ Comment passed moderation check")
+        // 🛡️ Block comment if safety check fails
+        if let safety = safetyResult, safety.action.isBlocking {
+            print("❌ Comment blocked by safety system: \(safety.violations)")
+
+            let errorMessage = safety.userMessage ?? "This comment violates our community guidelines."
+
+            await MainActor.run {
+                // Show user-friendly error with suggestions
+                if let suggestions = safety.suggestedRevisions, !suggestions.isEmpty {
+                    print("💡 Suggested revisions: \(suggestions.joined(separator: ", "))")
+                }
+            }
+
+            throw NSError(
+                domain: "CommentService",
+                code: -5,
+                userInfo: [
+                    NSLocalizedDescriptionKey: errorMessage,
+                    "suggestedRevisions": safety.suggestedRevisions as Any,
+                    "violations": safety.violations.map { $0.rawValue }
+                ]
+            )
+        }
+
+        // 🛡️ Apply cooldown if required
+        if let safety = safetyResult, safety.action == .cooldown, let cooldownSeconds = safety.cooldownSeconds {
+            print("⏱️ Comment rate-limited: \(cooldownSeconds) seconds")
+            throw NSError(
+                domain: "CommentService",
+                code: -6,
+                userInfo: [
+                    NSLocalizedDescriptionKey: "Please wait \(cooldownSeconds) seconds before commenting again.",
+                    "cooldownSeconds": cooldownSeconds
+                ]
+            )
+        }
+
+        print("✅ Comment passed all safety checks")
 
         // Get username and profile image from parallel fetch
         let authorUsername: String
@@ -324,11 +432,23 @@ class CommentService: ObservableObject {
                         if let userDoc = userQuery.documents.first {
                             let mentionUserId = userDoc.documentID
                             let displayName = userDoc.data()["displayName"] as? String ?? username
-                            mentions.append(MentionedUser(
-                                userId: mentionUserId,
-                                username: username,
-                                displayName: displayName
-                            ))
+                            
+                            // ✅ PRIVACY CHECK: Verify user can mention this person
+                            let canMention = try await TrustByDesignService.shared.canMention(
+                                from: userId,
+                                mention: mentionUserId
+                            )
+                            
+                            if canMention {
+                                mentions.append(MentionedUser(
+                                    userId: mentionUserId,
+                                    username: username,
+                                    displayName: displayName
+                                ))
+                                print("✅ Mention permission granted for @\(username)")
+                            } else {
+                                print("⚠️ Mention permission denied for @\(username) - skipping notification")
+                            }
                         }
                     } catch {
                         print("⚠️ Failed to resolve @\(username): \(error)")
@@ -376,7 +496,8 @@ class CommentService: ObservableObject {
         postId: String,
         parentCommentId: String,
         content: String,
-        mentionedUserIds: [String]? = nil
+        mentionedUserIds: [String]? = nil,
+        post: Post? = nil  // ✅ Optional post object to avoid Firestore lookup
     ) async throws -> Comment {
         print("↩️ Adding reply to comment: \(parentCommentId)")
 
@@ -385,7 +506,7 @@ class CommentService: ObservableObject {
         haptic.impactOccurred()
 
         // ✅ Add comment first (moderation + optimistic update happens inside)
-        let comment = try await addComment(postId: postId, content: content, mentionedUserIds: mentionedUserIds)
+        let comment = try await addComment(postId: postId, content: content, mentionedUserIds: mentionedUserIds, post: post)
 
         // P1-1 FIX: Set parentCommentId SYNCHRONOUSLY (not fire-and-forget)
         guard let commentId = comment.id else {
@@ -683,18 +804,57 @@ class CommentService: ObservableObject {
     /// Delete comment
     func deleteComment(commentId: String, postId: String) async throws {
         print("🗑️ Deleting comment: \(commentId)")
+        print("   Post ID: \(postId)")
         
         guard let userId = firebaseManager.currentUser?.uid else {
+            print("❌ [DELETE] User not authenticated")
             throw NSError(domain: "CommentService", code: -1, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
         }
         
+        print("   User ID: \(userId)")
+        
         let commentRef = ref.child("postInteractions").child(postId).child("comments").child(commentId)
+        print("   Path: postInteractions/\(postId)/comments/\(commentId)")
         
         // Verify ownership
-        let snapshot = try await commentRef.getData()
-        guard let commentData = snapshot.value as? [String: Any],
-              let authorId = commentData["authorId"] as? String,
-              authorId == userId else {
+        print("   Fetching comment data to verify ownership...")
+        
+        // ✅ FIX: Use observeSingleEvent instead of getData() for proper data retrieval
+        let snapshot = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<DataSnapshot, Error>) in
+            commentRef.observeSingleEvent(of: .value) { snapshot in
+                continuation.resume(returning: snapshot)
+            } withCancel: { error in
+                continuation.resume(throwing: error)
+            }
+        }
+        
+        print("   Snapshot exists: \(snapshot.exists())")
+        
+        guard snapshot.exists() else {
+            print("❌ [DELETE] Comment not found at path")
+            throw NSError(domain: "CommentService", code: -6, userInfo: [NSLocalizedDescriptionKey: "Comment not found"])
+        }
+        
+        guard let commentData = snapshot.value as? [String: Any] else {
+            print("❌ [DELETE] Invalid comment data format")
+            print("   Snapshot value type: \(type(of: snapshot.value))")
+            print("   Snapshot value: \(String(describing: snapshot.value))")
+            throw NSError(domain: "CommentService", code: -7, userInfo: [NSLocalizedDescriptionKey: "Invalid comment data"])
+        }
+        
+        print("   Comment data keys: \(commentData.keys.joined(separator: ", "))")
+        
+        guard let authorId = commentData["authorId"] as? String else {
+            print("❌ [DELETE] No authorId found in comment data")
+            print("   Available keys: \(commentData.keys.joined(separator: ", "))")
+            throw NSError(domain: "CommentService", code: -8, userInfo: [NSLocalizedDescriptionKey: "Comment has no author"])
+        }
+        
+        print("   Author ID: \(authorId)")
+        print("   Owner match: \(authorId == userId)")
+        
+        guard authorId == userId else {
+            print("❌ [DELETE] User \(userId) is not owner \(authorId)")
             throw NSError(domain: "CommentService", code: -4, userInfo: [NSLocalizedDescriptionKey: "You can only delete your own comments"])
         }
         

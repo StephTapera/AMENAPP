@@ -47,7 +47,6 @@ final class NotificationService: ObservableObject {
     private init() {
         setupNotificationObservers()
         loadAIPreference()
-        print("✅ NotificationService initialized")
     }
     
     deinit {
@@ -58,7 +57,6 @@ final class NotificationService: ObservableObject {
             NotificationCenter.default.removeObserver(observer)
         }
         retryTask?.cancel()
-        print("🧹 NotificationService cleaned up")
     }
     
     // MARK: - Cleanup
@@ -70,16 +68,12 @@ final class NotificationService: ObservableObject {
             NotificationCenter.default.removeObserver(observer)
         }
         retryTask?.cancel()
-        print("🧹 NotificationService cleaned up")
     }
     
     // MARK: - AI Preferences
     
     private func loadAIPreference() {
         useAINotifications = UserDefaults.standard.bool(forKey: "useAINotifications_v1")
-        if useAINotifications {
-            print("✅ AI notifications enabled")
-        }
     }
     
     /// Toggle AI-powered notification features
@@ -105,15 +99,14 @@ final class NotificationService: ObservableObject {
     }
     
     private func handlePushNotificationReceived() async {
-        print("🔄 Push notification received, refreshing...")
         // Notifications update automatically via listener
-        // Just update badge count
         await updateBadgeCount()
     }
     
     private func updateBadgeCount() async {
-        // Delegate to BadgeCountManager for thread-safe, cached updates
-        await BadgeCountManager.shared.requestBadgeUpdate()
+        // P0 FIX: Use immediateUpdate for user-triggered actions (no debounce)
+        // This ensures badge updates instantly when user marks notifications as read
+        await BadgeCountManager.shared.immediateUpdate()
     }
     
     // MARK: - Start Listening to Notifications
@@ -121,18 +114,14 @@ final class NotificationService: ObservableObject {
     /// Start listening to real-time notifications for the current user
     func startListening() {
         guard let userId = Auth.auth().currentUser?.uid else {
-            print("⚠️ Cannot start listening: No authenticated user")
             error = .notAuthenticated
             return
         }
         
         // Don't start multiple listeners
         if listener != nil {
-            print("⚠️ Listener already active")
             return
         }
-        
-        print("📡 Starting notifications listener for user: \(userId)")
         isLoading = true
         error = nil
         retryCount = 0
@@ -156,7 +145,6 @@ final class NotificationService: ObservableObject {
                     
                     guard let documents = snapshot?.documents else {
                         self.isLoading = false
-                        print("⚠️ No documents in snapshot")
                         return
                     }
                     
@@ -169,15 +157,51 @@ final class NotificationService: ObservableObject {
     private func processNotifications(_ documents: [QueryDocumentSnapshot]) async {
         var parsedNotifications: [AppNotification] = []
         var parseErrors: [Error] = []
+        var filteredMessageNotifications = 0
+        var filteredSelfActions = 0
+        var filteredBlockedUsers = 0
+        
+        // ✅ P0-6 FIX: Get blocked users synchronously from local cache
+        let blockedUserIds = BlockService.shared.blockedUsers
         
         for doc in documents {
             do {
                 var notification = try doc.data(as: AppNotification.self)
+                
+                // ✅ P0-13 FIX: Robust message notification filtering with fallback checks
+                // Messages should ONLY drive Messages badge, not appear in Notifications feed
+                let isMessageNotification = notification.type == .message || 
+                                          notification.type == .messageRequest ||
+                                          doc.data()["type"] as? String == "message" ||
+                                          doc.data()["type"] as? String == "messageRequest" ||
+                                          doc.data()["notificationType"] as? String == "message"
+                
+                if isMessageNotification {
+                    filteredMessageNotifications += 1
+                    continue
+                }
+                
                 notification.id = doc.documentID
+                
+                // ✅ NEW: Apply smart filters
+                
+                // 1. Self-action suppression
+                if NotificationAggregationService.shared.isSelfAction(notification) {
+                    filteredSelfActions += 1
+                    continue
+                }
+                
+                // ✅ P0-6 FIX: Synchronous block check using local cache
+                // Filter out notifications from blocked users BEFORE rendering
+                if let actorId = notification.actorId, blockedUserIds.contains(actorId) {
+                    filteredBlockedUsers += 1
+                    continue
+                }
+                
                 parsedNotifications.append(notification)
             } catch {
                 parseErrors.append(error)
-                print("⚠️ Error parsing notification \(doc.documentID): \(error.localizedDescription)")
+                Logger.error("Failed to parse notification \(doc.documentID)", error: error)
             }
         }
         
@@ -193,22 +217,16 @@ final class NotificationService: ObservableObject {
         // Update badge
         await updateBadgeCount()
         
-        let duplicateCount = parsedNotifications.count - deduplicated.count
-        if duplicateCount > 0 {
-            print("🧹 Removed \(duplicateCount) duplicate notification(s)")
-        }
-        
-        print("✅ Loaded \(deduplicated.count) notifications (\(unreadCount) unread)")
-        
-        if !parseErrors.isEmpty {
-            print("⚠️ Failed to parse \(parseErrors.count) notification(s)")
-        }
-        
         // Clean up duplicates in background (doesn't block UI)
+        let duplicateCount = parsedNotifications.count - deduplicated.count
         if duplicateCount > 0 {
             Task.detached(priority: .background) {
                 await self.removeDuplicateFollowNotifications()
             }
+        }
+        
+        if !parseErrors.isEmpty {
+            Logger.warning("Failed to parse \(parseErrors.count) notifications")
         }
     }
     
@@ -275,14 +293,20 @@ final class NotificationService: ObservableObject {
         var seen: [String: AppNotification] = [:]
         
         for notification in notifications {
-            // Create unique key based on type, actor, and post (if applicable)
+            // ✅ P0-2: Use idempotency key if available, otherwise generate
             let key: String
-            if let postId = notification.postId {
-                // For post-related notifications, group by actor+type+post
-                key = "\(notification.type.rawValue)_\(notification.actorId ?? "unknown")_\(postId)"
+            if let idempotencyKey = notification.idempotencyKey {
+                // Use server-provided idempotency key (most reliable)
+                key = idempotencyKey
             } else {
-                // For non-post notifications (like follows), group by actor+type
-                key = "\(notification.type.rawValue)_\(notification.actorId ?? "unknown")"
+                // Fallback: generate key from notification properties
+                if let postId = notification.postId {
+                    // For post-related notifications, group by actor+type+post
+                    key = "\(notification.type.rawValue)_\(notification.actorId ?? "unknown")_\(postId)"
+                } else {
+                    // For non-post notifications (like follows), group by actor+type
+                    key = "\(notification.type.rawValue)_\(notification.actorId ?? "unknown")"
+                }
             }
             
             // Keep the most recent notification for each unique key
@@ -825,6 +849,9 @@ struct AppNotification: Identifiable, Codable, Hashable {
     var priority: Int?  // 0-100 score for smart sorting
     var groupId: String?  // For grouping similar notifications
     
+    // ✅ P0-2: Idempotency key to prevent duplicate notifications
+    let idempotencyKey: String?  // Deterministic key: "type_actorId_targetId"
+    
     // ✅ THREADS-STYLE GROUPING: Multiple actors for aggregated notifications
     var actors: [NotificationActor]?  // List of all users who performed this action
     var actorCount: Int?  // Total number of actors (for "Alex and 5 others")
@@ -832,7 +859,7 @@ struct AppNotification: Identifiable, Codable, Hashable {
     
     enum CodingKeys: String, CodingKey {
         case userId, type, actorId, actorName, actorUsername, actorProfileImageURL
-        case postId, commentText, read, createdAt, priority, groupId
+        case postId, commentText, read, createdAt, priority, groupId, idempotencyKey
         case actors, actorCount, updatedAt
     }
     
@@ -857,6 +884,7 @@ struct AppNotification: Identifiable, Codable, Hashable {
         commentText = try? container.decodeIfPresent(String.self, forKey: .commentText)
         priority = try? container.decodeIfPresent(Int.self, forKey: .priority)  // ✅ NEW
         groupId = try? container.decodeIfPresent(String.self, forKey: .groupId)  // ✅ NEW
+        idempotencyKey = try? container.decodeIfPresent(String.self, forKey: .idempotencyKey)  // ✅ P0-2
         
         // Threads-style grouping fields
         actors = try? container.decodeIfPresent([NotificationActor].self, forKey: .actors)
@@ -876,6 +904,8 @@ struct AppNotification: Identifiable, Codable, Hashable {
         case repost = "repost"  // ✅ NEW: When someone reposts your content
         case prayerAnswered = "prayer_answered"
         case followRequestAccepted = "follow_request_accepted"  // ✅ NEW: When follow request is accepted
+        case message = "message"  // ✅ P0-1: Message notifications (should be filtered from feed)
+        case messageRequest = "message_request"  // ✅ P0-1: Message request notifications (should be filtered from feed)
         case messageRequestAccepted = "message_request_accepted"  // ✅ NEW: When message request is accepted
         case churchNoteShared = "church_note_shared"  // When someone shares a church note with you
         case unknown = "unknown"
@@ -960,6 +990,10 @@ struct AppNotification: Identifiable, Codable, Hashable {
             return "accepted your message request"  // ✅ NEW
         case .churchNoteShared:
             return "shared a church note with you"
+        case .message:
+            return "sent you a message"  // ✅ P0-1: Filtered from feed
+        case .messageRequest:
+            return "sent you a message request"  // ✅ P0-1: Filtered from feed
         case .unknown:
             return "interacted with you"
         }
@@ -989,6 +1023,10 @@ struct AppNotification: Identifiable, Codable, Hashable {
             return "message.fill.badge.checkmark"  // ✅ NEW
         case .churchNoteShared:
             return "note.text.badge.plus"
+        case .message:
+            return "message.fill"  // ✅ P0-1: Filtered from feed
+        case .messageRequest:
+            return "message.badge"  // ✅ P0-1: Filtered from feed
         case .unknown:
             return "bell.fill"
         }
@@ -1018,6 +1056,10 @@ struct AppNotification: Identifiable, Codable, Hashable {
             return .blue  // ✅ NEW
         case .churchNoteShared:
             return .purple
+        case .message:
+            return .blue  // ✅ P0-1: Filtered from feed
+        case .messageRequest:
+            return .teal  // ✅ P0-1: Filtered from feed
         case .unknown:
             return .gray
         }

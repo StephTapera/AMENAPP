@@ -17,7 +17,7 @@ import Combine
 struct NotificationsView: View {
     @Environment(\.dismiss) var dismiss
     @ObservedObject private var notificationService = NotificationService.shared
-    @StateObject private var followRequestsViewModel: FollowRequestsViewModel = FollowRequestsViewModel()
+    @ObservedObject private var followRequestsViewModel = FollowRequestsViewModel.shared  // P0 FIX: Use singleton
     @ObservedObject private var profileCache = NotificationProfileCache.shared
     @ObservedObject private var priorityEngine = NotificationPriorityEngine.shared
     @ObservedObject private var deduplicator = SmartNotificationDeduplicator.shared
@@ -70,6 +70,11 @@ struct NotificationsView: View {
     private var filteredNotifications: [AppNotification] {
         var notifications = notificationService.notifications
         
+        // P0 FIX: Filter out self-notifications (user shouldn't see their own actions)
+        if let currentUserId = Auth.auth().currentUser?.uid {
+            notifications = notifications.filter { $0.actorId != currentUserId }
+        }
+        
         switch selectedFilter {
         case .all:
             break
@@ -88,7 +93,13 @@ struct NotificationsView: View {
             notifications = notifications.filter { $0.type == .follow }
         }
         
-        return notifications
+        // P0 FIX: Sort by updatedAt (for grouped) or createdAt (newest first)
+        // Stable sort ensures notifications don't jump around
+        return notifications.sorted { lhs, rhs in
+            let lhsDate = lhs.updatedAt?.dateValue() ?? lhs.createdAt.dateValue()
+            let rhsDate = rhs.updatedAt?.dateValue() ?? rhs.createdAt.dateValue()
+            return lhsDate > rhsDate
+        }
     }
     
     var body: some View {
@@ -242,8 +253,8 @@ struct NotificationsView: View {
     @ViewBuilder
     private var notificationListView: some View {
         if notificationService.isLoading {
-            ProgressView()
-                .padding(.top, 100)
+            // P0 FIX: Show loading skeleton instead of spinner for better UX
+            NotificationsLoadingView()
         } else if groupedNotifications.isEmpty {
             emptyStateView
         } else {
@@ -271,6 +282,10 @@ struct NotificationsView: View {
                         },
                         onLongPress: {
                             showQuickActions(for: group)
+                        },
+                        onAvatarTap: { actorId in
+                            // P0 FIX: Avatar tap navigates to profile
+                            navigationPath.append(NotificationNavigationDestinations.NotificationDestination.profile(userId: actorId))
                         }
                     )
                     .id(group.id)
@@ -381,7 +396,11 @@ struct NotificationsView: View {
     }
     
     private func handleOnDisappear() {
+        // ✅ P0-5: Stop all listeners to prevent memory leaks
         notificationService.stopListening()
+        profileCache.stopAllListeners()
+        
+        print("🛑 NotificationsView: Cleaned up all listeners")
     }
     
     // MARK: - Group Actions
@@ -754,11 +773,12 @@ struct NotificationsView: View {
     }
     
     // MARK: - Badge Management
-    
+
     /// Clear app badge count when viewing notifications
+    /// P0 FIX: Use BadgeCountManager instead of direct API call to avoid conflicts
     private func clearBadgeCount() {
         Task {
-            try? await UNUserNotificationCenter.current().setBadgeCount(0)
+            await BadgeCountManager.shared.immediateUpdate()
         }
     }
 }
@@ -863,6 +883,7 @@ struct GroupedNotificationRow: View {
     let onMarkAsRead: () -> Void
     let onTap: () -> Void
     let onLongPress: () -> Void
+    let onAvatarTap: (String) -> Void  // P0 FIX: Separate handler for avatar taps
     
     @ObservedObject private var profileCache = NotificationProfileCache.shared
     @State private var actorProfile: CachedProfile?
@@ -947,7 +968,8 @@ struct GroupedNotificationRow: View {
                     )
             )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(NotificationRowButtonStyle())
+        .contentShape(Rectangle())
         .contextMenu {
             Button {
                 onMarkAsRead()
@@ -1066,6 +1088,13 @@ struct GroupedNotificationRow: View {
                         Circle()
                             .stroke(Color.white, lineWidth: 2)
                     )
+            }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            // P0 FIX: Avatar tap should navigate to user profile, not post
+            if let actorId = group.primaryNotification.actorId, !actorId.isEmpty {
+                onAvatarTap(actorId)
             }
         }
     }
@@ -2423,7 +2452,95 @@ struct NotificationSettingsSheet: View {
     }
 }
 
+// MARK: - Loading Skeleton
+
+struct NotificationSkeletonRow: View {
+    @State private var isAnimating = false
+    
+    var body: some View {
+        HStack(spacing: 14) {
+            // Avatar skeleton
+            Circle()
+                .fill(Color.gray.opacity(0.2))
+                .frame(width: 56, height: 56)
+                .shimmer(isAnimating: isAnimating)
+            
+            VStack(alignment: .leading, spacing: 8) {
+                // Name + action text
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color.gray.opacity(0.2))
+                    .frame(width: 200, height: 14)
+                    .shimmer(isAnimating: isAnimating)
+                
+                // Timestamp
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color.gray.opacity(0.2))
+                    .frame(width: 80, height: 12)
+                    .shimmer(isAnimating: isAnimating)
+            }
+            
+            Spacer()
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 12)
+        .onAppear {
+            isAnimating = true
+        }
+    }
+}
+
+struct NotificationsLoadingView: View {
+    var body: some View {
+        ScrollView {
+            LazyVStack(spacing: 12) {
+                ForEach(0..<8, id: \.self) { _ in
+                    NotificationSkeletonRow()
+                }
+            }
+            .padding(.vertical, 16)
+        }
+    }
+}
+
+// Shimmer effect modifier
+extension View {
+    func shimmer(isAnimating: Bool) -> some View {
+        self.overlay(
+            GeometryReader { geometry in
+                let gradientWidth = geometry.size.width
+                LinearGradient(
+                    gradient: Gradient(colors: [
+                        Color.clear,
+                        Color.white.opacity(0.3),
+                        Color.clear
+                    ]),
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+                .frame(width: gradientWidth)
+                .offset(x: isAnimating ? gradientWidth : -gradientWidth)
+                .animation(
+                    Animation.linear(duration: 1.5)
+                        .repeatForever(autoreverses: false),
+                    value: isAnimating
+                )
+            }
+        )
+        .clipped()
+    }
+}
+
 // MARK: - Extensions
+
+// P0 FIX: Instant press feedback for notification rows
+struct NotificationRowButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
+            .opacity(configuration.isPressed ? 0.9 : 1.0)
+            .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
+    }
+}
 
 // Note: ScaleButtonStyle is defined in SharedUIComponents.swift
 // Note: QuickReplyService and QuickReplyError are defined in NotificationQuickActions.swift

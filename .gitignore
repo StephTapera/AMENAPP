@@ -68,3 +68,17 @@ node_modules/
 # dataconnect generated files
 .dataconnect
 replacements.txt
+
+# Xcode Config Files (contains API keys)
+Config.xcconfig
+*.xcconfig
+
+# Xcode
+xcuserdata/
+*.xcworkspace
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+DerivedData/
+.DS_Store

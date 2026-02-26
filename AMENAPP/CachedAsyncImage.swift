@@ -38,16 +38,7 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
             // Load image when URL changes
             await loadImage()
         }
-        .onAppear {
-            #if DEBUG
-            // Log when CachedAsyncImage appears (DEBUG only)
-            if let url = url {
-                print("📸 [CACHED-IMAGE] View appeared for URL: \(url.absoluteString.prefix(60))...")
-                print("   loadedImage: \(loadedImage != nil ? "✅ LOADED" : "❌ nil")")
-                print("   isLoading: \(isLoading)")
-            }
-            #endif
-        }
+        // Image loading handled by task
     }
     
     @MainActor
@@ -60,29 +51,16 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
         
         // ✅ Check cache first - instant return for cached images
         if let cachedImage = ProfileImageCache.shared.image(for: urlString) {
-            #if DEBUG
-            print("🎯 [CACHED-IMAGE] Found in cache: \(urlString.prefix(60))...")
-            #endif
             loadedImage = cachedImage
             return
         }
-        
-        #if DEBUG
-        print("🌐 [CACHED-IMAGE] Not in cache, loading from network: \(urlString.prefix(60))...")
-        #endif
         
         isLoading = true
         
         // ✅ Load from network with proper cancellation handling
         do {
-            let (data, response) = try await URLSession.shared.data(from: url)
-            
-            #if DEBUG
-            if let httpResponse = response as? HTTPURLResponse {
-                print("🌐 [CACHED-IMAGE] HTTP Response: \(httpResponse.statusCode) for \(urlString.prefix(60))...")
-                print("   Content-Length: \(data.count) bytes")
-            }
-            #endif
+            let (data, _) = try await URLSession.shared.data(from: url)
+
             
             // ✅ Check if task was cancelled during download
             guard !Task.isCancelled else {
@@ -96,45 +74,21 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
                 await MainActor.run {
                     loadedImage = image
                 }
-                #if DEBUG
-                print("✅ [CACHED-IMAGE] Successfully loaded and cached: \(urlString.prefix(60))...")
-                print("   Image size: \(Int(uiImage.size.width))x\(Int(uiImage.size.height))")
-                #endif
                 
                 // Cache it for next time
                 ProfileImageCache.shared.setImage(image, for: urlString)
-            } else {
-                #if DEBUG
-                print("⚠️ [CACHED-IMAGE] Failed to create UIImage from data: \(urlString.prefix(60))...")
-                print("   Data size: \(data.count) bytes")
-                print("   Data prefix: \(data.prefix(20).map { String(format: "%02x", $0) }.joined())")
-                #endif
             }
             #elseif os(macOS)
             if let nsImage = NSImage(data: data) {
                 let image = Image(nsImage: nsImage)
                 loadedImage = image
-                #if DEBUG
-                print("✅ [CACHED-IMAGE] Successfully loaded and cached: \(urlString.prefix(60))...")
-                #endif
                 
                 // Cache it for next time
                 ProfileImageCache.shared.setImage(image, for: urlString)
-            } else {
-                #if DEBUG
-                print("⚠️ [CACHED-IMAGE] Failed to create NSImage from data: \(urlString.prefix(60))...")
-                #endif
             }
             #endif
         } catch {
-            // Log errors for debugging profile image loading issues
-            #if DEBUG
-            if !Task.isCancelled {
-                print("❌ [CACHED-IMAGE] Failed to load image from \(url.absoluteString.prefix(80))")
-                print("   Error: \(error.localizedDescription)")
-            }
-            // Cancelled errors are normal during fast scrolling
-            #endif
+            // Silently fail - cancelled errors are normal during fast scrolling
         }
         
         isLoading = false

@@ -70,80 +70,153 @@ struct BereanAIAssistantView: View {
     @State private var showStudyPlanner = false
     @State private var showScriptureAnalyzer = false
     
+    // ✅ Plus button menu
+    @State private var showPlusMenu = false
+    @State private var showImagePicker = false
+    @State private var selectedImage: UIImage?
+    
+    // ✅ Voice input
+    @State private var speechRecognizer: SpeechRecognitionService?
+    
+    // ✅ Verse details
+    @State private var showVerseDetail = false
+    @State private var selectedVerse: String?
+    
+    // ✅ Response mode for cost-effective AI
+    @State private var responseMode: BereanResponseMode = .balanced
+    
+    // ✅ Long press quick actions
+    @State private var showQuickActions = false
+    @State private var quickActionButtonScale: CGFloat = 1.0
+    @State private var showFirstTimeLongPressHint = false
+    @AppStorage("hasSeenBereanLongPressHint") private var hasSeenLongPressHint = false
+    
+    // Welcome section animations
+    @State private var bibleIconScale: CGFloat = 0.5
+    @State private var bibleIconRotation: Double = 0
+    @State private var bibleIconOpacity: Double = 0
+    @State private var currentWelcomeTextIndex = 0
+    @State private var scrollViewOffset: CGFloat = 0
+    private let welcomeTexts = [
+        "Your intelligent Bible study companion",
+        "Ask me anything about Scripture",
+        "Deep insights from God's Word",
+        "Explore the Bible with AI assistance"
+    ]
+    
+    // ✅ Smart contextual suggestions
+    @State private var showContextualSuggestions = false
+    @State private var contextualSuggestions: [String] = []
+    @State private var isTyping = false
+    
+    private var shouldCollapseBibleIcon: Bool {
+        scrollViewOffset > 100
+    }
+    
+    private func startWelcomeTextRotation() {
+        // ✅ Change welcome text only on view appear (not continuously)
+        // Pick a random index each time the view appears
+        let randomIndex = Int.random(in: 0..<welcomeTexts.count)
+        withAnimation(.easeInOut(duration: 0.5)) {
+            currentWelcomeTextIndex = randomIndex
+        }
+    }
+    
+    // ✅ Generate smart contextual suggestions based on user input
+    private func generateContextualSuggestions(for input: String) {
+        let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        
+        guard !trimmed.isEmpty else {
+            contextualSuggestions = []
+            showContextualSuggestions = false
+            return
+        }
+        
+        var suggestions: [String] = []
+        
+        // Smart keyword-based suggestions
+        if trimmed.contains("jesus") || trimmed.contains("christ") {
+            suggestions = [
+                "What did Jesus teach about love?",
+                "Explain Jesus's parables in simple terms",
+                "Show me Jesus's miracles and their significance"
+            ]
+        } else if trimmed.contains("prayer") || trimmed.contains("pray") {
+            suggestions = [
+                "How should I pray according to the Bible?",
+                "What does the Lord's Prayer mean?",
+                "Show me verses about prayer and fasting"
+            ]
+        } else if trimmed.contains("love") {
+            suggestions = [
+                "What does the Bible say about love?",
+                "Explain 1 Corinthians 13 in depth",
+                "How can I show love to others?"
+            ]
+        } else if trimmed.contains("faith") {
+            suggestions = [
+                "What is faith according to Hebrews 11?",
+                "How do I strengthen my faith?",
+                "Show me examples of faith in the Bible"
+            ]
+        } else if trimmed.contains("grace") {
+            suggestions = [
+                "What is grace in Christian theology?",
+                "Explain salvation by grace through faith",
+                "Show me verses about God's grace"
+            ]
+        } else if trimmed.contains("sin") {
+            suggestions = [
+                "What does the Bible say about forgiveness?",
+                "How do I overcome sin in my life?",
+                "Explain the concept of redemption"
+            ]
+        } else if trimmed.contains("psalm") {
+            suggestions = [
+                "Explain Psalm 23 verse by verse",
+                "Show me Psalms about comfort",
+                "What are the different types of Psalms?"
+            ]
+        } else if trimmed.contains("john") && trimmed.count < 15 {
+            suggestions = [
+                "Explain the Gospel of John's purpose",
+                "What makes John's Gospel unique?",
+                "Show me key verses from John"
+            ]
+        } else if trimmed.contains("genesis") || trimmed.contains("creation") {
+            suggestions = [
+                "Explain the creation account in Genesis",
+                "What does Genesis teach about humanity?",
+                "Show me Genesis 1 with historical context"
+            ]
+        } else {
+            // Generic helpful suggestions based on input length
+            if trimmed.count < 5 {
+                suggestions = [
+                    "Help me understand this passage better",
+                    "What's the historical context?",
+                    "Show me related verses"
+                ]
+            } else {
+                suggestions = [
+                    "Explain this in simple terms",
+                    "What's the theological significance?",
+                    "Show me cross-references"
+                ]
+            }
+        }
+        
+        withAnimation(.easeOut(duration: 0.2)) {
+            contextualSuggestions = Array(suggestions.prefix(3))
+            showContextualSuggestions = !suggestions.isEmpty
+        }
+    }
+    
     var body: some View {
         ZStack {
-            // Elegant gradient background inspired by modern design
-            ZStack {
-                // Base gradient - soft warm to cool tones
-                LinearGradient(
-                    colors: [
-                        Color(red: 0.98, green: 0.96, blue: 0.94), // Soft cream
-                        Color(red: 0.95, green: 0.94, blue: 0.96), // Subtle lavender
-                        Color(red: 0.96, green: 0.95, blue: 0.94)  // Warm white
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                
-                // Floating gradient orbs for depth
-                GeometryReader { geometry in
-                    ZStack {
-                        // Orange glow (top right)
-                        Circle()
-                            .fill(
-                                RadialGradient(
-                                    colors: [
-                                        Color(red: 1.0, green: 0.6, blue: 0.4).opacity(0.4),
-                                        Color(red: 1.0, green: 0.7, blue: 0.5).opacity(0.2),
-                                        Color.clear
-                                    ],
-                                    center: .center,
-                                    startRadius: 50,
-                                    endRadius: 300
-                                )
-                            )
-                            .frame(width: 600, height: 600)
-                            .offset(x: geometry.size.width * 0.6, y: -200)
-                            .blur(radius: 60)
-                        
-                        // Blue-purple glow (bottom left)
-                        Circle()
-                            .fill(
-                                RadialGradient(
-                                    colors: [
-                                        Color(red: 0.5, green: 0.6, blue: 0.9).opacity(0.3),
-                                        Color(red: 0.6, green: 0.5, blue: 0.8).opacity(0.15),
-                                        Color.clear
-                                    ],
-                                    center: .center,
-                                    startRadius: 50,
-                                    endRadius: 300
-                                )
-                            )
-                            .frame(width: 500, height: 500)
-                            .offset(x: -100, y: geometry.size.height * 0.7)
-                            .blur(radius: 50)
-                        
-                        // Accent peach glow (center-right)
-                        Circle()
-                            .fill(
-                                RadialGradient(
-                                    colors: [
-                                        Color(red: 0.95, green: 0.7, blue: 0.6).opacity(0.25),
-                                        Color.clear
-                                    ],
-                                    center: .center,
-                                    startRadius: 30,
-                                    endRadius: 200
-                                )
-                            )
-                            .frame(width: 400, height: 400)
-                            .offset(x: geometry.size.width * 0.5, y: geometry.size.height * 0.4)
-                            .blur(radius: 40)
-                    }
-                }
-            }
-            .ignoresSafeArea()
+            // Clean gray background (Next.js style)
+            Color(red: 0.96, green: 0.96, blue: 0.96)
+                .ignoresSafeArea()
             
             VStack(spacing: 0) {
                 // Offline banner
@@ -173,7 +246,14 @@ struct BereanAIAssistantView: View {
                     ScrollView {
                         GeometryReader { geometry in
                             // Track scroll position for smart scrolling
-                            Color.clear.preference(key: ScrollOffsetPreferenceKey.self, value: geometry.frame(in: .named("scroll")).minY)
+                            let offset = geometry.frame(in: .named("scroll")).minY
+                            Color.clear.preference(key: ScrollOffsetPreferenceKey.self, value: offset)
+                                .onAppear {
+                                    scrollViewOffset = offset
+                                }
+                                .onChange(of: offset) { _, newValue in
+                                    scrollViewOffset = abs(newValue)
+                                }
                         }
                         .frame(height: 0)
                         
@@ -217,7 +297,7 @@ struct BereanAIAssistantView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.top, 20)
-                        .padding(.bottom, 80) // Reduced space for smaller floating input bar
+                        .padding(.bottom, 120) // ✅ Increased space for input bar + contextual suggestions
                     }
                     .refreshable {
                         await refreshConversation()
@@ -349,7 +429,7 @@ struct BereanAIAssistantView: View {
         // ✅ Report Issue
         .sheet(isPresented: $showReportIssue) {
             if let message = messageToReport {
-                ReportIssueView(message: message, isPresented: $showReportIssue)
+                BereanReportIssueView(message: message, isPresented: $showReportIssue)
             }
         }
         .sheet(isPresented: $showPremiumUpgrade) {
@@ -365,9 +445,69 @@ struct BereanAIAssistantView: View {
         .sheet(isPresented: $showScriptureAnalyzer) {
             ScriptureAnalyzerView()
         }
+        // ✅ Plus Menu
+        .overlay {
+            if showPlusMenu {
+                BereanPlusMenu(
+                    isShowing: $showPlusMenu,
+                    onImageUpload: {
+                        showImagePicker = true
+                    },
+                    onBibleSearch: {
+                        messageText = "Search for "
+                        isInputFocused = true
+                    },
+                    onSmartFeatures: {
+                        showSmartFeatures = true
+                    },
+                    onSavedPrompts: {
+                        // Show saved prompts
+                        print("Saved prompts tapped")
+                    }
+                )
+                .transition(.asymmetric(
+                    insertion: .move(edge: .bottom).combined(with: .opacity),
+                    removal: .move(edge: .bottom).combined(with: .opacity)
+                ))
+                .zIndex(1000)
+            }
+        }
+        // ✅ Image Picker
+        .sheet(isPresented: $showImagePicker) {
+            BereanImagePicker(selectedImage: $selectedImage)
+        }
+        .onChange(of: selectedImage) { _, newImage in
+            if let image = newImage {
+                handleImageUpload(image)
+            }
+        }
+        // ✅ Verse Detail
+        .sheet(isPresented: $showVerseDetail) {
+            if let verse = selectedVerse {
+                VerseDetailView(verseReference: verse)
+            }
+        }
         .onAppear {
             checkOnboardingStatus()
             setupKeyboardObservers()
+            // Initialize speech recognizer
+            speechRecognizer = SpeechRecognitionService()
+            
+            // Show long press hint for first-time users
+            if !hasSeenLongPressHint {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                        showFirstTimeLongPressHint = true
+                    }
+                    
+                    // Auto-hide hint after 5 seconds
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
+                        withAnimation(.easeOut(duration: 0.3)) {
+                            showFirstTimeLongPressHint = false
+                        }
+                    }
+                }
+            }
         }
         .onDisappear {
             removeKeyboardObservers()
@@ -472,21 +612,28 @@ struct BereanAIAssistantView: View {
     private var headerView: some View {
         VStack(spacing: 0) {
             HStack(spacing: 12) {
-                closeButton
-                
-                bereanBranding
+                // Close button - hides when scrolled
+                if !shouldCollapseBibleIcon || !viewModel.messages.isEmpty {
+                    closeButton
+                        .transition(.opacity.combined(with: .scale))
+                }
                 
                 Spacer()
                 
-                smartFeaturesButton
-                
-                premiumBadgeButton
+                // ✅ Next.js-style "By AMEN" badge
+                if !shouldCollapseBibleIcon || !viewModel.messages.isEmpty {
+                    Text("By AMEN")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.black.opacity(0.6))
+                        .transition(.opacity)
+                }
                 
                 settingsMenuButton
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 16)
-            .background(headerBackground)
+            .background(Color(red: 0.96, green: 0.96, blue: 0.96))
+            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: shouldCollapseBibleIcon)
         }
     }
     
@@ -497,13 +644,13 @@ struct BereanAIAssistantView: View {
             }
         } label: {
             Image(systemName: "xmark")
-                .font(.system(size: 15, weight: .medium))
-                .foregroundStyle(Color(white: 0.3))
-                .frame(width: 32, height: 32)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(.black.opacity(0.6))
+                .frame(width: 36, height: 36)
                 .background(
                     Circle()
-                        .fill(Color.white.opacity(0.6))
-                        .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
+                        .fill(.white)
+                        .shadow(color: .black.opacity(0.08), radius: 4, y: 2)
                 )
         }
     }
@@ -751,15 +898,92 @@ struct BereanAIAssistantView: View {
                 Label("Clear All Data", systemImage: "trash")
             }
         } label: {
-            Image(systemName: "ellipsis")
-                .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(Color(white: 0.4))
-                .frame(width: 32, height: 32)
-                .background(
+            ZStack(alignment: .topTrailing) {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(.black.opacity(0.6))
+                    .frame(width: 36, height: 36)
+                    .background(
+                        Circle()
+                            .fill(.white)
+                            .shadow(color: .black.opacity(0.08), radius: 4, y: 2)
+                    )
+                    .scaleEffect(quickActionButtonScale)
+                    .animation(.spring(response: 0.3, dampingFraction: 0.6), value: quickActionButtonScale)
+                
+                // First-time hint badge
+                if showFirstTimeLongPressHint {
                     Circle()
-                        .fill(Color.white.opacity(0.6))
-                        .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
+                        .fill(
+                            LinearGradient(
+                                colors: [Color(red: 1.0, green: 0.6, blue: 0.4), Color(red: 0.6, green: 0.5, blue: 0.9)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 8, height: 8)
+                        .offset(x: -4, y: 4)
+                        .transition(.scale.combined(with: .opacity))
+                }
+            }
+        }
+        .simultaneousGesture(
+            LongPressGesture(minimumDuration: 0.3)
+                .onChanged { _ in
+                    // Immediate haptic feedback
+                    let haptic = UIImpactFeedbackGenerator(style: .medium)
+                    haptic.impactOccurred()
+                    
+                    withAnimation(.spring(response: 0.2, dampingFraction: 0.7)) {
+                        quickActionButtonScale = 0.85
+                    }
+                }
+                .onEnded { _ in
+                    // Success haptic
+                    let haptic = UINotificationFeedbackGenerator()
+                    haptic.notificationOccurred(.success)
+                    
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                        quickActionButtonScale = 1.0
+                        showQuickActions = true
+                        showFirstTimeLongPressHint = false
+                    }
+                    
+                    // Mark hint as seen
+                    if !hasSeenLongPressHint {
+                        hasSeenLongPressHint = true
+                    }
+                }
+        )
+        .overlay(alignment: .topTrailing) {
+            if showQuickActions {
+                BereanQuickActionsMenu(
+                    isShowing: $showQuickActions,
+                    onNewConversation: {
+                        showQuickActions = false
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                            showNewConversationAlert = true
+                        }
+                    },
+                    onSavedMessages: {
+                        showQuickActions = false
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                            showSavedMessages = true
+                        }
+                    },
+                    onHistory: {
+                        showQuickActions = false
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                            showHistoryView = true
+                        }
+                    }
                 )
+                .transition(.asymmetric(
+                    insertion: .scale(scale: 0.8, anchor: .topTrailing).combined(with: .opacity),
+                    removal: .scale(scale: 0.8, anchor: .topTrailing).combined(with: .opacity)
+                ))
+                .zIndex(1000)
+            }
         }
     }
     
@@ -781,126 +1005,175 @@ struct BereanAIAssistantView: View {
     // MARK: - Welcome Section
     
     private var welcomeSection: some View {
-        VStack(spacing: 32) {
-            // Minimal Animated Icon
-            ZStack {
-                // Soft gradient rings
-                ForEach(0..<2) { index in
-                    Circle()
-                        .stroke(
-                            LinearGradient(
-                                colors: [
-                                    Color(red: 1.0, green: 0.7, blue: 0.5).opacity(0.15),
-                                    Color(red: 0.6, green: 0.5, blue: 0.9).opacity(0.1)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1
-                        )
-                        .frame(width: 70 + CGFloat(index * 30), height: 70 + CGFloat(index * 30))
-                        .scaleEffect(1.0 + CGFloat(index) * 0.05)
-                }
-                
-                // Central glow
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [
-                                Color(red: 1.0, green: 0.7, blue: 0.5).opacity(0.2),
-                                Color(red: 0.6, green: 0.5, blue: 0.9).opacity(0.1),
-                                Color.clear
-                            ],
-                            center: .center,
-                            startRadius: 10,
-                            endRadius: 40
-                        )
-                    )
-                    .frame(width: 70, height: 70)
-                
-                // Icon
-                Image(systemName: "sparkles")
-                    .font(.system(size: 28, weight: .ultraLight))
-                    .foregroundStyle(Color(white: 0.3))
-                    .symbolEffect(.pulse.byLayer)
-            }
-            .padding(.top, 60)
+        VStack(spacing: 24) {
+            Spacer().frame(height: shouldCollapseBibleIcon ? 20 : 60)
             
-            VStack(spacing: 16) {
-                Text("Berean AI")
-                    .font(.custom("Georgia", size: 48))
-                    .fontWeight(.light)
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [
-                                Color(white: 0.2),
-                                Color(white: 0.3)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
+            // Animated Bible icon - collapses on scroll
+            if !shouldCollapseBibleIcon {
+                ZStack {
+                    // Pulsing glow
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [
+                                    Color.black.opacity(0.08),
+                                    Color.black.opacity(0.02),
+                                    Color.clear
+                                ],
+                                center: .center,
+                                startRadius: 20,
+                                endRadius: 50
+                            )
                         )
-                    )
-                    .tracking(1)
-                
-                Text("Your intelligent Bible study companion. Ask questions, explore context, and deepen your understanding of Scripture.")
-                    .font(.system(size: 15, weight: .light))
-                    .foregroundStyle(Color(white: 0.4))
-                    .multilineTextAlignment(.center)
-                    .lineSpacing(8)
-                    .padding(.horizontal, 40)
+                        .frame(width: 100, height: 100)
+                        .scaleEffect(bibleIconScale)
+                    
+                    Image(systemName: "book.closed.fill")
+                        .font(.system(size: 48, weight: .bold))
+                        .foregroundStyle(.black)
+                        .rotationEffect(.degrees(bibleIconRotation))
+                }
+                .opacity(bibleIconOpacity)
+                .scaleEffect(bibleIconScale)
+                .onAppear {
+                    // Subtle entrance animation
+                    withAnimation(.spring(response: 0.8, dampingFraction: 0.6)) {
+                        bibleIconOpacity = 1.0
+                        bibleIconScale = 1.0
+                    }
+                    
+                    // Continuous breathing animation
+                    withAnimation(
+                        .easeInOut(duration: 3.0)
+                        .repeatForever(autoreverses: true)
+                    ) {
+                        bibleIconRotation = 2
+                    }
+                }
+                .transition(.scale.combined(with: .opacity))
             }
+            
+            // Title
+            VStack(spacing: 12) {
+                HStack(spacing: 0) {
+                    Text("BEREAN")
+                        .font(.system(size: shouldCollapseBibleIcon ? 32 : 52, weight: .bold, design: .default))
+                        .foregroundStyle(.black)
+                    
+                    Text("AI")
+                        .font(.system(size: shouldCollapseBibleIcon ? 18 : 28, weight: .light, design: .rounded))
+                        .foregroundStyle(.black.opacity(0.6))
+                        .padding(.leading, 4)
+                }
+                .tracking(-1.5)
+                
+                if !shouldCollapseBibleIcon {
+                    // "How can I help you today?" - ChatGPT style
+                    VStack(spacing: 8) {
+                        Text("How can I help you today?")
+                            .font(.system(size: 17, weight: .medium))
+                            .foregroundStyle(.black.opacity(0.8))
+                            .multilineTextAlignment(.center)
+                        
+                        // Rotating welcome texts (secondary)
+                        Text(welcomeTexts[currentWelcomeTextIndex])
+                            .font(.system(size: 14, weight: .regular))
+                            .foregroundStyle(.black.opacity(0.45))
+                            .multilineTextAlignment(.center)
+                            .transition(.opacity)
+                            .id(currentWelcomeTextIndex)
+                    }
+                }
+            }
+            .animation(.spring(response: 0.4, dampingFraction: 0.8), value: shouldCollapseBibleIcon)
+        }
+        .onAppear {
+            startWelcomeTextRotation()
         }
     }
     
     // MARK: - Quick Actions
     
     private var quickActionsSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Quick Actions")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(Color(white: 0.45))
-                .textCase(.uppercase)
-                .tracking(2)
+        LazyVGrid(
+            columns: [
+                GridItem(.flexible(), spacing: 8),
+                GridItem(.flexible(), spacing: 8)
+            ],
+            spacing: 8
+        ) {
+            // Top left - Soft blue grainy gradient (inspired by modern design)
+            SquareActionCard(
+                icon: "book.closed.fill",
+                title: "Study Passage",
+                gradient: LinearGradient(
+                    colors: [
+                        Color(red: 0.68, green: 0.85, blue: 0.90),  // Soft blue
+                        Color(red: 0.80, green: 0.90, blue: 0.92),  // Light blue
+                        Color(red: 0.88, green: 0.93, blue: 0.95)   // Very light blue
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ),
+                textColor: Color.white
+            ) {
+                messageText = "Help me study "
+                isInputFocused = true
+            }
             
-            LazyVGrid(columns: [
-                GridItem(.flexible(), spacing: 12),
-                GridItem(.flexible(), spacing: 12)
-            ], spacing: 12) {
-                BereanQuickActionCard(
-                    icon: "book.closed.fill",
-                    title: "Study Passage",
-                    color: Color(red: 0.5, green: 0.6, blue: 0.9)
-                ) {
-                    messageText = "Help me study "
-                    isInputFocused = true
-                }
-                
-                BereanQuickActionCard(
-                    icon: "lightbulb.fill",
-                    title: "Explain Verse",
-                    color: Color(red: 1.0, green: 0.7, blue: 0.5)
-                ) {
-                    messageText = "Explain "
-                    isInputFocused = true
-                }
-                
-                BereanQuickActionCard(
-                    icon: "doc.text.fill",
-                    title: "Compare",
-                    color: Color(red: 0.95, green: 0.7, blue: 0.6)
-                ) {
-                    sendMessage("Compare Bible translations for a verse")
-                }
-                
-                BereanQuickActionCard(
-                    icon: "map.fill",
-                    title: "Context",
-                    color: Color(red: 0.6, green: 0.5, blue: 0.8)
-                ) {
-                    sendMessage("Tell me about Biblical context")
-                }
+            // Top right - Orange gradient
+            SquareActionCard(
+                icon: "lightbulb.fill",
+                title: "Explain Verse",
+                gradient: LinearGradient(
+                    colors: [
+                        Color(red: 1.0, green: 0.5, blue: 0.4).opacity(0.15),
+                        Color(red: 1.0, green: 0.6, blue: 0.5).opacity(0.05)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ),
+                textColor: Color(red: 1.0, green: 0.5, blue: 0.4)
+            ) {
+                messageText = "Explain "
+                isInputFocused = true
+            }
+            
+            // Bottom left - Peach gradient
+            SquareActionCard(
+                icon: "doc.text.fill",
+                title: "Compare Translations",
+                gradient: LinearGradient(
+                    colors: [
+                        Color(red: 0.95, green: 0.7, blue: 0.6).opacity(0.15),
+                        Color(red: 1.0, green: 0.8, blue: 0.7).opacity(0.05)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ),
+                textColor: Color(red: 0.95, green: 0.6, blue: 0.5)
+            ) {
+                sendMessage("Compare Bible translations for a verse")
+            }
+            
+            // Bottom right - Purple gradient
+            SquareActionCard(
+                icon: "map.fill",
+                title: "Historical Context",
+                gradient: LinearGradient(
+                    colors: [
+                        Color(red: 0.6, green: 0.5, blue: 0.8).opacity(0.15),
+                        Color(red: 0.7, green: 0.6, blue: 0.9).opacity(0.05)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ),
+                textColor: Color(red: 0.6, green: 0.5, blue: 0.8)
+            ) {
+                sendMessage("Tell me about Biblical context")
             }
         }
+        .padding(.horizontal, 40)
         .padding(.top, 20)
     }
     
@@ -913,6 +1186,7 @@ struct BereanAIAssistantView: View {
                 .foregroundStyle(Color(white: 0.45))
                 .textCase(.uppercase)
                 .tracking(2)
+                .padding(.horizontal, 20)
             
             VStack(spacing: 8) {
                 ForEach(viewModel.suggestedPrompts, id: \.self) { prompt in
@@ -921,17 +1195,31 @@ struct BereanAIAssistantView: View {
                     }
                 }
             }
+            .padding(.horizontal, 20)
         }
         .padding(.top, 24)
+        .padding(.bottom, 32)
     }
     
     // MARK: - Input Bar (Glassmorphic - Bottom Fixed)
     
     private var inputBarView: some View {
         VStack(spacing: 0) {
+            // ✅ Smart Contextual Suggestions (ChatGPT-style)
+            if showContextualSuggestions && !contextualSuggestions.isEmpty && viewModel.messages.isEmpty {
+                contextualSuggestionsView
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+            
+            // ✅ Response Mode Picker (collapsed by default)
+            if viewModel.messages.isEmpty || isGenerating {
+                responseModePickerView
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+            
             // Compact glassmorphic pill - smaller and closer to bottom
             HStack(alignment: .center, spacing: 12) {
-                // Plus button (left side) - WHITE/LIGHT - Smaller
+                // Plus button (left side) - BLACK - Smaller
                 Button {
                     let haptic = UIImpactFeedbackGenerator(style: .light)
                     haptic.impactOccurred()
@@ -939,7 +1227,7 @@ struct BereanAIAssistantView: View {
                 } label: {
                     Image(systemName: "plus.circle.fill")
                         .font(.system(size: 22, weight: .regular))
-                        .foregroundStyle(.white.opacity(0.9))
+                        .foregroundStyle(.black)
                         .frame(width: 36, height: 36)
                         .contentShape(Circle())
                 }
@@ -972,22 +1260,119 @@ struct BereanAIAssistantView: View {
         return window.safeAreaInsets.bottom
     }
     
-    private var textInputFieldGlassmorphic: some View {
-        TextField("Ask AI", text: $messageText, axis: .vertical)
-            .font(.system(size: 13, weight: .regular))
-            .foregroundStyle(.black)
-            .lineLimit(1...1)
-            .focused($isInputFocused)
-            .disabled(isGenerating)
-            .tint(.black)
-            .onSubmit {
-                if !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    sendMessage(messageText)
+    // ✅ Response Mode Picker View
+    private var responseModePickerView: some View {
+        HStack(spacing: 8) {
+            ForEach(BereanResponseMode.allCases, id: \.self) { mode in
+                Button {
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        responseMode = mode
+                    }
+                    let haptic = UIImpactFeedbackGenerator(style: .light)
+                    haptic.impactOccurred()
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: mode.icon)
+                            .font(.system(size: 10, weight: .medium))
+                        Text(mode.rawValue)
+                            .font(.system(size: 11, weight: .medium))
+                    }
+                    .foregroundStyle(responseMode == mode ? .white : .black.opacity(0.6))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(
+                        Capsule()
+                            .fill(responseMode == mode ? mode.color : Color.white.opacity(0.5))
+                    )
                 }
             }
-            .submitLabel(.send)
-            .frame(maxWidth: .infinity)
-            .accessibilityLabel("Message input field")
+        }
+        .padding(.horizontal, 12)
+        .padding(.bottom, 6)
+    }
+    
+    private var textInputFieldGlassmorphic: some View {
+        HStack(spacing: 8) {
+            TextField("Ask me anything about the Bible...", text: $messageText, axis: .vertical)
+                .font(.system(size: 13, weight: .regular))
+                .foregroundStyle(.black)
+                .lineLimit(1...1)
+                .focused($isInputFocused)
+                .disabled(isGenerating)
+                .tint(.black)
+                .onSubmit {
+                    if !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        sendMessage(messageText)
+                    }
+                }
+                .submitLabel(.send)
+                .accessibilityLabel("Message input field")
+                .onChange(of: messageText) { _, newValue in
+                    // ✅ Generate contextual suggestions as user types
+                    isTyping = !newValue.isEmpty
+                    generateContextualSuggestions(for: newValue)
+                }
+            
+            // ✅ Smart typing indicator (subtle)
+            if isTyping && showContextualSuggestions {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [.purple.opacity(0.6), .blue.opacity(0.6)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .symbolEffect(.pulse, options: .repeating)
+                    .transition(.scale.combined(with: .opacity))
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+    
+    // ✅ Contextual Suggestions View (ChatGPT-style smart questions)
+    private var contextualSuggestionsView: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(contextualSuggestions, id: \.self) { suggestion in
+                Button {
+                    messageText = suggestion
+                    isInputFocused = true
+                    // Hide suggestions after selection
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        showContextualSuggestions = false
+                    }
+                    let haptic = UIImpactFeedbackGenerator(style: .light)
+                    haptic.impactOccurred()
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(.black.opacity(0.5))
+                        
+                        Text(suggestion)
+                            .font(.system(size: 13, weight: .regular))
+                            .foregroundStyle(.black.opacity(0.8))
+                            .multilineTextAlignment(.leading)
+                        
+                        Spacer()
+                        
+                        Image(systemName: "arrow.up.forward")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(.black.opacity(0.3))
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(.white)
+                            .shadow(color: .black.opacity(0.06), radius: 4, y: 2)
+                    )
+                }
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.bottom, 8)
     }
     
     @ViewBuilder
@@ -1134,34 +1519,62 @@ struct BereanAIAssistantView: View {
     
     /// Handle plus button tap (add attachments/options)
     private func handlePlusButtonTap() {
-        // Production-ready: Show action sheet for attachment options
         #if DEBUG
         print("➕ Plus button tapped - Show attachment options")
         #endif
         
-        // Future: Show action sheet with options like:
-        // - Upload image
-        // - Search Bible passage
-        // - Smart features
-        // - Saved prompts
+        // Show quick actions menu
+        withAnimation(.easeOut(duration: 0.2)) {
+            showPlusMenu = true
+        }
     }
     
     /// Handle voice button tap (start/stop voice input)
     private func handleVoiceButtonTap() {
-        withAnimation(.easeOut(duration: 0.2)) {
-            isVoiceListening.toggle()
-        }
-        
-        #if DEBUG
-        print(isVoiceListening ? "🎤 Voice listening started" : "🎤 Voice listening stopped")
-        #endif
-        
-        // Production-ready: Integrate with Speech framework
-        if isVoiceListening {
-            // Start speech recognition
-            // Future: Use SFSpeechRecognizer
-        } else {
-            // Stop speech recognition
+        Task {
+            guard let recognizer = speechRecognizer else { return }
+            
+            if isVoiceListening {
+                // Stop recording
+                recognizer.stopRecording()
+                
+                await MainActor.run {
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        isVoiceListening = false
+                    }
+                    
+                    // Use transcribed text
+                    if !recognizer.transcribedText.isEmpty {
+                        messageText = recognizer.transcribedText
+                    }
+                }
+            } else {
+                // Request authorization
+                let authorized = await recognizer.requestAuthorization()
+                
+                guard authorized else {
+                    await MainActor.run {
+                        showError = .unknown("Speech recognition permission denied. Please enable in Settings.")
+                        showErrorBanner = true
+                    }
+                    return
+                }
+                
+                // Start recording
+                do {
+                    try recognizer.startRecording()
+                    await MainActor.run {
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            isVoiceListening = true
+                        }
+                    }
+                } catch {
+                    await MainActor.run {
+                        showError = .unknown("Failed to start voice input: \(error.localizedDescription)")
+                        showErrorBanner = true
+                    }
+                }
+            }
         }
     }
     
@@ -1324,21 +1737,42 @@ struct BereanAIAssistantView: View {
         print("✅ All data cleared successfully")
     }
     
+    /// Handle image upload for OCR/analysis
+    private func handleImageUpload(_ image: UIImage) {
+        // In production: Use Vision API for OCR
+        // For now, prompt user to describe the image
+        messageText = "I've uploaded an image. "
+        isInputFocused = true
+        
+        let haptic = UINotificationFeedbackGenerator()
+        haptic.notificationOccurred(.success)
+        
+        print("📸 Image uploaded - ready for analysis")
+    }
+    
+    /// Handle verse reference tap to show full verse
+    func handleVerseTap(_ reference: String) {
+        selectedVerse = reference
+        showVerseDetail = true
+    }
+    
     /// Stop AI generation
     private func stopGeneration() {
-        withAnimation(.easeOut(duration: 0.2)) {
-            isGenerating = false
-            isThinking = false
+        Task { @MainActor in
+            withAnimation(.easeOut(duration: 0.2)) {
+                isGenerating = false
+                isThinking = false
+            }
+            
+            viewModel.stopGeneration()
+            
+            // Haptic feedback
+            let haptic = UINotificationFeedbackGenerator()
+            haptic.notificationOccurred(.warning)
+            
+            // Dismiss keyboard
+            isInputFocused = false
         }
-        
-        viewModel.stopGeneration()
-        
-        // Haptic feedback
-        let haptic = UINotificationFeedbackGenerator()
-        haptic.notificationOccurred(.warning)
-        
-        // Dismiss keyboard
-        isInputFocused = false
     }
     
     private func sendMessage(_ text: String, isRetry: Bool = false) {
@@ -1349,7 +1783,7 @@ struct BereanAIAssistantView: View {
             return
         }
         
-        // ✅ P0-1: Duplicate message protection with debounce
+        // ✅ P0-1: Enhanced duplicate protection with request ID
         if !isRetry {
             // Check if this is a duplicate of the last sent message
             if trimmedText == lastSentMessageText {
@@ -1367,6 +1801,12 @@ struct BereanAIAssistantView: View {
         // ✅ P0-2: Prevent sending if already generating
         guard !isGenerating else {
             print("⚠️ Already generating response, ignoring new message")
+            return
+        }
+        
+        // ✅ Check if there's a pending request in the ViewModel
+        guard viewModel.pendingRequestId == nil else {
+            print("⚠️ Request already in flight, ignoring duplicate")
             return
         }
         
@@ -1428,7 +1868,8 @@ struct BereanAIAssistantView: View {
         )
         
         withAnimation(.easeOut(duration: 0.25)) {
-            viewModel.messages.append(userMessage)
+            // ✅ P0-5: Use appendMessage instead of direct append
+            viewModel.appendMessage(userMessage)
             messageText = ""
             showSuggestions = false
             isThinking = true
@@ -1448,14 +1889,20 @@ struct BereanAIAssistantView: View {
         
         // Add placeholder immediately so user sees thinking indicator
         withAnimation(.easeOut(duration: 0.25)) {
-            viewModel.messages.append(placeholderMessage)
+            // ✅ P0-5: Use appendMessage for placeholder
+            viewModel.appendMessage(placeholderMessage)
         }
+        
+        // ✅ P0-1: Generate unique request ID for idempotency
+        let requestId = UUID()
         
         // Call Genkit with streaming and comprehensive error handling
         viewModel.generateResponseStreaming(
             for: trimmedText,
+            requestId: requestId,  // ✅ Pass request ID
+            responseMode: responseMode,  // ✅ Pass response mode for cost control
             onChunk: { chunk in
-                // Update the last message with new chunk
+                // ✅ P1-1: Update UI efficiently (SwiftUI will batch updates automatically)
                 if let lastIndex = viewModel.messages.lastIndex(where: { $0.role == .assistant }) {
                     let existingMessage = viewModel.messages[lastIndex]
                     let updatedMessage = BereanMessage(
@@ -1469,121 +1916,125 @@ struct BereanAIAssistantView: View {
             },
             onComplete: { finalMessage in
                 // ✅ P0-5: Preserve message ID during streaming completion
-                if let lastIndex = viewModel.messages.lastIndex(where: { $0.role == .assistant }) {
-                    let existingId = viewModel.messages[lastIndex].id
-                    let preservedMessage = BereanMessage(
-                        id: existingId,  // Preserve the original ID
-                        content: finalMessage.content,
-                        role: finalMessage.role,
-                        timestamp: finalMessage.timestamp,
-                        verseReferences: finalMessage.verseReferences
-                    )
-                    viewModel.messages[lastIndex] = preservedMessage
-                }
-                
-                // ✅ Track usage for free tier users
-                premiumManager.incrementMessageCount()
-                print("📊 Message count updated: \(premiumManager.freeMessagesUsed)/\(premiumManager.FREE_MESSAGES_PER_DAY)")
-                
-                withAnimation(.easeOut(duration: 0.3)) {
-                    isThinking = false
-                    isGenerating = false  // ✅ Clear generating state
-                }
-                
-                // ✅ P0-6: Auto-save conversation after successful message
-                if viewModel.messages.count >= 2 {  // At least one exchange
-                    Task {
-                        await MainActor.run {
-                            viewModel.saveCurrentConversation()
+                Task { @MainActor in
+                    if let lastIndex = viewModel.messages.lastIndex(where: { $0.role == .assistant }) {
+                        let existingId = viewModel.messages[lastIndex].id
+                        let preservedMessage = BereanMessage(
+                            id: existingId,  // Preserve the original ID
+                            content: finalMessage.content,
+                            role: finalMessage.role,
+                            timestamp: finalMessage.timestamp,
+                            verseReferences: finalMessage.verseReferences
+                        )
+                        viewModel.messages[lastIndex] = preservedMessage
+                    }
+                    
+                    // ✅ Track usage for free tier users
+                    premiumManager.incrementMessageCount()
+                    print("📊 Message count updated: \(premiumManager.freeMessagesUsed)/\(premiumManager.FREE_MESSAGES_PER_DAY)")
+                    
+                    withAnimation(.easeOut(duration: 0.3)) {
+                        isThinking = false
+                        isGenerating = false  // ✅ Clear generating state
+                    }
+                    
+                    // ✅ P0-6: Auto-save conversation after successful message
+                    if viewModel.messages.count >= 2 {  // At least one exchange
+                        Task {
+                            await MainActor.run {
+                                viewModel.saveCurrentConversation()
+                            }
                         }
                     }
-                }
-                
-                // ✅ Reset retry counter on success
-                retryAttempts = 0
-                lastFailedMessageText = ""
-                
-                // ✅ Performance monitoring: Track response time
-                if let startTime = performanceMetrics.lastRequestStartTime {
-                    let responseTime = Date().timeIntervalSince(startTime)
-                    performanceMetrics.messageCount += 1
-                    performanceMetrics.totalResponseTime += responseTime
-                    performanceMetrics.fastestResponse = min(performanceMetrics.fastestResponse, responseTime)
-                    performanceMetrics.slowestResponse = max(performanceMetrics.slowestResponse, responseTime)
                     
-                    print("⚡ Performance: Response time: \(String(format: "%.2f", responseTime))s | Avg: \(String(format: "%.2f", performanceMetrics.averageResponseTime))s | Fastest: \(String(format: "%.2f", performanceMetrics.fastestResponse))s | Slowest: \(String(format: "%.2f", performanceMetrics.slowestResponse))s")
+                    // ✅ Reset retry counter on success
+                    retryAttempts = 0
+                    lastFailedMessageText = ""
                     
-                    // ✅ Log warning if response is slow (> 5s)
-                    if responseTime > 5.0 {
-                        print("⚠️ Slow response detected: \(String(format: "%.2f", responseTime))s")
+                    // ✅ Performance monitoring: Track response time
+                    if let startTime = performanceMetrics.lastRequestStartTime {
+                        let responseTime = Date().timeIntervalSince(startTime)
+                        performanceMetrics.messageCount += 1
+                        performanceMetrics.totalResponseTime += responseTime
+                        performanceMetrics.fastestResponse = min(performanceMetrics.fastestResponse, responseTime)
+                        performanceMetrics.slowestResponse = max(performanceMetrics.slowestResponse, responseTime)
+                        
+                        print("⚡ Performance: Response time: \(String(format: "%.2f", responseTime))s | Avg: \(String(format: "%.2f", performanceMetrics.averageResponseTime))s | Fastest: \(String(format: "%.2f", performanceMetrics.fastestResponse))s | Slowest: \(String(format: "%.2f", performanceMetrics.slowestResponse))s")
+                        
+                        // ✅ Log warning if response is slow (> 5s)
+                        if responseTime > 5.0 {
+                            print("⚠️ Slow response detected: \(String(format: "%.2f", responseTime))s")
+                        }
                     }
+                    
+                    // Success haptic
+                    let successHaptic = UINotificationFeedbackGenerator()
+                    successHaptic.notificationOccurred(.success)
+                    
+                    print("✅ Message sent and response received successfully")
                 }
-                
-                // Success haptic
-                let successHaptic = UINotificationFeedbackGenerator()
-                successHaptic.notificationOccurred(.success)
-                
-                print("✅ Message sent and response received successfully")
             },
             onError: { error in
-                print("❌ Error generating response: \(error.localizedDescription)")
-                
-                // ✅ P0-4: Preserve failed message for retry
-                lastFailedMessageText = trimmedText
-                
-                // Remove the placeholder message on error
-                if let lastIndex = viewModel.messages.lastIndex(where: { $0.role == .assistant }),
-                   viewModel.messages[lastIndex].content.isEmpty {
-                    viewModel.messages.remove(at: lastIndex)
-                }
-                
-                withAnimation(.easeOut(duration: 0.3)) {
-                    isThinking = false
-                    isGenerating = false  // ✅ Clear generating state
-                }
-                
-                // ✅ Enhanced error handling with specific user-friendly messages
-                let bereanError: BereanError
-                if let openAIError = error as? OpenAIError {
-                    switch openAIError {
-                    case .missingAPIKey:
-                        bereanError = .unknown("API key configuration error. Please check your settings.")
-                    case .invalidResponse:
-                        bereanError = .invalidResponse
-                    case .httpError(let statusCode):
-                        switch statusCode {
-                        case 401, 403:
-                            bereanError = .unknown("Authentication failed. Please check your API key in settings.")
-                        case 429:
-                            bereanError = .rateLimitExceeded
-                        case 500...599:
-                            bereanError = .unknown("Server error. The AI service is experiencing issues. Please try again in a moment.")
-                        default:
-                            bereanError = .unknown("Server error (\(statusCode)). Please try again.")
+                Task { @MainActor in
+                    print("❌ Error generating response: \(error.localizedDescription)")
+                    
+                    // ✅ P0-4: Preserve failed message for retry
+                    lastFailedMessageText = trimmedText
+                    
+                    // Remove the placeholder message on error
+                    if let lastIndex = viewModel.messages.lastIndex(where: { $0.role == .assistant }),
+                       viewModel.messages[lastIndex].content.isEmpty {
+                        viewModel.messages.remove(at: lastIndex)
+                    }
+                    
+                    withAnimation(.easeOut(duration: 0.3)) {
+                        isThinking = false
+                        isGenerating = false  // ✅ Clear generating state
+                    }
+                    
+                    // ✅ Enhanced error handling with specific user-friendly messages
+                    let bereanError: BereanError
+                    if let openAIError = error as? OpenAIError {
+                        switch openAIError {
+                        case .missingAPIKey:
+                            bereanError = .unknown("API key configuration error. Please check your settings.")
+                        case .invalidResponse:
+                            bereanError = .invalidResponse
+                        case .httpError(let statusCode):
+                            switch statusCode {
+                            case 401, 403:
+                                bereanError = .unknown("Authentication failed. Please check your API key in settings.")
+                            case 429:
+                                bereanError = .rateLimitExceeded
+                            case 500...599:
+                                bereanError = .unknown("Server error. The AI service is experiencing issues. Please try again in a moment.")
+                            default:
+                                bereanError = .unknown("Server error (\(statusCode)). Please try again.")
+                            }
                         }
+                    } else if let urlError = error as? URLError {
+                        switch urlError.code {
+                        case .notConnectedToInternet, .networkConnectionLost:
+                            bereanError = .networkUnavailable
+                        case .timedOut:
+                            bereanError = .unknown("Request timed out. The AI is taking too long to respond. Try a shorter question.")
+                        case .cannotFindHost, .cannotConnectToHost:
+                            bereanError = .unknown("Cannot connect to AI service. Please check your internet connection.")
+                        default:
+                            bereanError = .unknown("Network error: \(urlError.localizedDescription)")
+                        }
+                    } else {
+                        bereanError = .aiServiceUnavailable
                     }
-                } else if let urlError = error as? URLError {
-                    switch urlError.code {
-                    case .notConnectedToInternet, .networkConnectionLost:
-                        bereanError = .networkUnavailable
-                    case .timedOut:
-                        bereanError = .unknown("Request timed out. The AI is taking too long to respond. Try a shorter question.")
-                    case .cannotFindHost, .cannotConnectToHost:
-                        bereanError = .unknown("Cannot connect to AI service. Please check your internet connection.")
-                    default:
-                        bereanError = .unknown("Network error: \(urlError.localizedDescription)")
-                    }
-                } else {
-                    bereanError = .aiServiceUnavailable
+                    
+                    // Show error
+                    showError = bereanError
+                    showErrorBanner = true
+                    
+                    // Error haptic
+                    let errorHaptic = UINotificationFeedbackGenerator()
+                    errorHaptic.notificationOccurred(.error)
                 }
-                
-                // Show error
-                showError = bereanError
-                showErrorBanner = true
-                
-                // Error haptic
-                let errorHaptic = UINotificationFeedbackGenerator()
-                errorHaptic.notificationOccurred(.error)
             }
         )
     }
@@ -1665,6 +2116,76 @@ struct BereanQuickActionCard: View {
         .buttonStyle(PlainButtonStyle())
         .onLongPressGesture(minimumDuration: .infinity, maximumDistance: .infinity, pressing: { pressing in
             withAnimation(.smooth(duration: 0.2)) {
+                isPressed = pressing
+            }
+        }, perform: {})
+    }
+}
+
+// MARK: - Square Action Card
+
+struct SquareActionCard: View {
+    let icon: String
+    let title: String
+    let gradient: LinearGradient
+    let textColor: Color
+    let action: () -> Void
+    
+    @State private var isPressed = false
+    
+    var body: some View {
+        Button {
+            let haptic = UIImpactFeedbackGenerator(style: .light)
+            haptic.impactOccurred()
+            action()
+        } label: {
+            VStack(spacing: 8) {
+                // Icon with subtle shadow
+                Image(systemName: icon)
+                    .font(.system(size: 32, weight: .light))
+                    .foregroundStyle(textColor)
+                    .shadow(color: textColor.opacity(0.3), radius: 4, y: 2)
+                
+                Spacer().frame(height: 4)
+                
+                // Title with elegant typography
+                Text(title)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(textColor)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .aspectRatio(1.0, contentMode: .fit)
+            .padding(16)
+            .background(
+                ZStack {
+                    // Gradient background (no white base for full color)
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(gradient)
+                    
+                    // Subtle noise/grain texture overlay for premium feel
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(
+                            Color.white.opacity(0.05)
+                        )
+                        .blendMode(.overlay)
+                    
+                    // Soft border
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .strokeBorder(
+                            Color.white.opacity(0.3),
+                            lineWidth: 1
+                        )
+                }
+            )
+            .shadow(color: Color.black.opacity(0.08), radius: 12, y: 4)
+            .scaleEffect(isPressed ? 0.96 : 1.0)
+        }
+        .buttonStyle(.plain)
+        .onLongPressGesture(minimumDuration: .infinity, pressing: { pressing in
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
                 isPressed = pressing
             }
         }, perform: {})
@@ -2374,8 +2895,16 @@ class BereanViewModel: ObservableObject {
     private let genkitService = BereanGenkitService.shared
     private var currentTask: Task<Void, Never>?  // ✅ Track current generation task
     
+    // ✅ P0-1: Idempotency tracking
+    var pendingRequestId: UUID?
+    private var completedRequestIds: Set<UUID> = []
+    
     // Timeout configuration
     private let requestTimeout: TimeInterval = 60.0  // 60 seconds
+    
+    // ✅ P0-5: Memory management
+    private let maxMessagesInMemory = 100
+    private let maxSavedConversations = 50
     
     // ✅ Available Bible translations
     let availableTranslations = [
@@ -2388,7 +2917,10 @@ class BereanViewModel: ObservableObject {
         "Explain the parable of the prodigal son",
         "What's the historical context of Romans?",
         "Compare translations of Psalm 23",
-        "Tell me about Paul's missionary journeys"
+        "Tell me about Paul's missionary journeys",
+        "What does it mean to have faith like a mustard seed?",
+        "Explain the Sermon on the Mount in simple terms",
+        "How do I apply Proverbs 3:5-6 to my daily life?"
     ]
     
     // Smart features: Conversation topics
@@ -2544,17 +3076,85 @@ class BereanViewModel: ObservableObject {
     func stopGeneration() {
         currentTask?.cancel()
         currentTask = nil
+        pendingRequestId = nil  // ✅ P0-1: Clear pending request
         print("⏸️ Stopped AI generation")
+    }
+    
+    // MARK: - Message Management
+    
+    /// Append message with automatic trimming
+    func appendMessage(_ message: BereanMessage) {
+        messages.append(message)
+        
+        // ✅ P0-5: Trim if exceeds limit
+        if messages.count > maxMessagesInMemory {
+            // Keep first 2 (system context if any) + last 98
+            let systemMessages = messages.prefix(2).filter { $0.role == .system }
+            let recentMessages = messages.suffix(maxMessagesInMemory - systemMessages.count)
+            messages = Array(systemMessages) + recentMessages
+            print("📉 Trimmed conversation history to \(messages.count) messages")
+        }
     }
     
     // MARK: - Generate Response with Genkit AI (Streaming)
     
+    // ✅ P0-2: Query complexity analysis
+    enum QueryComplexity {
+        case simple      // 0-2 messages context
+        case followUp    // 2-4 messages context
+        case study       // 4-6 messages context
+    }
+    
+    private func analyzeQueryComplexity(_ query: String) -> QueryComplexity {
+        let wordCount = query.split(separator: " ").count
+        let queryLower = query.lowercased()
+        
+        // Check for follow-up indicators
+        let followUpWords = ["also", "and", "what about", "tell me more", "continue", "expand", "elaborate"]
+        let hasFollowUpWords = followUpWords.contains { queryLower.contains($0) }
+        
+        // Simple query patterns
+        let simplePatterns = ["what is", "who is", "define", "explain briefly", "what does", "who was"]
+        let isSimplePattern = simplePatterns.contains { queryLower.hasPrefix($0) }
+        
+        if (wordCount < 10 && !hasFollowUpWords) || isSimplePattern {
+            return .simple
+        } else if hasFollowUpWords || wordCount < 25 {
+            return .followUp
+        } else {
+            return .study
+        }
+    }
+    
+    private func selectContextWindow(for complexity: QueryComplexity) -> Int {
+        switch complexity {
+        case .simple: return 2
+        case .followUp: return 4
+        case .study: return 6
+        }
+    }
+    
     func generateResponseStreaming(
         for query: String,
+        requestId: UUID = UUID(),  // ✅ P0-1: Add request ID for idempotency
+        responseMode: BereanResponseMode = .balanced,  // ✅ P0-2: Response mode for cost control
         onChunk: @escaping (String) -> Void,
         onComplete: @escaping (BereanMessage) -> Void,
         onError: @escaping (Error) -> Void
     ) {
+        // ✅ P0-1: Idempotency check
+        guard !completedRequestIds.contains(requestId) else {
+            print("⏭️ Skipping duplicate request: \(requestId)")
+            return
+        }
+        
+        guard pendingRequestId == nil || pendingRequestId == requestId else {
+            print("⚠️ Request already in flight, ignoring duplicate")
+            return
+        }
+        
+        pendingRequestId = requestId
+        
         // Validate input
         guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             print("⚠️ Cannot generate response for empty query")
@@ -2566,25 +3166,39 @@ class BereanViewModel: ObservableObject {
             return
         }
         
-        // ⚡ SPEED OPTIMIZATION: Limit conversation history to last 10 messages
-        // This reduces payload size and AI processing time significantly
-        let recentHistory = Array(messages.suffix(10))
+        // ✅ P0-2: Use response mode context window (more predictable than query complexity)
+        let contextWindow = responseMode.contextWindow
+        let recentHistory = Array(messages.suffix(contextWindow))
+        
+        let savedMessages = max(0, messages.count - contextWindow)
+        print("📊 Context: \(responseMode.rawValue) mode → \(contextWindow) messages (saved ~\(savedMessages) messages)")
         
         // Cancel any existing task
         currentTask?.cancel()
         
         // Create new task with timeout
-        currentTask = Task {
+        currentTask = Task { [weak self] in
+            guard let self = self else { return }
+            
             do {
                 var fullResponse = ""
                 let startTime = Date()
                 
                 // Stream response from Genkit with timeout monitoring
-                // ⚡ Use limited history for faster processing
-                for try await chunk in genkitService.sendMessage(query, conversationHistory: recentHistory) {
+                // ⚡ Use limited history and response mode parameters for cost control
+                for try await chunk in genkitService.sendMessage(
+                    query, 
+                    conversationHistory: recentHistory,
+                    maxTokens: responseMode.maxTokens,
+                    temperature: responseMode.temperature,
+                    systemPromptSuffix: responseMode.systemPromptSuffix
+                ) {
                     // ✅ Check if task was cancelled
                     if Task.isCancelled {
                         print("⏸️ Generation cancelled by user")
+                        await MainActor.run {
+                            self.pendingRequestId = nil
+                        }
                         return
                     }
                     
@@ -2611,12 +3225,18 @@ class BereanViewModel: ObservableObject {
                 // ✅ Check again before completing
                 guard !Task.isCancelled else {
                     print("⏸️ Generation cancelled before completion")
+                    await MainActor.run {
+                        self.pendingRequestId = nil
+                    }
                     return
                 }
                 
                 // Validate response
                 guard !fullResponse.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
                     print("❌ Received empty response from AI")
+                    await MainActor.run {
+                        self.pendingRequestId = nil
+                    }
                     throw NSError(
                         domain: "BereanViewModel",
                         code: -2,
@@ -2624,8 +3244,8 @@ class BereanViewModel: ObservableObject {
                     )
                 }
                 
-                // Create final message with verse references extracted
-                let verseReferences = extractVerseReferences(from: fullResponse)
+                // ✅ P0-4: Extract and validate verse references
+                let verseReferences = extractAndValidateVerseReferences(from: fullResponse)
                 let finalMessage = BereanMessage(
                     content: fullResponse,
                     role: .assistant,
@@ -2633,33 +3253,59 @@ class BereanViewModel: ObservableObject {
                     verseReferences: verseReferences
                 )
                 
+                let duration = Date().timeIntervalSince(startTime)
+                print("✅ Response generation completed in \(String(format: "%.2f", duration))s")
+                print("📊 Context used: \(contextWindow) messages | References found: \(verseReferences.count)")
+                
                 await MainActor.run {
+                    // ✅ P0-1: Mark request as completed
+                    self.completedRequestIds.insert(requestId)
+                    self.pendingRequestId = nil
+                    
+                    // Cleanup old IDs (keep last 50)
+                    if self.completedRequestIds.count > 50 {
+                        let sortedIds = Array(self.completedRequestIds)
+                        self.completedRequestIds = Set(sortedIds.suffix(50))
+                    }
+                    
                     onComplete(finalMessage)
                 }
-                
-                let duration = Date().timeIntervalSince(startTime)
-                print("✅ Response generation completed successfully in \(String(format: "%.2f", duration))s")
                 
             } catch is CancellationError {
                 // Task was cancelled - don't report as error
                 print("⏸️ Generation task cancelled")
+                await MainActor.run {
+                    self.pendingRequestId = nil
+                }
                 return
             } catch let error as OpenAIError {
                 // ✅ Don't show error if cancelled
-                guard !Task.isCancelled else { return }
+                guard !Task.isCancelled else {
+                    await MainActor.run {
+                        self.pendingRequestId = nil
+                    }
+                    return
+                }
                 
                 print("❌ OpenAI error: \(error.localizedDescription)")
                 await MainActor.run {
+                    self.pendingRequestId = nil
                     onError(error)
                 }
                 
                 // ✅ Production: No mock responses - show real errors to users
             } catch {
                 // ✅ Don't show error if cancelled
-                guard !Task.isCancelled else { return }
+                guard !Task.isCancelled else {
+                    await MainActor.run {
+                        self.pendingRequestId = nil
+                    }
+                    return
+                }
                 
                 print("❌ Unexpected error during streaming: \(error.localizedDescription)")
                 await MainActor.run {
+                    self.pendingRequestId = nil
                     onError(error)
                 }
                 
@@ -2668,7 +3314,116 @@ class BereanViewModel: ObservableObject {
         }
     }
     
-    // MARK: - Helper: Extract Verse References
+    // MARK: - Helper: Extract and Validate Verse References (P0-4)
+    
+    // ✅ P0-4: Valid Bible books
+    private let validBooks = Set([
+        "Genesis", "Exodus", "Leviticus", "Numbers", "Deuteronomy",
+        "Joshua", "Judges", "Ruth", "1 Samuel", "2 Samuel",
+        "1 Kings", "2 Kings", "1 Chronicles", "2 Chronicles",
+        "Ezra", "Nehemiah", "Esther", "Job", "Psalms", "Proverbs",
+        "Ecclesiastes", "Song of Solomon", "Isaiah", "Jeremiah",
+        "Lamentations", "Ezekiel", "Daniel", "Hosea", "Joel",
+        "Amos", "Obadiah", "Jonah", "Micah", "Nahum", "Habakkuk",
+        "Zephaniah", "Haggai", "Zechariah", "Malachi",
+        "Matthew", "Mark", "Luke", "John", "Acts", "Romans",
+        "1 Corinthians", "2 Corinthians", "Galatians", "Ephesians",
+        "Philippians", "Colossians", "1 Thessalonians", "2 Thessalonians",
+        "1 Timothy", "2 Timothy", "Titus", "Philemon", "Hebrews",
+        "James", "1 Peter", "2 Peter", "1 John", "2 John", "3 John",
+        "Jude", "Revelation"
+    ])
+    
+    private let bookChapterCounts: [String: Int] = [
+        "Genesis": 50, "Exodus": 40, "Leviticus": 27, "Numbers": 36, "Deuteronomy": 34,
+        "Joshua": 24, "Judges": 21, "Ruth": 4, "1 Samuel": 31, "2 Samuel": 24,
+        "1 Kings": 22, "2 Kings": 25, "1 Chronicles": 29, "2 Chronicles": 36,
+        "Ezra": 10, "Nehemiah": 13, "Esther": 10, "Job": 42, "Psalms": 150, "Proverbs": 31,
+        "Ecclesiastes": 12, "Song of Solomon": 8, "Isaiah": 66, "Jeremiah": 52,
+        "Lamentations": 5, "Ezekiel": 48, "Daniel": 12, "Hosea": 14, "Joel": 3,
+        "Amos": 9, "Obadiah": 1, "Jonah": 4, "Micah": 7, "Nahum": 3, "Habakkuk": 3,
+        "Zephaniah": 3, "Haggai": 2, "Zechariah": 14, "Malachi": 4,
+        "Matthew": 28, "Mark": 16, "Luke": 24, "John": 21, "Acts": 28, "Romans": 16,
+        "1 Corinthians": 16, "2 Corinthians": 13, "Galatians": 6, "Ephesians": 6,
+        "Philippians": 4, "Colossians": 4, "1 Thessalonians": 5, "2 Thessalonians": 3,
+        "1 Timothy": 6, "2 Timothy": 4, "Titus": 3, "Philemon": 1, "Hebrews": 13,
+        "James": 5, "1 Peter": 5, "2 Peter": 3, "1 John": 5, "2 John": 1, "3 John": 1,
+        "Jude": 1, "Revelation": 22
+    ]
+    
+    private func extractAndValidateVerseReferences(from text: String) -> [String] {
+        var references: [String] = []
+        
+        // Simple regex to find Bible references like "John 3:16" or "Romans 8:28-30"
+        let pattern = #"([1-3]?\s?[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s+(\d+):(\d+)(?:-(\d+))?"#
+        
+        if let regex = try? NSRegularExpression(pattern: pattern, options: []) {
+            let nsString = text as NSString
+            let matches = regex.matches(in: text, options: [], range: NSRange(location: 0, length: nsString.length))
+            
+            for match in matches {
+                if let range = Range(match.range, in: text) {
+                    let reference = String(text[range])
+                    
+                    // ✅ P0-4: Validate reference before adding
+                    if isValidReference(reference) {
+                        if !references.contains(reference) {
+                            references.append(reference)
+                        }
+                    } else {
+                        print("⚠️ Invalid scripture reference detected and filtered: \(reference)")
+                    }
+                }
+            }
+        }
+        
+        return references
+    }
+    
+    private func isValidReference(_ reference: String) -> Bool {
+        // Parse book name and chapter
+        let components = reference.components(separatedBy: " ")
+        guard components.count >= 2 else { return false }
+        
+        // Handle multi-word book names (e.g., "1 Corinthians", "Song of Solomon")
+        var bookName = ""
+        var chapterVerse = ""
+        
+        // Try to find the chapter:verse part (contains ":")
+        for (index, component) in components.enumerated() {
+            if component.contains(":") {
+                bookName = components[..<index].joined(separator: " ")
+                chapterVerse = component
+                break
+            }
+        }
+        
+        guard !bookName.isEmpty, !chapterVerse.isEmpty else { return false }
+        
+        // Validate book exists
+        guard validBooks.contains(bookName) else {
+            print("⚠️ Invalid book name: \(bookName)")
+            return false
+        }
+        
+        // Extract chapter number
+        let chapterComponents = chapterVerse.split(separator: ":")
+        guard let chapterStr = chapterComponents.first,
+              let chapter = Int(chapterStr) else {
+            return false
+        }
+        
+        // Validate chapter range
+        if let maxChapter = bookChapterCounts[bookName],
+           chapter > maxChapter {
+            print("⚠️ Invalid chapter: \(bookName) only has \(maxChapter) chapters, got \(chapter)")
+            return false
+        }
+        
+        return true
+    }
+    
+    // MARK: - Helper: Extract Verse References (Old - Deprecated)
     
     private func extractVerseReferences(from text: String) -> [String] {
         var references: [String] = []
@@ -3543,4 +4298,211 @@ struct ConversationHistoryRow: View {
         .buttonStyle(PlainButtonStyle())
     }
 }
+
+// MARK: - Berean Quick Actions Menu
+
+struct BereanQuickActionsMenu: View {
+    @Binding var isShowing: Bool
+    let onNewConversation: () -> Void
+    let onSavedMessages: () -> Void
+    let onHistory: () -> Void
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            // Quick action buttons
+            VStack(spacing: 0) {
+                QuickActionButton(
+                    icon: "plus.message.fill",
+                    title: "New Chat",
+                    subtitle: "Start fresh",
+                    gradient: LinearGradient(
+                        colors: [Color(red: 0.4, green: 0.7, blue: 1.0), Color(red: 0.3, green: 0.5, blue: 0.9)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                ) {
+                    let haptic = UIImpactFeedbackGenerator(style: .light)
+                    haptic.impactOccurred()
+                    onNewConversation()
+                }
+                
+                Divider()
+                    .background(Color.white.opacity(0.1))
+                
+                QuickActionButton(
+                    icon: "bookmark.fill",
+                    title: "Saved",
+                    subtitle: "View bookmarks",
+                    gradient: LinearGradient(
+                        colors: [Color(red: 1.0, green: 0.7, blue: 0.5), Color(red: 1.0, green: 0.5, blue: 0.3)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                ) {
+                    let haptic = UIImpactFeedbackGenerator(style: .light)
+                    haptic.impactOccurred()
+                    onSavedMessages()
+                }
+                
+                Divider()
+                    .background(Color.white.opacity(0.1))
+                
+                QuickActionButton(
+                    icon: "clock.fill",
+                    title: "History",
+                    subtitle: "Past chats",
+                    gradient: LinearGradient(
+                        colors: [Color(red: 0.6, green: 0.5, blue: 0.9), Color(red: 0.5, green: 0.4, blue: 0.8)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                ) {
+                    let haptic = UIImpactFeedbackGenerator(style: .light)
+                    haptic.impactOccurred()
+                    onHistory()
+                }
+            }
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                    )
+                    .shadow(color: .black.opacity(0.15), radius: 20, y: 8)
+            )
+            .padding(.horizontal, 12)
+        }
+        .offset(x: 0, y: 50)
+    }
+}
+
+struct QuickActionButton: View {
+    let icon: String
+    let title: String
+    let subtitle: String
+    let gradient: LinearGradient
+    let action: () -> Void
+    
+    @State private var isPressed = false
+    
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                // Icon with gradient
+                ZStack {
+                    Circle()
+                        .fill(gradient.opacity(0.15))
+                        .frame(width: 44, height: 44)
+                    
+                    Image(systemName: icon)
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundStyle(gradient)
+                }
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(.primary)
+                    
+                    Text(subtitle)
+                        .font(.system(size: 12, weight: .regular))
+                        .foregroundStyle(.secondary)
+                }
+                
+                Spacer()
+                
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(isPressed ? Color.black.opacity(0.05) : Color.clear)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PlainButtonStyle())
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in
+                    withAnimation(.easeOut(duration: 0.1)) {
+                        isPressed = true
+                    }
+                }
+                .onEnded { _ in
+                    withAnimation(.easeOut(duration: 0.1)) {
+                        isPressed = false
+                    }
+                }
+        )
+    }
+}
+
+// MARK: - Berean Response Mode (Cost Optimization)
+
+enum BereanResponseMode: String, CaseIterable {
+    case quick = "Quick Answer"
+    case balanced = "Balanced"
+    case study = "Deep Study"
+    case devotional = "Devotional"
+    
+    var maxTokens: Int {
+        switch self {
+        case .quick: return 500        // ~$0.0025 per response
+        case .balanced: return 1000    // ~$0.005 per response
+        case .study: return 2000       // ~$0.01 per response
+        case .devotional: return 800   // ~$0.004 per response
+        }
+    }
+    
+    var temperature: Double {
+        switch self {
+        case .quick: return 0.5        // More deterministic
+        case .balanced: return 0.7     // Balanced
+        case .study: return 0.7        // Balanced for study
+        case .devotional: return 0.8   // More creative for devotionals
+        }
+    }
+    
+    var contextWindow: Int {
+        switch self {
+        case .quick: return 2          // Minimal context
+        case .balanced: return 4       // Standard context
+        case .study: return 8          // More context for study
+        case .devotional: return 3     // Moderate context
+        }
+    }
+    
+    var systemPromptSuffix: String {
+        switch self {
+        case .quick:
+            return "Keep answers brief and direct (2-3 sentences). Focus on the core answer."
+        case .balanced:
+            return "Provide clear, balanced answers with key scripture references."
+        case .study:
+            return "Provide detailed explanations with historical context, cross-references, and theological insights."
+        case .devotional:
+            return "Provide encouraging, reflective content focused on personal application and spiritual growth."
+        }
+    }
+    
+    var icon: String {
+        switch self {
+        case .quick: return "bolt.fill"
+        case .balanced: return "equal.circle.fill"
+        case .study: return "book.fill"
+        case .devotional: return "heart.fill"
+        }
+    }
+    
+    var color: Color {
+        switch self {
+        case .quick: return .orange
+        case .balanced: return .blue
+        case .study: return .purple
+        case .devotional: return .pink
+        }
+    }
+}
+
 

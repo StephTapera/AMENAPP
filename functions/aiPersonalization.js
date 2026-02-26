@@ -8,11 +8,18 @@ const {onCall} = require("firebase-functions/v2/https");
 const {onSchedule} = require("firebase-functions/v2/scheduler");
 const {VertexAI} = require("@google-cloud/vertexai");
 
-// Initialize Vertex AI
-const vertexAI = new VertexAI({
-  project: process.env.GOOGLE_CLOUD_PROJECT,
-  location: "us-central1",
-});
+// Initialize Vertex AI (lazy initialization to avoid deployment errors)
+let vertexAI = null;
+
+function getVertexAI() {
+  if (!vertexAI) {
+    vertexAI = new VertexAI({
+      project: process.env.GOOGLE_CLOUD_PROJECT || "amen-5e359",
+      location: "us-central1",
+    });
+  }
+  return vertexAI;
+}
 
 // ============================================================================
 // PERSONALIZED FEED GENERATION
@@ -152,7 +159,7 @@ async function getPredictionsFromVertexAI(
   try {
     // Call Vertex AI Prediction endpoint
     // TODO: Replace with your deployed model endpoint
-    const model = vertexAI.preview.getGenerativeModel({
+    const model = getVertexAI().preview.getGenerativeModel({
       model: "gemini-1.5-flash",
     });
 

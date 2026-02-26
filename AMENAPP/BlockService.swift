@@ -17,25 +17,25 @@ import Combine
 struct Block: Identifiable, Codable, Equatable {
     @DocumentID var id: String?
     var blockerId: String      // User who blocked
-    var blockedUserId: String  // User being blocked
+    var blockedId: String      // User being blocked (matches Firestore rules)
     var blockedAt: Date
     
     enum CodingKeys: String, CodingKey {
         case id
         case blockerId
-        case blockedUserId
+        case blockedId
         case blockedAt
     }
     
     init(
         id: String? = nil,
         blockerId: String,
-        blockedUserId: String,
+        blockedId: String,
         blockedAt: Date = Date()
     ) {
         self.id = id
         self.blockerId = blockerId
-        self.blockedUserId = blockedUserId
+        self.blockedId = blockedId
         self.blockedAt = blockedAt
     }
 }
@@ -93,7 +93,7 @@ class BlockService: ObservableObject {
         // Create block relationship
         let block = Block(
             blockerId: currentUserId,
-            blockedUserId: userId
+            blockedId: userId
         )
         
         // Use batch write for atomicity
@@ -177,7 +177,7 @@ class BlockService: ObservableObject {
         // Find the block relationship
         let blockQuery = db.collection(FirebaseManager.CollectionPath.blocks)
             .whereField("blockerId", isEqualTo: currentUserId)
-            .whereField("blockedUserId", isEqualTo: userId)
+            .whereField("blockedId", isEqualTo: userId)
             .limit(to: 1)
         
         let snapshot = try await blockQuery.getDocuments()
@@ -220,7 +220,7 @@ class BlockService: ObservableObject {
         do {
             let snapshot = try await db.collection(FirebaseManager.CollectionPath.blocks)
                 .whereField("blockerId", isEqualTo: currentUserId)
-                .whereField("blockedUserId", isEqualTo: userId)
+                .whereField("blockedId", isEqualTo: userId)
                 .limit(to: 1)
                 .getDocuments()
             
@@ -246,7 +246,7 @@ class BlockService: ObservableObject {
         do {
             let snapshot = try await db.collection(FirebaseManager.CollectionPath.blocks)
                 .whereField("blockerId", isEqualTo: userId)
-                .whereField("blockedUserId", isEqualTo: currentUserId)
+                .whereField("blockedId", isEqualTo: currentUserId)
                 .limit(to: 1)
                 .getDocuments()
             
@@ -282,19 +282,19 @@ class BlockService: ObservableObject {
             }
             
             // Update blocked user IDs set
-            blockedUsers = Set(blocks.map { $0.blockedUserId })
+            blockedUsers = Set(blocks.map { $0.blockedId })
             
             // Fetch full user profiles for each blocked user
             var profiles: [BlockedUserProfile] = []
             
             for block in blocks {
                 if let userDoc = try? await db.collection(FirebaseManager.CollectionPath.users)
-                    .document(block.blockedUserId)
+                    .document(block.blockedId)
                     .getDocument(),
                    let userData = userDoc.data() {
                     
                     let profile = BlockedUserProfile(
-                        id: block.blockedUserId,
+                        id: block.blockedId,
                         displayName: userData["displayName"] as? String ?? "Unknown",
                         username: userData["username"] as? String ?? "unknown",
                         initials: userData["initials"] as? String ?? "??",
@@ -340,7 +340,7 @@ class BlockService: ObservableObject {
                 
                 Task {
                     let blockedIds = snapshot.documents.compactMap { doc -> String? in
-                        doc.data()["blockedUserId"] as? String
+                        doc.data()["blockedId"] as? String
                     }
                     
                     await MainActor.run {

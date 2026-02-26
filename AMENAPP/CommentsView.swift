@@ -10,20 +10,23 @@
 import SwiftUI
 import FirebaseAuth
 import Combine
+import PhotosUI
 
 struct CommentsView: View {
     let post: Post
     
     @Environment(\.dismiss) var dismiss
-    @StateObject private var commentService = CommentService.shared
-    @StateObject private var userService = UserService.shared // ✅ Use shared instance instead of environment
-    @StateObject private var summarizationService = AIThreadSummarizationService.shared
-    @StateObject private var toneGuidanceService = AIToneGuidanceService.shared
+    @ObservedObject private var commentService = CommentService.shared  // P0 FIX: ObservedObject for singletons (faster init)
+    @ObservedObject private var userService = UserService.shared  // P0 FIX: ObservedObject for singletons (faster init)
+    
+    // P0 FIX: Lazy load AI services - only initialize when needed, not on sheet open
+    @State private var summarizationService: AIThreadSummarizationService?
+    @State private var toneGuidanceService: AIToneGuidanceService?
     
     @State private var commentText = ""
     @State private var replyingTo: Comment?
     @State private var commentsWithReplies: [CommentWithReplies] = []
-    @State private var isLoading = false
+    @State private var isLoading = true  // P1 FIX: Start as true to show skeleton immediately
     @State private var showError = false
     @State private var errorMessage = ""
     @State private var isListening = false
@@ -44,7 +47,20 @@ struct CommentsView: View {
     // ✅ Timestamp auto-refresh (updates "5m ago" -> "6m ago")
     @State private var currentTime = Date()
     
-    private var postId: String { post.firestoreId }
+    // ✅ Emoji picker state
+    @State private var showEmojiPicker = false
+    
+    // ✅ Photo upload state (placeholder for future implementation)
+    @State private var showPhotoComingSoon = false
+    
+    // ✅ CRITICAL FIX: Extract short ID (first 8 chars) for Realtime Database
+    // Firestore uses full UUIDs, but Realtime DB uses short IDs like "002BAE76"
+    private var postId: String {
+        let fullId = post.firestoreId
+        // Extract first 8 characters (the short ID used in Realtime Database)
+        let shortId = String(fullId.prefix(8))
+        return shortId
+    }
     
     @FocusState private var isInputFocused: Bool
     
@@ -150,64 +166,41 @@ struct CommentsView: View {
                         haptic.impactOccurred()
                     } label: {
                         ZStack {
-                            // Avatar with premium styling
+                            // Avatar with premium styling - using CachedAsyncImage for faster loading
                             if let imageURL = participant.profileImageURL,
                                !imageURL.isEmpty,
                                let url = URL(string: imageURL) {
-                                AsyncImage(url: url) { phase in
-                                    switch phase {
-                                    case .success(let image):
-                                        image
-                                            .resizable()
-                                            .scaledToFill()
-                                            .frame(width: 48, height: 48)
-                                            .clipShape(Circle())
-                                            .overlay(
-                                                Circle()
-                                                    .strokeBorder(Color(.systemBackground), lineWidth: 3)
+                                CachedAsyncImage(url: url) { image in
+                                    image
+                                        .resizable()
+                                        .scaledToFill()
+                                        .frame(width: 48, height: 48)
+                                        .clipShape(Circle())
+                                        .overlay(
+                                            Circle()
+                                                .strokeBorder(Color(.systemBackground), lineWidth: 3)
+                                        )
+                                        .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
+                                } placeholder: {
+                                    Circle()
+                                        .fill(
+                                            LinearGradient(
+                                                colors: [Color.black, Color.black.opacity(0.8)],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
                                             )
-                                            .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
-                                    case .failure, .empty:
-                                        Circle()
-                                            .fill(
-                                                LinearGradient(
-                                                    colors: [Color.black, Color.black.opacity(0.8)],
-                                                    startPoint: .topLeading,
-                                                    endPoint: .bottomTrailing
-                                                )
-                                            )
-                                            .frame(width: 48, height: 48)
-                                            .overlay(
-                                                Text(participant.initials)
-                                                    .font(.custom("OpenSans-Bold", size: 15))
-                                                    .foregroundStyle(.white)
-                                            )
-                                            .overlay(
-                                                Circle()
-                                                    .strokeBorder(Color(.systemBackground), lineWidth: 3)
-                                            )
-                                            .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
-                                    @unknown default:
-                                        Circle()
-                                            .fill(
-                                                LinearGradient(
-                                                    colors: [Color.black, Color.black.opacity(0.8)],
-                                                    startPoint: .topLeading,
-                                                    endPoint: .bottomTrailing
-                                                )
-                                            )
-                                            .frame(width: 48, height: 48)
-                                            .overlay(
-                                                Text(participant.initials)
-                                                    .font(.custom("OpenSans-Bold", size: 15))
-                                                    .foregroundStyle(.white)
-                                            )
-                                            .overlay(
-                                                Circle()
-                                                    .strokeBorder(Color(.systemBackground), lineWidth: 3)
-                                            )
-                                            .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
-                                    }
+                                        )
+                                        .frame(width: 48, height: 48)
+                                        .overlay(
+                                            Text(participant.initials)
+                                                .font(.custom("OpenSans-Bold", size: 15))
+                                                .foregroundStyle(.white)
+                                        )
+                                        .overlay(
+                                            Circle()
+                                                .strokeBorder(Color(.systemBackground), lineWidth: 3)
+                                        )
+                                        .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
                                 }
                                 .id(participant.profileImageURL)  // Force refresh on URL change
                             } else {
@@ -384,8 +377,8 @@ struct CommentsView: View {
                 ScrollView {
                     LazyVStack(spacing: 0) {
                         if isLoading {
-                            ProgressView()
-                                .padding(.top, 40)
+                            // P0 FIX: Skeleton loading UI - shows immediately, no blocking
+                            commentsSkeletonView
                                 .transition(.opacity.combined(with: .scale))
                         } else if commentsWithReplies.isEmpty {
                             VStack(spacing: 12) {
@@ -446,7 +439,8 @@ struct CommentsView: View {
                                                        threadSummaries[commentId] == nil {
                                                         Task {
                                                             do {
-                                                                if let summary = try await summarizationService.getSummary(
+                                                                // P0 FIX: Use optional chaining for lazy-loaded service
+                                                                if let summary = try await summarizationService?.getSummary(
                                                                     for: commentId,
                                                                     replies: commentWithReplies.replies
                                                                 ) {
@@ -484,7 +478,7 @@ struct CommentsView: View {
                                                         .padding(.horizontal, 20)
                                                         .padding(.vertical, 12)
                                                         .transition(.move(edge: .top).combined(with: .opacity))
-                                                } else if summarizationService.isGeneratingSummary {
+                                                } else if summarizationService?.isGeneratingSummary == true {
                                                     // Loading state
                                                     HStack(spacing: 12) {
                                                         ProgressView()
@@ -591,45 +585,25 @@ struct CommentsView: View {
                 
                 // Input field with glass buttons
                 HStack(alignment: .bottom, spacing: 12) {
-                    // User avatar - Show actual profile photo
+                    // User avatar - Show actual profile photo with caching
                     if let imageURL = currentUserProfileImageURL,
                        !imageURL.isEmpty,
                        let url = URL(string: imageURL) {
-                        AsyncImage(url: url) { phase in
-                            switch phase {
-                            case .success(let image):
-                                image
-                                    .resizable()
-                                    .scaledToFill()
-                                    .frame(width: 36, height: 36)
-                                    .clipShape(Circle())
-                            case .failure:
-                                Circle()
-                                    .fill(.black)
-                                    .frame(width: 36, height: 36)
-                                    .overlay(
-                                        Text(currentUserInitials)
-                                            .font(.custom("OpenSans-SemiBold", size: 14))
-                                            .foregroundStyle(.white)
-                                    )
-                            case .empty:
-                                Circle()
-                                    .fill(.black.opacity(0.1))
-                                    .frame(width: 36, height: 36)
-                                    .overlay(
-                                        ProgressView()
-                                            .scaleEffect(0.7)
-                                    )
-                            @unknown default:
-                                Circle()
-                                    .fill(.black)
-                                    .frame(width: 36, height: 36)
-                                    .overlay(
-                                        Text(currentUserInitials)
-                                            .font(.custom("OpenSans-SemiBold", size: 14))
-                                            .foregroundStyle(.white)
-                                    )
-                            }
+                        CachedAsyncImage(url: url) { image in
+                            image
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 36, height: 36)
+                                .clipShape(Circle())
+                        } placeholder: {
+                            Circle()
+                                .fill(.black)
+                                .frame(width: 36, height: 36)
+                                .overlay(
+                                    Text(currentUserInitials)
+                                        .font(.custom("OpenSans-SemiBold", size: 14))
+                                        .foregroundStyle(.white)
+                                )
                         }
                     } else {
                         Circle()
@@ -649,17 +623,17 @@ struct CommentsView: View {
                             .lineLimit(1...4)
                             .focused($isInputFocused)
                             .onChange(of: commentText) { _, newValue in
-                                // Trigger debounced tone analysis
-                                toneGuidanceService.analyzeText(newValue)
+                                // P0 FIX: Trigger debounced tone analysis only if service loaded
+                                toneGuidanceService?.analyzeText(newValue)
                             }
                         
                         // Tone guidance feedback (if present)
-                        if let feedback = toneGuidanceService.currentFeedback {
+                        if let feedback = toneGuidanceService?.currentFeedback {
                             ToneFeedbackView(feedback: feedback) {
                                 // Use suggestion
                                 if let suggestion = feedback.suggestion {
                                     commentText = suggestion
-                                    toneGuidanceService.clearFeedback()
+                                    toneGuidanceService?.clearFeedback()
                                 }
                             }
                             .transition(.move(edge: .top).combined(with: .opacity))
@@ -667,15 +641,29 @@ struct CommentsView: View {
                         
                         // Action buttons row
                         HStack(spacing: 12) {
-                            // Glass Action Pill (attachment options)
-                            GlassActionPill(
-                                icons: ["paperclip", "face.smiling", "photo"],
-                                actions: [
-                                    { print("Attach file") },
-                                    { print("Add emoji") },
-                                    { print("Add photo") }
-                                ]
-                            )
+                            // Emoji button
+                            Button {
+                                showEmojiPicker = true
+                                let haptic = UIImpactFeedbackGenerator(style: .light)
+                                haptic.impactOccurred()
+                            } label: {
+                                Image(systemName: "face.smiling")
+                                    .font(.system(size: 18, weight: .medium))
+                                    .foregroundStyle(.black.opacity(0.7))
+                                    .frame(width: 24, height: 24)
+                            }
+                            
+                            // Photo button (placeholder - feature coming soon)
+                            Button {
+                                showPhotoComingSoon = true
+                                let haptic = UIImpactFeedbackGenerator(style: .light)
+                                haptic.impactOccurred()
+                            } label: {
+                                Image(systemName: "photo")
+                                    .font(.system(size: 18, weight: .medium))
+                                    .foregroundStyle(.black.opacity(0.7))
+                                    .frame(width: 24, height: 24)
+                            }
                             
                             Spacer()
                             
@@ -710,8 +698,34 @@ struct CommentsView: View {
                 UserProfileView(userId: userId)
             }
         }
+        .sheet(isPresented: $showEmojiPicker) {
+            EmojiQuickPickerView { emoji in
+                // Insert emoji at cursor position
+                commentText += emoji
+                showEmojiPicker = false
+            }
+            .presentationDetents([.height(200)])
+            .presentationDragIndicator(.visible)
+        }
+        .alert("Photo Upload Coming Soon", isPresented: $showPhotoComingSoon) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("Photo uploads in comments will be available in a future update with AI moderation.")
+        }
         .task {
             print("🎬 [VIEW] CommentsView appeared for post: \(postId)")
+            print("   Post firebaseId: \(post.firebaseId ?? "nil")")
+            print("   Post id: \(post.id)")
+            print("   Using firestoreId: \(post.firestoreId)")
+            
+            // P0 FIX: Lazy load AI services in background (don't block sheet appearance)
+            Task(priority: .userInitiated) {
+                await MainActor.run {
+                    summarizationService = AIThreadSummarizationService.shared
+                    toneGuidanceService = AIToneGuidanceService.shared
+                    print("✅ AI services loaded in background")
+                }
+            }
             
             // ✅ Start real-time listener FIRST so it picks up cached data immediately
             startRealtimeListener()
@@ -806,18 +820,14 @@ struct CommentsView: View {
         isSubmittingComment = true
         
         Task {
-            defer { 
-                Task { @MainActor in
-                    isSubmittingComment = false
-                }
-            }
-            // Validate tone before submitting
-            if let feedback = await toneGuidanceService.analyzeTextImmediate(text),
+            // P0 FIX: Validate tone before submitting only if service loaded
+            if let feedback = await toneGuidanceService?.analyzeTextImmediate(text),
                feedback.type == .flagged {
                 // Block flagged content
                 await MainActor.run {
                     errorMessage = feedback.message
                     showError = true
+                    isSubmittingComment = false  // ✅ Re-enable button on error
                     print("🚫 [TONE] Comment blocked: \(feedback.message)")
                 }
                 return
@@ -826,7 +836,10 @@ struct CommentsView: View {
             // Clear comment text after validation passes
             await MainActor.run {
                 commentText = ""
-                toneGuidanceService.clearFeedback()
+                toneGuidanceService?.clearFeedback()
+                // ✅ PERFORMANCE FIX: Re-enable submit button immediately
+                // This allows users to type the next comment while moderation runs in background
+                isSubmittingComment = false
             }
             
             do {
@@ -845,10 +858,12 @@ struct CommentsView: View {
                     }
                     
                     // Submit reply
+                    // ✅ CRITICAL FIX: Pass Post object to avoid Firestore lookup
                     let newComment = try await commentService.addReply(
                         postId: postId,
                         parentCommentId: parentCommentId,
-                        content: text
+                        content: text,
+                        post: self.post  // ✅ Pass Post object to bypass Firestore lookup
                     )
                     newCommentId = newComment.id
                     
@@ -869,9 +884,13 @@ struct CommentsView: View {
                     print("💬 [COMMENT] Submitting as TOP-LEVEL comment")
                     
                     // Submit comment
+                    // ✅ CRITICAL FIX: Pass Post object to avoid Firestore lookup with short ID
+                    // We pass postId (short ID) for Realtime DB operations, but also pass
+                    // the full Post object to avoid needing to fetch from Firestore
                     let newComment = try await commentService.addComment(
                         postId: postId,
-                        content: text
+                        content: text,
+                        post: self.post  // ✅ Pass the Post object to bypass Firestore lookup
                     )
                     newCommentId = newComment.id
                     
@@ -935,6 +954,9 @@ struct CommentsView: View {
                     
                     // Restore text on error
                     commentText = text
+                    
+                    // ✅ Re-enable submit button on error
+                    isSubmittingComment = false
                     
                     print("   ⚠️ Text restored to input field")
                 }
@@ -1065,6 +1087,57 @@ struct CommentsView: View {
         }
     }
     
+    // MARK: - Skeleton Loading UI
+    
+    /// P0 FIX: Skeleton loading shown immediately while comments load
+    /// Provides instant visual feedback, no blocking
+    private var commentsSkeletonView: some View {
+        VStack(spacing: 16) {
+            ForEach(0..<3, id: \.self) { _ in
+                HStack(alignment: .top, spacing: 12) {
+                    // Avatar placeholder
+                    Circle()
+                        .fill(Color.gray.opacity(0.2))
+                        .frame(width: 40, height: 40)
+                    
+                    VStack(alignment: .leading, spacing: 8) {
+                        // Name placeholder
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(Color.gray.opacity(0.2))
+                            .frame(width: 120, height: 14)
+                        
+                        // Comment text placeholder (multiple lines)
+                        VStack(alignment: .leading, spacing: 4) {
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(Color.gray.opacity(0.15))
+                                .frame(height: 12)
+                            
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(Color.gray.opacity(0.15))
+                                .frame(width: 200, height: 12)
+                        }
+                        
+                        // Action buttons placeholder
+                        HStack(spacing: 16) {
+                            ForEach(0..<3, id: \.self) { _ in
+                                RoundedRectangle(cornerRadius: 4)
+                                    .fill(Color.gray.opacity(0.1))
+                                    .frame(width: 50, height: 10)
+                            }
+                        }
+                        .padding(.top, 4)
+                    }
+                    
+                    Spacer()
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
+            }
+        }
+        .padding(.top, 20)
+        .redacted(reason: .placeholder)  // iOS built-in shimmer effect
+    }
+    
     // MARK: - Real-time Updates
     
     private func startRealtimeListener() {
@@ -1074,12 +1147,24 @@ struct CommentsView: View {
         commentService.startListening(to: postId)
         isListening = true
         
-        // ✅ Reduced polling since we now have instant notification updates
-        // This is just a safety fallback in case notifications are missed
+        // ✅ Load initial data immediately from service cache
+        Task {
+            // Small delay to let listener initialize
+            try? await Task.sleep(nanoseconds: 200_000_000) // 0.2s
+            await updateCommentsFromService()
+            
+            // Turn off loading state
+            await MainActor.run {
+                isLoading = false
+            }
+        }
+        
+        // ✅ VERY slow polling as safety fallback - real-time listener handles instant updates
+        // Only polls every 30 seconds as a backup mechanism
         pollingTask = Task {
             while !Task.isCancelled && isListening {
-                // Slow polling as fallback (5 seconds) - notifications handle instant updates
-                try? await Task.sleep(nanoseconds: 5_000_000_000) // 5s
+                // Very slow polling (30 seconds) - real-time listener + notifications handle instant updates
+                try? await Task.sleep(nanoseconds: 30_000_000_000) // 30s
                 
                 await updateCommentsFromService()
             }
@@ -1105,21 +1190,14 @@ struct CommentsView: View {
         // Get updated comments from service cache (only top-level comments)
         let allComments = commentService.comments[postId] ?? []
         
-        print("🔄 [SYNC] Polling update from service")
-        print("   Service has \(allComments.count) comments for this post")
-        print("   Local UI has \(commentsWithReplies.count) comments")
-        
-        // Debug: Log current UI state
-        for (index, cwrComment) in commentsWithReplies.enumerated() {
-            print("   [UI-\(index)] ID: \(cwrComment.comment.id ?? "nil"), replies: \(cwrComment.replies.count), isReply: \(cwrComment.comment.parentCommentId != nil)")
-        }
+        print("📊 [UPDATE] Syncing from service for post: \(postId)")
+        print("   Service has \(allComments.count) comments cached")
         
         // Build commentsWithReplies from service data
         var newCommentsWithReplies: [CommentWithReplies] = []
         
         for comment in allComments {
             guard let commentId = comment.id else {
-                print("⚠️ [SYNC] Skipping comment with nil ID")
                 continue
             }
             
@@ -1138,14 +1216,13 @@ struct CommentsView: View {
         // ✅ CRITICAL FIX: Only update if there are actual changes
         // This prevents duplicate IDs and unnecessary re-renders
         if hasCommentsChanged(newCommentsWithReplies) {
-            print("   ✅ [SYNC] Changes detected - updating UI")
+            print("   ✅ Changes detected - updating UI")
             withAnimation(.easeOut(duration: 0.25)) {
                 commentsWithReplies = newCommentsWithReplies
             }
-            print("   ✅ [SYNC] UI updated with \(commentsWithReplies.count) comments")
             return true
         } else {
-            print("   ⏭️ [SYNC] No changes detected - skipping update")
+            print("   ⏭️ No changes - UI already up to date")
         }
         
         return false
@@ -1155,14 +1232,12 @@ struct CommentsView: View {
     private func hasCommentsChanged(_ newComments: [CommentWithReplies]) -> Bool {
         // Different count = changed
         if newComments.count != commentsWithReplies.count {
-            print("   🔍 [CHANGE] Count changed: \(commentsWithReplies.count) → \(newComments.count)")
             return true
         }
         
         // Check if IDs match in order
         for i in 0..<newComments.count {
             guard i < commentsWithReplies.count else {
-                print("   🔍 [CHANGE] Bounds check failed at index \(i)")
                 return true
             }
             
@@ -1171,30 +1246,25 @@ struct CommentsView: View {
             
             // Different comment ID = changed
             if newComment.comment.id != oldComment.comment.id {
-                print("   🔍 [CHANGE] Comment ID changed at index \(i)")
                 return true
             }
             
             // Different reply count = changed
             if newComment.replies.count != oldComment.replies.count {
-                print("   🔍 [CHANGE] Reply count changed at index \(i): \(oldComment.replies.count) → \(newComment.replies.count)")
                 return true
             }
             
             // Different amen count = changed
             if newComment.comment.amenCount != oldComment.comment.amenCount {
-                print("   🔍 [CHANGE] Amen count changed at index \(i)")
                 return true
             }
             
             // Check reply IDs with bounds checking
             for j in 0..<newComment.replies.count {
                 guard j < oldComment.replies.count else {
-                    print("   🔍 [CHANGE] Reply bounds check failed at \(i):\(j)")
                     return true
                 }
                 if newComment.replies[j].id != oldComment.replies[j].id {
-                    print("   🔍 [CHANGE] Reply ID changed at \(i):\(j)")
                     return true
                 }
             }
@@ -1243,7 +1313,7 @@ private struct PostCommentRow: View {
     
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            // Avatar - Tappable to view profile
+            // Avatar - Tappable to view profile with cached image loading
             Button {
                 onProfileTap()
                 
@@ -1254,41 +1324,21 @@ private struct PostCommentRow: View {
                 if let imageURL = comment.authorProfileImageURL,
                    !imageURL.isEmpty,
                    let url = URL(string: imageURL) {
-                    AsyncImage(url: url) { phase in
-                        switch phase {
-                        case .success(let image):
-                            image
-                                .resizable()
-                                .scaledToFill()
-                                .frame(width: isReply ? 28 : 36, height: isReply ? 28 : 36)
-                                .clipShape(Circle())
-                        case .failure:
-                            Circle()
-                                .fill(.black)
-                                .frame(width: isReply ? 28 : 36, height: isReply ? 28 : 36)
-                                .overlay(
-                                    Text(comment.authorInitials)
-                                        .font(.custom("OpenSans-SemiBold", size: isReply ? 10 : 12))
-                                        .foregroundStyle(.white)
-                                )
-                        case .empty:
-                            Circle()
-                                .fill(.black.opacity(0.1))
-                                .frame(width: isReply ? 28 : 36, height: isReply ? 28 : 36)
-                                .overlay(
-                                    ProgressView()
-                                        .scaleEffect(0.7)
-                                )
-                        @unknown default:
-                            Circle()
-                                .fill(.black)
-                                .frame(width: isReply ? 28 : 36, height: isReply ? 28 : 36)
-                                .overlay(
-                                    Text(comment.authorInitials)
-                                        .font(.custom("OpenSans-SemiBold", size: isReply ? 10 : 12))
-                                        .foregroundStyle(.white)
-                                )
-                        }
+                    CachedAsyncImage(url: url) { image in
+                        image
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: isReply ? 28 : 36, height: isReply ? 28 : 36)
+                            .clipShape(Circle())
+                    } placeholder: {
+                        Circle()
+                            .fill(.black)
+                            .frame(width: isReply ? 28 : 36, height: isReply ? 28 : 36)
+                            .overlay(
+                                Text(comment.authorInitials)
+                                    .font(.custom("OpenSans-SemiBold", size: isReply ? 10 : 12))
+                                    .foregroundStyle(.white)
+                            )
                     }
                 } else {
                     Circle()
@@ -1331,10 +1381,8 @@ private struct PostCommentRow: View {
                         .foregroundStyle(.black.opacity(0.5))
                 }
                 
-                // Content
-                Text(comment.content)
-                    .font(.custom("OpenSans-Regular", size: isReply ? 13 : 14))
-                    .foregroundStyle(.black)
+                // Content with link detection
+                LinkedText(comment.content, fontSize: isReply ? 13 : 14)
                     .fixedSize(horizontal: false, vertical: true)
                 
                 // Actions
@@ -1445,6 +1493,141 @@ struct ParticipantInfo: Identifiable {
     let initials: String
     let profileImageURL: String?
     let score: Double
+}
+
+// MARK: - Linked Text View
+
+struct LinkedText: View {
+    let text: String
+    let fontSize: CGFloat
+    
+    init(_ text: String, fontSize: CGFloat = 14) {
+        self.text = text
+        self.fontSize = fontSize
+    }
+    
+    var body: some View {
+        Text(attributedString)
+            .font(.custom("OpenSans-Regular", size: fontSize))
+    }
+    
+    private var attributedString: AttributedString {
+        var attributedString = AttributedString(text)
+        attributedString.foregroundColor = .black
+        
+        // Detect URLs using NSDataDetector
+        let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
+        let nsString = text as NSString
+        let matches = detector?.matches(in: text, range: NSRange(location: 0, length: nsString.length)) ?? []
+        
+        for match in matches {
+            guard let range = Range(match.range, in: text) else { continue }
+            let attributedRange = AttributedString.Index(range.lowerBound, within: attributedString)!
+                ..< AttributedString.Index(range.upperBound, within: attributedString)!
+            
+            // Make link blue and underlined
+            attributedString[attributedRange].foregroundColor = .blue
+            attributedString[attributedRange].underlineStyle = .single
+            
+            // Add URL for tapping
+            if let url = match.url {
+                attributedString[attributedRange].link = url
+            }
+        }
+        
+        return attributedString
+    }
+}
+
+// MARK: - Emoji Quick Picker
+
+struct EmojiQuickPickerView: View {
+    let onSelect: (String) -> Void
+    
+    // 5 quick reaction emojis commonly used in faith discussions
+    let quickEmojis = ["🙏", "❤️", "🔥", "✨", "💯"]
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            // Header
+            HStack {
+                Text("Quick Reactions")
+                    .font(.custom("OpenSans-Bold", size: 16))
+                    .foregroundStyle(.primary)
+                
+                Spacer()
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 20)
+            .padding(.bottom, 12)
+            
+            // Emoji buttons
+            HStack(spacing: 16) {
+                ForEach(quickEmojis, id: \.self) { emoji in
+                    Button {
+                        onSelect(emoji)
+                        
+                        // Haptic feedback
+                        let haptic = UIImpactFeedbackGenerator(style: .light)
+                        haptic.impactOccurred()
+                    } label: {
+                        Text(emoji)
+                            .font(.system(size: 40))
+                            .frame(width: 60, height: 60)
+                            .background(
+                                ZStack {
+                                    // Glass morphic background
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .fill(.ultraThinMaterial)
+                                        .opacity(0.8)
+                                    
+                                    // Subtle gradient overlay
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .fill(
+                                            LinearGradient(
+                                                colors: [
+                                                    Color.white.opacity(0.15),
+                                                    Color.white.opacity(0.05)
+                                                ],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            )
+                                        )
+                                    
+                                    // Border with gradient
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .strokeBorder(
+                                            LinearGradient(
+                                                colors: [
+                                                    Color.white.opacity(0.4),
+                                                    Color.white.opacity(0.15)
+                                                ],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            ),
+                                            lineWidth: 0.5
+                                        )
+                                }
+                            )
+                            .shadow(color: .black.opacity(0.08), radius: 4, x: 0, y: 2)
+                    }
+                    .buttonStyle(EmojiButtonStyle())
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 20)
+        }
+        .background(Color(.systemBackground))
+    }
+}
+
+// Custom button style for emoji buttons with smooth press animation
+struct EmojiButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.9 : 1.0)
+            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: configuration.isPressed)
+    }
 }
 
 #Preview {

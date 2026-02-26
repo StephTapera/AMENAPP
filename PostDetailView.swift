@@ -222,20 +222,12 @@ struct PostDetailView: View {
                 Image(systemName: "hands.clap")
                     .font(.system(size: 18))
                     .foregroundStyle(.secondary)
-                
-                Text("\(post.amenCount)")
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(.secondary)
             }
             
             // Comment count
             HStack(spacing: 6) {
                 Image(systemName: "message")
                     .font(.system(size: 18))
-                    .foregroundStyle(.secondary)
-                
-                Text("\(post.commentCount)")
-                    .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(.secondary)
             }
             .onTapGesture {
@@ -579,12 +571,6 @@ struct CommentRowView: View {
                             Image(systemName: "hands.clap")
                                 .font(.system(size: 13))
                                 .foregroundStyle(.secondary)
-                            
-                            if comment.amenCount > 0 {
-                                Text("\(comment.amenCount)")
-                                    .font(.system(size: 13, weight: .medium))
-                                    .foregroundStyle(.secondary)
-                            }
                         }
                         
                         if comment.replyCount > 0 {

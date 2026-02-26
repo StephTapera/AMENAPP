@@ -738,8 +738,7 @@ class PostInteractionsService: ObservableObject {
             self.postCommentsData[postId] = comments
         }
         observers["\(postId)_commentsData"] = commentsDataHandle
-        
-        print("👀 Observing interactions for post: \(postId)")
+
     }
     
     /// Stop observing a specific post
@@ -758,8 +757,6 @@ class PostInteractionsService: ObservableObject {
                 observers.removeValue(forKey: key)
             }
         }
-        
-        print("🔇 Stopped observing post: \(postId)")
     }
     
     // MARK: - Load User Interactions

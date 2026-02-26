@@ -6,6 +6,121 @@
 //
 
 import SwiftUI
+import FirebaseAuth
+import FirebaseFirestore
+
+// MARK: - Biometric Setting Row
+
+struct BiometricSettingRow: View {
+    @StateObject private var biometricService = BiometricAuthService.shared
+    @State private var showBiometricSetup = false
+    
+    var body: some View {
+        if biometricService.isBiometricAvailable {
+            Toggle(isOn: Binding(
+                get: { biometricService.isBiometricEnabled },
+                set: { newValue in
+                    if newValue {
+                        showBiometricSetup = true
+                    } else {
+                        biometricService.disableBiometric()
+                    }
+                }
+            )) {
+                HStack(spacing: 12) {
+                    Image(systemName: biometricService.biometricType.icon)
+                        .frame(width: 24)
+                        .foregroundStyle(biometricService.isBiometricEnabled ? .green : .secondary)
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(biometricService.biometricType.displayName)
+                            .font(.custom("OpenSans-SemiBold", size: 15))
+                        Text(biometricService.isBiometricEnabled ? "Enabled for quick sign-in" : "Tap to enable")
+                            .font(.custom("OpenSans-Regular", size: 13))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .tint(.green)
+            .alert("Enable \(biometricService.biometricType.displayName)?", isPresented: $showBiometricSetup) {
+                Button("Cancel", role: .cancel) { }
+                Button("Enable") {
+                    Task {
+                        let success = await biometricService.authenticate(reason: "Enable \(biometricService.biometricType.displayName) for AMEN")
+                        if success {
+                            biometricService.enableBiometric()
+                        }
+                    }
+                }
+            } message: {
+                Text("You'll be able to sign in quickly using \(biometricService.biometricType.displayName) instead of entering your password.")
+            }
+        }
+    }
+}
+
+// MARK: - Shabbat Mode Setting Row
+
+struct SundayChurchFocusSettingRow: View {
+    @StateObject private var focusManager = SundayChurchFocusManager.shared
+    @State private var candleFlicker = false
+    
+    var body: some View {
+        Toggle(isOn: Binding(
+            get: { focusManager.isEnabled },
+            set: { focusManager.setEnabled($0) }
+        )) {
+            HStack(spacing: 12) {
+                // Smart candle icon
+                ZStack {
+                    // Glow effect
+                    if focusManager.isEnabled {
+                        Circle()
+                            .fill(Color.orange.opacity(0.2))
+                            .frame(width: 30, height: 30)
+                            .opacity(candleFlicker ? 0.6 : 1.0)
+                    }
+                    
+                    // Candle with flame
+                    ZStack {
+                        Image(systemName: "candlestick.fill")
+                            .font(.system(size: 14))
+                            .foregroundStyle(.white)
+                        
+                        Image(systemName: "flame.fill")
+                            .font(.system(size: 10))
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [.yellow, .orange],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
+                            .offset(y: -8)
+                            .scaleEffect(candleFlicker ? 1.05 : 1.0)
+                    }
+                }
+                .frame(width: 24)
+                .onAppear {
+                    if focusManager.isEnabled {
+                        withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
+                            candleFlicker = true
+                        }
+                    }
+                }
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Shabbat Mode")
+                        .font(.custom("OpenSans-SemiBold", size: 15))
+                    Text("Sundays 6am - 4pm · Focus on worship")
+                        .font(.custom("OpenSans-Regular", size: 13))
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .tint(.orange)
+    }
+}
 
 // MARK: - Account Settings View
 
@@ -18,6 +133,9 @@ struct AccountSettingsView: View {
     @State private var showChangeEmail = false
     @State private var showChangePassword = false
     @State private var showDeleteAccount = false
+    @State private var showPrivacyDashboard = false
+    @State private var isPrivateAccount = false
+    @State private var isTogglingPrivacy = false
     
     var body: some View {
         NavigationStack {
@@ -98,7 +216,7 @@ struct AccountSettingsView: View {
                                     .foregroundStyle(.primary)
                                 
                                 if let user = userService.currentUser {
-                                    Text(user.email)
+                                    Text(user.email ?? "No email")
                                         .font(.custom("OpenSans-Regular", size: 13))
                                         .foregroundStyle(.secondary)
                                 }
@@ -139,7 +257,88 @@ struct AccountSettingsView: View {
                         .font(.custom("OpenSans-Bold", size: 12))
                 }
                 
+                // ✅ Biometric Authentication & Account Linking
                 Section {
+                    BiometricSettingRow()
+                    
+                    NavigationLink(destination: AccountLinkingView()) {
+                        HStack {
+                            Image(systemName: "link.circle.fill")
+                                .frame(width: 24)
+                                .foregroundStyle(.blue)
+                            
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Linked Accounts")
+                                    .font(.custom("OpenSans-SemiBold", size: 15))
+                                Text("Manage sign-in methods")
+                                    .font(.custom("OpenSans-Regular", size: 13))
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    
+                    NavigationLink(destination: ActiveSessionsView()) {
+                        HStack {
+                            Image(systemName: "iphone.and.arrow.forward")
+                                .frame(width: 24)
+                                .foregroundStyle(.purple)
+                            
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Active Sessions")
+                                    .font(.custom("OpenSans-SemiBold", size: 15))
+                                Text("View signed-in devices")
+                                    .font(.custom("OpenSans-Regular", size: 13))
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    
+                    NavigationLink(destination: TwoFactorAuthView()) {
+                        HStack {
+                            Image(systemName: "lock.shield.fill")
+                                .frame(width: 24)
+                                .foregroundStyle(.orange)
+                            
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Two-Factor Authentication")
+                                    .font(.custom("OpenSans-SemiBold", size: 15))
+                                Text("Extra security with SMS")
+                                    .font(.custom("OpenSans-Regular", size: 13))
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                } header: {
+                    Text("AUTHENTICATION")
+                        .font(.custom("OpenSans-Bold", size: 12))
+                }
+                
+                Section {
+                    // P0 FIX: Private Account Toggle
+                    Toggle(isOn: $isPrivateAccount) {
+                        HStack(spacing: 12) {
+                            Image(systemName: isPrivateAccount ? "lock.fill" : "lock.open.fill")
+                                .frame(width: 24)
+                                .foregroundStyle(isPrivateAccount ? .blue : .secondary)
+                            
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Private Account")
+                                    .font(.custom("OpenSans-SemiBold", size: 15))
+                                
+                                Text(isPrivateAccount ? "Only approved followers can see your posts" : "Anyone can see your posts")
+                                    .font(.custom("OpenSans-Regular", size: 13))
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    .tint(.blue)
+                    .disabled(isTogglingPrivacy)
+                    .onChange(of: isPrivateAccount) { oldValue, newValue in
+                        Task {
+                            await togglePrivateAccount(newValue: newValue)
+                        }
+                    }
+                    
                     NavigationLink(destination: ProfileVisibilitySettingsView()) {
                         HStack {
                             Image(systemName: "eye")
@@ -148,11 +347,78 @@ struct AccountSettingsView: View {
                                 .font(.custom("OpenSans-Regular", size: 15))
                         }
                     }
+                    
+                    // ✅ Privacy & Contact Controls
+                    NavigationLink(destination: PrivacyControlsSettingsView()) {
+                        HStack {
+                            Image(systemName: "hand.raised.fill")
+                                .frame(width: 24)
+                                .foregroundStyle(.blue)
+                            Text("Privacy & Contact")
+                                .font(.custom("OpenSans-Regular", size: 15))
+                        }
+                    }
                 } header: {
                     Text("PRIVACY")
                         .font(.custom("OpenSans-Bold", size: 12))
                 } footer: {
-                    Text("Control what information is visible on your public profile")
+                    Text(isPrivateAccount 
+                        ? "When your account is private, only people you approve can follow you and see your posts. You'll receive follow requests that you can accept or decline."
+                        : "Control who can message you, comment on your posts, and mention you")
+                        .font(.custom("OpenSans-Regular", size: 12))
+                }
+                
+                Section {
+                    Button {
+                        showPrivacyDashboard = true
+                    } label: {
+                        HStack {
+                            Image(systemName: "shield.checkered")
+                                .frame(width: 24)
+                                .foregroundStyle(.blue)
+                            Text("Privacy Dashboard")
+                                .font(.custom("OpenSans-SemiBold", size: 15))
+                                .foregroundStyle(.primary)
+                        }
+                    }
+                } header: {
+                    Text("PRIVACY & DATA")
+                        .font(.custom("OpenSans-Bold", size: 12))
+                }
+                
+                // ✅ Sunday Church Focus Mode Setting
+                Section {
+                    SundayChurchFocusSettingRow()
+                } header: {
+                    Text("CHURCH FOCUS")
+                        .font(.custom("OpenSans-Bold", size: 12))
+                } footer: {
+                    Text("When enabled, social features are limited on Sundays from 6:00 AM - 4:00 PM to encourage church focus. Church Notes and Find a Church remain available.")
+                        .font(.custom("OpenSans-Regular", size: 12))
+                }
+                
+                // ✅ Scroll Budget & Wellbeing Controls
+                Section {
+                    NavigationLink(destination: ScrollBudgetSettingsView()) {
+                        HStack {
+                            Image(systemName: "hourglass")
+                                .frame(width: 24)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Scroll Budget")
+                                    .font(.custom("OpenSans-SemiBold", size: 15))
+                                if ScrollBudgetManager.shared.isEnabled {
+                                    Text("\(ScrollBudgetManager.shared.dailyBudgetMinutes) min daily")
+                                        .font(.custom("OpenSans-Regular", size: 13))
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                    }
+                } header: {
+                    Text("WELLBEING")
+                        .font(.custom("OpenSans-Bold", size: 12))
+                } footer: {
+                    Text("Set daily limits for feed scrolling time with supportive nudges and mindful breaks.")
                         .font(.custom("OpenSans-Regular", size: 12))
                 }
                 
@@ -197,11 +463,71 @@ struct AccountSettingsView: View {
             .sheet(isPresented: $showDeleteAccount) {
                 DeleteAccountView()
             }
+            .sheet(isPresented: $showPrivacyDashboard) {
+                PrivacyDashboardView()
+            }
             .onAppear {
                 Task {
                     await userService.fetchCurrentUser()
+                    await loadPrivateAccountStatus()
                 }
             }
+        }
+    }
+    
+    // MARK: - Private Account Helpers
+    
+    private func loadPrivateAccountStatus() async {
+        guard let currentUserId = Auth.auth().currentUser?.uid else { return }
+        
+        do {
+            let db = Firestore.firestore()
+            let userDoc = try await db.collection("users").document(currentUserId).getDocument()
+            
+            if let isPrivate = userDoc.data()?["isPrivateAccount"] as? Bool {
+                await MainActor.run {
+                    self.isPrivateAccount = isPrivate
+                }
+                print("✅ Loaded private account status: \(isPrivate)")
+            }
+        } catch {
+            print("❌ Failed to load private account status: \(error)")
+        }
+    }
+    
+    private func togglePrivateAccount(newValue: Bool) async {
+        guard let currentUserId = Auth.auth().currentUser?.uid else { return }
+        
+        isTogglingPrivacy = true
+        defer { isTogglingPrivacy = false }
+        
+        // Haptic feedback
+        let haptic = UIImpactFeedbackGenerator(style: .medium)
+        haptic.impactOccurred()
+        
+        do {
+            let db = Firestore.firestore()
+            try await db.collection("users").document(currentUserId).updateData([
+                "isPrivateAccount": newValue
+            ])
+            
+            print("✅ Updated private account status to: \(newValue)")
+            
+            // Success haptic
+            let successHaptic = UINotificationFeedbackGenerator()
+            successHaptic.notificationOccurred(.success)
+            
+        } catch {
+            print("❌ Failed to update private account status: \(error)")
+            
+            // Rollback on error
+            await MainActor.run {
+                isPrivateAccount = !newValue
+            }
+            
+            // Error haptic
+            let errorHaptic = UINotificationFeedbackGenerator()
+            errorHaptic.notificationOccurred(.error)
         }
     }
 }

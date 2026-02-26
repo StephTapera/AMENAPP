@@ -38,6 +38,8 @@ struct CreatePostView: View {
     @State private var showingLinkSheet = false
     @State private var linkURL = ""
     @State private var allowComments = true
+    @State private var commentPermission: CommentPermissionLevel = .everyone  // ✅ Comment permission level
+    @State private var showCommentControls = false  // ✅ Show comment controls sheet
     @State private var keyboardHeight: CGFloat = 0
     @State private var showingSuggestions = false
     @State private var hashtagSuggestions: [String] = []
@@ -52,6 +54,10 @@ struct CreatePostView: View {
     @State private var errorMessage = ""
     @State private var errorTitle = "Error"
     @State private var showingSuccessNotice = false
+    
+    // P1-6 FIX: Better error recovery
+    @State private var isRetryableError = false
+    @State private var retryAction: (() -> Void)?
     @FocusState private var isTextFieldFocused: Bool
     @Namespace private var categoryNamespace
     
@@ -69,6 +75,30 @@ struct CreatePostView: View {
     
     // P0-1 FIX: Prevent duplicate post creation
     @State private var inFlightPostHash: Int? = nil
+    
+    // P0-2 FIX: Store delayed tasks for cancellation
+    @State private var delayedTasks: [Task<Void, Never>] = []
+    
+    // TRUST & SAFETY: Content moderation tracking
+    @StateObject private var integrityTracker = ComposerIntegrityTracker()
+    @StateObject private var rateLimiter = ComposerRateLimiter.shared
+    @State private var showModerationNudge = false
+    @State private var moderationNudgeMessage = ""
+    @State private var showModerationBlockingModal = false
+    @State private var blockingModerationDecision: ModerationDecision?
+    
+    // AI CONTENT DETECTION
+    @State private var showAIContentAlert = false
+    @State private var aiContentConfidence: Double = 0.0
+    @State private var aiContentReason: String = ""
+    
+    // MARK: - Initializer
+    
+    init(initialCategory: PostCategory? = nil) {
+        if let category = initialCategory {
+            _selectedCategory = State(initialValue: category)
+        }
+    }
     
     enum PostCategory: String, CaseIterable {
         case openTable = "openTable"      // ✅ Firebase-safe (no special chars)
@@ -140,6 +170,15 @@ struct CreatePostView: View {
         }
     }
     
+    // P0-2 FIX: Helper to schedule cancellable delayed actions
+    private func scheduleDelayedAction(seconds: Double, action: @escaping @MainActor () -> Void) {
+        let task = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+            guard !Task.isCancelled else { return }
+            action()
+        }
+        delayedTasks.append(task)
+    }
     
     var body: some View {
         NavigationStack {
@@ -289,6 +328,36 @@ struct CreatePostView: View {
                     }
                 }
                 
+                // P1-5 FIX: Manual "Save as Draft" button
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    if !postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isPublishing {
+                        Button {
+                            isTextFieldFocused = false
+                            saveDraft()
+                            // Show brief success feedback
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                showingDraftSavedNotice = true
+                            }
+                            // P0-2 FIX: Use cancellable task
+                            scheduleDelayedAction(seconds: 1.5) {
+                                withAnimation {
+                                    showingDraftSavedNotice = false
+                                }
+                            }
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "square.and.arrow.down")
+                                    .font(.system(size: 14, weight: .semibold))
+                                Text("Save")
+                                    .font(.custom("OpenSans-SemiBold", size: 14))
+                            }
+                            .foregroundStyle(.secondary)
+                        }
+                        .accessibilityLabel("Save draft")
+                        .accessibilityHint("Saves your post as a draft without publishing")
+                    }
+                }
+                
                 // Post Button - Top Right
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: {
@@ -350,7 +419,7 @@ struct CreatePostView: View {
                             }
                         }
                     }
-                    .disabled(!canPost || isPublishing)
+                    .disabled(!canPost || isPublishing || isUploadingImages)  // P1 FIX: Also disable during image upload
                     .accessibilityLabel(scheduledDate != nil ? "Schedule post" : "Publish post")
                     .accessibilityHint(canPost ? "Double tap to publish" : "Post is incomplete or invalid")
                 }
@@ -407,6 +476,30 @@ struct CreatePostView: View {
             .sheet(isPresented: $showDraftsSheet) {
                 DraftsView()
             }
+            .sheet(isPresented: $showCommentControls) {
+                PostCommentControlsSheet(selectedPermission: $commentPermission)
+                    .onChange(of: commentPermission) { oldValue, newValue in
+                        // Update allowComments based on permission
+                        allowComments = (newValue != .nobody)
+                    }
+            }
+            .sheet(isPresented: $showModerationBlockingModal) {
+                if let decision = blockingModerationDecision {
+                    ModerationDecisionView(
+                        decision: decision,
+                        onRevise: {
+                            showModerationBlockingModal = false
+                            blockingModerationDecision = nil
+                            // User can edit and try again
+                        },
+                        onCancel: {
+                            showModerationBlockingModal = false
+                            blockingModerationDecision = nil
+                            dismiss()
+                        }
+                    )
+                }
+            }
             .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { notification in
                 if let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect {
                     withAnimation(.easeOut(duration: 0.2)) {
@@ -419,13 +512,42 @@ struct CreatePostView: View {
                     keyboardHeight = 0
                 }
             }
+            .onReceive(NotificationCenter.default.publisher(for: Notification.Name("aiContentDetected"))) { notification in
+                if let userInfo = notification.userInfo,
+                   let confidence = userInfo["confidence"] as? Double,
+                   let reason = userInfo["reason"] as? String {
+                    aiContentConfidence = confidence
+                    aiContentReason = reason
+                    showAIContentAlert = true
+                }
+            }
         }
         .alert(errorTitle, isPresented: $showingErrorAlert) {
-            Button("OK", role: .cancel) {
-                isPublishing = false
+            // P1-6 FIX: Show retry button for network/upload errors
+            if isRetryableError, let retry = retryAction {
+                Button("Retry", role: .none) {
+                    retry()
+                }
+                Button("Cancel", role: .cancel) {
+                    isPublishing = false
+                    isRetryableError = false
+                    retryAction = nil
+                }
+            } else {
+                Button("OK", role: .cancel) {
+                    isPublishing = false
+                }
             }
         } message: {
             Text(errorMessage)
+        }
+        .alert("Share Your Own Voice", isPresented: $showAIContentAlert) {
+            Button("Edit Post", role: .cancel) {
+                isPublishing = false
+                // User can edit their post
+            }
+        } message: {
+            Text("AMEN is a community for authentic, personal sharing. We noticed this content may not be written in your own words.\n\nPlease share your personal thoughts, experiences, and reflections. We want to hear from you, not from AI tools.")
         }
         .onAppear {
             isTextFieldFocused = true
@@ -441,6 +563,10 @@ struct CreatePostView: View {
             // Stop auto-save task when view disappears
             autoSaveTask?.cancel()
             autoSaveTask = nil
+            
+            // P0-2 FIX: Cancel all delayed tasks to prevent crash on rapid navigation
+            delayedTasks.forEach { $0.cancel() }
+            delayedTasks.removeAll()
         }
         .alert("Recover Draft?", isPresented: $showDraftRecovery) {
             Button("Recover") {
@@ -517,13 +643,43 @@ struct CreatePostView: View {
     private var contentScroll: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
+                // TRUST & SAFETY: Show personalize nudge banner
+                if showModerationNudge {
+                    PersonalizeNudgeBanner(
+                        message: moderationNudgeMessage,
+                        isVisible: $showModerationNudge
+                    )
+                    .padding(.horizontal, 20)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
+                
                 if selectedCategory == .openTable || selectedCategory == .prayer {
                     topicTagSelectorView
                 }
                 textEditorView
                 if !selectedImageData.isEmpty {
-                    ImagePreviewGrid(images: $selectedImageData)
-                        .padding(.horizontal, 20)
+                    VStack(spacing: 8) {
+                        ImagePreviewGrid(images: $selectedImageData)
+                        
+                        // P1-4 FIX: Show upload progress when uploading
+                        if isUploadingImages {
+                            HStack(spacing: 12) {
+                                ProgressView(value: uploadProgress, total: 1.0)
+                                    .progressViewStyle(LinearProgressViewStyle(tint: Color(red: 0.31, green: 0.22, blue: 0.58)))
+                                    .frame(maxWidth: .infinity)
+                                
+                                Text("\(Int(uploadProgress * 100))%")
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(.secondary)
+                                    .frame(width: 40)
+                            }
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 8)
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                        }
+                    }
+                    .padding(.horizontal, 20)
                 }
                 if !linkURL.isEmpty {
                     LinkPreviewCardView(
@@ -609,16 +765,14 @@ struct CreatePostView: View {
                 }
                 .accessibilityLabel("Schedule post")
                 
-                // Allow comments toggle
+                // ✅ Comment controls (opens permission sheet)
                 CompactGlassButton(
                     icon: allowComments ? "bubble.left.and.bubble.right.fill" : "bubble.left.and.bubble.right",
                     isActive: allowComments
                 ) {
-                    withAnimation(.easeOut(duration: 0.15)) {
-                        allowComments.toggle()
-                    }
+                    showCommentControls = true
                 }
-                .accessibilityLabel("Comments")
+                .accessibilityLabel("Comment controls")
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 8) // Reduced from 10
@@ -778,7 +932,18 @@ struct CreatePostView: View {
                         .font(.custom("OpenSans-Regular", size: 17))
                         .focused($isTextFieldFocused)
                         .scrollContentBackground(.hidden)
-                        .onChange(of: postText) { _, newValue in
+                        .onChange(of: postText) { oldValue, newValue in
+                            // Track typing vs pasting for authenticity signals
+                            let addedLength = newValue.count - oldValue.count
+                            if addedLength > 50 {
+                                // Likely a paste event
+                                let pastedText = String(newValue.suffix(addedLength))
+                                integrityTracker.trackPaste(text: pastedText)
+                            } else if addedLength > 0 {
+                                // Likely typing
+                                integrityTracker.trackTyping(addedCharacters: addedLength)
+                            }
+                            
                             detectHashtags(in: newValue)
                             detectAndFetchLinkPreview(in: newValue)
                         }
@@ -1023,12 +1188,28 @@ struct CreatePostView: View {
     
     // MARK: - Helper Methods
     
+    /// Map CommentPermissionLevel to Post.CommentPermissions
+    private func mapToPostCommentPermissions(_ level: CommentPermissionLevel) -> Post.CommentPermissions {
+        switch level {
+        case .everyone:
+            return .everyone
+        case .followersOnly:
+            return .following
+        case .mutualsOnly:
+            return .mentioned  // Map mutuals to mentioned (closest match)
+        case .nobody:
+            return .off
+        }
+    }
+    
     /// Display user-friendly error message
-    private func showError(title: String = "Oops!", message: String) {
+    // P1-6 FIX: Enhanced error handling with retry support
+    private func showError(title: String = "Oops!", message: String, isRetryable: Bool = false, retry: (() -> Void)? = nil) {
         errorTitle = title
         errorMessage = message
+        isRetryableError = isRetryable
+        retryAction = retry
         showingErrorAlert = true
-        
     }
     
     /// Show crisis resources alert when crisis is detected in prayer request
@@ -1218,7 +1399,8 @@ struct CreatePostView: View {
             showingDraftSavedNotice = true
         }
         
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+        // P0-2 FIX: Use cancellable task instead of DispatchQueue
+        scheduleDelayedAction(seconds: 2) {
             withAnimation {
                 showingDraftSavedNotice = false
             }
@@ -1231,8 +1413,9 @@ struct CreatePostView: View {
         print("   isPublishing: \(isPublishing)")
         print("   canPost: \(canPost)")
         
-        // P0-1 FIX: Block duplicate post attempts with content hash
-        let contentHash = postText.hashValue
+        // P0-3 FIX: Block duplicate post attempts with stable hash (UUID + timestamp)
+        let stableId = "\(UUID().uuidString)_\(Int(Date().timeIntervalSince1970))"
+        let contentHash = stableId.hashValue
         if let existingHash = inFlightPostHash, existingHash == contentHash {
             print("⚠️ [P0-1] Duplicate post blocked (hash: \(contentHash))")
             return
@@ -1240,6 +1423,17 @@ struct CreatePostView: View {
         
         guard !isPublishing else {
             print("⚠️ Already publishing, skipping")
+            return
+        }
+        
+        // P0-4 FIX: Check rate limiting before posting
+        if rateLimiter.isRateLimited(for: .post) {
+            let remaining = rateLimiter.getRemainingPosts(for: .post)
+            showError(
+                title: "Slow Down",
+                message: "You're posting quite frequently. Please wait a few minutes before sharing more. (You can post \(remaining) more times in the next 5 minutes)"
+            )
+            inFlightPostHash = nil
             return
         }
         
@@ -1363,16 +1557,65 @@ struct CreatePostView: View {
                 // ⚡ INSTAGRAM-FAST: Run moderation and post creation in parallel
                 // ============================================================================
                 
-                // Start moderation check (don't await yet)
-                let contentType: ContentType = category == .prayer ? .prayerRequest : .post
-                print("🛡️ Starting AI moderation check in parallel...")
-                let moderationTask = Task {
-                    try await ContentModerationService.shared.moderateContent(
-                        content,
-                        type: contentType,
-                        userId: currentUserId
-                    )
+                // P1-1 FIX: PARALLEL MODERATION - Run all safety checks in parallel
+                let contentCategory: ContentCategory = category == .prayer ? .post : .post
+                print("🛡️ Starting parallel moderation checks...")
+                
+                // TRUST & SAFETY: Export real authenticity signals from tracking
+                let signals = integrityTracker.exportAuthenticitySignals()
+                print("📊 Authenticity: typed=\(signals.typedCharacters) pasted=\(signals.pastedCharacters) ratio=\(signals.typedVsPastedRatio)")
+                
+                let pasteRatio = signals.pastedCharacters > 0 ? 
+                    Double(signals.pastedCharacters) / Double(signals.pastedCharacters + signals.typedCharacters) : 0.0
+                
+                // P1-1: Run AI detection and content moderation IN PARALLEL (not sequential)
+                async let aiDetectionResult = AIContentDetectionService.shared.detectAIContent(content, pastedRatio: pasteRatio)
+                async let earlyModerationResult = ContentModerationService.moderateContent(
+                    text: content,
+                    category: contentCategory,
+                    signals: signals,
+                    parentContentId: nil
+                )
+                
+                // Wait for both checks to complete
+                let (aiResult, modResult) = await (aiDetectionResult, earlyModerationResult)
+                
+                // Check AI detection result
+                if aiResult.isAIGenerated {
+                    print("🚫 AI content detected - blocking post (confidence: \(Int(aiResult.confidence * 100))%)")
+                    print("   Reason: \(aiResult.reason)")
+                    await MainActor.run {
+                        isPublishing = false
+                        inFlightPostHash = nil
+                        showError(
+                            title: "Share Your Own Voice",
+                            message: "AMEN is a community for authentic, personal sharing. We noticed this content may not be written in your own words.\n\nPlease share your personal thoughts, experiences, and reflections. We want to hear from you, not from AI tools."
+                        )
+                    }
+                    return
                 }
+                
+                // Check content moderation result
+                if modResult.action == .reject {
+                    print("🚫 Content moderation blocked post")
+                    print("   Reasons: \(modResult.reasons.joined(separator: ", "))")
+                    await MainActor.run {
+                        isPublishing = false
+                        inFlightPostHash = nil
+                        showError(
+                            title: "Content Not Allowed",
+                            message: modResult.reasons.first ?? "This content violates our community guidelines."
+                        )
+                    }
+                    return
+                } else if modResult.action == .holdForReview {
+                    print("⚠️ Content flagged for review - allowing with flag")
+                }
+                
+                print("✅ All moderation checks passed (AI + Content Safety)")
+                
+                // Store moderation result for analytics
+                let moderationTask = Task { return modResult }
                 
                 // Start fetching user data in parallel
                 guard let currentUser = Auth.auth().currentUser else {
@@ -1409,11 +1652,28 @@ struct CreatePostView: View {
                         }
                     } catch {
                         // P0-3 FIX: Show error and STOP post creation if images fail
+                        // P1-6 FIX: Offer retry for network/upload errors
                         await MainActor.run {
                             isPublishing = false
                             inFlightPostHash = nil
                             let friendlyError = getUserFriendlyError(from: error)
-                            showError(title: friendlyError.title, message: friendlyError.message)
+                            
+                            // Check if error is network-related (retryable)
+                            let nsError = error as NSError
+                            let isNetworkError = nsError.domain == NSURLErrorDomain || 
+                                                 nsError.code == NSURLErrorNotConnectedToInternet ||
+                                                 nsError.code == NSURLErrorTimedOut ||
+                                                 nsError.localizedDescription.lowercased().contains("network") ||
+                                                 nsError.localizedDescription.lowercased().contains("connection")
+                            
+                            showError(
+                                title: friendlyError.title, 
+                                message: friendlyError.message,
+                                isRetryable: isNetworkError,
+                                retry: isNetworkError ? {
+                                    publishPost()
+                                } : nil
+                            )
                         }
                         print("❌ [P0-3] Image upload failed - aborting post creation")
                         return
@@ -1428,21 +1688,58 @@ struct CreatePostView: View {
                 // Check moderation result (should be fast since it started first)
                 let moderationResult = try await moderationTask.value
                 
-                if !moderationResult.isApproved {
+                // TRUST & SAFETY: Handle all enforcement actions
+                switch moderationResult.action {
+                case .allow:
+                    print("✅ Content approved")
+                    
+                case .nudgeRewrite:
+                    // Gentle nudge - allow posting but show message
+                    await MainActor.run {
+                        showModerationNudge = true
+                        moderationNudgeMessage = moderationResult.userMessage
+                    }
+                    print("💡 Nudge shown: \(moderationResult.userMessage)")
+                    
+                case .requireRevision:
+                    // Strong suggestion to revise - block posting
                     await MainActor.run {
                         isPublishing = false
-                        inFlightPostHash = nil  // P0-1 FIX: Clear hash on moderation failure
-                        let reasons = moderationResult.flaggedReasons.joined(separator: ", ")
+                        inFlightPostHash = nil
+                        blockingModerationDecision = moderationResult
+                        showModerationBlockingModal = true
+                    }
+                    print("⚠️ Revision required: \(moderationResult.reasons)")
+                    return
+                    
+                case .holdForReview, .reject:
+                    // Hard block - cannot post
+                    await MainActor.run {
+                        isPublishing = false
+                        inFlightPostHash = nil
+                        blockingModerationDecision = moderationResult
+                        showModerationBlockingModal = true
+                    }
+                    print("❌ Post blocked: \(moderationResult.reasons)")
+                    return
+                    
+                case .rateLimit:
+                    // Already handled by client-side rate limiter, but respect server decision
+                    await MainActor.run {
+                        isPublishing = false
+                        inFlightPostHash = nil
                         showError(
-                            title: "Content Flagged",
-                            message: "Your post was flagged for: \(reasons). Please review and edit your content."
+                            title: "Slow Down",
+                            message: moderationResult.userMessage
                         )
                     }
-                    print("❌ Post blocked by moderation: \(moderationResult.flaggedReasons)")
+                    print("🛑 Rate limited by server")
                     return
+                    
+                case .shadowRestrict:
+                    // Silent action - allow posting but flag for review
+                    print("👁️ Shadow restricted - post allowed but flagged")
                 }
-                
-                print("✅ Content passed moderation")
                 
                 // P1-3 FIX: Parallelize mention resolution
                 let mentionUsernames = Post.extractMentionUsernames(from: content)
@@ -1466,11 +1763,24 @@ struct CreatePostView: View {
                                         let userId = userDoc.documentID
                                         let displayName = userDoc.data()["displayName"] as? String ?? username
                                         print("   ✓ Resolved @\(username) -> \(userId)")
-                                        return MentionedUser(
-                                            userId: userId,
-                                            username: username,
-                                            displayName: displayName
+                                        
+                                        // ✅ PRIVACY CHECK: Verify user can mention this person
+                                        let canMention = try await TrustByDesignService.shared.canMention(
+                                            from: currentUser.uid,
+                                            mention: userId
                                         )
+                                        
+                                        if canMention {
+                                            print("   ✅ Mention permission granted for @\(username)")
+                                            return MentionedUser(
+                                                userId: userId,
+                                                username: username,
+                                                displayName: displayName
+                                            )
+                                        } else {
+                                            print("   ⚠️ Mention permission denied for @\(username) - skipping")
+                                            return nil
+                                        }
                                     }
                                 } catch {
                                     print("   ⚠️ Failed to resolve @\(username): \(error)")
@@ -1505,7 +1815,7 @@ struct CreatePostView: View {
                     topicTag: topicTag,
                     visibility: .everyone,
                     allowComments: allowComments,
-                    commentPermissions: nil,
+                    commentPermissions: allowComments ? mapToPostCommentPermissions(commentPermission) : .off,
                     imageURLs: imageURLs,
                     linkURL: linkURL,
                     linkPreviewTitle: linkMetadata?.title,
@@ -1570,6 +1880,29 @@ struct CreatePostView: View {
                     print("   🔗 Link preview metadata added")
                 }
                 
+                // P0-4 FIX: Check if post already exists (idempotency)
+                print("   🔍 Checking for existing post (idempotency)...")
+                let existingPost = try? await FirebaseManager.shared.firestore
+                    .collection("posts")
+                    .document(postId.uuidString)
+                    .getDocument()
+                
+                if let existing = existingPost, existing.exists {
+                    print("⏭️ [P0-4] Post already created (idempotency): \(postId.uuidString)")
+                    // Post already exists, skip creation but still show success
+                    await MainActor.run {
+                        inFlightPostHash = nil
+                        UserDefaults.standard.removeObject(forKey: "autoSavedDraft")
+                        withAnimation { showingSuccessNotice = true }
+                        // P0-2 FIX: Critical - cancellable dismiss task
+                        scheduleDelayedAction(seconds: 0.15) {
+                            dismiss()
+                        }
+                        isPublishing = false
+                    }
+                    return
+                }
+                
                 print("   📤 Saving to Firestore immediately...")
                 try await FirebaseManager.shared.firestore
                     .collection("posts")
@@ -1580,6 +1913,10 @@ struct CreatePostView: View {
                 print("   Post ID: \(newPost.id)")
                 print("   Category: \(newPost.category.rawValue)")
                 print("   Author: \(newPost.authorName)")
+                
+                // TRUST & SAFETY: Track post for rate limiting and reset tracker
+                rateLimiter.trackPost(category: .post)
+                integrityTracker.reset()
                 
                 // 📧 Send mention notifications (non-blocking background task)
                 if !mentions.isEmpty {
@@ -1618,8 +1955,8 @@ struct CreatePostView: View {
                         showingSuccessNotice = true
                     }
                     
-                    // Dismiss after brief delay (Firestore already confirmed)
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                    // P0-2 FIX: Critical - cancellable dismiss task
+                    scheduleDelayedAction(seconds: 0.15) {
                         print("👋 Dismissing CreatePostView (safe after Firestore)")
                         dismiss()
                     }
@@ -1780,6 +2117,35 @@ struct CreatePostView: View {
                     continue
                 }
                 
+                // ✅ SAFESEARCH MODERATION: Check image safety before upload
+                do {
+                    let moderationDecision = try await ImageModerationService.shared.moderateImage(
+                        imageData: compressedData,
+                        userId: userId,
+                        context: .postImage
+                    )
+                    
+                    if !moderationDecision.isApproved {
+                        await MainActor.run {
+                            isUploadingImages = false
+                        }
+                        throw NSError(
+                            domain: "ImageModeration",
+                            code: -2,
+                            userInfo: [NSLocalizedDescriptionKey: moderationDecision.userMessage]
+                        )
+                    }
+                } catch let moderationError as ImageModerationError {
+                    await MainActor.run {
+                        isUploadingImages = false
+                    }
+                    throw NSError(
+                        domain: "ImageModeration",
+                        code: -3,
+                        userInfo: [NSLocalizedDescriptionKey: moderationError.userMessage]
+                    )
+                }
+                
                 // Upload image
                 let metadata = StorageMetadata()
                 metadata.contentType = "image/jpeg"
@@ -1889,8 +2255,8 @@ struct CreatePostView: View {
                     
                     isPublishing = false
                     
-                    // Dismiss after brief delay
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    // P0-2 FIX: Cancellable dismiss
+                    scheduleDelayedAction(seconds: 0.5) {
                         dismiss()
                     }
                     
@@ -1912,7 +2278,23 @@ struct CreatePostView: View {
             } catch {
                 await MainActor.run {
                     let friendlyError = getUserFriendlyError(from: error)
-                    showError(title: friendlyError.title, message: friendlyError.message)
+                    
+                    // P1-6 FIX: Offer retry for network errors
+                    let nsError = error as NSError
+                    let isNetworkError = nsError.domain == NSURLErrorDomain || 
+                                         nsError.code == NSURLErrorNotConnectedToInternet ||
+                                         nsError.code == NSURLErrorTimedOut ||
+                                         nsError.localizedDescription.lowercased().contains("network") ||
+                                         nsError.localizedDescription.lowercased().contains("connection")
+                    
+                    showError(
+                        title: friendlyError.title, 
+                        message: friendlyError.message,
+                        isRetryable: isNetworkError,
+                        retry: isNetworkError ? {
+                            publishPost()
+                        } : nil
+                    )
                     isPublishing = false
                 }
             }
@@ -2167,7 +2549,7 @@ struct LiquidGlassCategoryButton: View {
                 isPressed = true
             }
             
-            
+            // Button animation reset (non-critical, safe to use DispatchQueue)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
                     isPressed = false
@@ -2226,6 +2608,7 @@ struct EnhancedToolbarButton: View {
                 isPressed = true
             }
             
+            // Button animation reset (non-critical, safe to use DispatchQueue)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
                     isPressed = false
@@ -2341,6 +2724,7 @@ struct TopicTagSheet: View {
                                 withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                                     selectedTag = tag.0
                                 }
+                                // Animation reset (non-critical)
                                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                                     isPresented = false
                                 }
@@ -2380,7 +2764,7 @@ struct TopicTagCard: View {
                 isPressed = true
             }
             
-            
+            // Button animation reset (non-critical)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                     isPressed = false
@@ -2685,6 +3069,7 @@ struct GlassToolbarButton: View {
             withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
                 isPressed = true
             }
+            // Button animation reset (non-critical)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
                     isPressed = false
@@ -3186,6 +3571,7 @@ struct CompactToolbarButton: View {
                 isPressed = true
             }
             
+            // Button animation reset (non-critical)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 withAnimation(.spring(response: 0.25, dampingFraction: 0.6)) {
                     isPressed = false
@@ -3224,7 +3610,7 @@ struct GlassmorphicButton: View {
                 isPressed = true
             }
             
-            
+            // Button animation reset (non-critical)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
                     isPressed = false
@@ -3281,6 +3667,7 @@ struct GlassToolbarIcon: View {
                 isPressed = true
             }
             
+            // Button animation reset (non-critical)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
                 withAnimation(.spring(response: 0.25, dampingFraction: 0.65)) {
                     isPressed = false
@@ -3315,6 +3702,7 @@ struct CompactGlassButton: View {
             }
             action()
             
+            // Button animation reset (non-critical)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
                     isPressed = false
@@ -3366,6 +3754,7 @@ struct MinimalToolbarButton: View {
                 isPressed = true
             }
             
+            // Button animation reset (non-critical)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.65)) {
                     isPressed = false
@@ -3418,7 +3807,7 @@ struct LiquidGlassPostButton: View {
                 isPressed = true
             }
             
-            
+            // Button animation reset (non-critical)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.6)) {
                     isPressed = false

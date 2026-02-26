@@ -25,6 +25,10 @@ struct PeopleDiscoveryViewNew: View {
     @State private var searchDebounceTimer: Timer?
     @State private var isLoadingTriggered = false
     
+    // Tab bar auto-hide on scroll
+    @State private var lastDragValue: CGFloat = 0
+    @State private var isTabBarHidden = false
+    
     enum DiscoveryFilter: String, CaseIterable {
         case suggested = "Suggested"
         case recent = "Recent"
@@ -56,6 +60,14 @@ struct PeopleDiscoveryViewNew: View {
                     LazyVStack(spacing: 0, pinnedViews: []) {
                         // Header with back button (collapses on scroll)
                         headerSection
+                            .background(
+                                GeometryReader { geometry in
+                                    Color.clear.preference(
+                                        key: ScrollOffsetPreferenceKey.self,
+                                        value: geometry.frame(in: .named("scroll")).minY
+                                    )
+                                }
+                            )
                         
                         // Search bar (shrinks on scroll)
                         liquidGlassSearchSection
@@ -72,14 +84,24 @@ struct PeopleDiscoveryViewNew: View {
                             } else if viewModel.users.isEmpty {
                                 emptyStateView
                             } else {
-                                ForEach(viewModel.users.filter { $0.id != nil }) { user in
+                                ForEach(Array(viewModel.users.filter { $0.id != nil }.enumerated()), id: \.element.id) { index, user in
                                     PeopleDiscoveryPersonCard(
                                         user: user,
                                         onTap: {
                                             showProfileSheet = user
                                         },
+                                        cardIndex: index,
                                         viewModel: viewModel
                                     )
+                                    .onAppear {
+                                        // ✨ Smart Prefetch Trigger: At 80% of list
+                                        let totalUsers = viewModel.users.count
+                                        let prefetchThreshold = Int(Double(totalUsers) * 0.8)
+                                        
+                                        if index >= prefetchThreshold && viewModel.hasMore {
+                                            viewModel.triggerPrefetch()
+                                        }
+                                    }
                                 }
                                 
                                 // Load more trigger (with double-trigger guard)
@@ -101,14 +123,6 @@ struct PeopleDiscoveryViewNew: View {
                         .padding(.horizontal, 16)
                         .padding(.bottom, 20)
                     }
-                    .background(
-                        GeometryReader { geometry in
-                            Color.clear.preference(
-                                key: ScrollOffsetPreferenceKey.self,
-                                value: geometry.frame(in: .named("scroll")).minY
-                            )
-                        }
-                    )
                 }
                 .coordinateSpace(name: "scroll")
                 .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
@@ -117,8 +131,60 @@ struct PeopleDiscoveryViewNew: View {
                 .refreshable {
                     await viewModel.refresh()
                 }
+                .onChange(of: scrollOffset) { oldValue, newValue in
+                    // Scroll tracking for tab bar auto-hide
+                }
             }
             .navigationBarHidden(true)
+            .toolbar(isTabBarHidden ? .hidden : .visible, for: .tabBar)
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { value in
+                        let delta = value.translation.height - lastDragValue
+                        
+                        if delta < -10 && !isTabBarHidden {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                isTabBarHidden = true
+                            }
+                        } else if delta > 10 && isTabBarHidden {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                isTabBarHidden = false
+                            }
+                        }
+                        
+                        lastDragValue = value.translation.height
+                    }
+                    .onEnded { _ in
+                        lastDragValue = 0
+                    }
+            )
+            .overlay(
+                VStack {
+                    Spacer()
+                    
+                    if viewModel.showPrefetchBadge {
+                        HStack(spacing: 8) {
+                            Image(systemName: "sparkles")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(.white)
+                            
+                            Text("Found \(viewModel.prefetchCount) more believers")
+                                .font(.custom("OpenSans-SemiBold", size: 13))
+                                .foregroundColor(.white)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(
+                            Capsule()
+                                .fill(Color.black.opacity(0.9))
+                                .shadow(color: .black.opacity(0.3), radius: 12, y: 4)
+                        )
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                        .animation(.spring(response: 0.4, dampingFraction: 0.7), value: viewModel.showPrefetchBadge)
+                    }
+                }
+                .padding(.bottom, 80)
+            )
             .sheet(item: $showProfileSheet) { user in
                 if let userId = user.id, !userId.isEmpty {
                     NavigationView {
@@ -152,44 +218,17 @@ struct PeopleDiscoveryViewNew: View {
         let currentFontSize = expandedFontSize - (expandedFontSize - collapsedFontSize) * progress
         let currentPadding = 20 - (8 * progress)
         
+        // Smart blur/fade effect: more translucent when scrolling
+        let headerOpacity = 1.0 - (progress * 0.15)
+        let blurRadius = progress * 2
+        
         return HStack(spacing: 16) {
-            // Back button with liquid glass (stays same size)
-            Button {
-                let haptic = UIImpactFeedbackGenerator(style: .light)
-                haptic.impactOccurred()
-                dismiss()
-            } label: {
-                ZStack {
-                    // Liquid glass background
-                    Circle()
-                        .fill(.ultraThinMaterial.opacity(0.3))
-                        .overlay(
-                            Circle()
-                                .stroke(
-                                    LinearGradient(
-                                        colors: [
-                                            Color.black.opacity(0.3),
-                                            Color.black.opacity(0.1)
-                                        ],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    ),
-                                    lineWidth: 1
-                                )
-                        )
-                        .frame(width: 40, height: 40)
-                    
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.black)
-                }
-            }
-            
             Spacer()
             
             Text("Discover People")
                 .font(.custom("OpenSans-Bold", size: currentFontSize))
                 .foregroundColor(.black)
+                .opacity(headerOpacity)
             
             Spacer()
         }
@@ -197,6 +236,11 @@ struct PeopleDiscoveryViewNew: View {
         .padding(.top, 16)
         .padding(.bottom, currentPadding)
         .frame(height: currentHeight)
+        .background(
+            Color.white
+                .opacity(1.0 - (progress * 0.1))
+                .blur(radius: blurRadius)
+        )
         .animation(.easeOut(duration: 0.2), value: scrollOffset)
     }
     
@@ -215,6 +259,11 @@ struct PeopleDiscoveryViewNew: View {
         let expandedPadding: CGFloat = 16
         let collapsedPadding: CGFloat = 10
         let currentPadding = expandedPadding - (expandedPadding - collapsedPadding) * progress
+        
+        // Smart appearance changes on scroll
+        let cornerRadius = 14 - (progress * 2) // 14 → 12
+        let searchOpacity = 1.0 - (progress * 0.2) // Subtle fade
+        let glassOpacity = 0.1 + (progress * 0.15) // More glass effect when compact
         
         return VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 12) {
@@ -262,25 +311,27 @@ struct PeopleDiscoveryViewNew: View {
             .padding(.horizontal, currentPadding)
             .padding(.vertical, currentPadding)
             .frame(height: currentHeight)
+            .opacity(searchOpacity)
             .background(
                 ZStack {
-                    // Reduced opacity for GPU performance
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(.ultraThinMaterial.opacity(0.1))
+                    // Dynamic glass effect - more translucent when compact
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .fill(.ultraThinMaterial.opacity(glassOpacity))
                     
-                    // Static colors instead of animated gradients
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    // Blur effect increases when scrolling
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                         .fill(Color.black.opacity(searchText.isEmpty ? 0.02 : 0.04))
+                        .blur(radius: progress * 1.5)
                     
-                    // Border
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    // Border becomes more prominent when compact
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                         .stroke(
-                            Color.black.opacity(searchText.isEmpty ? 0.12 : 0.2),
-                            lineWidth: searchText.isEmpty ? 0.5 : 1
+                            Color.black.opacity((searchText.isEmpty ? 0.12 : 0.2) + (progress * 0.05)),
+                            lineWidth: (searchText.isEmpty ? 0.5 : 1) + (progress * 0.5)
                         )
                 }
             )
-            .shadow(color: .black.opacity(0.04), radius: 4, y: 2)
+            .shadow(color: .black.opacity(0.04 + (progress * 0.02)), radius: 4 - (progress * 2), y: 2)
             .animation(.easeOut(duration: 0.2), value: scrollOffset)
             
             // Smart search status
@@ -493,7 +544,6 @@ struct LiquidGlassFilterChip: View {
     
     var body: some View {
         Button {
-            print("🎯 LiquidGlassFilterChip tapped: \(title)")
             action()
         } label: {
             HStack(spacing: 8) {
@@ -638,12 +688,15 @@ struct SmartFollowButton: View {
 struct PeopleDiscoveryPersonCard: View {
     let user: UserModel
     let onTap: () -> Void
+    let cardIndex: Int
     @State private var isFollowing = false
     @State private var isPressed = false
     @State private var isHovering = false
     @StateObject private var followService = FollowService.shared
     @ObservedObject var viewModel: PeopleDiscoveryViewModelNew
     @State private var hasAppeared = false // Track appearance for staggered animation
+    @State private var photoInsights: PhotoInsight? // AI photo insights
+    @State private var smartSuggestion: SmartSuggestion? // AI connection reason
     
     var body: some View {
         HStack(spacing: 12) {
@@ -663,19 +716,16 @@ struct PeopleDiscoveryPersonCard: View {
                         )
                     
                     if let profileImageURL = user.profileImageURL, !profileImageURL.isEmpty {
-                        AsyncImage(url: URL(string: profileImageURL)) { phase in
-                            switch phase {
-                            case .success(let image):
-                                image
-                                    .resizable()
-                                    .scaledToFill()
-                                    .frame(width: 44, height: 44)
-                                    .clipShape(Circle())
-                            default:
-                                Text(user.initials)
-                                    .font(.custom("OpenSans-Bold", size: 16))
-                                    .foregroundColor(.black.opacity(0.7))
-                            }
+                        CachedAsyncImage(url: URL(string: profileImageURL)) { image in
+                            image
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 44, height: 44)
+                                .clipShape(Circle())
+                        } placeholder: {
+                            Text(user.initials)
+                                .font(.custom("OpenSans-Bold", size: 16))
+                                .foregroundColor(.black.opacity(0.7))
                         }
                     } else {
                         Text(user.initials)
@@ -728,6 +778,39 @@ struct PeopleDiscoveryPersonCard: View {
                         }
                     }
                     .lineLimit(1)
+                    
+                    // 🤖 AI Smart Suggestion (show every 3rd card)
+                    if let suggestion = smartSuggestion, cardIndex % 3 == 0 {
+                        HStack(spacing: 4) {
+                            Image(systemName: "sparkles")
+                                .font(.system(size: 9, weight: .semibold))
+                                .foregroundColor(.black)
+                            
+                            Text(suggestion.reason)
+                                .font(.custom("OpenSans-Medium", size: 11))
+                                .foregroundColor(.black)
+                                .lineLimit(1)
+                        }
+                        .padding(.top, 2)
+                    }
+                    
+                    // 📸 Photo Insights Badges
+                    if let insights = photoInsights, !insights.badges.isEmpty {
+                        HStack(spacing: 4) {
+                            ForEach(insights.badges.prefix(2), id: \.self) { badge in
+                                Text(badge)
+                                    .font(.custom("OpenSans-Medium", size: 10))
+                                    .foregroundColor(.black.opacity(0.6))
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(
+                                        Capsule()
+                                            .fill(Color.black.opacity(0.06))
+                                    )
+                            }
+                        }
+                        .padding(.top, 2)
+                    }
                 }
             }
             .buttonStyle(PlainButtonStyle())
@@ -780,6 +863,41 @@ struct PeopleDiscoveryPersonCard: View {
                 isFollowing = viewModel.followingUserIds.contains(userId)
             }
         }
+        .task {
+            guard let userId = user.id else { return }
+            guard let currentUserId = Auth.auth().currentUser?.uid else { return }
+            
+            // Load both AI features in parallel
+            async let photoTask: PhotoInsight? = {
+                guard let imageURL = user.profileImageURL, !imageURL.isEmpty else { return nil }
+                do {
+                    return try await PhotoInsightsService.shared.analyzeProfilePhoto(
+                        imageURL: imageURL,
+                        userId: userId,
+                        currentUserId: currentUserId
+                    )
+                } catch {
+                    Logger.debug("Photo insights failed: \(error.localizedDescription)")
+                    return nil
+                }
+            }()
+            
+            async let suggestionTask: SmartSuggestion? = {
+                do {
+                    return try await SmartSuggestionsService.shared.getSuggestion(
+                        for: userId,
+                        currentUserId: currentUserId
+                    )
+                } catch {
+                    Logger.debug("Smart suggestion failed: \(error.localizedDescription)")
+                    return nil
+                }
+            }()
+            
+            // Await both results
+            photoInsights = await photoTask
+            smartSuggestion = await suggestionTask
+        }
         // MEMORY LEAK FIX: Removed onChange listener
         // Follow status updates happen via optimistic UI in toggleFollow()
     }
@@ -809,7 +927,7 @@ struct PeopleDiscoveryPersonCard: View {
                     try await followService.unfollowUser(userId: userId)
                 }
             } catch {
-                print("❌ Follow action failed: \(error)")
+                Logger.error("Follow action failed", error: error)
                 // Revert on error
                 await MainActor.run {
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
@@ -910,11 +1028,18 @@ class PeopleDiscoveryViewModelNew: ObservableObject {
     @Published var networkError: String? // For error recovery UI
     @Published var followingUserIds: Set<String> = [] // Cache follow status
     
+    // Smart Prefetch
+    @Published var prefetchedUsers: [UserModel] = [] // Hidden cache for instant display
+    @Published var showPrefetchBadge = false
+    @Published var prefetchCount = 0
+    
     private let db = Firestore.firestore()
     private var lastDocument: DocumentSnapshot?
     private let pageSize = 50 // Increased to show more users for discovery
     private var searchTask: Task<Void, Never>?
     private var currentFilter: PeopleDiscoveryViewNew.DiscoveryFilter = .suggested
+    private var prefetchTask: Task<Void, Never>?
+    private var isPrefetching = false
     
     // Cache for user connections to improve performance
     private var connectionsCache: [String: (following: Set<String>, followers: Set<String>)] = [:]
@@ -934,11 +1059,9 @@ class PeopleDiscoveryViewModelNew: ObservableObject {
             if followingUserIds.isEmpty {
                 await loadFollowingStatus()
             }
-            
-            print("✅ Loaded \(users.count) users for filter: \(filter.rawValue)")
         } catch {
             networkError = "Unable to load users. Please check your connection."
-            print("❌ Failed to load users: \(error)")
+            Logger.error("Failed to load users", error: error)
         }
         
         isLoading = false
@@ -947,7 +1070,6 @@ class PeopleDiscoveryViewModelNew: ObservableObject {
     // Batch load following status - ONE query instead of N queries
     private func loadFollowingStatus() async {
         guard let currentUserId = Auth.auth().currentUser?.uid else { 
-            print("⚠️ No current user ID, skipping follow status load")
             return 
         }
         
@@ -959,15 +1081,13 @@ class PeopleDiscoveryViewModelNew: ObservableObject {
                 .getDocuments()
             
             followingUserIds = Set(snapshot.documents.map { $0.documentID })
-            print("✅ Loaded following status for \(followingUserIds.count) users")
         } catch let error as NSError {
             // Handle permission errors gracefully
             if error.domain == "FIRFirestoreErrorDomain" && error.code == 7 {
-                print("⚠️ Permission denied for following status. Check Firestore rules.")
-                print("   Make sure users can read: /users/{userId}/following")
+                Logger.warning("Permission denied for following status. Check Firestore rules for /users/{userId}/following")
                 followingUserIds = [] // Start with empty set
             } else {
-                print("❌ Failed to load following status: \(error.localizedDescription)")
+                Logger.error("Failed to load following status", error: error)
             }
         }
     }
@@ -975,6 +1095,33 @@ class PeopleDiscoveryViewModelNew: ObservableObject {
     func loadMore() async {
         guard !isLoadingMore && hasMore else { return }
         
+        // ✨ SMART PREFETCH: Check if we have cached users ready
+        if !prefetchedUsers.isEmpty {
+            // Instantly append prefetched users
+            users.append(contentsOf: prefetchedUsers)
+            
+            // Show elegant badge
+            prefetchCount = prefetchedUsers.count
+            showPrefetchBadge = true
+            
+            // Hide badge after 2 seconds
+            Task {
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                showPrefetchBadge = false
+            }
+            
+            // Clear prefetch cache
+            prefetchedUsers = []
+            
+            // Immediately start prefetching next batch
+            Task {
+                await smartPrefetch()
+            }
+            
+            return
+        }
+        
+        // Fallback: Traditional loading with spinner
         isLoadingMore = true
         
         do {
@@ -986,14 +1133,47 @@ class PeopleDiscoveryViewModelNew: ObservableObject {
             users.append(contentsOf: newUsers)
             hasMore = newUsers.count >= pageSize
             
-            // PERFORMANCE FIX: Don't reload all following status on pagination
-            // Follow status is already cached and updated optimistically in UI
-            print("✅ Loaded \(newUsers.count) more users")
+            // Start prefetching next batch
+            Task {
+                await smartPrefetch()
+            }
         } catch {
-            print("❌ Failed to load more users: \(error)")
+            Logger.error("Failed to load more users", error: error)
         }
         
         isLoadingMore = false
+    }
+    
+    // ✨ SMART PREFETCH: Predictive loading for instant UX
+    func smartPrefetch() async {
+        guard !isPrefetching && hasMore && prefetchedUsers.isEmpty else { 
+            return 
+        }
+        
+        isPrefetching = true
+        
+        do {
+            let nextBatch = try await fetchUsers(
+                filter: currentFilter,
+                limit: 10, // Smaller prefetch batch
+                afterDocument: lastDocument
+            )
+            
+            prefetchedUsers = nextBatch
+        } catch {
+            Logger.debug("Prefetch failed (non-critical): \(error.localizedDescription)")
+        }
+        
+        isPrefetching = false
+    }
+    
+    // Call this when user reaches 80% scroll
+    func triggerPrefetch() {
+        guard !isPrefetching && hasMore && prefetchedUsers.isEmpty else { return }
+        
+        Task {
+            await smartPrefetch()
+        }
     }
     
     func refresh() async {
@@ -1035,8 +1215,6 @@ class PeopleDiscoveryViewModelNew: ObservableObject {
         do {
             let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
             
-            print("🔍 Searching with Algolia for: '\(trimmedQuery)'")
-            
             // Use Algolia for fast, typo-tolerant search
             let algoliaUsers = try await AlgoliaSearchService.shared.searchUsers(query: trimmedQuery)
             
@@ -1051,12 +1229,9 @@ class PeopleDiscoveryViewModelNew: ObservableObject {
                 await loadFollowingStatus()
             }
             
-            print("✅ Algolia search found \(results.count) users for '\(query)'")
-            
         } catch {
-            print("❌ Algolia search failed: \(error)")
+            Logger.error("Algolia search failed, falling back to Firestore", error: error)
             // Fallback to Firestore search if Algolia fails
-            print("⚠️ Falling back to Firestore search...")
             await performFirestoreSearch(query: query)
         }
         
@@ -1111,8 +1286,6 @@ class PeopleDiscoveryViewModelNew: ObservableObject {
             let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
             let lowercaseQuery = trimmedQuery.lowercased()
             
-            print("🔍 Firestore fallback search for: '\(trimmedQuery)'")
-            
             // Strategy 1: Search by username (most common)
             var results = try await searchByUsername(lowercaseQuery)
             
@@ -1140,10 +1313,9 @@ class PeopleDiscoveryViewModelNew: ObservableObject {
             }
             
             users = results
-            print("✅ Firestore fallback found \(results.count) users for '\(query)'")
             
         } catch {
-            print("❌ Firestore search failed: \(error)")
+            Logger.error("Firestore search failed", error: error)
             self.error = error.localizedDescription
         }
     }
@@ -1217,21 +1389,15 @@ class PeopleDiscoveryViewModelNew: ObservableObject {
         // Fetch ALL users from the app for discovery
         var query: Query = db.collection("users")
         
-        print("📊 [Fetch Users] Fetching users for filter: \(filter.rawValue)")
-        
         // Pagination
         if let afterDocument = afterDocument {
             query = query.start(afterDocument: afterDocument).limit(to: limit)
-            print("📊 [Fetch Users] Loading more users after document")
         } else {
             query = query.limit(to: limit)
-            print("📊 [Fetch Users] Loading first \(limit) users")
         }
         
         let snapshot = try await query.getDocuments()
         lastDocument = snapshot.documents.last
-        
-        print("📊 [Fetch Users] Retrieved \(snapshot.documents.count) documents from Firestore")
         
         // Filter out current user and map to UserModel
         var allUsers: [UserModel] = []
@@ -1257,22 +1423,19 @@ class PeopleDiscoveryViewModelNew: ObservableObject {
                 
                 allUsers.append(user)
             } catch {
-                // Try to recover from decoding errors by using document ID
-                print("⚠️ [Fetch Users] Decoding error for user \(doc.documentID), attempting recovery: \(error)")
-                
-                // For now, skip users that fail to decode
-                // In production, you might want to create a minimal UserModel with available data
+                Logger.debug("Decoding error for user \(doc.documentID): \(error.localizedDescription)")
                 decodingErrors += 1
             }
         }
         
-        print("📊 [Fetch Users] Filtered to \(allUsers.count) users (excluding current user)")
-        print("📊 [Fetch Users] Stats - Decoding errors: \(decodingErrors), IDs fixed: \(idFixedCount), Current user filtered: \(currentUserFiltered)")
+        #if DEBUG
+        if decodingErrors > 0 || idFixedCount > 0 {
+            Logger.debug("Fetch stats - Decoding errors: \(decodingErrors), IDs fixed: \(idFixedCount)")
+        }
+        #endif
         
         // Apply smart algorithm based on filter
         allUsers = await applySmartAlgorithm(to: allUsers, filter: filter, currentUserId: currentUserId)
-        
-        print("📊 [Fetch Users] Returning \(allUsers.count) users after algorithm")
         
         return allUsers
     }
@@ -1284,11 +1447,8 @@ class PeopleDiscoveryViewModelNew: ObservableObject {
         filter: PeopleDiscoveryViewNew.DiscoveryFilter,
         currentUserId: String
     ) async -> [UserModel] {
-        print("🔍 [Discovery Algorithm] Processing \(users.count) users for filter: \(filter.rawValue)")
-        
         // Return users immediately if empty
         guard !users.isEmpty else {
-            print("⚠️ [Discovery Algorithm] No users to process")
             return users
         }
         
@@ -1296,12 +1456,10 @@ class PeopleDiscoveryViewModelNew: ObservableObject {
         let (currentUserFollowing, currentUserFollowers): (Set<String>, Set<String>)
         if let cached = currentUserConnections {
             (currentUserFollowing, currentUserFollowers) = cached
-            print("✅ [Discovery Algorithm] Using cached connections: \(currentUserFollowing.count) following, \(currentUserFollowers.count) followers")
         } else {
             let connections = await loadUserConnections(userId: currentUserId)
             currentUserConnections = connections
             (currentUserFollowing, currentUserFollowers) = connections
-            print("✅ [Discovery Algorithm] Loaded fresh connections: \(currentUserFollowing.count) following, \(currentUserFollowers.count) followers")
         }
         
         // Score each user based on multiple factors
@@ -1346,8 +1504,6 @@ class PeopleDiscoveryViewModelNew: ObservableObject {
             .sorted { $0.score > $1.score }
             .map { $0.user }
         
-        print("✅ [Discovery Algorithm] Sorted \(sortedUsers.count) users by score")
-        
         return sortedUsers
     }
     
@@ -1373,10 +1529,8 @@ class PeopleDiscoveryViewModelNew: ObservableObject {
                 .collection("followers")
                 .getDocuments()
             followers = Set(followersSnapshot.documents.map { $0.documentID })
-            
-            print("✅ Loaded connections: \(following.count) following, \(followers.count) followers")
         } catch {
-            print("⚠️ Failed to load user connections: \(error)")
+            Logger.debug("Failed to load user connections: \(error.localizedDescription)")
         }
         
         return (following, followers)
@@ -1446,13 +1600,6 @@ struct SafeUserProfileWrapper: View {
     }
 }
 
-// MARK: - Preview
-
-
 // MARK: - Typealias for backward compatibility
 typealias PeopleDiscoveryView = PeopleDiscoveryViewNew
 
-#Preview {
-    let view = PeopleDiscoveryViewNew()
-    return view
-}

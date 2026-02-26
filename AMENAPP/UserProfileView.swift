@@ -202,6 +202,7 @@ struct UserProfileView: View {
     @State private var showFullScreenAvatar = false
     @State private var showReportOptions = false
     @State private var showBlockAlert = false
+    @State private var showQuietBlockMenu = false  // ✅ Quiet Block Actions menu
     @State private var showFollowersList = false
     @State private var showFollowingList = false
     @State private var isFollowActionInProgress = false
@@ -231,9 +232,10 @@ struct UserProfileView: View {
     @State private var showCommentsSheet = false
     @State private var showUnfollowAlert = false  // New: Unfollow confirmation
     @State private var scrollOffset: CGFloat = 0  // New: Track scroll position
-    @State private var showBackToTop = false  // Smart scroll
+    @State private var rawScrollValue: CGFloat = 0  // Raw value from GeometryReader
     @State private var showInlineError = false  // Error recovery
     @State private var inlineErrorMessage = ""
+    @State private var showCompactHeader = false  // Show compact header when scrolled
     @StateObject private var scrollManager = SmartScrollManager()
     @StateObject private var pinnedPostService = PinnedPostService.shared
     @Namespace private var tabNamespace
@@ -282,94 +284,86 @@ struct UserProfileView: View {
     
     var body: some View {
         NavigationStack {
-            ZStack(alignment: .bottom) {
-                ScrollViewWithOffset(offset: $scrollOffset) {
-                    VStack(spacing: 0) {
-                        // Inline error banner
-                        if showInlineError {
-                            inlineErrorBannerView
-                                .padding(.top, 12)
-                        }
-                        
-                        // Profile Header
-                        profileHeaderView
-                        
-                        // Tab Selector (Posts / Reposts)
-                        tabSelectorView
-                        
-                        // Content - Posts or Reposts based on selected tab
-                        if isLoading {
-                            // Skeleton loading state
-                            SkeletonProfileHeader()
-                            
-                            VStack(spacing: 0) {
-                                ForEach(0..<3, id: \.self) { _ in
-                                    SkeletonProfileCard()
-                                }
-                            }
+            ScrollView {
+                LazyVStack(spacing: 0, pinnedViews: []) {
+                    // Inline error banner
+                    if showInlineError {
+                        inlineErrorBannerView
                             .padding(.top, 12)
-                        } else {
-                            contentView
-                        }
                     }
-                }
-                .onChange(of: scrollOffset) { _, newValue in
-                    // Show/hide back to top button
-                    showBackToTop = newValue > 500
-                }
-                .refreshable {
-                    await refreshProfile()
-                }
-                .background(Color(white: 0.98))
-                
-                // Back to top button
-                if showBackToTop {
-                    VStack {
-                        Spacer()
-                        HStack {
-                            Spacer()
-                            Button {
-                                withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
-                                    scrollOffset = 0
-                                }
-                            } label: {
-                                HStack(spacing: 8) {
-                                    Image(systemName: "arrow.up")
-                                        .font(.system(size: 14, weight: .semibold))
-                                    Text("Back to top")
-                                        .font(.custom("OpenSans-SemiBold", size: 13))
-                                }
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 10)
-                                .background(
-                                    Capsule()
-                                        .fill(Color.black.opacity(0.8))
-                                        .shadow(color: .black.opacity(0.3), radius: 12, y: 4)
-                                )
+                    
+                    // Profile Header
+                    profileHeaderView
+                    
+                    // Tab Selector (Posts / Reposts)
+                    tabSelectorView
+                    
+                    // Content - Posts or Reposts based on selected tab
+                    if isLoading {
+                        // Skeleton loading state
+                        SkeletonProfileHeader()
+                        
+                        VStack(spacing: 0) {
+                            ForEach(0..<3, id: \.self) { _ in
+                                SkeletonProfileCard()
                             }
-                            .padding(.trailing, 20)
-                            .padding(.bottom, 20)
                         }
+                        .padding(.top, 12)
+                    } else {
+                        contentView
                     }
-                    .transition(.scale.combined(with: .opacity))
+                }
+                .background(
+                    GeometryReader { geometry in
+                        let minY = geometry.frame(in: .named("scroll")).minY
+                        Color.clear
+                            .onChange(of: minY) { oldValue, newValue in
+                                rawScrollValue = newValue
+                            }
+                    }
+                )
+            }
+            .scrollBounceBehavior(.basedOnSize)
+            .coordinateSpace(name: "scroll")
+            .onChange(of: rawScrollValue) { oldValue, newValue in
+                scrollOffset = -newValue
+                
+                // Show compact header when scrolled past 200 points
+                let shouldShowCompact = newValue < -200
+                if showCompactHeader != shouldShowCompact {
+                    showCompactHeader = shouldShowCompact
                 }
             }
-            .navigationTitle("Profile")
+            .refreshable {
+                await refreshProfile()
+            }
+            .background(Color(white: 0.98))
+            .navigationTitle(profileData?.username ?? "")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    if showsDismissButton {
-                        Button {
-                            dismiss()
-                        } label: {
-                            HStack(spacing: 6) {
+                ToolbarItem(placement: .topBarLeading) {
+                    HStack(spacing: 12) {
+                        // Back button (always show if showsDismissButton is true)
+                        if showsDismissButton {
+                            Button {
+                                dismiss()
+                            } label: {
                                 Image(systemName: "chevron.left")
-                                Text("Back")
+                                    .font(.system(size: 18, weight: .semibold))
+                                    .foregroundStyle(.black)
                             }
+                            .buttonStyle(.plain)
+                        }
+                        
+                        // Compact header with profile photo (shows when scrolled)
+                        if showCompactHeader, let profileData = profileData {
+                            compactAvatarView(profileData: profileData)
+                                .transition(.move(edge: .leading).combined(with: .opacity))
                         }
                     }
+                    .animation(.snappy(duration: 0.2), value: showCompactHeader)
                 }
+                
                 ToolbarItem(placement: .topBarTrailing) {
                     toolbarButtonsView
                 }
@@ -408,6 +402,14 @@ struct UserProfileView: View {
                     )
                 }
             }
+            .sheet(isPresented: $showQuietBlockMenu) {
+                if let profileData = profileData {
+                    QuietBlockActionsMenu(
+                        targetUserId: userId,
+                        targetUsername: profileData.username
+                    )
+                }
+            }
             .sheet(isPresented: $showFollowersList) {
                 FollowersListView(userId: userId, type: .followers)
             }
@@ -424,7 +426,7 @@ struct UserProfileView: View {
             }
             .sheet(isPresented: $showCommentsSheet) {
                 if let post = selectedPostForComments {
-                    PostCommentsView(post: post)
+                    CommentsView(post: post)
                 }
             }
             .sheet(isPresented: $showShareSheet) {
@@ -1679,6 +1681,7 @@ struct UserProfileView: View {
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundStyle(.black)
             }
+            .buttonStyle(.plain)
             
             Menu {
                 // Post Notifications
@@ -1693,8 +1696,14 @@ struct UserProfileView: View {
                     }
                 }
                 
-                // Privacy Controls Section
-                Section {
+                // ✅ Privacy Controls Section (Trust-by-Design)
+                Section("SAFETY ACTIONS") {
+                    Button {
+                        showQuietBlockMenu = true
+                    } label: {
+                        Label("Quiet Block Actions", systemImage: "hand.raised.fill")
+                    }
+                    
                     Button {
                         toggleMute()
                     } label: {
@@ -1739,6 +1748,7 @@ struct UserProfileView: View {
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundStyle(.black)
             }
+            .buttonStyle(.plain)
         }
         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: shouldShowToolbarButtons)
     }
@@ -1785,11 +1795,6 @@ struct UserProfileView: View {
                                     )
                                 }
                             }
-                            
-                            // Username
-                            Text("@\(profileData.username)")
-                                .font(.custom("OpenSans-Regular", size: 16))
-                                .foregroundStyle(.black.opacity(0.5))
                             
                             // Bio URL Link (moved to top)
                             if let bioURL = profileData.bioURL, !bioURL.isEmpty {
@@ -1945,19 +1950,33 @@ struct UserProfileView: View {
                             // P0-5: Show "Requested" state for private accounts
                             if !shouldShowToolbarButtons {
                                 Button {
+                                    guard !isFollowActionInProgress else {
+                                        print("⏳ Follow action already in progress")
+                                        return
+                                    }
                                     toggleFollow()
                                 } label: {
-                                    Text(followButtonText)
-                                        .font(.custom("OpenSans-Bold", size: 15))
-                                        .foregroundStyle(followButtonTextColor)
-                                        .frame(maxWidth: .infinity)
-                                        .padding(.vertical, 12)
-                                        .background(
-                                            RoundedRectangle(cornerRadius: 20)
-                                                .fill(followButtonBackground)
-                                                .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 4)
-                                        )
+                                    HStack(spacing: 6) {
+                                        if isFollowActionInProgress {
+                                            ProgressView()
+                                                .scaleEffect(0.8)
+                                                .tint(followButtonTextColor)
+                                        }
+                                        Text(followButtonText)
+                                            .font(.custom("OpenSans-Bold", size: 15))
+                                            .foregroundStyle(followButtonTextColor)
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 12)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 20)
+                                            .fill(followButtonBackground)
+                                            .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 4)
+                                    )
                                 }
+                                .disabled(isFollowActionInProgress)
+                                .opacity(isFollowActionInProgress ? 0.7 : 1.0)
+                                .buttonStyle(.liquidGlass)  // P0 FIX: Instant press feedback
                                 .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isFollowing)
                                 .animation(.spring(response: 0.3, dampingFraction: 0.7), value: followRequestPending)
                                 .transition(.scale.combined(with: .opacity))
@@ -2022,7 +2041,7 @@ struct UserProfileView: View {
                     }
                 }
                 .padding(20)
-                .background(Color.white)
+                .background(Color(white: 0.98))
             } else {
                 // Loading placeholder
                 LoadingStateView()
@@ -2081,7 +2100,7 @@ struct UserProfileView: View {
             }
         }
         .padding(.horizontal, 20)
-        .background(Color.white)
+        .background(Color(white: 0.98))
         .overlay(
             Rectangle()
                 .fill(Color.black.opacity(0.1))
@@ -2130,7 +2149,9 @@ struct UserProfileView: View {
         UserPostsContentView(
             posts: posts,
             hasMorePosts: hasMorePosts,
-            isLoadingMore: isLoadingMore
+            isLoadingMore: isLoadingMore,
+            selectedPostForComments: $selectedPostForComments,
+            showCommentsSheet: $showCommentsSheet
         )
     }
     
@@ -2148,8 +2169,8 @@ struct UserPostsContentView: View {
     var onLoadMore: (() async -> Void)?
     var hasMorePosts: Bool = false
     var isLoadingMore: Bool = false
-    @State private var selectedPostForComments: Post?
-    @State private var showCommentsSheet = false
+    @Binding var selectedPostForComments: Post?
+    @Binding var showCommentsSheet: Bool
     @StateObject private var scrollManager = SmartScrollManager()
     
     var body: some View {
@@ -2206,13 +2227,8 @@ struct UserPostsContentView: View {
                 }
             }
         }
-        .background(Color(.systemGroupedBackground))
-        .padding(.top, 0)  // ✅ Zero padding - posts RIGHT under tabs
-        .sheet(isPresented: $showCommentsSheet) {
-            if let post = selectedPostForComments {
-                PostCommentsView(post: post)
-            }
-        }
+        .background(Color(white: 0.98))
+        .padding(.top, 12)
         .onDisappear {
             scrollManager.cancel()
         }
@@ -2377,6 +2393,8 @@ struct UnifiedFeedContentView: View {
     let feedItems: [ProfileFeedItem]
     @State private var likedItems: Set<String> = []
     @State private var expandedItems: Set<String> = []
+    @State private var selectedPostForComments: Post?
+    @State private var showCommentsSheet = false
     
     var body: some View {
         LazyVStack(spacing: 0) {
@@ -2424,6 +2442,11 @@ struct UnifiedFeedContentView: View {
         }
         .background(Color(.systemGroupedBackground))
         .padding(.top, 12)
+        .sheet(isPresented: $showCommentsSheet) {
+            if let post = selectedPostForComments {
+                CommentsView(post: post)
+            }
+        }
     }
     
     private func handleLike(itemId: String) {
@@ -2438,9 +2461,29 @@ struct UnifiedFeedContentView: View {
     }
     
     private func handleReply(itemId: String) {
+        print("💬 handleReply called for itemId: \(itemId)")
         let haptic = UIImpactFeedbackGenerator(style: .light)
         haptic.impactOccurred()
-        // TODO: Show comments sheet
+        
+        // Fetch full post and show comments
+        Task {
+            do {
+                print("📥 Fetching post by ID: \(itemId)")
+                let firebasePostService = FirebasePostService.shared
+                if let post = try await firebasePostService.fetchPostById(postId: itemId) {
+                    print("✅ Fetched post: \(itemId)")
+                    await MainActor.run {
+                        selectedPostForComments = post
+                        showCommentsSheet = true
+                        print("📱 Comments sheet should now be visible")
+                    }
+                } else {
+                    print("⚠️ Post not found: \(itemId)")
+                }
+            } catch {
+                print("❌ Failed to fetch post for comments: \(error)")
+            }
+        }
     }
     
     private func toggleExpand(itemId: String) {
@@ -2717,44 +2760,16 @@ struct ReadOnlyProfilePostCard: View {
             .padding(.bottom, 14)
         }
         .background(
-            ZStack {
-                // Glassmorphic background - Black and white translucent
-                RoundedRectangle(cornerRadius: 18)
-                    .fill(.ultraThinMaterial)
-                
-                // White overlay for brightness
-                RoundedRectangle(cornerRadius: 18)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color.white.opacity(0.7),
-                                Color.white.opacity(0.3)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                
-                // Subtle border
-                RoundedRectangle(cornerRadius: 18)
-                    .strokeBorder(
-                        LinearGradient(
-                            colors: [
-                                Color.white.opacity(0.8),
-                                Color.black.opacity(0.1)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 1
-                    )
-            }
+            RoundedRectangle(cornerRadius: 18)
+                .fill(Color.white)
+                .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
         )
         .shadow(color: .black.opacity(isPressed ? 0.15 : 0.06), radius: isPressed ? 6 : 12, x: 0, y: isPressed ? 2 : 4)
         .scaleEffect(isPressed ? 0.97 : 1.0)
         .animation(.spring(response: 0.25, dampingFraction: 0.7), value: isPressed)
         .padding(.horizontal, 16)
-        .padding(.vertical, 6)
+        .padding(.top, 8)
+        .padding(.bottom, 4)
         .contentShape(Rectangle())
         // ✅ NEW: Swipe gesture for quick actions
         .offset(x: swipeOffset)
@@ -2884,6 +2899,9 @@ struct ReadOnlyProfilePostCard: View {
         let haptic = UIImpactFeedbackGenerator(style: .light)
         haptic.impactOccurred()
         
+        // Trigger action immediately before reset
+        onReply()
+        
         // Small delay before reset to allow sheet to present properly
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
@@ -2891,9 +2909,6 @@ struct ReadOnlyProfilePostCard: View {
                 swipeDirection = nil
             }
         }
-        
-        // Trigger action immediately
-        onReply()
     }
 }
 
@@ -3914,7 +3929,7 @@ struct SkeletonProfileHeader: View {
             }
         }
         .padding(20)
-        .background(Color.white)
+        .background(Color(white: 0.98))
         .shimmerEffect()
     }
 }
@@ -4234,6 +4249,7 @@ struct ScrollViewWithOffset<Content: View>: View {
         }
         .coordinateSpace(name: "scroll")
         .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
+            print("🔍 ScrollViewWithOffset raw value: \(value), converted: \(-value)")
             offset = -value  // Negative because scroll offset is inverted
         }
     }
@@ -4580,6 +4596,37 @@ extension UserProfileView {
         guard let cgImage = context.createCGImage(scaledCIImage, from: scaledCIImage.extent) else { return nil }
         
         return UIImage(cgImage: cgImage)
+    }
+    
+    /// Compact avatar view for toolbar
+    private func compactAvatarView(profileData: UserProfile) -> some View {
+        Group {
+            if let imageURL = profileData.profileImageURL, !imageURL.isEmpty, let url = URL(string: imageURL) {
+                // ✅ PERFORMANCE: Use CachedAsyncImage for instant loading on scroll
+                CachedAsyncImage(url: url) { image in
+                    image
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 32, height: 32)
+                        .clipShape(Circle())
+                } placeholder: {
+                    Circle().fill(Color.black)
+                        .frame(width: 32, height: 32)
+                        .overlay(
+                            Text(profileData.initials)
+                                .font(.custom("OpenSans-Bold", size: 12))
+                                .foregroundStyle(.white)
+                        )
+                }
+            } else {
+                Circle().fill(Color.black).frame(width: 32, height: 32)
+                    .overlay(
+                        Text(profileData.initials)
+                            .font(.custom("OpenSans-Bold", size: 12))
+                            .foregroundStyle(.white)
+                    )
+            }
+        }
     }
 }
 

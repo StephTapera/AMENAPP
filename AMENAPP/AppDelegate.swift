@@ -9,6 +9,7 @@
 
 import UIKit
 import FirebaseCore
+import FirebaseAuth
 import FirebaseMessaging
 import FirebaseDatabase
 import FirebaseFirestore
@@ -111,10 +112,15 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         
         print("✅ Push notification delegates configured")
         
-        // Initialize church notification categories (for Find Church feature)
+        // Initialize notification categories
         Task { @MainActor in
+            // Church notifications (Find Church feature)
             ChurchNotificationManager.shared.setupNotificationCategories()
             print("✅ Church notification categories initialized")
+            
+            // Visit Plan notifications (First Visit Companion feature)
+            ChurchVisitNotificationScheduler.setupVisitPlanNotificationCategories()
+            print("✅ Visit Plan notification categories initialized")
         }
         
         // ✅ PHASE 1: Register for remote notifications
@@ -133,6 +139,13 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     ) {
         print("📬 AppDelegate: didReceiveRemoteNotification")
         print("   User Info: \(userInfo)")
+        
+        // ✅ FIX: Forward phone auth notifications to FirebaseAuth
+        if Auth.auth().canHandleNotification(userInfo) {
+            print("✅ Forwarded notification to Firebase Auth for phone verification")
+            completionHandler(.noData)
+            return
+        }
         
         // Handle notification data
         if let messageID = userInfo["gcm.message_id"] as? String {

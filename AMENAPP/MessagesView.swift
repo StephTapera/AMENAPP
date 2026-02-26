@@ -176,15 +176,16 @@ struct MessagesView: View {
                 Color(.systemBackground)
                     .ignoresSafeArea()
                 
-                VStack(spacing: 0) {
-                    // ✅ Modern header with back button + compose (collapses on scroll)
-                    if showHeader {
-                        modernHeaderSection
+                // ✅ Unified scrolling surface - header scrolls WITH content
+                modernScrollableContent
+                
+                // ✅ Compact header appears when scrolled down
+                VStack {
+                    if !showHeader {
+                        compactHeader
                             .transition(.move(edge: .top).combined(with: .opacity))
                     }
-                    
-                    // ✅ Content with scroll tracking
-                    modernContentSection
+                    Spacer()
                 }
             }
             .navigationBarHidden(true)
@@ -217,6 +218,8 @@ struct MessagesView: View {
             }
             .sheet(isPresented: $showNewMessageSheet) {
                 modernNewMessageSheet
+                    .presentationDetents([.medium])
+                    .presentationDragIndicator(.hidden)
             }
             .onChange(of: activeSheet) { oldValue, newValue in
                 print("🔄 Sheet: \(oldValue?.id ?? "nil") -> \(newValue?.id ?? "nil")")
@@ -250,9 +253,7 @@ struct MessagesView: View {
             HStack(spacing: 16) {
                 // ✅ Back button (chevron)
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                        mainTabSelection.wrappedValue = 0  // Navigate to home tab
-                    }
+                    mainTabSelection.wrappedValue = 0  // Navigate to home tab immediately
                     let haptic = UIImpactFeedbackGenerator(style: .medium)
                     haptic.impactOccurred()
                 } label: {
@@ -304,6 +305,49 @@ struct MessagesView: View {
                 .padding(.bottom, 12)
         }
         .background(Color(.systemBackground))
+    }
+    
+    // MARK: - Compact Header (appears when scrolled)
+    
+    private var compactHeader: some View {
+        HStack(spacing: 12) {
+            // Back button
+            Button {
+                mainTabSelection.wrappedValue = 0  // Navigate immediately
+                let haptic = UIImpactFeedbackGenerator(style: .medium)
+                haptic.impactOccurred()
+            } label: {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .frame(width: 32, height: 32)
+            }
+            
+            // Compact title
+            Text(greetingTitle)
+                .font(.custom("OpenSans-Bold", size: 17))
+                .foregroundStyle(.primary)
+            
+            Spacer()
+            
+            // Compose button
+            Button {
+                showNewMessageSheet = true
+                let haptic = UIImpactFeedbackGenerator(style: .light)
+                haptic.impactOccurred()
+            } label: {
+                Image(systemName: "square.and.pencil")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .frame(width: 32, height: 32)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(
+            Color(.systemBackground)
+                .shadow(color: .black.opacity(0.05), radius: 2, y: 1)
+        )
     }
     
     private var greetingTitle: String {
@@ -393,7 +437,9 @@ struct MessagesView: View {
     
     // MARK: - Modern Content Section (Reference Style)
     
-    private var modernContentSection: some View {
+    // MARK: - Unified Scrollable Content (Header + Content scroll together)
+    
+    private var modernScrollableContent: some View {
         GeometryReader { geometry in
             ScrollView {
                 VStack(spacing: 0) {
@@ -405,6 +451,11 @@ struct MessagesView: View {
                         )
                     }
                     .frame(height: 0)
+                    
+                    // ✅ Header scrolls WITH content (smooth unified scrolling)
+                    modernHeaderSection
+                        .opacity(max(0.3, min(1.0, 1.0 + (scrollOffset / 100.0))))
+                        .offset(y: min(0, scrollOffset / 3.0))
                     
                     // Content based on selected tab
                     Group {
@@ -604,76 +655,102 @@ struct MessagesView: View {
     
     // ✅ Modern new message sheet (like reference)
     private var modernNewMessageSheet: some View {
-        VStack(spacing: 0) {
-            // Handle indicator
-            Capsule()
-                .fill(Color.secondary.opacity(0.3))
-                .frame(width: 40, height: 4)
-                .padding(.top, 12)
-                .padding(.bottom, 20)
+        ZStack {
+            // Dimmed background with blur
+            Color.black.opacity(0.3)
+                .ignoresSafeArea()
+                .onTapGesture {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                        showNewMessageSheet = false
+                    }
+                }
             
-            // Options
+            // Centered popup card
             VStack(spacing: 0) {
-                modernSheetOption(
-                    icon: "bubble.left.and.bubble.right",
-                    title: "New Chat",
-                    subtitle: "Send a message to your contact"
-                ) {
-                    showNewMessageSheet = false
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        activeSheet = .newMessage
+                // Header
+                VStack(spacing: 8) {
+                    Text("New Message")
+                        .font(.custom("OpenSans-Bold", size: 20))
+                        .foregroundStyle(.primary)
+                    
+                    Text("Choose an option")
+                        .font(.custom("OpenSans-Regular", size: 14))
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.top, 24)
+                .padding(.bottom, 20)
+                
+                // Options
+                VStack(spacing: 0) {
+                    modernSheetOption(
+                        icon: "bubble.left.and.bubble.right",
+                        title: "New Chat",
+                        subtitle: "Send a message to your contact"
+                    ) {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                            showNewMessageSheet = false
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            activeSheet = .newMessage
+                        }
+                        let haptic = UIImpactFeedbackGenerator(style: .light)
+                        haptic.impactOccurred()
+                    }
+                    
+                    Divider()
+                        .padding(.leading, 68)
+                    
+                    modernSheetOption(
+                        icon: "person.3",
+                        title: "New Community",
+                        subtitle: "Create a group chat"
+                    ) {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                            showNewMessageSheet = false
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            activeSheet = .createGroup
+                        }
+                        let haptic = UIImpactFeedbackGenerator(style: .light)
+                        haptic.impactOccurred()
                     }
                 }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 16)
                 
-                Divider()
-                    .padding(.leading, 68)
-                
-                modernSheetOption(
-                    icon: "person.crop.circle.badge.plus",
-                    title: "New Contact",
-                    subtitle: "Add a contact to be able to send message"
-                ) {
-                    showNewMessageSheet = false
-                    // Add contact logic here
-                }
-                
-                Divider()
-                    .padding(.leading, 68)
-                
-                modernSheetOption(
-                    icon: "person.3",
-                    title: "New Community",
-                    subtitle: "Join the community around you"
-                ) {
-                    showNewMessageSheet = false
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        activeSheet = .createGroup
+                // Cancel button
+                Button {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                        showNewMessageSheet = false
                     }
+                    let haptic = UIImpactFeedbackGenerator(style: .medium)
+                    haptic.impactOccurred()
+                } label: {
+                    Text("Cancel")
+                        .font(.custom("OpenSans-SemiBold", size: 16))
+                        .foregroundStyle(.primary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color(.systemGray6))
+                        )
                 }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 20)
             }
-            .padding(.horizontal, 20)
-            
-            Spacer()
-            
-            // Cancel button
-            Button {
-                showNewMessageSheet = false
-            } label: {
-                Text("Cancel")
-                    .font(.custom("OpenSans-SemiBold", size: 16))
-                    .foregroundStyle(.primary)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color(.systemGray6))
+            .frame(width: 340)
+            .background(
+                RoundedRectangle(cornerRadius: 24)
+                    .fill(.regularMaterial)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 24)
+                            .strokeBorder(Color.primary.opacity(0.1), lineWidth: 0.5)
                     )
-            }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 20)
+            )
+            .shadow(color: .black.opacity(0.2), radius: 20, x: 0, y: 8)
         }
-        .presentationDetents([.height(380)])
-        .presentationDragIndicator(.hidden)
+        .presentationBackground(.clear)
     }
     
     private func modernSheetOption(icon: String, title: String, subtitle: String, action: @escaping () -> Void) -> some View {
@@ -705,21 +782,26 @@ struct MessagesView: View {
     // MARK: - Scroll Handling (Collapse on Scroll)
     
     private func handleScrollOffset(_ offset: CGFloat) {
+        // Update scroll offset for smooth animations
+        withAnimation(.interactiveSpring(response: 0.25, dampingFraction: 0.8)) {
+            scrollOffset = offset
+        }
+        
         let delta = offset - lastScrollOffset
         lastScrollOffset = offset
         
-        // Hide header when scrolling down
-        if delta < -20 && offset < -50 {
+        // Compact header appears when scrolled down significantly
+        if offset < -150 {
             if showHeader {
-                withAnimation(.easeInOut(duration: 0.25)) {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
                     showHeader = false
                 }
             }
         }
-        // Show header when scrolling up or at top
-        else if delta > 10 || offset >= -10 {
+        // Full header when at top or scrolling up
+        else if offset >= -50 {
             if !showHeader {
-                withAnimation(.easeInOut(duration: 0.25)) {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
                     showHeader = true
                 }
             }

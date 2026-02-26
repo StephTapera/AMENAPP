@@ -10,6 +10,8 @@
 
 import UserNotifications
 import FirebaseMessaging
+import FirebaseAuth
+import FirebaseFirestore
 
 @MainActor
 class CompositeNotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
@@ -37,22 +39,33 @@ class CompositeNotificationDelegate: NSObject, UNUserNotificationCenterDelegate 
             return
         }
         
-        // ✅ SMART NOTIFICATION HANDLING: Suppress FCM push notifications when app is in foreground
-        // The in-app Firestore notification will be shown instead via NotificationService
-        // This prevents duplicate notifications (FCM push + Firestore document)
-        
-        // Check if this is a message notification
-        if let notificationType = userInfo["type"] as? String {
-            if notificationType == "message" || notificationType == "message_request" {
-                print("🔕 Suppressing FCM message notification (app in foreground - Firestore notification will show instead)")
-                // Don't show the FCM push notification banner
+        // ✅ ENHANCED SMART SUPPRESSION: Check all notification types
+        if let typeString = userInfo["type"] as? String {
+            // Message notifications - always suppress in foreground
+            if typeString == "message" || typeString == "message_request" {
+                print("🔕 Suppressing message notification (foreground)")
                 completionHandler([])
                 return
             }
+            
+            // ✅ P0-6 FIX: Filter notifications from blocked users
+            if let actorId = userInfo["actorId"] as? String {
+                if shouldFilterNotification(actorId: actorId) {
+                    print("🔕 Filtering notification from blocked user: \(actorId)")
+                    completionHandler([])
+                    return
+                }
+            }
         }
         
-        // For other notification types, show them with banner, sound, and badge
+        // Show notification with banner, sound, and badge
         completionHandler([.banner, .sound, .badge])
+    }
+    
+    /// Helper to check if notification should be filtered (blocked user)
+    private func shouldFilterNotification(actorId: String?) -> Bool {
+        guard let actorId = actorId else { return false }
+        return BlockService.shared.blockedUsers.contains(actorId)
     }
     
     /// Handle notification tap

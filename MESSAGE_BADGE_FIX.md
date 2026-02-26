@@ -188,7 +188,15 @@ for doc in conversations.documents {
 
 - ✅ Build successful
 - ✅ Code structure correct
-- ⚠️ Badge not showing - needs investigation
-- 🔍 Next: Add debug logging to identify root cause
+- ✅ Debug logging added to ContentView.swift (badge calculation)
+- ✅ Debug logging added to FirebaseMessagingService.swift (unread count extraction)
+- ⚠️ Badge not showing - awaiting test results
+- 🔍 Next: Run app and check console for unread count debug logs
+
+**Debug Logs to Look For:**
+1. `🔔 Badge: Total unread messages = X` - Shows if badge should appear
+2. `🔍 Unread counts for conversation X:` - Shows what's being extracted from Firestore
+3. Check if `unreadCounts dict` is empty `[:]` or has actual values
 
 **Created**: February 21, 2026
+**Updated**: February 21, 2026 - Added comprehensive debug logging

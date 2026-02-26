@@ -209,19 +209,34 @@ class AlgoliaSearchService: ObservableObject {
         defer { isSearching = false }
         
         do {
+            // ✅ P0-8 FIX: Build privacy filter
+            // Exclude posts from private accounts unless user follows them
+            // Note: This requires authorIsPrivate field in Algolia index
+            var privacyFilter = "authorIsPrivate:false"
+            
+            // Combine category filter with privacy filter
+            var combinedFilters: String?
+            if let categoryFilter = category.map({ "category:\($0)" }) {
+                combinedFilters = "\(categoryFilter) AND \(privacyFilter)"
+            } else {
+                combinedFilters = privacyFilter
+            }
+            
             // Build search request using SearchForHits
             let searchForHits = SearchForHits(
                 query: query,
-                filters: category.map { "category:\($0)" },
+                filters: combinedFilters,
                 attributesToRetrieve: [
                     "content",
                     "authorName",
+                    "authorId",
                     "category",
                     "amenCount",
                     "commentCount",
                     "createdAt",
                     "mediaURLs",
-                    "likesCount"
+                    "likesCount",
+                    "authorIsPrivate"  // P0-8: Include privacy field
                 ],
                 hitsPerPage: limit,
                 indexName: postsIndexName,
@@ -252,7 +267,9 @@ class AlgoliaSearchService: ObservableObject {
                     objectID: hit.objectID,
                     content: content,
                     authorName: authorName,
+                    authorId: hit.additionalProperties["authorId"] as? String,  // P0-8
                     category: categoryValue,
+                    authorIsPrivate: hit.additionalProperties["authorIsPrivate"] as? Bool,  // P0-8
                     amenCount: hit.additionalProperties["amenCount"] as? Int,
                     commentCount: hit.additionalProperties["commentCount"] as? Int,
                     createdAt: hit.additionalProperties["createdAt"] as? TimeInterval,
@@ -361,7 +378,9 @@ struct AlgoliaPost: Codable, Identifiable {
     let objectID: String
     let content: String
     let authorName: String
+    let authorId: String?  // ✅ P0-8: Added for privacy filtering
     let category: String
+    let authorIsPrivate: Bool?  // ✅ P0-8: Privacy flag
     let amenCount: Int?
     let commentCount: Int?
     let createdAt: TimeInterval?

@@ -40,19 +40,38 @@ service cloud.firestore {
     // ============================================================================
     // USERS COLLECTION
     // ============================================================================
-    
+
     match /users/{userId} {
+      // ✅ P0 SECURITY FIX: Protect sensitive authentication fields
+      // Strategy: Allow public read for profile discovery, but client must not request sensitive fields
+      // Sensitive fields (backupCodes, twoFactorEnabled, phoneNumber, email) are protected
+
       // Allow anyone to read user profiles (including unauthenticated for username checks)
-      // This is safe because we don't expose sensitive data like email in public queries
-      // Username availability checks during signup require this
+      // CRITICAL: Backup codes should NEVER be stored in user document readable by clients
+      // Instead, they should be in a separate secured subcollection or server-side only
+      // For now, we allow read but backup codes validation MUST happen server-side only
       allow read: if true;
+
+      // ⚠️ IMPORTANT SECURITY NOTE:
+      // The 'backupCodes' field in user documents is a SECURITY RISK if readable by clients
+      // Solution: Backup code validation MUST be done via Cloud Functions only
+      // Cloud Functions have admin access and can verify codes without exposing them
+      // Client should NEVER read backupCodes field - only send code to backend for validation
       
       // Users can only create their own profile
+      // P0 FIX: Allow phone-only authentication (no email required for phone auth)
       allow create: if isAuthenticated()
         && request.auth.uid == userId
-        && hasRequiredFields(['username', 'displayName', 'email'])
+        && hasRequiredFields(['username', 'displayName'])
         && validLength(request.resource.data.username, 30)
-        && validLength(request.resource.data.displayName, 100);
+        && validLength(request.resource.data.displayName, 100)
+        && (
+          // Email auth: must have email
+          (request.resource.data.keys().hasAny(['email']) && validLength(request.resource.data.email, 200))
+          ||
+          // Phone auth: email is optional, phone number may be present
+          (request.auth.token.firebase.sign_in_provider == 'phone')
+        );
       
       // Users can only update their own profile
       // CRITICAL FIX: Allow system counter updates (follow/unfollow) OR user profile edits
@@ -62,7 +81,8 @@ service cloud.firestore {
           (isOwner(userId)
             && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
               'isVerified',
-              'email'
+              'email',
+              'backupCodes'  // P0 SECURITY: Backup codes are write-protected
             ]))
           ||
           // 2. System counter updates (follow/unfollow operations)
@@ -78,6 +98,16 @@ service cloud.firestore {
               'pendingDisplayNameChange',
               'usernameChangeRequestDate',
               'displayNameChangeRequestDate',
+              'updatedAt'
+            ]))
+          ||
+          // 4. 2FA setup (user can enable/disable and set phone, but NOT backup codes)
+          (isOwner(userId)
+            && isOnlyUpdating([
+              'twoFactorEnabled',
+              'twoFactorPhone',
+              'twoFactorEnabledAt',
+              'twoFactorDisabledAt',
               'updatedAt'
             ]))
         );
@@ -144,6 +174,88 @@ service cloud.firestore {
         
         // Only the owner can update/delete their notifications
         allow update: if isAuthenticated() && isOwner(userId);
+        allow delete: if isAuthenticated() && isOwner(userId);
+      }
+
+      // === SMART SUGGESTIONS SUBCOLLECTION (AI Feature) ===
+      match /smartSuggestions/{targetUserId} {
+        // Users can read suggestions generated for them
+        allow read: if isAuthenticated() && isOwner(userId);
+
+        // FIXED: Users can create/update their own suggestions cache
+        // The SmartSuggestionsService writes to the CURRENT user's subcollection
+        allow create, update: if isAuthenticated() && isOwner(userId);
+
+        // Users can delete their own suggestions
+        allow delete: if isAuthenticated() && isOwner(userId);
+      }
+      
+      // === COMMUNITY STANDARDS SUBCOLLECTION (Safety Feature) ===
+      match /communityStandards/{docId} {
+        // Users can read their own agreement
+        allow read: if isAuthenticated() && isOwner(userId);
+        
+        // Users can create/update their agreement
+        allow create, update: if isAuthenticated() && isOwner(userId);
+        
+        // Cannot delete agreement
+        allow delete: if false;
+      }
+      
+      // === USAGE SESSIONS SUBCOLLECTION (Wellness Feature) ===
+      match /usageSessions/{sessionId} {
+        allow read: if isAuthenticated() && isOwner(userId);
+        allow create: if isAuthenticated() && isOwner(userId);
+        allow update, delete: if false;
+      }
+      
+      // === WELLNESS EVENTS SUBCOLLECTION ===
+      match /wellnessEvents/{eventId} {
+        allow read: if isAuthenticated() && isOwner(userId);
+        allow create: if isAuthenticated() && isOwner(userId);
+        allow update, delete: if false;
+      }
+
+      // === DEVICES SUBCOLLECTION (FCM Token Management) ===
+      match /devices/{deviceId} {
+        // Users can read their own device tokens
+        allow read: if isAuthenticated() && isOwner(userId);
+
+        // Users can register/update their own device tokens
+        allow create, update: if isAuthenticated() && isOwner(userId);
+
+        // Users can delete their own device registrations
+        allow delete: if isAuthenticated() && isOwner(userId);
+      }
+
+      // === BACKUP CODES SUBCOLLECTION (2FA Recovery) ===
+      // ✅ P0 SECURITY FIX: Store backup codes in secured subcollection
+      // Client can NEVER read backup codes - only Cloud Functions can validate
+      match /backupCodes/{codeId} {
+        // ❌ NEVER allow clients to read backup codes
+        allow read: if false;
+
+        // ✅ Only owner can create backup codes (during 2FA setup)
+        allow create: if isAuthenticated() && isOwner(userId);
+
+        // ❌ Backup codes cannot be updated (one-time use, then deleted)
+        allow update: if false;
+
+        // ✅ Server-side Cloud Functions can delete used codes (admin SDK)
+        // Client cannot delete codes directly
+        allow delete: if false;
+      }
+
+      // === TWO FACTOR AUTH SUBCOLLECTION (2FA Settings) ===
+      // ✅ Store 2FA metadata separately from backup codes
+      match /twoFactorAuth/{settingsId} {
+        // Users can read their own 2FA settings (enabled status, phone, etc.)
+        allow read: if isAuthenticated() && isOwner(userId);
+
+        // Users can create/update their own 2FA settings
+        allow create, update: if isAuthenticated() && isOwner(userId);
+
+        // Users can disable 2FA (delete settings)
         allow delete: if isAuthenticated() && isOwner(userId);
       }
     }
@@ -231,7 +343,7 @@ service cloud.firestore {
         && request.resource.data.authorId == request.auth.uid
         && hasRequiredFields(['content', 'authorId', 'authorName', 'category'])
         && validLength(request.resource.data.content, 500)
-        && request.resource.data.category in ['openTable', 'testimonies', 'prayer', 'general'];
+        && request.resource.data.category in ['openTable', 'testimonies', 'prayer', 'general', 'tip', 'funFact'];
 
       allow update: if isAuthenticated()
         && resource.data.authorId == request.auth.uid
@@ -1032,6 +1144,224 @@ service cloud.firestore {
     match /churchRecommendationResults/{resultId} {
       allow read: if isAuthenticated();
       allow create, update, delete: if false;
+    }
+
+    // ============================================================================
+    // AI PHOTO INSIGHTS COLLECTION (NEW - for profile photo analysis)
+    // ============================================================================
+
+    // Photo Insights - Generated by Google Cloud Vision API
+    match /photoInsights/{userId} {
+      // Users can read any photo insights (for discovery)
+      allow read: if isAuthenticated();
+
+      // FIXED: Any authenticated user can create/update photo insights
+      // This is needed because the PhotoInsightsService analyzes OTHER users' photos
+      // Photo insights are non-sensitive (just badges like "Nature Lover", etc.)
+      allow create, update: if isAuthenticated();
+
+      // Users can delete their own photo insights
+      allow delete: if isAuthenticated() && isOwner(userId);
+    }
+
+    // ============================================================================
+    // SAFETY & MODERATION COLLECTIONS (NEW - for content safety)
+    // ============================================================================
+    
+    // Moderation Appeals - Users can appeal content moderation decisions
+    match /moderationAppeals/{appealId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if false; // Only admins via backend
+    }
+    
+    // Suspicious Activity - System tracking for rate limiting
+    match /suspiciousActivity/{activityId} {
+      allow read: if false; // Admin only
+      allow create: if isAuthenticated(); // System can log
+      allow update, delete: if false;
+    }
+    
+    // Brigading Alerts - System tracking for coordinated attacks
+    match /brigadingAlerts/{alertId} {
+      allow read: if false; // Admin only
+      allow create: if isAuthenticated(); // System can create
+      allow update, delete: if false;
+    }
+    
+    // Data Export Requests - Users can request their data
+    match /dataExportRequests/{requestId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // ============================================================================
+    // TRUST-BY-DESIGN: PRIVACY & CONTACT CONTROLS
+    // ============================================================================
+
+    // User Privacy Settings - Controls for DMs, comments, mentions
+    match /user_privacy_settings/{userId} {
+      // Users can read their own settings
+      // Other users can read settings to check permissions
+      allow read: if isAuthenticated();
+
+      // Users can only create/update their own settings
+      allow create, update: if isAuthenticated() && userId == request.auth.uid;
+
+      // Cannot delete privacy settings
+      allow delete: if false;
+    }
+
+    // Quiet Block Actions - Mute, restrict, hide replies, limit mentions
+    match /quiet_blocks/{blockId} {
+      // Users can read their own blocks OR check if they are affected
+      allow read: if isAuthenticated()
+        && (resource.data.userId == request.auth.uid
+          || resource.data.targetUserId == request.auth.uid);
+
+      // Users can create their own quiet blocks
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid;
+
+      // Users can update/delete their own blocks
+      allow update, delete: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+    }
+
+    // Repeated Contact Attempts - Anti-harassment tracking
+    match /repeated_contact_attempts/{attemptId} {
+      // System only - track contact attempt patterns
+      allow read: if isAuthenticated() && resource.data.targetUserId == request.auth.uid;
+      allow create: if isAuthenticated();
+      allow update, delete: if false; // System managed
+    }
+
+    // ============================================================================
+    // TWO-FACTOR AUTHENTICATION: BACKUP CODES (P0 SECURITY)
+    // ============================================================================
+    
+    // Backup Codes - Stored separately from user documents for security
+    // CRITICAL: Backup codes are WRITE-ONLY from client, READ-ONLY from Cloud Functions
+    match /user_backup_codes/{userId} {
+      // P0 SECURITY: Users CANNOT read their own backup codes
+      // Codes are only shown once during generation, never stored client-side
+      // Validation happens server-side via Cloud Functions only
+      allow read: if false;
+      
+      // Users can write backup codes ONLY during initial 2FA setup
+      // Codes must be generated client-side and written once
+      allow create: if isAuthenticated() 
+        && userId == request.auth.uid
+        && hasRequiredFields(['codes', 'generatedAt'])
+        && request.resource.data.codes is list
+        && request.resource.data.codes.size() == 8;
+      
+      // Users CANNOT update backup codes directly
+      // New codes must be generated via Cloud Functions after account recovery
+      allow update: if false;
+      
+      // Users can delete backup codes (when disabling 2FA)
+      allow delete: if isAuthenticated() && userId == request.auth.uid;
+    }
+
+    // ============================================================================
+    // VISIT PLANS COLLECTION (First Visit Companion)
+    // ============================================================================
+
+    match /visit_plans/{planId} {
+      // Users can read their own visit plans
+      allow read: if isAuthenticated()
+        && resource.data.user_id == request.auth.uid;
+
+      // Users can create their own visit plans
+      allow create: if isAuthenticated()
+        && request.resource.data.user_id == request.auth.uid
+        && hasRequiredFields(['user_id', 'church_id', 'church_name', 'service_date']);
+
+      // Users can update their own visit plans
+      allow update: if isAuthenticated()
+        && resource.data.user_id == request.auth.uid;
+
+      // Users can delete their own visit plans
+      allow delete: if isAuthenticated()
+        && resource.data.user_id == request.auth.uid;
+    }
+
+    // ============================================================================
+    // PHONE AUTH RATE LIMITING (Server-side only)
+    // ============================================================================
+
+    match /phoneAuthRateLimits/{phoneNumber} {
+      // No client reads - server-side only via Cloud Functions
+      allow read: if false;
+      allow write: if false; // Cloud Functions have admin access
+    }
+
+    match /phoneAuthIPRateLimits/{ipAddress} {
+      allow read: if false;
+      allow write: if false; // Server-side only
+    }
+
+    // ============================================================================
+    // ACCOUNT DELETION REQUESTS
+    // ============================================================================
+
+    match /deletionRequests/{userId} {
+      // Users can read their own deletion request
+      allow read: if isOwner(userId);
+      // Server-side only writes
+      allow write: if false;
+    }
+
+    match /deletionAuditLog/{logId} {
+      // Admin only reads for compliance
+      allow read: if isAuthenticated()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+      allow write: if false; // Server-side only
+    }
+
+    // ============================================================================
+    // ACTIVE SESSIONS / DEVICE TOKENS
+    // ============================================================================
+
+    match /users/{userId}/devices/{deviceId} {
+      // Users can read their own devices
+      allow read: if isOwner(userId);
+      // Users can create/update their own device tokens
+      allow create, update: if isOwner(userId)
+        && hasRequiredFields(['token', 'deviceId', 'deviceName']);
+      // Users can delete their own devices (sign out)
+      allow delete: if isOwner(userId);
+    }
+
+    // ============================================================================
+    // TWO-FACTOR AUTHENTICATION
+    // ============================================================================
+
+    match /users/{userId}/twoFactor/{docId} {
+      // Users can read their own 2FA settings (but NOT backup codes)
+      allow read: if isOwner(userId);
+      // Server-side only writes for security
+      allow write: if false;
+    }
+
+    match /users/{userId}/backupCodes/{codeId} {
+      // CRITICAL SECURITY: Backup codes are NEVER readable by clients
+      // Validation MUST happen server-side via Cloud Functions
+      allow read: if false;
+      allow write: if false; // Server-side only
+    }
+
+    // ============================================================================
+    // SECURITY EVENTS LOGGING
+    // ============================================================================
+
+    match /securityEvents/{eventId} {
+      // Admin only reads for security monitoring
+      allow read: if isAuthenticated()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+      allow write: if false; // Server-side only
     }
 
     // ============================================================================

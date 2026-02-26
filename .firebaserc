@@ -1,5 +1,14 @@
 {
   "projects": {
     "default": "amen-5e359"
+  },
+  "targets": {},
+  "etags": {
+    "amen-5e359": {
+      "extensionInstances": {
+        "firestore-algolia-search": "c27a413e50b9c67920f527a33a69079e0b1ff86b701c1c261b600833c5ec4a55",
+        "firestore-send-email": "cfaedea81a1b839d50a9689430ab6c5c88b8fe35d3e8853bdd0e717a82fbd7cb"
+      }
+    }
   }
 }

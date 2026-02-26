@@ -158,15 +158,36 @@ class FirebaseManager {
                 // Don't throw - user creation succeeded, search sync is optional
             }
             
-            print("🎉 Complete user setup finished for: \(displayName)")
+            // 🔒 TRUST-BY-DESIGN: Create default privacy settings
+            do {
+                let defaultSettings = TrustPrivacySettings.conservative(userId: user.uid)
+                try await firestore.collection("user_privacy_settings")
+                    .document(user.uid)
+                    .setData(from: defaultSettings)
+                print("✅ FirebaseManager: Privacy settings initialized with conservative defaults")
+            } catch {
+                print("⚠️ FirebaseManager: Privacy settings creation failed (non-critical): \(error)")
+                // Don't throw - user creation succeeded, privacy settings can be created later
+            }
             
+            print("🎉 Complete user setup finished for: \(displayName)")
+
+            // ✉️ Send email verification
+            do {
+                try await user.sendEmailVerification()
+                print("✅ FirebaseManager: Verification email sent to \(email)")
+            } catch {
+                print("⚠️ FirebaseManager: Failed to send verification email (non-critical): \(error)")
+                // Don't throw - user creation succeeded, they can verify later
+            }
+
         } catch {
             print("❌ FirebaseManager: Failed to create user profile: \(error)")
             // Delete the auth user if profile creation fails
             try? await user.delete()
             throw error
         }
-        
+
         return user
     }
     
@@ -178,8 +199,106 @@ class FirebaseManager {
     /// Send password reset email
     func sendPasswordReset(email: String) async throws {
         try await auth.sendPasswordReset(withEmail: email)
+        print("✅ FirebaseManager: Password reset email sent to \(email)")
     }
-    
+
+    // MARK: - Email Verification
+
+    /// Send email verification to current user
+    func sendEmailVerification() async throws {
+        guard let user = auth.currentUser else {
+            throw FirebaseError.unauthorized
+        }
+
+        guard !user.isEmailVerified else {
+            print("ℹ️ FirebaseManager: Email already verified")
+            return
+        }
+
+        try await user.sendEmailVerification()
+        print("✅ FirebaseManager: Verification email sent to \(user.email ?? "unknown")")
+    }
+
+    /// Reload current user to check email verification status
+    func reloadUser() async throws {
+        guard let user = auth.currentUser else {
+            throw FirebaseError.unauthorized
+        }
+
+        try await user.reload()
+        print("✅ FirebaseManager: User reloaded, emailVerified=\(user.isEmailVerified)")
+    }
+
+    /// Check if current user's email is verified
+    var isEmailVerified: Bool {
+        auth.currentUser?.isEmailVerified ?? false
+    }
+
+    // MARK: - Passwordless Email Link Sign-In
+
+    /// Send sign-in link to email (passwordless authentication)
+    func sendSignInLink(toEmail email: String) async throws {
+        let actionCodeSettings = ActionCodeSettings()
+        actionCodeSettings.url = URL(string: "https://amen.page.link/emailSignIn")! // Replace with your deep link
+        actionCodeSettings.handleCodeInApp = true
+        actionCodeSettings.setIOSBundleID(Bundle.main.bundleIdentifier ?? "com.amenapp")
+
+        try await auth.sendSignInLink(toEmail: email, actionCodeSettings: actionCodeSettings)
+        print("✅ FirebaseManager: Sign-in link sent to \(email)")
+
+        // Save email for verification when link is clicked
+        UserDefaults.standard.set(email, forKey: "emailForSignIn")
+    }
+
+    /// Sign in with email link (called when user clicks the link)
+    func signInWithEmailLink(email: String, link: String) async throws -> FirebaseAuth.User {
+        guard auth.isSignIn(withEmailLink: link) else {
+            throw NSError(domain: "AuthError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid sign-in link"])
+        }
+
+        let result = try await auth.signIn(withEmail: email, link: link)
+        print("✅ FirebaseManager: Signed in with email link for \(email)")
+
+        // Clear saved email
+        UserDefaults.standard.removeObject(forKey: "emailForSignIn")
+
+        // Check if this is a new user and create profile if needed
+        if result.additionalUserInfo?.isNewUser == true {
+            // Extract name from email for now (can be updated later)
+            let displayName = email.components(separatedBy: "@").first?.capitalized ?? "User"
+            let username = email.components(separatedBy: "@").first?.lowercased() ?? "user"
+
+            // Create minimal profile (user can complete onboarding later)
+            let userData: [String: Any] = [
+                "uid": result.user.uid,
+                "email": email,
+                "displayName": displayName,
+                "displayNameLowercase": displayName.lowercased(),
+                "username": username,
+                "usernameLowercase": username,
+                "initials": String(displayName.prefix(1)).uppercased(),
+                "bio": "",
+                "profileImageURL": NSNull(),
+                "nameKeywords": createNameKeywords(from: displayName),
+                "createdAt": Timestamp(date: Date()),
+                "updatedAt": Timestamp(date: Date()),
+                "followersCount": 0,
+                "followingCount": 0,
+                "postsCount": 0,
+                "isPrivate": false,
+                "hasCompletedOnboarding": false
+            ]
+
+            try await firestore.collection(CollectionPath.users)
+                .document(result.user.uid)
+                .setData(userData)
+
+            print("✅ FirebaseManager: Email link user profile created")
+        }
+
+        return result.user
+    }
+
     // MARK: - Google Sign-In
     
     /// Sign in with Google
@@ -523,6 +642,112 @@ extension FirebaseManager {
         }
         
         return data
+    }
+    
+    // MARK: - Account Linking
+    
+    /// Get list of currently linked auth providers
+    func getLinkedProviders() -> [String] {
+        guard let user = auth.currentUser else { return [] }
+        return user.providerData.map { $0.providerID }
+    }
+    
+    /// Check if a specific provider is already linked
+    func isProviderLinked(_ provider: String) -> Bool {
+        return getLinkedProviders().contains(provider)
+    }
+    
+    /// Link Google account to existing account
+    @MainActor
+    func linkGoogleAccount() async throws {
+        guard let user = auth.currentUser else {
+            throw NSError(domain: "AuthError", code: -1, userInfo: [NSLocalizedDescriptionKey: "No user is currently signed in"])
+        }
+        
+        // Check if Google is already linked
+        if isProviderLinked("google.com") {
+            throw NSError(domain: "AuthError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Google account is already linked"])
+        }
+        
+        guard let clientID = FirebaseApp.app()?.options.clientID else {
+            throw FirebaseError.invalidData
+        }
+        
+        let config = GIDConfiguration(clientID: clientID)
+        GIDSignIn.sharedInstance.configuration = config
+        
+        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let rootViewController = windowScene.windows.first?.rootViewController else {
+            throw FirebaseError.unauthorized
+        }
+        
+        let result = try await GIDSignIn.sharedInstance.signIn(withPresenting: rootViewController)
+        let googleUser = result.user
+        
+        guard let idToken = googleUser.idToken?.tokenString else {
+            throw FirebaseError.invalidData
+        }
+        
+        let credential = GoogleAuthProvider.credential(
+            withIDToken: idToken,
+            accessToken: googleUser.accessToken.tokenString
+        )
+        
+        try await user.link(with: credential)
+        print("✅ FirebaseManager: Google account linked successfully")
+    }
+    
+    /// Link Apple account to existing account
+    @MainActor
+    func linkAppleAccount(idToken: String, nonce: String, fullName: PersonNameComponents?) async throws {
+        guard let user = auth.currentUser else {
+            throw NSError(domain: "AuthError", code: -1, userInfo: [NSLocalizedDescriptionKey: "No user is currently signed in"])
+        }
+        
+        // Check if Apple is already linked
+        if isProviderLinked("apple.com") {
+            throw NSError(domain: "AuthError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Apple account is already linked"])
+        }
+        
+        let credential = OAuthProvider.appleCredential(
+            withIDToken: idToken,
+            rawNonce: nonce,
+            fullName: fullName
+        )
+        
+        try await user.link(with: credential)
+        print("✅ FirebaseManager: Apple account linked successfully")
+        
+        // Update display name if provided and not already set
+        if let fullName = fullName,
+           let givenName = fullName.givenName,
+           user.displayName == nil || user.displayName?.isEmpty == true {
+            let displayName = [givenName, fullName.familyName].compactMap { $0 }.joined(separator: " ")
+            
+            let changeRequest = user.createProfileChangeRequest()
+            changeRequest.displayName = displayName
+            try await changeRequest.commitChanges()
+            
+            // Update Firestore
+            try await firestore.collection(CollectionPath.users)
+                .document(user.uid)
+                .updateData(["displayName": displayName])
+        }
+    }
+    
+    /// Unlink auth provider from account
+    func unlinkProvider(_ providerID: String) async throws {
+        guard let user = auth.currentUser else {
+            throw NSError(domain: "AuthError", code: -1, userInfo: [NSLocalizedDescriptionKey: "No user is currently signed in"])
+        }
+        
+        // Prevent unlinking if it's the only provider
+        if user.providerData.count <= 1 {
+            throw NSError(domain: "AuthError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Cannot unlink your only sign-in method. Please add another method first."])
+        }
+        
+        try await user.unlink(fromProvider: providerID)
+        print("✅ FirebaseManager: Provider \(providerID) unlinked successfully")
     }
 }
 

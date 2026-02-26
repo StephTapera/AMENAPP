@@ -39,7 +39,7 @@ struct FollowRequest: Identifiable, Codable {
 // MARK: - Follow Requests View
 
 struct FollowRequestsView: View {
-    @StateObject private var viewModel = FollowRequestsViewModel()
+    @ObservedObject private var viewModel = FollowRequestsViewModel.shared  // P0 FIX: Use singleton
     @Environment(\.dismiss) var dismiss
     
     var body: some View {
@@ -276,12 +276,21 @@ struct FollowRequestCard: View {
 
 @MainActor
 class FollowRequestsViewModel: ObservableObject {
+    // P0 FIX: Make singleton to prevent duplicate initialization
+    static let shared = FollowRequestsViewModel()
+    
     @Published var requests: [FollowRequest] = []
     @Published var requestUsers: [String: UserModel] = [:]
     @Published var isLoading = false
     @Published var error: String?
     
+    // ✅ P0-3: Track in-flight requests to prevent duplicates
+    private var processingRequestIds: Set<String> = []
+    
     private let db = Firestore.firestore()
+    
+    // P0 FIX: Private initializer for singleton pattern
+    private init() {}
     
     func loadRequests() async {
         guard let currentUserId = Auth.auth().currentUser?.uid else { return }
@@ -331,17 +340,29 @@ class FollowRequestsViewModel: ObservableObject {
     }
     
     func acceptRequest(_ request: FollowRequest) async {
+        // ✅ P0-3: Guard against duplicate taps
+        guard let requestId = request.id else {
+            print("⚠️ Cannot process request without ID")
+            return
+        }
+        
+        guard !processingRequestIds.contains(requestId) else {
+            print("⚠️ Request already processing: \(requestId)")
+            return
+        }
+        
+        processingRequestIds.insert(requestId)
+        defer { processingRequestIds.remove(requestId) }
+        
         do {
             // Create follow relationship
             let followService = FollowService.shared
             try await followService.followUser(userId: request.fromUserId)
             
             // Update request status
-            if let requestId = request.id {
-                try await db.collection("followRequests").document(requestId).updateData([
-                    "status": FollowRequest.RequestStatus.accepted.rawValue
-                ])
-            }
+            try await db.collection("followRequests").document(requestId).updateData([
+                "status": FollowRequest.RequestStatus.accepted.rawValue
+            ])
             
             // Remove from local array
             requests.removeAll { $0.id == request.id }
@@ -361,13 +382,25 @@ class FollowRequestsViewModel: ObservableObject {
     }
     
     func rejectRequest(_ request: FollowRequest) async {
+        // ✅ P0-3: Guard against duplicate taps
+        guard let requestId = request.id else {
+            print("⚠️ Cannot process request without ID")
+            return
+        }
+        
+        guard !processingRequestIds.contains(requestId) else {
+            print("⚠️ Request already processing: \(requestId)")
+            return
+        }
+        
+        processingRequestIds.insert(requestId)
+        defer { processingRequestIds.remove(requestId) }
+        
         do {
             // Update request status
-            if let requestId = request.id {
-                try await db.collection("followRequests").document(requestId).updateData([
-                    "status": FollowRequest.RequestStatus.rejected.rawValue
-                ])
-            }
+            try await db.collection("followRequests").document(requestId).updateData([
+                "status": FollowRequest.RequestStatus.rejected.rawValue
+            ])
             
             // Remove from local array
             requests.removeAll { $0.id == request.id }

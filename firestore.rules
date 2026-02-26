@@ -69,6 +69,17 @@ service cloud.firestore {
           // Allow ANY authenticated user to update counters (for following/unfollowing)
           // This is safe because counters use FieldValue.increment() which is atomic
           isCounterUpdate()
+          ||
+          // 3. Account change requests (username/display name)
+          // Allow users to request changes by setting pending fields
+          (isOwner(userId)
+            && isOnlyUpdating([
+              'pendingUsernameChange',
+              'pendingDisplayNameChange',
+              'usernameChangeRequestDate',
+              'displayNameChangeRequestDate',
+              'updatedAt'
+            ]))
         );
       
       // Users can only delete their own profile
@@ -133,6 +144,69 @@ service cloud.firestore {
         
         // Only the owner can update/delete their notifications
         allow update: if isAuthenticated() && isOwner(userId);
+        allow delete: if isAuthenticated() && isOwner(userId);
+      }
+
+      // === SMART SUGGESTIONS SUBCOLLECTION (AI Feature) ===
+      match /smartSuggestions/{targetUserId} {
+        // Users can read suggestions generated for them
+        allow read: if isAuthenticated() && isOwner(userId);
+
+        // FIXED: Users can create/update their own suggestions cache
+        // The SmartSuggestionsService writes to the CURRENT user's subcollection
+        allow create, update: if isAuthenticated() && isOwner(userId);
+
+        // Users can delete their own suggestions
+        allow delete: if isAuthenticated() && isOwner(userId);
+      }
+      
+      // === COMMUNITY STANDARDS SUBCOLLECTION (Safety Feature) ===
+      match /communityStandards/{docId} {
+        // Users can read their own agreement
+        allow read: if isAuthenticated() && isOwner(userId);
+        
+        // Users can create/update their agreement
+        allow create, update: if isAuthenticated() && isOwner(userId);
+        
+        // Cannot delete agreement
+        allow delete: if false;
+      }
+      
+      // === USAGE SESSIONS SUBCOLLECTION (Wellness Feature) ===
+      match /usageSessions/{sessionId} {
+        allow read: if isAuthenticated() && isOwner(userId);
+        allow create: if isAuthenticated() && isOwner(userId);
+        allow update, delete: if false;
+      }
+      
+      // === WELLNESS EVENTS SUBCOLLECTION ===
+      match /wellnessEvents/{eventId} {
+        allow read: if isAuthenticated() && isOwner(userId);
+        allow create: if isAuthenticated() && isOwner(userId);
+        allow update, delete: if false;
+      }
+
+      // === DEVICES SUBCOLLECTION (FCM Token Management) ===
+      match /devices/{deviceId} {
+        // Users can read their own device tokens
+        allow read: if isAuthenticated() && isOwner(userId);
+
+        // Users can register/update their own device tokens
+        allow create, update: if isAuthenticated() && isOwner(userId);
+
+        // Users can delete their own device registrations
+        allow delete: if isAuthenticated() && isOwner(userId);
+      }
+
+      // === SCROLL BUDGET USAGE SUBCOLLECTION (Wellness Feature) ===
+      match /scrollBudgetUsage/{date} {
+        // Users can read their own scroll budget usage
+        allow read: if isAuthenticated() && isOwner(userId);
+
+        // Users can create/update their own scroll budget usage
+        allow create, update: if isAuthenticated() && isOwner(userId);
+
+        // Users can delete their own scroll budget usage
         allow delete: if isAuthenticated() && isOwner(userId);
       }
     }
@@ -672,9 +746,9 @@ service cloud.firestore {
     // ============================================================================
     
     match /churchNotes/{noteId} {
-      // Users can read their own notes (allow list queries by userId)
-      allow read: if isAuthenticated()
-        && (resource == null || resource.data.userId == request.auth.uid);
+      // Users can read any church notes (public for community sharing)
+      // or restrict to own notes only by uncommenting the userId check
+      allow read: if isAuthenticated();
       
       // Users can create their own notes
       allow create: if isAuthenticated()
@@ -945,53 +1019,196 @@ service cloud.firestore {
     }
 
     // ============================================================================
-    // AI SCRIPTURE CROSS-REFERENCE COLLECTIONS
+    // PRAYERS COLLECTION (NEW - top-level for AI analysis)
     // ============================================================================
 
-    // Scripture Reference Requests - Created by app, processed by Cloud Functions
-    match /scriptureReferenceRequests/{requestId} {
-      // Users can create scripture reference requests
+    match /prayers/{prayerId} {
+      // Users can read their own prayers
+      allow read: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+
+      // Users can create their own prayers
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid
+        && hasRequiredFields(['userId', 'createdAt']);
+
+      // Users can update their own prayers
+      allow update: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+
+      // Users can delete their own prayers
+      allow delete: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+    }
+
+    // ============================================================================
+    // AI FEATURES COLLECTIONS (NEW - for AI services)
+    // ============================================================================
+
+    // AI Search Requests
+    match /aiSearchRequests/{requestId} {
       allow create: if isAuthenticated();
-
-      // Users can read their own requests
       allow read: if isAuthenticated();
-
-      // No update/delete - only Cloud Functions process these
       allow update, delete: if false;
     }
 
-    // Scripture Reference Results - Created by Cloud Functions, read by app
-    match /scriptureReferenceResults/{resultId} {
-      // Users can read results for their requests
+    // AI Search Results
+    match /aiSearchResults/{resultId} {
       allow read: if isAuthenticated();
-
-      // Only Cloud Functions can write results
       allow create, update, delete: if false;
     }
 
-    // ============================================================================
-    // AI NOTE SUMMARIZATION COLLECTIONS
-    // ============================================================================
-
-    // Note Summary Requests - Created by app, processed by Cloud Functions
+    // Note Summary Requests
     match /noteSummaryRequests/{requestId} {
-      // Users can create note summary requests
       allow create: if isAuthenticated();
-
-      // Users can read their own requests
       allow read: if isAuthenticated();
-
-      // No update/delete - only Cloud Functions process these
       allow update, delete: if false;
     }
 
-    // Note Summary Results - Created by Cloud Functions, read by app
+    // Note Summary Results
     match /noteSummaryResults/{resultId} {
-      // Users can read results for their requests
+      allow read: if isAuthenticated();
+      allow create, update, delete: if false;
+    }
+
+    // Scripture Reference Requests
+    match /scriptureReferenceRequests/{requestId} {
+      allow create: if isAuthenticated();
+      allow read: if isAuthenticated();
+      allow update, delete: if false;
+    }
+
+    // Scripture Reference Results
+    match /scriptureReferenceResults/{resultId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if false;
+    }
+
+    // Church Recommendation Requests
+    match /churchRecommendationRequests/{requestId} {
+      allow create: if isAuthenticated();
+      allow read: if isAuthenticated();
+      allow update, delete: if false;
+    }
+
+    // Church Recommendation Results
+    match /churchRecommendationResults/{resultId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if false;
+    }
+
+    // ============================================================================
+    // AI PHOTO INSIGHTS COLLECTION (NEW - for profile photo analysis)
+    // ============================================================================
+
+    // Photo Insights - Generated by Google Cloud Vision API
+    match /photoInsights/{userId} {
+      // Users can read any photo insights (for discovery)
       allow read: if isAuthenticated();
 
-      // Only Cloud Functions can write results
-      allow create, update, delete: if false;
+      // FIXED: Any authenticated user can create/update photo insights
+      // This is needed because the PhotoInsightsService analyzes OTHER users' photos
+      // Photo insights are non-sensitive (just badges like "Nature Lover", etc.)
+      allow create, update: if isAuthenticated();
+
+      // Users can delete their own photo insights
+      allow delete: if isAuthenticated() && isOwner(userId);
+    }
+
+    // ============================================================================
+    // SAFETY & MODERATION COLLECTIONS (NEW - for content safety)
+    // ============================================================================
+    
+    // Moderation Appeals - Users can appeal content moderation decisions
+    match /moderationAppeals/{appealId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if false; // Only admins via backend
+    }
+    
+    // Suspicious Activity - System tracking for rate limiting
+    match /suspiciousActivity/{activityId} {
+      allow read: if false; // Admin only
+      allow create: if isAuthenticated(); // System can log
+      allow update, delete: if false;
+    }
+    
+    // Brigading Alerts - System tracking for coordinated attacks
+    match /brigadingAlerts/{alertId} {
+      allow read: if false; // Admin only
+      allow create: if isAuthenticated(); // System can create
+      allow update, delete: if false;
+    }
+    
+    // Data Export Requests - Users can request their data
+    match /dataExportRequests/{requestId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // ============================================================================
+    // TRUST-BY-DESIGN: PRIVACY & CONTACT CONTROLS
+    // ============================================================================
+
+    // User Privacy Settings - Controls for DMs, comments, mentions
+    match /user_privacy_settings/{userId} {
+      // Users can read their own settings
+      // Other users can read settings to check permissions
+      allow read: if isAuthenticated();
+
+      // Users can only create/update their own settings
+      allow create, update: if isAuthenticated() && userId == request.auth.uid;
+
+      // Cannot delete privacy settings
+      allow delete: if false;
+    }
+
+    // Quiet Block Actions - Mute, restrict, hide replies, limit mentions
+    match /quiet_blocks/{blockId} {
+      // Users can read their own blocks OR check if they are affected
+      allow read: if isAuthenticated()
+        && (resource.data.userId == request.auth.uid
+          || resource.data.targetUserId == request.auth.uid);
+
+      // Users can create their own quiet blocks
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid;
+
+      // Users can update/delete their own blocks
+      allow update, delete: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+    }
+
+    // Repeated Contact Attempts - Anti-harassment tracking
+    match /repeated_contact_attempts/{attemptId} {
+      // System only - track contact attempt patterns
+      allow read: if isAuthenticated() && resource.data.targetUserId == request.auth.uid;
+      allow create: if isAuthenticated();
+      allow update, delete: if false; // System managed
+    }
+
+    // ============================================================================
+    // VISIT PLANS COLLECTION (NEW - First Visit Companion)
+    // ============================================================================
+
+    match /visit_plans/{planId} {
+      // Users can read their own visit plans
+      allow read: if isAuthenticated()
+        && resource.data.user_id == request.auth.uid;
+
+      // Users can create their own visit plans
+      allow create: if isAuthenticated()
+        && request.resource.data.user_id == request.auth.uid
+        && hasRequiredFields(['user_id', 'church_id', 'church_name', 'service_date']);
+
+      // Users can update their own visit plans
+      allow update: if isAuthenticated()
+        && resource.data.user_id == request.auth.uid;
+
+      // Users can delete their own visit plans
+      allow delete: if isAuthenticated()
+        && resource.data.user_id == request.auth.uid;
     }
 
     // ============================================================================

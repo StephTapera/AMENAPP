@@ -29,15 +29,17 @@ extension Color {
     static let amenSurface = Color.white.opacity(0.05)
     
     // MARK: - Accent Colors
-    
+    // NOTE: These are now defined in AmenAdaptiveColors.swift with dark/light mode support
+    // Keeping here for reference only (commented out to avoid conflicts)
+
     /// Gold accent - Premium, elegant
-    static let amenGold = Color(red: 0.83, green: 0.69, blue: 0.22)
-    
+    // static let amenGold = Color(red: 0.83, green: 0.69, blue: 0.22)
+
     /// Bronze accent - Warm, sophisticated
-    static let amenBronze = Color(red: 0.80, green: 0.50, blue: 0.20)
-    
+    // static let amenBronze = Color(red: 0.80, green: 0.50, blue: 0.20)
+
     /// Silver accent - Cool, modern
-    static let amenSilver = Color(red: 0.75, green: 0.75, blue: 0.75)
+    // static let amenSilver = Color(red: 0.75, green: 0.75, blue: 0.75)
     
     // MARK: - Text Colors
     
@@ -54,32 +56,36 @@ extension Color {
     static let amenTextQuaternary = Color.white.opacity(0.3)
     
     // MARK: - Semantic Colors
-    
+    // NOTE: These are now defined in AmenAdaptiveColors.swift with dark/light mode support
+    // Keeping here for reference only (commented out to avoid conflicts)
+
     /// Success state - Soft green
-    static let amenSuccess = Color(red: 0.3, green: 0.8, blue: 0.5)
-    
+    // static let amenSuccess = Color(red: 0.3, green: 0.8, blue: 0.5)
+
     /// Warning state - Soft orange
-    static let amenWarning = Color(red: 0.95, green: 0.65, blue: 0.2)
-    
+    // static let amenWarning = Color(red: 0.95, green: 0.65, blue: 0.2)
+
     /// Error state - Soft red
-    static let amenError = Color(red: 0.9, green: 0.3, blue: 0.3)
-    
+    // static let amenError = Color(red: 0.9, green: 0.3, blue: 0.3)
+
     /// Info state - Soft blue
-    static let amenInfo = Color(red: 0.4, green: 0.7, blue: 0.95)
-    
+    // static let amenInfo = Color(red: 0.4, green: 0.7, blue: 0.95)
+
     // MARK: - Category Colors (for tags/pills)
-    
+    // NOTE: These are now defined in AmenAdaptiveColors.swift with dark/light mode support
+    // Keeping here for reference only (commented out to avoid conflicts)
+
     /// Prayer category - Soft purple
-    static let amenPrayer = Color(red: 0.6, green: 0.5, blue: 0.9)
-    
+    // static let amenPrayer = Color(red: 0.6, green: 0.5, blue: 0.9)
+
     /// Testimony category - Soft yellow
-    static let amenTestimony = Color(red: 0.95, green: 0.8, blue: 0.3)
-    
+    // static let amenTestimony = Color(red: 0.95, green: 0.8, blue: 0.3)
+
     /// OpenTable category - Soft teal
-    static let amenOpenTable = Color(red: 0.4, green: 0.8, blue: 0.8)
-    
+    // static let amenOpenTable = Color(red: 0.4, green: 0.8, blue: 0.8)
+
     /// Scripture category - Soft indigo
-    static let amenScripture = Color(red: 0.5, green: 0.6, blue: 0.9)
+    // static let amenScripture = Color(red: 0.5, green: 0.6, blue: 0.9)
     
     // MARK: - Gradient Presets
     
@@ -236,7 +242,7 @@ struct AmenColorScheme {
 // MARK: - Preview
 
 #Preview("Color Palette") {
-    ScrollView {
+    ScrollView(.vertical) {
         VStack(spacing: 24) {
             // Backgrounds
             VStack(alignment: .leading, spacing: 8) {

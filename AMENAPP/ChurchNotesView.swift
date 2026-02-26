@@ -461,7 +461,14 @@ struct LiquidGlassHeader: View {
                             }
                         }
                         .onChange(of: searchText) { oldValue, newValue in
-                            if !newValue.isEmpty && !oldValue.isEmpty {
+                            // P1 FIX: Only trigger haptic on meaningful transitions (start typing or clear)
+                            // Avoids haptic on every character which can cause input lag
+                            if newValue.isEmpty && !oldValue.isEmpty {
+                                // User cleared search
+                                let haptic = UIImpactFeedbackGenerator(style: .light)
+                                haptic.impactOccurred()
+                            } else if oldValue.isEmpty && !newValue.isEmpty {
+                                // User started typing
                                 let haptic = UISelectionFeedbackGenerator()
                                 haptic.selectionChanged()
                             }

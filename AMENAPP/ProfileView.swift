@@ -53,6 +53,10 @@ struct ProfileView: View {
     @State private var isLoading = false
     @State private var isRefreshing = false
     @State private var avatarPressed = false
+    
+    // PERFORMANCE: Profile data caching to prevent re-fetches
+    @State private var lastProfileLoad: Date?
+    private let cacheValidityDuration: TimeInterval = 60 // 60 seconds
     @State private var showImagePicker = false
     @State private var showFullScreenAvatar = false
     
@@ -76,9 +80,13 @@ struct ProfileView: View {
     
     // Real-time listeners - track if listeners are active
     @State private var listenersActive = false
+    @State private var postsListener: ListenerRegistration?  // P0 FIX: Store listener for cleanup
     
     // Notification observers to clean up
     @State private var notificationObservers: [NSObjectProtocol] = []
+    
+    // PERFORMANCE: Prevent observer stacking during rapid navigation
+    @State private var isSettingUpObservers = false
     
     // NEW: Login History state
     @State private var showLoginHistory = false
@@ -100,6 +108,12 @@ struct ProfileView: View {
     @State private var lastScrollOffset: CGFloat = 0
     @State private var scrollVelocity: CGFloat = 0
     
+    // PERFORMANCE: Throttle scroll updates to reduce re-renders
+    @State private var scrollUpdateTask: Task<Void, Never>?
+    
+    // PERFORMANCE: Reusable haptic generator to avoid creating new instances
+    private let tabHapticGenerator = UIImpactFeedbackGenerator(style: .light)
+    
     // Scroll offset tracking for header animation
     @State private var scrollOffset: CGFloat = 0
     @State private var showCompactHeader = false
@@ -111,7 +125,6 @@ struct ProfileView: View {
     
     var body: some View {
         NavigationStack {
-            // 🎯 SINGLE UNIFIED SCROLLVIEW - Everything scrolls together seamlessly
             ScrollView {
                 VStack(spacing: 0) {
                     // Profile Header
@@ -155,27 +168,7 @@ struct ProfileView: View {
             .refreshable {
                 await fastRefreshProfile()
             }
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { value in
-                        let currentOffset = value.translation.height
-                        scrollVelocity = currentOffset - lastScrollOffset
-                        lastScrollOffset = currentOffset
-                        
-                        // Auto-hide tab bar based on scroll direction
-                        if scrollVelocity < -5 && scrollOffset < -100 {
-                            // Scrolling down fast, hide tab bar
-                            tabBarVisible.wrappedValue = false
-                        } else if scrollVelocity > 5 || scrollOffset > -50 {
-                            // Scrolling up or at top, show tab bar
-                            tabBarVisible.wrappedValue = true
-                        }
-                    }
-                    .onEnded { _ in
-                        lastScrollOffset = 0
-                        scrollVelocity = 0
-                    }
-            )
+            .simultaneousGesture(scrollDragGesture)
             .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
                 scrollOffset = value
                 
@@ -194,164 +187,37 @@ struct ProfileView: View {
             }
             .scrollContentBackground(.hidden)
             .background(Color.white)
-            .overlay(
-                // Toast notification for new posts
-                Group {
-                    if showRefreshToast && newPostsCount > 0 {
-                        VStack {
-                            HStack(spacing: 8) {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundStyle(.green)
-                                Text("\(newPostsCount) new \(newPostsCount == 1 ? "post" : "posts")")
-                                    .font(.custom("OpenSans-SemiBold", size: 14))
-                                    .foregroundStyle(.white)
-                            }
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 10)
-                            .background(
-                                Capsule()
-                                    .fill(Color.black.opacity(0.9))
-                            )
-                            .shadow(radius: 8)
-                            .padding(.top, 60)
-                            
-                            Spacer()
-                        }
-                        .transition(.move(edge: .top).combined(with: .opacity))
-                        .animation(.spring(response: 0.4, dampingFraction: 0.7), value: showRefreshToast)
-                    }
-                }
-            )
+            .overlay(refreshToastOverlay)
             .background(Color.white.ignoresSafeArea())
-            .navigationTitle("Profile")
+            .navigationTitle("")  // Empty to use custom title
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                // CENTER: Animated Username Title (without @)
+                ToolbarItem(placement: .principal) {
+                    Text("@\(profileData.username)")
+                        .font(.custom("OpenSans-Bold", size: 17))
+                        .foregroundStyle(.black)
+                }
+                
                 // TOP LEFT: Compact Profile Header (shows when scrolled)
                 ToolbarItem(placement: .topBarLeading) {
                     if showCompactHeader {
                         HStack(spacing: 12) {
-                            // Compact Avatar
-                            Circle()
-                                .fill(Color.black)
-                                .frame(width: 32, height: 32)
-                                .overlay(
-                                    Text(profileData.initials)
-                                        .font(.custom("OpenSans-Bold", size: 12))
-                                        .foregroundStyle(.white)
-                                )
+                            // Compact Avatar with profile photo
+                            compactAvatarView
                             
-                            // Name & Username
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(profileData.name)
-                                    .font(.custom("OpenSans-Bold", size: 14))
-                                    .foregroundStyle(.black)
-                                    .lineLimit(1)
-                                
-                                Text("@\(profileData.username)")
-                                    .font(.custom("OpenSans-Regular", size: 11))
-                                    .foregroundStyle(.black.opacity(0.5))
-                                    .lineLimit(1)
-                            }
+                            // Name only (no username)
+                            Text(profileData.name)
+                                .font(.custom("OpenSans-Bold", size: 14))
+                                .foregroundStyle(.black)
+                                .lineLimit(1)
                         }
                         .transition(.move(edge: .leading).combined(with: .opacity))
                     }
                 }
                 
                 ToolbarItem(placement: .topBarTrailing) {
-                    HStack(spacing: 10) {
-                        // Conditionally show the 4 buttons when expanded
-                        if isToolbarExpanded {
-                            Button {
-                                showLoginHistory = true
-                            } label: {
-                                Image(systemName: "clock.arrow.circlepath")
-                                    .font(.system(size: 16, weight: .semibold))
-                                    .foregroundStyle(.black)
-                            }
-                            .transition(.scale.combined(with: .opacity))
-                            
-                            Button {
-                                showQRCode = true
-                            } label: {
-                                Image(systemName: "qrcode")
-                                    .font(.system(size: 16, weight: .semibold))
-                                    .foregroundStyle(.black)
-                            }
-                            .transition(.scale.combined(with: .opacity))
-                            
-                            Button {
-                                shareProfile()
-                            } label: {
-                                Image(systemName: "square.and.arrow.up")
-                                    .font(.system(size: 16, weight: .semibold))
-                                    .foregroundStyle(.black)
-                            }
-                            .transition(.scale.combined(with: .opacity))
-                            
-                            Button {
-                                showSettings = true
-                            } label: {
-                                Image(systemName: "line.3.horizontal")
-                                    .font(.system(size: 16, weight: .semibold))
-                                    .foregroundStyle(.black)
-                            }
-                            .transition(.scale.combined(with: .opacity))
-                        }
-                        
-                        // Toggle button with glassmorphic design
-                        Button {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                isToolbarExpanded.toggle()
-                            }
-                            
-                            // Haptic feedback
-                            let haptic = UIImpactFeedbackGenerator(style: .light)
-                            haptic.impactOccurred()
-                        } label: {
-                            ZStack {
-                                // Glassmorphic background
-                                Circle()
-                                    .fill(.ultraThinMaterial)
-                                    .opacity(0.95)
-                                    .overlay(
-                                        Circle()
-                                            .fill(
-                                                LinearGradient(
-                                                    colors: [
-                                                        Color.white.opacity(0.25),
-                                                        Color.white.opacity(0.08)
-                                                    ],
-                                                    startPoint: .topLeading,
-                                                    endPoint: .bottomTrailing
-                                                )
-                                            )
-                                    )
-                                    .overlay(
-                                        Circle()
-                                            .strokeBorder(
-                                                LinearGradient(
-                                                    colors: [
-                                                        Color.white.opacity(0.5),
-                                                        Color.white.opacity(0.2)
-                                                    ],
-                                                    startPoint: .topLeading,
-                                                    endPoint: .bottomTrailing
-                                                ),
-                                                lineWidth: 0.8
-                                            )
-                                    )
-                                    .frame(width: 32, height: 32)
-                                    .shadow(color: .black.opacity(0.12), radius: 8, x: 0, y: 2)
-                                    .shadow(color: .black.opacity(0.06), radius: 3, x: 0, y: 1)
-                                
-                                // Icon (chevron or ellipsis)
-                                Image(systemName: isToolbarExpanded ? "chevron.right" : "ellipsis")
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundStyle(.black)
-                                    .rotationEffect(.degrees(isToolbarExpanded ? 0 : 0))
-                            }
-                        }
-                    }
+                    toolbarTrailingButtons
                 }
             }
             .sheet(isPresented: $showSettings) {
@@ -401,44 +267,204 @@ struct ProfileView: View {
                         .padding()
                 }
             }
-            .onAppear {
-                // Load real user data when view appears
-                print("👁️ ProfileView appeared")
-                printDataState(context: "onAppear - Before")
+            .task {
+                // Load profile data BEFORE view appears (ensures username shows immediately)
+                print("👁️ ProfileView task started")
+                printDataState(context: "task - Before")
                 
-                // Start follow service listeners for real-time counts
-                Task {
-                    await followService.startListening()
-                    print("✅ FollowService listeners started")
-                    print("   Followers: \(followService.currentUserFollowersCount)")
-                    print("   Following: \(followService.currentUserFollowingCount)")
+                // Load profile data immediately if cache is stale or missing
+                if let lastLoad = lastProfileLoad,
+                   Date().timeIntervalSince(lastLoad) < cacheValidityDuration {
+                    print("   ✅ Using cached profile data (loaded \(Int(Date().timeIntervalSince(lastLoad)))s ago)")
+                    printDataState(context: "task - Cache Hit")
+                } else {
+                    print("   🔄 Cache stale or missing, loading profile data...")
+                    await loadProfileData()
+                    lastProfileLoad = Date()
+                    printDataState(context: "task - After Load")
                 }
                 
+                // Start follow service listeners
+                await followService.startListening()
+                print("✅ FollowService listeners started")
+                print("   Followers: \(followService.currentUserFollowersCount)")
+                print("   Following: \(followService.currentUserFollowingCount)")
+            }
+            .onAppear {
+                print("👁️ ProfileView appeared")
                 // Set up notification observers
                 setupNotificationObservers()
-                
-                // ALWAYS load data when view appears to ensure fresh data
-                print("   -> Loading profile data...")
-                Task {
-                    await loadProfileData()
-                    printDataState(context: "onAppear - After Load")
-                }
             }
             .onDisappear {
-                // Keep listeners active so data persists
                 print("👋 ProfileView disappeared")
                 printDataState(context: "onDisappear")
-                print("   Keeping listeners and data active for persistence")
                 
-                // Clean up notification observers to prevent memory leaks
+                // P0 FIX: Remove ALL listeners to prevent memory leaks
+                postsListener?.remove()
+                postsListener = nil
+                print("   ✅ Posts listener removed")
+                
+                // Stop follow listeners
+                followService.stopListening()
+                print("   ✅ FollowService listeners stopped")
+                
+                // P0 FIX: Stop saved posts real-time listener
+                RealtimeSavedPostsService.shared.removeSavedPostsListener()
+                print("   ✅ SavedPosts listener stopped")
+                
+                // Clean up notification observers
                 cleanupNotificationObservers()
+                
+                // P0 FIX: Cancel scroll update tasks
+                scrollUpdateTask?.cancel()
+                scrollUpdateTask = nil
+                
+                // Mark listeners as inactive
+                listenersActive = false
+                print("   ✅ ProfileView cleanup complete")
             }
         }
+    }
+    
+    // MARK: - View Helpers
+    
+    /// P0 FIX: Extract toolbar buttons to reduce body complexity
+    @ViewBuilder
+    private var toolbarTrailingButtons: some View {
+        HStack(spacing: 10) {
+            // Conditionally show the 4 buttons when expanded
+            if isToolbarExpanded {
+                Button {
+                    showLoginHistory = true
+                } label: {
+                    Image(systemName: "clock.arrow.circlepath")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(.black)
+                }
+                .transition(.scale.combined(with: .opacity))
+                
+                Button {
+                    showQRCode = true
+                } label: {
+                    Image(systemName: "qrcode")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(.black)
+                }
+                .transition(.scale.combined(with: .opacity))
+                
+                Button {
+                    shareProfile()
+                } label: {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(.black)
+                }
+                .transition(.scale.combined(with: .opacity))
+                
+                Button {
+                    showSettings = true
+                } label: {
+                    Image(systemName: "line.3.horizontal")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(.black)
+                }
+                .transition(.scale.combined(with: .opacity))
+            }
+            
+            // Toggle button with enhanced animation
+            Button {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.75, blendDuration: 0.2)) {
+                    isToolbarExpanded.toggle()
+                }
+                
+                // Enhanced haptic feedback
+                let haptic = UIImpactFeedbackGenerator(style: .light)
+                haptic.prepare()
+                haptic.impactOccurred(intensity: 0.7)
+            } label: {
+                // Icon (chevron or ellipsis) - NO BACKGROUND PADDING
+                Image(systemName: isToolbarExpanded ? "xmark" : "ellipsis")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(.black)
+                    .frame(width: 28, height: 28)
+                    .contentShape(Rectangle())
+                    .scaleEffect(isToolbarExpanded ? 0.95 : 1.0)
+                    .rotationEffect(.degrees(isToolbarExpanded ? 180 : 0))
+            }
+            .buttonStyle(.plain)
+        }
+    }
+    
+    /// P0 FIX: Extract toast overlay to reduce body complexity
+    @ViewBuilder
+    private var refreshToastOverlay: some View {
+        if showRefreshToast && newPostsCount > 0 {
+            VStack {
+                HStack(spacing: 8) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                    Text("\(newPostsCount) new \(newPostsCount == 1 ? "post" : "posts")")
+                        .font(.custom("OpenSans-SemiBold", size: 14))
+                        .foregroundStyle(.white)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .background(
+                    Capsule()
+                        .fill(Color.black.opacity(0.9))
+                )
+                .shadow(radius: 8)
+                .padding(.top, 60)
+                
+                Spacer()
+            }
+            .transition(.move(edge: .top).combined(with: .opacity))
+            .animation(.spring(response: 0.4, dampingFraction: 0.7), value: showRefreshToast)
+        }
+    }
+    
+    // MARK: - Gesture Handlers
+    
+    /// P0 FIX: Extract scroll gesture to reduce body complexity
+    private var scrollDragGesture: some Gesture {
+        DragGesture(minimumDistance: 0)
+            .onChanged { value in
+                // PERFORMANCE: Throttle scroll updates to 60fps (16ms)
+                scrollUpdateTask?.cancel()
+                scrollUpdateTask = Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 16_000_000) // 16ms throttle
+                    
+                    let currentOffset = value.translation.height
+                    scrollVelocity = currentOffset - lastScrollOffset
+                    lastScrollOffset = currentOffset
+                    
+                    // Auto-hide tab bar based on scroll direction
+                    if scrollVelocity < -5 && scrollOffset < -100 {
+                        // Scrolling down fast, hide tab bar
+                        tabBarVisible.wrappedValue = false
+                    } else if scrollVelocity > 5 || scrollOffset > -50 {
+                        // Scrolling up or at top, show tab bar
+                        tabBarVisible.wrappedValue = true
+                    }
+                }
+            }
+            .onEnded { _ in
+                lastScrollOffset = 0
+                scrollVelocity = 0
+            }
     }
     
     // MARK: - Notification Observers
     
     private func setupNotificationObservers() {
+        // PERFORMANCE: Prevent re-entry during rapid navigation
+        guard !isSettingUpObservers else {
+            print("⏭️ setupNotificationObservers already in progress, skipping")
+            return
+        }
+        isSettingUpObservers = true
+        defer { isSettingUpObservers = false }
+        
         // Clear any existing observers first
         cleanupNotificationObservers()
         
@@ -469,15 +495,24 @@ struct ProfileView: View {
                 if isOptimistic {
                     // OPTIMISTIC: Add immediately for instant feedback
                     if !self.userPosts.contains(where: { $0.id == newPost.id }) {
-                        self.userPosts.insert(newPost, at: 0)  // Add at top
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                            self.userPosts.insert(newPost, at: 0)  // Add at top
+                        }
                         print("   ⚡ OPTIMISTIC post added instantly")
                         print("   Post ID: \(newPost.id)")
                         print("   Content: \(newPost.content.prefix(50))...")
                         print("   Total posts: \(self.userPosts.count)")
                         
-                        // Success haptic
+                        // Success haptic with animation
                         let haptic = UINotificationFeedbackGenerator()
+                        haptic.prepare()
                         haptic.notificationOccurred(.success)
+                        
+                        // Force refresh after 1 second to get confirmed data
+                        Task {
+                            try? await Task.sleep(nanoseconds: 1_000_000_000)
+                            await self.refreshPostsAfterCreation()
+                        }
                     } else {
                         print("   ⚠️ Post already exists (from listener)")
                     }
@@ -486,11 +521,15 @@ struct ProfileView: View {
                     print("   ✅ CONFIRMED post from database")
                     if let index = self.userPosts.firstIndex(where: { $0.id == newPost.id }) {
                         // Update existing (in case data changed)
-                        self.userPosts[index] = newPost
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            self.userPosts[index] = newPost
+                        }
                         print("   Updated existing post at index \(index)")
                     } else {
                         // Wasn't added optimistically, add now
-                        self.userPosts.insert(newPost, at: 0)
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                            self.userPosts.insert(newPost, at: 0)
+                        }
                         print("   Added confirmed post (wasn't optimistic)")
                         print("   Total posts: \(self.userPosts.count)")
                     }
@@ -844,8 +883,12 @@ struct ProfileView: View {
         let previousPostsCount = userPosts.count
         let previousRepliesCount = userReplies.count
         
+        // PERFORMANCE: Invalidate cache on manual refresh
+        lastProfileLoad = nil
+        
         // Perform refresh immediately - NO CACHE CHECK
         await refreshProfile()
+        lastProfileLoad = Date()
         
         // Calculate changes
         newPostsCount = max(0, userPosts.count - previousPostsCount)
@@ -873,6 +916,27 @@ struct ProfileView: View {
         }
         
         print("✅ Fast refresh complete - \(newPostsCount) new posts, \(newRepliesCount) new replies")
+    }
+    
+    // 🎯 NEW: Refresh posts after creation to ensure sync
+    @MainActor
+    private func refreshPostsAfterCreation() async {
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+        
+        print("🔄 Refreshing posts after creation to ensure sync...")
+        
+        do {
+            let postService = FirebasePostService.shared
+            let refreshedPosts = try await postService.fetchUserPosts(userId: userId)
+            
+            withAnimation(.easeInOut(duration: 0.3)) {
+                userPosts = refreshedPosts
+            }
+            
+            print("✅ Posts refreshed after creation: \(refreshedPosts.count) total")
+        } catch {
+            print("❌ Error refreshing posts after creation: \(error)")
+        }
     }
     
     @MainActor
@@ -1275,7 +1339,11 @@ struct ProfileView: View {
         print("🔥 [POSTS] Setting up real-time Firestore listener for user posts...")
         
         let db = Firestore.firestore()
-        db.collection("posts")
+        
+        // P0 FIX: Remove existing listener before creating new one
+        postsListener?.remove()
+        
+        postsListener = db.collection("posts")
             .whereField("authorId", isEqualTo: userId)
             .order(by: "createdAt", descending: true)
             .addSnapshotListener { querySnapshot, error in
@@ -1451,10 +1519,22 @@ struct ProfileView: View {
             baseHeight += 80
         }
         
+        // P0 FIX: Validate baseHeight is finite and within safe bounds
+        guard baseHeight.isFinite && baseHeight >= 200 else {
+            print("⚠️ [ProfileView] Invalid baseHeight: \(baseHeight), using safe fallback")
+            return 200
+        }
+        
         // ✨ INTERACTIVE COLLAPSE: Shrink header as user scrolls down
         // Maps scroll offset to header reduction (0 to -150 pixels)
         let collapseAmount = min(150, max(0, -scrollOffset))
         let dynamicHeight = max(200, baseHeight - collapseAmount)
+        
+        // P0 FIX: Validate final height is finite
+        guard dynamicHeight.isFinite else {
+            print("⚠️ [ProfileView] Non-finite dynamicHeight, using safe fallback")
+            return 200
+        }
         
         return dynamicHeight
     }
@@ -1524,22 +1604,18 @@ struct ProfileView: View {
     // Extract complex avatar view to help compiler
     @ViewBuilder
     private var profileAvatarView: some View {
-        if let profileImageURL = profileData.profileImageURL, !profileImageURL.isEmpty {
-            AsyncImage(url: URL(string: profileImageURL)) { phase in
-                switch phase {
-                case .empty:
-                    avatarPlaceholder(showProgress: true)
-                case .success(let image):
-                    image
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: 80, height: 80)
-                        .clipShape(Circle())
-                case .failure:
-                    avatarInitials
-                @unknown default:
-                    avatarInitials
-                }
+        if let profileImageURL = profileData.profileImageURL, 
+           !profileImageURL.isEmpty,
+           let url = URL(string: profileImageURL) {
+            // P0 FIX: Use CachedAsyncImage for better performance
+            CachedAsyncImage(url: url) { image in
+                image
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 80, height: 80)
+                    .clipShape(Circle())
+            } placeholder: {
+                avatarPlaceholder(showProgress: true)
             }
             .frame(width: 80, height: 80)
         } else {
@@ -1570,14 +1646,47 @@ struct ProfileView: View {
         }
     }
     
+    // Compact Avatar for Toolbar (with profile photo support)
+    private var compactAvatarView: some View {
+        Group {
+            if let imageURL = profileData.profileImageURL, !imageURL.isEmpty, let url = URL(string: imageURL) {
+                // P0 FIX: Use CachedAsyncImage + proper loading states
+                CachedAsyncImage(url: url) { image in
+                    image
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 32, height: 32)
+                        .clipShape(Circle())
+                } placeholder: {
+                    ZStack {
+                        Circle()
+                            .fill(Color.black.opacity(0.2))
+                            .frame(width: 32, height: 32)
+                        ProgressView()
+                            .scaleEffect(0.7)
+                            .tint(.white)
+                    }
+                }
+            } else {
+                Circle()
+                    .fill(Color.black)
+                    .frame(width: 32, height: 32)
+                    .overlay(
+                        Text(profileData.initials)
+                            .font(.custom("OpenSans-Bold", size: 12))
+                            .foregroundStyle(.white)
+                    )
+            }
+        }
+    }
+    
     // 🎯 NEW: Sticky Tab Bar View
     private var stickyTabBar: some View {
         HStack(spacing: 8) {
             ForEach(ProfileTab.allCases, id: \.self) { tab in
                 Button {
-                    // Haptic feedback
-                    let haptic = UIImpactFeedbackGenerator(style: .light)
-                    haptic.impactOccurred()
+                    // PERFORMANCE: Use reusable haptic generator
+                    tabHapticGenerator.impactOccurred()
                     
                     // Switch tab with fast, smooth animation
                     withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
@@ -1654,11 +1763,6 @@ struct ProfileView: View {
                             VerifiedBadge(size: 20)
                         }
                     }
-
-                    // Username
-                    Text("@\(profileData.username)")
-                        .font(.custom("OpenSans-Regular", size: 15))
-                        .foregroundStyle(.black.opacity(0.5))
                 }
                 
                 Spacer()

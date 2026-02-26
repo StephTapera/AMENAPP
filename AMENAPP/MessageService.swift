@@ -33,6 +33,18 @@ class MessageService: ObservableObject {
     
     private init() {}
     
+    deinit {
+        // Clean up all conversation listeners
+        conversationListeners.forEach { $0.remove() }
+        conversationListeners.removeAll()
+        
+        // Clean up message listener
+        messageListener?.remove()
+        messageListener = nil
+        
+        print("✅ MessageService deinitialized - all listeners cleaned up")
+    }
+    
     // MARK: - Fetch Conversations
     
     /// Fetch all conversations for current user
@@ -195,15 +207,27 @@ class MessageService: ObservableObject {
         // ✅ STEP 1: AI CONTENT MODERATION
         // ============================================================================
         print("🛡️ Running AI moderation check for message...")
-        let moderationResult = try await ContentModerationService.shared.moderateContent(
-            content,
-            type: .message,
-            userId: currentUserId
+        
+        // Create authenticity signals (messages are typically typed, not pasted)
+        let signals = AuthenticitySignals(
+            typedCharacters: content.count,
+            pastedCharacters: 0,
+            typedVsPastedRatio: 1.0,
+            largestPasteLength: 0,
+            pasteEventCount: 0,
+            typingDurationSeconds: 0,
+            hasLargePaste: false
+        )
+        
+        let moderationResult = try await ContentModerationService.moderateContent(
+            text: content,
+            category: .comment,  // Use comment strictness for messages
+            signals: signals
         )
         
         // Block message if moderation fails
-        if !moderationResult.isApproved {
-            let reasons = moderationResult.flaggedReasons.joined(separator: ", ")
+        if moderationResult.shouldBlock {
+            let reasons = moderationResult.reasons.joined(separator: ", ")
             print("❌ Message blocked by moderation: \(reasons)")
             throw NSError(
                 domain: "MessageService",
@@ -425,13 +449,27 @@ class MessageService: ObservableObject {
             return existingConv
         }
         
+        // ============================================================================
+        // ✅ PRIVACY CHECK: Determine if sender can directly message recipient
+        // ============================================================================
+        print("🔒 Checking DM permissions for recipient: \(userId)")
+        
+        let canSendDirect = try await TrustByDesignService.shared.canSendDM(
+            from: currentUserId,
+            to: userId
+        )
+        
         // Create new conversation
-        print("📝 Creating new conversation as pending message request")
+        if canSendDirect {
+            print("✅ DM permission granted - creating accepted conversation")
+        } else {
+            print("⚠️ DM permission denied - creating pending message request")
+        }
         
         let currentUser = try await getUserInfo(userId: currentUserId)
         let otherUser = try await getUserInfo(userId: userId)
         
-        // ✅ NEW: Create conversation as pending request
+        // ✅ PRIVACY: Create conversation as accepted OR pending based on permissions
         var conversation = Conversation(
             participants: [currentUserId, userId].sorted(),
             participantNames: [
@@ -446,8 +484,8 @@ class MessageService: ObservableObject {
                 currentUserId: 0,
                 userId: 0
             ],
-            conversationStatus: "pending",  // ✅ Start as pending
-            requesterId: currentUserId      // ✅ Track who initiated
+            conversationStatus: canSendDirect ? "accepted" : "pending",  // ✅ Based on permission
+            requesterId: canSendDirect ? nil : currentUserId             // ✅ Only set if pending
         )
         
         let docRef = try db.collection("conversations").addDocument(from: conversation)
