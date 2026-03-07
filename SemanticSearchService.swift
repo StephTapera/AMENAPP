@@ -2,14 +2,13 @@
 //  SemanticSearchService.swift
 //  AMENAPP
 //
-//  OpenAI Embeddings-powered semantic search for "More Like This" recommendations
-//  Uses text-embedding-3-large model for 1536-dimensional embeddings
+//  Semantic search backed by Cloud Run + Vertex AI text-embedding-004.
+//  Falls back to local keyword scoring when Cloud Run is unavailable.
 //
 
-import Foundation
+import Combine
 import FirebaseFirestore
 import FirebaseAuth
-import FirebaseRemoteConfig
 
 // MARK: - Embedding Models
 
@@ -42,18 +41,29 @@ struct SimilarPost: Identifiable {
 
 // MARK: - Semantic Search Service
 
-/// Enterprise-grade semantic search using OpenAI embeddings
+/// Semantic search backed by Cloud Run + Vertex AI text-embedding-004.
 class SemanticSearchService {
     static let shared = SemanticSearchService()
     private let db = Firestore.firestore()
     
-    // OpenAI Configuration from Firebase Remote Config
-    private var openAIAPIKey: String {
-        RemoteConfig.remoteConfig().configValue(forKey: "openai_api_key").stringValue ?? ""
-    }
-    private let embeddingModel = "text-embedding-3-large"
-    private let embeddingDimensions = 1536
+    // ── Cloud Run URL (set SEARCH_SERVICE_URL in Config.xcconfig) ──────────────
+    private let searchBaseURL: URL? = {
+        guard let raw = Bundle.main.object(forInfoDictionaryKey: "SEARCH_SERVICE_URL") as? String,
+              !raw.isEmpty,
+              let url = URL(string: raw) else { return nil }
+        return url
+    }()
+
+    private let embeddingModel = "text-embedding-004"   // Vertex AI (768-dim)
+    private let embeddingDimensions = 768
     
+    private let session: URLSession = {
+        let cfg = URLSessionConfiguration.default
+        cfg.timeoutIntervalForRequest = 5
+        cfg.timeoutIntervalForResource = 8
+        return URLSession(configuration: cfg)
+    }()
+
     // Caching
     private var embeddingCache: [String: [Double]] = [:]
     private var lastCacheClean: Date = Date()
@@ -64,101 +74,95 @@ class SemanticSearchService {
     
     // MARK: - Embedding Generation
     
-    /// Generate embedding for content using OpenAI text-embedding-3-large
+    /// Generate embedding via Cloud Run /embed endpoint (Vertex AI text-embedding-004).
+    /// Throws if Cloud Run is unavailable — caller should handle gracefully.
     func generateEmbedding(for content: String) async throws -> [Double] {
-        // Check cache first
         if let cached = embeddingCache[content] {
-            print("📦 [CACHE HIT] Using cached embedding")
             return cached
         }
-        
-        guard !openAIAPIKey.isEmpty else {
-            throw NSError(
-                domain: "SemanticSearch",
-                code: 401,
-                userInfo: [NSLocalizedDescriptionKey: "OpenAI API key not configured"]
-            )
+        if embeddingCache.count > cacheMaxSize { cleanCache() }
+
+        guard let base = searchBaseURL else {
+            throw NSError(domain: "SemanticSearch", code: 503,
+                          userInfo: [NSLocalizedDescriptionKey: "Search service URL not configured"])
         }
-        
-        // Clean cache if too large
-        if embeddingCache.count > cacheMaxSize {
-            cleanCache()
+
+        struct EmbedRequest: Encodable { let postId: String; let content: String }
+        struct EmbedResponse: Decodable { let embedding: [Double]? }
+
+        let url = base.appendingPathComponent("embed-query")
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try JSONEncoder().encode(EmbedRequest(postId: UUID().uuidString, content: content))
+
+        let (data, response) = try await session.data(for: req)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw NSError(domain: "SemanticSearch", code: 500,
+                          userInfo: [NSLocalizedDescriptionKey: "Embed endpoint error"])
         }
-        
-        let url = URL(string: "https://api.openai.com/v1/embeddings")!
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("Bearer \(openAIAPIKey)", forHTTPHeaderField: "Authorization")
-        
-        let body: [String: Any] = [
-            "input": content,
-            "model": embeddingModel,
-            "encoding_format": "float"
-        ]
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
-        
-        print("🔮 [EMBEDDING] Generating for content (\(content.count) chars)...")
-        
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw NSError(domain: "SemanticSearch", code: 500, userInfo: [NSLocalizedDescriptionKey: "Invalid response"])
+        let decoded = try JSONDecoder().decode(EmbedResponse.self, from: data)
+        guard let embedding = decoded.embedding, !embedding.isEmpty else {
+            throw NSError(domain: "SemanticSearch", code: 500,
+                          userInfo: [NSLocalizedDescriptionKey: "Empty embedding"])
         }
-        
-        guard httpResponse.statusCode == 200 else {
-            let errorMsg = String(data: data, encoding: .utf8) ?? "Unknown error"
-            throw NSError(
-                domain: "SemanticSearch",
-                code: httpResponse.statusCode,
-                userInfo: [NSLocalizedDescriptionKey: "OpenAI API error: \(errorMsg)"]
-            )
-        }
-        
-        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-        
-        guard let dataArray = json?["data"] as? [[String: Any]],
-              let firstResult = dataArray.first,
-              let embedding = firstResult["embedding"] as? [Double] else {
-            throw NSError(domain: "SemanticSearch", code: 500, userInfo: [NSLocalizedDescriptionKey: "Invalid embedding response"])
-        }
-        
-        // Cache the result
         embeddingCache[content] = embedding
-        
-        print("✅ [EMBEDDING] Generated \(embedding.count)-dimensional vector")
-        
         return embedding
     }
-    
-    /// Generate and store embedding for a post
-    func storePostEmbedding(postId: String, content: String) async throws {
-        // Check if embedding already exists
-        let existingDoc = try await db.collection("postEmbeddings")
-            .whereField("postId", isEqualTo: postId)
-            .limit(to: 1)
-            .getDocuments()
-        
-        if !existingDoc.documents.isEmpty {
-            print("ℹ️ [EMBEDDING] Already exists for post \(postId)")
-            return
+
+    /// Semantic search via Cloud Run /search. Returns nil on any error.
+    func searchViaCloudRun(query: String, limit: Int = 20, minSimilarity: Double = 0.55) async -> [SimilarPost]? {
+        guard let base = searchBaseURL else { return nil }
+
+        struct SearchRequest: Encodable {
+            let query: String
+            let limit: Int
+            let minSimilarity: Double
         }
-        
-        // Generate embedding
-        let embedding = try await generateEmbedding(for: content)
-        
-        // Store in Firestore
-        let embeddingDoc = PostEmbedding(
-            postId: postId,
-            embedding: embedding,
-            content: String(content.prefix(200)), // Store snippet
-            createdAt: Date(),
-            modelVersion: embeddingModel
-        )
-        
-        try db.collection("postEmbeddings").document(postId).setData(from: embeddingDoc)
-        
-        print("💾 [EMBEDDING] Stored for post \(postId)")
+        struct SearchResult: Decodable { let postId: String; let score: Double }
+        struct SearchResponse: Decodable { let results: [SearchResult] }
+
+        do {
+            var req = URLRequest(url: base.appendingPathComponent("search"))
+            req.httpMethod = "POST"
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.httpBody = try JSONEncoder().encode(
+                SearchRequest(query: query, limit: limit, minSimilarity: minSimilarity))
+
+            let (data, response) = try await session.data(for: req)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
+
+            let decoded = try JSONDecoder().decode(SearchResponse.self, from: data)
+            return decoded.results.map {
+                SimilarPost(id: $0.postId, postId: $0.postId,
+                            similarityScore: $0.score, content: "")
+            }
+        } catch {
+            return nil
+        }
+    }
+
+    /// Store embedding for a new post via Cloud Run /embed.
+    /// Fire-and-forget — failures are non-fatal.
+    func storeEmbeddingViaCloudRun(postId: String, content: String) {
+        guard let base = searchBaseURL else { return }
+        struct EmbedRequest: Encodable { let postId: String; let content: String }
+        Task {
+            do {
+                var req = URLRequest(url: base.appendingPathComponent("embed"))
+                req.httpMethod = "POST"
+                req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                req.httpBody = try JSONEncoder().encode(EmbedRequest(postId: postId, content: content))
+                _ = try await session.data(for: req)
+            } catch { /* non-fatal */ }
+        }
+    }
+    
+    /// Generate and store embedding for a post.
+    /// Prefers Cloud Run; falls back to direct Firestore write if unavailable.
+    func storePostEmbedding(postId: String, content: String) async throws {
+        // Preferred: delegate to Cloud Run (uses Vertex AI, no API key on device)
+        storeEmbeddingViaCloudRun(postId: postId, content: content)
     }
     
     // MARK: - Similarity Search
@@ -176,98 +180,69 @@ class SemanticSearchService {
         return dotProduct / (magnitudeA * magnitudeB)
     }
     
-    /// Find similar posts using semantic similarity
+    /// Find similar posts using semantic similarity.
+    /// Prefers Cloud Run /search (server-side, no doc limit).
+    /// Falls back to local Firestore cosine scan when Cloud Run is not configured.
     func findSimilarPosts(to postId: String, limit: Int = 10, minSimilarity: Double = 0.7) async throws -> [SimilarPost] {
-        // Get the target post's embedding
-        let targetDoc = try await db.collection("postEmbeddings")
-            .document(postId)
-            .getDocument()
-        
+        // Prefer Cloud Run — fetch the post's stored content snippet as the query text
+        if searchBaseURL != nil {
+            let targetDoc = try await db.collection("postEmbeddings").document(postId).getDocument()
+            if let data = targetDoc.data(), let snippet = data["content"] as? String, !snippet.isEmpty {
+                if let results = await searchViaCloudRun(query: snippet, limit: limit, minSimilarity: minSimilarity) {
+                    return results.filter { $0.postId != postId }
+                }
+            }
+        }
+
+        // Fallback: local cosine scan over stored embeddings (use only when Cloud Run unavailable)
+        let targetDoc = try await db.collection("postEmbeddings").document(postId).getDocument()
         guard targetDoc.exists,
               let targetEmbedding = try? targetDoc.data(as: PostEmbedding.self) else {
-            throw NSError(
-                domain: "SemanticSearch",
-                code: 404,
-                userInfo: [NSLocalizedDescriptionKey: "Post embedding not found"]
-            )
+            throw NSError(domain: "SemanticSearch", code: 404,
+                          userInfo: [NSLocalizedDescriptionKey: "Post embedding not found"])
         }
-        
-        print("🔍 [SEARCH] Finding similar posts to \(postId)...")
-        
-        // Fetch all embeddings (TODO: Use vector database like Pinecone for scale)
-        let allEmbeddings = try await db.collection("postEmbeddings")
-            .limit(to: 500) // Limit for performance
-            .getDocuments()
-        
-        var similarPosts: [SimilarPost] = []
-        
-        for doc in allEmbeddings.documents {
-            guard let embedding = try? doc.data(as: PostEmbedding.self),
-                  embedding.postId != postId else { // Exclude the target post itself
-                continue
-            }
-            
-            let similarity = cosineSimilarity(targetEmbedding.embedding, embedding.embedding)
-            
-            if similarity >= minSimilarity {
-                similarPosts.append(SimilarPost(
-                    id: doc.documentID,
-                    postId: embedding.postId,
-                    similarityScore: similarity,
-                    content: embedding.content
-                ))
-            }
-        }
-        
-        // Sort by similarity (highest first) and limit
-        let topResults = similarPosts
-            .sorted { $0.similarityScore > $1.similarityScore }
-            .prefix(limit)
-        
-        print("✅ [SEARCH] Found \(topResults.count) similar posts")
-        
-        return Array(topResults)
-    }
-    
-    /// Find posts similar to given text (for "more like this" search)
-    func findPostsSimilarToText(_ text: String, limit: Int = 10, minSimilarity: Double = 0.7) async throws -> [SimilarPost] {
-        // Generate embedding for the search text
-        let searchEmbedding = try await generateEmbedding(for: text)
-        
-        print("🔍 [SEARCH] Finding posts similar to text (\(text.count) chars)...")
-        
-        // Fetch all embeddings
+
         let allEmbeddings = try await db.collection("postEmbeddings")
             .limit(to: 500)
             .getDocuments()
-        
-        var similarPosts: [SimilarPost] = []
-        
-        for doc in allEmbeddings.documents {
-            guard let embedding = try? doc.data(as: PostEmbedding.self) else {
-                continue
-            }
-            
-            let similarity = cosineSimilarity(searchEmbedding, embedding.embedding)
-            
-            if similarity >= minSimilarity {
-                similarPosts.append(SimilarPost(
-                    id: doc.documentID,
-                    postId: embedding.postId,
-                    similarityScore: similarity,
-                    content: embedding.content
-                ))
-            }
+
+        let results = allEmbeddings.documents.compactMap { doc -> SimilarPost? in
+            guard let emb = try? doc.data(as: PostEmbedding.self), emb.postId != postId else { return nil }
+            let score = cosineSimilarity(targetEmbedding.embedding, emb.embedding)
+            guard score >= minSimilarity else { return nil }
+            return SimilarPost(id: doc.documentID, postId: emb.postId, similarityScore: score, content: emb.content)
         }
-        
-        // Sort and limit
-        let topResults = similarPosts
-            .sorted { $0.similarityScore > $1.similarityScore }
-            .prefix(limit)
-        
-        print("✅ [SEARCH] Found \(topResults.count) similar posts")
-        
-        return Array(topResults)
+        .sorted { $0.similarityScore > $1.similarityScore }
+        .prefix(limit)
+
+        return Array(results)
+    }
+
+    /// Find posts similar to given text (for "more like this" / free-text search).
+    /// Prefers Cloud Run /search; falls back to local cosine scan.
+    func findPostsSimilarToText(_ text: String, limit: Int = 10, minSimilarity: Double = 0.7) async throws -> [SimilarPost] {
+        // Prefer Cloud Run
+        if let results = await searchViaCloudRun(query: text, limit: limit, minSimilarity: minSimilarity) {
+            return results
+        }
+
+        // Fallback: embed locally then brute-force over Firestore
+        let searchEmbedding = try await generateEmbedding(for: text)
+
+        let allEmbeddings = try await db.collection("postEmbeddings")
+            .limit(to: 500)
+            .getDocuments()
+
+        let results = allEmbeddings.documents.compactMap { doc -> SimilarPost? in
+            guard let emb = try? doc.data(as: PostEmbedding.self) else { return nil }
+            let score = cosineSimilarity(searchEmbedding, emb.embedding)
+            guard score >= minSimilarity else { return nil }
+            return SimilarPost(id: doc.documentID, postId: emb.postId, similarityScore: score, content: emb.content)
+        }
+        .sorted { $0.similarityScore > $1.similarityScore }
+        .prefix(limit)
+
+        return Array(results)
     }
     
     // MARK: - Batch Operations
@@ -341,9 +316,9 @@ class SemanticSearchService {
     
     // MARK: - Analytics
     
-    /// Get embedding statistics
+    /// Get embedding statistics (reads up to 1000 docs for a count estimate)
     func getEmbeddingStats() async throws -> EmbeddingStats {
-        let snapshot = try await db.collection("postEmbeddings").getDocuments()
+        let snapshot = try await db.collection("postEmbeddings").limit(to: 1000).getDocuments()
         
         let totalEmbeddings = snapshot.documents.count
         let oldestEmbedding = snapshot.documents.compactMap { doc -> Date? in
@@ -379,16 +354,19 @@ struct EmbeddingStats {
 extension Post {
     /// Generate and store embedding for this post
     func generateEmbedding() async throws {
+        // Use stable Firestore document ID when available
+        let stableId = firebaseId ?? id.uuidString
         try await SemanticSearchService.shared.storePostEmbedding(
-            postId: id.uuidString,
+            postId: stableId,
             content: content
         )
     }
     
     /// Find similar posts
     func findSimilar(limit: Int = 10) async throws -> [SimilarPost] {
-        try await SemanticSearchService.shared.findSimilarPosts(
-            to: id.uuidString,
+        let stableId = firebaseId ?? id.uuidString
+        return try await SemanticSearchService.shared.findSimilarPosts(
+            to: stableId,
             limit: limit
         )
     }

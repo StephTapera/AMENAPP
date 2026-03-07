@@ -234,9 +234,36 @@ extension FirebaseMessagingService {
         guard canMessage else {
             throw NSError(domain: "Permission", code: -1, userInfo: [NSLocalizedDescriptionKey: "You cannot message this user"])
         }
+
+        // New-account DM rate-limit check
+        let (canDM, dmReason) = await NewAccountRestrictionService.shared.canDMStrangers(userId: currentUserId)
+        guard canDM else {
+            throw NSError(
+                domain: "RateLimit",
+                code: 429,
+                userInfo: [NSLocalizedDescriptionKey: dmReason ?? "Daily message limit reached. Try again tomorrow."]
+            )
+        }
         
+        let db = Firestore.firestore()
+
+        // Check for existing 1-on-1 conversation before creating a new one
+        let existing = try await db.collection("conversations")
+            .whereField("participantIds", arrayContains: currentUserId)
+            .whereField("isGroup", isEqualTo: false)
+            .getDocuments()
+
+        for doc in existing.documents {
+            let ids = doc.data()["participantIds"] as? [String] ?? []
+            if ids.count == 2 && ids.contains(otherUserId) {
+                // Return existing conversation instead of creating a duplicate
+                return doc.documentID
+            }
+        }
+
         let conversationData: [String: Any] = [
             "participantIds": [currentUserId, otherUserId].sorted(),
+            "isGroup": false,
             "createdAt": FieldValue.serverTimestamp(),
             "updatedAt": FieldValue.serverTimestamp(),
             "messageCounts": [
@@ -244,8 +271,8 @@ extension FirebaseMessagingService {
                 otherUserId: 0
             ]
         ]
-        
-        let conversationRef = try await Firestore.firestore().collection("conversations").addDocument(data: conversationData)
+
+        let conversationRef = try await db.collection("conversations").addDocument(data: conversationData)
         return conversationRef.documentID
     }
     

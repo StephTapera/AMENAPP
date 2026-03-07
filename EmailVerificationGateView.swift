@@ -14,6 +14,8 @@ struct EmailVerificationGateView: View {
     @State private var resendCooldown = 0
     @State private var canResend = true
     @State private var showSuccessMessage = false
+    // Holds the cooldown Task so it can be cancelled if the view disappears mid-count
+    @State private var cooldownTask: Task<Void, Never>?
     
     var body: some View {
         ZStack {
@@ -125,9 +127,7 @@ struct EmailVerificationGateView: View {
                     
                     // Sign out option
                     Button {
-                        Task {
-                            await authViewModel.signOut()
-                        }
+                        authViewModel.signOut()
                     } label: {
                         Text("Sign Out")
                             .font(.custom("OpenSans-Regular", size: 14))
@@ -141,15 +141,24 @@ struct EmailVerificationGateView: View {
             }
         }
         .onAppear {
-            // Send verification email immediately when view appears
-            // This ensures user gets a fresh email even if sign-up email failed/went to spam
             Task {
-                await authViewModel.sendEmailVerification()
-                
-                // Then auto-check verification status after a brief delay
+                // Only auto-send if sign-up hasn't already sent an email in the last 60 s.
+                // emailVerificationCooldownRemaining > 0 means signUp() fired recently —
+                // sending again immediately would trigger Firebase abuse-detection rate limiting.
+                if authViewModel.emailVerificationCooldownRemaining == 0 {
+                    await authViewModel.sendEmailVerification()
+                }
+
+                // Auto-check verification status after a brief delay.
+                // This allows users who clicked the link before reaching this screen to
+                // pass through without any manual tap.
                 try? await Task.sleep(nanoseconds: 500_000_000)
                 checkVerificationStatus()
             }
+        }
+        .onDisappear {
+            // Cancel the countdown task to prevent it running after view is gone
+            cancelCooldown()
         }
     }
     
@@ -164,8 +173,9 @@ struct EmailVerificationGateView: View {
             
             await MainActor.run {
                 if let isVerified = Auth.auth().currentUser?.isEmailVerified, isVerified {
-                    // Email is verified!
+                    // Email is verified — dismiss the gate
                     authViewModel.isEmailVerified = true
+                    authViewModel.needsEmailVerification = false
                     authViewModel.showEmailVerificationBanner = false
                 } else {
                     // Still not verified
@@ -180,37 +190,44 @@ struct EmailVerificationGateView: View {
     
     private func resendVerificationEmail() {
         guard canResend else { return }
-        
+
         canResend = false
         resendCooldown = 60
-        
-        Task {
+        showSuccessMessage = false
+
+        // Cancel any in-flight cooldown before starting a new one
+        cooldownTask?.cancel()
+
+        cooldownTask = Task {
             await authViewModel.sendEmailVerification()
-            
-            await MainActor.run {
-                showSuccessMessage = true
-                
-                // Start countdown
-                Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { timer in
-                    if resendCooldown > 0 {
-                        resendCooldown -= 1
-                    } else {
-                        canResend = true
-                        timer.invalidate()
-                    }
-                }
-                
-                // Hide success message after 3 seconds
-                Task {
-                    try? await Task.sleep(nanoseconds: 3_000_000_000)
-                    await MainActor.run {
-                        withAnimation {
-                            showSuccessMessage = false
-                        }
-                    }
-                }
+
+            guard !Task.isCancelled else { return }
+            withAnimation { showSuccessMessage = true }
+
+            // Tick the countdown using Task.sleep — auto-cancelled when view disappears
+            // (no Timer leak). Each sleep is 1 s; we stop when cancelled or at 0.
+            for remaining in stride(from: 60, through: 1, by: -1) {
+                guard !Task.isCancelled else { return }
+                resendCooldown = remaining
+                try? await Task.sleep(for: .seconds(1))
             }
+
+            guard !Task.isCancelled else { return }
+            resendCooldown = 0
+            canResend = true
+
+            // Auto-hide the success banner after the cooldown
+            withAnimation { showSuccessMessage = false }
         }
+    }
+}
+
+// Cancels the cooldown task when the view leaves the hierarchy,
+// preventing the Task from running after the view is gone.
+private extension EmailVerificationGateView {
+    func cancelCooldown() {
+        cooldownTask?.cancel()
+        cooldownTask = nil
     }
 }
 

@@ -27,6 +27,8 @@ class PushNotificationManager: NSObject, ObservableObject {
     
     // P0 FIX: Prevent duplicate FCM setup
     private var hasSetupFCM = false
+    // Dedup guard — avoids 3x Firestore writes when APNS/FCM token arrives in rapid succession
+    private var lastSavedFCMToken: String?
     
     private override init() {
         super.init()
@@ -36,7 +38,7 @@ class PushNotificationManager: NSObject, ObservableObject {
         if let observer = fcmTokenObserver {
             NotificationCenter.default.removeObserver(observer)
         }
-        print("🧹 PushNotificationManager deallocated, observers removed")
+        dlog("🧹 PushNotificationManager deallocated, observers removed")
     }
     
     // MARK: - Request Permissions
@@ -53,15 +55,15 @@ class PushNotificationManager: NSObject, ObservableObject {
             }
             
             if granted {
-                print("✅ Notification permission granted")
+                dlog("✅ Notification permission granted")
                 await registerForRemoteNotifications()
             } else {
-                print("❌ Notification permission denied")
+                dlog("❌ Notification permission denied")
             }
             
             return granted
         } catch {
-            print("❌ Error requesting notification permission: \(error)")
+            dlog("❌ Error requesting notification permission: \(error)")
             return false
         }
     }
@@ -83,8 +85,8 @@ class PushNotificationManager: NSObject, ObservableObject {
     // MARK: - Register for Remote Notifications
     
     func registerForRemoteNotifications() async {
-        await UIApplication.shared.registerForRemoteNotifications()
-        print("📱 Registering for remote notifications...")
+        UIApplication.shared.registerForRemoteNotifications()
+        dlog("📱 Registering for remote notifications...")
     }
     
     // MARK: - Handle Device Token
@@ -94,14 +96,36 @@ class PushNotificationManager: NSObject, ObservableObject {
         let token = tokenParts.joined()
         
         self.deviceToken = token
-        print("📱 Device Token: \(token)")
+        #if DEBUG
+        dlog("📱 Device Token: \(token)")
+        #endif
         
         // Set APNs token for FCM
         Messaging.messaging().apnsToken = deviceToken
     }
     
+    /// Retry fetching the FCM token after APNS token becomes available.
+    /// Handles the race where setupFCMToken() fires before APNS is registered.
+    func retryFCMTokenIfNeeded() {
+        guard fcmToken == nil else { return }  // already have a token
+        #if !targetEnvironment(simulator)
+        Messaging.messaging().token { [weak self] token, error in
+            guard let self = self else { return }
+            if let token = token {
+                Task { @MainActor in
+                    self.fcmToken = token
+                    dlog("🔑 FCM Token received: \(token)")
+                    await self.saveFCMTokenToFirestore(token)
+                }
+            } else if let error = error {
+                dlog("⚠️ FCM token retry failed: \(error.localizedDescription)")
+            }
+        }
+        #endif
+    }
+    
     func didFailToRegisterForRemoteNotifications(error: Error) {
-        print("❌ Failed to register for remote notifications: \(error)")
+        dlog("❌ Failed to register for remote notifications: \(error)")
     }
     
     // MARK: - FCM Token Management
@@ -109,13 +133,15 @@ class PushNotificationManager: NSObject, ObservableObject {
     func setupFCMToken() {
         // P0 FIX: Prevent duplicate setup (called 3x in codebase)
         guard !hasSetupFCM else {
-            print("⚠️ FCM already set up, skipping duplicate setup")
+            #if DEBUG
+            dlog("⚠️ FCM already set up, skipping duplicate setup")
+            #endif
             return
         }
         hasSetupFCM = true
         
         #if targetEnvironment(simulator)
-        print("⚠️ Skipping FCM setup on simulator (APNS not available)")
+        dlog("⚠️ Skipping FCM setup on simulator (APNS not available)")
         return
         #else
         // Get FCM token
@@ -124,19 +150,20 @@ class PushNotificationManager: NSObject, ObservableObject {
             
             if let error = error {
                 // Only log as warning, not error, since it's expected on simulator
-                print("⚠️ FCM token unavailable: \(error.localizedDescription)")
+                dlog("⚠️ FCM token unavailable: \(error.localizedDescription)")
                 return
             }
             
             if let token = token {
                 Task { @MainActor in
                     self.fcmToken = token
-                    print("🔑 FCM Token: \(token)")
+                    #if DEBUG
+                    dlog("🔑 FCM Token: \(token)")
+                    #endif
                     await self.saveFCMTokenToFirestore(token)
                 }
             }
         }
-        #endif
         
         // P0 FIX: Remove old observer before adding new one
         if let observer = fcmTokenObserver {
@@ -152,7 +179,8 @@ class PushNotificationManager: NSObject, ObservableObject {
             self?.fcmTokenRefreshed()
         }
         
-        print("✅ FCM setup complete")
+        dlog("✅ FCM setup complete")
+        #endif
     }
     
     private func fcmTokenRefreshed() {
@@ -161,7 +189,9 @@ class PushNotificationManager: NSObject, ObservableObject {
             
             Task { @MainActor in
                 self.fcmToken = token
-                print("🔄 FCM Token refreshed: \(token)")
+                #if DEBUG
+                dlog("🔄 FCM Token refreshed: \(token)")
+                #endif
                 await self.saveFCMTokenToFirestore(token)
             }
         }
@@ -170,8 +200,12 @@ class PushNotificationManager: NSObject, ObservableObject {
     // MARK: - Save Token to Firestore
     
     private func saveFCMTokenToFirestore(_ token: String) async {
+        // Skip if we already saved this exact token (handles rapid APNS→FCM callbacks)
+        guard token != lastSavedFCMToken else { return }
+        lastSavedFCMToken = token
+
         guard let userId = Auth.auth().currentUser?.uid else {
-            print("⚠️ No authenticated user to save FCM token")
+            dlog("⚠️ No authenticated user to save FCM token")
             return
         }
         
@@ -182,9 +216,11 @@ class PushNotificationManager: NSObject, ObservableObject {
                 "platform": "ios"
             ])
             
-            print("✅ FCM token saved to Firestore for user: \(userId)")
+            #if DEBUG
+            dlog("✅ FCM token saved to Firestore for user: \(userId)")
+            #endif
         } catch {
-            print("❌ Error saving FCM token to Firestore: \(error)")
+            dlog("❌ Error saving FCM token to Firestore: \(error)")
         }
     }
     
@@ -198,9 +234,9 @@ class PushNotificationManager: NSObject, ObservableObject {
                 "fcmToken": FieldValue.delete()
             ])
             
-            print("✅ FCM token removed from Firestore")
+            dlog("✅ FCM token removed from Firestore")
         } catch {
-            print("❌ Error removing FCM token: \(error)")
+            dlog("❌ Error removing FCM token: \(error)")
         }
     }
     
@@ -209,10 +245,10 @@ class PushNotificationManager: NSObject, ObservableObject {
     func handleForegroundNotification(_ notification: UNNotification) {
         let userInfo = notification.request.content.userInfo
         
-        print("📬 Received foreground notification:")
-        print("   Title: \(notification.request.content.title)")
-        print("   Body: \(notification.request.content.body)")
-        print("   User Info: \(userInfo)")
+        dlog("📬 Received foreground notification:")
+        dlog("   Title: \(notification.request.content.title)")
+        dlog("   Body: \(notification.request.content.body)")
+        dlog("   User Info: \(userInfo)")
         
         // Update badge count
         updateBadgeCount()
@@ -228,8 +264,8 @@ class PushNotificationManager: NSObject, ObservableObject {
     func handleNotificationTap(_ response: UNNotificationResponse) {
         let userInfo = response.notification.request.content.userInfo
         
-        print("👆 User tapped notification:")
-        print("   User Info: \(userInfo)")
+        dlog("👆 User tapped notification:")
+        dlog("   User Info: \(userInfo)")
         
         // Extract notification type and data
         if let notificationType = userInfo["type"] as? String {
@@ -244,7 +280,7 @@ class PushNotificationManager: NSObject, ObservableObject {
         case "message":
             // Open specific conversation
             if let conversationId = data["conversationId"] as? String {
-                print("📬 Opening conversation: \(conversationId)")
+                dlog("📬 Opening conversation: \(conversationId)")
                 Task { @MainActor in
                     MessagingCoordinator.shared.openConversation(conversationId)
                 }
@@ -252,7 +288,7 @@ class PushNotificationManager: NSObject, ObservableObject {
         case "messageRequest":
             // Open message requests tab
             if let conversationId = data["conversationId"] as? String {
-                print("📨 Opening message request: \(conversationId)")
+                dlog("📨 Opening message request: \(conversationId)")
                 Task { @MainActor in
                     MessagingCoordinator.shared.openMessageRequests()
                 }
@@ -297,9 +333,9 @@ class PushNotificationManager: NSObject, ObservableObject {
         
         do {
             try await UNUserNotificationCenter.current().add(request)
-            print("✅ Test notification scheduled")
+            dlog("✅ Test notification scheduled")
         } catch {
-            print("❌ Error scheduling test notification: \(error)")
+            dlog("❌ Error scheduling test notification: \(error)")
         }
     }
     
@@ -333,9 +369,9 @@ class PushNotificationManager: NSObject, ObservableObject {
             minute: 0
         )
         
-        print("✅ Daily prayer reminders scheduled (2 notifications)")
-        print("   Morning: \(morningVerses[morningVerseIndex].prefix(50))...")
-        print("   Evening: \(eveningVerses[eveningVerseIndex].prefix(50))...")
+        dlog("✅ Daily prayer reminders scheduled (2 notifications)")
+        dlog("   Morning: \(morningVerses[morningVerseIndex].prefix(50))...")
+        dlog("   Evening: \(eveningVerses[eveningVerseIndex].prefix(50))...")
     }
     
     // MARK: - Rotating Bible Verses
@@ -426,7 +462,7 @@ class PushNotificationManager: NSObject, ObservableObject {
             minute: 0
         )
         
-        print("✅ Rotating verse reminders scheduled")
+        dlog("✅ Rotating verse reminders scheduled")
     }
     
     /// Schedule a single daily reminder notification
@@ -461,9 +497,9 @@ class PushNotificationManager: NSObject, ObservableObject {
         
         do {
             try await UNUserNotificationCenter.current().add(request)
-            print("✅ Scheduled daily reminder: \(identifier) at \(hour):\(String(format: "%02d", minute))")
+            dlog("✅ Scheduled daily reminder: \(identifier) at \(hour):\(String(format: "%02d", minute))")
         } catch {
-            print("❌ Error scheduling daily reminder \(identifier): \(error)")
+            dlog("❌ Error scheduling daily reminder \(identifier): \(error)")
         }
     }
     
@@ -486,7 +522,7 @@ class PushNotificationManager: NSObject, ObservableObject {
         ]
         
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: identifiers)
-        print("🗑️ Cancelled all daily reminders")
+        dlog("🗑️ Cancelled all daily reminders")
     }
     
     /// Check if daily reminders are currently scheduled
@@ -600,9 +636,9 @@ class PushNotificationManager: NSObject, ObservableObject {
         
         do {
             try await UNUserNotificationCenter.current().add(request)
-            print("✅ Verse of the day notification scheduled for \(hour):\(String(format: "%02d", minute))")
+            dlog("✅ Verse of the day notification scheduled for \(hour):\(String(format: "%02d", minute))")
         } catch {
-            print("❌ Error scheduling verse of the day: \(error)")
+            dlog("❌ Error scheduling verse of the day: \(error)")
         }
     }
     
@@ -666,7 +702,9 @@ extension PushNotificationManager: MessagingDelegate {
         
         Task { @MainActor in
             self.fcmToken = fcmToken
-            print("🔑 FCM Token received: \(fcmToken)")
+            #if DEBUG
+            dlog("🔑 FCM Token received: \(fcmToken)")
+            #endif
             await self.saveFCMTokenToFirestore(fcmToken)
         }
     }

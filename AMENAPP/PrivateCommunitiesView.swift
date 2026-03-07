@@ -523,7 +523,7 @@ struct PrivateCommunitiesView: View {
     
     // MARK: - Actions
     private func joinCommunity(_ community: PrivateCommunity) {
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+        _ = withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
             joinedCommunities.insert(community.id)
         }
         
@@ -1372,7 +1372,7 @@ struct CommunityCodeEntryView: View {
                                 .textCase(.uppercase)
                                 .autocorrectionDisabled()
                                 .focused($isCodeFieldFocused)
-                                .onChange(of: code) { _ in
+                                .onChange(of: code) { _, _ in
                                     code = code.uppercased()
                                     showError = false
                                 }
@@ -1764,7 +1764,7 @@ struct CreateCommunityView: View {
                                     .font(.custom("OpenSans-Bold", size: 16))
                                     .textCase(.uppercase)
                                     .autocorrectionDisabled()
-                                    .onChange(of: accessCode) { _ in
+                                    .onChange(of: accessCode) { _, _ in
                                         accessCode = accessCode.uppercased()
                                     }
                                 
@@ -1903,7 +1903,7 @@ struct CreateCommunityView: View {
     
     private func generateRandomCode() -> String {
         let letters = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789" // Excluded similar looking characters
-        return String((0..<8).map { _ in letters.randomElement()! })
+        return String((0..<8).map { _ in letters.randomElement() ?? "X" })
     }
     
     private func createCommunity() {

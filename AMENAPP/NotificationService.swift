@@ -27,15 +27,26 @@ final class NotificationService: ObservableObject {
     @Published private(set) var notifications: [AppNotification] = []
     @Published private(set) var unreadCount: Int = 0
     @Published private(set) var isLoading = false
-    @Published var error: NotificationServiceError?  // ✅ Now publicly settable for error dismissal
+    // P1-C FIX: error is now private(set) so external callers cannot overwrite a
+    // real error with a false one. Use clearError() to dismiss from UI.
+    @Published private(set) var error: NotificationServiceError?
     @Published var useAINotifications = true
     
     // MARK: - Private Properties
     
     let db = Firestore.firestore()  // Changed from private to internal for extension access
     private var listener: ListenerRegistration?
+    private var topLevelListener: ListenerRegistration?  // Listens to /notifications collection for client-written notifications
     private var notificationObserver: NSObjectProtocol?
     private let maxNotifications = 100
+    // Per-source document caches — merged on every update so neither listener clobbers the other
+    private var subcollectionDocs: [QueryDocumentSnapshot] = []
+    private var topLevelDocs: [QueryDocumentSnapshot] = []
+    
+    // FIX: Debounce task so both listeners firing within 50ms only trigger one processNotifications pass.
+    // Without this, foreground events (both listeners fire simultaneously) cause two full parse runs
+    // and two @Published assignments in quick succession, producing a brief stale-UI flash.
+    private var mergeDebounceTask: Task<Void, Never>?
     
     // Retry configuration
     private let maxRetries = 3
@@ -53,10 +64,12 @@ final class NotificationService: ObservableObject {
         // deinit is nonisolated, so we need to clean up synchronously
         // The listener and tasks will be cleaned up when they're deallocated
         listener?.remove()
+        topLevelListener?.remove()
         if let observer = notificationObserver {
             NotificationCenter.default.removeObserver(observer)
         }
         retryTask?.cancel()
+        mergeDebounceTask?.cancel()
     }
     
     // MARK: - Cleanup
@@ -70,6 +83,17 @@ final class NotificationService: ObservableObject {
         retryTask?.cancel()
     }
     
+    /// Dismiss the current error from the UI. Use this instead of setting error directly.
+    func clearError() {
+        error = nil
+    }
+
+    /// Set a structured error from view code. Prefer this over direct assignment
+    /// now that error is private(set).
+    func setError(_ newError: NotificationServiceError) {
+        error = newError
+    }
+
     // MARK: - AI Preferences
     
     private func loadAIPreference() {
@@ -126,7 +150,10 @@ final class NotificationService: ObservableObject {
         error = nil
         retryCount = 0
         
-        // Listen to user's notifications subcollection (created by Cloud Functions)
+        // Listener 1: user's notifications subcollection (created by Cloud Functions)
+        #if DEBUG
+        Task { @MainActor in ListenerCounter.shared.attach("notifications-subcollection") }
+        #endif
         listener = db.collection("users")
             .document(userId)
             .collection("notifications")
@@ -148,9 +175,55 @@ final class NotificationService: ObservableObject {
                         return
                     }
                     
-                    await self.processNotifications(documents)
+                    // Store this source's latest docs and schedule a debounced merge.
+                    // When both listeners fire within 50 ms (common on foreground), only
+                    // one processNotifications call is made instead of two.
+                    self.subcollectionDocs = documents
+                    self.scheduleMerge()
                 }
             }
+        
+        // Listener 2: top-level /notifications collection (written by client-side interactions
+        // such as lightbulb/amen reactions — filtered by userId field)
+        #if DEBUG
+        Task { @MainActor in ListenerCounter.shared.attach("notifications-toplevel") }
+        #endif
+        topLevelListener = db.collection("notifications")
+            .whereField("userId", isEqualTo: userId)
+            .order(by: "createdAt", descending: true)
+            .limit(to: maxNotifications)
+            .addSnapshotListener { [weak self] snapshot, firestoreError in
+                guard let self = self else { return }
+                
+                Task { @MainActor [weak self] in
+                    guard let self = self else { return }
+                    guard firestoreError == nil, let documents = snapshot?.documents else { return }
+                    // Store this source's latest docs and schedule a debounced merge.
+                    self.topLevelDocs = documents
+                    self.scheduleMerge()
+                }
+            }
+    }
+    
+    /// Schedule a coalesced merge of both listener caches with a 100 ms debounce.
+    /// Cancels any pending merge task so rapid back-to-back listener fires result
+    /// in exactly one processNotifications call.
+    /// P1-A FIX: Increased from 50 ms to 100 ms. On slow networks (3G/LTE with high
+    /// latency) the two listeners can fire 60-90 ms apart, causing a visible stale-UI
+    /// flash at 50 ms. 100 ms is still imperceptible to users but wide enough to
+    /// absorb typical network jitter without a double render pass.
+    private func scheduleMerge() {
+        mergeDebounceTask?.cancel()
+        mergeDebounceTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 100_000_000)
+            guard !Task.isCancelled, let self = self else { return }
+            // P0 FIX: Snapshot docs after the debounce window closes, not inline
+            // in the closure capture. Any new listener fire during the sleep cancels
+            // this task and reschedules, so by the time we reach here both source
+            // arrays are stable and we read the latest values atomically on MainActor.
+            let docs = self.subcollectionDocs + self.topLevelDocs
+            await self.processNotifications(docs)
+        }
     }
     
     /// Process notification documents from Firestore
@@ -168,13 +241,22 @@ final class NotificationService: ObservableObject {
             do {
                 var notification = try doc.data(as: AppNotification.self)
                 
-                // ✅ P0-13 FIX: Robust message notification filtering with fallback checks
-                // Messages should ONLY drive Messages badge, not appear in Notifications feed
-                let isMessageNotification = notification.type == .message || 
+                // ✅ P0-13 FIX: Robust message notification filtering with fallback checks.
+                // Messages should ONLY drive the Messages badge, not appear in the Notifications feed.
+                // P0-B FIX: Also filter .unknown types that originated from a message/conversation
+                // document - they get decoded as .unknown when the Cloud Function writes an
+                // unrecognised type string, but the raw document still carries a conversationId
+                // or a type field that matches one of the message variants.
+                let rawType = doc.data()["type"] as? String ?? ""
+                let rawNotificationType = doc.data()["notificationType"] as? String ?? ""
+                let hasConversationId = doc.data()["conversationId"] != nil
+                let isMessageNotification = notification.type == .message ||
                                           notification.type == .messageRequest ||
-                                          doc.data()["type"] as? String == "message" ||
-                                          doc.data()["type"] as? String == "messageRequest" ||
-                                          doc.data()["notificationType"] as? String == "message"
+                                          rawType == "message" ||
+                                          rawType == "messageRequest" ||
+                                          rawNotificationType == "message" ||
+                                          // Catch .unknown documents that are actually message notifications
+                                          (notification.type == .unknown && (hasConversationId || rawType.lowercased().contains("message")))
                 
                 if isMessageNotification {
                     filteredMessageNotifications += 1
@@ -202,6 +284,11 @@ final class NotificationService: ObservableObject {
             } catch {
                 parseErrors.append(error)
                 Logger.error("Failed to parse notification \(doc.documentID)", error: error)
+                // Auto-delete corrupted/empty notification documents so they don't
+                // cause a parse failure on every launch.
+                Task.detached(priority: .background) {
+                    try? await doc.reference.delete()
+                }
             }
         }
         
@@ -280,8 +367,19 @@ final class NotificationService: ObservableObject {
     func stopListening() {
         listener?.remove()
         listener = nil
+        topLevelListener?.remove()
+        topLevelListener = nil
+        #if DEBUG
+        ListenerCounter.shared.detach("notifications-subcollection")
+        ListenerCounter.shared.detach("notifications-toplevel")
+        #endif
         retryTask?.cancel()
         retryTask = nil
+        mergeDebounceTask?.cancel()
+        mergeDebounceTask = nil
+        // Clear per-source caches so a fresh startListening() begins from a clean slate
+        subcollectionDocs = []
+        topLevelDocs = []
         print("🛑 Stopped listening to notifications")
     }
     
@@ -398,11 +496,14 @@ final class NotificationService: ObservableObject {
                 throw NotificationServiceError.notAuthenticated
             }
             
+            // Use setData(merge: true) instead of updateData so this succeeds even
+            // when the document doesn't exist yet (e.g. repost notifications created
+            // by a Cloud Function that hasn't fully committed on the client yet).
             try await db.collection("users")
                 .document(userId)
                 .collection("notifications")
                 .document(notificationId)
-                .updateData(["read": true])
+                .setData(["read": true], merge: true)
             
             // Update local state immediately for better UX
             if let index = notifications.firstIndex(where: { $0.id == notificationId }) {
@@ -412,7 +513,7 @@ final class NotificationService: ObservableObject {
             }
             
             print("✅ Marked notification as read: \(notificationId)")
-        } catch {
+        } catch let error as NSError {
             print("❌ Error marking notification as read: \(error.localizedDescription)")
             throw NotificationServiceError.firestoreError(error)
         }
@@ -435,40 +536,37 @@ final class NotificationService: ObservableObject {
             throw NotificationServiceError.notAuthenticated
         }
         
-        let batch = db.batch()
-        var batchCount = 0
-        
-        for notification in unreadNotifications {
-            guard let id = notification.id else { continue }
-            let ref = db.collection("users")
-                .document(userId)
-                .collection("notifications")
-                .document(id)
-            batch.updateData(["read": true], forDocument: ref)
-            batchCount += 1
-            
-            // Firestore batch limit is 500 operations
-            if batchCount >= 500 {
-                print("⚠️ Reached Firestore batch limit, processing partial batch")
-                break
-            }
+        // FIX: Process ALL unread notifications in 500-document Firestore batches.
+        // Previously the code would silently stop after the first 500 items, leaving
+        // the remainder unread for high-engagement users.
+        let chunkSize = 499  // stay under the 500-operation Firestore limit
+        let chunks = stride(from: 0, to: unreadNotifications.count, by: chunkSize).map {
+            Array(unreadNotifications[$0..<min($0 + chunkSize, unreadNotifications.count)])
         }
+        var totalCommitted = 0
         
-        do {
+        for chunk in chunks {
+            let batch = db.batch()
+            for notification in chunk {
+                guard let id = notification.id else { continue }
+                let ref = db.collection("users")
+                    .document(userId)
+                    .collection("notifications")
+                    .document(id)
+                batch.setData(["read": true], forDocument: ref, merge: true)
+            }
             try await batch.commit()
-            
-            // Update local state
-            for index in notifications.indices where !notifications[index].read {
-                notifications[index].read = true
-            }
-            unreadCount = 0
-            await updateBadgeCount()
-            
-            print("✅ Marked \(batchCount) notifications as read")
-        } catch {
-            print("❌ Error marking all as read: \(error.localizedDescription)")
-            throw NotificationServiceError.firestoreError(error)
+            totalCommitted += chunk.count
         }
+        
+        // Update local state after all batches committed
+        for index in notifications.indices where !notifications[index].read {
+            notifications[index].read = true
+        }
+        unreadCount = 0
+        await updateBadgeCount()
+        
+        print("✅ Marked \(totalCommitted) notifications as read")
     }
     
     // MARK: - Delete Notification
@@ -588,7 +686,7 @@ final class NotificationService: ObservableObject {
                 "actorName": actorName,
                 "actorUsername": actorUsername ?? "",
                 "postId": postId,
-                "commentText": nil as String?,
+                "commentText": nil as String? as Any,
                 "read": false,
                 "createdAt": Timestamp(date: Date())
             ]
@@ -724,7 +822,11 @@ final class NotificationService: ObservableObject {
                 .limit(to: maxNotifications)
                 .getDocuments()
             
-            await processNotifications(snapshot.documents)
+            // Clear per-source caches before processing fresh data so stale
+            // topLevelDocs don't resurface on the next listener merge.
+            subcollectionDocs = snapshot.documents
+            topLevelDocs = []
+            await processNotifications(subcollectionDocs)
             retryCount = 0 // Reset retry count on successful manual refresh
             print("✅ Manual refresh complete")
         } catch {
@@ -841,6 +943,10 @@ struct AppNotification: Identifiable, Codable, Hashable {
     let actorUsername: String?
     let actorProfileImageURL: String?  // ✅ NEW: Profile photo for fast display
     let postId: String?
+    let commentId: String?      // For scrolling to a specific comment
+    let conversationId: String? // For navigating to a specific conversation
+    let prayerId: String?       // For navigating to a specific prayer
+    let noteId: String?         // For navigating to a specific church note
     let commentText: String?
     var read: Bool
     let createdAt: Timestamp
@@ -859,7 +965,7 @@ struct AppNotification: Identifiable, Codable, Hashable {
     
     enum CodingKeys: String, CodingKey {
         case userId, type, actorId, actorName, actorUsername, actorProfileImageURL
-        case postId, commentText, read, createdAt, priority, groupId, idempotencyKey
+        case postId, commentId, conversationId, prayerId, noteId, commentText, read, createdAt, priority, groupId, idempotencyKey
         case actors, actorCount, updatedAt
     }
     
@@ -881,6 +987,10 @@ struct AppNotification: Identifiable, Codable, Hashable {
         actorUsername = try? container.decodeIfPresent(String.self, forKey: .actorUsername)
         actorProfileImageURL = try? container.decodeIfPresent(String.self, forKey: .actorProfileImageURL)  // ✅ NEW
         postId = try? container.decodeIfPresent(String.self, forKey: .postId)
+        commentId = try? container.decodeIfPresent(String.self, forKey: .commentId)
+        conversationId = try? container.decodeIfPresent(String.self, forKey: .conversationId)
+        prayerId = try? container.decodeIfPresent(String.self, forKey: .prayerId)
+        noteId = try? container.decodeIfPresent(String.self, forKey: .noteId)
         commentText = try? container.decodeIfPresent(String.self, forKey: .commentText)
         priority = try? container.decodeIfPresent(Int.self, forKey: .priority)  // ✅ NEW
         groupId = try? container.decodeIfPresent(String.self, forKey: .groupId)  // ✅ NEW

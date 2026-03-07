@@ -447,15 +447,17 @@ struct LicenseRow: View {
     let url: String
     
     var body: some View {
-        Link(destination: URL(string: url)!) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(name)
-                    .font(.custom("OpenSans-SemiBold", size: 15))
-                    .foregroundStyle(.primary)
-                
-                Text(license)
-                    .font(.custom("OpenSans-Regular", size: 13))
-                    .foregroundStyle(.secondary)
+        if let parsedURL = URL(string: url) {
+            Link(destination: parsedURL) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(name)
+                        .font(.custom("OpenSans-SemiBold", size: 15))
+                        .foregroundStyle(.primary)
+                    
+                    Text(license)
+                        .font(.custom("OpenSans-Regular", size: 13))
+                        .foregroundStyle(.secondary)
+                }
             }
         }
     }

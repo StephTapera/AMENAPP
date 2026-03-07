@@ -67,7 +67,7 @@ final class NotificationDeepLinkRouter: ObservableObject {
         SmartNotificationEngine.shared.recordNotificationInteraction(notification)
         
         // Navigate
-        navigate(to: destination)
+        performNavigation(to: destination)
     }
     
     /// Route from push notification payload
@@ -144,7 +144,7 @@ final class NotificationDeepLinkRouter: ObservableObject {
             destination = .notifications
         }
         
-        navigate(to: destination)
+        performNavigation(to: destination)
     }
     
     // MARK: - Determine Destination
@@ -165,8 +165,7 @@ final class NotificationDeepLinkRouter: ObservableObject {
             
         case .comment, .reply:
             if let postId = notification.postId {
-                // TODO: Add commentId field to AppNotification for scroll-to-comment
-                return .post(postId: postId, scrollToCommentId: nil)
+                return .post(postId: postId, scrollToCommentId: notification.commentId)
             }
             return .notifications
             
@@ -177,19 +176,27 @@ final class NotificationDeepLinkRouter: ObservableObject {
             return .notifications
             
         case .message, .messageRequest:
-            // TODO: Add conversationId field to AppNotification
+            if let conversationId = notification.conversationId {
+                return .conversation(conversationId: conversationId)
+            }
             return .messages
             
         case .messageRequestAccepted:
-            // TODO: Add conversationId field to AppNotification
+            if let conversationId = notification.conversationId {
+                return .conversation(conversationId: conversationId)
+            }
             return .messages
             
         case .prayerReminder, .prayerAnswered:
-            // TODO: Add prayerId field to AppNotification
+            if let prayerId = notification.prayerId {
+                return .prayer(prayerId: prayerId)
+            }
             return .notifications
             
         case .churchNoteShared:
-            // TODO: Add noteId field to AppNotification
+            if let noteId = notification.noteId {
+                return .churchNote(noteId: noteId)
+            }
             return .notifications
             
         case .unknown:
@@ -199,7 +206,7 @@ final class NotificationDeepLinkRouter: ObservableObject {
     
     // MARK: - Navigation
     
-    private func navigate(to destination: NavigationDestination) {
+    private func performNavigation(to destination: NavigationDestination) {
         // Check if app is ready for navigation
         if isAppReady() {
             activeDestination = destination
@@ -223,6 +230,11 @@ final class NotificationDeepLinkRouter: ObservableObject {
     /// Clear active destination (call after navigation completes)
     func clearDestination() {
         activeDestination = nil
+    }
+
+    /// Public entry point for direct navigation (e.g., from NotificationsView deep link handling)
+    func navigate(to destination: NavigationDestination) {
+        performNavigation(to: destination)
     }
     
     private func isAppReady() -> Bool {
@@ -296,7 +308,7 @@ final class NotificationDeepLinkRouter: ObservableObject {
             destination = .notifications
         }
         
-        navigate(to: destination)
+        performNavigation(to: destination)
     }
 }
 

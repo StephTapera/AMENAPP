@@ -183,21 +183,17 @@ class TrendingService: ObservableObject {
     ) async throws {
         isLoading = true
         defer { isLoading = false }
-        
-        print("📊 Fetching top ideas for timeframe: \(timeframe / 86400) days")
-        
+
         let cutoffDate = Date().addingTimeInterval(-timeframe)
         
         // Query posts from OpenTable with minimum engagement
-        var query = db.collection("posts")
+        let query = db.collection("posts")
             .whereField("category", isEqualTo: "openTable")
             .whereField("createdAt", isGreaterThan: cutoffDate)
             .whereField("lightbulbCount", isGreaterThan: 2) // Minimum 3 lightbulbs to be considered
         
         let snapshot = try await query.getDocuments()
-        
-        print("📥 Fetched \(snapshot.documents.count) potential top ideas")
-        
+
         // Convert to TopIdea with scoring
         var ideas: [TopIdea] = []
         
@@ -286,18 +282,15 @@ class TrendingService: ObservableObject {
             )
         }
         
-        print("✅ Top ideas calculated: \(topIdeas.count) ideas")
     }
-    
+
     // MARK: - Spotlight Users
-    
+
     /// Fetch featured spotlight users
     func fetchSpotlightUsers(category: SpotlightUser.SpotlightCategory = .all) async throws {
         isLoading = true
         defer { isLoading = false }
-        
-        print("⭐ Fetching spotlight users")
-        
+
         // Query users sorted by various metrics
         // For now, we'll fetch users with posts and calculate their stats
         let postsSnapshot = try await db.collection("posts")
@@ -335,68 +328,68 @@ class TrendingService: ObservableObject {
         // Sort users by engagement and activity
         let sortedUsers = userStats.sorted { $0.value.totalEngagement > $1.value.totalEngagement }
         
-        // Fetch user details for top users
-        var users: [SpotlightUser] = []
-        
-        for (userId, stats) in sortedUsers.prefix(20) {
-            // Fetch user profile
-            guard let userDoc = try? await db.collection("users").document(userId).getDocument(),
-                  userDoc.exists,
-                  let userData = userDoc.data(),
-                  let name = userData["displayName"] as? String else {
-                continue
+        // Fetch user details for top users — concurrent batch fetch (no N+1)
+        let topEntries = Array(sortedUsers.prefix(20))
+        let users: [SpotlightUser] = await withTaskGroup(of: SpotlightUser?.self) { group in
+            for (userId, stats) in topEntries {
+                group.addTask {
+                    guard let userDoc = try? await self.db.collection("users").document(userId).getDocument(),
+                          userDoc.exists,
+                          let userData = userDoc.data(),
+                          let name = userData["displayName"] as? String else {
+                        return nil
+                    }
+
+                    let username = userData["username"] as? String ?? "@\(name.lowercased().replacingOccurrences(of: " ", with: ""))"
+                    let bio = userData["bio"] as? String ?? "Active community member sharing ideas and inspiration."
+                    let profileImageURL = userData["profileImageURL"] as? String
+                    let joinedTimestamp = userData["createdAt"] as? Timestamp
+                    let joinedDate = joinedTimestamp?.dateValue() ?? Date()
+
+                    // Use real follower count from user document
+                    let realFollowers = userData["followersCount"] as? Int ?? 0
+                    let followerCount = realFollowers > 0 ? "\(realFollowers)" : "—"
+
+                    let avgEngagementPerPost = Double(stats.totalEngagement) / Double(stats.posts)
+                    let engagementPercent = min(99, Int(avgEngagementPerPost * 10))
+
+                    let userCategory = self.determineSpotlightCategory(
+                        posts: stats.posts,
+                        joinedDate: joinedDate,
+                        engagementRate: avgEngagementPerPost
+                    )
+
+                    if category != .all && userCategory != category { return nil }
+
+                    return SpotlightUser(
+                        id: userId,
+                        name: name,
+                        username: username,
+                        bio: bio,
+                        profileImageURL: profileImageURL,
+                        category: userCategory,
+                        stats: SpotlightUser.UserStats(
+                            posts: stats.posts,
+                            followers: followerCount,
+                            engagement: "\(engagementPercent)%"
+                        ),
+                        isVerified: stats.totalEngagement > 50,
+                        joinedDate: joinedDate
+                    )
+                }
             }
-            
-            let username = userData["username"] as? String ?? "@\(name.lowercased().replacingOccurrences(of: " ", with: ""))"
-            let bio = userData["bio"] as? String ?? "Active community member sharing ideas and inspiration."
-            let profileImageURL = userData["profileImageURL"] as? String
-            let joinedTimestamp = userData["createdAt"] as? Timestamp
-            let joinedDate = joinedTimestamp?.dateValue() ?? Date()
-            
-            // Calculate engagement rate
-            let avgEngagementPerPost = Double(stats.totalEngagement) / Double(stats.posts)
-            let engagementPercent = min(99, Int(avgEngagementPerPost * 10))
-            
-            // Determine category based on activity
-            let userCategory = determineSpotlightCategory(
-                posts: stats.posts,
-                joinedDate: joinedDate,
-                engagementRate: avgEngagementPerPost
-            )
-            
-            // Filter by category if specified
-            if category != .all && userCategory != category {
-                continue
+            var collected: [SpotlightUser] = []
+            for await result in group {
+                if let user = result { collected.append(user) }
             }
-            
-            // Format follower count (placeholder - would need followers collection)
-            let followerCount = "\(stats.totalEngagement / 10)+"
-            
-            let user = SpotlightUser(
-                id: userId,
-                name: name,
-                username: username,
-                bio: bio,
-                profileImageURL: profileImageURL,
-                category: userCategory,
-                stats: SpotlightUser.UserStats(
-                    posts: stats.posts,
-                    followers: followerCount,
-                    engagement: "\(engagementPercent)%"
-                ),
-                isVerified: stats.totalEngagement > 50, // Auto-verify highly engaged users
-                joinedDate: joinedDate
-            )
-            
-            users.append(user)
+            return collected.sorted { $0.stats.posts > $1.stats.posts }
         }
-        
+
         spotlightUsers = users
-        print("✅ Fetched \(users.count) spotlight users")
     }
     
     /// Determine spotlight category based on user activity
-    private func determineSpotlightCategory(
+    private nonisolated func determineSpotlightCategory(
         posts: Int,
         joinedDate: Date,
         engagementRate: Double

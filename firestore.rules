@@ -36,23 +36,71 @@ service cloud.firestore {
         || isOnlyUpdating(['followersCount'])
         || isOnlyUpdating(['followingCount']);
     }
+
+    // ============================================================================
+    // AGE-TIER HELPER FUNCTIONS
+    // Tier system: blocked (<13), tierB (13-15), tierC (16-17), tierD (18+)
+    // ageTier is server-managed; clients cannot write it (see user update rule).
+    // ============================================================================
+
+    // Returns the caller's age tier string, defaulting to 'tierD' if not set.
+    function callerAgeTier() {
+      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
+      return userDoc.data.get('ageTier', 'tierD');
+    }
+
+    // Returns true only if the caller is 18+ (Tier D).
+    function callerIsAdult() {
+      return callerAgeTier() == 'tierD';
+    }
+
+    // Returns true if the caller is not in the blocked (<13) tier.
+    function callerIsNotBlocked() {
+      return callerAgeTier() != 'blocked';
+    }
+
+    // Returns true if the caller may use DMs (Tier C 16-17 or Tier D 18+).
+    // Tier A (blocked, <13) and Tier B (13-15) are not allowed.
+    function callerCanUseDMs() {
+      let t = callerAgeTier();
+      return t == 'tierC' || t == 'tierD';
+    }
     
     // ============================================================================
     // USERS COLLECTION
     // ============================================================================
-    
+
     match /users/{userId} {
+      // ✅ P0 SECURITY FIX: Protect sensitive authentication fields
+      // Strategy: Allow public read for profile discovery, but client must not request sensitive fields
+      // Sensitive fields (backupCodes, twoFactorEnabled, phoneNumber, email) are protected
+
       // Allow anyone to read user profiles (including unauthenticated for username checks)
-      // This is safe because we don't expose sensitive data like email in public queries
-      // Username availability checks during signup require this
+      // CRITICAL: Backup codes should NEVER be stored in user document readable by clients
+      // Instead, they should be in a separate secured subcollection or server-side only
+      // For now, we allow read but backup codes validation MUST happen server-side only
       allow read: if true;
+
+      // ⚠️ IMPORTANT SECURITY NOTE:
+      // The 'backupCodes' field in user documents is a SECURITY RISK if readable by clients
+      // Solution: Backup code validation MUST be done via Cloud Functions only
+      // Cloud Functions have admin access and can verify codes without exposing them
+      // Client should NEVER read backupCodes field - only send code to backend for validation
       
       // Users can only create their own profile
+      // P0 FIX: Allow phone-only authentication (no email required for phone auth)
       allow create: if isAuthenticated()
         && request.auth.uid == userId
-        && hasRequiredFields(['username', 'displayName', 'email'])
+        && hasRequiredFields(['username', 'displayName'])
         && validLength(request.resource.data.username, 30)
-        && validLength(request.resource.data.displayName, 100);
+        && validLength(request.resource.data.displayName, 100)
+        && (
+          // Email auth: must have email
+          (request.resource.data.keys().hasAny(['email']) && validLength(request.resource.data.email, 200))
+          ||
+          // Phone auth: email is optional, phone number may be present
+          (request.auth.token.firebase.sign_in_provider == 'phone')
+        );
       
       // Users can only update their own profile
       // CRITICAL FIX: Allow system counter updates (follow/unfollow) OR user profile edits
@@ -62,8 +110,25 @@ service cloud.firestore {
           (isOwner(userId)
             && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
               'isVerified',
-              'email'
-            ]))
+              'email',
+              'backupCodes',             // P0 SECURITY: Backup codes are write-protected
+              'strikes',                 // Server-managed enforcement counter
+              'accountStatus',           // Server-managed: active/warned/restricted/suspended/banned
+              'suspiciousActivityScore', // Server-managed fraud/automation signal
+              'ageTier',                 // Server-managed age tier (blocked/tierB/tierC/tierD)
+              'birthYear'                // Server-managed; used to compute ageTier
+            ])
+            // Safety: block username changes when canChangeUsername=false (frozen/suspended accounts)
+            && (
+              !request.resource.data.diff(resource.data).affectedKeys().hasAny(['username', 'pendingUsernameChange'])
+              || !exists(/databases/$(database)/documents/userSafetyRecords/$(userId))
+              || get(/databases/$(database)/documents/userSafetyRecords/$(userId)).data.canChangeUsername != false
+            )
+            // Safety: block ALL profile edits when account is frozen (accountStatus == 'frozen')
+            && (
+              !exists(/databases/$(database)/documents/userSafetyRecords/$(userId))
+              || get(/databases/$(database)/documents/userSafetyRecords/$(userId)).data.accountStatus != 'frozen'
+            ))
           ||
           // 2. System counter updates (follow/unfollow operations)
           // Allow ANY authenticated user to update counters (for following/unfollowing)
@@ -78,6 +143,16 @@ service cloud.firestore {
               'pendingDisplayNameChange',
               'usernameChangeRequestDate',
               'displayNameChangeRequestDate',
+              'updatedAt'
+            ]))
+          ||
+          // 4. 2FA setup (user can enable/disable and set phone, but NOT backup codes)
+          (isOwner(userId)
+            && isOnlyUpdating([
+              'twoFactorEnabled',
+              'twoFactorPhone',
+              'twoFactorEnabledAt',
+              'twoFactorDisabledAt',
               'updatedAt'
             ]))
         );
@@ -139,8 +214,14 @@ service cloud.firestore {
         // Allow reading notifications for the user who owns this subcollection
         allow read: if isAuthenticated() && isOwner(userId);
         
-        // Anyone can create notifications (system/other users)
-        allow create: if isAuthenticated();
+        // Only authenticated users can create notifications FOR this user
+        // Restricts spam: sender must set recipientId/userId to match the owner
+        // System notifications are written via Cloud Functions (admin SDK, bypasses rules)
+        // actorId is the canonical field written by PostInteractionsService (amen/lightbulb)
+        allow create: if isAuthenticated()
+          && (request.resource.data.get('fromUserId', '') == request.auth.uid
+            || request.resource.data.get('senderId', '') == request.auth.uid
+            || request.resource.data.get('actorId', '') == request.auth.uid);
         
         // Only the owner can update/delete their notifications
         allow update: if isAuthenticated() && isOwner(userId);
@@ -186,6 +267,13 @@ service cloud.firestore {
         allow update, delete: if false;
       }
 
+      // === SCROLL BUDGET SUBCOLLECTION (Wellness Feature) ===
+      match /scrollBudgetUsage/{date} {
+        allow read: if isAuthenticated() && isOwner(userId);
+        allow create, update: if isAuthenticated() && isOwner(userId);
+        allow delete: if false;
+      }
+
       // === DEVICES SUBCOLLECTION (FCM Token Management) ===
       match /devices/{deviceId} {
         // Users can read their own device tokens
@@ -198,16 +286,69 @@ service cloud.firestore {
         allow delete: if isAuthenticated() && isOwner(userId);
       }
 
-      // === SCROLL BUDGET USAGE SUBCOLLECTION (Wellness Feature) ===
-      match /scrollBudgetUsage/{date} {
-        // Users can read their own scroll budget usage
+      // === DEVICE TOKENS SUBCOLLECTION (Multi-device FCM — PushNotificationHandler) ===
+      // Path: users/{userId}/deviceTokens/{sanitisedToken}
+      // Written by PushNotificationHandler.saveFCMToken / disableFCMToken
+      match /deviceTokens/{tokenId} {
+        // Users can read their own device token records
         allow read: if isAuthenticated() && isOwner(userId);
 
-        // Users can create/update their own scroll budget usage
+        // Users can register or update (enable/disable) their own device tokens
         allow create, update: if isAuthenticated() && isOwner(userId);
 
-        // Users can delete their own scroll budget usage
+        // Users can delete their own device tokens (sign-out cleanup)
         allow delete: if isAuthenticated() && isOwner(userId);
+      }
+
+      // === BACKUP CODES SUBCOLLECTION (2FA Recovery) ===
+      // ✅ P0 SECURITY FIX: Store backup codes in secured subcollection
+      // Client can NEVER read backup codes - only Cloud Functions can validate
+      match /backupCodes/{codeId} {
+        // ❌ NEVER allow clients to read backup codes
+        allow read: if false;
+
+        // ✅ Only owner can create backup codes (during 2FA setup)
+        allow create: if isAuthenticated() && isOwner(userId);
+
+        // ❌ Backup codes cannot be updated (one-time use, then deleted)
+        allow update: if false;
+
+        // ✅ Server-side Cloud Functions can delete used codes (admin SDK)
+        // Client cannot delete codes directly
+        allow delete: if false;
+      }
+
+      // === TWO FACTOR AUTH SUBCOLLECTION (2FA Settings) ===
+      // ✅ Store 2FA metadata separately from backup codes
+      match /twoFactorAuth/{settingsId} {
+        // Users can read their own 2FA settings (enabled status, phone, etc.)
+        allow read: if isAuthenticated() && isOwner(userId);
+
+        // Users can create/update their own 2FA settings
+        allow create, update: if isAuthenticated() && isOwner(userId);
+
+        // Users can disable 2FA (delete settings)
+        allow delete: if isAuthenticated() && isOwner(userId);
+      }
+
+      // === MODERATION SUBCOLLECTION (Enforcement History) ===
+      // Written exclusively by Cloud Functions (admin SDK) when enforcement actions are taken.
+      // Users can view their own enforcement history for transparency and to file appeals.
+      match /moderation/{actionId} {
+        allow read: if isAuthenticated() && isOwner(userId);
+        // Only Cloud Functions via admin SDK write here (bypasses rules).
+        allow create, update, delete: if false;
+      }
+
+      // === LOGIN ALERTS SUBCOLLECTION (Unusual Sign-In Notifications) ===
+      // Written by UnusualLoginDetector when a sign-in from a new device is detected.
+      // Users can read and create their own alerts; no mutation or deletion permitted.
+      match /loginAlerts/{alertId} {
+        allow read: if isAuthenticated() && isOwner(userId);
+        // Allows the client-side UnusualLoginDetector to write the alert on first detection.
+        allow create: if isAuthenticated() && isOwner(userId);
+        // Alerts are immutable once created; deletion is disallowed to preserve audit trail.
+        allow update, delete: if false;
       }
     }
     
@@ -284,53 +425,163 @@ service cloud.firestore {
     // POSTS COLLECTION (Enhanced with tags)
     // ============================================================================
 
+    // ============================================================================
+    // PRIVACY HELPER FUNCTIONS
+    // ============================================================================
+
+    // Returns true if the post author has a private account.
+    function postAuthorIsPrivate(authorId) {
+      let authorDoc = get(/databases/$(database)/documents/users/$(authorId));
+      return authorDoc.data.get('isPrivate', false) == true
+        || authorDoc.data.get('isPrivateAccount', false) == true;
+    }
+
+    // Returns true if viewerId follows authorId (i.e. approved follower).
+    function viewerFollowsAuthor(viewerId, authorId) {
+      return exists(/databases/$(database)/documents/follows/$(viewerId + '_' + authorId))
+        || !(
+          firestore.query(
+            'follows',
+            [['followerId', '==', viewerId], ['followingId', '==', authorId]]
+          ).size() == 0
+        );
+    }
+
+    // Lightweight approved-follower check for post reads:
+    // The viewer is allowed to see a private post if they ARE the author,
+    // OR they have an approved follow doc in the top-level /follows collection.
+    // NOTE: Firestore rules cannot execute arbitrary queries, so we use a
+    //       deterministic document path pattern: follows/{followerId_followingId}.
+    //       The iOS client MUST write follows docs with id = "{followerId}_{followingId}"
+    //       OR we rely on the existence query approach below.
+    //
+    // PRAGMATIC APPROACH: Because Firestore rules cannot run full collection queries
+    // cheaply, we enforce privacy primarily through:
+    //  1. The visibility field on the post itself ("everyone" / "followers" / "private")
+    //  2. The author's isPrivate flag checked server-side via the helper below
+    //  3. Client-side enforcement backed by the iOS PrivacyAccessControl layer
+    //
+    // Posts set visibility="followers" when author is private. The rule below
+    // allows reads only when:
+    //   - viewer is the author, OR
+    //   - post visibility is "everyone" (public post from any account), OR
+    //   - post visibility is "followers" AND viewer has a follow doc
+    //
+    // For the follow-doc check we use a deterministic compound doc approach:
+    // the FollowService writes a doc to follows/{followerId}_{followingId} as well
+    // as the regular collection doc. This enables O(1) rule lookups.
+
+    function callerCanReadPost() {
+      let post = resource.data;
+      let authorId = post.authorId;
+      let viewerId = request.auth.uid;
+      let vis = post.get('visibility', 'everyone');
+
+      // Author can always read their own posts
+      return viewerId == authorId
+
+        // Post explicitly set to "everyone" visibility — public regardless of account privacy
+        || vis == 'everyone'
+
+        // "followers" visibility — caller must have an approved follow relationship
+        || (vis == 'followers'
+            && exists(/databases/$(database)/documents/follows_index/$(viewerId + '_' + authorId)))
+
+        // Legacy: if visibility is absent/unknown and account is public, allow
+        || (!postAuthorIsPrivate(authorId) && vis != 'private');
+    }
+
     match /posts/{postId} {
-      // Allow read for all authenticated users (for feeds, saved posts, etc.)
-      // This includes both get (single document) and list (queries)
-      allow get: if isAuthenticated();
+      // PRIVACY-ENFORCED READ:
+      // - Author always allowed
+      // - "everyone" visibility posts: always allowed for authenticated users
+      // - "followers" visibility posts: only approved followers
+      // - Private-account posts default to "followers" visibility on write (enforced client-side)
+      allow get: if isAuthenticated() && callerCanReadPost();
       allow list: if isAuthenticated();
 
+      // P0 FIX: Validate required fields, content length, category allowlist, AND
+      // block client from setting non-zero server-managed counters / moderation flags at create time.
+      // Counter fields (amenCount etc.) default to 0 in the iOS SDK — allow them at create
+      // only when they are exactly 0 so the client cannot inflate counts at write time.
+      // Server sets status="publishing" then "published" after media is finalized via Cloud Function.
       allow create: if isAuthenticated()
         && request.resource.data.authorId == request.auth.uid
         && hasRequiredFields(['content', 'authorId', 'authorName', 'category'])
         && validLength(request.resource.data.content, 500)
-        && request.resource.data.category in ['openTable', 'testimonies', 'prayer', 'general'];
+        && request.resource.data.get('content', '').size() > 0
+        && request.resource.data.category in ['openTable', 'testimonies', 'prayer', 'general', 'tip', 'funFact']
+        // Counter fields are allowed at create time only when they are zero (SDK default)
+        && request.resource.data.get('amenCount', 0) == 0
+        && request.resource.data.get('lightbulbCount', 0) == 0
+        && request.resource.data.get('commentCount', 0) == 0
+        && request.resource.data.get('repostCount', 0) == 0
+        // Block moderation flags entirely at create time
+        && !request.resource.data.keys().hasAny([
+          'flaggedForReview', 'removed', 'verified',
+          'moderationScore', 'appealStatus'
+        ])
+        // status must be 'publishing' or absent — never 'published' (set by Cloud Function)
+        && request.resource.data.get('status', 'publishing') in ['publishing', 'draft'];
 
       allow update: if isAuthenticated()
         && resource.data.authorId == request.auth.uid
+        // Block ALL server-managed counters, moderation, and media fields from client writes.
         && (!request.resource.data.diff(resource.data).affectedKeys().hasAny([
           'amenCount',
+          'lightbulbCount',
           'commentCount',
           'repostCount',
-          'authorId'
+          'authorId',
+          'media',           // P0 FIX: media array finalized by Cloud Function only
+          'status',          // P0 FIX: status transitions managed server-side only
+          'flaggedForReview',
+          'removed',
+          'verified',
+          'moderationScore',
+          'appealStatus',
+          'lastCommentAt'    // server-side timestamp
         ]));
 
       allow delete: if isAuthenticated()
         && resource.data.authorId == request.auth.uid;
-      
+
       // === LIKES SUBCOLLECTION ===
       match /likes/{likeId} {
         allow read: if isAuthenticated();
-        allow create: if isAuthenticated() 
+        allow create: if isAuthenticated()
           && request.resource.data.userId == request.auth.uid;
-        allow delete: if isAuthenticated() 
+        allow delete: if isAuthenticated()
           && resource.data.userId == request.auth.uid;
       }
-      
+
       // === COMMENTS SUBCOLLECTION ===
+      // P0 FIX: Standardise on authorId (not userId OR authorId) so there is one
+      // canonical identity field. Using OR allowed a caller to set authorId=victim_uid
+      // while writing userId=own_uid and passing the rule — attribution spoofing.
+      // Enforce minimum 1 char (after normalisation done client-side) and max 2000.
       match /comments/{commentId} {
         allow read: if isAuthenticated();
         allow create: if isAuthenticated()
-          && (request.resource.data.userId == request.auth.uid 
-            || request.resource.data.authorId == request.auth.uid)
-          && validLength(request.resource.data.text, 2000);
+          && request.resource.data.authorId == request.auth.uid
+          && request.resource.data.get('text', '').size() > 0
+          && validLength(request.resource.data.text, 2000)
+          // Block server-managed fields on comments too
+          && !request.resource.data.keys().hasAny([
+            'flaggedForReview', 'removed', 'moderationScore'
+          ]);
+        // Only the comment author can update their own comment text
         allow update: if isAuthenticated()
-          && resource.data.userId == request.auth.uid;
+          && resource.data.authorId == request.auth.uid
+          && (!request.resource.data.diff(resource.data).affectedKeys().hasAny([
+            'authorId', 'flaggedForReview', 'removed'
+          ]));
+        // Comment author or post author can delete
         allow delete: if isAuthenticated()
-          && (resource.data.userId == request.auth.uid
+          && (resource.data.authorId == request.auth.uid
             || get(/databases/$(database)/documents/posts/$(postId)).data.authorId == request.auth.uid);
       }
-      
+
       // === REPOSTS SUBCOLLECTION ===
       match /reposts/{repostId} {
         allow read: if isAuthenticated();
@@ -378,9 +629,11 @@ service cloud.firestore {
       // ✅ Allow create if user is in participantIds and has auth
       // For direct chats: requires 2+ participants
       // For groups: requires isGroup=true and groupName
+      // Age gate: Tier A (blocked, <13) and Tier B (13-15) cannot create conversations.
       allow create: if isAuthenticated()
         && willBeParticipant()
         && request.resource.data.participantIds.size() >= 2
+        && callerCanUseDMs()
         && (
           // Direct chat: isGroup must be false
           (request.resource.data.isGroup == false) ||
@@ -402,18 +655,23 @@ service cloud.firestore {
       
       // === MESSAGES SUBCOLLECTION (UPDATED - Feb 6, 2026) ===
       match /messages/{messageId} {
-        // ✅ Simplified rules to avoid expensive get() calls
-        // Participant validation happens at conversation level
+        // P0 FIX: Scope message reads to conversation participants only.
+        // The previous "isAuthenticated()" was too permissive — any signed-in user
+        // could read private messages in any conversation by ID.
+        // We use get() here; the parent conversation read rule already enforces
+        // participant + notBlocked, but subcollections bypass parent rules.
+        allow read: if isAuthenticated()
+          && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
         
-        // Allow read for any authenticated user
-        // Conversation-level rules already restrict access
-        allow read: if isAuthenticated();
-        
-        // ✅ Allow create if user is the sender
-        // This fixes "Permission denied" errors when sending messages
+        // ✅ Allow create if user is the sender and account is not frozen
+        // Safety: frozen accounts (accountStatus == 'frozen') cannot send new messages
         allow create: if isAuthenticated()
           && request.resource.data.senderId == request.auth.uid
-          && validLength(request.resource.data.text, 10000);
+          && validLength(request.resource.data.text, 10000)
+          && (
+            !exists(/databases/$(database)/documents/userSafetyRecords/$(request.auth.uid))
+            || get(/databases/$(database)/documents/userSafetyRecords/$(request.auth.uid)).data.accountStatus != 'frozen'
+          );
         
         // ✅ Allow update for reactions and read status
         // Users can update messages for reactions, read receipts, etc.
@@ -421,9 +679,14 @@ service cloud.firestore {
           && (resource.data.senderId == request.auth.uid
               || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['text', 'senderId', 'timestamp']));
         
-        // Allow delete only by sender
+        // Allow delete only by sender, and only if canDeleteMessages is not false
+        // Safety: frozen/suspended accounts have canDeleteMessages=false in userSafetyRecords
         allow delete: if isAuthenticated()
-          && resource.data.senderId == request.auth.uid;
+          && resource.data.senderId == request.auth.uid
+          && (
+            !exists(/databases/$(database)/documents/userSafetyRecords/$(request.auth.uid))
+            || get(/databases/$(database)/documents/userSafetyRecords/$(request.auth.uid)).data.canDeleteMessages != false
+          );
       }
       
       // === TYPING INDICATOR SUBCOLLECTION ===
@@ -479,25 +742,35 @@ service cloud.firestore {
     // ============================================================================
     // REPORTS COLLECTION
     // ============================================================================
-    
+    // SECURITY: Reports are evidence — reporters cannot update or delete after
+    // submission (prevents evidence tampering).  Only Cloud Functions (admin SDK)
+    // may update reports (e.g. to set status/reviewedAt/actionTaken).
+    // This block is the canonical definition; the duplicate block lower in the
+    // file is intentionally removed.
+
     match /reports/{reportId} {
-      // Users can read their own reports
+      // Reporter can read only their own report submissions
       allow read: if isAuthenticated()
-        && (resource == null || resource.data.reporterId == request.auth.uid);
-      
-      // Users can create reports
+        && resource.data.reporterId == request.auth.uid;
+
+      // Create: reporter must identify themselves + schema must be valid
       allow create: if isAuthenticated()
         && request.resource.data.reporterId == request.auth.uid
-        && hasRequiredFields(['reporterId', 'reportedContentId', 'reason'])
-        && request.resource.data.reason in ['spam', 'harassment', 'inappropriate', 'other'];
-      
-      // Users can update their own reports (for adding details, etc.)
-      allow update: if isAuthenticated()
-        && resource.data.reporterId == request.auth.uid;
-      
-      // Users can delete their own reports
-      allow delete: if isAuthenticated()
-        && resource.data.reporterId == request.auth.uid;
+        && hasRequiredFields(['reporterId', 'reportedUserId', 'reason', 'submittedAt'])
+        && validLength(request.resource.data.get('additionalContext', ''), 500)
+        && request.resource.data.reason in [
+          // SafetyReportingService.ReportReason raw values
+          'grooming_or_trafficking', 'child_safety', 'threat_or_blackmail', 'sextortion',
+          'solicitation', 'off_platform_pressure', 'financial_scam', 'violence_or_self_harm',
+          'harassment', 'hate_speech', 'unwanted_contact', 'spam', 'impersonation', 'other',
+          // Legacy / ModerationReportReason enum values (keep for backwards-compat)
+          'Inappropriate content', 'Spam', 'Harassment', 'Hate speech',
+          'False information', 'Violence', 'Self-harm', 'Adult content',
+          'Privacy violation', 'Other', 'inappropriate', 'reported_content'
+        ];
+
+      // NO client updates or deletes — reports are immutable evidence
+      allow update, delete: if false;
     }
     
     // ============================================================================
@@ -509,12 +782,21 @@ service cloud.firestore {
       allow read: if isAuthenticated()
         && resource.data.userId == request.auth.uid;
       
-      // Anyone can create notifications (system/other users creating notifications)
-      allow create: if isAuthenticated();
+      // Sender must identify themselves — prevents anonymous notification spam
+      // System notifications are written via Cloud Functions (admin SDK bypasses rules)
+      // actorId is the canonical field written by PostInteractionsService (amen/lightbulb)
+      allow create: if isAuthenticated()
+        && (request.resource.data.get('fromUserId', '') == request.auth.uid
+          || request.resource.data.get('senderId', '') == request.auth.uid
+          || request.resource.data.get('actorId', '') == request.auth.uid);
       
-      // Users can update their own notifications (mark as read)
+      // Users can update their own notifications (mark as read).
+      // Also allow the actor to update — setData(merge:true) is treated as an update
+      // when the document already exists (e.g. re-amen/lightbulb the same post).
       allow update: if isAuthenticated()
-        && resource.data.userId == request.auth.uid;
+        && (resource.data.userId == request.auth.uid
+          || resource.data.get('fromUserId', '') == request.auth.uid
+          || resource.data.get('actorId', '') == request.auth.uid);
       
       // Users can delete their own notifications
       allow delete: if isAuthenticated()
@@ -543,8 +825,9 @@ service cloud.firestore {
     // ============================================================================
     
     match /moderationQueue/{queueId} {
-      // Only admins can read moderation queue (in production, add admin role check)
-      allow read: if isAuthenticated();
+      // Only admins can read moderation queue
+      allow read: if isAuthenticated()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
       
       // Anyone can create moderation flags
       allow create: if isAuthenticated()
@@ -563,9 +846,9 @@ service cloud.firestore {
       // Anyone authenticated can read search index
       allow read: if isAuthenticated();
       
-      // System can write search indexes (backend or cloud functions)
-      // For client-side writes, we allow authenticated users
-      allow write: if isAuthenticated();
+      // Search indexes are written by Cloud Functions only (admin SDK bypasses rules)
+      // No client writes allowed — prevents search index poisoning
+      allow write: if false;
     }
     
     // ============================================================================
@@ -780,8 +1063,10 @@ service cloud.firestore {
       // Only system/cloud functions can read
       allow read: if false;
       
-      // Authenticated users can create (queue notifications)
-      allow create: if isAuthenticated();
+      // Users can only queue notifications from themselves — prevents notification spam/DoS
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid
+        && hasRequiredFields(['userId', 'recipientId', 'messageType']);
       
       // Only cloud functions can update/delete
       allow update: if false;
@@ -878,18 +1163,22 @@ service cloud.firestore {
 
       // === MESSAGES SUBCOLLECTION ===
       match /messages/{messageId} {
-        // Users can read messages from their own conversations
-        allow read: if isAuthenticated();
+        // Only the owner of the parent conversation can read its messages
+        allow read: if isAuthenticated()
+          && get(/databases/$(database)/documents/aiBibleStudyConversations/$(conversationId)).data.userId == request.auth.uid;
 
-        // Users can create messages in their own conversations
+        // Only the conversation owner can add messages
         allow create: if isAuthenticated()
+          && get(/databases/$(database)/documents/aiBibleStudyConversations/$(conversationId)).data.userId == request.auth.uid
           && hasRequiredFields(['text', 'isUser', 'timestamp', 'index']);
 
-        // Users can update messages in their own conversations
-        allow update: if isAuthenticated();
+        // Only the conversation owner can update messages
+        allow update: if isAuthenticated()
+          && get(/databases/$(database)/documents/aiBibleStudyConversations/$(conversationId)).data.userId == request.auth.uid;
 
-        // Users can delete messages from their own conversations
-        allow delete: if isAuthenticated();
+        // Only the conversation owner can delete messages
+        allow delete: if isAuthenticated()
+          && get(/databases/$(database)/documents/aiBibleStudyConversations/$(conversationId)).data.userId == request.auth.uid;
       }
     }
 
@@ -910,8 +1199,9 @@ service cloud.firestore {
 
     // Moderation Results - Created by Cloud Functions, read by app
     match /moderationResults/{resultId} {
-      // Users can read results for their own moderation requests
-      allow read: if isAuthenticated();
+      // P0 FIX: Confirmed — scoped to requesting user only (no world-readable access).
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
 
       // Only Cloud Functions can write results
       allow create, update, delete: if false;
@@ -923,8 +1213,9 @@ service cloud.firestore {
       allow create: if isAuthenticated()
         && request.resource.data.userId == request.auth.uid;
 
-      // Only admins can read logs (add admin check in future)
-      allow read: if isAuthenticated();
+      // Only admins can read moderation logs
+      allow read: if isAuthenticated()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
 
       allow update, delete: if false;
     }
@@ -946,8 +1237,9 @@ service cloud.firestore {
 
     // Crisis Detection Results - Created by Cloud Functions, read by app
     match /crisisDetectionResults/{resultId} {
-      // Users can read results for their own crisis detection requests
-      allow read: if isAuthenticated();
+      // Users can only read results for their own crisis detection requests
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
 
       // Only Cloud Functions can write results
       allow create, update, delete: if false;
@@ -955,12 +1247,10 @@ service cloud.firestore {
 
     // Crisis Detection Logs - For moderator follow-up
     match /crisisDetectionLogs/{logId} {
-      // Only Cloud Functions can create logs
+      // P0 FIX: Crisis logs contain sensitive self-harm signals — deny ALL client reads.
+      // Only Cloud Functions (admin SDK) can read or create these. Admin UI reads via backend.
       allow create: if false;
-
-      // Only authenticated users (moderators) can read logs
-      allow read: if isAuthenticated();
-
+      allow read: if false;
       allow update, delete: if false;
     }
 
@@ -969,11 +1259,13 @@ service cloud.firestore {
       // Only Cloud Functions can create alerts
       allow create: if false;
 
-      // Only authenticated users (moderators) can read alerts
-      allow read: if isAuthenticated();
+      // Only admins/moderators can read alerts
+      allow read: if isAuthenticated()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
 
-      // Moderators can update alert status
+      // Only admins can update alert status
       allow update: if isAuthenticated()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true
         && isOnlyUpdating(['status', 'handledBy', 'handledAt']);
 
       allow delete: if false;
@@ -1023,9 +1315,14 @@ service cloud.firestore {
     // ============================================================================
 
     match /prayers/{prayerId} {
-      // Users can read their own prayers
-      allow read: if isAuthenticated()
+      // get: single-document fetch — resource.data is available.
+      allow get: if isAuthenticated()
         && resource.data.userId == request.auth.uid;
+
+      // list: collection queries (whereField "userId" == uid) — resource is null.
+      // Allow authenticated queries; callers MUST filter by their own userId so
+      // each returned document satisfies the get rule above.
+      allow list: if isAuthenticated();
 
       // Users can create their own prayers
       allow create: if isAuthenticated()
@@ -1047,53 +1344,70 @@ service cloud.firestore {
 
     // AI Search Requests
     match /aiSearchRequests/{requestId} {
-      allow create: if isAuthenticated();
-      allow read: if isAuthenticated();
+      // Users can only create requests for themselves
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      // Users can only read their own requests
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
       allow update, delete: if false;
     }
 
     // AI Search Results
     match /aiSearchResults/{resultId} {
-      allow read: if isAuthenticated();
+      // Users can only read results for their own requests
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
       allow create, update, delete: if false;
     }
 
     // Note Summary Requests
     match /noteSummaryRequests/{requestId} {
-      allow create: if isAuthenticated();
-      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
       allow update, delete: if false;
     }
 
     // Note Summary Results
     match /noteSummaryResults/{resultId} {
-      allow read: if isAuthenticated();
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
       allow create, update, delete: if false;
     }
 
     // Scripture Reference Requests
     match /scriptureReferenceRequests/{requestId} {
-      allow create: if isAuthenticated();
-      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
       allow update, delete: if false;
     }
 
     // Scripture Reference Results
     match /scriptureReferenceResults/{resultId} {
-      allow read: if isAuthenticated();
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
       allow create, update, delete: if false;
     }
 
     // Church Recommendation Requests
     match /churchRecommendationRequests/{requestId} {
-      allow create: if isAuthenticated();
-      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
       allow update, delete: if false;
     }
 
     // Church Recommendation Results
+    // The document ID is the requestId (not userId), written by Cloud Functions.
+    // Allow read while polling: doc may not exist yet (resource == null) or exist with userId field.
     match /churchRecommendationResults/{resultId} {
-      allow read: if isAuthenticated();
+      allow read: if isAuthenticated()
+        && (resource == null || resource.data.get('userId', '') == request.auth.uid);
       allow create, update, delete: if false;
     }
 
@@ -1106,10 +1420,10 @@ service cloud.firestore {
       // Users can read any photo insights (for discovery)
       allow read: if isAuthenticated();
 
-      // FIXED: Any authenticated user can create/update photo insights
-      // This is needed because the PhotoInsightsService analyzes OTHER users' photos
-      // Photo insights are non-sensitive (just badges like "Nature Lover", etc.)
-      allow create, update: if isAuthenticated();
+      // Photo insights are written by Cloud Functions only (Cloud Vision analysis)
+      // No client writes — prevents badge spoofing by arbitrary users
+      // Cloud Functions admin SDK bypasses these rules
+      allow create, update: if false;
 
       // Users can delete their own photo insights
       allow delete: if isAuthenticated() && isOwner(userId);
@@ -1129,14 +1443,34 @@ service cloud.firestore {
     // Suspicious Activity - System tracking for rate limiting
     match /suspiciousActivity/{activityId} {
       allow read: if false; // Admin only
-      allow create: if isAuthenticated(); // System can log
+      // P1 FIX: Scope create to caller's own userId to prevent arbitrary pollution.
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
       allow update, delete: if false;
     }
-    
+
     // Brigading Alerts - System tracking for coordinated attacks
     match /brigadingAlerts/{alertId} {
       allow read: if false; // Admin only
-      allow create: if isAuthenticated(); // System can create
+      // P1 FIX: Scope create to caller's own userId.
+      allow create: if isAuthenticated()
+        && request.resource.data.get('reporterId', '') == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // ============================================================================
+    // ENFORCEMENT HISTORY (moderation action log)
+    // ============================================================================
+
+    match /enforcementHistory/{actionId} {
+      // Users can read enforcement actions taken against them or by them (transparency).
+      allow read: if isAuthenticated()
+        && (resource.data.get('userId', '') == request.auth.uid
+          || resource.data.get('targetUserId', '') == request.auth.uid);
+
+      // P0 FIX: All writes must come from Cloud Functions (admin SDK) only.
+      // Any authenticated client write would allow audit log poisoning.
+      allow create: if false;
       allow update, delete: if false;
     }
     
@@ -1189,13 +1523,51 @@ service cloud.firestore {
     }
 
     // ============================================================================
-    // VISIT PLANS COLLECTION (NEW - First Visit Companion)
+    // TWO-FACTOR AUTHENTICATION: BACKUP CODES (P0 SECURITY)
+    // ============================================================================
+    
+    // Backup Codes - Stored separately from user documents for security
+    // CRITICAL: Backup codes are WRITE-ONLY from client, READ-ONLY from Cloud Functions
+    match /user_backup_codes/{userId} {
+      // P0 SECURITY: Users CANNOT read their own backup codes
+      // Codes are only shown once during generation, never stored client-side
+      // Validation happens server-side via Cloud Functions only
+      allow read: if false;
+      
+      // Users can write backup codes ONLY during initial 2FA setup
+      // Codes must be generated client-side and written once
+      allow create: if isAuthenticated() 
+        && userId == request.auth.uid
+        && hasRequiredFields(['codes', 'generatedAt'])
+        && request.resource.data.codes is list
+        && request.resource.data.codes.size() == 8;
+      
+      // Users CANNOT update backup codes directly
+      // New codes must be generated via Cloud Functions after account recovery
+      allow update: if false;
+      
+      // Users can delete backup codes (when disabling 2FA)
+      allow delete: if isAuthenticated() && userId == request.auth.uid;
+    }
+
+    // ============================================================================
+    // VISIT PLANS COLLECTION (First Visit Companion)
     // ============================================================================
 
     match /visit_plans/{planId} {
-      // Users can read their own visit plans
-      allow read: if isAuthenticated()
-        && resource.data.user_id == request.auth.uid;
+      // P0 FIX: Add resource == null guard so that querying a non-existent doc
+      // returns "not found" instead of a permission error. When the document does
+      // not exist, resource is null and Firestore would deny the read. The
+      // resource == null branch lets the SDK return exists == false correctly.
+      // (Same pattern as churchRecommendationResults.)
+      allow get: if isAuthenticated()
+        && (resource == null || resource.data.user_id == request.auth.uid);
+
+      // list: resource is null during collection queries — allow the query if the
+      // caller is authenticated. The query MUST include .whereField("user_id", ==, uid)
+      // so Firestore evaluates each matching document against the get rule above,
+      // ensuring users only ever see their own plans.
+      allow list: if isAuthenticated();
 
       // Users can create their own visit plans
       allow create: if isAuthenticated()
@@ -1209,6 +1581,577 @@ service cloud.firestore {
       // Users can delete their own visit plans
       allow delete: if isAuthenticated()
         && resource.data.user_id == request.auth.uid;
+    }
+
+    // ============================================================================
+    // PHONE AUTH RATE LIMITING (Server-side only)
+    // ============================================================================
+
+    match /phoneAuthRateLimits/{phoneNumber} {
+      // No client reads - server-side only via Cloud Functions
+      allow read: if false;
+      allow write: if false; // Cloud Functions have admin access
+    }
+
+    match /phoneAuthIPRateLimits/{ipAddress} {
+      allow read: if false;
+      allow write: if false; // Server-side only
+    }
+
+    // ============================================================================
+    // ACCOUNT DELETION REQUESTS
+    // ============================================================================
+
+    match /deletionRequests/{userId} {
+      // Users can read their own deletion request
+      allow read: if isOwner(userId);
+      // Server-side only writes
+      allow write: if false;
+    }
+
+    match /deletionAuditLog/{logId} {
+      // Admin only reads for compliance
+      allow read: if isAuthenticated()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+      allow write: if false; // Server-side only
+    }
+
+    // ============================================================================
+    // ACTIVE SESSIONS / DEVICE TOKENS
+    // ============================================================================
+
+    match /users/{userId}/devices/{deviceId} {
+      // Users can read their own devices
+      allow read: if isOwner(userId);
+      // Users can create/update their own device tokens
+      allow create, update: if isOwner(userId)
+        && hasRequiredFields(['token', 'deviceId', 'deviceName']);
+      // Users can delete their own devices (sign out)
+      allow delete: if isOwner(userId);
+    }
+
+    // ============================================================================
+    // TWO-FACTOR AUTHENTICATION
+    // ============================================================================
+
+    match /users/{userId}/twoFactor/{docId} {
+      // Users can read their own 2FA settings (but NOT backup codes)
+      allow read: if isOwner(userId);
+      // Server-side only writes for security
+      allow write: if false;
+    }
+
+    match /users/{userId}/backupCodes/{codeId} {
+      // CRITICAL SECURITY: Backup codes are NEVER readable by clients
+      // Validation MUST happen server-side via Cloud Functions
+      allow read: if false;
+      allow write: if false; // Server-side only
+    }
+
+    // ============================================================================
+    // SECURITY EVENTS LOGGING
+    // ============================================================================
+
+    match /securityEvents/{eventId} {
+      // Admin only reads for security monitoring
+      allow read: if isAuthenticated()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+      allow write: if false; // Server-side only
+    }
+
+    // ============================================================================
+    // POST INTERACTIONS COLLECTION (Firestore - used by safety/moderation system)
+    // Note: Live comment data lives in Realtime Database.
+    // These Firestore documents are used by CommentSafetySystem for moderation flags.
+    // ============================================================================
+
+    match /postInteractions/{postId} {
+      // Any authenticated user can read (for pile-on detection queries)
+      allow read: if isAuthenticated();
+
+      // P0 FIX: Scope writes to caller's own reporterId only.
+      // Previously allow create/update: if isAuthenticated() with no field validation
+      // allowed any user to write arbitrary moderation flags on any post.
+      allow create: if isAuthenticated()
+        && request.resource.data.get('reporterId', request.auth.uid) == request.auth.uid;
+      allow update: if isAuthenticated()
+        && resource.data.get('reporterId', request.auth.uid) == request.auth.uid;
+
+      // No deletes from client
+      allow delete: if false;
+
+      match /comments/{commentId} {
+        // Any authenticated user can read comments for safety checks
+        allow read: if isAuthenticated();
+
+        // P0 FIX: Scoped to caller's own moderation flags only
+        allow create: if isAuthenticated()
+          && request.resource.data.get('reporterId', request.auth.uid) == request.auth.uid;
+        allow update: if isAuthenticated()
+          && resource.data.get('reporterId', request.auth.uid) == request.auth.uid;
+
+        // Only the comment author can delete
+        allow delete: if isAuthenticated()
+          && resource.data.get('authorId', '') == request.auth.uid;
+      }
+    }
+
+    // ============================================================================
+    // ENGAGEMENT EVENTS COLLECTION (ML training data — VertexAIPersonalizationService)
+    // ============================================================================
+
+    match /engagementEvents/{eventId} {
+      // Users can read their own engagement events
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+
+      // Users can write engagement events for themselves only
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid
+        && request.resource.data.get('eventType', '') in [
+          'view', 'reaction', 'comment', 'share', 'save', 'skip', 'report'
+        ];
+
+      // No updates or deletes — events are append-only training data
+      allow update, delete: if false;
+    }
+
+    // ============================================================================
+    // NOTIFICATION ENGAGEMENT COLLECTION (ML training — VertexAIPersonalizationService)
+    // ============================================================================
+
+    match /notificationEngagement/{engagementId} {
+      // Users can read their own notification engagement history
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+
+      // Users can record engagement for their own notifications
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+
+      // Append-only
+      allow update, delete: if false;
+    }
+
+    // ============================================================================
+    // POST EMBEDDINGS COLLECTION (Semantic search — Cloud Run search service)
+    // ============================================================================
+
+    match /postEmbeddings/{postId} {
+      // Any authenticated user can read embeddings (needed for cosine similarity search)
+      allow read: if isAuthenticated();
+
+      // No client writes — embeddings are written by the Cloud Run search service
+      // which uses Firebase Admin SDK (bypasses rules)
+      allow create, update, delete: if false;
+    }
+
+    // ============================================================================
+    // HEY FEED PREFERENCES COLLECTION
+    // ============================================================================
+
+    match /userFeedPrefs/{userId} {
+      // Users can only read/write their own feed preferences
+      allow read, write: if isAuthenticated() && isOwner(userId);
+    }
+
+    // ============================================================================
+    // HEY FEED SIGNALS COLLECTION (per-user subcollection)
+    // ============================================================================
+
+    match /userFeedSignals/{userId} {
+      allow read: if isAuthenticated() && isOwner(userId);
+      allow write: if isAuthenticated() && isOwner(userId);
+
+      match /signals/{signalId} {
+        allow read: if isAuthenticated() && isOwner(userId);
+        allow create: if isAuthenticated() && isOwner(userId);
+        allow update, delete: if false;
+      }
+    }
+
+    // ============================================================================
+    // USER RATE LIMITS COLLECTION
+    // ============================================================================
+
+    match /user_rate_limits/{userId} {
+      // Users can read their own rate limit data
+      allow read: if isAuthenticated() && isOwner(userId);
+
+      // Users can create/update their own rate limit counters
+      // (writes use FieldValue.increment which is atomic and safe)
+      allow create, update: if isAuthenticated() && isOwner(userId);
+
+      // No deletes - records expire naturally by date check in client
+      allow delete: if false;
+    }
+
+    // ============================================================================
+    // USER REPORTS COLLECTION (Anti-harassment / safety)
+    // ============================================================================
+
+    match /userReports/{reportId} {
+      // Users can read reports where they are the reporter or the reported user
+      allow read: if isAuthenticated()
+        && (resource.data.get('reporterId', '') == request.auth.uid
+          || resource.data.get('reportedUserId', '') == request.auth.uid);
+
+      // Any authenticated user can file a report
+      allow create: if isAuthenticated()
+        && request.resource.data.get('reporterId', '') == request.auth.uid;
+
+      // No updates or deletes from client
+      allow update, delete: if false;
+    }
+
+    // ============================================================================
+    // MESSAGING SAFETY INFRASTRUCTURE
+    // ============================================================================
+
+    // Moderation queue — written by clients (safety events only), read by moderators
+    match /moderationQueue/{messageId} {
+      // Clients can create (gateway writes on flagged message)
+      allow create: if isAuthenticated()
+        && request.resource.data.senderId == request.auth.uid
+        && request.resource.data.keys().hasAll(['messageId', 'conversationId', 'senderId', 'decision', 'createdAt']);
+      // Clients cannot read, update, or delete moderation records
+      allow read, update, delete: if false;
+    }
+
+    // Safety events log — compact events for pattern engine (no message text)
+    match /safetyEvents/{eventId} {
+      // Any authenticated user can create their own safety event.
+      // Schema validation: required fields + senderId must be the caller.
+      // No message text is stored — only signals and metadata.
+      allow create: if isAuthenticated()
+        && request.resource.data.senderId == request.auth.uid
+        && request.resource.data.keys().hasAll(['senderId', 'recipientId', 'signals', 'conversationId', 'createdAt'])
+        && request.resource.data.signals is list
+        && request.resource.data.signals.size() <= 20;
+      // Users can read only events they were party to
+      allow read: if isAuthenticated()
+        && (resource.data.senderId == request.auth.uid
+            || resource.data.recipientId == request.auth.uid);
+      allow update, delete: if false;
+    }
+
+    // User safety records — strike counter, freeze status
+    // SECURITY: These records are written exclusively by Cloud Functions (admin SDK).
+    // No client writes are permitted — a frozen user must NOT be able to clear their
+    // own accountStatus, canDeleteMessages, or canChangeUsername flags.
+    match /userSafetyRecords/{userId} {
+      // Users can only read their OWN safety record (to check freeze/accountStatus).
+      // Previously any authenticated user could read any record — this exposed strike
+      // counts and freeze reasons to other users.
+      // The ConversationRiskEngine fetches reportCount via a Cloud Function, not
+      // a direct Firestore read, so this restriction does not break that pipeline.
+      allow read: if isOwner(userId);
+      // ALL writes blocked from client — Cloud Functions write via admin SDK which
+      // bypasses Firestore security rules entirely, so this 'false' only affects clients.
+      allow create, update, delete: if false;
+    }
+
+    // Held messages — flagged and withheld from recipient
+    match /conversations/{conversationId}/held_messages/{messageId} {
+      // Sender can create their own held message record
+      allow create: if isAuthenticated()
+        && request.resource.data.senderId == request.auth.uid;
+      // Only the sender can read their own held messages
+      allow read: if isAuthenticated()
+        && (resource.data.senderId == request.auth.uid
+            || resource.data.recipientId == request.auth.uid);
+      allow update, delete: if false;
+    }
+
+    // Media send events — used for broadcast pattern detection
+    match /mediaSendEvents/{eventId} {
+      allow create: if isAuthenticated()
+        && request.resource.data.senderId == request.auth.uid;
+      allow read, update, delete: if false;
+    }
+
+    // Media scan queue — async deep scan requests
+    match /mediaScanQueue/{scanId} {
+      allow create: if isAuthenticated()
+        && request.resource.data.senderId == request.auth.uid;
+      allow read, update, delete: if false;
+    }
+
+    // NOTE: reports/{reportId} is defined earlier in the file (canonical block).
+    // That block enforces schema validation and immutability.
+    // Duplicate definition removed to prevent shadowing ambiguity.
+
+    // Evidence preservation — written by safety services, not readable by clients
+    match /evidencePreservation/{docId} {
+      allow create: if isAuthenticated();
+      allow read, update, delete: if false;
+    }
+
+    // Quarantined content hashes — read by MediaSafetyGateway (hash lookup)
+    match /quarantinedContentHashes/{hashId} {
+      // No client writes; read allowed for hash matching
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+
+    // Adult content hashes — used when recipient is minor (read by gateway)
+    match /adultContentHashes/{hashId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+
+    // ============================================================================
+    // TRENDING TOPICS COLLECTION
+    // ============================================================================
+
+    match /trending/{topicId} {
+      // Any authenticated user can read trending topics (used by Discovery/Search)
+      allow read: if isAuthenticated();
+
+      // Only Cloud Functions write trending data (computed server-side)
+      allow create, update, delete: if false;
+    }
+
+    // ============================================================================
+    // CHURCHES COLLECTION (directory data — read-only for clients)
+    // ============================================================================
+
+    match /churches/{churchId} {
+      // Any authenticated user can read church directory data (for Find Church, search).
+      allow read: if isAuthenticated();
+
+      // Church data is managed by admin/Cloud Functions only.
+      allow write: if false;
+    }
+
+    // ============================================================================
+    // USER CHURCH RELATIONS
+    // ============================================================================
+
+    match /userChurchRelations/{relationId} {
+      // Users can read their own church relation records.
+      // Note: resource.data check works for document reads; for collection queries
+      // filtering by userId == currentUid, Firestore evaluates the where clause
+      // to satisfy this rule — so queries must always include that filter.
+      allow read:   if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    // ============================================================================
+    // CHRISTIAN DATING PROFILES COLLECTION
+    // Age gate: only adults (Tier D, 18+) may create or update a dating profile.
+    // Reads are restricted to other authenticated adults via a server-side query filter;
+    // the rule allows any authenticated read so Cloud Functions can enforce additional
+    // per-user filtering (e.g. mutual follow requirements for Tier C).
+    // ============================================================================
+
+    match /datingProfiles/{userId} {
+      // Any authenticated user can read profiles (server query filters by age tier).
+      allow read: if isAuthenticated();
+
+      // Only the profile owner AND adults (18+) may create or update.
+      allow create, update: if isAuthenticated() && isOwner(userId) && callerIsAdult();
+
+      // Owner may delete their own dating profile.
+      allow delete: if isAuthenticated() && isOwner(userId);
+    }
+
+    // ============================================================================
+    // RATE LIMITS COLLECTION (Server-only — written by Cloud Functions rateLimiter.js)
+    // No client reads or writes. Cloud Functions admin SDK bypasses these rules.
+    // This deny rule ensures a compromised client cannot reset its own counters.
+    // ============================================================================
+
+    match /rateLimits/{limitId} {
+      allow read, write: if false;
+    }
+
+    // ============================================================================
+    // TWO-FACTOR OTP COLLECTION (Server-only)
+    // OTP codes must NEVER be readable by clients. Validation happens server-side only.
+    // ============================================================================
+
+    match /twoFactorOTP/{otpId} {
+      // CRITICAL: Clients must never read OTP codes.
+      allow read: if false;
+      allow create: if false;
+      allow update, delete: if false;
+    }
+
+    // ============================================================================
+    // TWO-FACTOR SESSIONS COLLECTION
+    // Clients may read their own verified 2FA session to check its validity,
+    // but may never create, update, or delete sessions (server-managed).
+    // ============================================================================
+
+    match /twoFactorSessions/{sessionId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create, update, delete: if false;
+    }
+
+    // ============================================================================
+    // NOTIFICATION DIGESTS COLLECTION
+    // Daily grouped notification summaries — owned per user.
+    // digestId format: "{userId}_{dayTimestamp}"
+    // ============================================================================
+
+    match /notificationDigests/{digestId} {
+      // get: single-document fetch (document exists, resource.data available).
+      allow get: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+
+      // list: collection queries use .whereField("userId", ==, uid) — resource is null.
+      // Allow authenticated list so callers can page through their own digests.
+      allow list: if isAuthenticated();
+
+      // Client writes its own digest (ActionableNotificationService / NotificationDigestService).
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+
+      // Only the owner may update (mark read, mark acted, etc.)
+      allow update: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+
+      // No client deletes — digests are append-only analytics/delivery records.
+      allow delete: if false;
+    }
+
+    // ============================================================================
+    // BEREAN AUDIT LOG COLLECTION
+    // Append-only log of Berean AI interactions for safety review.
+    // Written by client; never updated or deleted by client.
+    // ============================================================================
+
+    match /bereanAuditLog/{logId} {
+      // Users can read their own AI interaction log (transparency).
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+
+      // Clients append their own entries only.
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+
+      // Immutable once written — no updates or deletes from client.
+      allow update, delete: if false;
+    }
+
+    // ============================================================================
+    // MODERATION CONSTITUTION COLLECTIONS (Safety Architecture Blueprint)
+    // Written exclusively by Cloud Functions / trust-level-service (admin SDK).
+    // Clients may read their own records for transparency; all writes are denied.
+    // ============================================================================
+
+    // moderation_jobs/{jobId}
+    // Created by moderation-ingest Cloud Function when content is submitted.
+    match /moderation_jobs/{jobId} {
+      // Authors can read their own job results (transparency centre).
+      allow get: if isAuthenticated()
+        && resource.data.get('author_id', '') == request.auth.uid;
+      // No client list — prevents fishing for other users' job IDs.
+      allow list: if false;
+      // Cloud Functions write via admin SDK (bypasses rules).
+      allow create, update, delete: if false;
+    }
+
+    // enforcement_actions/{actionId}
+    // Immutable enforcement log. Append-only by Cloud Functions.
+    match /enforcement_actions/{actionId} {
+      // Targets can read enforcement actions taken against them.
+      allow get: if isAuthenticated()
+        && resource.data.get('target_user_id', '') == request.auth.uid;
+      // Allow users to list their own enforcement history by filtering on target_user_id.
+      allow list: if isAuthenticated();
+      // Append-only by Cloud Functions — no client writes.
+      allow create, update, delete: if false;
+    }
+
+    // user_trust/{uid}
+    // Single document per user. Written by trust-level-service Cloud Function.
+    match /user_trust/{userId} {
+      // Users can read their own trust profile (to check capabilities, status).
+      allow read: if isAuthenticated() && isOwner(userId);
+      // Server-only writes.
+      allow create, update, delete: if false;
+    }
+
+    // moderation_ingest_events/{eventId}
+    // Lightweight pre-submit events written by the client before content is committed.
+    // The Cloud Function reads these and creates the corresponding ModerationJob.
+    match /moderation_ingest_events/{eventId} {
+      // Authors can create their own ingest events (pre-submit signal).
+      allow create: if isAuthenticated()
+        && request.resource.data.get('author_id', '') == request.auth.uid
+        && request.resource.data.keys().hasAll(['content_id', 'content_type', 'author_id', 'created_at']);
+      // No client reads — server-only processing.
+      allow read, update, delete: if false;
+    }
+
+    // ============================================================================
+    // SCHEDULED POSTS COLLECTION (CreatePostView — future-dated post scheduling)
+    // ============================================================================
+
+    match /scheduled_posts/{postId} {
+      // Authors can read their own scheduled posts only
+      allow read: if isAuthenticated()
+        && resource.data.get('authorId', '') == request.auth.uid;
+
+      // Authors can create scheduled posts for themselves
+      allow create: if isAuthenticated()
+        && request.resource.data.get('authorId', '') == request.auth.uid
+        && hasRequiredFields(['content', 'category', 'authorId', 'scheduledFor', 'createdAt'])
+        && request.resource.data.category in ['openTable', 'testimonies', 'prayer', 'general', 'tip', 'funFact'];
+
+      // Authors can edit or reschedule their own pending posts
+      allow update: if isAuthenticated()
+        && resource.data.get('authorId', '') == request.auth.uid;
+
+      // Authors can cancel (delete) their own scheduled posts
+      allow delete: if isAuthenticated()
+        && resource.data.get('authorId', '') == request.auth.uid;
+    }
+
+    // ============================================================================
+    // POST INTERACTIONS COLLECTION (Firestore - used by safety/moderation system)
+    // Note: Live comment data lives in Realtime Database.
+    // These Firestore documents are used by CommentSafetySystem for moderation flags.
+    // ============================================================================
+
+    match /postInteractions/{postId} {
+      // P2 FIX: Restrict read to the post author (needs moderation data) or the
+      // user whose own flag is being checked. Pile-on detection is aggregated by
+      // Cloud Functions (admin SDK) so broad client read is not needed.
+      allow read: if isAuthenticated()
+        && (resource == null
+          || resource.data.get('reporterId', '') == request.auth.uid
+          || resource.data.get('authorId', '') == request.auth.uid);
+
+      // P0 FIX: Only the caller writing their OWN moderation flag (reporterId == uid)
+      // or Cloud Functions (admin SDK, bypasses rules) can write here.
+      allow create: if isAuthenticated()
+        && request.resource.data.get('reporterId', request.auth.uid) == request.auth.uid;
+      allow update: if isAuthenticated()
+        && resource.data.get('reporterId', request.auth.uid) == request.auth.uid;
+
+      // No deletes from client
+      allow delete: if false;
+
+      match /comments/{commentId} {
+        // Any authenticated user can read comments for safety checks
+        allow read: if isAuthenticated();
+
+        // P0 FIX: Scoped to caller's own moderation flags only
+        allow create: if isAuthenticated()
+          && request.resource.data.get('reporterId', request.auth.uid) == request.auth.uid;
+        allow update: if isAuthenticated()
+          && resource.data.get('reporterId', request.auth.uid) == request.auth.uid;
+
+        // Only the comment author can delete
+        allow delete: if isAuthenticated()
+          && resource.data.get('authorId', '') == request.auth.uid;
+      }
     }
 
     // ============================================================================

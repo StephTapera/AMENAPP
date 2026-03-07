@@ -234,9 +234,16 @@ class PremiumManager: ObservableObject {
     }
 
     private func revokePremiumAccess() async {
+        let wasActive = hasProAccess
         hasProAccess = false
         savePremiumStatus(false)
-        print("❌ Premium access revoked")
+        // Only log when actually revoking an active subscription, and never on simulator
+        // (simulator always returns empty entitlements — this is expected, not an error)
+        #if !targetEnvironment(simulator)
+        if wasActive {
+            print("❌ Premium access revoked")
+        }
+        #endif
     }
 
     // MARK: - Verify Transaction

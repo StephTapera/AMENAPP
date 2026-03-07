@@ -9,6 +9,7 @@
 
 import SwiftUI
 import FirebaseAuth
+import FirebaseFirestore
 import Combine
 import PhotosUI
 
@@ -25,6 +26,11 @@ struct CommentsView: View {
     
     @State private var commentText = ""
     @State private var replyingTo: Comment?
+
+    // @mention picker state
+    @State private var showMentionPicker = false
+    @State private var mentionResults: [AlgoliaUser] = []
+    @State private var mentionDebounceTask: Task<Void, Never>?
     @State private var commentsWithReplies: [CommentWithReplies] = []
     @State private var isLoading = true  // P1 FIX: Start as true to show skeleton immediately
     @State private var showError = false
@@ -40,6 +46,9 @@ struct CommentsView: View {
     @State private var pollingTask: Task<Void, Never>?  // ✅ Store polling task
     @State private var expandedThreads: Set<String> = []  // Track expanded reply threads
     @State private var newCommentIds: Set<String> = []  // Track newly added comments for animation
+    // P1 PERF FIX: Cache expensive participant computation; rebuilt only when comments change.
+    @State private var cachedTopParticipants: [ParticipantInfo] = []
+    @State private var participantsRebuildTask: Task<Void, Never>? // Debounce rapid streaming updates
     @State private var scrollProxy: ScrollViewProxy?  // For smooth scrolling to replies
     @Namespace private var animationNamespace  // For matched geometry effects
     @State private var threadSummaries: [String: AIThreadSummarizationService.ThreadSummary] = [:]  // Cache thread summaries
@@ -53,6 +62,39 @@ struct CommentsView: View {
     // ✅ Photo upload state (placeholder for future implementation)
     @State private var showPhotoComingSoon = false
     
+    // Berean AI rewrite assist
+    @State private var bereanSuggestion: String?
+    @State private var isLoadingBereanSuggestion = false
+
+    // Smart reply chips
+    @State private var smartReplySuggestions: [String] = []
+    @State private var isLoadingSmartReplies = false
+    
+    // Berean AI integration
+    @State private var showBerean = false
+    @State private var bereanQuery = ""
+
+    // Slow mode cooldown: store end date; remaining time is computed from currentTime
+    @State private var cooldownEndDate: Date?
+
+    /// Seconds remaining in comment slow-mode cooldown (0 when inactive).
+    private var cooldownRemaining: TimeInterval {
+        guard let end = cooldownEndDate else { return 0 }
+        let _ = currentTime // re-evaluate when the 1-second timer ticks
+        return max(0, end.timeIntervalSince(Date()))
+    }
+
+    // Comment approval queue (pending comments waiting for post author review)
+    @State private var pendingComments: [Comment] = []
+    @State private var showPendingQueue = false
+
+    // Community guidelines prompt (shown once on first comment)
+    @State private var showCommentGuidelines = false
+    @State private var pendingCommentSubmit = false
+
+    // Proactive rate limit banner (shown immediately if daily limit already hit)
+    @State private var rateLimitMessage: String? = nil
+    
     // ✅ CRITICAL FIX: Extract short ID (first 8 chars) for Realtime Database
     // Firestore uses full UUIDs, but Realtime DB uses short IDs like "002BAE76"
     private var postId: String {
@@ -65,13 +107,19 @@ struct CommentsView: View {
     @FocusState private var isInputFocused: Bool
     
     // MARK: - Top Participants Algorithm
-    
-    /// Computes top 8-12 participants to show in avatar row
-    /// Priority: Post author > Recent commenters > Frequent commenters > Followed users > High-reaction comments
+
+    /// Returns cached participants list. Rebuilt via rebuildTopParticipants() when commentsWithReplies changes.
     private var topParticipants: [ParticipantInfo] {
+        cachedTopParticipants
+    }
+
+    /// Computes top 8-12 participants to show in avatar row.
+    /// Priority: Post author > Recent commenters > Frequent commenters > High-reaction comments.
+    /// Called only when commentsWithReplies changes (via .onChange), not on every render.
+    private func rebuildTopParticipants() {
         var participants: [ParticipantInfo] = []
         var seenUserIds = Set<String>()
-        
+
         // 1. Always include post author first
         if !post.authorId.isEmpty, !seenUserIds.contains(post.authorId) {
             participants.append(ParticipantInfo(
@@ -149,9 +197,9 @@ struct CommentsView: View {
         }
         
         // Limit to 12 total avatars
-        return Array(participants.prefix(12))
+        cachedTopParticipants = Array(participants.prefix(12))
     }
-    
+
     // MARK: - Top Avatar Row (Premium iOS Style with Real-time Updates)
     
     private var topAvatarRow: some View {
@@ -296,7 +344,7 @@ struct CommentsView: View {
                 }
                 
                 Spacer()
-                
+
                 // Premium styled close button
                 Button {
                     dismiss()
@@ -368,9 +416,51 @@ struct CommentsView: View {
         }
     }
     
+    // MARK: - Pending Comment Approval Banner (visible to post author only)
+
+    @ViewBuilder
+    private var pendingApprovalBanner: some View {
+        if (FirebaseManager.shared.currentUser?.uid ?? "") == post.authorId, !pendingComments.isEmpty {
+            Button {
+                showPendingQueue = true
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "clock.badge.questionmark")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(.orange)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("\(pendingComments.count) comment\(pendingComments.count == 1 ? "" : "s") waiting for approval")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(.primary)
+                        Text("Tap to review")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .background(Color.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .strokeBorder(Color.orange.opacity(0.2), lineWidth: 1)
+                )
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+            }
+            .buttonStyle(.plain)
+            .transition(.move(edge: .top).combined(with: .opacity))
+        }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             headerView
+
+            pendingApprovalBanner
             
             // Comments List with ScrollViewReader for smooth scrolling
             ScrollViewReader { proxy in
@@ -398,7 +488,7 @@ struct CommentsView: View {
                             .padding(.top, 60)
                             .transition(.opacity.combined(with: .move(edge: .top)))
                         } else {
-                            ForEach(commentsWithReplies, id: \.id) { commentWithReplies in
+                            ForEach(Array(commentsWithReplies.enumerated()), id: \.element.id) { index, commentWithReplies in
                                 VStack(alignment: .leading, spacing: 8) {
                                     // Main Comment with animation
                                     PostCommentRow(
@@ -494,7 +584,7 @@ struct CommentsView: View {
                                                 }
                                             }
                                             
-                                            ForEach(commentWithReplies.replies, id: \.id) { reply in
+                                            ForEach(commentWithReplies.replies, id: \.stableId) { reply in
                                                 HStack(spacing: 0) {
                                                     // Animated reply indicator line
                                                     Rectangle()
@@ -543,6 +633,8 @@ struct CommentsView: View {
                                 }
                                 .padding(.vertical, 8)
                                 .id(commentWithReplies.comment.id ?? UUID().uuidString)
+                                // B) Staggered cascade reveal — header at 0ms, body +40ms, capped at 200ms
+                                .staggeredReveal(index: index, baseDelay: 0.04, maxDelay: 0.20)
                                 
                                 Divider()
                                     .padding(.leading, 60)
@@ -583,6 +675,37 @@ struct CommentsView: View {
                     .background(Color(red: 0.95, green: 0.95, blue: 0.95))
                 }
                 
+                // Smart reply chips — shown when input is empty and suggestions exist
+                if commentText.isEmpty && !smartReplySuggestions.isEmpty {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(smartReplySuggestions, id: \.self) { suggestion in
+                                Button {
+                                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                    commentText = suggestion
+                                    isInputFocused = true
+                                } label: {
+                                    Text(suggestion)
+                                        .font(.system(size: 13, weight: .medium))
+                                        .foregroundStyle(.primary)
+                                        .padding(.horizontal, 14)
+                                        .padding(.vertical, 7)
+                                        .background(
+                                            Capsule()
+                                                .fill(.ultraThinMaterial)
+                                                .overlay(Capsule().strokeBorder(Color.primary.opacity(0.10), lineWidth: 0.8))
+                                        )
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                    }
+                    .padding(.top, 8)
+                    .padding(.bottom, 2)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+
                 // Input field with glass buttons
                 HStack(alignment: .bottom, spacing: 12) {
                     // User avatar - Show actual profile photo with caching
@@ -625,8 +748,68 @@ struct CommentsView: View {
                             .onChange(of: commentText) { _, newValue in
                                 // P0 FIX: Trigger debounced tone analysis only if service loaded
                                 toneGuidanceService?.analyzeText(newValue)
+                                // Detect @mention typing
+                                handleMentionDetection(in: newValue)
+                                // Clear smart reply chips once user starts typing
+                                if !newValue.isEmpty { smartReplySuggestions = [] }
                             }
-                        
+
+                        // @mention picker row
+                        if showMentionPicker && !mentionResults.isEmpty {
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 8) {
+                                    ForEach(mentionResults, id: \.objectID) { user in
+                                        Button {
+                                            insertCommentMention(user)
+                                        } label: {
+                                            HStack(spacing: 6) {
+                                                Group {
+                                                    if let urlStr = user.profileImageURL,
+                                                       let url = URL(string: urlStr) {
+                                                        CachedAsyncImage(url: url) { img in
+                                                            img.resizable().scaledToFill()
+                                                        } placeholder: {
+                                                            Circle().fill(Color.purple.opacity(0.15))
+                                                                .overlay(
+                                                                    Text(user.displayName.prefix(1))
+                                                                        .font(.custom("OpenSans-Bold", size: 11))
+                                                                        .foregroundStyle(.purple)
+                                                                )
+                                                        }
+                                                        .frame(width: 26, height: 26)
+                                                        .clipShape(Circle())
+                                                    } else {
+                                                        Circle()
+                                                            .fill(Color.purple.opacity(0.15))
+                                                            .frame(width: 26, height: 26)
+                                                            .overlay(
+                                                                Text(user.displayName.prefix(1))
+                                                                    .font(.custom("OpenSans-Bold", size: 11))
+                                                                    .foregroundStyle(.purple)
+                                                            )
+                                                    }
+                                                }
+                                                VStack(alignment: .leading, spacing: 1) {
+                                                    Text(user.displayName)
+                                                        .font(.custom("OpenSans-SemiBold", size: 12))
+                                                        .foregroundStyle(.primary)
+                                                    Text("@\(user.username)")
+                                                        .font(.custom("OpenSans-Regular", size: 11))
+                                                        .foregroundStyle(.secondary)
+                                                }
+                                            }
+                                            .padding(.horizontal, 10)
+                                            .padding(.vertical, 6)
+                                            .background(RoundedRectangle(cornerRadius: 8).fill(Color(.systemGray6)))
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                                .padding(.vertical, 2)
+                            }
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+                        }
+
                         // Tone guidance feedback (if present)
                         if let feedback = toneGuidanceService?.currentFeedback {
                             ToneFeedbackView(feedback: feedback) {
@@ -634,11 +817,116 @@ struct CommentsView: View {
                                 if let suggestion = feedback.suggestion {
                                     commentText = suggestion
                                     toneGuidanceService?.clearFeedback()
+                                    bereanSuggestion = nil
                                 }
                             }
                             .transition(.move(edge: .top).combined(with: .opacity))
                         }
                         
+                        // Berean AI rewrite suggestion banner
+                        if let suggestion = bereanSuggestion {
+                            VStack(alignment: .leading, spacing: 8) {
+                                // Header row
+                                HStack(spacing: 6) {
+                                    Image("amen-logo")
+                                        .resizable()
+                                        .scaledToFit()
+                                        .frame(width: 14, height: 14)
+                                    Text("Berean suggested a rewrite")
+                                        .font(.custom("OpenSans-SemiBold", size: 12))
+                                        .foregroundStyle(.purple)
+                                    Spacer()
+                                    Button {
+                                        withAnimation(.easeOut(duration: 0.2)) {
+                                            bereanSuggestion = nil
+                                        }
+                                    } label: {
+                                        Image(systemName: "xmark")
+                                            .font(.system(size: 11, weight: .medium))
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                                // Divider between header and suggestion text
+                                Rectangle()
+                                    .fill(Color.purple.opacity(0.2))
+                                    .frame(height: 1)
+                                // Suggested text — always rendered as plain text
+                                Text(suggestion)
+                                    .font(.custom("OpenSans-Regular", size: 13))
+                                    .foregroundStyle(.primary)
+                                    .lineLimit(5)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                // Action buttons
+                                HStack(spacing: 8) {
+                                    Button {
+                                        commentText = suggestion
+                                        withAnimation(.easeOut(duration: 0.2)) {
+                                            bereanSuggestion = nil
+                                        }
+                                    } label: {
+                                        Text("Use this")
+                                            .font(.custom("OpenSans-SemiBold", size: 12))
+                                            .foregroundStyle(.white)
+                                            .padding(.horizontal, 14)
+                                            .padding(.vertical, 6)
+                                            .background(Color.purple, in: Capsule())
+                                    }
+                                    Button {
+                                        withAnimation(.easeOut(duration: 0.2)) {
+                                            bereanSuggestion = nil
+                                        }
+                                    } label: {
+                                        Text("Keep mine")
+                                            .font(.custom("OpenSans-Regular", size: 12))
+                                            .foregroundStyle(.secondary)
+                                            .padding(.horizontal, 14)
+                                            .padding(.vertical, 6)
+                                            .background(Color(uiColor: .systemFill), in: Capsule())
+                                    }
+                                }
+                            }
+                            .padding(12)
+                            .background(Color.purple.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color.purple.opacity(0.18), lineWidth: 1)
+                            )
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                        }
+                        
+                        // Slow mode cooldown indicator
+                        if cooldownRemaining > 0 {
+                            HStack(spacing: 6) {
+                                Image(systemName: "timer")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundStyle(.orange)
+                                Text("Comment in \(Int(cooldownRemaining))s")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundStyle(.orange)
+                                Spacer()
+                            }
+                            .padding(.horizontal, 4)
+                            .padding(.bottom, 2)
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+                        }
+
+                        // Rate limit banner — shown proactively if daily limit is already hit
+                        if let limitMsg = rateLimitMessage {
+                            HStack(spacing: 6) {
+                                Image(systemName: "clock.badge.xmark")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundStyle(.red.opacity(0.8))
+                                Text(limitMsg)
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundStyle(.red.opacity(0.85))
+                                    .fixedSize(horizontal: false, vertical: true)
+                                Spacer()
+                            }
+                            .padding(.horizontal, 4)
+                            .padding(.bottom, 2)
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+                        }
+
                         // Action buttons row
                         HStack(spacing: 12) {
                             // Emoji button
@@ -665,6 +953,52 @@ struct CommentsView: View {
                                     .frame(width: 24, height: 24)
                             }
                             
+                            // Berean AI rewrite assist button — icon-only, black/white
+                            if !commentText.isEmpty {
+                                Button {
+                                    requestBereanRewrite()
+                                } label: {
+                                    ZStack {
+                                        // Match other Berean AI buttons: ultraThinMaterial so
+                                        // .multiply blendMode reveals the dark logo correctly in
+                                        // both light and dark mode.
+                                        Circle()
+                                            .fill(.ultraThinMaterial)
+                                            .frame(width: 28, height: 28)
+                                            .overlay(
+                                                Circle()
+                                                    .stroke(Color.purple.opacity(0.25), lineWidth: 1)
+                                            )
+                                        if isLoadingBereanSuggestion {
+                                            // Staggered dots while AI thinks
+                                            HStack(spacing: 2) {
+                                                ForEach(0..<3) { i in
+                                                    Circle()
+                                                        .fill(Color.purple)
+                                                        .frame(width: 3, height: 3)
+                                                        .opacity(isLoadingBereanSuggestion ? 1 : 0)
+                                                        .animation(
+                                                            .easeInOut(duration: 0.5)
+                                                                .repeatForever()
+                                                                .delay(Double(i) * 0.16),
+                                                            value: isLoadingBereanSuggestion
+                                                        )
+                                                }
+                                            }
+                                        } else {
+                                            Image("amen-logo")
+                                                .resizable()
+                                                .scaledToFit()
+                                                .frame(width: 16, height: 16)
+                                                .blendMode(.multiply)
+                                        }
+                                    }
+                                }
+                                .disabled(isLoadingBereanSuggestion)
+                                .accessibilityLabel("Berean tone assist")
+                                .transition(.scale.combined(with: .opacity))
+                            }
+                            
                             Spacer()
                             
                             // Glass Circular Send Button
@@ -673,7 +1007,7 @@ struct CommentsView: View {
                                 action: {
                                     submitComment()
                                 },
-                                isDisabled: commentText.isEmpty || isSubmittingComment
+                                isDisabled: commentText.isEmpty || isSubmittingComment || rateLimitMessage != nil
                             )
                         }
                     }
@@ -707,50 +1041,107 @@ struct CommentsView: View {
             .presentationDetents([.height(200)])
             .presentationDragIndicator(.visible)
         }
+        .sheet(isPresented: $showBerean) {
+            BereanAIAssistantView(initialQuery: bereanQuery.isEmpty ? nil : bereanQuery)
+        }
+        .sheet(isPresented: $showCommentGuidelines) {
+            CommunityGuidelinesPrompt {
+                showCommentGuidelines = false
+                UserDefaults.standard.set(true, forKey: "hasSeenCommentGuidelines")
+                if pendingCommentSubmit {
+                    pendingCommentSubmit = false
+                    submitComment()
+                }
+            }
+        }
+        .sheet(isPresented: $showPendingQueue) {
+            PendingCommentsQueueView(
+                pendingComments: pendingComments,
+                onApprove: { comment in approveComment(comment, approved: true) },
+                onReject: { comment in approveComment(comment, approved: false) }
+            )
+        }
         .alert("Photo Upload Coming Soon", isPresented: $showPhotoComingSoon) {
             Button("OK", role: .cancel) { }
         } message: {
             Text("Photo uploads in comments will be available in a future update with AI moderation.")
         }
         .task {
-            print("🎬 [VIEW] CommentsView appeared for post: \(postId)")
-            print("   Post firebaseId: \(post.firebaseId ?? "nil")")
-            print("   Post id: \(post.id)")
-            print("   Using firestoreId: \(post.firestoreId)")
-            
             // P0 FIX: Lazy load AI services in background (don't block sheet appearance)
             Task(priority: .userInitiated) {
                 await MainActor.run {
                     summarizationService = AIThreadSummarizationService.shared
                     toneGuidanceService = AIToneGuidanceService.shared
-                    print("✅ AI services loaded in background")
                 }
             }
-            
+
+            // Proactive rate limit check — show banner immediately if daily limit already hit,
+            // so the user knows they can't comment before typing anything.
+            Task(priority: .background) {
+                let check = await NewAccountRestrictionService.shared.canComment()
+                if !check.allowed, let reason = check.reason {
+                    await MainActor.run {
+                        rateLimitMessage = reason
+                    }
+                }
+            }
+
             // ✅ Start real-time listener FIRST so it picks up cached data immediately
             startRealtimeListener()
-            
+
+            // Build initial participants cache
+            rebuildTopParticipants()
+
             // Load current user data
             loadCurrentUserData()
-            
+
             // ✅ DON'T call loadComments() - the real-time listener will populate the UI
             // The listener fires immediately with cached data, then updates with server data
         }
         .onDisappear {
-            print("👋 [VIEW] CommentsView disappearing")
             stopRealtimeListener()
+            participantsRebuildTask?.cancel()
+            participantsRebuildTask = nil
+        }
+        // P1 PERF FIX: Rebuild top participants only when comments actually change.
+        // Debounced — rapid streaming inserts batch into one rebuild instead of N.
+        .onChange(of: commentsWithReplies.count) { oldCount, newCount in
+            participantsRebuildTask?.cancel()
+            participantsRebuildTask = Task {
+                try? await Task.sleep(nanoseconds: 250_000_000) // 0.25s debounce
+                guard !Task.isCancelled else { return }
+                await MainActor.run {
+                    rebuildTopParticipants()
+                    loadPendingComments()
+                }
+            }
+            // Refresh smart reply chips when a new comment arrives
+            if newCount > oldCount { refreshSmartReplies() }
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("commentsUpdated"))) { notification in
             // Check if this notification is for our post
             if let notificationPostId = notification.userInfo?["postId"] as? String,
                notificationPostId == self.postId {
-                print("🔔 [REALTIME] Received comments update notification")
-                // ✅ Add a small delay to ensure the service has finished updating commentReplies
-                Task {
-                    try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
-                    await updateCommentsFromService()
+                // Call synchronously on main actor — no Task.sleep, no async hop.
+                // The listener has already committed its writes to commentService before
+                // posting this notification, so no delay is needed. The delay + async Task
+                // was causing a second SwiftUI layout pass over an already-updating LazyVStack,
+                // corrupting its internal cell buffer (SIGABRT heap corruption).
+                Task { @MainActor in
+                    _ = await updateCommentsFromService()
                 }
             }
+        }
+        // Remove ghost optimistic comment if all server retries failed
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("commentFailed"))) { notification in
+            guard let tempId = notification.userInfo?["tempId"] as? String,
+                  let notificationPostId = notification.userInfo?["postId"] as? String,
+                  notificationPostId == self.postId else { return }
+            withAnimation(.easeOut(duration: 0.2)) {
+                commentsWithReplies.removeAll { $0.comment.id == tempId }
+            }
+            errorMessage = "Comment failed to send. Please try again."
+            showError = true
         }
         .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { _ in
             // ✅ Timestamp auto-refresh: Update current time every 60 seconds
@@ -771,55 +1162,222 @@ struct CommentsView: View {
         currentUserInitials = UserDefaults.standard.string(forKey: "currentUserInitials") ?? "U"
         currentUserProfileImageURL = UserDefaults.standard.string(forKey: "currentUserProfileImageURL")
         
-        print("👤 Loaded current user data for comments input")
-        print("   Initials: \(currentUserInitials)")
-        print("   Profile Image URL: \(currentUserProfileImageURL ?? "none")")
+        // Current user data loaded for comment input
     }
     
     // MARK: - Actions
     
     private func loadComments() async {
-        print("📥 [LOAD] Loading comments for post: \(postId)")
-        print("🔍 [DEBUG] Fetching from path: postInteractions/\(postId)/comments")
         isLoading = true
         do {
             commentsWithReplies = try await commentService.fetchCommentsWithReplies(for: postId)
-            print("✅ [LOAD] Loaded \(commentsWithReplies.count) comments successfully")
-            
-            // Debug: Log each comment ID to verify they exist
-            for comment in commentsWithReplies {
-                print("   📝 Comment ID: \(comment.comment.id ?? "nil") - Content: \(comment.comment.content)")
-            }
         } catch {
-            print("❌ [LOAD] Error loading comments: \(error)")
             errorMessage = error.localizedDescription
             showError = true
         }
         isLoading = false
+        refreshSmartReplies()
     }
     
-    private func submitComment() {
-        guard !commentText.isEmpty else {
-            print("⚠️ [COMMENT] Submit blocked - empty text")
-            return
+    // MARK: - @Mention helpers
+
+    /// Detects if the user is typing @<query> and triggers a debounced user search.
+    // MARK: - Smart Reply Chips
+
+    private func refreshSmartReplies() {
+        guard !isLoadingSmartReplies, commentText.isEmpty else { return }
+        // Use the most recent top-level comment (not from current user) as context
+        let lastIncoming = commentsWithReplies.last(where: { $0.comment.authorId != (Auth.auth().currentUser?.uid ?? "") })
+        guard let lastComment = lastIncoming?.comment, !lastComment.content.isEmpty else {
+            smartReplySuggestions = []; return
         }
+        isLoadingSmartReplies = true
+        Task {
+            let request = SmartReplySuggestionRequest(
+                mode: .smartReply,
+                contextExcerpt: String(lastComment.content.prefix(200)),
+                actorDisplayName: nil,
+                actorIsMinor: false
+            )
+            let result = await SmartReplySuggestionService.shared.generate(request: request)
+            await MainActor.run {
+                var chips: [String] = []
+                for s in [result.suggestion1, result.suggestion2, result.suggestion3] {
+                    if !s.isEmpty, !chips.contains(s) { chips.append(s) }
+                }
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                    smartReplySuggestions = chips
+                }
+                isLoadingSmartReplies = false
+            }
+        }
+    }
+
+    // MARK: - Berean AI Rewrite
+    
+    private func requestBereanRewrite() {
+        guard !commentText.isEmpty, !isLoadingBereanSuggestion else { return }
+        isLoadingBereanSuggestion = true
+        let draft = commentText
+        let context = "Post: \(post.content.prefix(200))"
+        let userId = Auth.auth().currentUser?.uid ?? ""
+        Task {
+            do {
+                let suggestion = try await BereanOrchestrator.shared.getCommentRewriteSuggestion(
+                    draft: draft,
+                    context: context,
+                    userId: userId
+                )
+                await MainActor.run {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                        bereanSuggestion = suggestion
+                        isLoadingBereanSuggestion = false
+                    }
+                    let haptic = UIImpactFeedbackGenerator(style: .soft)
+                    haptic.impactOccurred()
+                }
+            } catch {
+                print("⚠️ [Berean] Comment rewrite unavailable: \(error)")
+                await MainActor.run {
+                    isLoadingBereanSuggestion = false
+                }
+            }
+        }
+    }
+    
+    private func handleMentionDetection(in text: String) {
+        // Find the word being typed that starts with @
+        let words = text.components(separatedBy: .whitespaces)
+        if let lastWord = words.last, lastWord.hasPrefix("@"), lastWord.count > 1 {
+            let query = String(lastWord.dropFirst())
+            mentionDebounceTask?.cancel()
+            mentionDebounceTask = nil
+            mentionDebounceTask = Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 200_000_000) // 200ms debounce
+                guard !Task.isCancelled else { return }
+                do {
+                    let results = try await AlgoliaSearchService.shared.searchUsers(query: query)
+                    withAnimation(.easeOut(duration: 0.15)) {
+                        mentionResults = Array(results.prefix(5))
+                        showMentionPicker = !mentionResults.isEmpty
+                    }
+                } catch {
+                    // Silent fail — mention search is best-effort
+                }
+            }
+        } else {
+            mentionDebounceTask?.cancel()
+            mentionDebounceTask = nil
+            if showMentionPicker {
+                withAnimation(.easeOut(duration: 0.15)) {
+                    showMentionPicker = false
+                    mentionResults = []
+                }
+            }
+        }
+    }
+
+    /// Replaces the current @<partial> token with the selected user's @username.
+    private func insertCommentMention(_ user: AlgoliaUser) {
+        if let lastAtIndex = commentText.lastIndex(of: "@") {
+            let before = commentText[..<lastAtIndex]
+            commentText = before + "@\(user.username) "
+        }
+        withAnimation(.easeOut(duration: 0.15)) {
+            showMentionPicker = false
+            mentionResults = []
+        }
+        HapticManager.impact(style: .light)
+    }
+
+    private func submitComment() {
+        guard !commentText.isEmpty else { return }
         
         // P0-1 FIX: Prevent duplicate submissions
-        guard !isSubmittingComment else {
-            print("⚠️ [P0-1] Submit blocked - already submitting")
+        guard !isSubmittingComment else { return }
+
+        // Community guidelines check — show once on first comment
+        if !UserDefaults.standard.bool(forKey: "hasSeenCommentGuidelines") {
+            pendingCommentSubmit = true
+            showCommentGuidelines = true
             return
         }
-        
+
+        // Slow mode: check per-post cooldown (if creator enabled it)
+        let slowModeCooldown: TimeInterval = UserDefaults.standard.double(forKey: "commentSlowModeSeconds_\(postId)")
+        if slowModeCooldown > 0 {
+            let userId = FirebaseManager.shared.currentUser?.uid ?? ""
+            let remaining = InteractionThrottleService.shared.commentCooldownRemaining(
+                userId: userId, postId: postId, cooldownSeconds: slowModeCooldown
+            )
+            if remaining > 0 {
+                // Start visual countdown timer
+                startCooldownTimer(remaining: remaining)
+                errorMessage = "Please wait \(Int(remaining)) more second\(Int(remaining) == 1 ? "" : "s") before commenting."
+                showError = true
+                return
+            }
+        }
+
         let text = commentText
-        
-        print("📝 [COMMENT] Starting submission process")
-        print("   Post ID: \(postId)")
-        print("   Content: \(text)")
-        print("   Current comments count: \(commentsWithReplies.count)")
         
         isSubmittingComment = true
         
         Task {
+            // ── P0 Block check: reject comments across a block relationship ─
+            // Run both directions concurrently before any content analysis.
+            let postAuthorId = post.authorId
+            if !postAuthorId.isEmpty {
+                async let currentUserBlockedAuthor = BlockService.shared.isBlocked(userId: postAuthorId)
+                async let authorBlockedCurrentUser  = BlockService.shared.isBlockedBy(userId: postAuthorId)
+                let (blockedAuthor, blockedByAuthor) = await (currentUserBlockedAuthor, authorBlockedCurrentUser)
+                if blockedAuthor || blockedByAuthor {
+                    await MainActor.run {
+                        // Silent discard — don't reveal to commenter which direction the block is in
+                        isSubmittingComment = false
+                        commentText = text // restore so UI isn't jarring
+                    }
+                    return
+                }
+
+                // ── Privacy gate: enforce private-account comment restrictions ─
+                let visibilityString: String
+                switch post.visibility {
+                case .everyone: visibilityString = "everyone"
+                case .followers: visibilityString = "followers"
+                case .community: visibilityString = "everyone" // community posts allow comments
+                }
+                let canPost = await PrivacyAccessControl.shared.canComment(
+                    onPostBy: postAuthorId,
+                    postVisibility: visibilityString,
+                    isAuthorPrivate: false // Firestore rules enforce server-side; this is client-side best effort
+                )
+                if !canPost {
+                    await MainActor.run {
+                        errorMessage = "You must follow this person to comment on their posts."
+                        showError = true
+                        isSubmittingComment = false
+                        commentText = text
+                    }
+                    return
+                }
+                // ─────────────────────────────────────────────────────────────
+            }
+            // ───────────────────────────────────────────────────────────────
+
+            // ── Tier 0: instant client-side hard block ─────────────────
+            let localGuard = LocalContentGuard.check(text)
+            if localGuard.isBlocked {
+                await MainActor.run {
+                    errorMessage = localGuard.userMessage
+                    showError = true
+                    isSubmittingComment = false
+                    commentText = text // restore so user can edit
+                }
+                return
+            }
+            // ─────────────────────────────────────────────────────────
+
             // P0 FIX: Validate tone before submitting only if service loaded
             if let feedback = await toneGuidanceService?.analyzeTextImmediate(text),
                feedback.type == .flagged {
@@ -828,7 +1386,25 @@ struct CommentsView: View {
                     errorMessage = feedback.message
                     showError = true
                     isSubmittingComment = false  // ✅ Re-enable button on error
-                    print("🚫 [TONE] Comment blocked: \(feedback.message)")
+                }
+                return
+            }
+            
+            // P0-2 FIX: Run client-side safety guardrails before writing to Firestore.
+            // This catches PII, hate, harassment, threats, self-harm patterns instantly
+            // without a network round-trip. The full server-side moderation pipeline
+            // runs asynchronously after the write (in the Cloud Function trigger).
+            let guardrailResult = await ThinkFirstGuardrailsService.shared.checkContent(
+                text, context: .comment
+            )
+            if guardrailResult.action == .block {
+                let reason = guardrailResult.violations.first?.message
+                    ?? "This content violates community guidelines."
+                await MainActor.run {
+                    errorMessage = reason
+                    showError = true
+                    isSubmittingComment = false
+                    commentText = text // restore so user can edit
                 }
                 return
             }
@@ -837,16 +1413,14 @@ struct CommentsView: View {
             await MainActor.run {
                 commentText = ""
                 toneGuidanceService?.clearFeedback()
-                // ✅ PERFORMANCE FIX: Re-enable submit button immediately
-                // This allows users to type the next comment while moderation runs in background
-                isSubmittingComment = false
+                bereanSuggestion = nil  // Dismiss any pending Berean suggestion
+                // Keep isSubmittingComment = true until the write completes to prevent duplicates
             }
             
             do {
                 var newCommentId: String?
                 
                 if let replyingTo = replyingTo {
-                    print("💬 [COMMENT] Submitting as REPLY to comment: \(replyingTo.id ?? "nil")")
                     // Validate parent comment ID
                     guard let parentCommentId = replyingTo.id, !parentCommentId.isEmpty else {
                         await MainActor.run {
@@ -869,20 +1443,13 @@ struct CommentsView: View {
                     
                     // ✅ DON'T add reply to local UI - let the real-time listener handle it
                     await MainActor.run {
-                        print("🎨 [REPLY] Reply created, waiting for real-time listener to update UI")
-                        print("   Reply ID: \(newComment.id ?? "nil")")
-                        print("   Parent ID: \(parentCommentId)")
-
                         withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
                             // Expand parent thread and clear reply state
                             expandedThreads.insert(parentCommentId)
                             self.replyingTo = nil
-                            print("   📂 Thread will be expanded when listener adds reply")
                         }
                     }
                 } else {
-                    print("💬 [COMMENT] Submitting as TOP-LEVEL comment")
-                    
                     // Submit comment
                     // ✅ CRITICAL FIX: Pass Post object to avoid Firestore lookup with short ID
                     // We pass postId (short ID) for Realtime DB operations, but also pass
@@ -893,22 +1460,19 @@ struct CommentsView: View {
                         post: self.post  // ✅ Pass the Post object to bypass Firestore lookup
                     )
                     newCommentId = newComment.id
-                    
-                    print("✅ [COMMENT] Comment created successfully!")
-                    print("   Comment ID: \(newComment.id ?? "nil")")
-                    print("   Author: \(newComment.authorName)")
-                    print("   Content: \(newComment.content)")
+                    // Record for slow mode cooldown tracking and start visual timer
+                    let currentUID = FirebaseManager.shared.currentUser?.uid ?? ""
+                    InteractionThrottleService.shared.recordCommentPosted(userId: currentUID, postId: postId)
+                    // Start visible countdown if slow mode is active
+                    let slowModeCooldown2: TimeInterval = UserDefaults.standard.double(forKey: "commentSlowModeSeconds_\(postId)")
+                    if slowModeCooldown2 > 0 {
+                        await MainActor.run { startCooldownTimer(remaining: slowModeCooldown2) }
+                    }
                     
                     // ✅ DON'T add to local UI - let the real-time listener handle it
-                    // The listener will pick up the new comment immediately from Firebase
                     await MainActor.run {
-                        print("🎨 [COMMENT] Comment created, waiting for real-time listener to update UI")
-                        print("   Comment ID: \(newComment.id ?? "nil")")
-                        
-                        // Expand thread by default for new top-level comments
                         if let id = newCommentId {
                             expandedThreads.insert(id)
-                            print("   📂 Thread will be expanded when listener adds comment: \(id)")
                         }
                     }
                 }
@@ -916,17 +1480,15 @@ struct CommentsView: View {
                 // Track new comment for highlight animation
                 if let id = newCommentId {
                     await MainActor.run {
-                        withAnimation(.spring(response: 0.5, dampingFraction: 0.6)) {
+                        _ = withAnimation(.spring(response: 0.5, dampingFraction: 0.6)) {
                             newCommentIds.insert(id)
                         }
                         
                         // Remove highlight after 2 seconds
-                        Task {
+                        Task { @MainActor in
                             try? await Task.sleep(nanoseconds: 2_000_000_000)
-                            await MainActor.run {
-                                withAnimation {
-                                    newCommentIds.remove(id)
-                                }
+                            _ = withAnimation {
+                                newCommentIds.remove(id)
                             }
                         }
                         
@@ -943,27 +1505,25 @@ struct CommentsView: View {
                 await MainActor.run {
                     let haptic = UINotificationFeedbackGenerator()
                     haptic.notificationOccurred(.success)
+                    isSubmittingComment = false  // Re-enable after write completes
                 }
             } catch {
-                print("❌ [COMMENT] Error submitting comment: \(error)")
-                print("   Error description: \(error.localizedDescription)")
-                
                 await MainActor.run {
-                    errorMessage = error.localizedDescription
-                    showError = true
-                    
-                    // Restore text on error
-                    commentText = text
-                    
-                    // ✅ Re-enable submit button on error
+                    let nsError = error as NSError
+                    if nsError.domain == "CommentService" && nsError.code == -11 {
+                        // Rate limit hit — show inline banner and disable send button
+                        rateLimitMessage = nsError.localizedDescription
+                    } else {
+                        errorMessage = error.localizedDescription
+                        showError = true
+                        commentText = text // Restore text on error
+                    }
                     isSubmittingComment = false
-                    
-                    print("   ⚠️ Text restored to input field")
                 }
             }
         }
     }
-    
+
     private func deleteComment(_ comment: Comment) {
         Task {
             guard let commentId = comment.id, !commentId.isEmpty else {
@@ -1143,7 +1703,6 @@ struct CommentsView: View {
     private func startRealtimeListener() {
         guard !isListening else { return }
         
-        print("🔊 CommentsView: Starting real-time listener for post: \(postId)")
         commentService.startListening(to: postId)
         isListening = true
         
@@ -1151,7 +1710,7 @@ struct CommentsView: View {
         Task {
             // Small delay to let listener initialize
             try? await Task.sleep(nanoseconds: 200_000_000) // 0.2s
-            await updateCommentsFromService()
+            _ = await updateCommentsFromService()
             
             // Turn off loading state
             await MainActor.run {
@@ -1166,15 +1725,13 @@ struct CommentsView: View {
                 // Very slow polling (30 seconds) - real-time listener + notifications handle instant updates
                 try? await Task.sleep(nanoseconds: 30_000_000_000) // 30s
                 
-                await updateCommentsFromService()
+                _ = await updateCommentsFromService()
             }
         }
     }
     
     private func stopRealtimeListener() {
         guard isListening else { return }
-        
-        print("🔇 CommentsView: Stopping real-time listener")
         
         // Cancel polling task
         pollingTask?.cancel()
@@ -1189,9 +1746,6 @@ struct CommentsView: View {
     private func updateCommentsFromService() async -> Bool {
         // Get updated comments from service cache (only top-level comments)
         let allComments = commentService.comments[postId] ?? []
-        
-        print("📊 [UPDATE] Syncing from service for post: \(postId)")
-        print("   Service has \(allComments.count) comments cached")
         
         // Build commentsWithReplies from service data
         var newCommentsWithReplies: [CommentWithReplies] = []
@@ -1211,18 +1765,16 @@ struct CommentsView: View {
             newCommentsWithReplies.append(commentWithReplies)
         }
         
-        print("   Built \(newCommentsWithReplies.count) comments with replies")
-        
         // ✅ CRITICAL FIX: Only update if there are actual changes
         // This prevents duplicate IDs and unnecessary re-renders
         if hasCommentsChanged(newCommentsWithReplies) {
-            print("   ✅ Changes detected - updating UI")
-            withAnimation(.easeOut(duration: 0.25)) {
-                commentsWithReplies = newCommentsWithReplies
-            }
+            // Plain assignment — no withAnimation wrapper here.
+            // SwiftUI computes its own diff and applies transitions declared on the
+            // ForEach rows (e.g. .transition(.asymmetric(...))). Wrapping a full-array
+            // replacement in withAnimation from inside an async Task caused reentrancy
+            // into LazyVStack's internal cell recycling buffer → SIGABRT heap corruption.
+            commentsWithReplies = newCommentsWithReplies
             return true
-        } else {
-            print("   ⏭️ No changes - UI already up to date")
         }
         
         return false
@@ -1277,14 +1829,45 @@ struct CommentsView: View {
     // MARK: - Timestamp Auto-Refresh Helper
     
     /// ✅ Computes relative time string that updates when currentTime changes
-    /// This creates a dependency on currentTime, so when the timer updates currentTime,
-    /// this function re-evaluates and the UI shows updated timestamps
     private func timeAgoString(for date: Date) -> String {
-        // Include currentTime in computation to create SwiftUI dependency
         let _ = currentTime
-        
-        // Use the standard timeAgoDisplay extension
         return date.timeAgoDisplay()
+    }
+
+    // MARK: - Cooldown Timer
+
+    private func startCooldownTimer(remaining: TimeInterval) {
+        cooldownEndDate = Date().addingTimeInterval(remaining)
+    }
+
+    // MARK: - Pending Comment Approval
+
+    private func loadPendingComments() {
+        let currentUserId = FirebaseManager.shared.currentUser?.uid ?? ""
+        guard currentUserId == post.authorId else { return }
+        let pending = commentsWithReplies
+            .map(\.comment)
+            .filter { $0.approvalStatus == "pending" }
+        withAnimation { pendingComments = pending }
+    }
+
+    private func approveComment(_ comment: Comment, approved: Bool) {
+        guard let commentId = comment.id else { return }
+        let newStatus = approved ? "approved" : "rejected"
+        Task {
+            do {
+                try await Firestore.firestore()
+                    .collection("posts").document(post.firestoreId)
+                    .collection("comments").document(commentId)
+                    .updateData(["approvalStatus": newStatus])
+                await MainActor.run {
+                    pendingComments.removeAll { $0.id == commentId }
+                    ToastManager.shared.success(approved ? "Comment approved" : "Comment rejected")
+                }
+            } catch {
+                print("❌ [APPROVAL] Failed to update comment status: \(error)")
+            }
+        }
     }
 }
 
@@ -1303,12 +1886,22 @@ private struct PostCommentRow: View {
     var replyCount: Int = 0
     var currentTime: Date = Date() // ✅ For timestamp auto-refresh
     
+    @ObservedObject private var followService = FollowService.shared
+    
     @State private var showOptions = false
     @State private var hasAmened = false
     @State private var localAmenCount: Int = 0
+    @State private var didJustFollow = false  // Optimistic follow state
     
     private var isOwnComment: Bool {
         comment.authorId == FirebaseManager.shared.currentUser?.uid
+    }
+    
+    /// True when the current user should see the follow chip for this commenter.
+    private var showFollowChip: Bool {
+        guard !isOwnComment else { return false }
+        guard !didJustFollow else { return false }
+        return !followService.following.contains(comment.authorId)
     }
     
     var body: some View {
@@ -1371,6 +1964,35 @@ private struct PostCommentRow: View {
                         .font(.custom("OpenSans-Regular", size: isReply ? 11 : 12))
                         .foregroundStyle(.black.opacity(0.5))
 
+                    // Subtle follow chip — only shown when not yet following this commenter
+                    if showFollowChip {
+                        Button {
+                            didJustFollow = true
+                            let haptic = UIImpactFeedbackGenerator(style: .light)
+                            haptic.impactOccurred()
+                            Task {
+                                try? await FollowService.shared.followUser(userId: comment.authorId)
+                            }
+                        } label: {
+                            HStack(spacing: 2) {
+                                Image(systemName: "plus")
+                                    .font(.system(size: isReply ? 8 : 9, weight: .semibold))
+                                Text("Follow")
+                                    .font(.custom("OpenSans-SemiBold", size: isReply ? 10 : 11))
+                            }
+                            .foregroundStyle(.black.opacity(0.55))
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 2)
+                            .background(
+                                Capsule()
+                                    .strokeBorder(Color.black.opacity(0.2), lineWidth: 1)
+                            )
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        .transition(.opacity.combined(with: .scale(scale: 0.85)))
+                        .animation(.spring(response: 0.25, dampingFraction: 0.7), value: didJustFollow)
+                    }
+
                     Text("•")
                         .font(.custom("OpenSans-Regular", size: isReply ? 11 : 12))
                         .foregroundStyle(.black.opacity(0.3))
@@ -1381,9 +2003,15 @@ private struct PostCommentRow: View {
                         .foregroundStyle(.black.opacity(0.5))
                 }
                 
-                // Content with link detection
-                LinkedText(comment.content, fontSize: isReply ? 13 : 14)
-                    .fixedSize(horizontal: false, vertical: true)
+                // Content with @mention highlight + link detection
+                MentionTextView(
+                    text: comment.content,
+                    autoDetectMentions: true,
+                    font: .custom("OpenSans-Regular", size: isReply ? 13 : 14),
+                    fontSize: isReply ? 13 : 14,
+                    lineSpacing: 3
+                )
+                .fixedSize(horizontal: false, vertical: true)
                 
                 // Actions
                 HStack(spacing: 20) {
@@ -1476,12 +2104,177 @@ private struct PostCommentRow: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.horizontal, isReply ? 12 : 16)
+        .contextMenu {
+            // Copy comment text
+            Button {
+                UIPasteboard.general.string = comment.content
+                ToastManager.shared.success("Comment copied")
+            } label: {
+                Label("Copy Text", systemImage: "doc.on.doc")
+            }
+
+            // Reply (top-level comments only)
+            if !isReply {
+                Button {
+                    onReply()
+                } label: {
+                    Label("Reply", systemImage: "arrowshape.turn.up.left")
+                }
+            }
+
+            Divider()
+
+            if isOwnComment {
+                // Delete own comment
+                Button(role: .destructive) {
+                    onDelete()
+                } label: {
+                    Label("Delete Comment", systemImage: "trash")
+                }
+            } else {
+                // Restrict/Unrestrict
+                Button {
+                    Task {
+                        await RestrictService.shared.loadIfNeeded()
+                        await RestrictService.shared.toggleRestrict(comment.authorId)
+                        let isNowRestricted = RestrictService.shared.isRestricted(comment.authorId)
+                        ToastManager.shared.success(isNowRestricted ? "User restricted" : "User unrestricted")
+                    }
+                } label: {
+                    let isRestricted = RestrictService.shared.isRestricted(comment.authorId)
+                    Label(isRestricted ? "Unrestrict" : "Restrict", systemImage: isRestricted ? "checkmark.circle" : "hand.raised")
+                }
+
+                // Block comment author
+                Button(role: .destructive) {
+                    Task {
+                        do {
+                            try await BlockService.shared.blockUser(userId: comment.authorId)
+                            ToastManager.shared.success("User blocked")
+                        } catch {
+                            print("❌ Failed to block user: \(error)")
+                        }
+                    }
+                } label: {
+                    Label("Block User", systemImage: "hand.raised.slash")
+                }
+
+                // Mute comment author
+                Button {
+                    Task {
+                        do {
+                            try await ModerationService.shared.muteUser(userId: comment.authorId)
+                            ToastManager.shared.success("User muted")
+                        } catch {
+                            print("❌ Failed to mute user: \(error)")
+                        }
+                    }
+                } label: {
+                    Label("Mute User", systemImage: "speaker.slash")
+                }
+
+                // Report another user's comment
+                Button(role: .destructive) {
+                    guard let commentId = comment.id else { return }
+                    Task {
+                        do {
+                            try await ModerationService.shared.reportComment(
+                                commentId: commentId,
+                                commentAuthorId: comment.authorId,
+                                postId: comment.postId,
+                                reason: .inappropriateContent,
+                                additionalDetails: nil
+                            )
+                            ToastManager.shared.success("Report submitted")
+                        } catch {
+                            print("❌ Failed to report comment: \(error)")
+                        }
+                    }
+                } label: {
+                    Label("Report Comment", systemImage: "exclamationmark.triangle")
+                }
+            }
+        }
     }
-    
-    // Helper function to compute time ago string with currentTime dependency
+
+    // MARK: - Timestamp Auto-Refresh Helper
+
     private func timeAgoString(for date: Date, currentTime: Date) -> String {
-        let _ = currentTime // Create dependency on currentTime
+        let _ = currentTime
         return date.timeAgoDisplay()
+    }
+}
+
+// MARK: - Pending Comments Queue View
+
+struct PendingCommentsQueueView: View {
+    let pendingComments: [Comment]
+    let onApprove: (Comment) -> Void
+    let onReject: (Comment) -> Void
+
+    @Environment(\.dismiss) var dismiss
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if pendingComments.isEmpty {
+                    VStack(spacing: 16) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 52))
+                            .foregroundStyle(.green)
+                        Text("All caught up!")
+                            .font(.system(size: 18, weight: .semibold))
+                        Text("No comments waiting for review.")
+                            .font(.system(size: 14))
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    List(pendingComments) { comment in
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text(comment.authorName)
+                                    .font(.system(size: 14, weight: .semibold))
+                                Spacer()
+                                Text(comment.createdAt.timeAgoDisplay())
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(.secondary)
+                            }
+                            Text(comment.content)
+                                .font(.system(size: 14))
+                                .foregroundStyle(.primary)
+                                .lineLimit(4)
+                            HStack(spacing: 12) {
+                                Button {
+                                    onApprove(comment)
+                                } label: {
+                                    Label("Approve", systemImage: "checkmark.circle.fill")
+                                        .font(.system(size: 13, weight: .semibold))
+                                        .foregroundStyle(.green)
+                                }
+                                .buttonStyle(.plain)
+                                Button {
+                                    onReject(comment)
+                                } label: {
+                                    Label("Reject", systemImage: "xmark.circle.fill")
+                                        .font(.system(size: 13, weight: .semibold))
+                                        .foregroundStyle(.red)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
+            }
+            .navigationTitle("Pending Comments")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
     }
 }
 
@@ -1522,8 +2315,9 @@ struct LinkedText: View {
         
         for match in matches {
             guard let range = Range(match.range, in: text) else { continue }
-            let attributedRange = AttributedString.Index(range.lowerBound, within: attributedString)!
-                ..< AttributedString.Index(range.upperBound, within: attributedString)!
+            guard let lowerIndex = AttributedString.Index(range.lowerBound, within: attributedString),
+                  let upperIndex = AttributedString.Index(range.upperBound, within: attributedString) else { continue }
+            let attributedRange = lowerIndex ..< upperIndex
             
             // Make link blue and underlined
             attributedString[attributedRange].foregroundColor = .blue

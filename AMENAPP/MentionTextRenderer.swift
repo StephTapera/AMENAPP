@@ -98,53 +98,32 @@ extension Text {
         guard let mentions = mentions, !mentions.isEmpty else {
             return Text(text).font(font).foregroundStyle(textColor)
         }
-        
-        // Detect all @mentions in text
+
+        // Build an AttributedString so we avoid deprecated Text + Text concatenation
+        var attributed = AttributedString(text)
+
         let pattern = "@(\\w+)"
         guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else {
             return Text(text).font(font).foregroundStyle(textColor)
         }
-        
+
         let nsString = text as NSString
         let matches = regex.matches(in: text, options: [], range: NSRange(location: 0, length: nsString.length))
-        
-        var result = Text("")
-        var lastIndex = 0
-        
-        for match in matches {
-            let matchRange = match.range
+
+        for match in matches.reversed() {
             let username = nsString.substring(with: match.range(at: 1))
-            
-            // Add text before mention
-            if matchRange.location > lastIndex {
-                let beforeRange = NSRange(location: lastIndex, length: matchRange.location - lastIndex)
-                let beforeText = nsString.substring(with: beforeRange)
-                result = result + Text(beforeText).font(font).foregroundStyle(textColor)
-            }
-            
-            // Check if this username is in our mentions list
+            guard let range = Range(match.range, in: text),
+                  let attrStart = AttributedString.Index(range.lowerBound, within: attributed),
+                  let attrEnd   = AttributedString.Index(range.upperBound, within: attributed) else { continue }
+
             if mentions.contains(where: { $0.username == username }) {
-                let mentionText = nsString.substring(with: matchRange)
-                result = result + Text(mentionText)
-                    .font(font)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(mentionColor)
-            } else {
-                let mentionText = nsString.substring(with: matchRange)
-                result = result + Text(mentionText).font(font).foregroundStyle(textColor)
+                attributed[attrStart..<attrEnd].foregroundColor = UIColor(mentionColor)
+                attributed[attrStart..<attrEnd].font = UIFont.systemFont(ofSize: UIFont.labelFontSize, weight: .semibold)
             }
-            
-            lastIndex = matchRange.location + matchRange.length
+            // Non-matching @words keep the default textColor applied below
         }
-        
-        // Add remaining text
-        if lastIndex < nsString.length {
-            let remainingRange = NSRange(location: lastIndex, length: nsString.length - lastIndex)
-            let remainingText = nsString.substring(with: remainingRange)
-            result = result + Text(remainingText).font(font).foregroundStyle(textColor)
-        }
-        
-        return result
+
+        return Text(attributed).font(font).foregroundStyle(textColor)
     }
 }
 

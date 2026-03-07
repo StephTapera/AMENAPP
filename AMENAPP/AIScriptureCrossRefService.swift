@@ -9,6 +9,7 @@
 
 import Foundation
 import FirebaseFirestore
+import FirebaseAuth
 
 // MARK: - Scripture Reference Model
 
@@ -48,11 +49,17 @@ class AIScriptureCrossRefService {
         }
         
         // Send to Cloud Function
+        guard let userId = Auth.auth().currentUser?.uid else {
+            print("⚠️ [AI SCRIPTURE] No authenticated user — skipping")
+            return []
+        }
+
         let requestData: [String: Any] = [
             "verse": verse,
+            "userId": userId,
             "timestamp": FieldValue.serverTimestamp()
         ]
-        
+
         do {
             print("📤 [AI SCRIPTURE] Sending request to Cloud Function...")
             let result = try await db.collection("scriptureReferenceRequests")

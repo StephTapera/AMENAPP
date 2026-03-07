@@ -7,6 +7,7 @@
 
 import SwiftUI
 import FirebaseFirestore
+import FirebaseAuth
 import Combine
 
 // MARK: - Data Models
@@ -90,6 +91,11 @@ struct UserProfile {
     var followersCount: Int
     var followingCount: Int
     var isPrivateAccount: Bool = false  // Privacy indicator
+    // Follower/following visibility settings (from the viewed user's Firestore doc)
+    var showFollowerCount: Bool = true
+    var showFollowingCount: Bool = true
+    var showFollowersList: Bool = true
+    var showFollowingList: Bool = true
 }
 
 struct UserSocialLink: Identifiable {
@@ -215,6 +221,7 @@ struct UserProfileView: View {
     @State private var isMuted = false  // Privacy: Mute status
     @State private var isHidden = false  // Privacy: Hidden from this user
     @State private var followRequestPending = false  // P0-5: Track pending follow request for private accounts
+    @State private var viewerRelationship: ViewerRelationship = .notFollowing  // Privacy: canonical access relationship
     @State private var profileData: UserProfile?
     @State private var posts: [ProfilePost] = []
     @State private var reposts: [UserProfileRepost] = []
@@ -237,7 +244,7 @@ struct UserProfileView: View {
     @State private var inlineErrorMessage = ""
     @State private var showCompactHeader = false  // Show compact header when scrolled
     @StateObject private var scrollManager = SmartScrollManager()
-    @StateObject private var pinnedPostService = PinnedPostService.shared
+    @ObservedObject private var pinnedPostService = PinnedPostService.shared
     @Namespace private var tabNamespace
     
     // Additional production-ready states
@@ -638,8 +645,8 @@ struct UserProfileView: View {
                 
                 // Parse posts from Firestore
                 let updatedPosts = documents.compactMap { doc -> ProfilePost? in
-                    guard let data = doc.data() as? [String: Any],
-                          let content = data["content"] as? String,
+                    let data = doc.data()
+                    guard let content = data["content"] as? String,
                           let timestamp = data["createdAt"] as? Timestamp else {
                         return nil
                     }
@@ -664,18 +671,13 @@ struct UserProfileView: View {
                     )
                 }
                 
-                // Update posts array
-                self.posts = updatedPosts
-                
-                // Sort posts: pinned post first, then chronological
+                // Update posts array — must be on main thread
                 Task { @MainActor in
+                    self.posts = updatedPosts
                     await self.sortPostsWithPinnedFirst()
+                    self.buildUnifiedFeed()
+                    print("✅ Real-time: \(updatedPosts.count) posts loaded")
                 }
-                
-                // Rebuild unified feed
-                self.buildUnifiedFeed()
-                
-                print("✅ Real-time: \(updatedPosts.count) posts loaded")
                 }
         }
         
@@ -719,7 +721,7 @@ struct UserProfileView: View {
             self.reposts.insert(repost, at: 0)
             
             // Rebuild unified feed
-            self.buildUnifiedFeed()
+            Task { @MainActor in self.buildUnifiedFeed() }
         }
         
         print("✅ Real-time listeners set up successfully")
@@ -793,7 +795,7 @@ struct UserProfileView: View {
     private func loadProfileData() async {
         // P1-3: Check cache TTL (5 minutes)
         if let cachedAt = profileCachedAt,
-           let profile = profileData,
+           profileData != nil,
            Date().timeIntervalSince(cachedAt) < 300 { // 5 minutes
             print("✅ Using cached profile data (age: \(Int(Date().timeIntervalSince(cachedAt)))s)")
             return
@@ -874,6 +876,10 @@ struct UserProfileView: View {
             }
             
             let isPrivateAccount = data["isPrivateAccount"] as? Bool ?? false  // ✅ FIX: Actually load from Firestore
+            let showFollowerCount = data["showFollowerCount"] as? Bool ?? true
+            let showFollowingCount = data["showFollowingCount"] as? Bool ?? true
+            let showFollowersList = data["showFollowersList"] as? Bool ?? true
+            let showFollowingList = data["showFollowingList"] as? Bool ?? true
             
             print("📋 User data extracted:")
             print("   - displayName: \(displayName)")
@@ -902,25 +908,40 @@ struct UserProfileView: View {
                 socialLinks: [], // TODO: Add social links to UserModel if needed
                 followersCount: followersCount,
                 followingCount: followingCount,
-                isPrivateAccount: isPrivateAccount  // ✅ FIX: Include in UserProfile
+                isPrivateAccount: isPrivateAccount,
+                showFollowerCount: showFollowerCount,
+                showFollowingCount: showFollowingCount,
+                showFollowersList: showFollowersList,
+                showFollowingList: showFollowingList
             )
             
             // P1-3: Set cache timestamp
             profileCachedAt = Date()
             
             print("✅ Profile data converted successfully (cached at \(Date()))")
+
+            // Phase 2 fix: Show profile header immediately — don't wait for posts/reposts.
+            isLoading = false
             
-            // Fetch user's content in parallel
-            print("📥 Starting parallel fetch for posts, reposts, follow status, and privacy status...")
-            
+            // Fetch follow status and privacy status first so we can gate content
+            print("📥 Fetching follow status and privacy status before content...")
+
+            async let followStatusTask = checkFollowStatus()
+            async let privacyStatusTask = checkPrivacyStatus()
+            isFollowing = try await followStatusTask
+            await privacyStatusTask
+
+            // Load the canonical viewer relationship (used to gate private content)
+            viewerRelationship = await PrivacyAccessControl.shared.relationship(to: userId)
+
+            // Fetch user's content — posts are gated by privacy, reposts run in parallel
+            print("📥 Starting parallel fetch for posts and reposts...")
+
             async let postsTask = fetchUserPosts(page: 1)
             async let repostsTask = fetchUserReposts()
-            async let followStatusTask = checkFollowStatus()
-            async let privacyStatusTask = checkPrivacyStatus()  // ✅ FIX: Actually load privacy status
-            
+
             // Await all tasks
-            (posts, reposts, isFollowing) = try await (postsTask, repostsTask, followStatusTask)
-            await privacyStatusTask  // ✅ FIX: Privacy check doesn't return a value
+            (posts, reposts) = try await (postsTask, repostsTask)
             
             print("✅ Parallel fetch completed:")
             print("   - Posts: \(posts.count)")
@@ -989,7 +1010,16 @@ struct UserProfileView: View {
     
     private func fetchUserPosts(page: Int) async throws -> [ProfilePost] {
         print("📥 Fetching posts for user: \(userId) (page: \(page))")
-        
+
+        // Privacy gate: non-followers cannot see posts on private accounts
+        if let profile = profileData, profile.isPrivateAccount {
+            let rel = await PrivacyAccessControl.shared.relationship(to: userId)
+            guard rel.canViewPrivateContent else {
+                print("🔒 Privacy gate: viewer (\(rel)) cannot see posts for private account \(userId)")
+                return []
+            }
+        }
+
         // ✅ FIX: Use Firestore where posts are actually saved
         let postService = FirebasePostService.shared
         let userPosts = try await postService.fetchUserPosts(userId: userId)
@@ -1102,6 +1132,10 @@ struct UserProfileView: View {
         if !isFollowing, let profile = profileData, profile.isPrivateAccount {
             await checkFollowRequestStatus()
         }
+
+        // Refresh canonical relationship after follow status is known
+        let rel = await PrivacyAccessControl.shared.relationship(to: userId)
+        await MainActor.run { viewerRelationship = rel }
         
         return isFollowing
     }
@@ -1120,32 +1154,26 @@ struct UserProfileView: View {
     /// Check privacy status (mute, hide, block, blocked_by)
     @MainActor
     private func checkPrivacyStatus() async {
-        do {
-            let moderationService = ModerationService.shared
-            let blockService = BlockService.shared
-            
-            // Check if current user has blocked this user
-            isBlocked = await moderationService.isBlocked(userId: userId)
-            
-            // P0-4: Check if this user has blocked current user (BLOCKED_BY detection)
-            isBlockedBy = await blockService.isBlockedBy(userId: userId)
-            
-            // Check if user is muted
-            isMuted = await moderationService.isMuted(userId: userId)
-            
-            // Check if profile is hidden from this user
-            isHidden = await moderationService.isHiddenFrom(userId: userId)
-            
-            print("✅ Privacy status loaded:")
-            print("   - Blocked (you blocked them): \(isBlocked)")
-            print("   - Blocked By (they blocked you): \(isBlockedBy)")
-            print("   - Muted: \(isMuted)")
-            print("   - Hidden: \(isHidden)")
-            
-        } catch {
-            print("⚠️ Failed to load privacy status: \(error)")
-            // Don't show error to user, just use default values
-        }
+        let moderationService = ModerationService.shared
+        let blockService = BlockService.shared
+        
+        // Check if current user has blocked this user
+        isBlocked = await moderationService.isBlocked(userId: userId)
+        
+        // P0-4: Check if this user has blocked current user (BLOCKED_BY detection)
+        isBlockedBy = await blockService.isBlockedBy(userId: userId)
+        
+        // Check if user is muted
+        isMuted = await moderationService.isMuted(userId: userId)
+        
+        // Check if profile is hidden from this user
+        isHidden = await moderationService.isHiddenFrom(userId: userId)
+        
+        print("✅ Privacy status loaded:")
+        print("   - Blocked (you blocked them): \(isBlocked)")
+        print("   - Blocked By (they blocked you): \(isBlockedBy)")
+        print("   - Muted: \(isMuted)")
+        print("   - Hidden: \(isHidden)")
     }
     
     private func loadMorePosts() async {
@@ -1318,8 +1346,19 @@ struct UserProfileView: View {
             try await followService.toggleFollow(userId: userId)
             
             print("✅ Successfully \(isFollowing ? "followed" : "unfollowed") user: \(userId)")
-            
-            // DON'T manually refresh - the real-time listener will handle the update
+
+            // Refresh canonical relationship so content view updates immediately
+            viewerRelationship = await PrivacyAccessControl.shared.relationship(to: userId)
+            // Re-fetch posts now that relationship may have changed
+            if viewerRelationship.canViewPrivateContent {
+                posts = (try? await fetchUserPosts(page: 1)) ?? posts
+                buildUnifiedFeed()
+            } else {
+                posts = []
+                feedItems = []
+            }
+
+            // DON'T manually refresh counts - the real-time listener will handle the update
             // await refreshFollowerCount() // ❌ REMOVED: Causes double increment
             
         } catch {
@@ -1421,15 +1460,25 @@ struct UserProfileView: View {
             showErrorAlert = true
             return
         }
-        
-        let haptic = UIImpactFeedbackGenerator(style: .light)
-        haptic.impactOccurred()
-        
-        // Navigate to messaging
-        showMessaging = true
-        
-        // TODO: Alternative navigation using NavigationPath
-        // navigationPath.append(MessagingRoute.conversation(userId: userId))
+
+        Task {
+            // Enforce privacy-based messaging restrictions
+            let canMsg = await PrivacyAccessControl.shared.canMessage(userId: userId, targetPrivacySettings: nil)
+            guard canMsg else {
+                await MainActor.run {
+                    errorMessage = "You must follow this person to send them a message."
+                    showErrorAlert = true
+                }
+                return
+            }
+
+            let haptic = UIImpactFeedbackGenerator(style: .light)
+            haptic.impactOccurred()
+
+            await MainActor.run {
+                showMessaging = true
+            }
+        }
     }
     
     private func shareProfile() {
@@ -1734,7 +1783,22 @@ struct UserProfileView: View {
                         Label("Report User", systemImage: "exclamationmark.triangle")
                     }
                 }
-                
+
+                // Restrict Section
+                Section {
+                    Button {
+                        Task {
+                            await RestrictService.shared.loadIfNeeded()
+                            await RestrictService.shared.toggleRestrict(userId)
+                            let isNowRestricted = RestrictService.shared.isRestricted(userId)
+                            ToastManager.shared.success(isNowRestricted ? "User restricted" : "User unrestricted")
+                        }
+                    } label: {
+                        let isRestricted = RestrictService.shared.isRestricted(userId)
+                        Label(isRestricted ? "Unrestrict" : "Restrict", systemImage: isRestricted ? "checkmark.circle" : "person.crop.circle.badge.minus")
+                    }
+                }
+
                 // Blocking Section
                 Section {
                     Button(role: .destructive) {
@@ -1797,8 +1861,8 @@ struct UserProfileView: View {
                             }
                             
                             // Bio URL Link (moved to top)
-                            if let bioURL = profileData.bioURL, !bioURL.isEmpty {
-                                Link(destination: URL(string: bioURL)!) {
+                            if let bioURL = profileData.bioURL, !bioURL.isEmpty, let bioURLParsed = URL(string: bioURL) {
+                                Link(destination: bioURLParsed) {
                                     HStack(spacing: 6) {
                                         Image(systemName: "link.circle.fill")
                                             .font(.system(size: 11, weight: .semibold))
@@ -1921,27 +1985,51 @@ struct UserProfileView: View {
                         SocialLinksView(socialLinks: profileData.socialLinks)
                     }
                     
-                    // Stats (Tappable)
-                    HStack(spacing: 24) {
-                        Button {
-                            showFollowersList = true
-                        } label: {
-                            StatView(count: formatCount(profileData.followersCount), label: "followers")
+                    // Stats — respects the profile owner's follower/following privacy settings.
+                    // The current user always sees their own stats; for other users, hide or
+                    // disable based on their showFollowerCount / showFollowersList preferences.
+                    let isOwnProfile = userId == Auth.auth().currentUser?.uid
+                    let canSeeFollowerCount  = isOwnProfile || profileData.showFollowerCount
+                    let canSeeFollowingCount = isOwnProfile || profileData.showFollowingCount
+                    let canTapFollowersList  = isOwnProfile || profileData.showFollowersList
+                    let canTapFollowingList  = isOwnProfile || profileData.showFollowingList
+
+                    if canSeeFollowerCount || canSeeFollowingCount {
+                        HStack(spacing: 24) {
+                            if canSeeFollowerCount {
+                                if canTapFollowersList {
+                                    Button {
+                                        showFollowersList = true
+                                    } label: {
+                                        StatView(count: formatCount(profileData.followersCount), label: "followers")
+                                    }
+                                    .buttonStyle(PlainButtonStyle())
+                                } else {
+                                    StatView(count: formatCount(profileData.followersCount), label: "followers")
+                                }
+                            }
+
+                            if canSeeFollowerCount && canSeeFollowingCount {
+                                Circle()
+                                    .fill(Color.black.opacity(0.3))
+                                    .frame(width: 2, height: 2)
+                            }
+
+                            if canSeeFollowingCount {
+                                if canTapFollowingList {
+                                    Button {
+                                        showFollowingList = true
+                                    } label: {
+                                        StatView(count: formatCount(profileData.followingCount), label: "following")
+                                    }
+                                    .buttonStyle(PlainButtonStyle())
+                                } else {
+                                    StatView(count: formatCount(profileData.followingCount), label: "following")
+                                }
+                            }
                         }
-                        .buttonStyle(PlainButtonStyle())
-                        
-                        Circle()
-                            .fill(Color.black.opacity(0.3))
-                            .frame(width: 2, height: 2)
-                        
-                        Button {
-                            showFollowingList = true
-                        } label: {
-                            StatView(count: formatCount(profileData.followingCount), label: "following")
-                        }
-                        .buttonStyle(PlainButtonStyle())
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
                     
                     // Action Buttons - P0-4: Hide when blocked or blockedBy
                     if !isBlocked && !isBlockedBy {
@@ -2131,6 +2219,9 @@ struct UserProfileView: View {
                 message: "You've blocked this user. Unblock to see their content."
             )
             .padding(.top, 40)
+        } else if let profile = profileData, profile.isPrivateAccount, !viewerRelationship.canViewPrivateContent {
+            // Private account — non-follower sees locked state
+            lockedProfileView
         } else {
             // Normal content display
             switch selectedTab {
@@ -2143,6 +2234,40 @@ struct UserProfileView: View {
                 repostsTabContent
             }
         }
+    }
+
+    /// Locked profile state shown to non-followers of private accounts.
+    private var lockedProfileView: some View {
+        VStack(spacing: 20) {
+            Spacer().frame(height: 32)
+
+            Image(systemName: "lock.fill")
+                .font(.system(size: 44, weight: .semibold))
+                .foregroundStyle(.secondary)
+
+            VStack(spacing: 8) {
+                Text("This account is private")
+                    .font(.custom("OpenSans-Bold", size: 18))
+                    .foregroundStyle(.primary)
+
+                if followRequestPending {
+                    Text("Your follow request is pending approval.")
+                        .font(.custom("OpenSans-Regular", size: 15))
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                } else {
+                    Text("Follow this account to see their posts, prayer requests, and testimonies.")
+                        .font(.custom("OpenSans-Regular", size: 15))
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+            }
+            .padding(.horizontal, 40)
+
+            Spacer()
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 16)
     }
     
     private var postsTabContent: some View {
@@ -3170,6 +3295,10 @@ struct UserListRow: View {
     @State private var isFollowing = false
     @State private var isLoading = false
     
+    private var isCurrentUser: Bool {
+        Auth.auth().currentUser?.uid == user.userId
+    }
+    
     var body: some View {
         HStack(spacing: 12) {
             // Avatar
@@ -3195,30 +3324,39 @@ struct UserListRow: View {
             
             Spacer()
             
-            // Follow button with real backend integration
-            Button {
-                Task {
-                    await toggleFollow()
+            // Show "You" for current user; follow button for others
+            if isCurrentUser {
+                Text("You")
+                    .font(.custom("OpenSans-SemiBold", size: 14))
+                    .foregroundStyle(.black.opacity(0.4))
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+            } else {
+                // Follow button with real backend integration
+                Button {
+                    Task {
+                        await toggleFollow()
+                    }
+                } label: {
+                    if isLoading {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                            .frame(width: 80, height: 32)
+                    } else {
+                        Text(isFollowing ? "Following" : "Follow")
+                            .font(.custom("OpenSans-Bold", size: 14))
+                            .foregroundStyle(isFollowing ? .black : .white)
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 8)
+                            .background(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .fill(isFollowing ? Color(white: 0.93) : Color.black)
+                            )
+                    }
                 }
-            } label: {
-                if isLoading {
-                    ProgressView()
-                        .scaleEffect(0.8)
-                        .frame(width: 80, height: 32)
-                } else {
-                    Text(isFollowing ? "Following" : "Follow")
-                        .font(.custom("OpenSans-Bold", size: 14))
-                        .foregroundStyle(isFollowing ? .black : .white)
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 8)
-                        .background(
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(isFollowing ? Color(white: 0.93) : Color.black)
-                        )
-                }
+                .disabled(isLoading)
+                .buttonStyle(PlainButtonStyle())
             }
-            .disabled(isLoading)
-            .buttonStyle(PlainButtonStyle())
         }
         .padding(16)
         .background(
@@ -3460,13 +3598,13 @@ struct StatView: View {
     
     var body: some View {
         HStack(spacing: 4) {
-            Text(count)
-                .font(.custom("OpenSans-Bold", size: 15))
-                .foregroundStyle(.black)
+            Text(label.capitalized)
+                .font(.custom("OpenSans-Regular", size: 13))
+                .foregroundStyle(.secondary)
             
-            Text(label)
-                .font(.custom("OpenSans-Regular", size: 15))
-                .foregroundStyle(.black.opacity(0.5))
+            Text(count)
+                .font(.custom("OpenSans-Regular", size: 13))
+                .foregroundStyle(.secondary)
         }
     }
 }
@@ -4361,32 +4499,17 @@ struct ChatConversationLoader: View {
     let userId: String
     let userName: String
     
-    @StateObject private var messagingService = FirebaseMessagingService.shared
+    @ObservedObject private var messagingService = FirebaseMessagingService.shared
     @Environment(\.dismiss) private var dismiss
     
     @State private var conversationId: String?
-    @State private var isLoading = true
     @State private var errorMessage: String?
     @State private var showError = false
     
     var body: some View {
         Group {
-            if isLoading {
-                // Loading state
-                VStack(spacing: 20) {
-                    ProgressView()
-                        .scaleEffect(1.5)
-                    
-                    Text("Starting conversation with \(userName)...")
-                        .font(.custom("OpenSans-Regular", size: 16))
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 40)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color(.systemGroupedBackground))
-            } else if let conversationId = conversationId {
-                // ✅ Success - Open UnifiedChatView with the conversation
+            if let conversationId = conversationId {
+                // ✅ Chat opens immediately once ID is resolved
                 UnifiedChatView(
                     conversation: ChatConversation(
                         id: conversationId,
@@ -4398,8 +4521,8 @@ struct ChatConversationLoader: View {
                         avatarColor: .blue
                     )
                 )
-            } else {
-                // Error state
+            } else if showError {
+                // Error state — only shown if ID never resolves
                 VStack(spacing: 20) {
                     Image(systemName: "exclamationmark.triangle")
                         .font(.system(size: 50))
@@ -4433,6 +4556,17 @@ struct ChatConversationLoader: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Color(.systemGroupedBackground))
+            } else {
+                // Minimal inline spinner — replaces the full-screen blocking loader
+                VStack(spacing: 16) {
+                    ProgressView()
+                        .scaleEffect(1.2)
+                    Text(userName)
+                        .font(.custom("OpenSans-SemiBold", size: 15))
+                        .foregroundStyle(.primary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color(.systemGroupedBackground))
             }
         }
         .task {
@@ -4442,8 +4576,6 @@ struct ChatConversationLoader: View {
     
     @MainActor
     private func loadConversation() async {
-        isLoading = true
-        
         do {
             print("📱 Getting or creating conversation with user: \(userName) (ID: \(userId))")
             
@@ -4453,6 +4585,7 @@ struct ChatConversationLoader: View {
             )
             
             print("✅ Got conversation ID: \(convId)")
+            // Setting conversationId immediately transitions the view to UnifiedChatView
             conversationId = convId
             
         } catch let error as FirebaseMessagingError {
@@ -4481,7 +4614,7 @@ struct ChatConversationLoader: View {
                     errorMessage = "Network error: \(underlyingError.localizedDescription)"
                 }
             default:
-                errorMessage = error.localizedDescription ?? "An error occurred while creating the conversation."
+                errorMessage = error.localizedDescription
             }
             
             showError = true
@@ -4502,8 +4635,6 @@ struct ChatConversationLoader: View {
             
             showError = true
         }
-        
-        isLoading = false
     }
 }
 
@@ -4521,26 +4652,14 @@ extension UserProfileView {
     
     @MainActor
     private func performNotificationToggle() async {
-        let previousState = notificationsEnabled
         notificationsEnabled.toggle()
         
         let haptic = UIImpactFeedbackGenerator(style: .medium)
         haptic.impactOccurred()
         
-        do {
-            // TODO: Implement notification service
-            // await NotificationService.shared.toggleUserNotifications(userId: userId, enabled: notificationsEnabled)
-            print("✅ \(notificationsEnabled ? "Enabled" : "Disabled") notifications for user: \(userId)")
-            
-        } catch {
-            // Rollback on error
-            await MainActor.run {
-                notificationsEnabled = previousState
-                errorMessage = "Failed to update notification settings. Please try again."
-                showErrorAlert = true
-            }
-            print("❌ Failed to toggle notifications: \(error)")
-        }
+        // TODO: Implement notification service
+        // await NotificationService.shared.toggleUserNotifications(userId: userId, enabled: notificationsEnabled)
+        print("✅ \(notificationsEnabled ? "Enabled" : "Disabled") notifications for user: \(userId)")
     }
 }
 
@@ -4648,7 +4767,7 @@ extension UserProfileView {
 extension UserProfileView {
     /// Save profile to local cache for offline viewing
     private func cacheProfileData() {
-        guard let profileData = profileData else { return }
+        guard profileData != nil else { return }
         
         // TODO: Implement UserDefaults or CoreData caching
         // UserDefaults.standard.set(encodedProfile, forKey: "cached_profile_\(userId)")

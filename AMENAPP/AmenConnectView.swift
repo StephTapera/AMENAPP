@@ -7,6 +7,8 @@
 
 import SwiftUI
 import Combine
+import FirebaseAuth
+import FirebaseFirestore
 
 struct AmenConnectView: View {
     @Environment(\.dismiss) var dismiss
@@ -701,9 +703,51 @@ class AmenConnectViewModel: ObservableObject {
     @Published var matchedProfile: AmenConnectProfile?
     
     func loadProfiles() {
-        // TODO: Load from backend
-        // For now, using sample data
-        profiles = AmenConnectProfile.sampleProfiles
+        Task {
+            await fetchProfilesFromFirestore()
+        }
+    }
+
+    private func fetchProfilesFromFirestore() async {
+        let currentUserId = Auth.auth().currentUser?.uid ?? ""
+        let db = Firestore.firestore()
+
+        do {
+            let snapshot = try await db.collection("amenConnect")
+                .limit(to: 50)
+                .getDocuments()
+
+            var loaded: [AmenConnectProfile] = []
+            for doc in snapshot.documents {
+                guard doc.documentID != currentUserId else { continue }
+                let data = doc.data()
+
+                let profile = AmenConnectProfile(
+                    id: UUID(),
+                    name: data["name"] as? String ?? "",
+                    age: data["age"] as? Int ?? 0,
+                    birthYear: data["birthYear"] as? Int ?? 0,
+                    bio: data["bio"] as? String ?? "",
+                    profilePhoto: nil, // Photo is a URL in Firestore; use profilePhotoURL for display
+                    yearsSaved: data["yearsSaved"] as? Int ?? 0,
+                    isBaptized: data["isBaptized"] as? Bool ?? false,
+                    churchName: data["churchName"] as? String ?? "",
+                    churchCity: data["churchCity"] as? String ?? "",
+                    churchState: data["churchState"] as? String ?? "",
+                    interests: data["interests"] as? [String] ?? [],
+                    denomination: data["denomination"] as? String,
+                    lookingFor: data["lookingFor"] as? String ?? ""
+                )
+                loaded.append(profile)
+            }
+
+            // Fall back to sample data when no profiles exist in Firestore yet
+            profiles = loaded.isEmpty ? AmenConnectProfile.sampleProfiles : loaded
+
+        } catch {
+            print("⚠️ AmenConnect: Failed to load profiles — \(error.localizedDescription)")
+            profiles = AmenConnectProfile.sampleProfiles
+        }
     }
     
     func handleSwipe(_ translation: CGSize) {

@@ -15,29 +15,35 @@ struct ContentView: View {
     @StateObject private var viewModel: ContentViewModel
     @StateObject private var authViewModel: AuthenticationViewModel
     @StateObject private var messagingCoordinator: MessagingCoordinator
-    // PERFORMANCE: Use @ObservedObject for shared singletons (not owned by this view)
-    @ObservedObject private var appUsageTracker = AppUsageTracker.shared
-    @ObservedObject private var notificationManager = NotificationManager.shared
-    // ✅ P0-10, P0-11, P0-12 FIX: Single source of truth for all badge counts
-    @ObservedObject private var badgeCountManager = BadgeCountManager.shared
-    // ✅ Shabbat Mode (Sunday Church Focus)
-    @ObservedObject private var churchFocusManager = SundayChurchFocusManager.shared
-    // @StateObject private var contentSafetyShield = ContentSafetyShieldService.shared
-    // @StateObject private var wellnessGuardian = WellnessGuardianService.shared
-    @ObservedObject private var messagingService = FirebaseMessagingService.shared
-    @ObservedObject private var ftueManager = FTUEManager.shared
+    
+    // ⚡️ PERFORMANCE OPTIMIZED: Extract specific state instead of observing entire singletons
+    // This prevents ContentView from redrawing on every singleton @Published change
+    @State private var totalBadgeCount: Int = 0
+    @State private var showSundayPrompt: Bool = false
+    @State private var showTimeoutWarning: Bool = false
+    @State private var showFTUE: Bool = false
+    
+    // Keep these for state that ContentView directly manages
     @ObservedObject private var sessionTimeoutManager = SessionTimeoutManager.shared
+    @ObservedObject private var churchFocusManager = SundayChurchFocusManager.shared
+    @ObservedObject private var appReadyManager = AppReadyStateManager.shared
+    @ObservedObject private var appUsageTracker = AppUsageTracker.shared
     @State private var showCreatePost: Bool
     @State private var showCreateQuickActions = false
+    @Namespace private var createPostNamespace
     @State private var postCardFrame: CGRect? = nil
     @State private var bereanButtonFrame: CGRect? = nil
     @State private var selectedPostCategory: CreatePostView.PostCategory = .openTable
     @State private var showBereanQuickActions = false
     @State private var showBereanAssistantFromMenu = false
-    @State private var showPostSuccessToast = false
-    @State private var postSuccessCategory: String = ""
+    @State private var postingBarState: PostingBarState = .hidden
+    @State private var postingBarCategory: String = ""
+    @State private var postingBarPost: Post? = nil
     @State private var savedSearchObserver: NSObjectProtocol?
     @State private var postSuccessObserver: NSObjectProtocol?
+    @State private var postingStartedObserver: NSObjectProtocol?
+    @State private var postingFailedObserver: NSObjectProtocol?
+    @State private var postingBarDismissTask: Task<Void, Never>? = nil
     @State private var showTabBar = true  // ✅ Control tab bar visibility
     @State private var lastScrollOffset: CGFloat = 0  // Track scroll position for tab bar auto-hide
     @State private var showCommunityCovenant = false
@@ -81,17 +87,18 @@ struct ContentView: View {
     var body: some View {
         Group {
             if isResolvingAuthState {
-                // ✅ Show loading screen during initial state resolution to prevent flash
-                ZStack {
-                    Color(.systemBackground)
-                        .ignoresSafeArea()
-                    ProgressView()
-                        .progressViewStyle(.circular)
-                }
+                // ✅ Show 3-dot loading screen during initial state resolution to prevent flash
+                AppLoadingScreen()
                 .task {
-                    // Wait for welcome screen to finish + auth state to stabilize
-                    // Welcome screen lasts 1.3s, so we wait 1.4s to ensure smooth transition
-                    try? await Task.sleep(nanoseconds: 1_400_000_000)
+                    // Poll until isAuthenticated resolves from AuthenticationViewModel.init()'s
+                    // async Task (checkOnboardingStatus). Without polling, a one-shot check here
+                    // races against that Task and sees isAuthenticated=false even for cached users,
+                    // causing the 3-dot screen to show for the full 1.3 s sleep.
+                    // Poll every 50 ms, bail out after 2 s maximum.
+                    let deadline = Date().addingTimeInterval(2.0)
+                    while !authViewModel.isAuthenticated && Date() < deadline {
+                        try? await Task.sleep(nanoseconds: 50_000_000) // 50 ms
+                    }
                     await MainActor.run {
                         isResolvingAuthState = false
                     }
@@ -103,8 +110,7 @@ struct ContentView: View {
                     .environmentObject(authViewModel)
                     .transition(.opacity.combined(with: .move(edge: .trailing)))
                     .onAppear {
-                        print("🔍 ContentView: Showing 2FA Verification Gate")
-                        print("   - Pending user: \(authViewModel.pending2FAUserId ?? "none")")
+                        appReadyManager.signalReady()
                     }
             } else if !authViewModel.isAuthenticated {
                 // Show sign-in view - pass the authViewModel so it's shared!
@@ -112,9 +118,7 @@ struct ContentView: View {
                     .environmentObject(authViewModel)
                     .transition(.opacity)
                     .onAppear {
-                        print("🔍 ContentView: Showing SignInView")
-                        print("   - isAuthenticated: \(authViewModel.isAuthenticated)")
-                        print("   - needsOnboarding: \(authViewModel.needsOnboarding)")
+                        appReadyManager.signalReady()
                     }
             } else if authViewModel.needsUsernameSelection {
                 // Show username selection for social sign-in users (before onboarding)
@@ -122,23 +126,11 @@ struct ContentView: View {
                     .environmentObject(authViewModel)
                     .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .opacity))
                     .onAppear {
-                        print("🔍 ContentView: Showing UsernameSelectionView")
-                        print("   - isAuthenticated: \(authViewModel.isAuthenticated)")
-                        print("   - needsUsernameSelection: \(authViewModel.needsUsernameSelection)")
+                        appReadyManager.signalReady()
                     }
                     .onDisappear {
                         // Mark username selection as complete when dismissed
                         authViewModel.completeUsernameSelection()
-                    }
-            } else if authViewModel.needsOnboarding {
-                // Show onboarding for new users
-                OnboardingView()
-                    .environmentObject(authViewModel)
-                    .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .opacity))
-                    .onAppear {
-                        print("🔍 ContentView: Showing OnboardingView")
-                        print("   - isAuthenticated: \(authViewModel.isAuthenticated)")
-                        print("   - needsOnboarding: \(authViewModel.needsOnboarding)")
                     }
             } else if authViewModel.needsEmailVerification {
                 // P0: Email verification gate before main app
@@ -146,41 +138,46 @@ struct ContentView: View {
                     .environmentObject(authViewModel)
                     .transition(.opacity.combined(with: .move(edge: .trailing)))
                     .onAppear {
-                        print("🔍 ContentView: Showing EmailVerificationGate")
-                        print("   - Email verified: \(authViewModel.isEmailVerified)")
+                        appReadyManager.signalReady()
+                    }
+            } else if authViewModel.needsOnboarding {
+                // Show onboarding flow for new users
+                OnboardingView()
+                    .environmentObject(authViewModel)
+                    .transition(.opacity.combined(with: .move(edge: .trailing)))
+                    .onAppear {
+                        // Onboarding users never reach mainContent, so signalReady() would
+                        // never be called there. Clear the loading screen overlay immediately
+                        // so it doesn't cover the entire onboarding flow.
+                        appReadyManager.signalReady()
                     }
             } else {
                 // Main app content
                 mainContent
                     .transition(.opacity)
-                    .fullScreenCover(isPresented: $authViewModel.showWelcomeToAMEN) {
-                        WelcomeToAMENView()
-                            .onDisappear {
-                                authViewModel.dismissWelcomeToAMEN()
-                            }
-                    }
-                    .sheet(isPresented: $churchFocusManager.showSundayPrompt) {
+                    .sheet(isPresented: $showSundayPrompt) {
                         SundayShabbatPromptView()
                             .presentationDetents([.medium])
                             .presentationDragIndicator(.visible)
                     }
                     .onAppear {
-                        print("🔍 ContentView: Showing Main App")
-                        print("   - isAuthenticated: \(authViewModel.isAuthenticated)")
-                        print("   - needsOnboarding: \(authViewModel.needsOnboarding)")
-                        
+                        // Show cinematic loading screen if this is a fresh sign-in
+                        appReadyManager.startIfNeeded()
+
                         // P0 FIX: Don't start listener here - already started in AMENAPPApp preload
                         // Just ensure PostsManager is initialized (idempotent)
                         Task(priority: .high) {
                             _ = PostsManager.shared
-                            print("✅ ContentView: PostsManager ready (already initialized)")
+
+                            // Wait for the feed listener to deliver first posts (max 4 s)
+                            await waitForFeedReady()
+                            appReadyManager.signalReady()
                         }
                         
                         // Warm up other singletons with lower priority
                         Task(priority: .medium) {
                             _ = PostInteractionsService.shared
                             await PremiumManager.shared.loadProducts()
-                            print("✅ Secondary singletons warmed up")
                         }
                         
                         // Check email verification status
@@ -210,27 +207,24 @@ struct ContentView: View {
         .fullScreenCover(isPresented: $authViewModel.showAuthSuccess) {
             AuthSuccessCheckmarkView(isPresented: $authViewModel.showAuthSuccess)
         }
+        // Welcome package shown after onboarding completes.
+        // Must be on the root Group (not mainContent) so it fires reliably
+        // even while the view tree is transitioning from OnboardingView → mainContent.
+        .fullScreenCover(isPresented: $authViewModel.showWelcomeToAMEN) {
+            WelcomeToAMENView()
+                .onDisappear {
+                    authViewModel.dismissWelcomeToAMEN()
+                }
+        }
         .onChange(of: authViewModel.isAuthenticated) { oldValue, newValue in
-            print("🔔 ContentView: isAuthenticated changed from \(oldValue) to \(newValue)")
-            
-            // ✅ Brief state resolution delay to prevent flash when auth state changes
-            if newValue != oldValue {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    isResolvingAuthState = true
-                }
-                Task {
-                    try? await Task.sleep(nanoseconds: 100_000_000) // Reduced to 100ms with animation
-                    await MainActor.run {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            isResolvingAuthState = false
-                        }
-                    }
-                }
-            }
             
             // Check if FTUE should be shown when user becomes authenticated
             if newValue && !oldValue {
-                ftueManager.checkAndShowFTUE()
+                // Signal a fresh sign-in so the cinematic loading screen shows
+                // when mainContent first appears
+                AppReadyStateManager.shared.signalSignIn()
+
+                FTUEManager.shared.checkAndShowFTUE()
 
                 // Start session timeout monitoring (respects Remember Me setting)
                 let rememberMe = SessionTimeoutManager.shared.isRememberMeEnabled()
@@ -240,30 +234,12 @@ struct ContentView: View {
                 SessionTimeoutManager.shared.stopMonitoring()
             }
         }
-        .onChange(of: authViewModel.needsOnboarding) { oldValue, newValue in
-            print("🔔 ContentView: needsOnboarding changed from \(oldValue) to \(newValue)")
-            
-            // ✅ Brief state resolution delay to prevent flash when onboarding state changes
-            if newValue != oldValue {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    isResolvingAuthState = true
-                }
-                Task {
-                    try? await Task.sleep(nanoseconds: 100_000_000) // Reduced to 100ms with animation
-                    await MainActor.run {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            isResolvingAuthState = false
-                        }
-                    }
-                }
-            }
+        .onChange(of: authViewModel.needsOnboarding) { _, _ in
         }
-        .onChange(of: authViewModel.needsUsernameSelection) { oldValue, newValue in
-            print("🔔 ContentView: needsUsernameSelection changed from \(oldValue) to \(newValue)")
+        .onChange(of: authViewModel.needsUsernameSelection) { _, _ in
         }
         .onChange(of: messagingCoordinator.shouldOpenMessagesTab) { oldValue, newValue in
             if newValue {
-                print("💬 Opening Messages tab from notification")
                 viewModel.selectedTab = 2  // Switch to Messages tab (now at index 2)
             }
         }
@@ -295,6 +271,16 @@ struct ContentView: View {
                     .transition(.scale.combined(with: .opacity))
             }
         }
+        // Post-sign-in cinematic loading screen — shown until feed data is ready
+        .overlay {
+            if appReadyManager.isShowingLoadingScreen {
+                AppLoadingScreen()
+                    .ignoresSafeArea()
+                    .transition(.opacity)
+                    .zIndex(10)
+            }
+        }
+        .animation(.easeInOut(duration: 0.5), value: appReadyManager.isShowingLoadingScreen)
     }
     
     @ViewBuilder
@@ -304,7 +290,7 @@ struct ContentView: View {
         // Asymmetric transitions provide spatial context for navigation
         Group {
             // ✅ Shabbat Mode: Gate restricted features
-            if churchFocusManager.shouldGateFeature() && !isAllowedDuringChurchFocus(viewModel.selectedTab) {
+            if SundayChurchFocusManager.shared.shouldGateFeature() && !isAllowedDuringChurchFocus(viewModel.selectedTab) {
                 SundayChurchFocusGateView(selectedTab: $viewModel.selectedTab)
                     .id("shabbatModeGate")
             } else {
@@ -320,7 +306,7 @@ struct ContentView: View {
                     PeopleDiscoveryView()
                         .id("people")
                         .task {
-                            NotificationAggregationService.shared.updateCurrentScreen(.home)
+                            NotificationAggregationService.shared.updateCurrentScreen(.none)
                         }
                 case 2:
                     MessagesView()
@@ -329,11 +315,12 @@ struct ContentView: View {
                         .task {
                             NotificationAggregationService.shared.updateCurrentScreen(.messages)
                         }
+                        .ageGated(feature: .dms)
                 case 3:
                     ResourcesView()
                         .id("resources")
                         .task {
-                            NotificationAggregationService.shared.updateCurrentScreen(.home)
+                            NotificationAggregationService.shared.updateCurrentScreen(.none)
                         }
                 case 4:
                     NotificationsView()
@@ -346,7 +333,8 @@ struct ContentView: View {
                         .environmentObject(authViewModel)
                         .id("profile")
                         .task {
-                            NotificationAggregationService.shared.updateCurrentScreen(.home)
+                            let uid = Auth.auth().currentUser?.uid ?? ""
+                            NotificationAggregationService.shared.updateCurrentScreen(.profile(userId: uid))
                         }
                 default:
                     HomeView(showBereanQuickActions: $showBereanQuickActions, showBereanAssistantFromMenu: $showBereanAssistantFromMenu)
@@ -366,10 +354,10 @@ struct ContentView: View {
     
     // ✅ Shabbat Mode: Check if tab is allowed during focus window
     private func isAllowedDuringChurchFocus(_ tab: Int) -> Bool {
-        // Tab 4 = Resources (contains Church Notes and Find Church)
-        // Tab 6 = Profile (contains Settings)
-        // All other tabs (Home, People, Messages) are restricted
-        return tab == 4 || tab == 6
+        // Tab 3 = Resources (contains Church Notes and Find Church)
+        // Tab 5 = Profile (contains Settings)
+        // All other tabs (Home, People, Messages, Notifications) are restricted
+        return tab == 3 || tab == 5
     }
     
     private var mainContent: some View {
@@ -379,15 +367,15 @@ struct ContentView: View {
                 .ignoresSafeArea(.all, edges: .bottom)
             
             // Email verification banner (appears at top when email not verified)
-            VStack {
-                if authViewModel.showEmailVerificationBanner {
+            if authViewModel.showEmailVerificationBanner {
+                VStack {
                     EmailVerificationBanner()
                         .environmentObject(authViewModel)
                         .transition(.move(edge: .top).combined(with: .opacity))
                         .zIndex(997)
+                    Spacer()
                 }
-                
-                Spacer()
+                .allowsHitTesting(true)
             }
             
             // Daily limit reached dialog
@@ -397,24 +385,43 @@ struct ContentView: View {
                     .transition(.opacity.animation(.easeInOut(duration: 0.2)))
                 
                 DailyLimitReachedDialog()
-                    .environmentObject(appUsageTracker)
+
                     .transition(.scale(scale: 0.95).combined(with: .opacity).animation(.spring(response: 0.4, dampingFraction: 0.8)))
                     .zIndex(999)
             }
             
-            // Post success toast notification (appears at bottom)
-            VStack {
-                Spacer()
-                
-                if showPostSuccessToast {
-                    PostSuccessToast(category: postSuccessCategory)
-                        .padding(.bottom, 100) // Above tab bar
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
-                        .zIndex(998)
+            // Threads-style posting bar (appears at bottom while posting / after posted)
+            if postingBarState != .hidden {
+                VStack {
+                    Spacer()
+                    ThreadsPostingBar(
+                        state: postingBarState,
+                        category: postingBarCategory,
+                        post: postingBarPost
+                    ) {
+                        // "View" tapped — navigate to the post and immediately hide
+                        postingBarDismissTask?.cancel()
+                        postingBarDismissTask = nil
+                        if let post = postingBarPost {
+                            NotificationCenter.default.post(
+                                name: .newPostCreated,
+                                object: nil,
+                                userInfo: ["post": post, "navigateTo": true, "category": postingBarCategory]
+                            )
+                        }
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                            postingBarState = .hidden
+                        }
+                    }
+                    .padding(.bottom, 84) // just above tab bar
+                    .padding(.horizontal, 16)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .zIndex(998)
                 }
             }
         }
         .moderationToast() // ✅ Add moderation toast overlay
+        .inAppNotificationBanner() // ✅ Instagram-style heads-up banner for foreground notifications
         .overlay(alignment: .bottom) {
             // Custom compact tab bar (fixed at bottom) with smooth hide/show animation
             CompactTabBar(selectedTab: $viewModel.selectedTab, showCreatePost: $showCreatePost, showCreateQuickActions: $showCreateQuickActions)
@@ -432,9 +439,9 @@ struct ContentView: View {
         }
         .overlay {
             // FTUE Coach Marks overlay
-            if ftueManager.shouldShowCoachMarks {
+            if FTUEManager.shared.shouldShowCoachMarks {
                 CoachMarkOverlay(
-                    ftueManager: ftueManager,
+                    ftueManager: FTUEManager.shared,
                     postCardFrame: postCardFrame,
                     bereanButtonFrame: bereanButtonFrame
                 )
@@ -449,7 +456,7 @@ struct ContentView: View {
             // Once FTUE shows, freeze the frame to prevent scroll stuttering
             if let frame = equatableFrame {
                 // Only update if we don't have a frame yet, or FTUE is not active
-                if postCardFrame == nil || !ftueManager.shouldShowCoachMarks {
+                if postCardFrame == nil || !FTUEManager.shared.shouldShowCoachMarks {
                     postCardFrame = frame.rect
                 }
             }
@@ -459,28 +466,53 @@ struct ContentView: View {
             // Once FTUE shows, freeze the frame to prevent scroll stuttering
             if let frame = equatableFrame {
                 // Only update if we don't have a frame yet, or FTUE is not active
-                if bereanButtonFrame == nil || !ftueManager.shouldShowCoachMarks {
+                if bereanButtonFrame == nil || !FTUEManager.shared.shouldShowCoachMarks {
                     bereanButtonFrame = frame.rect
                 }
             }
         }
-        .sheet(isPresented: $showCreatePost) {
+        // Contextual glass sheet — emerges from the compose button with staged content reveal
+        .glassContextualSheet(
+            isPresented: $showCreatePost,
+            sourceId: "composeButton",
+            namespace: createPostNamespace
+        ) {
             CreatePostView(initialCategory: selectedPostCategory)
         }
-        .environmentObject(appUsageTracker)
-        .environmentObject(notificationManager)
-        .environmentObject(badgeCountManager)  // ✅ P0-10, P0-11, P0-12: Provide for all child views
-        .environmentObject(churchFocusManager)  // ✅ Shabbat Mode: Provide to all child views
-        .environmentObject(messagingService)  // P0-7: Provide for CompactTabBar
+        .environmentObject(AppUsageTracker.shared)
+        .environmentObject(NotificationManager.shared)
+        .environmentObject(BadgeCountManager.shared)  // ✅ P0-10, P0-11, P0-12: Provide for all child views
+        .environmentObject(SundayChurchFocusManager.shared)  // ✅ Shabbat Mode: Provide to all child views
+        .environmentObject(FirebaseMessagingService.shared)  // P0-7: Provide for CompactTabBar
         .environmentObject(PostsManager.shared)  // P0-7: Provide for CompactTabBar
         .environmentObject(UserService.shared)  // P0-7: Provide for CompactTabBar
         .environmentObject(NotificationService.shared)  // P0-7: Provide for CompactTabBar
-        .onChange(of: churchFocusManager.isInChurchFocusWindow) { oldValue, newValue in
-            // ✅ Real-time transition: Force re-render when window changes
-            if newValue && !isAllowedDuringChurchFocus(viewModel.selectedTab) {
-                // Switched into restricted window - redirect to safe tab
-                print("🕊️ Shabbat Mode activated - redirecting to Resources")
-                viewModel.selectedTab = 4  // Resources (Church Notes/Find Church)
+        // ⚡️ PERFORMANCE: Subscribe to specific state changes instead of observing entire singletons
+        .onReceive(BadgeCountManager.shared.$totalBadgeCount) { count in
+            totalBadgeCount = count
+        }
+        .onReceive(SundayChurchFocusManager.shared.$showSundayPrompt) { show in
+            showSundayPrompt = show
+        }
+        .onReceive(FTUEManager.shared.$shouldShowCoachMarks) { show in
+            showFTUE = show
+        }
+        .onChange(of: SundayChurchFocusManager.shared.isInChurchFocusWindow) { oldValue, newValue in
+            // ✅ Real-time transition: Force re-render when Shabbat state changes
+            // Use ShabbatModeService.isShabbatActive (combines isSunday + isEnabled)
+            let shabbatActive = ShabbatModeService.shared.isShabbatActiveNow()
+            if shabbatActive && !isAllowedDuringChurchFocus(viewModel.selectedTab) {
+                ShabbatAnalytics.logStateTransition(enabled: true, isSunday: true)
+                viewModel.selectedTab = 3  // Resources (Church Notes/Find Church)
+            } else if !shabbatActive && oldValue {
+                // Shabbat ended (midnight Sunday→Monday) — allow normal navigation
+                ShabbatAnalytics.logStateTransition(enabled: ShabbatModeService.shared.isEnabled, isSunday: false)
+            }
+        }
+        // Handle blocked deep links — show gate banner and route to Resources
+        .onReceive(NotificationCenter.default.publisher(for: .shabbatDeepLinkBlocked)) { notification in
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                viewModel.selectedTab = 3
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .navigateToChurchNotes)) { _ in
@@ -492,8 +524,8 @@ struct ContentView: View {
             viewModel.selectedTab = 4
         }
         .onReceive(NotificationCenter.default.publisher(for: .navigateToSettings)) { _ in
-            // Navigate to Profile tab (which contains Settings)
-            viewModel.selectedTab = 6
+            // Navigate to Profile tab (which contains Settings) — tab index 5
+            viewModel.selectedTab = 5
         }
         .onReceive(NotificationCenter.default.publisher(for: .compulsiveReopenDetected)) { notification in
             // Show supportive redirect when compulsive reopening detected
@@ -507,8 +539,7 @@ struct ContentView: View {
             // Ensure we start on Home tab (OpenTable view)
             viewModel.selectedTab = 0
             
-            // Start tracking app usage
-            appUsageTracker.startSession()
+            // NOTE: startSession() is called by handleScenePhaseChange(.active) — no duplicate call here
             
             // P0-5: Parallelize cold launch tasks for 3x faster startup
             await withTaskGroup(of: Void.self) { group in
@@ -525,30 +556,24 @@ struct ContentView: View {
                 
                 group.addTask {
                     // Fetch and cache current user name
-                    await self.messagingService.fetchAndCacheCurrentUserName()
+                    await FirebaseMessagingService.shared.fetchAndCacheCurrentUserName()
                 }
             }
             
             // Start listening to messages for real-time badge updates (after parallel tasks)
-            messagingService.startListeningToConversations()
+            FirebaseMessagingService.shared.startListeningToConversations()
             
-            // ✅ P0-10, P0-11, P0-12 FIX: Start unified badge count manager
-            badgeCountManager.startRealtimeUpdates()
-            
-            // P0 FIX: Force immediate badge update on app launch
-            // This ensures the badge reflects current state immediately, not after first change
-            Task(priority: .high) {
-                await badgeCountManager.immediateUpdate()
-                print("✅ Badge count updated immediately on launch")
-            }
+            // BadgeCountManager.startRealtimeUpdates() is called by its own
+            // auth-state listener (setupAuthStateListener) when the user signs in,
+            // so no explicit call is needed here — the guard !isListening inside
+            // startRealtimeUpdates() also prevents duplicate listeners.
             
             // 🔒 TRUST-BY-DESIGN: Load privacy settings on app launch
             if let userId = Auth.auth().currentUser?.uid {
                 do {
                     try await TrustByDesignService.shared.loadPrivacySettings(userId: userId)
-                    print("✅ ContentView: Privacy settings loaded for user: \(userId)")
                 } catch {
-                    print("⚠️ ContentView: Failed to load privacy settings: \(error)")
+                    // Non-fatal — privacy settings will use defaults
                 }
             }
             
@@ -568,16 +593,16 @@ struct ContentView: View {
             // P0-3: Add comprehensive listener cleanup to prevent memory leaks
             
             // Stop tracking when view disappears
-            appUsageTracker.endSession()
+            AppUsageTracker.shared.endSession()
             
             // Stop Firestore listeners
-            messagingService.stopListeningToConversations()
+            FirebaseMessagingService.shared.stopListeningToConversations()
             
             // ✅ P0-2 FIX: Stop feed post listeners to prevent memory leak
             FirebasePostService.shared.stopListening()
             
             // ✅ P0-10, P0-11, P0-12 FIX: Stop badge count manager listeners
-            badgeCountManager.stopRealtimeUpdates()
+            BadgeCountManager.shared.stopRealtimeUpdates()
 
             // Remove notification observers
             if let savedSearchObserver {
@@ -589,6 +614,16 @@ struct ContentView: View {
                 NotificationCenter.default.removeObserver(postSuccessObserver)
                 self.postSuccessObserver = nil
             }
+
+            if let postingStartedObserver {
+                NotificationCenter.default.removeObserver(postingStartedObserver)
+                self.postingStartedObserver = nil
+            }
+
+            if let postingFailedObserver {
+                NotificationCenter.default.removeObserver(postingFailedObserver)
+                self.postingFailedObserver = nil
+            }
         }
     }
     
@@ -596,36 +631,34 @@ struct ContentView: View {
     
     private func setupPushNotifications() async {
         let pushManager = PushNotificationManager.shared
-        
-        // Check if already granted
-        let alreadyGranted = await pushManager.checkNotificationPermissions()
-        
-        if alreadyGranted {
-            // Setup FCM token (with error handling)
-            await MainActor.run {
-                pushManager.setupFCMToken()
-                print("✅ Push notifications already enabled")
-            }
-            
-            // Setup smart break reminder notification categories
-            await SmartBreakReminderService.shared.setupNotificationCategories()
-        } else {
-            // Request permission after a short delay (don't overwhelm user on launch)
-            try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
-            
+        let center = UNUserNotificationCenter.current()
+        let settings = await center.notificationSettings()
+
+        switch settings.authorizationStatus {
+        case .authorized, .provisional, .ephemeral:
+            // FCM token already set up by AppDelegate at launch — only configure categories here.
+            SmartBreakReminderService.shared.setupNotificationCategories()
+
+        case .notDetermined:
+            // First time asking — wait 2 s so the user has context before seeing the prompt
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
             let granted = await pushManager.requestNotificationPermissions()
-            
             if granted {
-                await MainActor.run {
-                    pushManager.setupFCMToken()
-                    print("✅ Push notifications enabled")
-                }
-                
-                // Setup smart break reminder notification categories
-                await SmartBreakReminderService.shared.setupNotificationCategories()
-            } else {
-                print("⚠️ Push notifications denied")
+                // First-time grant: AppDelegate already ran setupFCMToken() at launch, but
+                // APNS token may not have been available yet. Trigger it now so the FCM token
+                // is registered after the APNS token is confirmed.
+                await MainActor.run { pushManager.setupFCMToken() }
+                SmartBreakReminderService.shared.setupNotificationCategories()
             }
+
+        case .denied:
+            // User has already declined — don't call requestAuthorization again (it's silent
+            // but still prints the ❌ log and wastes a round-trip). Silently skip.
+            // Notification permission can be prompted later in context (e.g. Settings screen).
+            break
+
+        @unknown default:
+            break
         }
     }
     
@@ -639,19 +672,15 @@ struct ContentView: View {
             object: nil,
             queue: .main
         ) { [self] notification in
-            guard let userInfo = notification.userInfo,
-                  let searchId = userInfo["savedSearchId"] as? String,
-                  let query = userInfo["query"] as? String else { return }
+            guard notification.userInfo?["savedSearchId"] is String,
+                  notification.userInfo?["query"] is String else { return }
             
             Task { @MainActor in
-                print("📍 Opening saved search: \(query) (ID: \(searchId))")
-
                 // Navigate to search tab
                 viewModel.selectedTab = 1
 
                 // Haptic feedback
-                let haptic = UIImpactFeedbackGenerator(style: .medium)
-                haptic.impactOccurred()
+                HapticManager.impact(style: .medium)
             }
         }
     }
@@ -661,71 +690,114 @@ struct ContentView: View {
     private func setupPostSuccessObserver() {
         guard postSuccessObserver == nil else { return }
 
+        // "Posting..." — fires immediately when user taps Publish
+        postingStartedObserver = NotificationCenter.default.addObserver(
+            forName: .postingStarted,
+            object: nil,
+            queue: .main
+        ) { [self] notification in
+            guard let category = notification.userInfo?["category"] as? String else { return }
+            Task { @MainActor in
+                postingBarCategory = category
+                postingBarPost = nil
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
+                    postingBarState = .posting
+                }
+            }
+        }
+
+        // "Posted · View" — fires after Firestore confirms.
+        // Guard: skip the navigateTo re-fire that the "View" button emits,
+        // which would otherwise reset the bar and restart the dismiss timer.
         postSuccessObserver = NotificationCenter.default.addObserver(
             forName: .newPostCreated,
             object: nil,
             queue: .main
         ) { [self] notification in
             guard let userInfo = notification.userInfo,
-                  let category = userInfo["category"] as? String else { return }
-            
-            Task { @MainActor in
-                print("🎉 Post created successfully in category: \(category)")
+                  let category = userInfo["category"] as? String,
+                  userInfo["navigateTo"] == nil else { return }  // ignore "View" re-fires
+            let post = userInfo["post"] as? Post
 
-                // Show success toast
-                postSuccessCategory = category
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                    showPostSuccessToast = true
+            Task { @MainActor in
+                postingBarCategory = category
+                postingBarPost = post
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                    postingBarState = .posted
                 }
 
-                // Auto-dismiss after 3 seconds
-                DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                        showPostSuccessToast = false
+                // Cancel any in-flight dismiss timer before starting a new one.
+                postingBarDismissTask?.cancel()
+                postingBarDismissTask = Task {
+                    try? await Task.sleep(nanoseconds: 3_500_000_000)
+                    guard !Task.isCancelled else { return }
+                    await MainActor.run {
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
+                            postingBarState = .hidden
+                        }
                     }
                 }
             }
         }
+
+        // Hide bar immediately on any failure (upload error, moderation block, etc.)
+        postingFailedObserver = NotificationCenter.default.addObserver(
+            forName: .postingFailed,
+            object: nil,
+            queue: .main
+        ) { [self] _ in
+            Task { @MainActor in
+                postingBarDismissTask?.cancel()
+                postingBarDismissTask = nil
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                    postingBarState = .hidden
+                }
+            }
+        }
     }
-    
+
+    // MARK: - Feed Ready Helper
+
+    /// Waits until the feed has posts AND a minimum display time has elapsed,
+    /// so the cinematic loading screen always has enough time to animate.
+    /// Minimum: 2.5 s (lets the orbital discs complete ~1 full rotation visible).
+    /// Maximum: 5 s (graceful timeout on very slow connections).
+    private func waitForFeedReady() async {
+        let minimumDisplay: TimeInterval = 2.5
+        let maxWait: TimeInterval = 5.0
+        let pollInterval: TimeInterval = 0.15
+        let start = Date()
+
+        // Wait until BOTH conditions are met: posts loaded AND minimum time elapsed
+        while true {
+            let elapsed = Date().timeIntervalSince(start)
+            let hasPosts = !FirebasePostService.shared.posts.isEmpty
+            if hasPosts && elapsed >= minimumDisplay { return }
+            if elapsed >= maxWait { return }
+            try? await Task.sleep(nanoseconds: UInt64(pollInterval * 1_000_000_000))
+        }
+    }
+
     // MARK: - User Search Migration (Production - Runs Silently)
     
     /// Automatically runs user search migration on first app launch (production-ready, silent)
     private func runUserSearchMigrationIfNeeded() async {
         // Check if migration has already run
         guard !UserDefaults.standard.bool(forKey: "hasRunUserSearchMigration_v1") else {
-            print("✅ User search migration already completed")
             return
         }
         
-        print("🔧 Running user search migration in background...")
-        
         do {
-            // Check if migration is needed
             let status = try await UserSearchMigration.shared.checkStatus()
             
             if status.needsMigration > 0 {
-                print("📊 Found \(status.needsMigration) users needing migration")
-                
-                // Run migration silently in background
                 try await UserSearchMigration.shared.fixAllUsers()
-                
-                // Mark as completed
                 UserDefaults.standard.set(true, forKey: "hasRunUserSearchMigration_v1")
-                
-                print("✅ User search migration completed successfully!")
-                print("   Total: \(status.totalUsers)")
-                print("   Migrated: \(status.needsMigration)")
             } else {
-                print("✅ All users already have search fields")
-                
-                // Mark as completed even if no migration needed
                 UserDefaults.standard.set(true, forKey: "hasRunUserSearchMigration_v1")
             }
         } catch {
-            // Log error but don't show to user - search fallback will handle it
-            print("⚠️ User search migration failed: \(error.localizedDescription)")
-            print("   Search will use fallback mechanism")
+            // Silent — search fallback handles it
         }
     }
     
@@ -735,38 +807,20 @@ struct ContentView: View {
     private func runPostProfileImageMigrationIfNeeded() async {
         // Check if migration has already run
         guard !UserDefaults.standard.bool(forKey: "hasRunPostProfileImageMigration_v1") else {
-            print("✅ Post profile image migration already completed")
             return
         }
         
-        print("🔧 Running post profile image migration in background...")
-        
         do {
-            // Check if migration is needed
             let status = try await PostProfileImageMigration.shared.checkStatus()
             
             if status.needsMigration > 0 {
-                print("📊 Found \(status.needsMigration) posts needing profile images")
-                
-                // Run migration silently in background
                 try await PostProfileImageMigration.shared.migrateAllPosts()
-                
-                // Mark as completed
                 UserDefaults.standard.set(true, forKey: "hasRunPostProfileImageMigration_v1")
-                
-                print("✅ Post profile image migration completed successfully!")
-                print("   Total: \(status.totalPosts)")
-                print("   Migrated: \(status.needsMigration)")
             } else {
-                print("✅ All posts already have profile images")
-                
-                // Mark as completed even if no migration needed
                 UserDefaults.standard.set(true, forKey: "hasRunPostProfileImageMigration_v1")
             }
         } catch {
-            // Log error but don't show to user
-            print("⚠️ Post profile image migration failed: \(error.localizedDescription)")
-            print("   Posts without profile images will show initials instead")
+            // Silent — profile images fall back to initials
         }
     }
     
@@ -776,17 +830,31 @@ struct ContentView: View {
     private func handleScenePhaseChange(from oldPhase: ScenePhase, to newPhase: ScenePhase) {
         switch newPhase {
         case .active:
-            print("🟢 App became active")
-            appUsageTracker.startSession()
-            
+            AppUsageTracker.shared.startSession()
+
+            // ── Shabbat: re-evaluate immediately on every foreground entry ─
+            // The 60-second timer handles in-app transitions; this catches:
+            //   • Sat→Sun / Sun→Mon midnight crossings while backgrounded
+            //   • DST spring-forward / fall-back overnight
+            //   • Return from Control Center after disabling the toggle remotely
+            let shabbatNow = ShabbatModeService.shared.isShabbatActiveNow()
+            ShabbatAnalytics.logStateTransition(
+                enabled: ShabbatModeService.shared.isEnabled,
+                isSunday: ShabbatModeService.shared.isSunday
+            )
+            if shabbatNow && !isAllowedDuringChurchFocus(viewModel.selectedTab) {
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    viewModel.selectedTab = 3
+                }
+            }
+            // ───────────────────────────────────────────────────────────────
+
         case .inactive:
-            print("🟡 App became inactive")
-            // Don't end session yet, might be temporary
-            
+            break // Don't end session yet, might be temporary
+
         case .background:
-            print("🔴 App went to background")
-            appUsageTracker.endSession()
-            
+            AppUsageTracker.shared.endSession()
+
         @unknown default:
             break
         }
@@ -803,8 +871,7 @@ struct ContentView: View {
                         .ignoresSafeArea()
                         .transition(.opacity.animation(.easeOut(duration: 0.15)))
                         .onTapGesture {
-                            let haptic = UIImpactFeedbackGenerator(style: .soft)
-                            haptic.impactOccurred()
+                            HapticManager.impact(style: .soft)
                             withAnimation(.spring(response: 0.2, dampingFraction: 0.85)) {
                                 showCreateQuickActions = false
                             }
@@ -818,8 +885,7 @@ struct ContentView: View {
                                 title: "OpenTable",
                                 delay: 0.0,
                                 action: {
-                                    let haptic = UIImpactFeedbackGenerator(style: .medium)
-                                    haptic.impactOccurred()
+                                    HapticManager.impact(style: .medium)
                                     withAnimation(.spring(response: 0.2, dampingFraction: 0.85)) {
                                         showCreateQuickActions = false
                                     }
@@ -838,8 +904,7 @@ struct ContentView: View {
                                 title: "Prayer",
                                 delay: 0.05,
                                 action: {
-                                    let haptic = UIImpactFeedbackGenerator(style: .medium)
-                                    haptic.impactOccurred()
+                                    HapticManager.impact(style: .medium)
                                     withAnimation(.spring(response: 0.2, dampingFraction: 0.85)) {
                                         showCreateQuickActions = false
                                     }
@@ -858,8 +923,7 @@ struct ContentView: View {
                                 title: "Testimony",
                                 delay: 0.1,
                                 action: {
-                                    let haptic = UIImpactFeedbackGenerator(style: .medium)
-                                    haptic.impactOccurred()
+                                    HapticManager.impact(style: .medium)
                                     withAnimation(.spring(response: 0.2, dampingFraction: 0.85)) {
                                         showCreateQuickActions = false
                                     }
@@ -928,8 +992,7 @@ struct ContentView: View {
                         .ignoresSafeArea()
                         .transition(.opacity.animation(.easeOut(duration: 0.15)))
                         .onTapGesture {
-                            let haptic = UIImpactFeedbackGenerator(style: .soft)
-                            haptic.impactOccurred()
+                            HapticManager.impact(style: .soft)
                             withAnimation(.spring(response: 0.2, dampingFraction: 0.85)) {
                                 showBereanQuickActions = false
                             }
@@ -943,8 +1006,7 @@ struct ContentView: View {
                                 title: "Ask Berean",
                                 delay: 0.0,
                                 action: {
-                                    let haptic = UIImpactFeedbackGenerator(style: .medium)
-                                    haptic.impactOccurred()
+                                    HapticManager.impact(style: .medium)
                                     withAnimation(.spring(response: 0.2, dampingFraction: 0.85)) {
                                         showBereanQuickActions = false
                                     }
@@ -962,8 +1024,7 @@ struct ContentView: View {
                                 title: "Scripture Study",
                                 delay: 0.05,
                                 action: {
-                                    let haptic = UIImpactFeedbackGenerator(style: .medium)
-                                    haptic.impactOccurred()
+                                    HapticManager.impact(style: .medium)
                                     withAnimation(.spring(response: 0.2, dampingFraction: 0.85)) {
                                         showBereanQuickActions = false
                                     }
@@ -981,8 +1042,7 @@ struct ContentView: View {
                                 title: "Daily Devotion",
                                 delay: 0.1,
                                 action: {
-                                    let haptic = UIImpactFeedbackGenerator(style: .medium)
-                                    haptic.impactOccurred()
+                                    HapticManager.impact(style: .medium)
                                     withAnimation(.spring(response: 0.2, dampingFraction: 0.85)) {
                                         showBereanQuickActions = false
                                     }
@@ -1139,7 +1199,7 @@ struct CompactTabBar: View {
     // All tabs in order: Home, People, Messages, Resources, Notifications, Profile
     let allTabs: [(icon: String, tag: Int)] = [
         ("house.fill", 0),
-        ("person.2.fill", 1),
+        ("magnifyingglass", 1),
         ("message.fill", 2),
         ("books.vertical.fill", 3),
         ("bell.fill", 4),
@@ -1187,8 +1247,7 @@ struct CompactTabBar: View {
                 }
                 
                 // Haptic feedback for new message
-                let haptic = UINotificationFeedbackGenerator()
-                haptic.notificationOccurred(.success)
+                HapticManager.notification(type: .success)
                 
                 // Reset pulse after animation
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
@@ -1208,8 +1267,7 @@ struct CompactTabBar: View {
                 }
                 
                 // Haptic feedback for new post
-                let haptic = UINotificationFeedbackGenerator()
-                haptic.notificationOccurred(.success)
+                HapticManager.notification(type: .success)
                 
                 // Reset pulse after animation
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
@@ -1239,10 +1297,7 @@ struct CompactTabBar: View {
                 }
 
                 // Success haptic
-                let haptic = UIImpactFeedbackGenerator(style: .light)
-                haptic.impactOccurred()
-
-                print("🔄 Tab bar: Profile photo updated in real-time to: \(imageURL)")
+                HapticManager.impact(style: .light)
             }
         }
     }
@@ -1340,9 +1395,17 @@ struct CompactTabBar: View {
                 // Mark posts as seen
                 lastSeenPostTime = Date()
             }
+
+            // Immediately clear badge dots when user taps into those tabs
+            if tab.tag == 2 {
+                badgeCountManager.clearMessages()
+            }
+            // Notifications is tag 4 (bell), not tag 5 (profile)
+            if tab.tag == 4 {
+                badgeCountManager.clearNotifications()
+            }
             
-            let haptic = UIImpactFeedbackGenerator(style: .medium)
-            haptic.impactOccurred()
+            HapticManager.impact(style: .medium)
             
             // Reset navigation guard after animation completes
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
@@ -1395,19 +1458,19 @@ struct CompactTabBar: View {
                     // Smart badge for Messages tab (shows count then transitions to dot)
                     if tab.tag == 2 && totalUnreadCount > 0 {
                         SmartMessageBadge(unreadCount: totalUnreadCount, pulse: badgePulse)
-                            .offset(x: 11, y: -7)  // Adjusted for smaller compact button
+                            .offset(x: 2, y: -2)
                     }
                     
-                    // Simple dot indicator for Home tab (closer to button)
+                    // Simple dot indicator for Home tab
                     if tab.tag == 0 && hasNewPosts {
                         UnreadDot(pulse: newPostsBadgePulse)
-                            .offset(x: 8, y: -6)  // Adjusted for smaller compact button
+                            .offset(x: 2, y: -2)
                     }
                     
-                    // ✅ P0-10, P0-11, P0-12 FIX: Red dot for Notifications tab using BadgeCountManager
-                    if tab.tag == 5 && badgeCountManager.unreadNotifications > 0 {
+                    // Red dot for Notifications tab (tag 4 = bell)
+                    if tab.tag == 4 && badgeCountManager.unreadNotifications > 0 {
                         UnreadDot(pulse: false)
-                            .offset(x: 7, y: -5)  // Adjusted for smaller compact button
+                            .offset(x: 2, y: -2)
                     }
                 }
                 .frame(width: 44, height: 38)  // Smaller compact button size
@@ -1493,69 +1556,36 @@ struct CompactTabBar: View {
     
     private var createButton: some View {
         ZStack {
-            // Subtle outer glow
+            // Neumorphic base — light gray convex surface
+            Circle()
+                .fill(Color(red: 0.93, green: 0.93, blue: 0.95))
+                .frame(width: 42, height: 42)
+                // Dark shadow (bottom-right — recedes)
+                .shadow(color: Color(red: 0.68, green: 0.68, blue: 0.72).opacity(0.9), radius: 5, x: 4, y: 4)
+                // Light highlight (top-left — pops forward)
+                .shadow(color: Color.white.opacity(0.95), radius: 5, x: -4, y: -4)
+            
+            // Convex surface sheen — subtle radial brightening at centre-top
             Circle()
                 .fill(
                     RadialGradient(
                         colors: [
-                            Color.primary.opacity(0.15),
+                            Color.white.opacity(0.55),
                             Color.clear
                         ],
-                        center: .center,
-                        startRadius: 3,
-                        endRadius: 16
+                        center: UnitPoint(x: 0.38, y: 0.28),
+                        startRadius: 0,
+                        endRadius: 18
                     )
                 )
-                .frame(width: 38, height: 38)
+                .frame(width: 42, height: 42)
             
-            // Main circular button with glassmorphic touch
-            Circle()
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color.primary.opacity(0.92),
-                            Color.primary.opacity(0.78)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .frame(width: 38, height: 38)
-                .overlay(
-                    Circle()
-                        .stroke(
-                            LinearGradient(
-                                colors: [
-                                    Color.white.opacity(0.3),
-                                    Color.white.opacity(0.1)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1
-                        )
-                )
-                .overlay(
-                    Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    Color.white.opacity(0.15),
-                                    Color.clear
-                                ],
-                                startPoint: .top,
-                                endPoint: .center
-                            )
-                        )
-                        .padding(1)
-                )
-                .shadow(color: .black.opacity(0.2), radius: 6, y: 2)
-            
-            Image(systemName: "pencil")
-                .font(.system(size: 16, weight: .bold))
-                .foregroundStyle(.white)
+            // Feather/compose icon
+            Image(systemName: "square.and.pencil")
+                .font(.system(size: 19, weight: .medium))
+                .foregroundStyle(Color(red: 0.08, green: 0.08, blue: 0.10))
         }
-        .frame(width: 38, height: 38)
+        .frame(width: 42, height: 42)
         .scaleEffect(createButtonScale)
         .animation(.spring(response: 0.3, dampingFraction: 0.6), value: createButtonScale)
         .contentShape(Circle())
@@ -1564,32 +1594,24 @@ struct CompactTabBar: View {
             
             // PERFORMANCE FIX: Debounce rapid taps
             let now = Date()
-            guard now.timeIntervalSince(lastTapTime) > 0.3 else {
-                print("⚠️ Create button tap debounced (too fast)")
-                return
-            }
+            guard now.timeIntervalSince(lastTapTime) > 0.3 else { return }
             lastTapTime = now
             
             // PERFORMANCE FIX: Prevent duplicate sheet presentation
-            guard !showCreatePost else {
-                print("⚠️ Create post sheet already presented")
-                return
-            }
+            guard !showCreatePost else { return }
             
             // ✅ Shabbat Mode: Block create post during church focus window
-            guard !churchFocusManager.shouldGateFeature() else {
+            guard !SundayChurchFocusManager.shared.shouldGateFeature() else {
                 // Show Shabbat Mode gate
                 NotificationCenter.default.post(name: .showShabbatModeGate, object: nil)
-                let haptic = UINotificationFeedbackGenerator()
-                haptic.notificationOccurred(.warning)
+                HapticManager.notification(type: .warning)
                 return
             }
             
             withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
                 showCreatePost = true
             }
-            let haptic = UIImpactFeedbackGenerator(style: .heavy)
-            haptic.impactOccurred()
+            HapticManager.impact(style: .heavy)
         }
         .simultaneousGesture(
             // Long press - show quick actions menu (optional feature)
@@ -1597,8 +1619,7 @@ struct CompactTabBar: View {
                 .onChanged { _ in
                     if !isLongPressing {
                         isLongPressing = true
-                        let haptic = UIImpactFeedbackGenerator(style: .medium)
-                        haptic.impactOccurred()
+                        HapticManager.impact(style: .medium)
                         
                         withAnimation(.spring(response: 0.15, dampingFraction: 0.8)) {
                             createButtonScale = 0.9
@@ -1606,8 +1627,7 @@ struct CompactTabBar: View {
                     }
                 }
                 .onEnded { _ in
-                    let haptic = UINotificationFeedbackGenerator()
-                    haptic.notificationOccurred(.success)
+                    HapticManager.notification(type: .success)
                     
                     withAnimation(.spring(response: 0.2, dampingFraction: 0.8)) {
                         createButtonScale = 1.0
@@ -1630,22 +1650,26 @@ struct UnreadDot: View {
     
     var body: some View {
         ZStack {
-            // Pulse circle background
+            // Pulse ring (only when pulse is active)
             if pulse {
                 Circle()
-                    .fill(Color.red.opacity(0.3))
-                    .frame(width: 12, height: 12)
-                    .scaleEffect(pulse ? 2.0 : 1.0)
+                    .fill(Color.red.opacity(0.25))
+                    .frame(width: 14, height: 14)
+                    .scaleEffect(pulse ? 1.8 : 1.0)
                     .opacity(pulse ? 0 : 1)
                     .animation(.easeOut(duration: 0.6), value: pulse)
             }
             
-            // Main dot (no white outline)
+            // White border ring — separates dot from icon underneath (Instagram-style)
+            Circle()
+                .fill(Color(UIColor.systemBackground))
+                .frame(width: 9, height: 9)
+            
+            // Main dot
             Circle()
                 .fill(Color.red)
-                .frame(width: 8, height: 8)
-                .shadow(color: .red.opacity(0.5), radius: 3, y: 1)
-                .scaleEffect(pulse ? 1.2 : 1.0)
+                .frame(width: 6, height: 6)
+                .scaleEffect(pulse ? 1.15 : 1.0)
                 .animation(.spring(response: 0.3, dampingFraction: 0.6), value: pulse)
         }
     }
@@ -1660,38 +1684,46 @@ struct SmartMessageBadge: View {
     
     var body: some View {
         ZStack {
-            // Pulse circle background
+            // Pulse ring (only when pulse active)
             if pulse {
                 Circle()
-                    .fill(Color.red.opacity(0.3))
-                    .frame(width: showCount ? 20 : 12, height: showCount ? 20 : 12)
-                    .scaleEffect(pulse ? 2.0 : 1.0)
+                    .fill(Color.red.opacity(0.25))
+                    .frame(width: showCount ? 22 : 14, height: showCount ? 22 : 14)
+                    .scaleEffect(pulse ? 1.8 : 1.0)
                     .opacity(pulse ? 0 : 1)
                     .animation(.easeOut(duration: 0.6), value: pulse)
             }
             
             if showCount && unreadCount > 0 {
-                // Show count badge
+                // Count badge with white border
                 ZStack {
+                    // White border ring
+                    Capsule()
+                        .fill(Color(UIColor.systemBackground))
+                        .frame(width: max(19, CGFloat(unreadCount > 9 ? 23 : 19)), height: 19)
+                    
                     Capsule()
                         .fill(Color.red)
                         .frame(width: max(16, CGFloat(unreadCount > 9 ? 20 : 16)), height: 16)
                     
-                    Text("\(min(unreadCount, 9))")
+                    Text(unreadCount > 9 ? "9+" : "\(unreadCount)")
                         .font(.system(size: 10, weight: .bold))
                         .foregroundStyle(.white)
                 }
-                .shadow(color: .red.opacity(0.5), radius: 3, y: 1)
-                .scaleEffect(pulse ? 1.2 : 1.0)
+                .scaleEffect(pulse ? 1.15 : 1.0)
                 .transition(.scale.combined(with: .opacity))
             } else {
-                // Show simple dot
-                Circle()
-                    .fill(Color.red)
-                    .frame(width: 8, height: 8)
-                    .shadow(color: .red.opacity(0.5), radius: 3, y: 1)
-                    .scaleEffect(pulse ? 1.2 : 1.0)
-                    .transition(.scale.combined(with: .opacity))
+                // Simple dot matching UnreadDot style
+                ZStack {
+                    Circle()
+                        .fill(Color(UIColor.systemBackground))
+                        .frame(width: 9, height: 9)
+                    Circle()
+                        .fill(Color.red)
+                        .frame(width: 6, height: 6)
+                }
+                .scaleEffect(pulse ? 1.15 : 1.0)
+                .transition(.scale.combined(with: .opacity))
             }
         }
         .onAppear {
@@ -1759,7 +1791,7 @@ struct HomeView: View {
         // Debounce - only process changes > 3pts to reduce jitter
         guard abs(offset - scrollOffset) > 3 else { return }
         
-        let previousOffset = scrollOffset
+        _ = scrollOffset
         scrollOffset = offset
         let delta = offset - lastScrollOffset
         
@@ -1829,27 +1861,33 @@ struct HomeView: View {
                         withAnimation(.spring(response: 0.15, dampingFraction: 0.8)) {
                             isCategoriesExpanded.toggle()
                         }
-                        
-                        let haptic = UIImpactFeedbackGenerator(style: .light)
-                        haptic.impactOccurred()
+                        HapticManager.impact(style: .light)
+
+                        // Secret admin access: 5 rapid taps (manual counter — no onTapGesture(count:)
+                        // which delays every single tap while the system waits to resolve the sequence)
+                        tapCount += 1
+                        if tapCount >= 5 {
+                            tapCount = 0
+                            showAdminCleanup = true
+                            HapticManager.notification(type: .success)
+                        } else {
+                            // Reset counter after 1.2 s of inactivity
+                            Task {
+                                let snapshot = tapCount
+                                try? await Task.sleep(for: .seconds(1.2))
+                                if tapCount == snapshot { tapCount = 0 }
+                            }
+                        }
                     } label: {
                         HStack(spacing: 4) {
-                            Text("AMEN")
-                                .font(.title2)
-                                .fontWeight(.bold)
+                            Text("amen")
+                                .font(.custom("OpenSans-Bold", size: 24))
                                 .foregroundStyle(.primary)
                             Image(systemName: "chevron.up")
-                                .font(.caption)
-                                .fontWeight(.semibold)
-                                .foregroundStyle(.primary)
+                                .font(.system(size: 9, weight: .medium))
+                                .foregroundStyle(.primary.opacity(0.6))
                                 .rotationEffect(.degrees(isCategoriesExpanded ? 180 : 0))
                         }
-                    }
-                    // Secret admin access: tap 5 times quickly
-                    .onTapGesture(count: 5) {
-                        showAdminCleanup = true
-                        let haptic = UINotificationFeedbackGenerator()
-                        haptic.notificationOccurred(.success)
                     }
                 }
                 
@@ -1885,14 +1923,12 @@ struct HomeView: View {
     private var mainScrollContent: some View {
         ScrollViewReader { proxy in
             ScrollView(showsIndicators: true) {
-                LazyVStack(alignment: .leading, spacing: 0) {
-                    // P0 PERF FIX: Removed GeometryReader scroll tracker
-                    // Using OpenTableView's .onScrollViewScroll modifier instead (lighter weight)
+                VStack(alignment: .leading, spacing: 0) {
                     Color.clear
                         .frame(height: 1)
                         .id("top")
                     
-                    // Expandable Category Pills - perfectly centered and aligned
+                    // Expandable Category Pills
                     if isCategoriesExpanded {
                         categoryPillsView
                             .padding(.top, 4)
@@ -1908,21 +1944,22 @@ struct HomeView: View {
                     // Dynamic Content Based on Selected Category
                     selectedCategoryView
                 }
-                .padding(.bottom, 100) // Extra padding for tab bar
+                .padding(.bottom, 100)
             }
-            .scrollBounceBehavior(.basedOnSize) // Prevent bounce when content fits
-            // P0 PERF FIX: Removed .coordinateSpace (no longer needed without GeometryReader)
-            // GESTURE 3: Tap status bar area to scroll to top
+            // Native scroll offset tracking — does not replace SwiftUI's internal UIScrollViewDelegate
+            .onScrollGeometryChange(for: CGFloat.self) { geo in
+                geo.contentOffset.y
+            } action: { _, newOffset in
+                handleScroll(offset: -newOffset)
+            }
+            // GESTURE: Double-tap to scroll to top
             .onTapGesture(count: 2) {
                 withAnimation(.easeOut(duration: 0.3)) {
-                    // P0 FIX: Use .center anchor to ensure scroll reaches the very top
                     proxy.scrollTo("top", anchor: .center)
                     showToolbar = true
                     tabBarVisible.wrappedValue = true
                 }
-                
-                let haptic = UIImpactFeedbackGenerator(style: .light)
-                haptic.impactOccurred()
+                HapticManager.impact(style: .light)
             }
             .refreshable {
                 await refreshCurrentCategory()
@@ -1936,8 +1973,7 @@ struct HomeView: View {
     
     /// Refresh the currently selected category
     private func refreshCurrentCategory() async {
-        let haptic = UIImpactFeedbackGenerator(style: .light)
-        haptic.impactOccurred()
+        HapticManager.impact(style: .light)
         
         // Post notification to refresh the current category
         NotificationCenter.default.post(
@@ -1950,8 +1986,7 @@ struct HomeView: View {
         try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
         
         await MainActor.run {
-            let successHaptic = UINotificationFeedbackGenerator()
-            successHaptic.notificationOccurred(.success)
+            HapticManager.notification(type: .success)
         }
     }
     
@@ -1984,24 +2019,24 @@ struct HomeView: View {
     }
     
     private var selectedCategoryView: some View {
+        // Removing .id() modifiers — they forced full view destruction and recreation
+        // on every category switch, causing the observed 200-400ms tab switching lag.
+        // SwiftUI tracks view identity by type within a switch, so removing .id() lets
+        // the engine preserve and reuse the existing view instances.
         Group {
             switch viewModel.selectedCategory {
             case "#OPENTABLE":
                 OpenTableView()
-                    .id("openTable-\(viewModel.selectedCategory)") // Unique ID to force view update
-                    .transition(.opacity.animation(.easeInOut(duration: 0.2)))
+                    .transition(.opacity.animation(.easeInOut(duration: 0.15)))
             case "Testimonies":
                 TestimoniesView()
-                    .id("testimonies-\(viewModel.selectedCategory)")
-                    .transition(.opacity.animation(.easeInOut(duration: 0.2)))
+                    .transition(.opacity.animation(.easeInOut(duration: 0.15)))
             case "Prayer":
                 PrayerView()
-                    .id("prayer-\(viewModel.selectedCategory)")
-                    .transition(.opacity.animation(.easeInOut(duration: 0.2)))
+                    .transition(.opacity.animation(.easeInOut(duration: 0.15)))
             default:
                 OpenTableView()
-                    .id("openTable-\(viewModel.selectedCategory)")
-                    .transition(.opacity.animation(.easeInOut(duration: 0.2)))
+                    .transition(.opacity.animation(.easeInOut(duration: 0.15)))
             }
         }
     }
@@ -2024,58 +2059,34 @@ struct SearchButton: View {
     var body: some View {
         ZStack(alignment: .topTrailing) {
             ZStack {
-                // Outer glow ring - subtle pulse
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [
-                                Color.black.opacity(0.08),
-                                Color.black.opacity(0.02),
-                                Color.clear
-                            ],
-                            center: .center,
-                            startRadius: 10,
-                            endRadius: 22
+                // Berean AI icon - AMEN app logo with liquid glass ring
+                ZStack {
+                    Circle()
+                        .fill(.ultraThinMaterial)
+                        .frame(width: 40, height: 40)
+                        .overlay(
+                            Circle()
+                                .stroke(
+                                    LinearGradient(
+                                        colors: [
+                                            Color.white.opacity(0.4),
+                                            Color.white.opacity(0.1)
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    ),
+                                    lineWidth: 1
+                                )
                         )
-                    )
-                    .frame(width: 44, height: 44)
-                    .scaleEffect(isAnimating ? 1.08 : 1.0)
-                    .opacity(isAnimating ? 0.6 : 1.0)
-                
-                // Main button background with liquid glass effect
-                Circle()
-                    .fill(.ultraThinMaterial)
-                    .frame(width: 38, height: 38)
-                    .overlay(
-                        Circle()
-                            .stroke(
-                                LinearGradient(
-                                    colors: [
-                                        Color.white.opacity(0.3),
-                                        Color.white.opacity(0.1)
-                                    ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ),
-                                lineWidth: 1
-                            )
-                    )
-                    .shadow(color: .black.opacity(0.06), radius: 4, y: 2)
-                
-                // Berean AI icon - bible (black and white glassmorphic)
-                Image(systemName: "book.closed.fill")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [
-                                Color.black,
-                                Color.black.opacity(0.85)
-                            ],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-                    .rotationEffect(.degrees(isAnimating ? 2 : 0))
+                        .shadow(color: .black.opacity(0.08), radius: 4, y: 2)
+
+                    Image("amen-logo")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 32, height: 32)
+                        .blendMode(.multiply)
+                }
+                .rotationEffect(.degrees(isAnimating ? 2 : 0))
                 
                 // First-time hint badge
                 if showFirstTimeLongPressHint {
@@ -2097,8 +2108,7 @@ struct SearchButton: View {
             .animation(.spring(response: 0.3, dampingFraction: 0.6), value: quickActionButtonScale)
             .onTapGesture {
                 // Regular tap - open Berean AI immediately
-                let haptic = UIImpactFeedbackGenerator(style: .medium)
-                haptic.impactOccurred()
+                HapticManager.impact(style: .medium)
                 action()
             }
             .simultaneousGesture(
@@ -2107,8 +2117,7 @@ struct SearchButton: View {
                     .onChanged { _ in
                         if !isLongPressing {
                             isLongPressing = true
-                            let haptic = UIImpactFeedbackGenerator(style: .medium)
-                            haptic.impactOccurred()
+                            HapticManager.impact(style: .medium)
                             
                             withAnimation(.spring(response: 0.15, dampingFraction: 0.8)) {
                                 quickActionButtonScale = 0.9
@@ -2116,8 +2125,7 @@ struct SearchButton: View {
                         }
                     }
                     .onEnded { _ in
-                        let haptic = UINotificationFeedbackGenerator()
-                        haptic.notificationOccurred(.success)
+                        HapticManager.notification(type: .success)
                         
                         withAnimation(.spring(response: 0.2, dampingFraction: 0.85)) {
                             quickActionButtonScale = 1.0
@@ -2413,13 +2421,11 @@ struct CategoryPill: View {
     
     var body: some View {
         Button(action: {
-            let haptic = UIImpactFeedbackGenerator(style: .medium)
-            haptic.impactOccurred()
+            HapticManager.impact(style: .medium)
             action()
         }) {
             Text(title)
-                .font(.custom("OpenSans-SemiBold", size: adaptiveFontSize))
-                .fontWeight(isSelected ? .bold : .semibold)
+                .font(.custom(isSelected ? "OpenSans-Bold" : "OpenSans-SemiBold", size: adaptiveFontSize))
                 .foregroundStyle(isSelected ? .primary : .secondary)
                 .padding(.horizontal, adaptivePadding)
                 .padding(.vertical, adaptiveVerticalPadding)
@@ -2637,8 +2643,7 @@ struct SmartCommunityCard: View {
     
     var body: some View {
         Button(action: {
-            let haptic = UIImpactFeedbackGenerator(style: .light)
-            haptic.impactOccurred()
+            HapticManager.impact(style: .light)
             action()
         }) {
             HStack(spacing: 10) {
@@ -2732,8 +2737,7 @@ struct TrendingCard: View {
     var body: some View {
         Button {
             showDetails = true
-            let haptic = UIImpactFeedbackGenerator(style: .light)
-            haptic.impactOccurred()
+            HapticManager.impact(style: .light)
         } label: {
             VStack(spacing: 8) {
                 Image(systemName: icon)
@@ -3184,8 +3188,7 @@ struct EmojiPickerView: View {
                     ForEach(emojis, id: \.self) { emoji in
                         Button {
                             commentText += emoji
-                            let haptic = UIImpactFeedbackGenerator(style: .light)
-                            haptic.impactOccurred()
+                            HapticManager.impact(style: .light)
                             dismiss()
                         } label: {
                             Text(emoji)
@@ -3266,8 +3269,7 @@ struct CommentCard: View {
                             hasAmened.toggle()
                             localAmenCount += hasAmened ? 1 : -1
                             
-                            let haptic = UIImpactFeedbackGenerator(style: .light)
-                            haptic.impactOccurred()
+                            HapticManager.impact(style: .light)
                         }
                     } label: {
                         HStack(spacing: 4) {
@@ -3689,8 +3691,7 @@ struct FullCommentsView: View {
             self.replyingTo = nil
             isCommentFocused = false
             
-            let haptic = UINotificationFeedbackGenerator()
-            haptic.notificationOccurred(.success)
+            HapticManager.notification(type: .success)
         }
     }
     
@@ -3818,8 +3819,7 @@ struct CommentThreadCard: View {
                                 hasAmened.toggle()
                                 localAmenCount += hasAmened ? 1 : -1
                                 
-                                let haptic = UIImpactFeedbackGenerator(style: .light)
-                                haptic.impactOccurred()
+                                HapticManager.impact(style: .light)
                             }
                         } label: {
                             HStack(spacing: 6) {
@@ -3835,8 +3835,7 @@ struct CommentThreadCard: View {
                         
                         Button {
                             onReply(comment)
-                            let haptic = UIImpactFeedbackGenerator(style: .light)
-                            haptic.impactOccurred()
+                            HapticManager.impact(style: .light)
                         } label: {
                             HStack(spacing: 6) {
                                 Image(systemName: "arrowshape.turn.up.left")
@@ -3926,8 +3925,7 @@ struct GIFPickerView: View {
                                 selectedGIF = gifURL
                                 dismiss()
                                 
-                                let haptic = UIImpactFeedbackGenerator(style: .light)
-                                haptic.impactOccurred()
+                                HapticManager.impact(style: .light)
                             } label: {
                                 AsyncImage(url: URL(string: gifURL)) { image in
                                     image
@@ -4034,8 +4032,7 @@ struct FollowButton: View {
             withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
                 isFollowing.toggle()
                 
-                let haptic = UIImpactFeedbackGenerator(style: isFollowing ? .medium : .light)
-                haptic.impactOccurred()
+                HapticManager.impact(style: isFollowing ? .medium : .light)
             }
         } label: {
             buttonContent
@@ -4098,12 +4095,19 @@ extension EnvironmentValues {
     }
 }
 
+/// PreferenceKey for detecting scroll position in the feed LazyVStack
+private struct FeedScrollOffsetKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
 struct OpenTableView: View {
     @ObservedObject private var postsManager = PostsManager.shared
-    @StateObject private var feedAlgorithm = HomeFeedAlgorithm.shared
-    @StateObject private var scrollBudget = ScrollBudgetManager.shared
-    @State private var showTopIdeas = false
-    @State private var showSpotlight = false
+    @ObservedObject private var feedAlgorithm = HomeFeedAlgorithm.shared
+    @ObservedObject private var scrollBudget = ScrollBudgetManager.shared
+    @ObservedObject private var feedSession = FeedSessionManager.shared
     @State private var isRefreshing = false
     @State private var personalizedPosts: [Post] = []
     @State private var hasPersonalized = false // Track if personalization has run
@@ -4112,23 +4116,26 @@ struct OpenTableView: View {
     @State private var showSoftStop = false
     @State private var showLocked = false
     @State private var softStopExtensions = 0
-    @State private var lastScrollOffset: CGFloat = 0
-    @State private var scrollViewDelegate: ScrollViewDelegateHandler?
     @State private var showHeader = true
+    @State private var showSessionStopScreen = false
+    @State private var sessionCountingEnabled = false  // Delay counting until initial render is done
+    @State private var initiallyVisiblePostIds = Set<UUID>()  // Posts visible before first scroll — not counted
+    @State private var userHasScrolled = false  // True after user scrolls past initial batch
+    @State private var initialScrollY: CGFloat? = nil  // Y position captured at session start for scroll detection
     
     // MARK: - Pagination State
     @State private var visiblePostCount = 20 // Start with 20 posts
     @State private var isLoadingMore = false
+
+    // Phase 4: Cancel in-flight ranking when new posts arrive to avoid stale reorder jank.
+    @State private var personalizationTask: Task<Void, Never>?
     
     @Environment(\.tabBarVisible) private var tabBarVisible
-    @Environment(\.toolbarVisible) private var toolbarVisible
     
     var body: some View {
         ZStack(alignment: .top) {
-            // Main scroll content
-            ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                // Header Section (cleaned up - removed grey icon and divider)
+            // Header Section (cleaned up - removed grey icon and divider)
                 if showHeader {
                     VStack(alignment: .leading, spacing: 4) {
                         
@@ -4146,7 +4153,7 @@ struct OpenTableView: View {
                             }
                         }
                         
-                        Text("AI • Bible & Tech • Business • Ideas")
+                        Text("Gather. Share. Grow.")
                             .font(.custom("OpenSans-Regular", size: 12))
                             .foregroundStyle(.secondary)
                     }
@@ -4155,11 +4162,9 @@ struct OpenTableView: View {
                     .transition(.move(edge: .top).combined(with: .opacity))
                 }
                 
-                // Community Section - Collapsible with Liquid Glass Design
-                CollapsibleCommunitySection(
-                    showTopIdeas: $showTopIdeas,
-                    showSpotlight: $showSpotlight
-                )
+                // Daily Verse Banner
+                DailyVerseBanner()
+                    .padding(.horizontal)
                 
                 // Feed Section - Dynamic posts from PostsManager (Trending section removed)
                 LazyVStack(spacing: 16) {
@@ -4173,12 +4178,30 @@ struct OpenTableView: View {
                             post: post,
                             isUserPost: isCurrentUserPost(post) // Check if post belongs to current user
                         )
+                        // D) One-time appear animation — keyed by stable post UUID.
+                        // Stagger capped at 0.20s so deep lists don't stall.
+                        .feedItemAppear(id: post.id, delay: min(Double(index) * 0.04, 0.20))
                         .if(index == 0) { view in
                             view.reportPostCardFrame()
                         }
                         .onAppear {
-                            // Track view interaction
+                            // Track view interaction (benefit model — not optimizing watch time)
                             feedAlgorithm.recordInteraction(with: post, type: .view)
+                            
+                            // Finite session: count cards seen, show Stop Screen at cap
+                            // Guard: only count cards the user scrolled to, not the initial render batch
+                            if sessionCountingEnabled {
+                                if !userHasScrolled {
+                                    // Still in initial render — mark this post as initially visible
+                                    initiallyVisiblePostIds.insert(post.id)
+                                } else if !initiallyVisiblePostIds.contains(post.id) {
+                                    // This is a card the user actively scrolled to — count it
+                                    feedSession.recordCardSeen()
+                                    if feedSession.isSessionComplete {
+                                        showSessionStopScreen = true
+                                    }
+                                }
+                            }
                             
                             // PAGINATION: Load more when approaching the end
                             if index >= displayPosts.count - 3 && !isLoadingMore && visiblePostCount < allPosts.count {
@@ -4218,46 +4241,26 @@ struct OpenTableView: View {
                     }
                 }
                 .padding(.horizontal)
+                // Detect scroll: track LazyVStack Y position in global space.
+                // When it moves meaningfully, the user has actively scrolled.
+                .background(
+                    GeometryReader { geo in
+                        Color.clear
+                            .preference(key: FeedScrollOffsetKey.self, value: geo.frame(in: .global).minY)
+                    }
+                )
             }
-        }
-        .onScrollViewScroll { delta in
-            // P0 FIX: Special signal (-999) means we're at top - always show UI
-            if delta < -500 {
-                if !showHeader || !toolbarVisible.wrappedValue || !tabBarVisible.wrappedValue {
-                    withAnimation(.easeOut(duration: 0.2)) {
-                        showHeader = true
-                        toolbarVisible.wrappedValue = true
-                        tabBarVisible.wrappedValue = true
-                    }
-                }
-                return
-            }
-            
-            // P0 PERF FIX: Increased threshold to reduce animation triggers
-            let threshold: CGFloat = 15.0 // Increased from 5.0
-            
-            // P0 PERF FIX: Only animate if state actually changes (prevent redundant animations)
-            if delta > threshold {
-                if showHeader || toolbarVisible.wrappedValue || tabBarVisible.wrappedValue {
-                    withAnimation(.easeOut(duration: 0.2)) { // Reduced from 0.25
-                        showHeader = false
-                        toolbarVisible.wrappedValue = false
-                        tabBarVisible.wrappedValue = false
-                    }
-                }
-            } else if delta < -threshold {
-                if !showHeader || !toolbarVisible.wrappedValue || !tabBarVisible.wrappedValue {
-                    withAnimation(.easeOut(duration: 0.2)) {
-                        showHeader = true
-                        toolbarVisible.wrappedValue = true
-                        tabBarVisible.wrappedValue = true
-                    }
+            .frame(maxWidth: .infinity)
+            .onPreferenceChange(FeedScrollOffsetKey.self) { newY in
+                guard sessionCountingEnabled, !userHasScrolled else { return }
+                // initialScrollY is captured after the first preference fires
+                if initialScrollY == nil {
+                    initialScrollY = newY
+                } else if let origin = initialScrollY, abs(newY - origin) > 50 {
+                    // User has scrolled more than 50pts from initial position
+                    userHasScrolled = true
                 }
             }
-        }
-        .refreshable {
-            await refreshOpenTable()
-        }
         .task {
             // Start real-time listener for openTable posts
             FirebasePostService.shared.startListening(category: .openTable)
@@ -4272,12 +4275,48 @@ struct OpenTableView: View {
         .onAppear {
             // Start scroll budget tracking
             scrollBudget.startScrollSession(inSection: "OpenTable")
+            // Start a fresh finite session when feed appears
+            feedSession.startNewSession()
+            sessionCountingEnabled = false
+            userHasScrolled = false
+            initiallyVisiblePostIds = []
+            initialScrollY = nil
+            // Allow initial render to complete, then enable counting
+            // Cards only count once userHasScrolled is also true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                sessionCountingEnabled = true
+            }
         }
         .onDisappear {
             // Don't stop the listener - keep it active for real-time updates
             
             // End scroll budget tracking
             scrollBudget.endScrollSession()
+
+            // Phase 5: Cancel any in-flight personalization task to prevent
+            // state mutation after the view leaves the hierarchy.
+            personalizationTask?.cancel()
+            personalizationTask = nil
+        }
+        .fullScreenCover(isPresented: $showSessionStopScreen) {
+            FeedSessionStopScreen(
+                onContinue: {
+                    // User deliberately chose to continue — session extended
+                    showSessionStopScreen = false
+                    // Re-arm counting: reset scroll tracking so initial-render posts aren't re-counted
+                    sessionCountingEnabled = false
+                    userHasScrolled = false
+                    initiallyVisiblePostIds = []
+                    initialScrollY = nil
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                        sessionCountingEnabled = true
+                    }
+                },
+                onClose: {
+                    // User chose to close/reflect — dismiss the feed context
+                    showSessionStopScreen = false
+                }
+            )
         }
         .onChange(of: postsManager.openTablePosts) { oldValue, newValue in
             // Only re-personalize if there are new posts
@@ -4315,8 +4354,7 @@ struct OpenTableView: View {
             }
             
             // Haptic feedback for instant confirmation
-            let haptic = UINotificationFeedbackGenerator()
-            haptic.notificationOccurred(.success)
+            HapticManager.notification(type: .success)
         }
         .onReceive(NotificationCenter.default.publisher(for: .scrollBudget50Reached)) { _ in
             show50Banner = true
@@ -4361,22 +4399,68 @@ struct OpenTableView: View {
     
     // MARK: - Personalization
     
-    /// Apply smart algorithm to personalize feed
+    /// Apply smart algorithm to personalize feed.
+    /// Tries Cloud Run server-side ranking first (3-second timeout);
+    /// falls back to on-device HomeFeedAlgorithm if unavailable.
     private func personalizeFeeds() {
         guard !postsManager.openTablePosts.isEmpty else {
             personalizedPosts = []
             return
         }
-        
-        // Rank posts using algorithm (optimized to run off main thread)
-        Task.detached(priority: .userInitiated) {
-            let ranked = await feedAlgorithm.rankPosts(
-                postsManager.openTablePosts,
-                for: feedAlgorithm.userInterests
+
+        // Phase 4: Cancel any in-flight ranking so a rapid post-count change
+        // doesn't produce two competing ranked arrays that cause scroll-jump.
+        personalizationTask?.cancel()
+        personalizationTask = nil
+
+        // Capture values on main actor before detaching
+        let followingIds = FollowService.shared.following
+        let posts = postsManager.openTablePosts
+        let interests = feedAlgorithm.userInterests
+        let capturedCardsServed = feedSession.cardsSeenThisSession
+        let capturedSessionCap = feedSession.sessionCap
+
+        personalizationTask = Task.detached(priority: .userInitiated) {
+            guard !Task.isCancelled else { return }
+
+            // 1. Try Cloud Run (fast path — returns nil on timeout / no URL configured)
+            let sessionResult: FeedAPIService.RankResult? = await FeedAPIService.shared.rankPosts(
+                posts,
+                interests: interests,
+                followingIds: followingIds,
+                sessionCardsServed: capturedCardsServed,
+                sessionCap: capturedSessionCap
             )
-            
+
+            guard !Task.isCancelled else { return }
+
+            // Apply server-side session exhaustion signal
+            if let result = sessionResult, result.sessionExhausted {
+                await MainActor.run { feedSession.isSessionComplete = true }
+            }
+
+            // 2. Local fallback if Cloud Run unavailable
+            // Uses benefit-score model: FinalScore = (ValueScore × TrustScore) − HarmRisk − AddictionRisk
+            // Does NOT optimize for engagement, watch time, or session length.
+            let ranked: [Post]
+            if let r = sessionResult {
+                ranked = r.posts
+            } else {
+                ranked = await feedAlgorithm.benefitRankPosts(
+                    posts,
+                    for: interests,
+                    followingIds: followingIds
+                )
+            }
+
+            guard !Task.isCancelled else { return }
+
             await MainActor.run {
-                personalizedPosts = ranked
+                // Phase 4: Suppress implicit animation so the scroll position
+                // doesn't jump when the ranked array replaces the unranked one.
+                withAnimation(.none) {
+                    personalizedPosts = ranked
+                }
             }
         }
     }
@@ -4396,9 +4480,7 @@ struct OpenTableView: View {
         // Haptic feedback on completion
         await MainActor.run {
             isRefreshing = false
-            let haptic = UINotificationFeedbackGenerator()
-            haptic.notificationOccurred(.success)
-            print("✅ OpenTable posts refreshed!")
+            HapticManager.notification(type: .success)
         }
         
         // Reset pagination after refresh
@@ -4436,8 +4518,7 @@ struct CollapsibleTrendingSection: View {
                     isExpanded.toggle()
                 }
                 
-                let haptic = UIImpactFeedbackGenerator(style: .light)
-                haptic.impactOccurred()
+                HapticManager.impact(style: .light)
             } label: {
                 HStack {
                     Text("Trending")
@@ -4513,6 +4594,308 @@ struct CollapsibleTrendingSection: View {
 
 // MARK: - Collapsible Community Section
 
+// MARK: - Daily Verse Banner (replaces Top Ideas / Spotlight cards)
+
+// MARK: - Banner Color Palette
+
+struct BannerColorOption: Identifiable {
+    let id: String       // stored in Firestore
+    let label: String
+    let top: Color
+    let bottom: Color
+    let shadow: Color
+    var isLight: Bool = false  // true for light backgrounds — uses dark checkmark/border
+
+    static let all: [BannerColorOption] = [
+        BannerColorOption(
+            id: "red",
+            label: "Red",
+            top:    Color(red: 0.97, green: 0.25, blue: 0.20),
+            bottom: Color(red: 0.92, green: 0.18, blue: 0.14),
+            shadow: Color(red: 0.92, green: 0.18, blue: 0.14)
+        ),
+        BannerColorOption(
+            id: "midnight",
+            label: "Midnight",
+            top:    Color(red: 0.10, green: 0.12, blue: 0.28),
+            bottom: Color(red: 0.06, green: 0.07, blue: 0.18),
+            shadow: Color(red: 0.06, green: 0.07, blue: 0.20)
+        ),
+        BannerColorOption(
+            id: "forest",
+            label: "Forest",
+            top:    Color(red: 0.10, green: 0.38, blue: 0.22),
+            bottom: Color(red: 0.06, green: 0.28, blue: 0.15),
+            shadow: Color(red: 0.06, green: 0.28, blue: 0.15)
+        ),
+        BannerColorOption(
+            id: "ocean",
+            label: "Ocean",
+            top:    Color(red: 0.05, green: 0.35, blue: 0.62),
+            bottom: Color(red: 0.03, green: 0.25, blue: 0.48),
+            shadow: Color(red: 0.03, green: 0.25, blue: 0.50)
+        ),
+        BannerColorOption(
+            id: "plum",
+            label: "Plum",
+            top:    Color(red: 0.38, green: 0.12, blue: 0.42),
+            bottom: Color(red: 0.28, green: 0.07, blue: 0.32),
+            shadow: Color(red: 0.28, green: 0.07, blue: 0.34)
+        ),
+        // New colors from brand palette
+        BannerColorOption(
+            id: "deepplum",
+            label: "Deep Plum",
+            top:    Color(red: 0.220, green: 0.098, blue: 0.196),  // #381932
+            bottom: Color(red: 0.165, green: 0.063, blue: 0.149),
+            shadow: Color(red: 0.220, green: 0.098, blue: 0.196)
+        ),
+        BannerColorOption(
+            id: "milk",
+            label: "Milk",
+            top:    Color(red: 1.000, green: 0.953, blue: 0.902),  // #FFF3E6
+            bottom: Color(red: 0.980, green: 0.933, blue: 0.882),
+            shadow: Color(red: 0.800, green: 0.750, blue: 0.700),
+            isLight: true
+        ),
+        BannerColorOption(
+            id: "cyprus",
+            label: "Cyprus",
+            top:    Color(red: 0.000, green: 0.275, blue: 0.263),  // #004643
+            bottom: Color(red: 0.000, green: 0.200, blue: 0.192),
+            shadow: Color(red: 0.000, green: 0.275, blue: 0.263)
+        ),
+        BannerColorOption(
+            id: "sanddune",
+            label: "Sand Dune",
+            top:    Color(red: 0.941, green: 0.929, blue: 0.898),  // #F0EDE5
+            bottom: Color(red: 0.910, green: 0.898, blue: 0.863),
+            shadow: Color(red: 0.700, green: 0.680, blue: 0.640),
+            isLight: true
+        ),
+    ]
+
+    static func find(_ id: String?) -> BannerColorOption {
+        all.first { $0.id == id } ?? all[0]
+    }
+}
+
+// MARK: - Banner Color Picker Sheet
+
+struct BannerColorPickerSheet: View {
+    @Binding var selectedColorId: String
+    let onSelect: (String) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(spacing: 24) {
+            // Handle
+            Capsule()
+                .fill(Color.secondary.opacity(0.3))
+                .frame(width: 36, height: 4)
+                .padding(.top, 12)
+
+            Text("Banner Color")
+                .font(.custom("OpenSans-Bold", size: 17))
+                .foregroundStyle(.primary)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 16) {
+                    ForEach(BannerColorOption.all) { option in
+                        Button {
+                            selectedColorId = option.id
+                            onSelect(option.id)
+                            HapticManager.impact(style: .light)
+                            dismiss()
+                        } label: {
+                            VStack(spacing: 8) {
+                                ZStack {
+                                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                        .fill(
+                                            LinearGradient(
+                                                colors: [option.top, option.bottom],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            )
+                                        )
+                                        .frame(width: 52, height: 52)
+                                        .shadow(color: option.shadow.opacity(0.35), radius: 6, y: 3)
+
+                                    if selectedColorId == option.id {
+                                        let accentColor: Color = option.isLight ? .black.opacity(0.7) : .white
+                                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                            .strokeBorder(accentColor, lineWidth: 2.5)
+                                            .frame(width: 52, height: 52)
+                                        Image(systemName: "checkmark")
+                                            .font(.system(size: 14, weight: .bold))
+                                            .foregroundStyle(accentColor)
+                                    }
+                                }
+                                Text(option.label)
+                                    .font(.custom("OpenSans-Regular", size: 11))
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .buttonStyle(.instantFeedback)
+                    }
+                }
+                .padding(.horizontal, 20)
+            }
+
+            Spacer()
+        }
+        .presentationDetents([.height(220)])
+        .presentationDragIndicator(.hidden)
+        .presentationCornerRadius(24)
+    }
+}
+
+// MARK: - Daily Verse Banner
+
+struct DailyVerseBanner: View {
+    @ObservedObject private var verseService = DailyVerseGenkitService.shared
+    @ObservedObject private var userService = UserService.shared
+    @State private var showColorPicker = false
+    @State private var localColorId: String = UserDefaults.standard.string(forKey: "bannerColorId") ?? "red"
+
+    private var activeColor: BannerColorOption {
+        BannerColorOption.find(localColorId)
+    }
+
+    private var dayString: String {
+        "\(Calendar.current.component(.day, from: Date()))"
+    }
+
+    private var monthString: String {
+        let f = DateFormatter()
+        f.dateFormat = "MMMM"
+        return f.string(from: Date())
+    }
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [activeColor.top, activeColor.bottom],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .animation(.spring(response: 0.35, dampingFraction: 0.8), value: localColorId)
+
+            HStack(alignment: .top, spacing: 0) {
+                // Left: large day number
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(dayString)
+                        .font(.system(size: 44, weight: .black))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
+
+                    Text(monthString)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.80))
+                        .textCase(.uppercase)
+                        .tracking(1.5)
+                }
+                .frame(width: 68)
+                .padding(.leading, 14)
+                .padding(.vertical, 12)
+
+                Rectangle()
+                    .fill(Color.white.opacity(0.25))
+                    .frame(width: 1)
+                    .padding(.vertical, 12)
+                    .padding(.horizontal, 10)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    if let verse = verseService.todayVerse {
+                        Text(verse.text)
+                            .font(.custom("OpenSans-Regular", size: 12))
+                            .foregroundStyle(.white)
+                            .lineSpacing(3)
+                            .lineLimit(3)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text("— \(verse.reference)")
+                            .font(.custom("OpenSans-SemiBold", size: 11))
+                            .foregroundStyle(.white.opacity(0.80))
+                    } else if verseService.isGenerating {
+                        HStack(spacing: 8) {
+                            ProgressView().tint(.white).scaleEffect(0.8)
+                            Text("Loading verse...")
+                                .font(.custom("OpenSans-Regular", size: 12))
+                                .foregroundStyle(.white.opacity(0.80))
+                        }
+                    } else {
+                        Text("\"For I know the plans I have for you,\" declares the LORD, \"plans to prosper you and not to harm you.\"")
+                            .font(.custom("OpenSans-Regular", size: 12))
+                            .foregroundStyle(.white)
+                            .lineSpacing(3)
+                            .lineLimit(3)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text("— Jeremiah 29:11")
+                            .font(.custom("OpenSans-SemiBold", size: 11))
+                            .foregroundStyle(.white.opacity(0.80))
+                    }
+                }
+                .padding(.vertical, 12)
+                .padding(.trailing, 14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                // Edit hint — top-right palette icon
+                VStack {
+                    Image(systemName: "paintpalette.fill")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.white.opacity(0.55))
+                        .padding(10)
+                    Spacer()
+                }
+            }
+        }
+        .shadow(color: activeColor.shadow.opacity(0.35), radius: 12, x: 0, y: 6)
+        // Long-press opens color picker (only for current user's own feed)
+        .onLongPressGesture(minimumDuration: 0.4) {
+            HapticManager.impact(style: .medium)
+            showColorPicker = true
+        }
+        .sheet(isPresented: $showColorPicker) {
+            BannerColorPickerSheet(selectedColorId: $localColorId) { newColorId in
+                // Persist locally immediately
+                UserDefaults.standard.set(newColorId, forKey: "bannerColorId")
+                // Save to Firestore in background
+                Task {
+                    try? await UserService.shared.updateBannerColor(newColorId)
+                }
+            }
+        }
+        .onAppear {
+            // Sync from user profile if available
+            if let serverColorId = userService.currentUser?.bannerColorId {
+                localColorId = serverColorId
+                UserDefaults.standard.set(serverColorId, forKey: "bannerColorId")
+            }
+        }
+        .onChange(of: userService.currentUser?.bannerColorId) { _, newId in
+            if let newId {
+                localColorId = newId
+            }
+        }
+        .task {
+            if verseService.todayVerse == nil {
+                if let data = UserDefaults.standard.data(forKey: "cachedDailyVerse"),
+                   let date = UserDefaults.standard.object(forKey: "cachedVerseDate") as? Date,
+                   Calendar.current.isDate(date, inSameDayAs: Date()),
+                   let verse = try? JSONDecoder().decode(PersonalizedDailyVerse.self, from: data) {
+                    await MainActor.run { verseService.todayVerse = verse }
+                } else {
+                    _ = await verseService.generatePersonalizedDailyVerse()
+                }
+            }
+        }
+    }
+}
+
 struct CollapsibleCommunitySection: View {
     @AppStorage("communitySectionExpanded") private var isExpanded = true
     @Binding var showTopIdeas: Bool
@@ -4526,8 +4909,7 @@ struct CollapsibleCommunitySection: View {
                     isExpanded.toggle()
                 }
                 
-                let haptic = UIImpactFeedbackGenerator(style: .light)
-                haptic.impactOccurred()
+                HapticManager.impact(style: .light)
             } label: {
                 HStack {
                     Text("Community")
@@ -4604,8 +4986,7 @@ struct LiquidGlassCommunityCard: View {
     
     var body: some View {
         Button(action: {
-            let haptic = UIImpactFeedbackGenerator(style: .light)
-            haptic.impactOccurred()
+            HapticManager.impact(style: .light)
             action()
         }) {
             HStack(spacing: 12) {
@@ -4705,8 +5086,7 @@ struct SmartTrendingCard: View {
                 showDetails = true
             }
             
-            let haptic = UIImpactFeedbackGenerator(style: .light)
-            haptic.impactOccurred()
+            HapticManager.impact(style: .light)
         } label: {
             HStack(spacing: 16) {
                 // Premium Icon with Glass Effect
@@ -4851,8 +5231,8 @@ struct SmartTrendingCard: View {
 
 struct TopIdeasView: View {
     @Environment(\.dismiss) var dismiss
-    @StateObject private var trendingService = TrendingService.shared
-    @StateObject private var filteringService = SmartIdeaFilteringService.shared
+    @ObservedObject private var trendingService = TrendingService.shared
+    @ObservedObject private var filteringService = SmartIdeaFilteringService.shared
     @State private var selectedTimeframe: IdeaTimeframe = .week
     @State private var selectedCategory: TopIdea.IdeaCategory = .all
     @State private var showFilters = false
@@ -5234,8 +5614,7 @@ struct TopIdeaCard: View {
                             isAnimating = true
                         }
                         
-                        let haptic = UIImpactFeedbackGenerator(style: hasLightbulbed ? .heavy : .light)
-                        haptic.impactOccurred()
+                        HapticManager.impact(style: hasLightbulbed ? .heavy : .light)
                         
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
                             isAnimating = false
@@ -5316,8 +5695,7 @@ struct TopIdeaCard: View {
                     // Share Button
                     Button {
                         // Share action
-                        let haptic = UIImpactFeedbackGenerator(style: .light)
-                        haptic.impactOccurred()
+                        HapticManager.impact(style: .light)
                     } label: {
                         Image(systemName: "square.and.arrow.up")
                             .font(.system(size: 14, weight: .semibold))
@@ -5408,6 +5786,123 @@ extension View {
 
 // MARK: - Post Success Toast (Glassmorphic Design)
 
+// MARK: - Posting Bar State
+
+enum PostingBarState: Equatable {
+    case hidden
+    case posting   // spinner + "Posting…"
+    case posted    // checkmark + "Posted · View"
+}
+
+// MARK: - ThreadsPostingBar
+
+/// Threads-style bottom bar that slides up from the tab bar.
+/// Shows "Posting…" while the network call is in flight, then
+/// transitions to "Posted · View" once Firestore confirms.
+struct ThreadsPostingBar: View {
+    let state: PostingBarState
+    let category: String
+    let post: Post?
+    let onView: () -> Void
+
+    // Category-specific accent
+    private var accent: Color {
+        switch category {
+        case "openTable":   return .orange
+        case "testimonies": return .yellow
+        case "prayer":      return .blue
+        default:            return Color.accentColor
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 14) {
+            // Left: app icon circle
+            ZStack {
+                Circle()
+                    .fill(.ultraThinMaterial)
+                    .frame(width: 36, height: 36)
+                Image("amen-logo")
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 28, height: 28)
+                    .clipShape(Circle())
+            }
+
+            // Middle: label
+            Group {
+                if state == .posting {
+                    HStack(spacing: 8) {
+                        ProgressView()
+                            .progressViewStyle(.circular)
+                            .scaleEffect(0.75)
+                            .tint(.secondary)
+                        Text("Posting…")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundStyle(.primary)
+                    }
+                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                } else {
+                    HStack(spacing: 6) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(.green)
+                            .symbolEffect(.bounce, value: state == .posted)
+                        Text("Posted")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundStyle(.primary)
+                    }
+                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                }
+            }
+            .animation(.spring(response: 0.3, dampingFraction: 0.8), value: state)
+
+            Spacer()
+
+            // Right: "View" button (only when posted)
+            if state == .posted {
+                Button(action: onView) {
+                    Text("View")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(accent)
+                }
+                .transition(.opacity.combined(with: .move(edge: .trailing)))
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .strokeBorder(
+                            LinearGradient(
+                                colors: [Color.white.opacity(0.35), Color.white.opacity(0.08)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1
+                        )
+                )
+        )
+        .shadow(color: .black.opacity(0.18), radius: 24, y: 6)
+        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: state)
+        .onAppear {
+            if state == .posted {
+                HapticManager.notification(type: .success)
+            }
+        }
+        .onChange(of: state) { _, newState in
+            if newState == .posted {
+                HapticManager.notification(type: .success)
+            }
+        }
+    }
+}
+
+// Keep PostSuccessToast as a thin alias so any lingering references still compile
+@available(*, deprecated, renamed: "ThreadsPostingBar")
 struct PostSuccessToast: View {
     let category: String
     @State private var isAnimating = false
@@ -5528,46 +6023,30 @@ struct PostSuccessToast: View {
             }
             
             // Haptic feedback
-            let haptic = UINotificationFeedbackGenerator()
-            haptic.notificationOccurred(.success)
+            HapticManager.notification(type: .success)
         }
     }
 }
 
-#Preview("Post Success Toast - OpenTable") {
+#Preview("Posting Bar - Posting") {
     ZStack {
-        Color(.systemGroupedBackground)
-            .ignoresSafeArea()
-        
+        Color(.systemGroupedBackground).ignoresSafeArea()
         VStack {
             Spacer()
-            PostSuccessToast(category: "openTable")
+            ThreadsPostingBar(state: .posting, category: "openTable", post: nil) {}
+                .padding(.horizontal, 16)
                 .padding(.bottom, 100)
         }
     }
 }
 
-#Preview("Post Success Toast - Prayer") {
+#Preview("Posting Bar - Posted") {
     ZStack {
-        Color(.systemGroupedBackground)
-            .ignoresSafeArea()
-        
+        Color(.systemGroupedBackground).ignoresSafeArea()
         VStack {
             Spacer()
-            PostSuccessToast(category: "prayer")
-                .padding(.bottom, 100)
-        }
-    }
-}
-
-#Preview("Post Success Toast - Testimonies") {
-    ZStack {
-        Color(.systemGroupedBackground)
-            .ignoresSafeArea()
-        
-        VStack {
-            Spacer()
-            PostSuccessToast(category: "testimonies")
+            ThreadsPostingBar(state: .posted, category: "prayer", post: nil) {}
+                .padding(.horizontal, 16)
                 .padding(.bottom, 100)
         }
     }

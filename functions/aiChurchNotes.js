@@ -35,6 +35,7 @@ exports.findScriptureReferences = onDocumentCreated(
       const requestId = event.params.requestId;
       const requestData = event.data.data();
       const verse = requestData.verse;
+      const userId = requestData.userId || null;
 
       console.log(`📖 Scripture reference request: ${verse} (ID: ${requestId})`);
 
@@ -98,13 +99,14 @@ Rules:
             )
             .slice(0, 5); // Ensure max 5 references
 
-        // Store results in Firestore
+        // Store results in Firestore — include userId so Firestore rules allow client to poll
         await admin.firestore()
             .collection("scriptureReferenceResults")
             .doc(requestId)
             .set({
               references: references,
               originalVerse: verse,
+              userId: userId,
               processedAt: admin.firestore.FieldValue.serverTimestamp(),
             });
 
@@ -113,13 +115,14 @@ Rules:
       } catch (error) {
         console.error(`❌ Error finding scripture references:`, error);
 
-        // Store error result so client doesn't timeout
+        // Store error result so client doesn't timeout — include userId for rule access
         await admin.firestore()
             .collection("scriptureReferenceResults")
             .doc(requestId)
             .set({
               references: [],
               originalVerse: verse,
+              userId: userId,
               error: error.message,
               processedAt: admin.firestore.FieldValue.serverTimestamp(),
             });

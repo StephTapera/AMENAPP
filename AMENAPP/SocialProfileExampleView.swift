@@ -7,6 +7,8 @@
 
 import SwiftUI
 
+#if DEBUG
+
 /// Example view demonstrating how to use the new social features
 struct SocialProfileExampleView: View {
     @StateObject private var userService = UserService()
@@ -286,3 +288,5 @@ struct SocialProfileExampleView: View {
 #Preview {
     SocialProfileExampleView()
 }
+
+#endif

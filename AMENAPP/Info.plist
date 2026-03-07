@@ -31,30 +31,42 @@
 			</array>
 		</dict>
 	</array>
-	<key>Camera- Usage Description</key>
-	<string>Take a photo to personalize your AMEN profile</string>
-	<key>Location - When In Use Usage Description</key>
-	<string>We need your location to find churches near you and provide smart service reminders</string>
-	<key>Location Always And When In Use Usage Description</key>
-	<string>We need your location to send you reminders when you&apos;re near your saved churches</string>
-	<key>Photo - Library Usage Description</key>
-	<string>Choose a photo to personalize your AMEN profile</string>
+	<key>FirebaseAppDelegateProxyEnabled</key>
+	<false/>
+	<key>GOOGLE_VISION_API_KEY</key>
+	<string>AIzaSyBRg7axwpIAxoKjuSuCBSqCtMuxfkqfE-k</string>
+	<key>NSAppleMusicUsageDescription</key>
+	<string>AMEN uses Apple Music to play worship songs in your Church Notes.</string>
+	<key>NSUserTrackingUsageDescription</key>
+	<string>AMEN does not track you across other apps or websites. This permission is requested only if a third-party SDK requires it for analytics or crash reporting.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>AMEN uses speech recognition to let you compose posts, prayers, and messages by voice.</string>
+	<key>NSUserNotificationsUsageDescription</key>
+	<string>We&apos;ll send you reminders about church service times and when you&apos;re near your saved churches</string>
+	<key>OPENAI_API_KEY</key>
+	<string>YOUR_OPENAI_API_KEY_HERE</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
 		<string>fetch</string>
 	</array>
-	<key>NSUserNotificationsUsageDescription</key>
-	<string>We&apos;ll send you reminders about church service times and when you&apos;re near your saved churches</string>
-	<key>NSContactsUsageDescription</key>
-	<string>Find and connect with your friends who are already on AMEN</string>
-	<key>NSFaceIDUsageDescription</key>
-	<string>Use Face ID to quickly and securely sign in to your AMEN account</string>
-	<key>FirebaseAppDelegateProxyEnabled</key>
+	<key>VertexAI</key>
+	<string>AQ.Ab8RN6LUsJb4uBsOHXI_0ZmKvfNLkWcMUm9w3UlYqR_nQpgrlg</string>
+	<key>YOUVERSION_API_KEY</key>
+	<string>U64zDCF20CB5oVmCdZbH6LproDocCLImEbZCyRXHhUxFkRjx</string>
+	<key>FEED_RANKING_URL</key>
+	<string>$(FEED_RANKING_URL)</string>
+	<key>SEARCH_SERVICE_URL</key>
+	<string>$(SEARCH_SERVICE_URL)</string>
+	<key>NSUserActivityTypes</key>
+	<array>
+		<string>INSendMessageIntent</string>
+	</array>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
+	<key>NSSupportsLiveActivitiesFrequentUpdates</key>
 	<false/>
-	<key>ITSAppUsesNonExemptEncryption</key>
-	<false/>
-	<key>OPENAI_API_KEY</key>
-	<string>YOUR_OPENAI_API_KEY_HERE </string>
+	<key>ANTHROPIC_API_KEY</key>
+	<string>YOUR_ANTHROPIC_API_KEY_HERE</string>
 </dict>
 </plist>

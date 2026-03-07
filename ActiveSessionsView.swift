@@ -212,7 +212,7 @@ struct ActiveSessionsView: View {
     }
     
     private func getDeviceIdentifier() async -> String {
-        if let identifier = await UIDevice.current.identifierForVendor?.uuidString {
+        if let identifier = UIDevice.current.identifierForVendor?.uuidString {
             return identifier
         }
         return "unknown-device"
@@ -225,7 +225,18 @@ struct DeviceSessionRow: View {
     let device: DeviceSession
     let isCurrentDevice: Bool
     let onSignOut: () -> Void
-    
+
+    // Remember Me state — only relevant for the current device row.
+    private var isRemembered: Bool {
+        isCurrentDevice && SessionTimeoutManager.shared.isRememberMeEnabled()
+    }
+
+    /// The hard-cap expiry date for a "Remembered" session (session start + 30 days).
+    private var sessionExpiry: Date? {
+        guard isRemembered, let start = SessionTimeoutManager.shared.sessionStartDate() else { return nil }
+        return Calendar.current.date(byAdding: .day, value: 30, to: start)
+    }
+
     var body: some View {
         HStack(spacing: 12) {
             // Device icon
@@ -233,17 +244,18 @@ struct DeviceSessionRow: View {
                 Circle()
                     .fill(isCurrentDevice ? Color.green.opacity(0.1) : Color.gray.opacity(0.1))
                     .frame(width: 44, height: 44)
-                
+
                 Image(systemName: deviceIcon)
                     .font(.system(size: 20))
                     .foregroundStyle(isCurrentDevice ? .green : .gray)
             }
-            
+
             VStack(alignment: .leading, spacing: 4) {
-                HStack {
+                // Device name + chips
+                HStack(spacing: 6) {
                     Text(device.deviceName)
                         .font(.system(size: 16, weight: .semibold))
-                    
+
                     if isCurrentDevice {
                         Text("This Device")
                             .font(.system(size: 11, weight: .medium))
@@ -253,19 +265,37 @@ struct DeviceSessionRow: View {
                             .background(Color.green.opacity(0.1))
                             .clipShape(Capsule())
                     }
+
+                    // Remember Me / Standard chip
+                    if isCurrentDevice {
+                        Text(isRemembered ? "Remembered" : "Standard")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(isRemembered ? .blue : .secondary)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(isRemembered ? Color.blue.opacity(0.1) : Color.gray.opacity(0.1))
+                            .clipShape(Capsule())
+                    }
                 }
-                
+
                 Text("\(device.deviceModel) · iOS \(device.osVersion)")
                     .font(.system(size: 13))
                     .foregroundStyle(.secondary)
-                
+
                 Text("Last active: \(formattedDate(device.lastRefreshed))")
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
+
+                // Show max expiry date for Remembered sessions
+                if let expiry = sessionExpiry {
+                    Text("Session expires: \(formattedAbsoluteDate(expiry))")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.blue.opacity(0.8))
+                }
             }
-            
+
             Spacer()
-            
+
             if !isCurrentDevice {
                 Button {
                     onSignOut()
@@ -291,6 +321,13 @@ struct DeviceSessionRow: View {
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .full
         return formatter.localizedString(for: date, relativeTo: Date())
+    }
+
+    private func formattedAbsoluteDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .none
+        return formatter.string(from: date)
     }
 }
 

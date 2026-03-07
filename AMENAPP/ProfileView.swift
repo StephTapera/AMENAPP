@@ -46,8 +46,31 @@ struct ProfileView: View {
     // Remove ambiguous UserService reference - not needed since we fetch directly from Firebase
     @EnvironmentObject var authViewModel: AuthenticationViewModel
     
-    @State private var showSettings = false
-    @State private var showEditProfile = false
+    // Single enum-based sheet to prevent "only presenting a single sheet" warnings
+    enum ProfileSheet: Identifiable {
+        case settings
+        case editProfile
+        case qrCode
+        case fullScreenAvatar
+        case loginHistory
+        case followersList
+        case followingList
+        var id: String {
+            switch self {
+            case .settings: return "settings"
+            case .editProfile: return "editProfile"
+            case .qrCode: return "qrCode"
+            case .fullScreenAvatar: return "fullScreenAvatar"
+            case .loginHistory: return "loginHistory"
+            case .followersList: return "followersList"
+            case .followingList: return "followingList"
+            }
+        }
+    }
+    @State private var activeSheet: ProfileSheet? = nil
+
+    @State private var showSettings = false     // kept for any legacy call sites
+    @State private var showEditProfile = false  // kept for any legacy call sites
     @State private var selectedTab = ProfileTab.posts
     @State private var showQRCode = false
     @State private var isLoading = false
@@ -81,6 +104,12 @@ struct ProfileView: View {
     // Real-time listeners - track if listeners are active
     @State private var listenersActive = false
     @State private var postsListener: ListenerRegistration?  // P0 FIX: Store listener for cleanup
+    @State private var repostObserverUserId: String?          // P0 FIX: Track userId for repost observer cleanup
+    // commentsRefreshTimer removed — realtime listeners handle live updates; polling was redundant
+    // PERF: Timestamp of the last parallel fetch — observers skip their immediate
+    // re-fetch if it fires within this grace window (avoids double Firestore calls).
+    @State private var lastParallelFetchDate: Date?
+    private let observerGracePeriod: TimeInterval = 3.0
     
     // Notification observers to clean up
     @State private var notificationObservers: [NSObjectProtocol] = []
@@ -96,7 +125,7 @@ struct ProfileView: View {
     @State private var followingCount = 0
     @State private var showFollowersList = false
     @State private var showFollowingList = false
-    @StateObject private var followService = FollowService.shared
+    @ObservedObject private var followService = FollowService.shared
     
     @Namespace private var tabNamespace
     
@@ -138,9 +167,6 @@ struct ProfileView: View {
                                     )
                             }
                         )
-                    
-                    // 🎯 ACHIEVEMENT BADGES - Encourage engagement
-                    achievementBadgesView
                     
                     // 🎯 TAB BAR - Right under action buttons (like Threads)
                     stickyTabBar
@@ -220,97 +246,107 @@ struct ProfileView: View {
                     toolbarTrailingButtons
                 }
             }
-            .sheet(isPresented: $showSettings) {
-                SettingsView()
-            }
-            .sheet(isPresented: $showEditProfile) {
-                EditProfileView(profileData: $profileData)
-            }
-            .sheet(isPresented: $showQRCode) {
-                ProfileQRCodeView(username: "@\(profileData.username)", name: profileData.name)
-            }
-            .sheet(isPresented: $showFullScreenAvatar) {
-                FullScreenAvatarView(name: profileData.name, initials: profileData.initials, profileImageURL: profileData.profileImageURL)
-            }
-            .sheet(isPresented: $showLoginHistory) {
-                LoginHistoryView()
-            }
-            .sheet(isPresented: $showFollowersList) {
-                if let userId = Auth.auth().currentUser?.uid {
-                    SocialFollowersListView(userId: userId, listType: .followers)
-                        .onAppear {
-                            print("📱 Followers list sheet opened")
-                        }
-                        .onDisappear {
-                            print("📱 Followers list sheet closed")
-                        }
-                } else {
-                    Text("Error: Not signed in")
-                        .font(.custom("OpenSans-Regular", size: 16))
-                        .foregroundStyle(.secondary)
-                        .padding()
+            // Single sheet presentation — avoids "only one sheet at a time" warnings
+            // and prevents re-initialisation of sheet content when not presented.
+            .sheet(item: $activeSheet) { sheet in
+                switch sheet {
+                case .settings:
+                    SettingsView()
+                case .editProfile:
+                    EditProfileView(profileData: $profileData)
+                case .qrCode:
+                    ProfileQRCodeView(username: "@\(profileData.username)", name: profileData.name)
+                case .fullScreenAvatar:
+                    FullScreenAvatarView(name: profileData.name, initials: profileData.initials, profileImageURL: profileData.profileImageURL)
+                case .loginHistory:
+                    LoginHistoryView()
+                case .followersList:
+                    if let userId = Auth.auth().currentUser?.uid {
+                        SocialFollowersListView(userId: userId, listType: .followers)
+                    } else {
+                        Text("Error: Not signed in").padding()
+                    }
+                case .followingList:
+                    if let userId = Auth.auth().currentUser?.uid {
+                        SocialFollowersListView(userId: userId, listType: .following)
+                    } else {
+                        Text("Error: Not signed in").padding()
+                    }
                 }
             }
-            .sheet(isPresented: $showFollowingList) {
-                if let userId = Auth.auth().currentUser?.uid {
-                    SocialFollowersListView(userId: userId, listType: .following)
-                        .onAppear {
-                            print("📱 Following list sheet opened")
-                        }
-                        .onDisappear {
-                            print("📱 Following list sheet closed")
-                        }
-                } else {
-                    Text("Error: Not signed in")
-                        .font(.custom("OpenSans-Regular", size: 16))
-                        .foregroundStyle(.secondary)
-                        .padding()
-                }
-            }
+            // Legacy bool bindings: mirror them into activeSheet so old call sites still work
+            .onChange(of: showSettings) { _, v in if v { activeSheet = .settings; showSettings = false } }
+            .onChange(of: showEditProfile) { _, v in if v { activeSheet = .editProfile; showEditProfile = false } }
+            .onChange(of: showQRCode) { _, v in if v { activeSheet = .qrCode; showQRCode = false } }
+            .onChange(of: showFullScreenAvatar) { _, v in if v { activeSheet = .fullScreenAvatar; showFullScreenAvatar = false } }
+            .onChange(of: showLoginHistory) { _, v in if v { activeSheet = .loginHistory; showLoginHistory = false } }
+            .onChange(of: showFollowersList) { _, v in if v { activeSheet = .followersList; showFollowersList = false } }
+            .onChange(of: showFollowingList) { _, v in if v { activeSheet = .followingList; showFollowingList = false } }
             .task {
                 // Load profile data BEFORE view appears (ensures username shows immediately)
-                print("👁️ ProfileView task started")
+                dlog("👁️ ProfileView task started")
                 printDataState(context: "task - Before")
+                
+                // ⚡️ INSTANT: Pre-populate posts from PostsManager cache so posts show
+                // immediately without waiting for the Firestore fetch to complete.
+                if userPosts.isEmpty, let currentUserId = Auth.auth().currentUser?.uid {
+                    let cached = PostsManager.shared.allPosts.filter { $0.authorId == currentUserId }
+                    if !cached.isEmpty {
+                        userPosts = cached.sorted { $0.createdAt > $1.createdAt }
+                        dlog("⚡️ [INSTANT] Pre-populated \(userPosts.count) posts from cache")
+                    }
+                }
                 
                 // Load profile data immediately if cache is stale or missing
                 if let lastLoad = lastProfileLoad,
                    Date().timeIntervalSince(lastLoad) < cacheValidityDuration {
-                    print("   ✅ Using cached profile data (loaded \(Int(Date().timeIntervalSince(lastLoad)))s ago)")
+                    dlog("   ✅ Using cached profile data (loaded \(Int(Date().timeIntervalSince(lastLoad)))s ago)")
                     printDataState(context: "task - Cache Hit")
+                    // Re-establish listeners if they were torn down on disappear
+                    if !listenersActive, let userId = Auth.auth().currentUser?.uid {
+                        dlog("   🔄 Re-establishing real-time listeners after navigation...")
+                        setupRealtimeDatabaseListeners(userId: userId)
+                        listenersActive = true
+                    }
                 } else {
-                    print("   🔄 Cache stale or missing, loading profile data...")
+                    dlog("   🔄 Cache stale or missing, loading profile data...")
                     await loadProfileData()
                     lastProfileLoad = Date()
                     printDataState(context: "task - After Load")
                 }
                 
                 // Start follow service listeners
-                await followService.startListening()
-                print("✅ FollowService listeners started")
-                print("   Followers: \(followService.currentUserFollowersCount)")
-                print("   Following: \(followService.currentUserFollowingCount)")
+                followService.startListening()
+                dlog("✅ FollowService listeners started")
+                dlog("   Followers: \(followService.currentUserFollowersCount)")
+                dlog("   Following: \(followService.currentUserFollowingCount)")
             }
             .onAppear {
-                print("👁️ ProfileView appeared")
+                dlog("👁️ ProfileView appeared")
                 // Set up notification observers
                 setupNotificationObservers()
             }
             .onDisappear {
-                print("👋 ProfileView disappeared")
+                dlog("👋 ProfileView disappeared")
                 printDataState(context: "onDisappear")
                 
                 // P0 FIX: Remove ALL listeners to prevent memory leaks
                 postsListener?.remove()
                 postsListener = nil
-                print("   ✅ Posts listener removed")
+                dlog("   ✅ Posts listener removed")
                 
-                // Stop follow listeners
-                followService.stopListening()
-                print("   ✅ FollowService listeners stopped")
+                // NOTE: Do NOT stop FollowService or RealtimeSavedPostsService here.
+                // Both are global singletons used throughout the app. Stopping them on
+                // profile disappear breaks follow state and saved-post badges app-wide
+                // for the rest of the session. They are only stopped on sign-out.
+                dlog("   ✅ Global singleton listeners kept active (sign-out only)")
                 
-                // P0 FIX: Stop saved posts real-time listener
-                RealtimeSavedPostsService.shared.removeSavedPostsListener()
-                print("   ✅ SavedPosts listener stopped")
+                // P0 FIX: Stop reposts real-time listener
+                if let uid = repostObserverUserId {
+                    RealtimeRepostsService.shared.removeObserver(userId: uid)
+                    repostObserverUserId = nil
+                }
+                dlog("   ✅ Reposts listener stopped")
                 
                 // Clean up notification observers
                 cleanupNotificationObservers()
@@ -318,10 +354,10 @@ struct ProfileView: View {
                 // P0 FIX: Cancel scroll update tasks
                 scrollUpdateTask?.cancel()
                 scrollUpdateTask = nil
-                
+
                 // Mark listeners as inactive
                 listenersActive = false
-                print("   ✅ ProfileView cleanup complete")
+                dlog("   ✅ ProfileView cleanup complete")
             }
         }
     }
@@ -382,14 +418,14 @@ struct ProfileView: View {
                 haptic.prepare()
                 haptic.impactOccurred(intensity: 0.7)
             } label: {
-                // Icon (chevron or ellipsis) - NO BACKGROUND PADDING
+                // Icon morphs between ellipsis ↔ xmark with liquid dissolve-reform
                 Image(systemName: isToolbarExpanded ? "xmark" : "ellipsis")
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(.black)
                     .frame(width: 28, height: 28)
                     .contentShape(Rectangle())
+                    .contentTransition(.symbolEffect(.replace.magic(fallback: .replace)))
                     .scaleEffect(isToolbarExpanded ? 0.95 : 1.0)
-                    .rotationEffect(.degrees(isToolbarExpanded ? 180 : 0))
             }
             .buttonStyle(.plain)
         }
@@ -459,7 +495,7 @@ struct ProfileView: View {
     private func setupNotificationObservers() {
         // PERFORMANCE: Prevent re-entry during rapid navigation
         guard !isSettingUpObservers else {
-            print("⏭️ setupNotificationObservers already in progress, skipping")
+            dlog("⏭️ setupNotificationObservers already in progress, skipping")
             return
         }
         isSettingUpObservers = true
@@ -477,7 +513,7 @@ struct ProfileView: View {
             object: nil,
             queue: .main
         ) { notification in
-            print("📬 [NOTIFICATION] New post created notification received")
+            dlog("📬 [NOTIFICATION] New post created notification received")
             
             // Check if notification includes the post object
             if let userInfo = notification.userInfo,
@@ -488,7 +524,7 @@ struct ProfileView: View {
                 // Only handle posts from current user
                 guard let currentUserId = Auth.auth().currentUser?.uid,
                       newPost.authorId == currentUserId else {
-                    print("   ⏭️ Post not from current user, skipping")
+                    dlog("   ⏭️ Post not from current user, skipping")
                     return
                 }
                 
@@ -498,10 +534,10 @@ struct ProfileView: View {
                         withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                             self.userPosts.insert(newPost, at: 0)  // Add at top
                         }
-                        print("   ⚡ OPTIMISTIC post added instantly")
-                        print("   Post ID: \(newPost.id)")
-                        print("   Content: \(newPost.content.prefix(50))...")
-                        print("   Total posts: \(self.userPosts.count)")
+                        dlog("   ⚡ OPTIMISTIC post added instantly")
+                        dlog("   Post ID: \(newPost.id)")
+                        dlog("   Content: \(newPost.content.prefix(50))...")
+                        dlog("   Total posts: \(self.userPosts.count)")
                         
                         // Success haptic with animation
                         let haptic = UINotificationFeedbackGenerator()
@@ -514,28 +550,28 @@ struct ProfileView: View {
                             await self.refreshPostsAfterCreation()
                         }
                     } else {
-                        print("   ⚠️ Post already exists (from listener)")
+                        dlog("   ⚠️ Post already exists (from listener)")
                     }
                 } else {
                     // CONFIRMED: Update if exists, otherwise add
-                    print("   ✅ CONFIRMED post from database")
+                    dlog("   ✅ CONFIRMED post from database")
                     if let index = self.userPosts.firstIndex(where: { $0.id == newPost.id }) {
                         // Update existing (in case data changed)
                         withAnimation(.easeInOut(duration: 0.2)) {
                             self.userPosts[index] = newPost
                         }
-                        print("   Updated existing post at index \(index)")
+                        dlog("   Updated existing post at index \(index)")
                     } else {
                         // Wasn't added optimistically, add now
                         withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                             self.userPosts.insert(newPost, at: 0)
                         }
-                        print("   Added confirmed post (wasn't optimistic)")
-                        print("   Total posts: \(self.userPosts.count)")
+                        dlog("   Added confirmed post (wasn't optimistic)")
+                        dlog("   Total posts: \(self.userPosts.count)")
                     }
                 }
             } else {
-                print("   ❌ No post data in notification")
+                dlog("   ❌ No post data in notification")
             }
         }
         notificationObservers.append(newPostObserver)
@@ -549,19 +585,16 @@ struct ProfileView: View {
             object: nil,
             queue: .main
         ) { notification in
-            print("📬 [NOTIFICATION] Post deleted notification received")
+            dlog("📬 [NOTIFICATION] Post deleted notification received")
             
             if let userInfo = notification.userInfo,
                let postId = userInfo["postId"] as? UUID {
                 
-                let postsRemoved = self.userPosts.removeAll { $0.id == postId }
-                let savedRemoved = self.savedPosts.removeAll { $0.id == postId }
-                let repostsRemoved = self.reposts.removeAll { $0.id == postId }
+                self.userPosts.removeAll { $0.id == postId }
+                self.savedPosts.removeAll { $0.id == postId }
+                self.reposts.removeAll { $0.id == postId }
                 
-                print("   🗑️ Post removed: \(postId)")
-                print("   From posts: \(postsRemoved)")
-                print("   From saved: \(savedRemoved)")
-                print("   From reposts: \(repostsRemoved)")
+                dlog("   🗑️ Post removed: \(postId)")
                 
                 let haptic = UINotificationFeedbackGenerator()
                 haptic.notificationOccurred(.warning)
@@ -578,26 +611,26 @@ struct ProfileView: View {
             object: nil,
             queue: .main
         ) { notification in
-            print("📬 [NOTIFICATION] Post reposted notification received")
+            dlog("📬 [NOTIFICATION] Post reposted notification received")
             
             if let userInfo = notification.userInfo,
                let repostedPost = userInfo["post"] as? Post {
                 
                 // Only add if current user reposted it
-                guard let currentUserId = Auth.auth().currentUser?.uid else {
-                    print("   ⏭️ No current user, skipping")
+                guard Auth.auth().currentUser?.uid != nil else {
+                    dlog("   ⏭️ No current user, skipping")
                     return
                 }
                 
                 if !self.reposts.contains(where: { $0.id == repostedPost.id }) {
                     self.reposts.insert(repostedPost, at: 0)
-                    print("   🔄 Repost added: \(repostedPost.id)")
-                    print("   Total reposts: \(self.reposts.count)")
+                    dlog("   🔄 Repost added: \(repostedPost.id)")
+                    dlog("   Total reposts: \(self.reposts.count)")
                     
                     let haptic = UINotificationFeedbackGenerator()
                     haptic.notificationOccurred(.success)
                 } else {
-                    print("   ⚠️ Repost already exists")
+                    dlog("   ⚠️ Repost already exists")
                 }
             }
         }
@@ -612,7 +645,7 @@ struct ProfileView: View {
             object: nil,
             queue: .main
         ) { notification in
-            print("📬 [NOTIFICATION] New comment created notification received")
+            dlog("📬 [NOTIFICATION] New comment created notification received")
             
             if let userInfo = notification.userInfo,
                let newComment = userInfo["comment"] as? Comment {
@@ -620,20 +653,20 @@ struct ProfileView: View {
                 // Only add if current user created it
                 guard let currentUserId = Auth.auth().currentUser?.uid,
                       newComment.authorId == currentUserId else {
-                    print("   ⏭️ Comment not from current user, skipping")
+                    dlog("   ⏭️ Comment not from current user, skipping")
                     return
                 }
                 
                 if !self.userReplies.contains(where: { $0.id == newComment.id }) {
                     self.userReplies.insert(newComment, at: 0)
-                    print("   💬 Reply added: \(newComment.id)")
-                    print("   Content: \(newComment.content.prefix(50))...")
-                    print("   Total replies: \(self.userReplies.count)")
+                    dlog("   💬 Reply added: \(newComment.id ?? "nil")")
+                    dlog("   Content: \(newComment.content.prefix(50))...")
+                    dlog("   Total replies: \(self.userReplies.count)")
                     
                     let haptic = UINotificationFeedbackGenerator()
                     haptic.notificationOccurred(.success)
                 } else {
-                    print("   ⚠️ Reply already exists")
+                    dlog("   ⚠️ Reply already exists")
                 }
             }
         }
@@ -648,20 +681,20 @@ struct ProfileView: View {
             object: nil,
             queue: .main
         ) { notification in
-            print("📬 [NOTIFICATION] Post saved notification received")
+            dlog("📬 [NOTIFICATION] Post saved notification received")
             
             if let userInfo = notification.userInfo,
                let savedPost = userInfo["post"] as? Post {
                 
                 if !self.savedPosts.contains(where: { $0.id == savedPost.id }) {
                     self.savedPosts.insert(savedPost, at: 0)
-                    print("   🔖 Saved post added: \(savedPost.id)")
-                    print("   Total saved: \(self.savedPosts.count)")
+                    dlog("   🔖 Saved post added: \(savedPost.id)")
+                    dlog("   Total saved: \(self.savedPosts.count)")
                     
                     let haptic = UIImpactFeedbackGenerator(style: .light)
                     haptic.impactOccurred()
                 } else {
-                    print("   ⚠️ Post already saved")
+                    dlog("   ⚠️ Post already saved")
                 }
             }
         }
@@ -676,15 +709,17 @@ struct ProfileView: View {
             object: nil,
             queue: .main
         ) { notification in
-            print("📬 [NOTIFICATION] Post unsaved notification received")
+            dlog("📬 [NOTIFICATION] Post unsaved notification received")
             
             if let userInfo = notification.userInfo,
                let postId = userInfo["postId"] as? UUID {
                 
-                let wasRemoved = self.savedPosts.removeAll { $0.id == postId }
-                print("   🔖 Post removed from saved: \(postId)")
-                print("   Was present: \(wasRemoved)")
-                print("   Total saved: \(self.savedPosts.count)")
+                let countBefore = self.savedPosts.count
+                self.savedPosts.removeAll { $0.id == postId }
+                let wasRemoved = self.savedPosts.count < countBefore
+                dlog("   🔖 Post removed from saved: \(postId)")
+                dlog("   Was present: \(wasRemoved)")
+                dlog("   Total saved: \(self.savedPosts.count)")
                 
                 let haptic = UIImpactFeedbackGenerator(style: .light)
                 haptic.impactOccurred()
@@ -692,7 +727,7 @@ struct ProfileView: View {
         }
         notificationObservers.append(unsavedObserver)
         
-        print("✅ Notification observers set up (\(notificationObservers.count) observers)")
+        dlog("✅ Notification observers set up (\(notificationObservers.count) observers)")
     }
     
     private func cleanupNotificationObservers() {
@@ -700,24 +735,24 @@ struct ProfileView: View {
             NotificationCenter.default.removeObserver(observer)
         }
         notificationObservers.removeAll()
-        print("🧹 Notification observers cleaned up")
+        dlog("🧹 Notification observers cleaned up")
     }
     
     // MARK: - Debug Helper
     
     /// Print current data state for debugging
     private func printDataState(context: String) {
-        print("📊 [\(context)] Current data state:")
-        print("   Posts: \(userPosts.count)")
-        print("   Replies: \(userReplies.count)")
-        print("   Saved: \(savedPosts.count)")
-        print("   Reposts: \(reposts.count)")
+        dlog("📊 [\(context)] Current data state:")
+        dlog("   Posts: \(userPosts.count)")
+        dlog("   Replies: \(userReplies.count)")
+        dlog("   Saved: \(savedPosts.count)")
+        dlog("   Reposts: \(reposts.count)")
         
         if !userPosts.isEmpty {
-            print("   Latest post: \(userPosts[0].content.prefix(30))...")
+            dlog("   Latest post: \(userPosts[0].content.prefix(30))...")
         }
         if !userReplies.isEmpty {
-            print("   Latest reply: \(userReplies[0].content.prefix(30))...")
+            dlog("   Latest reply: \(userReplies[0].content.prefix(30))...")
         }
     }
     
@@ -763,7 +798,7 @@ struct ProfileView: View {
     private func refreshProfile() async {
         isRefreshing = true
         
-        print("🔄 Refreshing profile data...")
+        dlog("🔄 Refreshing profile data...")
         
         // Get current user ID
         guard let userId = Auth.auth().currentUser?.uid else {
@@ -777,28 +812,28 @@ struct ProfileView: View {
             let postService = FirebasePostService.shared
             let refreshedPosts = try await postService.fetchUserPosts(userId: userId)
             userPosts = refreshedPosts
-            print("   ✅ Posts refreshed from Firestore: \(refreshedPosts.count)")
+            dlog("   ✅ Posts refreshed from Firestore: \(refreshedPosts.count)")
             
             // 2. Refresh saved posts
             let savedPostsService: RealtimeSavedPostsService = .shared
             let refreshedSavedPosts = try await savedPostsService.fetchSavedPosts()
             savedPosts = refreshedSavedPosts
-            print("   ✅ Saved posts refreshed: \(refreshedSavedPosts.count)")
+            dlog("   ✅ Saved posts refreshed: \(refreshedSavedPosts.count)")
             
             // 3. Refresh replies (including replies user receives)
             let commentsService = AMENAPP.RealtimeCommentsService.shared
             let refreshedReplies = try await commentsService.fetchUserCommentInteractions(userId: userId)
             userReplies = refreshedReplies
-            print("   ✅ Replies refreshed: \(refreshedReplies.count) (own comments + replies received)")
+            dlog("   ✅ Replies refreshed: \(refreshedReplies.count) (own comments + replies received)")
             
             // 4. Refresh reposts
             let repostsService: RealtimeRepostsService = .shared
             let refreshedReposts = try await repostsService.fetchUserReposts(userId: userId)
             reposts = refreshedReposts
-            print("   ✅ Reposts refreshed: \(refreshedReposts.count)")
+            dlog("   ✅ Reposts refreshed: \(refreshedReposts.count)")
             
         } catch {
-            print("❌ Error refreshing profile data: \(error)")
+            dlog("❌ Error refreshing profile data: \(error)")
         }
         
         isRefreshing = false
@@ -807,11 +842,11 @@ struct ProfileView: View {
         let haptic = UINotificationFeedbackGenerator()
         haptic.notificationOccurred(.success)
         
-        print("✅ Profile refreshed successfully")
-        print("   Posts: \(userPosts.count)")
-        print("   Replies: \(userReplies.count)")
-        print("   Saved: \(savedPosts.count)")
-        print("   Reposts: \(reposts.count)")
+        dlog("✅ Profile refreshed successfully")
+        dlog("   Posts: \(userPosts.count)")
+        dlog("   Replies: \(userReplies.count)")
+        dlog("   Saved: \(savedPosts.count)")
+        dlog("   Reposts: \(reposts.count)")
     }
     
     // 🎯 NEW: Enhanced Refresh with Smart Logic & Haptics
@@ -828,7 +863,7 @@ struct ProfileView: View {
             shouldSkip = timeSinceRefresh < 300 // 5 minutes
             
             if shouldSkip {
-                print("⏭️ Skipping refresh - data is fresh (last refresh: \(Int(timeSinceRefresh))s ago)")
+                dlog("⏭️ Skipping refresh - data is fresh (last refresh: \(Int(timeSinceRefresh))s ago)")
                 
                 // Light success haptic
                 let haptic = UINotificationFeedbackGenerator()
@@ -839,7 +874,7 @@ struct ProfileView: View {
             shouldSkip = false
         }
         
-        print("🔄 Enhanced refresh starting...")
+        dlog("🔄 Enhanced refresh starting...")
         let previousPostsCount = userPosts.count
         
         // Perform refresh
@@ -869,7 +904,7 @@ struct ProfileView: View {
             haptic.impactOccurred()
         }
         
-        print("✅ Enhanced refresh complete - \(newPostsCount) new posts")
+        dlog("✅ Enhanced refresh complete - \(newPostsCount) new posts")
     }
     
     // 🎯 NEW: Fast Real-Time Refresh (No Cache Delay)
@@ -879,7 +914,7 @@ struct ProfileView: View {
         let startHaptic = UIImpactFeedbackGenerator(style: .medium)
         startHaptic.impactOccurred()
         
-        print("⚡ Fast real-time refresh starting...")
+        dlog("⚡ Fast real-time refresh starting...")
         let previousPostsCount = userPosts.count
         let previousRepliesCount = userReplies.count
         
@@ -915,7 +950,7 @@ struct ProfileView: View {
             haptic.impactOccurred()
         }
         
-        print("✅ Fast refresh complete - \(newPostsCount) new posts, \(newRepliesCount) new replies")
+        dlog("✅ Fast refresh complete - \(newPostsCount) new posts, \(newRepliesCount) new replies")
     }
     
     // 🎯 NEW: Refresh posts after creation to ensure sync
@@ -923,7 +958,7 @@ struct ProfileView: View {
     private func refreshPostsAfterCreation() async {
         guard let userId = Auth.auth().currentUser?.uid else { return }
         
-        print("🔄 Refreshing posts after creation to ensure sync...")
+        dlog("🔄 Refreshing posts after creation to ensure sync...")
         
         do {
             let postService = FirebasePostService.shared
@@ -933,27 +968,27 @@ struct ProfileView: View {
                 userPosts = refreshedPosts
             }
             
-            print("✅ Posts refreshed after creation: \(refreshedPosts.count) total")
+            dlog("✅ Posts refreshed after creation: \(refreshedPosts.count) total")
         } catch {
-            print("❌ Error refreshing posts after creation: \(error)")
+            dlog("❌ Error refreshing posts after creation: \(error)")
         }
     }
     
     @MainActor
     private func loadProfileData() async {
+        let _perfToken = PerfBegin("profile_load")
+        defer { PerfEnd(_perfToken) }
+
         isLoading = true
         
         // Get current Firebase Auth user
         guard let authUser = Auth.auth().currentUser else {
-            print("❌ ProfileView: No Firebase Auth user")
+            dlog("❌ ProfileView: No Firebase Auth user")
             isLoading = false
             return
         }
         
-        print("📱 ProfileView: Loading profile for user: \(authUser.uid)")
-        
-        // DEBUG: Test Realtime Database connection
-        await testRealtimeDatabaseConnection()
+        dlog("📱 ProfileView: Loading profile for user: \(authUser.uid)")
         
         // DIRECT Firestore fetch for profile data (profile stays in Firestore)
         let db = Firestore.firestore()
@@ -962,14 +997,14 @@ struct ProfileView: View {
             let doc = try await db.collection("users").document(authUser.uid).getDocument()
             
             guard doc.exists, let data = doc.data() else {
-                print("❌ ProfileView: Firestore document not found for user: \(authUser.uid)")
+                dlog("❌ ProfileView: Firestore document not found for user: \(authUser.uid)")
                 isLoading = false
                 return
             }
             
-            print("✅ ProfileView: Firestore document found")
-            print("   Display Name: \(data["displayName"] as? String ?? "N/A")")
-            print("   Username: \(data["username"] as? String ?? "N/A")")
+            dlog("✅ ProfileView: Firestore document found")
+            dlog("   Display Name: \(data["displayName"] as? String ?? "N/A")")
+            dlog("   Username: \(data["username"] as? String ?? "N/A")")
             
             // Extract data directly from Firestore
             let displayName = data["displayName"] as? String ?? "User"
@@ -994,7 +1029,7 @@ struct ProfileView: View {
                 return SocialLinkUI(platform: platform, username: username)
             }
             
-            print("📱 Loaded \(socialLinks.count) social links from Firestore")
+            dlog("📱 Loaded \(socialLinks.count) social links from Firestore")
             
             // Update profile data
             profileData = UserProfileData(
@@ -1008,9 +1043,9 @@ struct ProfileView: View {
                 socialLinks: socialLinks
             )
             
-            print("✅ ProfileView: Profile data updated")
-            print("   Name: \(profileData.name)")
-            print("   Username: @\(profileData.username)")
+            dlog("✅ ProfileView: Profile data updated")
+            dlog("   Name: \(profileData.name)")
+            dlog("   Username: @\(profileData.username)")
             
             // Cache the user's name for messaging
             FirebaseMessagingService.shared.updateCurrentUserName(displayName)
@@ -1022,216 +1057,65 @@ struct ProfileView: View {
             if let imageURL = profileImageURL {
                 UserDefaults.standard.set(imageURL, forKey: "currentUserProfileImageURL")
             }
-            print("✅ User data cached for optimized post creation")
+            dlog("✅ User data cached for optimized post creation")
             
             // 🔥 Fetch posts from Firestore (where they're actually saved)
             let userId = authUser.uid
             
             // ALWAYS fetch fresh data and set up listeners
-            print("🔥 Fetching fresh data from Firestore and Realtime DB...")
+            dlog("🔥 Fetching fresh data from Firestore and Realtime DB...")
             
-            // 1. Fetch user's own posts from Firestore (where createPost saves them)
-            print("🔍 [POSTS] Starting to fetch posts for userId: \(userId)")
-            let postService = FirebasePostService.shared
-            print("🔍 [POSTS] PostService instance: \(postService)")
-
-            let fetchedPosts = try await postService.fetchUserPosts(userId: userId)
-            print("🔍 [POSTS] fetchUserPosts returned \(fetchedPosts.count) posts")
-
-            if fetchedPosts.isEmpty {
-                print("⚠️ [POSTS] No posts returned - checking Firestore directly...")
-                let db = Firestore.firestore()
-                let postsSnapshot = try await db.collection("posts")
-                    .whereField("userId", isEqualTo: userId)
-                    .getDocuments()
-                print("🔍 [POSTS] Direct Firestore query returned \(postsSnapshot.documents.count) documents")
-                for (index, doc) in postsSnapshot.documents.prefix(3).enumerated() {
-                    print("   Document \(index + 1): \(doc.documentID)")
-                    print("      Content: \(doc.data()["content"] as? String ?? "N/A")")
-                    print("      Category: \(doc.data()["category"] as? String ?? "N/A")")
-                    print("      UserId: \(doc.data()["userId"] as? String ?? "N/A")")
-                }
-            } else {
-                print("✅ [POSTS] Posts fetched successfully")
-                for (index, post) in fetchedPosts.prefix(3).enumerated() {
-                    print("   Post \(index + 1):")
-                    print("      ID: \(post.id)")
-                    print("      Firestore ID: \(post.firestoreId)")
-                    print("      Content: \(post.content.prefix(50))...")
-                    print("      Category: \(post.category)")
-                    print("      Author ID: \(post.authorId)")
-                }
-            }
+            // Fetch all four data sources in parallel
+            async let fetchedPostsTask = FirebasePostService.shared.fetchUserPosts(userId: userId)
+            async let fetchedSavedPostsTask = RealtimeSavedPostsService.shared.fetchSavedPosts()
+            async let fetchedRepliesTask = AMENAPP.RealtimeCommentsService.shared.fetchUserCommentInteractions(userId: userId)
+            async let fetchedRepostsTask = RealtimeRepostsService.shared.fetchUserReposts(userId: userId)
+            
+            let (fetchedPosts, fetchedSavedPosts, fetchedReplies, fetchedReposts) = try await (
+                fetchedPostsTask,
+                fetchedSavedPostsTask,
+                fetchedRepliesTask,
+                fetchedRepostsTask
+            )
 
             userPosts = fetchedPosts
-            print("🔍 [POSTS] userPosts array now has \(userPosts.count) items")
-            print("   ✅ Posts loaded from Firestore: \(fetchedPosts.count)")
-            
-            // 2. Fetch saved posts from Realtime Database
-            print("🔍 [SAVED] Starting to fetch saved posts for userId: \(userId)")
-            let savedPostsService: RealtimeSavedPostsService = .shared
-            print("🔍 [SAVED] SavedPostsService instance: \(savedPostsService)")
-
-            let fetchedSavedPosts = try await savedPostsService.fetchSavedPosts()
-            print("🔍 [SAVED] fetchSavedPosts returned \(fetchedSavedPosts.count) posts")
-
-            if fetchedSavedPosts.isEmpty {
-                print("⚠️ [SAVED] No saved posts returned - checking Realtime DB directly...")
-                let rtdb = FirebaseDatabase.Database.database(url: "https://amen-5e359-default-rtdb.firebaseio.com").reference()
-                let savedSnapshot = try await rtdb.child("savedPosts").child(userId).getData()
-                print("🔍 [SAVED] Direct RTDB query exists: \(savedSnapshot.exists())")
-                if savedSnapshot.exists(), let savedData = savedSnapshot.value as? [String: Any] {
-                    print("🔍 [SAVED] Found \(savedData.keys.count) saved post IDs in RTDB")
-                    for (index, postId) in savedData.keys.prefix(3).enumerated() {
-                        print("   Saved Post \(index + 1): \(postId)")
-                    }
-                } else {
-                    print("⚠️ [SAVED] No data in Realtime DB at savedPosts/\(userId)")
-                }
-            } else {
-                print("✅ [SAVED] Saved posts fetched successfully")
-                for (index, post) in fetchedSavedPosts.prefix(3).enumerated() {
-                    print("   Saved Post \(index + 1):")
-                    print("      ID: \(post.id)")
-                    print("      Firestore ID: \(post.firestoreId)")
-                    print("      Content: \(post.content.prefix(50))...")
-                }
-            }
-
             savedPosts = fetchedSavedPosts
-            print("🔍 [SAVED] savedPosts array now has \(savedPosts.count) items")
-            print("   ✅ Saved posts loaded: \(fetchedSavedPosts.count)")
-            if !fetchedSavedPosts.isEmpty {
-                print("   📋 Saved post IDs: \(fetchedSavedPosts.map { $0.firestoreId }.joined(separator: ", "))")
-            } else {
-                print("   ⚠️ No saved posts found - savedPosts array is EMPTY")
-            }
-            
-            // 3. Fetch user's comments/replies from Realtime Database (including replies received)
-            print("🔍 [REPLIES] Starting to fetch replies for userId: \(userId)")
-            let commentsService = AMENAPP.RealtimeCommentsService.shared
-            print("🔍 [REPLIES] CommentsService instance: \(commentsService)")
-
-            let fetchedReplies = try await commentsService.fetchUserCommentInteractions(userId: userId)
-            print("🔍 [REPLIES] fetchUserCommentInteractions returned \(fetchedReplies.count) replies")
-
-            if fetchedReplies.isEmpty {
-                print("⚠️ [REPLIES] No replies returned - checking Realtime DB directly...")
-                let rtdb = FirebaseDatabase.Database.database(url: "https://amen-5e359-default-rtdb.firebaseio.com").reference()
-                let commentsSnapshot = try await rtdb.child("postInteractions").getData()
-                print("🔍 [REPLIES] postInteractions node exists: \(commentsSnapshot.exists())")
-                if commentsSnapshot.exists(), let interactionsData = commentsSnapshot.value as? [String: Any] {
-                    print("🔍 [REPLIES] Found \(interactionsData.keys.count) posts with interactions")
-                    // Check first few posts for comments by this user
-                    var userCommentCount = 0
-                    for (postId, data) in interactionsData.prefix(10) {
-                        if let postData = data as? [String: Any],
-                           let comments = postData["comments"] as? [String: Any] {
-                            for (_, commentData) in comments {
-                                if let comment = commentData as? [String: Any],
-                                   let authorId = comment["userId"] as? String,
-                                   authorId == userId {
-                                    userCommentCount += 1
-                                }
-                            }
-                        }
-                    }
-                    print("🔍 [REPLIES] Found \(userCommentCount) comments by user in first 10 posts")
-                } else {
-                    print("⚠️ [REPLIES] No postInteractions data in RTDB")
-                }
-            } else {
-                print("✅ [REPLIES] Replies fetched successfully")
-                for (index, reply) in fetchedReplies.prefix(3).enumerated() {
-                    print("   Reply \(index + 1):")
-                    print("      ID: \(reply.id)")
-                    print("      Content: \(reply.content.prefix(50))...")
-                    print("      Author ID: \(reply.authorId)")
-                }
-            }
-
             userReplies = fetchedReplies
-            print("🔍 [REPLIES] userReplies array now has \(userReplies.count) items")
-            print("   ✅ Replies loaded: \(fetchedReplies.count) (own comments + replies received)")
-            
-            // 4. Fetch user's reposts from Realtime Database
-            print("🔍 [REPOSTS] Starting to fetch reposts for userId: \(userId)")
-            let repostsService: RealtimeRepostsService = .shared
-            print("🔍 [REPOSTS] RepostsService instance: \(repostsService)")
-
-            let fetchedReposts = try await repostsService.fetchUserReposts(userId: userId)
-            print("🔍 [REPOSTS] fetchUserReposts returned \(fetchedReposts.count) reposts")
-
-            if fetchedReposts.isEmpty {
-                print("⚠️ [REPOSTS] No reposts returned - checking Realtime DB directly...")
-                let rtdb = FirebaseDatabase.Database.database(url: "https://amen-5e359-default-rtdb.firebaseio.com").reference()
-                let repostsSnapshot = try await rtdb.child("postInteractions").getData()
-                print("🔍 [REPOSTS] postInteractions node exists: \(repostsSnapshot.exists())")
-                if repostsSnapshot.exists(), let interactionsData = repostsSnapshot.value as? [String: Any] {
-                    var userRepostCount = 0
-                    for (postId, data) in interactionsData.prefix(10) {
-                        if let postData = data as? [String: Any],
-                           let reposts = postData["reposts"] as? [String: Any] {
-                            if reposts.keys.contains(userId) {
-                                userRepostCount += 1
-                                print("   Found repost by user on post: \(postId)")
-                            }
-                        }
-                    }
-                    print("🔍 [REPOSTS] Found \(userRepostCount) reposts by user in first 10 posts")
-                } else {
-                    print("⚠️ [REPOSTS] No postInteractions data in RTDB")
-                }
-            } else {
-                print("✅ [REPOSTS] Reposts fetched successfully")
-                for (index, repost) in fetchedReposts.prefix(3).enumerated() {
-                    print("   Repost \(index + 1):")
-                    print("      ID: \(repost.id)")
-                    print("      Firestore ID: \(repost.firestoreId)")
-                    print("      Content: \(repost.content.prefix(50))...")
-                }
-            }
-
             reposts = fetchedReposts
-            print("🔍 [REPOSTS] reposts array now has \(reposts.count) items")
-            print("   ✅ Reposts loaded: \(fetchedReposts.count)")
-            if !fetchedReposts.isEmpty {
-                print("   📋 Repost IDs: \(fetchedReposts.map { $0.firestoreId }.joined(separator: ", "))")
-            } else {
-                print("   ⚠️ No reposts found - reposts array is EMPTY")
-            }
+            lastParallelFetchDate = Date()  // PERF: Grace window for observer de-dupe
+            dlog("✅ Parallel fetch complete: \(fetchedPosts.count) posts, \(fetchedSavedPosts.count) saved, \(fetchedReplies.count) replies, \(fetchedReposts.count) reposts")
             
             // 🔥 SET UP REAL-TIME LISTENERS if not already active
             if !listenersActive {
-                print("🔥 Setting up real-time listeners for continuous updates...")
+                dlog("🔥 Setting up real-time listeners for continuous updates...")
                 setupRealtimeDatabaseListeners(userId: userId)
                 listenersActive = true
             } else {
-                print("ℹ️ Listeners already active, data will auto-update")
+                dlog("ℹ️ Listeners already active, data will auto-update")
             }
             
-            print("✅ Profile data loaded from Realtime DB:")
-            print("   Posts: \(userPosts.count)")
-            print("   Reposts: \(reposts.count)")
-            print("   Saved: \(savedPosts.count)")
-            print("   Replies: \(userReplies.count)")
+            dlog("✅ Profile data loaded from Realtime DB:")
+            dlog("   Posts: \(userPosts.count)")
+            dlog("   Reposts: \(reposts.count)")
+            dlog("   Saved: \(savedPosts.count)")
+            dlog("   Replies: \(userReplies.count)")
             
             // Print sample data for verification
             if !userPosts.isEmpty {
-                print("   Sample post: \(userPosts[0].content.prefix(50))...")
+                dlog("   Sample post: \(userPosts[0].content.prefix(50))...")
             }
             if !userReplies.isEmpty {
-                print("   Sample reply: \(userReplies[0].content.prefix(50))...")
+                dlog("   Sample reply: \(userReplies[0].content.prefix(50))...")
             }
             if !savedPosts.isEmpty {
-                print("   Sample saved: \(savedPosts[0].content.prefix(50))...")
+                dlog("   Sample saved: \(savedPosts[0].content.prefix(50))...")
             }
             if !reposts.isEmpty {
-                print("   Sample repost: \(reposts[0].content.prefix(50))...")
+                dlog("   Sample repost: \(reposts[0].content.prefix(50))...")
             }
             
         } catch {
-            print("❌ ProfileView: Error loading profile - \(error.localizedDescription)")
+            dlog("❌ ProfileView: Error loading profile - \(error.localizedDescription)")
         }
         
         isLoading = false
@@ -1240,17 +1124,17 @@ struct ProfileView: View {
     // MARK: - Debug Realtime Database
     
     private func testRealtimeDatabaseConnection() async {
-        print("🧪 Testing Realtime Database connection...")
+        dlog("🧪 Testing Realtime Database connection...")
         
         do {
             // Try to read from Realtime Database
-            let testRef = FirebaseDatabase.Database.database(url: "https://amen-5e359-default-rtdb.firebaseio.com").reference()
+            let testRef = FirebaseDatabase.Database.database().reference()
             let snapshot = try await testRef.child("test").getData()
             
             if snapshot.exists() {
-                print("✅ Realtime Database connected and readable")
+                dlog("✅ Realtime Database connected and readable")
             } else {
-                print("⚠️ Realtime Database connected but no test data")
+                dlog("⚠️ Realtime Database connected but no test data")
             }
             
             // Try to write
@@ -1258,11 +1142,11 @@ struct ProfileView: View {
                 "timestamp": Date().timeIntervalSince1970,
                 "user": Auth.auth().currentUser?.uid ?? "unknown"
             ])
-            print("✅ Realtime Database write successful")
+            dlog("✅ Realtime Database write successful")
             
         } catch {
-            print("❌ Realtime Database error: \(error.localizedDescription)")
-            print("   Error details: \(error)")
+            dlog("❌ Realtime Database error: \(error.localizedDescription)")
+            dlog("   Error details: \(error)")
         }
     }
     
@@ -1273,7 +1157,7 @@ struct ProfileView: View {
         let shareText = "Check out \(profileData.name)'s AMEN profile: \(username)"
         
         guard let shareURL = URL(string: "https://amenapp.com/\(profileData.username)") else {
-            print("❌ Invalid profile URL")
+            dlog("❌ Invalid profile URL")
             return
         }
         
@@ -1310,7 +1194,7 @@ struct ProfileView: View {
         }
         
         guard let url = URL(string: urlString) else {
-            print("❌ Invalid social link URL: \(urlString)")
+            dlog("❌ Invalid social link URL: \(urlString)")
             return
         }
         
@@ -1319,7 +1203,7 @@ struct ProfileView: View {
         let haptic = UIImpactFeedbackGenerator(style: .light)
         haptic.impactOccurred()
         
-        print("🔗 Opened social link: \(link.platform.rawValue) - \(link.username)")
+        dlog("🔗 Opened social link: \(link.platform.rawValue) - \(link.username)")
     }
     
     // MARK: - Real-time Listeners (Realtime Database)
@@ -1328,15 +1212,15 @@ struct ProfileView: View {
     /// ✅ TASKS 2-5: Fixed all real-time updates with proper state management
     @MainActor
     private func setupRealtimeDatabaseListeners(userId: String) {
-        print("🔥 Setting up Realtime Database listeners for profile data...")
-        print("   User ID: \(userId)")
+        dlog("🔥 Setting up Realtime Database listeners for profile data...")
+        dlog("   User ID: \(userId)")
         
         // ============================================================================
         // TASK 2: Set up REAL-TIME Firestore listener for posts
         // ============================================================================
         
         // ✅ Posts are stored in Firestore - set up real-time snapshot listener
-        print("🔥 [POSTS] Setting up real-time Firestore listener for user posts...")
+        dlog("🔥 [POSTS] Setting up real-time Firestore listener for user posts...")
         
         let db = Firestore.firestore()
         
@@ -1349,12 +1233,12 @@ struct ProfileView: View {
             .addSnapshotListener { querySnapshot, error in
                 
                 if let error = error {
-                    print("❌ [POSTS] Firestore listener error: \(error)")
+                    dlog("❌ [POSTS] Firestore listener error: \(error)")
                     return
                 }
                 
                 guard let documents = querySnapshot?.documents else {
-                    print("⚠️ [POSTS] No documents in snapshot")
+                    dlog("⚠️ [POSTS] No documents in snapshot")
                     return
                 }
                 
@@ -1366,19 +1250,26 @@ struct ProfileView: View {
                         try? doc.data(as: Post.self)
                     }
                     
+                    // Don't overwrite existing posts with an empty result — this can
+                    // happen when App Check fails or the listener fires before the
+                    // server returns data (cache miss). Keep whatever we already have.
+                    if posts.isEmpty && previousCount > 0 {
+                        dlog("⚠️ [POSTS] Listener returned 0 posts (was \(previousCount)) — keeping existing data")
+                        return
+                    }
+                    
                     self.userPosts = posts
                     
-                    print("🔄 [POSTS] Real-time posts updated from Firestore:")
-                    print("   Total: \(posts.count) (was \(previousCount))")
+                    dlog("🔄 [POSTS] Real-time posts updated from Firestore:")
+                    dlog("   Total: \(posts.count) (was \(previousCount))")
                     
-                    if posts.count != previousCount {
-                        let haptic = UIImpactFeedbackGenerator(style: .light)
-                        haptic.impactOccurred()
-                    }
+                    // No haptic here — this fires on every Firestore update, which
+                    // can happen many times as the listener syncs cache → server.
+                    // Haptics on backend events feel broken/spammy to users.
                 }
             }
         
-        print("✅ [POSTS] Real-time Firestore listener active: \(userPosts.count) posts")
+        dlog("✅ [POSTS] Real-time Firestore listener active: \(userPosts.count) posts")
         
         // ============================================================================
         // TASK 4: Fix saved posts not showing
@@ -1386,7 +1277,14 @@ struct ProfileView: View {
         
         // 2. Listen to saved posts in real-time
         RealtimeSavedPostsService.shared.observeSavedPosts { postIds in
-            print("🔄 [SAVED] Saved posts IDs changed: \(postIds.count) IDs")
+            dlog("🔄 [SAVED] Saved posts IDs changed: \(postIds.count) IDs")
+            
+            // Skip the immediate re-fetch if the parallel block just ran
+            if let last = self.lastParallelFetchDate,
+               Date().timeIntervalSince(last) < self.observerGracePeriod {
+                dlog("⏭️ [SAVED] Skipping redundant fetch (within grace period of parallel fetch)")
+                return
+            }
             
             Task {
                 do {
@@ -1397,8 +1295,8 @@ struct ProfileView: View {
                         // Sort by newest first
                         self.savedPosts = posts.sorted { $0.createdAt > $1.createdAt }
                         
-                        print("🔄 [SAVED] Saved posts updated:")
-                        print("   Total: \(posts.count) (was \(previousCount))")
+                        dlog("🔄 [SAVED] Saved posts updated:")
+                        dlog("   Total: \(posts.count) (was \(previousCount))")
                         
                         if posts.count != previousCount {
                             let haptic = UIImpactFeedbackGenerator(style: .light)
@@ -1406,8 +1304,8 @@ struct ProfileView: View {
                         }
                     }
                 } catch {
-                    print("❌ [SAVED] Error fetching saved posts: \(error)")
-                    print("   Keeping existing \(self.savedPosts.count) saved posts")
+                    dlog("❌ [SAVED] Error fetching saved posts: \(error)")
+                    dlog("   Keeping existing \(self.savedPosts.count) saved posts")
                 }
             }
         }
@@ -1417,15 +1315,22 @@ struct ProfileView: View {
         // ============================================================================
         
         // 3. Listen to user's reposts in real-time
+        repostObserverUserId = userId  // P0 FIX: Track so we can remove on disappear
         RealtimeRepostsService.shared.observeUserReposts(userId: userId) { posts in
+            // Skip the immediate re-fetch if the parallel block just ran
+            if let last = self.lastParallelFetchDate,
+               Date().timeIntervalSince(last) < self.observerGracePeriod {
+                dlog("⏭️ [REPOSTS] Skipping redundant fetch (within grace period of parallel fetch)")
+                return
+            }
             Task { @MainActor in
                 let previousCount = self.reposts.count
                 
                 // Sort by newest first
                 self.reposts = posts.sorted { $0.createdAt > $1.createdAt }
                 
-                print("🔄 [REPOSTS] Reposts updated:")
-                print("   Total: \(posts.count) (was \(previousCount))")
+                dlog("🔄 [REPOSTS] Reposts updated:")
+                dlog("   Total: \(posts.count) (was \(previousCount))")
                 
                 if posts.count != previousCount {
                     let haptic = UIImpactFeedbackGenerator(style: .light)
@@ -1438,52 +1343,15 @@ struct ProfileView: View {
         // TASK 3: Fix replies not showing
         // ============================================================================
         
-        // 4. Listen to user's comments/replies in real-time
-        // Using periodic refresh since RealtimeCommentsService may not have observe
-        let commentsTimer = Timer.scheduledTimer(withTimeInterval: 10.0, repeats: true) { [weak timer = Timer()] _ in
-            Task { @MainActor in
-                do {
-                    let comments = try await AMENAPP.RealtimeCommentsService.shared.fetchUserCommentInteractions(userId: userId)
-                    let previousCount = self.userReplies.count
-                    
-                    // Already sorted by newest first in fetchUserCommentInteractions
-                    self.userReplies = comments
-                    
-                    print("🔄 [REPLIES] Comments/replies updated:")
-                    print("   Total: \(comments.count) (was \(previousCount))")
-                    
-                    if comments.count != previousCount {
-                        let haptic = UIImpactFeedbackGenerator(style: .light)
-                        haptic.impactOccurred()
-                    }
-                } catch {
-                    print("❌ [REPLIES] Error fetching user comments: \(error)")
-                }
-            }
-        }
+        // Replies are fetched on initial load above and updated by realtime listeners.
+        // The periodic timer was removed — it caused redundant Firestore reads every session.
         
-        // Start timer immediately
-        commentsTimer.fire()
-        
-        // Initial load of comments (including replies received)
-        Task {
-            do {
-                let comments = try await AMENAPP.RealtimeCommentsService.shared.fetchUserCommentInteractions(userId: userId)
-                await MainActor.run {
-                    self.userReplies = comments // Already sorted by newest first
-                    print("🔄 [REPLIES] Initial comments loaded: \(comments.count) replies (own + replies received)")
-                }
-            } catch {
-                print("❌ [REPLIES] Error loading initial comments: \(error)")
-            }
-        }
-        
-        print("✅ All real-time listeners set up successfully")
-        print("   📊 Current state:")
-        print("      Posts: \(userPosts.count)")
-        print("      Replies: \(userReplies.count)")
-        print("      Saved: \(savedPosts.count)")
-        print("      Reposts: \(reposts.count)")
+        dlog("✅ All real-time listeners set up successfully")
+        dlog("   📊 Current state:")
+        dlog("      Posts: \(userPosts.count)")
+        dlog("      Replies: \(userReplies.count)")
+        dlog("      Saved: \(savedPosts.count)")
+        dlog("      Reposts: \(reposts.count)")
     }
     
     /// Remove all Realtime Database listeners
@@ -1492,7 +1360,7 @@ struct ProfileView: View {
         // Note: We're NOT actually removing listeners here
         // They stay active to keep receiving real-time updates
         // This is intentional to keep data persistent across tab switches
-        print("🔇 Keeping Realtime Database listeners active (not removing)")
+        dlog("🔇 Keeping Realtime Database listeners active (not removing)")
     }
     
     // MARK: - View Helpers
@@ -1521,7 +1389,7 @@ struct ProfileView: View {
         
         // P0 FIX: Validate baseHeight is finite and within safe bounds
         guard baseHeight.isFinite && baseHeight >= 200 else {
-            print("⚠️ [ProfileView] Invalid baseHeight: \(baseHeight), using safe fallback")
+            dlog("⚠️ [ProfileView] Invalid baseHeight: \(baseHeight), using safe fallback")
             return 200
         }
         
@@ -1532,7 +1400,7 @@ struct ProfileView: View {
         
         // P0 FIX: Validate final height is finite
         guard dynamicHeight.isFinite else {
-            print("⚠️ [ProfileView] Non-finite dynamicHeight, using safe fallback")
+            dlog("⚠️ [ProfileView] Non-finite dynamicHeight, using safe fallback")
             return 200
         }
         
@@ -1694,7 +1562,7 @@ struct ProfileView: View {
                     }
                     
                     // Analytics tracking
-                    print("📊 Tab switched to: \(tab.rawValue)")
+                    dlog("📊 Tab switched to: \(tab.rawValue)")
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: tab.icon)
@@ -1793,8 +1661,8 @@ struct ProfileView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             
             // ✅ Bio URL with liquid glass black and white design
-            if let bioURL = profileData.bioURL, !bioURL.isEmpty {
-                Link(destination: URL(string: bioURL)!) {
+            if let bioURL = profileData.bioURL, !bioURL.isEmpty, let bioURLParsed = URL(string: bioURL) {
+                Link(destination: bioURLParsed) {
                     HStack(spacing: 6) {
                         Image(systemName: "link.circle.fill")
                             .font(.system(size: 11, weight: .semibold))
@@ -1903,41 +1771,39 @@ struct ProfileView: View {
             // Follower/Following Stats - Tappable (Left Aligned)
             HStack(spacing: 24) {
                 Button {
-                    print("👥 Opening followers list...")
-                    print("   Current followers count: \(followService.currentUserFollowersCount)")
+                    dlog("👥 Opening followers list...")
+                    dlog("   Current followers count: \(followService.currentUserFollowersCount)")
                     showFollowersList = true
                     
                     // Haptic feedback
                     let haptic = UIImpactFeedbackGenerator(style: .light)
                     haptic.impactOccurred()
                 } label: {
+                    // Follower count de-emphasized: label leads, number is secondary
+                    // Avoids training users to optimize for follower accumulation
                     HStack(spacing: 4) {
+                        Text("Followers")
+                            .font(.custom("OpenSans-Regular", size: 14))
+                            .foregroundStyle(.secondary)
                         Text("\(followService.currentUserFollowersCount)")
-                            .font(.custom("OpenSans-Bold", size: 16))
-                            .foregroundStyle(.black)
-                        Text("followers")
-                            .font(.custom("OpenSans-Regular", size: 16))
-                            .foregroundStyle(.black.opacity(0.6))
+                            .font(.custom("OpenSans-Regular", size: 14))
+                            .foregroundStyle(.secondary)
                     }
                 }
                 .buttonStyle(PlainButtonStyle())
                 
                 Button {
-                    print("👥 Opening following list...")
-                    print("   Current following count: \(followService.currentUserFollowingCount)")
                     showFollowingList = true
-                    
-                    // Haptic feedback
                     let haptic = UIImpactFeedbackGenerator(style: .light)
                     haptic.impactOccurred()
                 } label: {
                     HStack(spacing: 4) {
+                        Text("Following")
+                            .font(.custom("OpenSans-Regular", size: 14))
+                            .foregroundStyle(.secondary)
                         Text("\(followService.currentUserFollowingCount)")
-                            .font(.custom("OpenSans-Bold", size: 16))
-                            .foregroundStyle(.black)
-                        Text("following")
-                            .font(.custom("OpenSans-Regular", size: 16))
-                            .foregroundStyle(.black.opacity(0.6))
+                            .font(.custom("OpenSans-Regular", size: 14))
+                            .foregroundStyle(.secondary)
                     }
                 }
                 .buttonStyle(PlainButtonStyle())
@@ -2168,10 +2034,13 @@ struct ProfileQRCodeView: View {
 struct ProfilePostCard: View {
     let post: Post
     
+    private enum PostCardSheet: Identifiable {
+        case edit, comments
+        var id: String { switch self { case .edit: return "edit"; case .comments: return "comments" } }
+    }
     @State private var showingMenu = false
-    @State private var showingEditSheet = false
+    @State private var activePostCardSheet: PostCardSheet?
     @State private var showingDeleteAlert = false
-    @State private var showCommentsSheet = false
     @State private var hasLitLightbulb = false
     @State private var hasSaidAmen = false
     @State private var lightbulbCount = 0
@@ -2186,8 +2055,8 @@ struct ProfilePostCard: View {
         case none, left, right
     }
     
-    @StateObject private var postsManager = PostsManager.shared
-    @StateObject private var interactionsService = PostInteractionsService.shared
+    @ObservedObject private var postsManager = PostsManager.shared
+    @ObservedObject private var interactionsService = PostInteractionsService.shared
     
     // Check if current user is the post owner
     private var isCurrentUserPost: Bool {
@@ -2289,7 +2158,7 @@ struct ProfilePostCard: View {
                     isActive: commentCount > 0,
                     activeColor: .blue
                 ) {
-                    showCommentsSheet = true
+                    activePostCardSheet = .comments
                 }
                 
                 Spacer()
@@ -2384,11 +2253,11 @@ struct ProfilePostCard: View {
                     }
                 }
         )
-        .sheet(isPresented: $showingEditSheet) {
-            EditPostSheet(post: post)
-        }
-        .sheet(isPresented: $showCommentsSheet) {
-            CommentsView(post: post)
+        .sheet(item: $activePostCardSheet) { sheet in
+            switch sheet {
+            case .edit:    EditPostSheet(post: post)
+            case .comments: CommentsView(post: post)
+            }
         }
         .alert("Delete Post", isPresented: $showingDeleteAlert) {
             Button("Cancel", role: .cancel) { }
@@ -2401,10 +2270,21 @@ struct ProfilePostCard: View {
         .task {
             await loadInteractions()
         }
+        // P0 LISTENER LEAK FIX: observePostInteractions adds RTDB handles that must be
+        // removed when the card leaves the screen.  Without this, every ProfileView card
+        // that appeared leaks 5 RTDB observers (lightbulbCount, amenCount, commentCount,
+        // repostCount, commentsData) indefinitely.
+        .onDisappear {
+            let postId = post.id.uuidString
+            interactionsService.stopObservingPost(postId: postId)
+            #if DEBUG
+            dlog("[ProfileView] Stopped observers for post \(postId.prefix(8))")
+            #endif
+        }
     }
-    
+
     // MARK: - Glassmorphic Button Helper
-    
+
     @ViewBuilder
     private func glassmorphicButton(
         icon: String,
@@ -2454,7 +2334,7 @@ struct ProfilePostCard: View {
             if showCount && lightbulbCount > 0 {
                 Text("\(lightbulbCount)")
                     .font(.custom("OpenSans-SemiBold", size: 10))
-                    .foregroundStyle(hasLitLightbulb ? Color.orange : Color.black.opacity(0.5))
+                    .foregroundStyle(hasLitLightbulb ? Color.primary.opacity(0.8) : Color.secondary.opacity(0.6))
                     .contentTransition(.numericText())
             }
         }
@@ -2465,22 +2345,7 @@ struct ProfilePostCard: View {
     }
     
     private var lightbulbIcon: some View {
-        ZStack {
-            // Glow effect when active
-            if hasLitLightbulb {
-                lightbulbGlowEffect
-            }
-            
-            lightbulbMainIcon
-        }
-    }
-    
-    private var lightbulbGlowEffect: some View {
-        Image(systemName: "lightbulb.fill")
-            .font(.system(size: 11, weight: .bold))
-            .foregroundStyle(.yellow)
-            .blur(radius: 6)
-            .opacity(0.6)
+        lightbulbMainIcon
     }
     
     private var lightbulbMainIcon: some View {
@@ -2491,18 +2356,17 @@ struct ProfilePostCard: View {
     
     private var lightbulbBackground: some View {
         Capsule()
-            .fill(hasLitLightbulb ? Color.yellow.opacity(0.15) : Color.black.opacity(0.05))
-            .shadow(color: hasLitLightbulb ? Color.yellow.opacity(0.2) : Color.clear, radius: 8, y: 2)
+            .fill(hasLitLightbulb ? Color.primary.opacity(0.08) : Color.primary.opacity(0.04))
     }
     
     private var lightbulbOverlay: some View {
         Capsule()
-            .stroke(hasLitLightbulb ? Color.orange.opacity(0.3) : Color.black.opacity(0.1), lineWidth: hasLitLightbulb ? 1.5 : 1)
+            .stroke(hasLitLightbulb ? Color.primary.opacity(0.15) : Color.primary.opacity(0.08), lineWidth: 1)
     }
     
     private var lightbulbGradientActive: LinearGradient {
         LinearGradient(
-            colors: [.yellow, .orange],
+            colors: [Color.primary.opacity(0.9), Color.primary.opacity(0.7)],
             startPoint: .top,
             endPoint: .bottom
         )
@@ -2510,7 +2374,7 @@ struct ProfilePostCard: View {
     
     private var lightbulbGradientInactive: LinearGradient {
         LinearGradient(
-            colors: [.black.opacity(0.5), .black.opacity(0.5)],
+            colors: [Color.secondary.opacity(0.5), Color.secondary.opacity(0.5)],
             startPoint: .top,
             endPoint: .bottom
         )
@@ -2536,7 +2400,7 @@ struct ProfilePostCard: View {
         // Edit (if within 30 minutes)
         if canEditPost(post) {
             Button {
-                showingEditSheet = true
+                activePostCardSheet = .edit
             } label: {
                 Label("Edit Post", systemImage: "pencil")
             }
@@ -2603,7 +2467,7 @@ struct ProfilePostCard: View {
         let haptic = UIImpactFeedbackGenerator(style: .light)
         haptic.impactOccurred()
         
-        showCommentsSheet = true
+        activePostCardSheet = .comments
     }
     
     // MARK: - Actions
@@ -2624,7 +2488,7 @@ struct ProfilePostCard: View {
                 let haptic = UIImpactFeedbackGenerator(style: .medium)
                 haptic.impactOccurred()
             } catch {
-                print("❌ Failed to toggle lightbulb: \(error)")
+                dlog("❌ Failed to toggle lightbulb: \(error)")
                 await MainActor.run {
                     hasLitLightbulb.toggle()
                     if hasLitLightbulb {
@@ -2653,7 +2517,7 @@ struct ProfilePostCard: View {
                 let haptic = UINotificationFeedbackGenerator()
                 haptic.notificationOccurred(.success)
             } catch {
-                print("❌ Failed to toggle amen: \(error)")
+                dlog("❌ Failed to toggle amen: \(error)")
                 await MainActor.run {
                     hasSaidAmen.toggle()
                     if hasSaidAmen {
@@ -2675,7 +2539,7 @@ struct ProfilePostCard: View {
             userInfo: ["postId": post.id]
         )
         
-        print("🗑️ Post deleted")
+        dlog("🗑️ Post deleted")
     }
     
     private func sharePost() {
@@ -2760,12 +2624,12 @@ struct PostsContentView: View {
             }
         }
         .onAppear {
-            print("🔍 PostsContentView appeared - displaying \(posts.count) posts")
+            dlog("🔍 PostsContentView appeared - displaying \(posts.count) posts")
             if let userId = Auth.auth().currentUser?.uid {
-                print("   Current user ID: \(userId)")
+                dlog("   Current user ID: \(userId)")
             }
             for (index, post) in posts.prefix(3).enumerated() {
-                print("   Post \(index + 1): \(post.content.prefix(50))... (authorId: \(post.authorId))")
+                dlog("   Post \(index + 1): \(post.content.prefix(50))... (authorId: \(post.authorId))")
             }
         }
         .onChange(of: posts) { oldPosts, newPosts in
@@ -2826,9 +2690,9 @@ struct RepliesContentView: View {
         }
         }
         .onAppear {
-            print("🔍 RepliesContentView appeared - displaying \(replies.count) replies")
+            dlog("🔍 RepliesContentView appeared - displaying \(replies.count) replies")
             for (index, reply) in replies.prefix(3).enumerated() {
-                print("   Reply \(index + 1): \(reply.content.prefix(50))... (authorId: \(reply.authorId))")
+                dlog("   Reply \(index + 1): \(reply.content.prefix(50))... (authorId: \(reply.authorId))")
             }
         }
     }
@@ -3105,13 +2969,13 @@ struct EditProfileView: View {
         self.originalProfileImageURL = profileData.wrappedValue.profileImageURL
         
         // Validate on init to ensure no errors blocking save
-        print("📝 EditProfileView initialized")
-        print("   Name: \(profileData.wrappedValue.name)")
-        print("   Bio: \(profileData.wrappedValue.bio)")
-        print("   Bio URL: \(profileData.wrappedValue.bioURL ?? "none")")
-        print("   Profile Image: \(profileData.wrappedValue.profileImageURL ?? "none")")
-        print("   Interests: \(profileData.wrappedValue.interests)")
-        print("   Social Links: \(profileData.wrappedValue.socialLinks.count)")
+        dlog("📝 EditProfileView initialized")
+        dlog("   Name: \(profileData.wrappedValue.name)")
+        dlog("   Bio: \(profileData.wrappedValue.bio)")
+        dlog("   Bio URL: \(profileData.wrappedValue.bioURL ?? "none")")
+        dlog("   Profile Image: \(profileData.wrappedValue.profileImageURL ?? "none")")
+        dlog("   Interests: \(profileData.wrappedValue.interests)")
+        dlog("   Social Links: \(profileData.wrappedValue.socialLinks.count)")
     }
     
     // Validate initial values when view appears
@@ -3119,9 +2983,9 @@ struct EditProfileView: View {
         validateName(name)
         validateBio(bio)
         
-        print("🔍 Initial validation complete")
-        print("   Name error: \(nameError ?? "none")")
-        print("   Bio error: \(bioError ?? "none")")
+        dlog("🔍 Initial validation complete")
+        dlog("   Name error: \(nameError ?? "none")")
+        dlog("   Bio error: \(bioError ?? "none")")
     }
     
     var body: some View {
@@ -3222,13 +3086,13 @@ struct EditProfileView: View {
         
         ToolbarItem(placement: .confirmationAction) {
             Button {
-                print("🔵 Done button tapped!")
-                print("   hasChanges: \(hasChanges)")
-                print("   isSaving: \(isSaving)")
-                print("   hasValidationErrors: \(hasValidationErrors)")
-                print("   nameError: \(nameError ?? "none")")
-                print("   bioError: \(bioError ?? "none")")
-                print("   bioURLError: \(bioURLError ?? "none")")
+                dlog("🔵 Done button tapped!")
+                dlog("   hasChanges: \(hasChanges)")
+                dlog("   isSaving: \(isSaving)")
+                dlog("   hasValidationErrors: \(hasValidationErrors)")
+                dlog("   nameError: \(nameError ?? "none")")
+                dlog("   bioError: \(bioError ?? "none")")
+                dlog("   bioURLError: \(bioURLError ?? "none")")
                 
                 // ✅ IMPROVED: Check ALL types of changes
                 let nameChanged = name != originalName
@@ -3236,22 +3100,22 @@ struct EditProfileView: View {
                 let bioURLChanged = bioURL != originalBioURL
                 let imageChanged = profileData.profileImageURL != originalProfileImageURL
                 
-                print("   Changes detected:")
-                print("      Name: \(nameChanged)")
-                print("      Bio: \(bioChanged)")
-                print("      Bio URL: \(bioURLChanged)")
-                print("      Profile Image: \(imageChanged)")
+                dlog("   Changes detected:")
+                dlog("      Name: \(nameChanged)")
+                dlog("      Bio: \(bioChanged)")
+                dlog("      Bio URL: \(bioURLChanged)")
+                dlog("      Profile Image: \(imageChanged)")
                 
                 // Show confirmation for name/bio changes (sensitive)
                 if nameChanged || bioChanged {
-                    print("   -> Showing confirmation (name/bio changed)")
+                    dlog("   -> Showing confirmation (name/bio changed)")
                     showSaveConfirmation()
                 } else if hasChanges || imageChanged || bioURLChanged {
-                    print("   -> Saving directly (profile photo/URL or other changes)")
+                    dlog("   -> Saving directly (profile photo/URL or other changes)")
                     // Profile photo, URL, or other changes - save directly
                     saveProfile()
                 } else {
-                    print("   -> No changes to save, just dismissing")
+                    dlog("   -> No changes to save, just dismissing")
                     // No changes - just dismiss
                     dismiss()
                 }
@@ -3745,18 +3609,63 @@ struct EditProfileView: View {
                     return
                 }
                 
-                print("💾 Saving profile changes to Firestore...")
-                print("   Name: \(name)")
-                print("   Username: @\(username)")
-                print("   Bio: \(bio)")
-                print("   Interests: \(interests)")
-                print("   Social Links: \(socialLinks.count)")
+                dlog("💾 Saving profile changes to Firestore...")
+                dlog("   Name: \(name)")
+                dlog("   Username: @\(username)")
+                dlog("   Bio: \(bio)")
+                dlog("   Interests: \(interests)")
+                dlog("   Social Links: \(socialLinks.count)")
+                
+                // ── PROFILE FIELD MODERATION (UnifiedSafetyGate) ─────────
+                // Layer 0: LocalContentGuard (slurs, profanity, violence — instant)
+                // Layer 1: ThinkFirst heuristics (PII, harassment, scams, impersonation)
+                // No network calls — synchronous, zero-latency, offline-safe.
+                let nameGateDecision = UnifiedSafetyGate.shared.evaluateProfileField(
+                    text: name, surface: .profileName
+                )
+                switch nameGateDecision {
+                case .block(let reason, _), .escalate(let reason, _):
+                    isSaving = false
+                    saveErrorMessage = reason
+                    showSaveError = true
+                    return
+                case .requireEdit(let violation, _):
+                    isSaving = false
+                    saveErrorMessage = violation
+                    showSaveError = true
+                    return
+                default:
+                    break
+                }
+
+                let trimmedBio = bio.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !trimmedBio.isEmpty {
+                    let bioGateDecision = UnifiedSafetyGate.shared.evaluateProfileField(
+                        text: trimmedBio, surface: .profileBio
+                    )
+                    switch bioGateDecision {
+                    case .block(let reason, _), .escalate(let reason, _):
+                        isSaving = false
+                        saveErrorMessage = reason
+                        showSaveError = true
+                        return
+                    case .requireEdit(let violation, _):
+                        isSaving = false
+                        saveErrorMessage = violation
+                        showSaveError = true
+                        return
+                    default:
+                        break
+                    }
+                }
+                // ─────────────────────────────────────────────────────────
                 
                 let db = Firestore.firestore()
                 
                 // 1. Update basic profile info (displayName, bio, and bioURL)
                 var updateData: [String: Any] = [
                     "displayName": name,
+                    "displayNameLowercase": name.lowercased(),
                     "bio": bio,
                     "interests": interests,
                     "updatedAt": FieldValue.serverTimestamp()
@@ -3771,8 +3680,11 @@ struct EditProfileView: View {
                 
                 try await db.collection("users").document(userId).updateData(updateData)
                 
-                print("✅ Basic profile info saved")
-                print("   Bio URL: \(bioURL.isEmpty ? "removed" : bioURL)")
+                dlog("✅ Basic profile info saved")
+                dlog("   Bio URL: \(bioURL.isEmpty ? "removed" : bioURL)")
+                
+                // Sync updated profile to Algolia so search results stay current
+                try? await AlgoliaSyncService.shared.syncUser(userId: userId, userData: updateData)
                 
                 // 2. Save social links
                 let linkData = socialLinks.map { link in
@@ -3792,7 +3704,7 @@ struct EditProfileView: View {
                     "socialLinks": linksArray
                 ])
                 
-                print("✅ Social links saved (\(linksArray.count) links)")
+                dlog("✅ Social links saved (\(linksArray.count) links)")
                 
                 // Update local profile data after successful save
                 profileData.name = name
@@ -3805,10 +3717,10 @@ struct EditProfileView: View {
                 // ✅ REAL-TIME UPDATE: Cache profile image URL for tab bar
                 if let imageURL = profileData.profileImageURL {
                     UserDefaults.standard.set(imageURL, forKey: "currentUserProfileImageURL")
-                    print("✅ Profile image URL cached: \(imageURL)")
+                    dlog("✅ Profile image URL cached: \(imageURL)")
                 } else {
                     UserDefaults.standard.removeObject(forKey: "currentUserProfileImageURL")
-                    print("✅ Profile image URL cache cleared")
+                    dlog("✅ Profile image URL cache cleared")
                 }
                 
                 // ✅ REAL-TIME UPDATE: Post notification to update tab bar immediately
@@ -3817,9 +3729,9 @@ struct EditProfileView: View {
                     object: nil,
                     userInfo: ["profileImageURL": profileData.profileImageURL ?? ""]
                 )
-                print("✅ Posted profilePhotoUpdated notification for tab bar")
+                dlog("✅ Posted profilePhotoUpdated notification for tab bar")
                 
-                print("✅ Profile saved successfully!")
+                dlog("✅ Profile saved successfully!")
                 
                 // Success haptic
                 let successHaptic = UINotificationFeedbackGenerator()
@@ -3831,8 +3743,8 @@ struct EditProfileView: View {
                 dismiss()
                 
             } catch {
-                print("❌ Failed to save profile: \(error.localizedDescription)")
-                print("   Error details: \(error)")
+                dlog("❌ Failed to save profile: \(error.localizedDescription)")
+                dlog("   Error details: \(error)")
                 
                 isSaving = false
                 
@@ -3952,7 +3864,7 @@ struct EditProfileView: View {
         
         // Update bioURL with formatted version if valid
         bioURL = formattedURL
-        print("✅ URL formatted: \(formattedURL)")
+        dlog("✅ URL formatted: \(formattedURL)")
     }
     
     /// Show confirmation alert for name/bio changes
@@ -4025,7 +3937,7 @@ struct EditProfileView: View {
         // Clear input
         newInterest = ""
         
-        print("✅ Interest added: \(trimmedInterest)")
+        dlog("✅ Interest added: \(trimmedInterest)")
     }
     
     /// Show error alert helper
@@ -4170,9 +4082,12 @@ struct ProfileSection: View {
 // Using this implementation in ProfileView.swift
 
 struct AboutAmenView: View {
+    private enum AboutSheet: Identifiable {
+        case privacy, terms
+        var id: String { switch self { case .privacy: return "privacy"; case .terms: return "terms" } }
+    }
     @Environment(\.dismiss) var dismiss
-    @State private var showPrivacyPolicy = false
-    @State private var showTermsOfService = false
+    @State private var activeAboutSheet: AboutSheet?
     
     var body: some View {
         ScrollView {
@@ -4238,11 +4153,11 @@ struct AboutAmenView: View {
                     
                     // Privacy Policy
                     Button {
-                        showPrivacyPolicy = true
+                        activeAboutSheet = .privacy
                     } label: {
                         HStack(alignment: .center, spacing: 12) {
                             Image(systemName: "doc.text.fill")
-                                .foregroundStyle(Color.orange)
+                                .foregroundStyle(Color.secondary)
                                 .frame(width: 24)
                             
                             VStack(alignment: .leading, spacing: 2) {
@@ -4265,7 +4180,7 @@ struct AboutAmenView: View {
                     
                     // Terms of Service
                     Button {
-                        showTermsOfService = true
+                        activeAboutSheet = .terms
                     } label: {
                         HStack(alignment: .center, spacing: 12) {
                             Image(systemName: "checkmark.shield.fill")
@@ -4340,11 +4255,11 @@ struct AboutAmenView: View {
         .background(Color(white: 0.98))
         .navigationTitle("About AMEN")
         .navigationBarTitleDisplayMode(.inline)
-        .sheet(isPresented: $showPrivacyPolicy) {
-            PrivacyPolicyView()
-        }
-        .sheet(isPresented: $showTermsOfService) {
-            TermsOfServiceView()
+        .sheet(item: $activeAboutSheet) { sheet in
+            switch sheet {
+            case .privacy: PrivacyPolicyView()
+            case .terms:   TermsOfServiceView()
+            }
         }
     }
 }
@@ -5070,14 +4985,14 @@ struct ProfilePhotoEditView: View {
         
         Task {
             do {
-                print("📤 Uploading profile photo...")
+                dlog("📤 Uploading profile photo...")
                 
                 // Upload to Firebase Storage
                 let firebaseManager = FirebaseManager.shared
                 let path = "profile_images/\(userId)/profile.jpg"
                 let downloadURL = try await firebaseManager.uploadImage(image, to: path, compressionQuality: 0.7)
                 
-                print("✅ Image uploaded to: \(downloadURL.absoluteString)")
+                dlog("✅ Image uploaded to: \(downloadURL.absoluteString)")
                 
                 // Update Firestore
                 try await firebaseManager.updateDocument([
@@ -5085,11 +5000,11 @@ struct ProfilePhotoEditView: View {
                     "updatedAt": Date()
                 ], at: "users/\(userId)")
                 
-                print("✅ Profile updated with new image URL")
+                dlog("✅ Profile updated with new image URL")
                 
                 // ✅ Update UserDefaults cache so new posts include the profile image
                 UserDefaults.standard.set(downloadURL.absoluteString, forKey: "currentUserProfileImageURL")
-                print("✅ Updated UserDefaults cache with new profile image URL")
+                dlog("✅ Updated UserDefaults cache with new profile image URL")
                 
                 // Update local state
                 await MainActor.run {
@@ -5107,7 +5022,7 @@ struct ProfilePhotoEditView: View {
                 }
                 
             } catch {
-                print("❌ Upload failed: \(error)")
+                dlog("❌ Upload failed: \(error)")
                 await MainActor.run {
                     errorMessage = "Upload failed. Please try again."
                     isUploading = false
@@ -5127,7 +5042,7 @@ struct ProfilePhotoEditView: View {
         
         Task {
             do {
-                print("🗑️ Removing profile photo...")
+                dlog("🗑️ Removing profile photo...")
                 
                 // Update Firestore (set to null)
                 let firebaseManager = FirebaseManager.shared
@@ -5136,7 +5051,7 @@ struct ProfilePhotoEditView: View {
                     "updatedAt": Date()
                 ], at: "users/\(userId)")
                 
-                print("✅ Profile photo removed")
+                dlog("✅ Profile photo removed")
                 
                 // Update local state
                 await MainActor.run {
@@ -5151,7 +5066,7 @@ struct ProfilePhotoEditView: View {
                 }
                 
             } catch {
-                print("❌ Failed to remove photo: \(error)")
+                dlog("❌ Failed to remove photo: \(error)")
                 await MainActor.run {
                     errorMessage = "Failed to remove photo. Please try again."
                     
@@ -5355,14 +5270,14 @@ struct ProfileImagePicker: View {
         
         Task {
             do {
-                print("📤 Uploading profile photo...")
+                dlog("📤 Uploading profile photo...")
                 
                 // Upload to Firebase Storage
                 let firebaseManager = FirebaseManager.shared
-                let path = "profile_images/\(userId).jpg"
+                let path = "profile_images/\(userId)/profile.jpg"
                 let downloadURL = try await firebaseManager.uploadImage(image, to: path, compressionQuality: 0.7)
                 
-                print("✅ Image uploaded to: \(downloadURL.absoluteString)")
+                dlog("✅ Image uploaded to: \(downloadURL.absoluteString)")
                 
                 // Update Firestore
                 let db = Firestore.firestore()
@@ -5371,11 +5286,11 @@ struct ProfileImagePicker: View {
                     "updatedAt": FieldValue.serverTimestamp()
                 ])
                 
-                print("✅ Firestore updated with profile image URL")
+                dlog("✅ Firestore updated with profile image URL")
                 
                 // ✅ Update UserDefaults cache so new posts include the profile image
                 UserDefaults.standard.set(downloadURL.absoluteString, forKey: "currentUserProfileImageURL")
-                print("✅ Updated UserDefaults cache with new profile image URL")
+                dlog("✅ Updated UserDefaults cache with new profile image URL")
                 
                 // Update local state
                 await MainActor.run {
@@ -5393,7 +5308,7 @@ struct ProfileImagePicker: View {
                 }
                 
             } catch {
-                print("❌ Upload failed: \(error)")
+                dlog("❌ Upload failed: \(error)")
                 await MainActor.run {
                     errorMessage = "Upload failed: \(error.localizedDescription)"
                     isUploading = false
@@ -5572,14 +5487,17 @@ struct AppearanceSettingsView: View {
 // MARK: - Safety & Security View
 
 struct SafetySecurityView: View {
+    private enum SecuritySheet: Identifiable {
+        case twoFactor, loginHistory
+        var id: String { switch self { case .twoFactor: return "twoFactor"; case .loginHistory: return "loginHistory" } }
+    }
     @Environment(\.dismiss) var dismiss
-    
+
     @State private var twoFactorEnabled = false
     @State private var loginAlerts = true
     @State private var showSensitiveContent = false
     @State private var requirePasswordForPurchases = true
-    @State private var showTwoFactorSetup = false
-    @State private var showLoginHistory = false
+    @State private var activeSecuritySheet: SecuritySheet?
     @State private var showPrivacyInfo = false
     @State private var isLoading = true
     @State private var isSaving = false
@@ -5604,11 +5522,11 @@ struct SafetySecurityView: View {
                     .font(.custom("OpenSans-SemiBold", size: 16))
                 }
             }
-            .sheet(isPresented: $showTwoFactorSetup) {
-                TwoFactorSetupView()
-            }
-            .sheet(isPresented: $showLoginHistory) {
-                LoginHistoryView()
+            .sheet(item: $activeSecuritySheet) { sheet in
+                switch sheet {
+                case .twoFactor:    TwoFactorSetupView()
+                case .loginHistory: LoginHistoryView()
+                }
             }
             .onAppear {
                 loadSecuritySettings()
@@ -5631,7 +5549,7 @@ struct SafetySecurityView: View {
                     Spacer()
                     
                     Button {
-                        showTwoFactorSetup = true
+                        activeSecuritySheet = .twoFactor
                     } label: {
                         Text(twoFactorEnabled ? "Manage" : "Enable")
                             .font(.custom("OpenSans-SemiBold", size: 14))
@@ -5662,9 +5580,9 @@ struct SafetySecurityView: View {
                 .onChange(of: loginAlerts) { _, newValue in
                     saveSecuritySettings()
                 }
-                
+
                 Button {
-                    showLoginHistory = true
+                    activeSecuritySheet = .loginHistory
                 } label: {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
@@ -5797,16 +5715,16 @@ struct SafetySecurityView: View {
                         requirePasswordForPurchases = data["requirePasswordForPurchases"] as? Bool ?? true
                         isLoading = false
                         
-                        print("✅ Security settings loaded from Firestore")
+                        dlog("✅ Security settings loaded from Firestore")
                     }
                 } else {
                     await MainActor.run {
                         isLoading = false
-                        print("⚠️ No user data found, using defaults")
+                        dlog("⚠️ No user data found, using defaults")
                     }
                 }
             } catch {
-                print("❌ Error loading security settings: \(error)")
+                dlog("❌ Error loading security settings: \(error)")
                 await MainActor.run {
                     isLoading = false
                 }
@@ -5881,10 +5799,10 @@ struct SafetySecurityView: View {
                     let haptic = UIImpactFeedbackGenerator(style: .light)
                     haptic.impactOccurred()
                     
-                    print("✅ Security settings saved to Firestore")
+                    dlog("✅ Security settings saved to Firestore")
                 }
             } catch {
-                print("❌ Failed to update security settings: \(error)")
+                dlog("❌ Failed to update security settings: \(error)")
                 
                 await MainActor.run {
                     isSaving = false
@@ -6116,7 +6034,7 @@ struct LoginHistoryView: View {
             loginSessions = sessions
             isLoading = false
         } catch {
-            print("❌ Error loading login history: \(error)")
+            dlog("❌ Error loading login history: \(error)")
             isLoading = false
         }
     }
@@ -6129,7 +6047,7 @@ struct LoginHistoryView: View {
                 let haptic = UINotificationFeedbackGenerator()
                 haptic.notificationOccurred(.success)
             } catch {
-                print("❌ Error removing session: \(error)")
+                dlog("❌ Error removing session: \(error)")
                 
                 let haptic = UINotificationFeedbackGenerator()
                 haptic.notificationOccurred(.error)
@@ -6145,7 +6063,7 @@ struct LoginHistoryView: View {
                 
                 // This will sign out the user and take them back to sign-in screen
             } catch {
-                print("❌ Error signing out all devices: \(error)")
+                dlog("❌ Error signing out all devices: \(error)")
             }
         }
     }
@@ -6231,97 +6149,29 @@ struct HandDrawnHighlightText: View {
     let text: String
     let animationDelay: Double
     
-    @State private var animationProgress: CGFloat = 0
+    @State private var appeared = false
     
     var body: some View {
         Text(text)
             .font(.custom("OpenSans-SemiBold", size: 13))
-            .foregroundStyle(.black)
+            .foregroundStyle(.primary)
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
             .background(
-                HandDrawnHighlightCircle(animationProgress: animationProgress)
-                    .fill(Color(red: 0.9, green: 0.5, blue: 0.2).opacity(0.4))
+                Capsule()
+                    .fill(Color.primary.opacity(0.08))
             )
+            .overlay(
+                Capsule()
+                    .stroke(Color.primary.opacity(0.12), lineWidth: 1)
+            )
+            .opacity(appeared ? 1 : 0)
+            .scaleEffect(appeared ? 1 : 0.85)
             .onAppear {
-                // Animate the stroke drawing in with faster, smoother animation
-                withAnimation(.easeOut(duration: 0.4).delay(animationDelay)) {
-                    animationProgress = 1.0
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.7).delay(animationDelay)) {
+                    appeared = true
                 }
             }
-    }
-}
-
-/// An organic, hand-drawn circle shape that animates from 0 to 1
-struct HandDrawnHighlightCircle: Shape {
-    var animationProgress: CGFloat
-    
-    var animatableData: CGFloat {
-        get { animationProgress }
-        set { animationProgress = newValue }
-    }
-    
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        
-        let width = rect.width
-        let height = rect.height
-        let centerX = width / 2
-        let centerY = height / 2
-        
-        // Create an organic, imperfect circle path
-        // This mimics a hand-drawn marker stroke with slight irregularities
-        
-        let radiusX = width / 2 * 1.05  // Slightly larger than content
-        let radiusY = height / 2 * 1.15
-        
-        // Start point (top)
-        let startAngle: CGFloat = -.pi / 2
-        let endAngle: CGFloat = startAngle + (2 * .pi * animationProgress)
-        
-        // Number of segments for organic look
-        let segments = 60
-        let angleStep = (2 * .pi) / CGFloat(segments)
-        
-        var currentAngle = startAngle
-        var isFirst = true
-        
-        while currentAngle < endAngle {
-            // Add slight random variation to radius for hand-drawn effect
-            let variation = sin(currentAngle * 3) * 0.03 + cos(currentAngle * 7) * 0.02
-            let variedRadiusX = radiusX * (1 + variation)
-            let variedRadiusY = radiusY * (1 + variation)
-            
-            let x = centerX + cos(currentAngle) * variedRadiusX
-            let y = centerY + sin(currentAngle) * variedRadiusY
-            
-            if isFirst {
-                path.move(to: CGPoint(x: x, y: y))
-                isFirst = false
-            } else {
-                // Use quadratic curves for smoother, more organic connections
-                let prevAngle = currentAngle - angleStep
-                let prevX = centerX + cos(prevAngle) * variedRadiusX
-                let prevY = centerY + sin(prevAngle) * variedRadiusY
-                
-                let controlX = (x + prevX) / 2 + sin(currentAngle) * 2
-                let controlY = (y + prevY) / 2 + cos(currentAngle) * 2
-                
-                path.addQuadCurve(
-                    to: CGPoint(x: x, y: y),
-                    control: CGPoint(x: controlX, y: controlY)
-                )
-            }
-            
-            currentAngle += angleStep
-        }
-        
-        // Close the path if animation is complete
-        if animationProgress >= 0.99 {
-            path.closeSubpath()
-        }
-        
-        return path
     }
 }
 
@@ -6330,28 +6180,30 @@ struct HandDrawnHighlightCircle: Shape {
 /// A text view that detects and makes URLs, @mentions, and #hashtags tappable
 struct BioLinkText: View {
     let text: String
-    
-    @State private var showingUserProfile = false
-    @State private var selectedUsername: String?
-    @State private var showingHashtagSearch = false
-    @State private var selectedHashtag: String?
-    
+
+    private enum BioLinkSheet: Identifiable {
+        case userProfile(String), hashtag(String)
+        var id: String {
+            switch self {
+            case .userProfile(let u): return "user_\(u)"
+            case .hashtag(let h): return "hashtag_\(h)"
+            }
+        }
+    }
+    @State private var activeBioLinkSheet: BioLinkSheet?
+
     var body: some View {
         // Parse the bio text into segments
         let segments = parseTextSegments(text)
-        
+
         // Use HStack with wrapped segments for tap handling
         WrappingHStack(segments: segments) { segment in
             createSegmentView(segment)
         }
-        .sheet(isPresented: $showingUserProfile) {
-            if let username = selectedUsername {
-                UserProfileViewWrapper(username: username)
-            }
-        }
-        .sheet(isPresented: $showingHashtagSearch) {
-            if let hashtag = selectedHashtag {
-                HashtagSearchViewWrapper(hashtag: hashtag)
+        .sheet(item: $activeBioLinkSheet) { sheet in
+            switch sheet {
+            case .userProfile(let username): UserProfileViewWrapper(username: username)
+            case .hashtag(let hashtag):      HashtagSearchViewWrapper(hashtag: hashtag)
             }
         }
     }
@@ -6378,9 +6230,7 @@ struct BioLinkText: View {
         case .mention:
             Button {
                 let username = String(segment.text.dropFirst()) // Remove @
-                selectedUsername = username
-                showingUserProfile = true
-                
+                activeBioLinkSheet = .userProfile(username)
                 let haptic = UIImpactFeedbackGenerator(style: .light)
                 haptic.impactOccurred()
             } label: {
@@ -6389,13 +6239,11 @@ struct BioLinkText: View {
                     .foregroundColor(.blue)
             }
             .buttonStyle(.plain)
-        
+
         case .hashtag:
             Button {
                 let hashtag = String(segment.text.dropFirst()) // Remove #
-                selectedHashtag = hashtag
-                showingHashtagSearch = true
-                
+                activeBioLinkSheet = .hashtag(hashtag)
                 let haptic = UIImpactFeedbackGenerator(style: .light)
                 haptic.impactOccurred()
             } label: {
@@ -6409,12 +6257,14 @@ struct BioLinkText: View {
     
     private func parseTextSegments(_ text: String) -> [TextSegment] {
         var segments: [TextSegment] = []
-        var currentIndex = text.startIndex
         
-        // Patterns for detection
-        let urlPattern = try! NSRegularExpression(pattern: #"https?://[^\s]+"#, options: [])
-        let mentionPattern = try! NSRegularExpression(pattern: #"@[\w]+"#, options: [])
-        let hashtagPattern = try! NSRegularExpression(pattern: #"#[\w]+"#, options: [])
+        // Patterns for detection — these literals are valid; guard against unexpected failure gracefully
+        guard let urlPattern = try? NSRegularExpression(pattern: #"https?://[^\s]+"#, options: []),
+              let mentionPattern = try? NSRegularExpression(pattern: #"@[\w]+"#, options: []),
+              let hashtagPattern = try? NSRegularExpression(pattern: #"#[\w]+"#, options: []) else {
+            // Regex compile failed (should never happen with these literals)
+            return [TextSegment(text: text, type: .regular)]
+        }
         
         let nsText = text as NSString
         let range = NSRange(location: 0, length: nsText.length)
@@ -6515,13 +6365,6 @@ struct WrappingHStack<Content: View>: View {
     let content: (TextSegment) -> Content
     
     var body: some View {
-        // Simple approach: use Text concatenation with proper spacing
-        let words = segments.flatMap { segment -> [String] in
-            segment.text.components(separatedBy: " ").map { word in
-                word.isEmpty ? " " : word
-            }
-        }
-        
         // Create a flowing text layout
         FlowLayout(spacing: 4) {
             ForEach(Array(segments.enumerated()), id: \.offset) { _, segment in

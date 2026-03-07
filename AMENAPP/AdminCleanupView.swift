@@ -9,7 +9,7 @@ import SwiftUI
 import FirebaseFirestore
 
 struct AdminCleanupView: View {
-    @StateObject private var postService = FirebasePostService.shared
+    @ObservedObject private var postService = FirebasePostService.shared
     @State private var isDeleting = false
     @State private var showConfirmation = false
     @State private var deletionComplete = false

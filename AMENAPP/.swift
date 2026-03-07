@@ -5,6 +5,7 @@
 //  Created to diagnose authentication issues
 //
 
+#if DEBUG
 import SwiftUI
 import FirebaseAuth
 import FirebaseCore
@@ -818,3 +819,4 @@ struct AuthDebugView: View {
 #Preview {
     AuthDebugView()
 }
+#endif

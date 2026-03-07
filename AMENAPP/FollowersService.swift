@@ -31,7 +31,7 @@ struct FollowUser: Identifiable, Codable {
 class FollowersService: ObservableObject {
     static let shared = FollowersService()
     
-    private let database = Database.database(url: "https://amen-5e359-default-rtdb.firebaseio.com")
+    private let database = Database.database()
     private let firestore = Firestore.firestore()
     
     @Published var followers: [FollowUser] = []
@@ -42,7 +42,7 @@ class FollowersService: ObservableObject {
     private var followingObservers: [String: DatabaseHandle] = [:]
     
     private init() {
-        print("👥 FollowersService initialized")
+        dlog("👥 FollowersService initialized")
     }
     
     // MARK: - Follow Actions
@@ -92,7 +92,7 @@ class FollowersService: ObservableObject {
             "followersCount": FieldValue.increment(Int64(1))
         ])
         
-        print("✅ Followed user: \(userId)")
+        dlog("✅ Followed user: \(userId)")
         
         // Send notification
         NotificationCenter.default.post(
@@ -138,7 +138,7 @@ class FollowersService: ObservableObject {
             "followersCount": FieldValue.increment(Int64(-1))
         ])
         
-        print("✅ Unfollowed user: \(userId)")
+        dlog("✅ Unfollowed user: \(userId)")
         
         // Send notification
         NotificationCenter.default.post(
@@ -183,7 +183,7 @@ class FollowersService: ObservableObject {
         let snapshot = try await followersRef.getData()
         
         guard snapshot.exists(), let followersData = snapshot.value as? [String: Any] else {
-            print("📭 No followers found")
+            dlog("📭 No followers found")
             await MainActor.run {
                 self.followers = []
             }
@@ -192,7 +192,7 @@ class FollowersService: ObservableObject {
         
         // Extract follower user IDs
         let followerIds = Array(followersData.keys)
-        print("📬 Found \(followerIds.count) followers")
+        dlog("📬 Found \(followerIds.count) followers")
         
         // Fetch user details from Firestore
         var users: [FollowUser] = []
@@ -213,7 +213,7 @@ class FollowersService: ObservableObject {
                     }
                 }
             } catch {
-                print("⚠️ Error fetching follower \(followerId): \(error)")
+                dlog("⚠️ Error fetching follower \(followerId): \(error)")
             }
         }
         
@@ -224,7 +224,7 @@ class FollowersService: ObservableObject {
             self.followers = users
         }
         
-        print("✅ Fetched \(users.count) followers")
+        dlog("✅ Fetched \(users.count) followers")
         return users
     }
     
@@ -246,7 +246,7 @@ class FollowersService: ObservableObject {
         let snapshot = try await followingRef.getData()
         
         guard snapshot.exists(), let followingData = snapshot.value as? [String: Any] else {
-            print("📭 Not following anyone")
+            dlog("📭 Not following anyone")
             await MainActor.run {
                 self.following = []
             }
@@ -255,7 +255,7 @@ class FollowersService: ObservableObject {
         
         // Extract following user IDs
         let followingIds = Array(followingData.keys)
-        print("📬 Following \(followingIds.count) users")
+        dlog("📬 Following \(followingIds.count) users")
         
         // Fetch user details from Firestore
         var users: [FollowUser] = []
@@ -273,7 +273,7 @@ class FollowersService: ObservableObject {
                     }
                 }
             } catch {
-                print("⚠️ Error fetching following user \(followingId): \(error)")
+                dlog("⚠️ Error fetching following user \(followingId): \(error)")
             }
         }
         
@@ -284,7 +284,7 @@ class FollowersService: ObservableObject {
             self.following = users
         }
         
-        print("✅ Fetched \(users.count) following users")
+        dlog("✅ Fetched \(users.count) following users")
         return users
     }
     
@@ -295,7 +295,7 @@ class FollowersService: ObservableObject {
         let targetUserId = userId ?? Auth.auth().currentUser?.uid
         
         guard let targetUserId = targetUserId else {
-            print("❌ Cannot observe followers: User not authenticated")
+            dlog("❌ Cannot observe followers: User not authenticated")
             return
         }
         
@@ -311,7 +311,7 @@ class FollowersService: ObservableObject {
                         completion(users)
                     }
                 } catch {
-                    print("❌ Error observing followers: \(error)")
+                    dlog("❌ Error observing followers: \(error)")
                     await MainActor.run {
                         completion([])
                     }
@@ -320,7 +320,7 @@ class FollowersService: ObservableObject {
         }
         
         followersObservers[targetUserId] = handle
-        print("👀 Observing followers for user: \(targetUserId)")
+        dlog("👀 Observing followers for user: \(targetUserId)")
     }
     
     /// Observe following list in real-time
@@ -328,7 +328,7 @@ class FollowersService: ObservableObject {
         let targetUserId = userId ?? Auth.auth().currentUser?.uid
         
         guard let targetUserId = targetUserId else {
-            print("❌ Cannot observe following: User not authenticated")
+            dlog("❌ Cannot observe following: User not authenticated")
             return
         }
         
@@ -344,7 +344,7 @@ class FollowersService: ObservableObject {
                         completion(users)
                     }
                 } catch {
-                    print("❌ Error observing following: \(error)")
+                    dlog("❌ Error observing following: \(error)")
                     await MainActor.run {
                         completion([])
                     }
@@ -353,7 +353,7 @@ class FollowersService: ObservableObject {
         }
         
         followingObservers[targetUserId] = handle
-        print("👀 Observing following for user: \(targetUserId)")
+        dlog("👀 Observing following for user: \(targetUserId)")
     }
     
     /// Remove observers
@@ -376,7 +376,7 @@ class FollowersService: ObservableObject {
             followingObservers.removeValue(forKey: userId)
         }
         
-        print("🔇 Removed follow observers for user: \(userId)")
+        dlog("🔇 Removed follow observers for user: \(userId)")
     }
     
     // MARK: - Helper Methods

@@ -11,7 +11,7 @@ import FirebaseAuth
 
 struct NotificationSettingsView: View {
     @Environment(\.dismiss) var dismiss
-    @StateObject private var pushManager = PushNotificationManager.shared
+    @ObservedObject private var pushManager = PushNotificationManager.shared
     
     // Notification Preferences
     @State private var allowNotifications = true

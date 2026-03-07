@@ -11,7 +11,7 @@ import FirebaseAuth
 
 struct TwoFactorGateView: View {
     @EnvironmentObject var authViewModel: AuthenticationViewModel
-    @StateObject private var twoFactorService = TwoFactorAuthService.shared
+    @ObservedObject private var twoFactorService = TwoFactorAuthService.shared
     
     let userId: String
     let userEmail: String

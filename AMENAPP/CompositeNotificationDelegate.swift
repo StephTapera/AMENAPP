@@ -41,9 +41,8 @@ class CompositeNotificationDelegate: NSObject, UNUserNotificationCenterDelegate 
         
         // ✅ ENHANCED SMART SUPPRESSION: Check all notification types
         if let typeString = userInfo["type"] as? String {
-            // Message notifications - always suppress in foreground
+            // Message notifications - always suppress in foreground (handled by UnifiedChatView)
             if typeString == "message" || typeString == "message_request" {
-                print("🔕 Suppressing message notification (foreground)")
                 completionHandler([])
                 return
             }
@@ -51,15 +50,16 @@ class CompositeNotificationDelegate: NSObject, UNUserNotificationCenterDelegate 
             // ✅ P0-6 FIX: Filter notifications from blocked users
             if let actorId = userInfo["actorId"] as? String {
                 if shouldFilterNotification(actorId: actorId) {
-                    print("🔕 Filtering notification from blocked user: \(actorId)")
                     completionHandler([])
                     return
                 }
             }
         }
         
-        // Show notification with banner, sound, and badge
-        completionHandler([.banner, .sound, .badge])
+        // ✅ Suppress system banner for social notifications — the custom
+        // InAppNotificationBanner (Instagram-style heads-up) replaces it.
+        // Still update badge and play sound so the user knows something arrived.
+        completionHandler([.badge, .sound])
     }
     
     /// Helper to check if notification should be filtered (blocked user)
@@ -74,7 +74,6 @@ class CompositeNotificationDelegate: NSObject, UNUserNotificationCenterDelegate 
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
-        let userInfo = response.notification.request.content.userInfo
         let categoryIdentifier = response.notification.request.content.categoryIdentifier
         
         // Check if this is a church notification

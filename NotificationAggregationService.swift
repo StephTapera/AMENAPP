@@ -30,7 +30,7 @@ final class NotificationAggregationService: ObservableObject {
     @Published private(set) var activeConversationId: String?
     @Published private(set) var activeProfileUserId: String?
     
-    enum AppScreen {
+    enum AppScreen: Equatable {
         case none
         case home
         case notifications
@@ -55,6 +55,7 @@ final class NotificationAggregationService: ObservableObject {
     
     /// Call this when user navigates to a new screen
     func updateCurrentScreen(_ screen: AppScreen) {
+        guard currentScreen != screen else { return }
         currentScreen = screen
         
         switch screen {
@@ -87,9 +88,9 @@ final class NotificationAggregationService: ObservableObject {
             
         case .conversation(let conversationId):
             // Suppress message notifications for this conversation
-            if notification.type == .message || notification.type == .messageRequest {
-                // TODO: Add conversationId field to AppNotification model
-                print("🔕 Suppressing message notification: user in active conversation")
+            if (notification.type == .message || notification.type == .messageRequest)
+                && notification.conversationId == conversationId {
+                print("🔕 Suppressing message notification: user in active conversation \(conversationId)")
                 return true
             }
             
@@ -257,7 +258,7 @@ final class NotificationAggregationService: ObservableObject {
         ) { [weak self] _ in
             print("🔆 App entering foreground")
             // Reset screen tracking
-            self?.currentScreen = .none
+            Task { @MainActor [weak self] in self?.currentScreen = .none }
         }
         
         NotificationCenter.default.addObserver(
@@ -266,7 +267,7 @@ final class NotificationAggregationService: ObservableObject {
             queue: .main
         ) { [weak self] _ in
             print("🌙 App entering background")
-            self?.currentScreen = .none
+            Task { @MainActor [weak self] in self?.currentScreen = .none }
         }
     }
 }

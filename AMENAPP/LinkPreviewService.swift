@@ -2,249 +2,294 @@
 //  LinkPreviewService.swift
 //  AMENAPP
 //
-//  Service for fetching and caching link preview metadata
+//  Link preview metadata fetch, cache, and Bible-URL detection.
+//  Uses one LPMetadataProvider per request so fetches can run
+//  concurrently and be individually cancelled.
 //
 
 import Foundation
 import SwiftUI
-import LinkPresentation
 import Combine
+import LinkPresentation
 
-/// Link preview metadata model
+// MARK: - Preview type
+
+enum LinkPreviewType: String, Codable {
+    case link   // Standard URL preview
+    case verse  // Bible verse card
+}
+
+// MARK: - Metadata model
+
 struct LinkPreviewMetadata: Codable, Identifiable, Equatable {
-    let id: String
+    let id: String          // == url.absoluteString
     let url: URL
+    let previewType: LinkPreviewType
     let title: String?
     let description: String?
     let imageURL: URL?
     let siteName: String?
-    
-    init(url: URL, title: String? = nil, description: String? = nil, imageURL: URL? = nil, siteName: String? = nil) {
+    // Verse-specific
+    let verseReference: String?
+    let verseText: String?
+
+    init(
+        url: URL,
+        previewType: LinkPreviewType = .link,
+        title: String? = nil,
+        description: String? = nil,
+        imageURL: URL? = nil,
+        siteName: String? = nil,
+        verseReference: String? = nil,
+        verseText: String? = nil
+    ) {
         self.id = url.absoluteString
         self.url = url
+        self.previewType = previewType
         self.title = title
         self.description = description
         self.imageURL = imageURL
         self.siteName = siteName
+        self.verseReference = verseReference
+        self.verseText = verseText
     }
 }
 
-/// Link preview service for fetching metadata
-class LinkPreviewService: ObservableObject {
+// MARK: - Service
+
+@MainActor
+final class LinkPreviewService: ObservableObject {
     static let shared = LinkPreviewService()
-    
-    @Published private(set) var cache: [String: LinkPreviewMetadata] = [:]
-    @Published private(set) var isLoading: Set<String> = []
-    
-    private let metadataProvider = LPMetadataProvider()
-    private let cacheQueue = DispatchQueue(label: "com.amen.linkpreview.cache")
-    
-    private init() {
-        loadCacheFromDisk()
-    }
-    
+
+    // In-memory cache: url string → metadata
+    private var cache: [String: LinkPreviewMetadata] = [:]
+    // In-flight task per URL to avoid duplicate fetches
+    private var inFlight: [String: Task<LinkPreviewMetadata, Error>] = [:]
+
+    private init() { loadDiskCache() }
+
     // MARK: - Public API
-    
-    /// Detect URLs in text
-    func detectURLs(in text: String) -> [URL] {
-        let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
-        let matches = detector?.matches(in: text, options: [], range: NSRange(location: 0, length: text.utf16.count))
-        
-        return matches?.compactMap { match in
-            guard let range = Range(match.range, in: text) else { return nil }
-            let urlString = String(text[range])
-            return URL(string: urlString)
-        } ?? []
+
+    /// Detect first HTTP/S URL in text.
+    func detectFirstURL(in text: String) -> URL? {
+        guard let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue) else { return nil }
+        let range = NSRange(text.startIndex..., in: text)
+        return detector.firstMatch(in: text, options: [], range: range)
+            .flatMap { Range($0.range, in: text) }
+            .flatMap { URL(string: String(text[$0])) }
+            .flatMap { $0.scheme == "http" || $0.scheme == "https" ? $0 : nil }
     }
-    
-    /// Fetch link preview metadata
+
+    /// All HTTP/S URLs in text (for chat send-time attachment building).
+    func detectURLs(in text: String) -> [URL] {
+        guard let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue) else { return [] }
+        let range = NSRange(text.startIndex..., in: text)
+        return detector.matches(in: text, options: [], range: range)
+            .compactMap { Range($0.range, in: text).flatMap { URL(string: String(text[$0])) } }
+            .filter { $0.scheme == "http" || $0.scheme == "https" }
+    }
+
+    /// Fetch metadata (cache-first, deduped in-flight).
     func fetchMetadata(for url: URL) async throws -> LinkPreviewMetadata {
-        let urlString = url.absoluteString
-        
-        // Check cache first
-        if let cached = cache[urlString] {
-            print("📦 Using cached link preview for: \(urlString)")
-            return cached
-        }
-        
-        // Check if already loading
-        if isLoading.contains(urlString) {
-            print("⏳ Already loading: \(urlString)")
-            // Wait a bit and check cache again
-            try await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
-            if let cached = cache[urlString] {
-                return cached
-            }
-        }
-        
-        // Mark as loading
-        await MainActor.run {
-            isLoading.insert(urlString)
-        }
-        
-        defer {
-            Task { @MainActor in
-                isLoading.remove(urlString)
-            }
-        }
-        
-        do {
-            print("🔍 Fetching link preview for: \(urlString)")
-            
-            let metadata = try await metadataProvider.startFetchingMetadata(for: url)
-            
-            let preview = LinkPreviewMetadata(
+        let key = url.absoluteString
+
+        // 1. Cache hit
+        if let cached = cache[key] { return cached }
+
+        // 2. De-duplicate: reuse existing task
+        if let existing = inFlight[key] { return try await existing.value }
+
+        // 3. Bible URL → fast local path
+        if let ref = BibleURLParser.extractReference(from: url) {
+            let meta = LinkPreviewMetadata(
                 url: url,
-                title: metadata.title,
-                description: metadata.url?.absoluteString,
-                imageURL: metadata.imageProvider != nil ? url : nil, // Simplified for now
-                siteName: metadata.originalURL?.host
+                previewType: .verse,
+                title: ref.displayReference,
+                siteName: url.host,
+                verseReference: ref.displayReference,
+                verseText: nil   // caller can enrich via YouVersionBibleService if desired
             )
-            
-            // Cache the result
-            await MainActor.run {
-                cache[urlString] = preview
+            store(meta, for: key)
+            return meta
+        }
+
+        // 4. Standard LPMetadataProvider fetch
+        let task = Task<LinkPreviewMetadata, Error> { [weak self] in
+            let provider = LPMetadataProvider()
+            provider.shouldFetchSubresources = false  // privacy: no script execution
+            provider.timeout = 10
+
+            let lp = try await provider.startFetchingMetadata(for: url)
+
+            // Fetch the image data and convert to a data: URL so it survives
+            // cross-process boundary (Widget Extension, etc.)
+            var imageURL: URL? = nil
+            if let imageProvider = lp.imageProvider {
+                imageURL = await withCheckedContinuation { cont in
+                    imageProvider.loadObject(ofClass: UIImage.self) { obj, _ in
+                        if let img = obj as? UIImage,
+                           let jpeg = img.jpegData(compressionQuality: 0.7) {
+                            // Store thumbnail on disk; vend file URL
+                            let filename = key
+                                .replacingOccurrences(of: "/", with: "_")
+                                .replacingOccurrences(of: ":", with: "_")
+                                .prefix(80)
+                            let dir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+                                .appendingPathComponent("link_thumbs", isDirectory: true)
+                            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+                            let file = dir.appendingPathComponent(String(filename) + ".jpg")
+                            try? jpeg.write(to: file)
+                            cont.resume(returning: file)
+                        } else {
+                            cont.resume(returning: nil)
+                        }
+                    }
+                }
             }
-            
-            saveCacheToDisk()
-            
-            print("✅ Link preview fetched: \(preview.title ?? "No title")")
-            
-            return preview
+
+            let meta = LinkPreviewMetadata(
+                url: url,
+                previewType: .link,
+                title: lp.title,
+                description: nil,
+                imageURL: imageURL,
+                siteName: lp.originalURL?.host ?? url.host
+            )
+
+            await MainActor.run { [meta] in
+                self?.store(meta, for: key)
+                self?.inFlight.removeValue(forKey: key)
+            }
+            return meta
+        }
+
+        inFlight[key] = task
+
+        do {
+            return try await task.value
         } catch {
-            print("❌ Failed to fetch link preview: \(error)")
+            inFlight.removeValue(forKey: key)
             throw error
         }
     }
-    
-    /// Get cached metadata synchronously
-    func getCached(for url: URL) -> LinkPreviewMetadata? {
-        return cache[url.absoluteString]
+
+    /// Cancel any in-flight fetch for a URL (e.g. user removed preview).
+    func cancelFetch(for url: URL) {
+        let key = url.absoluteString
+        inFlight[key]?.cancel()
+        inFlight.removeValue(forKey: key)
     }
-    
-    /// Clear cache
-    func clearCache() {
-        cache.removeAll()
-        isLoading.removeAll()
-        try? FileManager.default.removeItem(at: cacheFileURL)
+
+    /// Synchronous cache lookup — use in feed rendering to avoid re-fetch.
+    func getCached(for url: URL) -> LinkPreviewMetadata? { cache[url.absoluteString] }
+
+    // MARK: - Private
+
+    private func store(_ meta: LinkPreviewMetadata, for key: String) {
+        cache[key] = meta
+        saveDiskCache()
     }
-    
-    // MARK: - Disk Caching
-    
+
+    // MARK: - Disk cache (Codable JSON, thumbnails on disk already)
+
     private var cacheFileURL: URL {
-        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        return documentsPath.appendingPathComponent("link_preview_cache.json")
+        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("link_preview_meta_cache.json")
     }
-    
-    private func loadCacheFromDisk() {
-        cacheQueue.async { [weak self] in
-            guard let self = self,
-                  let data = try? Data(contentsOf: self.cacheFileURL),
-                  let decoded = try? JSONDecoder().decode([String: LinkPreviewMetadata].self, from: data) else {
-                return
-            }
-            
-            DispatchQueue.main.async {
-                self.cache = decoded
-                print("📦 Loaded \(decoded.count) link previews from cache")
-            }
+
+    private func loadDiskCache() {
+        Task.detached(priority: .background) { [weak self] in
+            guard let self,
+                  let data = try? Data(contentsOf: await self.cacheFileURL),
+                  let decoded = try? JSONDecoder().decode([String: LinkPreviewMetadata].self, from: data) else { return }
+            await MainActor.run { self.cache = decoded }
         }
     }
-    
-    private func saveCacheToDisk() {
-        cacheQueue.async { [weak self] in
-            guard let self = self,
-                  let data = try? JSONEncoder().encode(self.cache) else {
-                return
-            }
-            
-            try? data.write(to: self.cacheFileURL)
-            print("💾 Saved \(self.cache.count) link previews to cache")
+
+    private func saveDiskCache() {
+        let snapshot = cache
+        let url = cacheFileURL
+        Task.detached(priority: .background) {
+            guard let data = try? JSONEncoder().encode(snapshot) else { return }
+            try? data.write(to: url)
         }
     }
 }
 
-// MARK: - Link Preview Card View
+// MARK: - Bible URL Parser
 
-struct LinkPreviewCard: View {
-    let metadata: LinkPreviewMetadata
-    let onTap: () -> Void
-    
-    var body: some View {
-        Button(action: onTap) {
-            HStack(spacing: 6) {
-                // Small link icon
-                Image(systemName: "link")
-                    .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(.black.opacity(0.6))
-                
-                // Compact text - just show host/title
-                if let title = metadata.title, !title.isEmpty {
-                    Text(title)
-                        .font(.custom("OpenSans-SemiBold", size: 11))
-                        .foregroundStyle(.black.opacity(0.7))
-                        .lineLimit(1)
-                } else if let host = metadata.url.host {
-                    Text(host)
-                        .font(.custom("OpenSans-SemiBold", size: 11))
-                        .foregroundStyle(.black.opacity(0.7))
-                        .lineLimit(1)
-                } else {
-                    Text("Link")
-                        .font(.custom("OpenSans-SemiBold", size: 11))
-                        .foregroundStyle(.black.opacity(0.7))
-                        .lineLimit(1)
-                }
-                
-                // Tiny external arrow
-                Image(systemName: "arrow.up.forward")
-                    .font(.system(size: 8, weight: .medium))
-                    .foregroundStyle(.black.opacity(0.4))
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(
-                Capsule()
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color.white.opacity(0.9),
-                                Color(white: 0.95).opacity(0.9)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .overlay(
-                        Capsule()
-                            .strokeBorder(
-                                Color.black.opacity(0.1),
-                                lineWidth: 0.5
-                            )
-                    )
-                    .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
-            )
-        }
-        .buttonStyle(PlainButtonStyle())
+struct BibleURLParser {
+
+    struct ParsedVerseReference {
+        let displayReference: String   // "John 3:16"
+        let book: String
+        let chapter: Int
+        let verseStart: Int
+        let verseEnd: Int?
     }
-}
 
-// MARK: - Link Preview Loading View
+    // Known Bible-app domains
+    private static let bibleDomains: Set<String> = [
+        "bible.com", "www.bible.com",
+        "youversion.com", "www.youversion.com",
+        "biblegateway.com", "www.biblegateway.com",
+        "blueletterbible.org", "www.blueletterbible.org",
+        "biblehub.com", "www.biblehub.com",
+        "esv.org", "www.esv.org",
+        "bibleref.com", "www.bibleref.com",
+    ]
 
-struct LinkPreviewLoadingView: View {
-    var body: some View {
-        HStack(spacing: 12) {
-            ProgressView()
-                .scaleEffect(0.8)
-            
-            Text("Loading preview...")
-                .font(.system(size: 13))
-                .foregroundColor(.secondary)
-        }
-        .padding(12)
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color.gray.opacity(0.1))
+    static func isBibleURL(_ url: URL) -> Bool {
+        guard let host = url.host?.lowercased() else { return false }
+        return bibleDomains.contains(host) || host.hasSuffix("bible.com")
+    }
+
+    /// Attempt to extract a verse reference from the URL path/query.
+    /// Returns nil if no verse reference could be parsed.
+    static func extractReference(from url: URL) -> ParsedVerseReference? {
+        guard isBibleURL(url) else { return nil }
+
+        // Decode the full URL string for pattern matching
+        let raw = url.absoluteString.removingPercentEncoding ?? url.absoluteString
+
+        return parseVerseFromString(raw)
+    }
+
+    /// Also useful for extracting references from pasted URL text in the composer.
+    static func parseVerseFromString(_ text: String) -> ParsedVerseReference? {
+        // Pattern covers:
+        //   John+3:16  John%203:16  John.3.16  john-3-16  John_3_16
+        //   Gen 1:1-3  Ephesians 2:8-9
+        let pattern = #"(?i)\b(Genesis|Gen|Exodus|Exod?|Leviticus|Lev|Numbers|Num|Deuteronomy|Deut?|Joshua|Josh?|Judges|Judg?|Ruth|1\s*Samuel|1\s*Sam|2\s*Samuel|2\s*Sam|1\s*Kings?|2\s*Kings?|1\s*Chronicles?|1\s*Chron?|2\s*Chronicles?|2\s*Chron?|Ezra|Nehemiah|Neh|Esther|Esth?|Job|Psalms?|Ps(?:alm)?|Proverbs?|Prov?|Ecclesiastes|Eccl?|Song\s*of\s*Solomon|Song|Isaiah|Isa?|Jeremiah|Jer|Lamentations|Lam|Ezekiel|Ezek?|Daniel|Dan|Hosea|Hos|Joel|Amos|Obadiah|Obad?|Jonah|Jon|Micah|Mic|Nahum|Nah|Habakkuk|Hab|Zephaniah|Zeph?|Haggai|Hag|Zechariah|Zech?|Malachi|Mal|Matthew|Matt?|Mark|Luke|John|Acts|Romans|Rom|1\s*Corinthians?|1\s*Cor|2\s*Corinthians?|2\s*Cor|Galatians?|Gal|Ephesians?|Eph|Philippians?|Phil|Colossians?|Col|1\s*Thessalonians?|1\s*Thess?|2\s*Thessalonians?|2\s*Thess?|1\s*Timothy|1\s*Tim|2\s*Timothy|2\s*Tim|Titus|Tit|Philemon|Phlm?|Hebrews?|Heb|James|Jas|1\s*Peter|1\s*Pet|2\s*Peter|2\s*Pet|1\s*John|2\s*John|3\s*John|Jude|Revelation|Rev)\s*[\s\.\+_-]?(\d{1,3})[\s\.\+_:%-](\d{1,3})(?:[-–](\d{1,3}))?"#
+
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { return nil }
+        let nsText = text as NSString
+        guard let match = regex.firstMatch(in: text, options: [], range: NSRange(location: 0, length: nsText.length)) else { return nil }
+
+        let bookRange = Range(match.range(at: 1), in: text)
+        let chapterRange = Range(match.range(at: 2), in: text)
+        let verseStartRange = Range(match.range(at: 3), in: text)
+        let verseEndRange = match.range(at: 4).location != NSNotFound ? Range(match.range(at: 4), in: text) : nil
+
+        guard let bRange = bookRange, let cRange = chapterRange, let vsRange = verseStartRange else { return nil }
+
+        let book = String(text[bRange])
+            .replacingOccurrences(of: "+", with: " ")
+            .replacingOccurrences(of: "%20", with: " ")
+            .trimmingCharacters(in: .whitespaces)
+        guard let chapter = Int(String(text[cRange])),
+              let verseStart = Int(String(text[vsRange])) else { return nil }
+        let verseEnd = verseEndRange.flatMap { Int(String(text[$0])) }
+
+        var ref = "\(book) \(chapter):\(verseStart)"
+        if let ve = verseEnd { ref += "-\(ve)" }
+
+        return ParsedVerseReference(
+            displayReference: ref,
+            book: book,
+            chapter: chapter,
+            verseStart: verseStart,
+            verseEnd: verseEnd
         )
     }
 }

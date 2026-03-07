@@ -9,7 +9,7 @@ import SwiftUI
 
 struct BlockedUsersView: View {
     @Environment(\.dismiss) var dismiss
-    @StateObject private var blockService = BlockService.shared
+    @ObservedObject private var blockService = BlockService.shared
     @State private var showUnblockConfirmation = false
     @State private var userToUnblock: BlockedUserProfile?
     

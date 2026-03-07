@@ -121,7 +121,7 @@ class ChristianDatingService: ObservableObject {
         isLoading = true
         defer { isLoading = false }
         
-        guard let profile = currentUserProfile else { return }
+        guard currentUserProfile != nil else { return }
         
         // TODO: Replace with actual API call
         // try await APIClient.delete("/api/dating/profiles/\(profile.id)")
@@ -411,7 +411,7 @@ class ChristianDatingService: ObservableObject {
         try await Task.sleep(nanoseconds: 1_000_000_000)
         
         // In production, this would send an SMS with a verification code
-        print("📱 Verification code sent to \(phoneNumber)")
+        dlog("📱 Verification code sent")
     }
     
     func confirmPhoneVerification(code: String) async throws {
@@ -452,7 +452,7 @@ class ChristianDatingService: ObservableObject {
         isLoading = true
         defer { isLoading = false }
         
-        let report = ProfileReport(
+        _ = ProfileReport(
             id: UUID(),
             reporterId: getCurrentUserId(),
             reportedProfileId: profileId,

@@ -46,9 +46,10 @@ struct PhotoUploadStep: View {
                             
                             // Remove button
                             Button {
-                                let indexToRemove = index
                                 withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                    selectedPhotos.remove(at: indexToRemove)
+                                    var photos = selectedPhotos
+                                    photos.remove(at: index)
+                                    selectedPhotos = photos
                                 }
                             } label: {
                                 Image(systemName: "xmark.circle.fill")

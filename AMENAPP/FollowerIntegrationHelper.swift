@@ -645,7 +645,7 @@ struct SimpleUserCard: View {
             
             // User Info
             VStack(alignment: .leading, spacing: 4) {
-                Text(user.displayName ?? "Unknown User")
+                Text(user.displayName)
                     .font(.custom("OpenSans-SemiBold", size: 16))
                     .foregroundStyle(.primary)
                 

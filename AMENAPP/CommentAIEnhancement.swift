@@ -271,9 +271,9 @@ class CommentAIService: ObservableObject {
 struct AIEnhancedCommentsView: View {
     let post: Post
     
-    @StateObject private var commentService = CommentService.shared
-    @StateObject private var userService = UserService.shared
-    @StateObject private var aiService = CommentAIService.shared
+    @ObservedObject private var commentService = CommentService.shared
+    @ObservedObject private var userService = UserService.shared
+    @ObservedObject private var aiService = CommentAIService.shared
     
     @State private var commentText = ""
     @State private var replyingTo: Comment?
@@ -436,7 +436,6 @@ struct AIEnhancedCommentsView: View {
         }
         
         // Submit comment
-        let text = commentText
         commentText = ""
         commentInsights = nil
         showToxicityWarning = false
@@ -595,7 +594,7 @@ struct AIEnhancedCommentCell: View {
             }
             
             // Replies
-            ForEach(commentWithReplies.replies, id: \.id) { reply in
+            ForEach(commentWithReplies.replies, id: \.stableId) { reply in
                 // ... existing reply UI
             }
         }

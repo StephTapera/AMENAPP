@@ -3,7 +3,7 @@ import SwiftUI
 /// View for entering and verifying 2FA OTP codes during sign-in
 struct TwoFactorVerificationView: View {
     @Environment(\.dismiss) var dismiss
-    @StateObject private var otpService = TwoFactorOTPService.shared
+    @ObservedObject private var otpService = TwoFactorOTPService.shared
     @State private var code = ["", "", "", "", "", ""]
     @FocusState private var focusedField: Int?
     @State private var showError = false
@@ -140,7 +140,9 @@ struct TwoFactorVerificationView: View {
     private func handleCodeInput(index: Int, oldValue: String, newValue: String) {
         // Only allow single digit
         if newValue.count > 1 {
-            code[index] = String(newValue.last!)
+            if let lastChar = newValue.last {
+                code[index] = String(lastChar)
+            }
         }
 
         // Move to next field if digit entered

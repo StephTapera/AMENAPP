@@ -43,7 +43,7 @@ import SwiftUI
 /// This gives users quick access to saved posts from anywhere
 struct SavedPostsFloatingButton: View {
     @State private var showSavedPosts = false
-    @StateObject private var savedPostsService = RealtimeSavedPostsService.shared
+    @ObservedObject private var savedPostsService = RealtimeSavedPostsService.shared
     @State private var savedCount = 0
     
     var body: some View {

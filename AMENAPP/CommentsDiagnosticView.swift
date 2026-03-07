@@ -5,6 +5,7 @@
 //  Diagnostic view to test comment reading from Firebase RTDB
 //
 
+#if DEBUG
 import SwiftUI
 import FirebaseDatabase
 import FirebaseAuth
@@ -93,7 +94,7 @@ struct CommentsDiagnosticView: View {
         guard let currentUser = Auth.auth().currentUser else {
             output += "❌ NOT AUTHENTICATED\n"
             output += "You must be logged in to read comments\n\n"
-            await updateOutput(output)
+            updateOutput(output)
             return
         }
         output += "✅ Authenticated as: \(currentUser.uid)\n"
@@ -105,7 +106,7 @@ struct CommentsDiagnosticView: View {
         let database = Database.database(url: databaseURL)
         output += "✅ Database URL: \(databaseURL)\n"
         output += "   Using correct instance: YES\n\n"
-        await updateOutput(output)
+        updateOutput(output)
 
         // Step 3: Test connection
         output += "━━━ STEP 3: Connection Test ━━━\n"
@@ -123,7 +124,7 @@ struct CommentsDiagnosticView: View {
         } catch {
             output += "⚠️ Could not check connection: \(error)\n\n"
         }
-        await updateOutput(output)
+        updateOutput(output)
 
         // Step 4: Try to read comments
         output += "━━━ STEP 4: Reading Comments ━━━\n"
@@ -132,7 +133,7 @@ struct CommentsDiagnosticView: View {
         let ref = database.reference()
         let commentsRef = ref.child("postInteractions").child(postId).child("comments")
 
-        await updateOutput(output)
+        updateOutput(output)
 
         do {
             let snapshot = try await commentsRef.getData()
@@ -206,7 +207,7 @@ struct CommentsDiagnosticView: View {
             output += "3. Invalid post ID\n\n"
         }
 
-        await updateOutput(output)
+        updateOutput(output)
 
         // Step 5: Check security rules
         output += "━━━ STEP 5: Expected Security Rules ━━━\n"
@@ -216,7 +217,7 @@ struct CommentsDiagnosticView: View {
         output += "Should have read access: ✅ YES\n\n"
 
         output += "━━━ DIAGNOSTIC COMPLETE ━━━\n"
-        await updateOutput(output)
+        updateOutput(output)
     }
 
     @MainActor
@@ -228,3 +229,4 @@ struct CommentsDiagnosticView: View {
 #Preview {
     CommentsDiagnosticView()
 }
+#endif

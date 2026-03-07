@@ -25,8 +25,7 @@ class RealtimeSavedPostsService: ObservableObject {
     @Published var isLoading = false
     
     private init() {
-        self.database = Database.database(url: "https://amen-5e359-default-rtdb.firebaseio.com").reference()
-        print("🔥 RealtimeSavedPostsService initialized")
+        self.database = Database.database().reference()
     }
     
     deinit {
@@ -50,7 +49,7 @@ class RealtimeSavedPostsService: ObservableObject {
         
         // ✅ Check network first
         guard AMENNetworkMonitor.shared.isConnected else {
-            print("📱 Offline - cannot toggle save status")
+            dlog("📱 Offline - cannot toggle save status")
             throw NSError(
                 domain: "RealtimeSavedPostsService",
                 code: -1,
@@ -67,9 +66,7 @@ class RealtimeSavedPostsService: ObservableObject {
         
         if isSaved {
             // Unsave
-            print("🔖 [DEBUG] Unsaving post: \(postId)")
-            print("   - User: \(userId)")
-            print("   - Remaining saved posts: \(savedPostIds.count - 1)")
+            dlog("🔖 Unsaving post: \(postId)")
             
             let updates: [String: Any?] = [
                 savedPath: nil
@@ -86,14 +83,12 @@ class RealtimeSavedPostsService: ObservableObject {
                 userInfo: ["postId": UUID(uuidString: postId) ?? UUID()]
             )
             
-            print("✅ Post unsaved successfully")
+            dlog("✅ Post unsaved successfully")
             return false
             
         } else {
             // Save
-            print("🔖 [DEBUG] Saving post: \(postId)")
-            print("   - User: \(userId)")
-            print("   - Total saved posts: \(savedPostIds.count + 1)")
+            dlog("🔖 Saving post: \(postId)")
             
             let updates: [String: Any] = [
                 savedPath: Date().timeIntervalSince1970
@@ -110,7 +105,7 @@ class RealtimeSavedPostsService: ObservableObject {
                 userInfo: ["postId": UUID(uuidString: postId) ?? UUID()]
             )
             
-            print("✅ Post saved successfully")
+            dlog("✅ Post saved successfully")
             return true
         }
     }
@@ -125,7 +120,7 @@ class RealtimeSavedPostsService: ObservableObject {
         
         // ✅ Check network first
         guard AMENNetworkMonitor.shared.isConnected else {
-            print("📱 Offline - using cached saved status for: \(postId)")
+            dlog("📱 Offline - using cached saved status for: \(postId)")
             return isPostSavedSync(postId: postId)
         }
         
@@ -144,7 +139,7 @@ class RealtimeSavedPostsService: ObservableObject {
             
             return isSaved
         } catch {
-            print("⚠️ Failed to check saved status (using cache): \(error.localizedDescription)")
+            dlog("⚠️ Failed to check saved status (using cache): \(error.localizedDescription)")
             // Fall back to cached value
             return isPostSavedSync(postId: postId)
         }
@@ -163,12 +158,12 @@ class RealtimeSavedPostsService: ObservableObject {
         }
         
         let userId = currentUser.uid
-        print("📥 Fetching saved post IDs for user: \(userId)")
+        dlog("📥 Fetching saved post IDs for user: \(userId)")
         
         let snapshot = try await database.child("user_saved_posts").child(userId).getData()
         
         guard snapshot.exists(), let savedDict = snapshot.value as? [String: Any] else {
-            print("⚠️ No saved posts found")
+            dlog("⚠️ No saved posts found")
             return []
         }
         
@@ -176,7 +171,7 @@ class RealtimeSavedPostsService: ObservableObject {
         
         savedPostIds = Set(postIds)
         
-        print("✅ Fetched \(postIds.count) saved post IDs")
+        dlog("✅ Fetched \(postIds.count) saved post IDs")
         return postIds
     }
     
@@ -188,7 +183,7 @@ class RealtimeSavedPostsService: ObservableObject {
         if AMENNetworkMonitor.shared.isConnected {
             postIds = try await fetchSavedPostIds()
         } else {
-            print("📱 Offline - using cached saved post IDs")
+            dlog("📱 Offline - using cached saved post IDs")
             postIds = Array(savedPostIds)
         }
         
@@ -196,7 +191,7 @@ class RealtimeSavedPostsService: ObservableObject {
             return []
         }
         
-        print("📥 Fetching \(postIds.count) saved posts with full details")
+        dlog("📥 Fetching \(postIds.count) saved posts with full details")
         
         var posts: [Post] = []
         
@@ -206,14 +201,14 @@ class RealtimeSavedPostsService: ObservableObject {
                 if let post = try await FirebasePostService.shared.fetchPostById(postId: postId) {
                     posts.append(post)
                 } else {
-                    print("⚠️ Post \(postId) not found in Firestore")
+                    dlog("⚠️ Post \(postId) not found in Firestore")
                 }
             } catch let error as NSError {
                 // ✅ Handle offline errors gracefully
                 if error.domain == "com.firebase.core" && error.code == 1 {
-                    print("📱 Post \(postId) not in cache - skipping (offline)")
+                    dlog("📱 Post \(postId) not in cache - skipping (offline)")
                 } else {
-                    print("⚠️ Failed to fetch saved post \(postId): \(error)")
+                    dlog("⚠️ Failed to fetch saved post \(postId): \(error)")
                 }
             }
         }
@@ -221,7 +216,7 @@ class RealtimeSavedPostsService: ObservableObject {
         // Sort by saved timestamp (most recent first)
         posts.sort { $0.createdAt > $1.createdAt }
         
-        print("✅ Fetched \(posts.count) saved posts with details")
+        dlog("✅ Fetched \(posts.count) saved posts with details")
         return posts
     }
     
@@ -239,7 +234,7 @@ class RealtimeSavedPostsService: ObservableObject {
         }
         
         let userId = currentUser.uid
-        print("👂 Setting up real-time listener for saved posts: \(userId)")
+        dlog("👂 Setting up real-time listener for saved posts: \(userId)")
         
         removeSavedPostsListener()  // Remove existing listener
         
@@ -253,15 +248,15 @@ class RealtimeSavedPostsService: ObservableObject {
             
             Task { @MainActor in
                 guard snapshot.exists(), let savedDict = snapshot.value as? [String: Any] else {
-                    await self.updateSavedPostIds([])
+                    self.updateSavedPostIds([])
                     completion([])
                     return
                 }
                 
                 let postIds = Array(savedDict.keys)
-                await self.updateSavedPostIds(postIds)
+                self.updateSavedPostIds(postIds)
                 
-                print("🔄 Real-time update: \(postIds.count) saved posts")
+                dlog("🔄 Real-time update: \(postIds.count) saved posts")
                 completion(postIds)
             }
         }
@@ -274,7 +269,7 @@ class RealtimeSavedPostsService: ObservableObject {
             
             database.child("user_saved_posts").child(userId).removeObserver(withHandle: handle)
             savedPostsListener = nil
-            print("🔇 Removed saved posts listener")
+            dlog("🔇 Removed saved posts listener")
         }
     }
     

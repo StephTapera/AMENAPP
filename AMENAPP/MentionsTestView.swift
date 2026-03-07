@@ -7,6 +7,8 @@
 
 import SwiftUI
 
+#if DEBUG
+
 struct MentionsTestView: View {
     @State private var testPosts: [TestPost] = [
         TestPost(
@@ -242,3 +244,5 @@ struct TestPost: Identifiable {
 #Preview {
     MentionsTestView()
 }
+
+#endif

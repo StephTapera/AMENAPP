@@ -112,8 +112,6 @@ struct MessageValidator {
     // MARK: - Spam Detection
     
     private static func containsSpamPatterns(_ text: String) -> Bool {
-        let lowercased = text.lowercased()
-        
         // Check for excessive repetition
         if hasExcessiveRepetition(text) {
             return true

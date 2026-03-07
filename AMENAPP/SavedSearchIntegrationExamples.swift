@@ -8,6 +8,8 @@
 import SwiftUI
 import Foundation
 
+#if DEBUG
+
 // MARK: - Example 1: Add "Save Search" to Search View
 
 struct SearchViewWithSaveExample: View {
@@ -105,7 +107,7 @@ struct SavedSearchesListView: View {
                 }
             }
             .task {
-                try? await searchService.fetchSavedSearches()
+                _ = try? await searchService.fetchSavedSearches()
                 searchService.startListening()
             }
             .onDisappear {
@@ -280,7 +282,7 @@ struct ProfileNotificationSettingsView: View {
             }
             .navigationTitle("Notifications")
             .task {
-                try? await searchService.fetchSavedSearches()
+                _ = try? await searchService.fetchSavedSearches()
             }
         }
     }
@@ -470,4 +472,6 @@ extension SavedSearchService {
     }
  
  */
+
+#endif
 

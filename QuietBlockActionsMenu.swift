@@ -12,7 +12,7 @@ import FirebaseAuth
 struct QuietBlockActionsMenu: View {
     let targetUserId: String
     let targetUsername: String
-    @StateObject private var trustService = TrustByDesignService.shared
+    @ObservedObject private var trustService = TrustByDesignService.shared
     @State private var showConfirmation = false
     @State private var selectedAction: QuietBlockAction?
     @Environment(\.dismiss) var dismiss

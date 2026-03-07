@@ -26,8 +26,8 @@ struct SocialFollowersListView: View {
     let listType: ListType
     
     @Environment(\.dismiss) var dismiss
-    @StateObject private var socialService = SocialService.shared
-    @StateObject private var followService = FollowService.shared
+    @ObservedObject private var socialService = SocialService.shared
+    @ObservedObject private var followService = FollowService.shared
     @State private var users: [UserModel] = []
     @State private var isLoading = true
     
@@ -136,7 +136,7 @@ struct SocialFollowersListView: View {
 private struct SocialUserRowView: View {
     let user: UserModel
     
-    @StateObject private var followService = FollowService.shared
+    @ObservedObject private var followService = FollowService.shared
     @State private var isFollowing = false
     @State private var isLoading = false
     

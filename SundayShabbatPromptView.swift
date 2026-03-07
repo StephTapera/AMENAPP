@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct SundayShabbatPromptView: View {
-    @StateObject private var focusManager = SundayChurchFocusManager.shared
+    @ObservedObject private var focusManager = SundayChurchFocusManager.shared
     @State private var glowPulse = false
     
     var body: some View {

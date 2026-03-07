@@ -304,11 +304,10 @@ class TrustByDesignService: ObservableObject {
     
     /// Create message request (conversation with pending status)
     func createMessageRequest(from fromUserId: String, to toUserId: String, initialMessage: String) async throws {
-        guard let currentUser = Auth.auth().currentUser else { return }
+        guard Auth.auth().currentUser != nil else { return }
         
         // Get sender info
         let userDoc = try await db.collection("users").document(fromUserId).getDocument()
-        let username = userDoc.data()?["username"] as? String ?? "unknown"
         let displayName = userDoc.data()?["displayName"] as? String ?? "User"
         let profileImageURL = userDoc.data()?["profileImageURL"] as? String
         

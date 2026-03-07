@@ -19,7 +19,7 @@ class FTUEManager: ObservableObject {
     // MARK: - Published State
     
     @Published var shouldShowCoachMarks: Bool = false
-    @Published var currentStep: CoachMarkStep = .swipeLeft
+    @Published var currentStep: CoachMarkStep = .openTable
     @Published var hasCompletedFTUE: Bool = false
     
     // MARK: - Persistence Keys
@@ -36,15 +36,26 @@ class FTUEManager: ObservableObject {
     
     // MARK: - Public Methods
     
-    /// Check if FTUE should be shown (call after user signs in/up)
+    /// Check if FTUE should be shown (call after user signs in/up).
+    /// Waits until the feed has at least one post before presenting so the
+    /// overlay never appears over an empty screen.
     func checkAndShowFTUE() {
-        if !hasCompletedFTUE {
-            trackFTUEStart()
-            // Small delay to ensure main feed is loaded
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                self.shouldShowCoachMarks = true
-                self.trackStepView(self.currentStep)
+        guard !hasCompletedFTUE else { return }
+        trackFTUEStart()
+
+        Task { @MainActor in
+            // Poll until PostsManager has posts, up to 6 seconds.
+            let deadline = Date().addingTimeInterval(6)
+            while Date() < deadline {
+                if PostsManager.shared.openTablePosts.isEmpty == false {
+                    break
+                }
+                try? await Task.sleep(nanoseconds: 200_000_000) // 200ms
             }
+            // Small visual buffer after posts appear so the feed isn't still animating in.
+            try? await Task.sleep(nanoseconds: 600_000_000) // 600ms
+            shouldShowCoachMarks = true
+            trackStepView(currentStep)
         }
     }
     
@@ -65,40 +76,29 @@ class FTUEManager: ObservableObject {
     
     /// Move to next step in tutorial
     func nextStep() {
-        // Track completion of current step
         trackStepCompletion(currentStep, skipped: false)
-        
-        switch currentStep {
-        case .swipeLeft:
-            currentStep = .swipeRight
-        case .swipeRight:
-            currentStep = .bereanIntro
-        case .bereanIntro:
+
+        let allSteps = CoachMarkStep.allCases
+        if let idx = allSteps.firstIndex(of: currentStep), idx + 1 < allSteps.count {
+            currentStep = allSteps[idx + 1]
+            trackStepView(currentStep)
+        } else {
             completeFTUE()
         }
-        
-        // Track viewing of next step
-        if currentStep != .bereanIntro || currentStep != .swipeLeft {
-            trackStepView(currentStep)
-        }
     }
-    
+
     /// Go back to previous step
     func previousStep() {
-        switch currentStep {
-        case .swipeLeft:
-            break // Already at first step
-        case .swipeRight:
-            currentStep = .swipeLeft
-        case .bereanIntro:
-            currentStep = .swipeRight
+        let allSteps = CoachMarkStep.allCases
+        if let idx = allSteps.firstIndex(of: currentStep), idx > 0 {
+            currentStep = allSteps[idx - 1]
         }
     }
     
     /// Reset FTUE (for testing or "Replay Tutorial" feature)
     func resetFTUE() {
         hasCompletedFTUE = false
-        currentStep = .swipeLeft
+        currentStep = .openTable
         UserDefaults.standard.removeObject(forKey: ftueCompletedKey)
         UserDefaults.standard.removeObject(forKey: ftueVersionKey)
     }
@@ -124,50 +124,48 @@ class FTUEManager: ObservableObject {
 // MARK: - Coach Mark Step
 
 enum CoachMarkStep: Int, CaseIterable {
-    case swipeLeft = 0
-    case swipeRight = 1
+    case openTable   = 0
+    case prayer      = 1
     case bereanIntro = 2
-    
+    case messages    = 3
+
     var title: String {
         switch self {
-        case .swipeLeft:
-            return "Acknowledge Posts"
-        case .swipeRight:
-            return "Join the Conversation"
-        case .bereanIntro:
-            return "Meet Berean"
+        case .openTable:   return "The Open Table"
+        case .prayer:      return "Pray Together"
+        case .bereanIntro: return "Meet Berean"
+        case .messages:    return "Faith-First Messaging"
         }
     }
-    
+
     var description: String {
         switch self {
-        case .swipeLeft:
-            return "Swipe left to acknowledge"
-        case .swipeRight:
-            return "Swipe right to comment"
+        case .openTable:
+            return "Share what's on your heart. Amen posts, leave comments, and encourage your community."
+        case .prayer:
+            return "Post prayer requests, pray for others, and mark prayers as answered."
         case .bereanIntro:
-            return "Your AI assistant for biblical insight, scripture help, and thoughtful guidance."
+            return "Your AI guide for scripture, biblical insight, and thoughtful answers — grounded in the Word."
+        case .messages:
+            return "Connect with mutual followers. Every conversation starts with mutual trust."
         }
     }
-    
+
     var icon: String {
         switch self {
-        case .swipeLeft:
-            return "hand.thumbsup.fill"
-        case .swipeRight:
-            return "message.fill"
-        case .bereanIntro:
-            return "sparkles"
+        case .openTable:   return "newspaper.fill"
+        case .prayer:      return "hands.sparkles.fill"
+        case .bereanIntro: return "sparkles"
+        case .messages:    return "bubble.left.and.bubble.right.fill"
         }
     }
-    
+
+    var isLastStep: Bool {
+        self == CoachMarkStep.allCases.last
+    }
+
     var primaryButtonText: String {
-        switch self {
-        case .swipeLeft, .swipeRight:
-            return "Next"
-        case .bereanIntro:
-            return "Got it"
-        }
+        isLastStep ? "Get Started" : "Next"
     }
 }
 
@@ -224,9 +222,10 @@ extension FTUEManager {
     
     private func stepName(_ step: CoachMarkStep) -> String {
         switch step {
-        case .swipeLeft: return "swipe_left"
-        case .swipeRight: return "swipe_right"
+        case .openTable:   return "open_table"
+        case .prayer:      return "prayer"
         case .bereanIntro: return "berean_intro"
+        case .messages:    return "messages"
         }
     }
 }

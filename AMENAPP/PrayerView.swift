@@ -13,8 +13,8 @@ import FirebaseDatabase
 import FirebaseFirestore
 
 struct PrayerView: View {
-    @StateObject private var postsManager = PostsManager.shared
-    @StateObject private var prayerAlgorithm = PrayerAlgorithm.shared
+    @ObservedObject private var postsManager = PostsManager.shared
+    @ObservedObject private var prayerAlgorithm = PrayerAlgorithm.shared
     @State private var selectedTab: PrayerTab = .requests
     @State private var showDailyPrayer = false
     @State private var showPrayerGroups = false
@@ -28,16 +28,14 @@ struct PrayerView: View {
     @State private var hasRanked = false
     @State private var scrollViewDelegate: ScrollViewDelegateHandler?
     @State private var showHeader = true
+    private let tabHaptic = UIImpactFeedbackGenerator(style: .light)
     
     // MARK: - Pagination State
     @State private var visiblePostCount = 20
     @State private var isLoadingMore = false
     
     @Environment(\.tabBarVisible) private var tabBarVisible
-    @Environment(\.toolbarVisible) private var toolbarVisible
     
-    // Timer for auto-swipe
-    let timer = Timer.publish(every: 4.0, on: .main, in: .common).autoconnect()
     
     enum PrayerTab: String, CaseIterable {
         case requests = "Requests"
@@ -45,245 +43,99 @@ struct PrayerView: View {
         case answered = "Answered"
     }
     
+    // MARK: - Filtered Posts
+    
+    var filteredPosts: [Post] {
+        var posts = postsManager.prayerPosts.filter { post in
+            guard let topicTag = post.topicTag else { return false }
+            switch selectedTab {
+            case .requests: return topicTag == "Prayer Request"
+            case .praises:  return topicTag == "Praise Report"
+            case .answered: return topicTag == "Answered Prayer"
+            }
+        }
+        // Apply ranking for requests tab
+        if selectedTab == .requests && hasRanked && !rankedPrayers.isEmpty {
+            let rankedIds = Set(rankedPrayers.map { $0.id })
+            posts = rankedPrayers.filter { rankedIds.contains($0.id) }
+        }
+        return posts
+    }
+
     var body: some View {
-        NavigationStack {
-            VStack(alignment: .leading, spacing: 20) {
-            // Header
-            if showHeader {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Pray together, grow together")
-                        .font(.custom("OpenSans-Regular", size: 12))
-                        .foregroundStyle(.secondary)
-                    
-                    Text("Prayer")
-                        .font(.custom("OpenSans-Bold", size: 24))
-                        .foregroundStyle(.black)
-                    
-                    Text("Share requests • Lift each other up")
-                        .font(.custom("OpenSans-Regular", size: 12))
-                        .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 20) {
+
+                // MARK: Header
+                if showHeader {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("#Prayer")
+                            .font(.custom("OpenSans-Bold", size: 24))
+                            .foregroundStyle(.black)
+                        Text("Pray together, grow together")
+                            .font(.custom("OpenSans-Regular", size: 12))
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.horizontal)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
+
+                // MARK: Filter Tabs
+                HStack {
+                    Spacer()
+                    HStack(spacing: 8) {
+                        ForEach(PrayerTab.allCases, id: \.self) { tab in
+                            Button {
+                                selectedTab = tab
+                                tabHaptic.impactOccurred()
+                            } label: {
+                                Text(tab.rawValue)
+                                    .font(.custom("OpenSans-SemiBold", size: 14))
+                                    .foregroundStyle(selectedTab == tab ? .white : .black)
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 8)
+                                    .background(
+                                        Capsule()
+                                            .fill(selectedTab == tab ? Color.black : Color.gray.opacity(0.1))
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .animation(.easeOut(duration: 0.12), value: selectedTab)
+                    Spacer()
                 }
                 .padding(.horizontal)
-                .transition(.move(edge: .top).combined(with: .opacity))
-            }
-            
-            // Tabs - Center Aligned
-            HStack {
-                Spacer()
-                HStack(spacing: 8) {
-                    ForEach(PrayerTab.allCases, id: \.self) { tab in
-                        Button {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                selectedTab = tab
-                            }
-                            
-                            let haptic = UIImpactFeedbackGenerator(style: .light)
-                            haptic.impactOccurred()
-                        } label: {
-                            Text(tab.rawValue)
-                                .font(.custom("OpenSans-SemiBold", size: 14))
-                                .foregroundStyle(selectedTab == tab ? .white : .black)
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 8)
-                                .background(
-                                    Capsule()
-                                        .fill(selectedTab == tab ? Color.black : Color.gray.opacity(0.1))
-                                )
-                        }
-                    }
-                }
-                Spacer()
-            }
-            .padding(.horizontal)
-            
-            // ✅ Auto-scrolling Banner Section with Subtle Hide Button
-            VStack(spacing: 0) {
-                if isBannerExpanded {
-                    ZStack(alignment: .topTrailing) {
-                        // Banners
-                        TabView(selection: $currentBannerIndex) {
-                            // Daily Prayer Reminder
-                            PrayerBannerCard(
-                                icon: "sunrise.fill",
-                                title: "Daily Prayer",
-                                subtitle: "Three moments with God",
-                                description: "Morning • Midday • Evening",
-                                gradientColors: [Color(red: 1.0, green: 0.7, blue: 0.3), Color(red: 1.0, green: 0.5, blue: 0.2)],
-                                isBlackAndWhite: false
-                            )
-                            .padding(.horizontal, 20)
-                            .tag(0)
-                            
-                            // Prayer Chain
-                            PrayerBannerCard(
-                                icon: "link.circle.fill",
-                                title: "Prayer Chain",
-                                subtitle: "United in prayer",
-                                description: "Join thousands praying together daily",
-                                gradientColors: [Color(red: 0.4, green: 0.7, blue: 1.0), Color(red: 0.6, green: 0.5, blue: 1.0)],
-                                isBlackAndWhite: false
-                            )
-                            .padding(.horizontal, 20)
-                            .tag(1)
-                            
-                            // Scripture of the Day
-                            PrayerBannerCard(
-                                icon: "book.fill",
-                                title: "Daily Scripture",
-                                subtitle: "God's Word for today",
-                                description: "Find encouragement in the Word",
-                                gradientColors: [Color(red: 0.4, green: 0.85, blue: 0.7), Color(red: 0.4, green: 0.7, blue: 1.0)],
-                                isBlackAndWhite: false
-                            )
-                            .padding(.horizontal, 20)
-                            .tag(2)
-                            
-                            // Prayer Streaks
-                            PrayerBannerCard(
-                                icon: "flame.fill",
-                                title: "Prayer Streak",
-                                subtitle: "Keep your momentum",
-                                description: "7 days strong • Don't break the chain!",
-                                gradientColors: [Color(red: 1.0, green: 0.4, blue: 0.3), Color(red: 1.0, green: 0.6, blue: 0.2)],
-                                isBlackAndWhite: false
-                            )
-                            .padding(.horizontal, 20)
-                            .tag(3)
-                            
-                            // Community Stats
-                            PrayerBannerCard(
-                                icon: "heart.circle.fill",
-                                title: "Community Impact",
-                                subtitle: "Together in faith",
-                                description: "2,847 prayers lifted today 🙏",
-                                gradientColors: [Color(red: 0.8, green: 0.3, blue: 0.9), Color(red: 1.0, green: 0.4, blue: 0.7)],
-                                isBlackAndWhite: false
-                            )
-                            .padding(.horizontal, 20)
-                            .tag(4)
-                        }
-                        .tabViewStyle(.page(indexDisplayMode: .always))
-                        .indexViewStyle(.page(backgroundDisplayMode: .always))
-                        .frame(height: 110)
-                        .onReceive(timer) { _ in
-                            withAnimation(.easeInOut(duration: 0.5)) {
-                                currentBannerIndex = (currentBannerIndex + 1) % 5
-                            }
-                        }
-                        
-                        // ✅ SUBTLE HIDE BUTTON - Top right corner
-                        Button {
-                            withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
-                                isBannerExpanded = false
-                            }
-                            let haptic = UIImpactFeedbackGenerator(style: .light)
-                            haptic.impactOccurred()
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 20))
-                                .foregroundStyle(.white.opacity(0.8))
-                                .background(
-                                    Circle()
-                                        .fill(.ultraThinMaterial)
-                                        .frame(width: 28, height: 28)
-                                )
-                                .shadow(color: .black.opacity(0.1), radius: 4, y: 2)
-                        }
-                        .buttonStyle(.plain)
-                        .padding(.top, 8)
-                        .padding(.trailing, 28)
-                    }
-                    .transition(.asymmetric(
-                        insertion: .opacity.combined(with: .move(edge: .top)),
-                        removal: .opacity.combined(with: .move(edge: .top))
-                    ))
-                } else {
-                    // ✅ SUBTLE SHOW BUTTON when banners are hidden - just chevron arrow
-                    Button {
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
-                            isBannerExpanded = true
-                        }
-                        let haptic = UIImpactFeedbackGenerator(style: .light)
-                        haptic.impactOccurred()
-                    } label: {
-                        Image(systemName: "chevron.down.circle.fill")
-                            .font(.system(size: 24))
-                            .foregroundStyle(.secondary.opacity(0.6))
-                            .symbolEffect(.bounce, value: isBannerExpanded)
-                    }
-                .buttonStyle(.plain)
-                .padding(.horizontal, 20)
-                .padding(.vertical, 8)
-                .transition(.opacity)
-            }
-            }
-            
-            // Content based on selected tab
-            ScrollView {
-                VStack(spacing: 16) {
-                    // Filter posts from PostsManager based on selected tab
-                    let allFilteredPosts = {
-                        var posts = postsManager.prayerPosts.filter { post in
-                            guard let topicTag = post.topicTag else { return false }
 
-                            switch selectedTab {
-                            case .requests:
-                                return topicTag == "Prayer Request"
-                            case .praises:
-                                return topicTag == "Praise Report"
-                            case .answered:
-                                return topicTag == "Answered Prayer"
-                            }
-                        }
+                // MARK: Fruit of the Spirit Banner
+                FruitOfSpiritBannerView()
 
-                        // Apply intelligent ranking for prayer requests
-                        if selectedTab == .requests && hasRanked && !rankedPrayers.isEmpty {
-                            // Use ranked prayers for requests tab
-                            let rankedIds = Set(rankedPrayers.map { $0.id })
-                            posts = rankedPrayers.filter { rankedIds.contains($0.id) }
-                        }
+                // MARK: Posts Feed
+                LazyVStack(spacing: 16) {
+                    let allPosts = filteredPosts
+                    let displayPosts = Array(allPosts.prefix(visiblePostCount))
 
-                        return posts
-                    }()
-                    
-                    let filteredPrayerPosts = Array(allFilteredPosts.prefix(visiblePostCount))
-
-                    // Display filtered posts
-                    ForEach(Array(filteredPrayerPosts.enumerated()), id: \.element.id) { index, post in
-                        PrayerPostCard(post: post)
-                            .onAppear {
-                                // Track view interaction
-                                prayerAlgorithm.recordView(for: post)
-                                
-                                // PAGINATION: Load more when approaching the end
-                                if index >= filteredPrayerPosts.count - 3 && !isLoadingMore && visiblePostCount < allFilteredPosts.count {
-                                    loadMorePosts()
-                                }
-                            }
+                    ForEach(Array(displayPosts.enumerated()), id: \.element.id) { index, post in
+                        prayerRow(post: post, index: index, total: displayPosts.count, allCount: allPosts.count)
                     }
-                    
-                    // Loading indicator for pagination
-                    if isLoadingMore && visiblePostCount < allFilteredPosts.count {
+
+                    // Pagination spinner
+                    if isLoadingMore && visiblePostCount < filteredPosts.count {
                         HStack {
                             Spacer()
-                            ProgressView()
-                                .scaleEffect(0.8)
-                                .padding(.vertical, 20)
+                            ProgressView().scaleEffect(0.8).padding(.vertical, 20)
                             Spacer()
                         }
                     }
-                    
-                    // Show empty state if no posts
-                    if filteredPrayerPosts.isEmpty {
+
+                    // Empty state
+                    if filteredPosts.isEmpty {
                         VStack(spacing: 16) {
                             Image(systemName: emptyStateIcon)
                                 .font(.system(size: 48))
                                 .foregroundStyle(.secondary)
-                            
                             Text(emptyStateTitle)
                                 .font(.custom("OpenSans-Bold", size: 18))
                                 .foregroundStyle(.primary)
-                            
                             Text(emptyStateSubtitle)
                                 .font(.custom("OpenSans-Regular", size: 14))
                                 .foregroundStyle(.secondary)
@@ -293,99 +145,61 @@ struct PrayerView: View {
                     }
                 }
                 .padding(.horizontal)
+        }
+        .task {
+            FirebasePostService.shared.startListening(category: .prayer)
+            if !hasRanked {
+                prayerAlgorithm.loadHistory()
+                rankPrayerRequests()
+                hasRanked = true
             }
         }
-        .onScrollViewScroll { delta in
-            // Hysteresis: Only trigger animation if scroll delta exceeds threshold
-            let threshold: CGFloat = 5.0
-            
-            withAnimation(.easeInOut(duration: 0.25)) {
-                if delta > threshold {
-                    // Scrolling down - hide header, toolbar, and tab bar
-                    showHeader = false
-                    toolbarVisible.wrappedValue = false
-                    tabBarVisible.wrappedValue = false
-                } else if delta < -threshold {
-                    // Scrolling up - show header, toolbar, and tab bar
-                    showHeader = true
-                    toolbarVisible.wrappedValue = true
-                    tabBarVisible.wrappedValue = true
-                }
-                // If delta is within [-threshold, threshold], do nothing (prevents flicker)
+        .onAppear {
+            tabHaptic.prepare()
+            if postsManager.prayerPosts.isEmpty {
+                Task { await refreshPrayers() }
             }
         }
-        .refreshable {
-            await refreshPrayers()
+        .onDisappear {
+            FirebasePostService.shared.stopListening(category: .prayer)
+            hasRanked = false
         }
-            .sheet(isPresented: $showDailyPrayer) {
-                DailyPrayerView()
+        .onChange(of: postsManager.prayerPosts) { oldValue, newValue in
+            if oldValue.count != newValue.count {
+                rankPrayerRequests()
             }
-            .sheet(isPresented: $showPrayerGroups) {
-                PrayerGroupsView()
-            }
-            .sheet(isPresented: $showPrayerWall) {
-                PrayerWallView()
-            }
-            .sheet(isPresented: $showLiveDiscussion) {
-                LiveDiscussionView(isShowing: $showLiveDiscussion)
-            }
-            .sheet(isPresented: $showCollaborationHub) {
-                CollaborationHubView(isShowing: $showCollaborationHub)
-            }
-            .sheet(item: $selectedPrayerAuthor) { authorInfo in
-                SmartPrayerChatView(authorInfo: authorInfo)
-            }
-            .navigationBarTitleDisplayMode(.inline)
-            .task {
-                // ✅ Start real-time listener for prayer posts
-                FirebasePostService.shared.startListening(category: .prayer)
-
-                // Load algorithm history and rank prayers
-                if !hasRanked {
-                    prayerAlgorithm.loadHistory()
-                    rankPrayerRequests()
-                    hasRanked = true
-                }
-            }
-            .onAppear {
-                // ✅ Refresh posts every time view appears (fixes tab switching issue)
-                Task {
-                    await refreshPrayers()
-                }
-            }
-            .onChange(of: postsManager.prayerPosts) { oldValue, newValue in
-                // Re-rank when new prayers arrive
-                if oldValue.count != newValue.count {
-                    rankPrayerRequests()
-                }
-            }
-            .onChange(of: selectedTab) { _, _ in
-                // Reset pagination when switching tabs
-                visiblePostCount = 20
-            }
+        }
+        .onChange(of: selectedTab) { _, _ in
+            visiblePostCount = 20
         }
     }
     
     // MARK: - Helper Functions
 
+    private func prayerRow(post: Post, index: Int, total: Int, allCount: Int) -> some View {
+        PostCard(post: post, isUserPost: post.authorId == Auth.auth().currentUser?.uid)
+            .feedItemAppear(id: post.id, delay: min(Double(index) * 0.04, 0.20))
+            .onAppear {
+                prayerAlgorithm.recordView(for: post)
+                if index >= total - 3 && !isLoadingMore && visiblePostCount < allCount {
+                    loadMorePosts()
+                }
+            }
+    }
+
     /// Rank prayer requests using algorithm
     private func rankPrayerRequests() {
-        let prayerRequests = postsManager.prayerPosts.filter { post in
-            post.topicTag == "Prayer Request"
-        }
+        let snapshot = postsManager.prayerPosts.filter { $0.topicTag == "Prayer Request" }
+        let history = prayerAlgorithm.userPrayerHistory
 
-        guard !prayerRequests.isEmpty else {
+        guard !snapshot.isEmpty else {
             rankedPrayers = []
             return
         }
 
-        // Rank prayers using algorithm (off main thread)
+        // Snapshot captured above — safe to use from detached task without data races
         Task.detached(priority: .userInitiated) {
-            let ranked = await prayerAlgorithm.rankPrayers(
-                prayerRequests,
-                for: prayerAlgorithm.userPrayerHistory
-            )
-
+            let ranked = await prayerAlgorithm.rankPrayers(snapshot, for: history)
             await MainActor.run {
                 rankedPrayers = ranked
                 print("🙏 Prayers ranked: \(rankedPrayers.count) requests prioritized")
@@ -573,7 +387,7 @@ struct PrayerBannerCard: View {
                         .blur(radius: 20)
                     }
                     .clipShape(RoundedRectangle(cornerRadius: 14))
-                    .shadow(color: colors.first!.opacity(0.4), radius: 10, y: 4)  // ✅ Reduced shadow
+                    .shadow(color: (colors.first ?? Color.purple).opacity(0.4), radius: 10, y: 4)  // ✅ Reduced shadow
                 }
             }
         )
@@ -1012,7 +826,41 @@ struct DailyPrayerCard: View {
                 
                 // Button container
                 VStack(spacing: 16) {
-                    Button(action: onComplete) {
+                    // "Pray Now" — starts a Live Activity in the Dynamic Island
+                    if !isCompleted && LiveActivityManager.shared.isLiveActivitiesAvailable {
+                        Button {
+                            PrayerLiveActivityService.shared.startPersonalPrayerSession(title: prayer.title)
+                            let h = UIImpactFeedbackGenerator(style: .light)
+                            h.impactOccurred()
+                        } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: "hands.sparkles")
+                                    .font(.system(size: 15, weight: .medium))
+                                Text("Focus Prayer")
+                                    .font(.custom("OpenSans-SemiBold", size: 15))
+                            }
+                            .foregroundStyle(.white.opacity(0.7))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 13)
+                            .background(
+                                RoundedRectangle(cornerRadius: 14)
+                                    .fill(Color.white.opacity(0.08))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 14)
+                                            .strokeBorder(Color.white.opacity(0.18), lineWidth: 1)
+                                    )
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    Button(action: {
+                        onComplete()
+                        // Also end any active prayer Live Activity with success state
+                        if LiveActivityManager.shared.isLiveActivitiesAvailable {
+                            LiveActivityManager.shared.markPrayerAsAnswered()
+                        }
+                    }) {
                         HStack(spacing: 10) {
                             Image(systemName: isCompleted ? "checkmark.circle.fill" : "circle")
                                 .font(.system(size: 20, weight: .bold))
@@ -1461,10 +1309,10 @@ struct PrayerPostCard: View {
         case answered
     }
     
-    @StateObject private var postsManager = PostsManager.shared
-    @StateObject private var interactionsService = PostInteractionsService.shared
-    @StateObject private var savedPostsService = SavedPostsService.shared
-    @StateObject private var followService = FollowService.shared
+    @ObservedObject private var postsManager = PostsManager.shared
+    @ObservedObject private var interactionsService = PostInteractionsService.shared
+    @ObservedObject private var savedPostsService = SavedPostsService.shared
+    @ObservedObject private var followService = FollowService.shared
     @State private var amenCount: Int
     @State private var commentCount: Int
     @State private var repostCount: Int
@@ -1525,6 +1373,8 @@ struct PrayerPostCard: View {
             topicTagSection
             contentSection
             reactionButtonsSection
+            // Feature B: "I prayed" + encouragement bar (non-intrusive, opt-in)
+            PrayerFollowThroughBar(post: post)
         }
         .padding(16)
         .background(cardBackground)
@@ -2308,9 +2158,7 @@ struct PrayerPostCard: View {
         }
         
         print("⚠️ Showing repost error to user: \(errorMessage)")
-        
-        // TODO: Show error banner/toast to user
-        // For now, just log it - can be enhanced with a toast notification
+        ToastManager.shared.show(ToastNotification(message: errorMessage, style: .error))
     }
     
     // MARK: - Production-Ready Save Functions
@@ -2384,9 +2232,7 @@ struct PrayerPostCard: View {
         }
         
         print("⚠️ Showing save error to user: \(errorMessage)")
-        
-        // TODO: Show error banner/toast to user
-        // For now, just log it - can be enhanced with a toast notification
+        ToastManager.shared.show(ToastNotification(message: errorMessage, style: .error))
     }
     
     private func onRepost() {
@@ -2541,7 +2387,7 @@ struct PrayerCommentSection: View {
     @State private var isLoading = true
     @State private var isSubmitting = false  // NEW: Track submit state
     @FocusState private var isCommentFocused: Bool
-    @StateObject private var commentService = CommentService.shared
+    @ObservedObject private var commentService = CommentService.shared
     
     // Real comments from Firebase
     @State private var comments: [Comment] = []
@@ -2800,8 +2646,6 @@ struct PrayerCommentSection: View {
             showError = false
         }
         
-        let currentUserId = FirebaseManager.shared.currentUser?.uid ?? ""
-        let currentUserName = FirebaseManager.shared.currentUser?.displayName ?? "Unknown"
         let tempCommentText = commentText
         
         // ✅ FIXED: Don't create optimistic comment - let real-time listener handle it
@@ -2816,7 +2660,7 @@ struct PrayerCommentSection: View {
         
         // Post to Firebase - real-time listener will add to UI
         do {
-            let realComment = try await commentService.addComment(
+            _ = try await commentService.addComment(
                 postId: post.id.uuidString,
                 content: tempCommentText
             )
@@ -2972,7 +2816,11 @@ struct PrayerCommentRow: View {
     @State private var hasPrayed = false
     @State private var localPrayCount: Int
     @State private var showDeleteAlert = false
-    @StateObject private var commentService = CommentService.shared
+    @State private var showReplyField = false
+    @State private var replyText = ""
+    @State private var isSubmittingReply = false
+    @FocusState private var replyFieldFocused: Bool
+    @ObservedObject private var commentService = CommentService.shared
     @StateObject private var userService = UserService()
     
     init(comment: Comment, postCategory: PrayerPostCard.PrayerCategory, onDelete: @escaping () -> Void) {
@@ -3080,16 +2928,50 @@ struct PrayerCommentRow: View {
                     
                     // Reply button
                     Button {
-                        // TODO: Implement reply to comment
                         let haptic = UIImpactFeedbackGenerator(style: .light)
                         haptic.impactOccurred()
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                            showReplyField.toggle()
+                        }
+                        if showReplyField {
+                            replyFieldFocused = true
+                        }
                     } label: {
-                        Text("Reply")
+                        Text(showReplyField ? "Cancel" : "Reply")
                             .font(.custom("OpenSans-SemiBold", size: 11))
-                            .foregroundStyle(.black.opacity(0.5))
+                            .foregroundStyle(showReplyField ? .blue.opacity(0.8) : .black.opacity(0.5))
                     }
                 }
                 .padding(.top, 2)
+
+                // Inline reply field
+                if showReplyField {
+                    HStack(spacing: 8) {
+                        TextField("Reply...", text: $replyText, axis: .vertical)
+                            .font(.custom("OpenSans-Regular", size: 13))
+                            .lineLimit(1...4)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 8)
+                            .background(Color.black.opacity(0.05))
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                            .focused($replyFieldFocused)
+
+                        Button {
+                            submitReply()
+                        } label: {
+                            if isSubmittingReply {
+                                ProgressView().scaleEffect(0.7)
+                            } else {
+                                Image(systemName: "arrow.up.circle.fill")
+                                    .font(.system(size: 24))
+                                    .foregroundStyle(replyText.trimmingCharacters(in: .whitespaces).isEmpty ? .gray : .blue)
+                            }
+                        }
+                        .disabled(replyText.trimmingCharacters(in: .whitespaces).isEmpty || isSubmittingReply)
+                    }
+                    .padding(.top, 6)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+                }
             }
         }
         .padding(10)
@@ -3130,13 +3012,7 @@ struct PrayerCommentRow: View {
             return
         }
         
-        do {
-            hasPrayed = await commentService.hasUserAmened(commentId: commentId, postId: comment.postId)
-        } catch {
-            print("⚠️ Failed to load amen state: \(error.localizedDescription)")
-            // Default to false on error
-            hasPrayed = false
-        }
+        hasPrayed = await commentService.hasUserAmened(commentId: commentId, postId: comment.postId)
     }
     
     /// Handle amen toggle with optimistic update and error rollback
@@ -3180,6 +3056,40 @@ struct PrayerCommentRow: View {
                     // Error haptic feedback
                     let errorHaptic = UINotificationFeedbackGenerator()
                     errorHaptic.notificationOccurred(.error)
+                }
+            }
+        }
+    }
+
+    /// Submit an inline reply to this comment
+    private func submitReply() {
+        let trimmed = replyText.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty, let commentId = comment.id else { return }
+        isSubmittingReply = true
+
+        Task {
+            do {
+                // Post reply as a child comment using CommentService
+                _ = try await commentService.addReply(
+                    postId: comment.postId,
+                    parentCommentId: commentId,
+                    content: trimmed
+                )
+                await MainActor.run {
+                    replyText = ""
+                    isSubmittingReply = false
+                    withAnimation { showReplyField = false }
+                    let haptic = UINotificationFeedbackGenerator()
+                    haptic.notificationOccurred(.success)
+                }
+            } catch {
+                await MainActor.run {
+                    isSubmittingReply = false
+                    // Show toast if available, otherwise keep field open
+                    ToastManager.shared.show(ToastNotification(
+                        message: "Failed to post reply. Please try again.",
+                        style: .error
+                    ))
                 }
             }
         }

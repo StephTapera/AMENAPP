@@ -5,6 +5,7 @@
 //  Debug view for testing notification deduplication and grouping
 //
 
+#if DEBUG
 import SwiftUI
 import FirebaseAuth
 import FirebaseFirestore
@@ -274,7 +275,7 @@ struct NotificationGroupingDebugView: View {
     private func testAmenGrouping() async {
         print("🧪 Testing Amen grouping...")
         
-        guard let userId = Auth.auth().currentUser?.uid else {
+        guard Auth.auth().currentUser?.uid != nil else {
             addTestResult(
                 testName: "Amen Grouping",
                 passed: false,
@@ -347,3 +348,4 @@ struct NotificationGroupingDebugView: View {
 #Preview {
     NotificationGroupingDebugView()
 }
+#endif

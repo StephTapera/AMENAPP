@@ -65,14 +65,43 @@ class BlockService: ObservableObject {
     private let firebaseManager = FirebaseManager.shared
     private let db = Firestore.firestore()
     private var listeners: [ListenerRegistration] = []
+    private var authStateListener: AuthStateDidChangeListenerHandle?
     
-    private init() {}
+    private init() {
+        setupAuthListener()
+    }
+    
+    deinit {
+        if let h = authStateListener {
+            Auth.auth().removeStateDidChangeListener(h)
+        }
+        listeners.forEach { $0.remove() }
+    }
+    
+    /// Automatically start/stop the real-time block listener when auth state changes.
+    /// This ensures `blockedUsers` is always fresh for `NotificationService.processNotifications`.
+    private func setupAuthListener() {
+        authStateListener = Auth.auth().addStateDidChangeListener { [weak self] _, user in
+            guard let self else { return }
+            Task { @MainActor in
+                if user != nil {
+                    if self.listeners.isEmpty {
+                        self.startListening()
+                        await self.loadBlockedUsers()
+                    }
+                } else {
+                    self.stopListening()
+                    self.clearCache()
+                }
+            }
+        }
+    }
     
     // MARK: - Block User
     
     /// Block a user
     func blockUser(userId: String) async throws {
-        print("🚫 Blocking user: \(userId)")
+        dlog("🚫 Blocking user: \(userId)")
         
         guard let currentUserId = firebaseManager.currentUser?.uid else {
             throw FirebaseError.unauthorized
@@ -80,13 +109,13 @@ class BlockService: ObservableObject {
         
         // Don't block yourself
         guard userId != currentUserId else {
-            print("⚠️ Cannot block yourself")
+            dlog("⚠️ Cannot block yourself")
             return
         }
         
         // Check if already blocked
         if await isBlocked(userId: userId) {
-            print("⚠️ User is already blocked")
+            dlog("⚠️ User is already blocked")
             return
         }
         
@@ -151,7 +180,7 @@ class BlockService: ObservableObject {
         // Commit batch
         try await batch.commit()
         
-        print("✅ Blocked user successfully")
+        dlog("✅ Blocked user successfully")
         
         // Update local state
         blockedUsers.insert(userId)
@@ -168,7 +197,7 @@ class BlockService: ObservableObject {
     
     /// Unblock a user
     func unblockUser(userId: String) async throws {
-        print("✅ Unblocking user: \(userId)")
+        dlog("✅ Unblocking user: \(userId)")
         
         guard let currentUserId = firebaseManager.currentUser?.uid else {
             throw FirebaseError.unauthorized
@@ -183,14 +212,14 @@ class BlockService: ObservableObject {
         let snapshot = try await blockQuery.getDocuments()
         
         guard let blockDoc = snapshot.documents.first else {
-            print("⚠️ User is not blocked")
+            dlog("⚠️ User is not blocked")
             return
         }
         
         // Delete block relationship
         try await blockDoc.reference.delete()
         
-        print("✅ Unblocked user successfully")
+        dlog("✅ Unblocked user successfully")
         
         // Update local state
         blockedUsers.remove(userId)
@@ -232,7 +261,7 @@ class BlockService: ObservableObject {
             
             return isBlocked
         } catch {
-            print("❌ Error checking block status: \(error)")
+            dlog("❌ Error checking block status: \(error)")
             return false
         }
     }
@@ -252,7 +281,7 @@ class BlockService: ObservableObject {
             
             return !snapshot.documents.isEmpty
         } catch {
-            print("❌ Error checking if blocked by user: \(error)")
+            dlog("❌ Error checking if blocked by user: \(error)")
             return false
         }
     }
@@ -262,7 +291,7 @@ class BlockService: ObservableObject {
     /// Fetch all blocked users for current user
     func loadBlockedUsers() async {
         guard let currentUserId = firebaseManager.currentUser?.uid else {
-            print("⚠️ No authenticated user")
+            dlog("⚠️ No authenticated user")
             return
         }
         
@@ -270,7 +299,7 @@ class BlockService: ObservableObject {
         defer { isLoading = false }
         
         do {
-            print("📥 Fetching blocked users...")
+            dlog("📥 Fetching blocked users...")
             
             let snapshot = try await db.collection(FirebaseManager.CollectionPath.blocks)
                 .whereField("blockerId", isEqualTo: currentUserId)
@@ -308,9 +337,9 @@ class BlockService: ObservableObject {
             
             blockedUsersList = profiles
             
-            print("✅ Loaded \(profiles.count) blocked users")
+            dlog("✅ Loaded \(profiles.count) blocked users")
         } catch {
-            print("❌ Failed to load blocked users: \(error)")
+            dlog("❌ Failed to load blocked users: \(error)")
             self.error = error.localizedDescription
         }
     }
@@ -320,11 +349,11 @@ class BlockService: ObservableObject {
     /// Start listening to blocked users changes
     func startListening() {
         guard let currentUserId = firebaseManager.currentUser?.uid else {
-            print("⚠️ No user ID for listener")
+            dlog("⚠️ No user ID for listener")
             return
         }
         
-        print("🔊 Starting real-time listener for blocks...")
+        dlog("🔊 Starting real-time listener for blocks...")
         
         let listener = db.collection(FirebaseManager.CollectionPath.blocks)
             .whereField("blockerId", isEqualTo: currentUserId)
@@ -332,7 +361,7 @@ class BlockService: ObservableObject {
                 guard let self = self else { return }
                 
                 if let error = error {
-                    print("❌ Blocks listener error: \(error)")
+                    dlog("❌ Blocks listener error: \(error)")
                     return
                 }
                 
@@ -345,7 +374,7 @@ class BlockService: ObservableObject {
                     
                     await MainActor.run {
                         self.blockedUsers = Set(blockedIds)
-                        print("✅ Real-time update: \(blockedIds.count) blocked users")
+                        dlog("✅ Real-time update: \(blockedIds.count) blocked users")
                     }
                     
                     // Reload full profiles
@@ -358,7 +387,7 @@ class BlockService: ObservableObject {
     
     /// Stop all listeners
     func stopListening() {
-        print("🔇 Stopping block listeners...")
+        dlog("🔇 Stopping block listeners...")
         listeners.forEach { $0.remove() }
         listeners.removeAll()
     }

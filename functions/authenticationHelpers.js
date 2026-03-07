@@ -21,7 +21,7 @@ const {onDocumentCreated, onDocumentDeleted} = require("firebase-functions/v2/fi
 exports.reserveUsername = onCall(
     {
       region: "us-central1",
-      enforceAppCheck: false, // Set to true in production with App Check
+      enforceAppCheck: true, // Set to true in production with App Check
     },
     async (request) => {
       const {username, userId} = request.data;
@@ -130,7 +130,7 @@ exports.reserveUsername = onCall(
 exports.checkUsernameAvailability = onCall(
     {
       region: "us-central1",
-      enforceAppCheck: false,
+      enforceAppCheck: true,
     },
     async (request) => {
       const {username} = request.data;
@@ -408,6 +408,66 @@ async function cascadeDeleteUserData(userId) {
       console.error("Storage deletion error (non-critical):", storageError);
     }
 
+    // 11. Delete reposts by user
+    console.log("1️⃣1️⃣ Deleting reposts...");
+    const repostsSnapshot = await db.collection("reposts")
+        .where("userId", "==", userId)
+        .get();
+    const repostsDeletePromises = repostsSnapshot.docs.map((doc) => doc.ref.delete());
+    await Promise.all(repostsDeletePromises);
+    console.log(`✅ Deleted ${repostsSnapshot.size} reposts`);
+
+    // 12. Delete block records where user is the blocker
+    console.log("1️⃣2️⃣ Deleting block records...");
+    const blocksSnapshot = await db.collection("blocks")
+        .where("blockerId", "==", userId)
+        .get();
+    const blocksBlockedSnapshot = await db.collection("blocks")
+        .where("blockedId", "==", userId)
+        .get();
+    const blocksDeletePromises = [
+      ...blocksSnapshot.docs.map((doc) => doc.ref.delete()),
+      ...blocksBlockedSnapshot.docs.map((doc) => doc.ref.delete()),
+    ];
+    await Promise.all(blocksDeletePromises);
+    console.log(`✅ Deleted ${blocksDeletePromises.length} block records`);
+
+    // 13. Delete top-level savedPosts collection entries
+    console.log("1️⃣3️⃣ Deleting top-level saved posts...");
+    const topSavedPostsSnapshot = await db.collection("savedPosts")
+        .where("userId", "==", userId)
+        .get();
+    const topSavedDeletePromises = topSavedPostsSnapshot.docs.map((doc) => doc.ref.delete());
+    await Promise.all(topSavedDeletePromises);
+    console.log(`✅ Deleted ${topSavedPostsSnapshot.size} top-level saved posts`);
+
+    // 14. Delete user's feed preferences and signals
+    console.log("1️⃣4️⃣ Deleting feed preferences...");
+    await Promise.all([
+      db.collection("userFeedPrefs").doc(userId).delete().catch(() => {}),
+      db.collection("userFeedSignals").doc(userId).delete().catch(() => {}),
+      db.collection("userSafetyRecords").doc(userId).delete().catch(() => {}),
+      db.collection("datingProfiles").doc(userId).delete().catch(() => {}),
+      db.collection("userRestrictions").doc(userId).delete().catch(() => {}),
+    ]);
+    console.log("✅ Cleaned up feed preferences and profile data");
+
+    // 15. Delete the user document itself
+    console.log("1️⃣5️⃣ Deleting user document...");
+    // Note: this is triggered by user document deletion, so the doc is already gone
+    // But clean up the users/{userId} subcollections explicitly
+    const userSubcollections = [
+      "following", "followers", "savedPosts", "blockedUsers", "notifications",
+      "devices", "usageSessions", "wellnessEvents", "scrollBudgetUsage",
+    ];
+    for (const subcol of userSubcollections) {
+      const subSnap = await db.collection("users").doc(userId).collection(subcol).get();
+      const subDeletes = subSnap.docs.map((d) => d.ref.delete());
+      await Promise.all(subDeletes);
+      if (subSnap.size > 0) console.log(`   Deleted ${subSnap.size} docs from users/${userId}/${subcol}`);
+    }
+    console.log("✅ User subcollections cleaned up");
+
     console.log(`✅✅✅ CASCADE DELETE COMPLETE for user ${userId} ✅✅✅`);
     console.log("Summary:");
     console.log(`- Posts deleted: ${postsSnapshot.size}`);
@@ -415,9 +475,11 @@ async function cascadeDeleteUserData(userId) {
     console.log(`- Follow relationships: ${followingSnapshot.size + followersSnapshot.size}`);
     console.log(`- Conversations handled: ${conversationsSnapshot.size}`);
     console.log(`- Notifications deleted: ${notificationDeletePromises.length + userNotifDeletePromises.length}`);
-    console.log(`- Saved posts: ${savedPostsSnapshot.size}`);
+    console.log(`- Saved posts: ${savedPostsSnapshot.size + topSavedPostsSnapshot.size}`);
     console.log(`- Prayers: ${prayersSnapshot.size}`);
     console.log(`- Church notes: ${notesSnapshot.size}`);
+    console.log(`- Reposts: ${repostsSnapshot.size}`);
+    console.log(`- Block records: ${blocksDeletePromises.length}`);
 
     return {success: true};
   } catch (error) {
@@ -433,7 +495,7 @@ async function cascadeDeleteUserData(userId) {
 exports.manualCascadeDelete = onCall(
     {
       region: "us-central1",
-      enforceAppCheck: false,
+      enforceAppCheck: true,
     },
     async (request) => {
       const {userId} = request.data;
@@ -478,3 +540,71 @@ exports.manualCascadeDelete = onCall(
 
 // Export the cascade delete function for use in other functions
 exports.cascadeDeleteUserData = cascadeDeleteUserData;
+
+// ============================================================================
+// P0-2: SERVER-SET AGE TIER ON USER DOCUMENT CREATION
+// ============================================================================
+// Triggers whenever a user document is created in Firestore.
+// Reads the client-supplied `birthYear` field and writes the server-computed
+// `ageTier` back via admin SDK (which bypasses client-writeable fields rules).
+//
+// Tier mapping:
+//   blocked  — birth year implies age < 13  (COPPA hard block)
+//   tierB    — 13–15
+//   tierC    — 16–17
+//   tierD    — 18+  (default when birthYear is absent)
+// ============================================================================
+
+const {onDocumentCreated: onDocCreated} = require("firebase-functions/v2/firestore");
+
+/**
+ * Compute age tier from birth year.
+ * currentYear is passed in to keep the function testable.
+ */
+function computeAgeTier(birthYear, currentYear) {
+  if (!birthYear || typeof birthYear !== "number") return "tierD"; // conservative default for adult
+  const age = currentYear - birthYear;
+  if (age < 13) return "blocked";
+  if (age <= 15) return "tierB";
+  if (age <= 17) return "tierC";
+  return "tierD";
+}
+
+exports.onUserDocCreated = onDocCreated(
+    {
+      document: "users/{userId}",
+      region: "us-central1",
+    },
+    async (event) => {
+      const userId = event.params.userId;
+      const data = event.data?.data();
+
+      if (!data) {
+        console.warn(`[ageTier] Empty user document created for ${userId} — skipping`);
+        return null;
+      }
+
+      const birthYear = data.birthYear;
+      const currentYear = new Date().getFullYear();
+      const ageTier = computeAgeTier(birthYear, currentYear);
+
+      console.log(`[ageTier] userId=${userId} birthYear=${birthYear} → ageTier=${ageTier}`);
+
+      try {
+        await admin.firestore()
+            .collection("users")
+            .doc(userId)
+            .update({
+              ageTier,
+              ageTierSetAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+        console.log(`✅ [ageTier] Set ageTier="${ageTier}" for user ${userId}`);
+      } catch (err) {
+        console.error(`❌ [ageTier] Failed to set ageTier for ${userId}:`, err);
+        // Non-fatal: AgeAssuranceService on the client defaults to tierB (fail-safe)
+        // when ageTier is absent, so missing tier ≠ full access.
+      }
+
+      return null;
+    }
+);

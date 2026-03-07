@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Combine
 import LocalAuthentication
 
 struct BiometricOnboardingPage: View {
@@ -193,16 +194,23 @@ struct BiometricOnboardingPage: View {
         await MainActor.run {
             if success {
                 biometricService.enableBiometric()
-                withAnimation {
+
+                // Success haptic — respects system Reduce Motion setting.
+                let haptic = UINotificationFeedbackGenerator()
+                haptic.prepare()
+                haptic.notificationOccurred(.success)
+
+                let useAnimation = !UIAccessibility.isReduceMotionEnabled
+                withAnimation(useAnimation ? .spring(response: 0.4, dampingFraction: 0.65) : nil) {
                     showingSetupSuccess = true
                     setupFailed = false
                 }
-                
+
                 // Hide success message after 3 seconds
                 Task {
                     try? await Task.sleep(nanoseconds: 3_000_000_000)
                     await MainActor.run {
-                        withAnimation {
+                        withAnimation(useAnimation ? .easeOut(duration: 0.25) : nil) {
                             showingSetupSuccess = false
                         }
                     }

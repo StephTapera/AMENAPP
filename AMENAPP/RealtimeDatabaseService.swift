@@ -18,27 +18,14 @@ class RealtimeDatabaseService: ObservableObject {
     static let shared = RealtimeDatabaseService()
     
     private static var _configuredDatabase: Database?
-    private static let databaseURL = "https://amen-5e359-default-rtdb.firebaseio.com"
     
-    // Get or create the database instance with persistence enabled
+    // Get or create the database instance (persistence is configured globally in AppDelegate)
     private var database: Database {
         if let db = Self._configuredDatabase {
             return db
         }
-        
-        // First access - configure persistence BEFORE getting the database
-        print("🔥 Configuring Realtime Database persistence...")
-        
-        // Get the database instance
-        let db = Database.database(url: Self.databaseURL)
-        
-        // Enable persistence on FIRST access only
-        db.isPersistenceEnabled = true
-        
-        // Cache it so we don't try to set persistence again
+        let db = Database.database()
         Self._configuredDatabase = db
-        
-        print("✅ Realtime Database configured with persistence enabled")
         return db
     }
     
@@ -99,9 +86,8 @@ class RealtimeDatabaseService: ObservableObject {
         let presenceRef = ref.child("presence").child(currentUserId)
         let connectedRef = database.reference(withPath: ".info/connected")
         
-        connectedRef.observe(.value) { [weak self] snapshot in
-            guard let self = self,
-                  let connected = snapshot.value as? Bool,
+        connectedRef.observe(.value) { snapshot in
+            guard let connected = snapshot.value as? Bool,
                   connected else { return }
             
             // When connected, set online status
@@ -329,12 +315,13 @@ class RealtimeDatabaseService: ObservableObject {
             var conversations: [RealtimeConversation] = []
             
             for child in snapshot.children {
-                guard let childSnapshot = child as? DataSnapshot,
-                      let conversationId = childSnapshot.key as? String else {
+                guard let childSnapshot = child as? DataSnapshot else {
                     continue
                 }
+                let conversationId = childSnapshot.key
                 
                 // Fetch conversation metadata
+                let userId = self.currentUserId
                 self.ref.child("conversations").child(conversationId).child("metadata").getData { error, dataSnapshot in
                     guard error == nil,
                           let metadataData = dataSnapshot?.value as? [String: Any],
@@ -347,7 +334,7 @@ class RealtimeDatabaseService: ObservableObject {
                     let groupName = metadataData["groupName"] as? String
                     let lastMessageText = metadataData["lastMessageText"] as? String ?? ""
                     let lastMessageTimestamp = metadataData["lastMessageTimestamp"] as? Int64 ?? 0
-                    let unreadCount = metadataData["unreadCount_\(self.currentUserId)"] as? Int ?? 0
+                    let unreadCount = metadataData["unreadCount_\(userId)"] as? Int ?? 0
                     
                     let conversation = RealtimeConversation(
                         id: conversationId,
@@ -361,7 +348,8 @@ class RealtimeDatabaseService: ObservableObject {
                     )
                     
                     conversations.append(conversation)
-                    self.realtimeConversations = conversations.sorted { $0.lastMessageTimestamp > $1.lastMessageTimestamp }
+                    let sorted = conversations.sorted { $0.lastMessageTimestamp > $1.lastMessageTimestamp }
+                    Task { @MainActor [weak self] in self?.realtimeConversations = sorted }
                 }
             }
         }
@@ -540,9 +528,9 @@ class RealtimeDatabaseService: ObservableObject {
     }
     
     deinit {
-        Task { @MainActor in
-            cleanup()
-        }
+        // Since this is a @MainActor singleton (RealtimeDatabaseService.shared), deinit
+        // only occurs at app termination when Firebase already cleans up handles.
+        // Calling cleanup() via Task is intentionally omitted to avoid Swift 6 capture warning.
     }
 }
 

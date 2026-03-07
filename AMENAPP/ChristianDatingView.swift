@@ -29,6 +29,16 @@ struct ChristianDatingView: View {
     }
     
     var body: some View {
+        // Age gate: Dating is available for 18+ only (Tier D)
+        guard AgeAssuranceService.shared.canUseDating else {
+            return AnyView(AgeGateBlockedView(featureName: "Christian Dating")
+                .navigationBarHidden(true))
+        }
+        return AnyView(datingBody)
+    }
+
+    @ViewBuilder
+    private var datingBody: some View {
         ZStack {
             VStack(spacing: 0) {
                 // Custom header with liquid glass X button
@@ -179,7 +189,7 @@ struct ChristianDatingView: View {
     // MARK: - Actions
     
     private func likeProfile(_ profile: DatingProfile) {
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+        _ = withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
             likedProfiles.insert(profile.id)
         }
         
@@ -198,7 +208,7 @@ struct ChristianDatingView: View {
     }
     
     private func passProfile(_ profile: DatingProfile) {
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+        _ = withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
             passedProfiles.insert(profile.id)
         }
         

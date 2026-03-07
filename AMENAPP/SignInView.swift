@@ -261,13 +261,13 @@ struct SignInView: View {
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
 
-            // Email (login OR email signup)
+            // Email or Username (login) / Email (email signup)
             if isLogin || signUpMethod == .email {
                 DarkGlassmorphicTextField(
-                    icon: "envelope",
-                    placeholder: "Email",
+                    icon: isLogin ? "person.text.rectangle" : "envelope",
+                    placeholder: isLogin ? "Email or username" : "Email",
                     text: $email,
-                    keyboardType: .emailAddress
+                    keyboardType: isLogin ? .default : .emailAddress
                 )
                 .onChange(of: email) { _, _ in
                     if viewModel.showError {
@@ -650,7 +650,7 @@ struct SignInView: View {
                 // Login flow: phone OR email+password
                 if !phoneNumber.isEmpty && phoneNumber.count >= 10 {
                     // Phone login with OTP
-                    print("📱 Phone login - Sending OTP to: \(phoneNumber)")
+                    dlog("📱 Phone login - Sending OTP")
                     await viewModel.sendPhoneVerificationCode(phoneNumber: phoneNumber)
                     
                     await MainActor.run {
@@ -687,7 +687,7 @@ struct SignInView: View {
                 // Sign-up flow: email OR phone (based on selected method)
                 if signUpMethod == .phone {
                     // Phone sign-up with OTP
-                    print("📱 Phone sign-up - Sending OTP to: \(phoneNumber)")
+                    dlog("📱 Phone sign-up - Sending OTP")
                     await viewModel.sendPhoneVerificationCode(phoneNumber: phoneNumber)
                     
                     await MainActor.run {
@@ -698,7 +698,7 @@ struct SignInView: View {
                     }
                 } else {
                     // Email sign-up with password
-                    print("📧 Email sign-up with: \(email)")
+                    dlog("📧 Email sign-up initiated")
                     await viewModel.signUp(
                         email: email,
                         password: password,
@@ -713,6 +713,15 @@ struct SignInView: View {
     private func handleAuthOld() {
         // Dismiss keyboard
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+
+        // ── Device integrity: check for login lockout before attempting auth ──
+        if isLogin {
+            if let lockMessage = DeviceIntegrityService.shared.checkLoginAllowed() {
+                viewModel.errorMessage = lockMessage
+                return
+            }
+        }
+        // ──────────────────────────────────────────────────────────────────────
         
         // Cancel any existing auth request to prevent duplicates
         authTask?.cancel()
@@ -743,6 +752,14 @@ struct SignInView: View {
                     print("🔍 Looking up email for username: @\(loginIdentifier)")
                     await signInWithUsername("@\(loginIdentifier)")
                 }
+
+                // ── Device integrity: record success or failure ──────────────
+                if viewModel.isAuthenticated {
+                    DeviceIntegrityService.shared.recordLoginSuccess()
+                } else {
+                    DeviceIntegrityService.shared.recordLoginFailure()
+                }
+                // ────────────────────────────────────────────────────────────
                 
                 // ✅ Cache user name for messaging after successful login
                 if viewModel.isAuthenticated {
@@ -750,10 +767,7 @@ struct SignInView: View {
                     print("✅ User name cached for messaging")
                 }
             } else {
-                print("📝 Sign-up attempt")
-                print("   Email: \(email)")
-                print("   Display name: \(displayName)")
-                print("   Username: @\(username)")
+                dlog("📝 Sign-up attempt")
                 
                 // Lowercase email for sign up
                 await viewModel.signUp(
@@ -806,7 +820,7 @@ struct SignInView: View {
                 return
             }
             
-            print("✅ Found email for @\(cleanUsername)")
+            dlog("✅ Found email for username lookup")
             
             // Found email - now sign in with it
             await viewModel.signIn(email: userEmail, password: password)
@@ -915,7 +929,7 @@ struct SignInView: View {
             return
         }
         
-        print("🔄 Resending OTP to: \(phoneNumber)")
+        dlog("🔄 Resending OTP")
         await viewModel.resendVerificationCode(phoneNumber: phoneNumber)
         
         // Only restart timer if send was successful (no error)
@@ -1030,7 +1044,7 @@ struct SignInView: View {
                     viewModel.isLoading = false
                 }
                 
-                print("✅ Biometric sign-in successful for user: \(currentUser.uid)")
+                dlog("✅ Biometric sign-in successful")
                 
             } catch {
                 await MainActor.run {
@@ -1128,14 +1142,14 @@ struct SignInView: View {
                 .getDocuments()
             
             guard let userDoc = snapshot.documents.first else {
-                print("❌ No user found with phone: \(formattedPhone)")
+                dlog("❌ No user found for phone login")
                 return nil
             }
             
             let displayName = userDoc.data()["displayName"] as? String ?? ""
             let username = userDoc.data()["username"] as? String ?? ""
             
-            print("✅ Found user for phone login: \(displayName) (@\(username))")
+            dlog("✅ Found user for phone login")
             return (displayName, username)
             
         } catch {
@@ -1444,7 +1458,9 @@ struct SignInView: View {
         var randomBytes = [UInt8](repeating: 0, count: length)
         let errorCode = SecRandomCopyBytes(kSecRandomDefault, randomBytes.count, &randomBytes)
         if errorCode != errSecSuccess {
-            fatalError("Unable to generate nonce. SecRandomCopyBytes failed with OSStatus \(errorCode)")
+            // Fallback: use UUID-based entropy if SecRandomCopyBytes fails (should never happen on-device)
+            print("⚠️ SecRandomCopyBytes failed (\(errorCode)), using UUID fallback for nonce")
+            return UUID().uuidString.replacingOccurrences(of: "-", with: "") + UUID().uuidString.replacingOccurrences(of: "-", with: "")
         }
         
         let charset: [Character] = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._")
@@ -1556,6 +1572,13 @@ struct SheetsModifier: ViewModifier {
                                 
                                 let haptic = UINotificationFeedbackGenerator()
                                 haptic.notificationOccurred(.success)
+                            } catch let nsError as NSError where nsError.code == 429 {
+                                // Rate limit hit — show message without dismissing sheet
+                                viewModel.errorMessage = nsError.localizedDescription
+                                viewModel.showError = true
+                                
+                                let haptic = UINotificationFeedbackGenerator()
+                                haptic.notificationOccurred(.error)
                             } catch {
                                 viewModel.errorMessage = "Failed to send reset email. Please check the email address."
                                 viewModel.showError = true
@@ -1688,9 +1711,18 @@ struct PasswordResetSheet: View {
     @Binding var resetEmail: String
     @Binding var showSuccess: Bool
     let onSend: () -> Void
-    
+
     @State private var isValidEmail = false
-    
+    /// True while the network request is in-flight — prevents double-tap.
+    @State private var isSending = false
+    /// Seconds remaining in the post-send cooldown (60 s). 0 = button re-enabled.
+    @State private var cooldownRemaining: Int = 0
+    @State private var cooldownTimer: Timer? = nil
+
+    private var canSend: Bool {
+        isValidEmail && !isSending && cooldownRemaining == 0
+    }
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 24) {
@@ -1708,7 +1740,7 @@ struct PasswordResetSheet: View {
                             )
                         )
                         .frame(width: 80, height: 80)
-                    
+
                     Image(systemName: "envelope.fill")
                         .font(.system(size: 36))
                         .foregroundStyle(
@@ -1723,20 +1755,20 @@ struct PasswordResetSheet: View {
                         )
                 }
                 .padding(.top, 20)
-                
+
                 // Title & Description
                 VStack(spacing: 8) {
                     Text("Reset Password")
                         .font(.custom("OpenSans-Bold", size: 24))
                         .foregroundStyle(.black)
-                    
+
                     Text("Enter your email address and we'll send you instructions to reset your password")
                         .font(.custom("OpenSans-Regular", size: 14))
                         .foregroundStyle(.black.opacity(0.6))
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 20)
                 }
-                
+
                 // Email Input
                 SimpleCleanTextField(
                     icon: "envelope",
@@ -1748,26 +1780,39 @@ struct PasswordResetSheet: View {
                 .onChange(of: resetEmail) { _, newValue in
                     isValidEmail = isValidEmailFormat(newValue)
                 }
-                
-                // Send Button
+
+                // Send Button — disabled while in-flight or in cooldown
                 Button {
+                    guard canSend else { return }
+                    isSending = true
                     onSend()
+                    // Start 60-second cooldown immediately so rapid taps have no effect.
+                    startCooldown()
                 } label: {
-                    Text("Send Reset Link")
-                        .font(.custom("OpenSans-SemiBold", size: 16))
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 52)
-                        .background(
-                            RoundedRectangle(cornerRadius: 26)
-                                .fill(.black)
-                        )
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 26)
+                            .fill(canSend ? Color.black : Color.black.opacity(0.45))
+                            .frame(height: 52)
+
+                        if isSending {
+                            ProgressView()
+                                .tint(.white)
+                        } else if cooldownRemaining > 0 {
+                            Text("Resend in \(cooldownRemaining)s")
+                                .font(.custom("OpenSans-SemiBold", size: 16))
+                                .foregroundStyle(.white.opacity(0.7))
+                        } else {
+                            Text("Send Reset Link")
+                                .font(.custom("OpenSans-SemiBold", size: 16))
+                                .foregroundStyle(.white)
+                        }
+                    }
                 }
-                .disabled(!isValidEmail)
-                .opacity(isValidEmail ? 1.0 : 0.5)
+                .disabled(!canSend)
                 .padding(.horizontal, 32)
                 .padding(.top, 8)
-                
+                .animation(.easeInOut(duration: 0.2), value: canSend)
+
                 Spacer()
             }
             .toolbar {
@@ -1781,9 +1826,33 @@ struct PasswordResetSheet: View {
                     }
                 }
             }
+            .onDisappear {
+                // Clean up timer if sheet is dismissed mid-cooldown.
+                cooldownTimer?.invalidate()
+                cooldownTimer = nil
+            }
         }
     }
-    
+
+    /// Kicks off a 60-second countdown. Marks isSending = false after the first tick
+    /// (request is in-flight; we let the caller decide success/failure).
+    private func startCooldown(seconds: Int = 60) {
+        cooldownRemaining = seconds
+        cooldownTimer?.invalidate()
+        cooldownTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { timer in
+            DispatchQueue.main.async {
+                if cooldownRemaining > 0 {
+                    cooldownRemaining -= 1
+                    // Unblock the spinner after the first second — the caller handles dismiss.
+                    if cooldownRemaining == seconds - 1 { isSending = false }
+                } else {
+                    timer.invalidate()
+                    cooldownTimer = nil
+                }
+            }
+        }
+    }
+
     private func isValidEmailFormat(_ email: String) -> Bool {
         let emailRegex = "[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,64}"
         let predicate = NSPredicate(format: "SELF MATCHES %@", emailRegex)
@@ -2100,11 +2169,26 @@ class AppleSignInCoordinator: NSObject, ASAuthorizationControllerDelegate, ASAut
     }
     
     func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
-        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-              let window = windowScene.windows.first else {
-            fatalError("No window available")
+        // Search all scenes for an active key window to avoid crash when no window is immediately available
+        for scene in UIApplication.shared.connectedScenes {
+            guard let windowScene = scene as? UIWindowScene else { continue }
+            if let keyWindow = windowScene.windows.first(where: { $0.isKeyWindow }) {
+                return keyWindow
+            }
         }
-        return window
+        // Fallback: return first available window
+        if let window = (UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap { $0.windows }
+            .first) {
+            return window
+        }
+        // Last resort: attach to first available window scene
+        print("⚠️ Apple Sign-In: no window found, using fallback UIWindow")
+        let anyWindowScene = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first
+        return UIWindow(windowScene: anyWindowScene!)
     }
 }
 

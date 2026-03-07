@@ -135,7 +135,7 @@ class MessagingViewController: UIViewController {
         let metadata = StorageMetadata()
         metadata.contentType = "image/jpeg"
         
-        imageRef.putData(imageData, metadata: metadata) { [weak self] metadata, error in
+        imageRef.putData(imageData, metadata: metadata) { metadata, error in
             if let error = error {
                 print("❌ Upload failed: \(error.localizedDescription)")
                 completion(nil)

@@ -297,7 +297,7 @@ final class DeviceTokenManager: ObservableObject {
     private func getDeviceIdentifier() async -> String {
         // Use IDFV (Identifier for Vendor) which persists across app reinstalls
         // but is different for each app from the same vendor
-        if let idfv = await UIDevice.current.identifierForVendor?.uuidString {
+        if let idfv = UIDevice.current.identifierForVendor?.uuidString {
             return idfv
         }
         
@@ -314,12 +314,12 @@ final class DeviceTokenManager: ObservableObject {
     
     /// Get device information for tracking
     private func getDeviceInfo() async -> DeviceInfo {
-        let device = await UIDevice.current
+        let device = UIDevice.current
         
         return DeviceInfo(
-            name: await device.name,
-            model: await device.model,
-            osVersion: "\(await device.systemName) \(await device.systemVersion)",
+            name: device.name,
+            model: device.model,
+            osVersion: "\(device.systemName) \(device.systemVersion)",
             appVersion: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
         )
     }

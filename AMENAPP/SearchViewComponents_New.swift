@@ -14,14 +14,15 @@ import FirebaseFirestore
 
 struct DiscoverPeopleView: View {
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var searchService = UserSearchService.shared
-    @StateObject private var followService = FollowService.shared
+    @ObservedObject private var searchService = UserSearchService.shared
+    @ObservedObject private var followService = FollowService.shared
     
     @State private var searchText = ""
     @State private var selectedFilter: DiscoveryFilter = .all
     @State private var isSearching = false
     @State private var recentUsers: [FirebaseSearchUser] = []
     @State private var newUsers: [FirebaseSearchUser] = []
+    @State private var searchTask: Task<Void, Never>?
     
     enum DiscoveryFilter: String, CaseIterable {
         case all = "All"
@@ -130,7 +131,10 @@ struct DiscoverPeopleView: View {
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .onChange(of: searchText) { _, newValue in
-                    Task {
+                    // Cancel the previous in-flight search before starting a new one
+                    // to prevent concurrent requests that cause noReachableHosts errors.
+                    searchTask?.cancel()
+                    searchTask = Task {
                         await performSearch(query: newValue)
                     }
                 }
@@ -356,9 +360,13 @@ struct DiscoverPeopleView: View {
         
         isSearching = true
         
-        // Debounce search
+        // Debounce: wait 300ms, then check if we were superseded by a newer search.
         try? await Task.sleep(nanoseconds: 300_000_000)
-        
+        guard !Task.isCancelled else {
+            isSearching = false
+            return
+        }
+
         do {
             // Use Algolia via UserSearchService
             _ = try await searchService.searchUsers(query: query, searchType: .both)
@@ -455,7 +463,7 @@ struct DiscoveryFilterChip: View {
 
 struct ThreadsStyleUserCard: View {
     let user: FirebaseSearchUser
-    @StateObject private var followService = FollowService.shared
+    @ObservedObject private var followService = FollowService.shared
     @State private var isFollowing = false
     @State private var isPressed = false
     
@@ -559,7 +567,7 @@ struct ThreadsStyleUserCard: View {
     }
     
     private func loadFollowStatus() async {
-        guard let currentUserId = Auth.auth().currentUser?.uid else { return }
+        guard Auth.auth().currentUser?.uid != nil else { return }
         isFollowing = await followService.isFollowing(userId: user.id)
     }
 }
@@ -569,7 +577,7 @@ struct ThreadsStyleUserCard: View {
 struct ThreadsFollowButton: View {
     @Binding var isFollowing: Bool
     let userId: String
-    @StateObject private var followService = FollowService.shared
+    @ObservedObject private var followService = FollowService.shared
     @State private var isProcessing = false
     
     var body: some View {
@@ -686,7 +694,7 @@ struct UserCardSkeleton: View {
 // MARK: - Discover People Section (for Home/Search)
 
 struct DiscoverPeopleSection: View {
-    @StateObject private var searchService = UserSearchService.shared
+    @ObservedObject private var searchService = UserSearchService.shared
     @State private var suggestedUsers: [FirebaseSearchUser] = []
     @State private var showFullDiscovery = false
     
@@ -763,7 +771,7 @@ struct DiscoverPeopleSection: View {
 
 struct CompactUserCard: View {
     let user: FirebaseSearchUser
-    @StateObject private var followService = FollowService.shared
+    @ObservedObject private var followService = FollowService.shared
     @State private var isFollowing = false
     @State private var showProfile = false
     
@@ -873,7 +881,7 @@ struct CompactUserCard: View {
     }
     
     private func loadFollowStatus() async {
-        guard let currentUserId = Auth.auth().currentUser?.uid else { return }
+        guard Auth.auth().currentUser?.uid != nil else { return }
         isFollowing = await followService.isFollowing(userId: user.id)
     }
     

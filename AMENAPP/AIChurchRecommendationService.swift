@@ -108,17 +108,16 @@ class AIChurchRecommendationService {
         let familyStatus = userData["familyStatus"] as? String
         let preferredWorshipStyle = userData["preferredWorshipStyle"] as? String
         
-        // Analyze recent prayers (last 30 days)
-        let prayerTopics = try await analyzePrayerTopics(userId: userId)
-        
-        // Analyze recent posts
-        let postTopics = try await analyzePostTopics(userId: userId)
+        // Analyze recent prayers and posts concurrently
+        async let prayerTopics = analyzePrayerTopics(userId: userId)
+        async let postTopics = analyzePostTopics(userId: userId)
+        let (resolvedPrayerTopics, resolvedPostTopics) = try await (prayerTopics, postTopics)
         
         return UserRecommendationProfile(
             userId: userId,
             interests: interests,
-            recentPrayerTopics: prayerTopics,
-            recentPostTopics: postTopics,
+            recentPrayerTopics: resolvedPrayerTopics,
+            recentPostTopics: resolvedPostTopics,
             familyStatus: familyStatus,
             preferredWorshipStyle: preferredWorshipStyle
         )
@@ -177,7 +176,8 @@ class AIChurchRecommendationService {
     
     /// Wait for AI recommendation response
     private func waitForRecommendations(requestId: String) async throws -> [ChurchRecommendation] {
-        for _ in 0..<12 { // 12 attempts × 0.5s = 6 seconds
+        for _ in 0..<60 { // 60 attempts × 0.5s = 30 seconds (handles Vertex AI + Cloud Function cold start)
+            try Task.checkCancellation()
             try await Task.sleep(nanoseconds: 500_000_000)
             
             let snapshot = try await db.collection("churchRecommendationResults")

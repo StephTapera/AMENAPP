@@ -153,7 +153,7 @@ class SpotlightViewModel: ObservableObject {
         )
         
         // Combine and deduplicate
-        var allPosts = following + community + discovery
+        let allPosts = following + community + discovery
         let uniquePosts = Array(Dictionary(grouping: allPosts, by: { $0.id }).values.compactMap { $0.first })
         
         return uniquePosts

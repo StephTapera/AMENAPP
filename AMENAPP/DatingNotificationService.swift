@@ -31,15 +31,28 @@ class DatingNotificationService: ObservableObject {
     func connect() {
         guard !isConnected else { return }
         
-        // TODO: Replace with actual WebSocket URL
-        // guard let url = URL(string: "wss://your-backend.com/dating/notifications") else { return }
-        
+        // NOTE: Real-time dating notifications are NOT YET LIVE.
+        // This feature requires a WebSocket backend endpoint (Cloud Run / Firebase Functions).
+        // When the endpoint is deployed, replace the URL below and uncomment the connection logic.
+        //
+        // WHEN READY:
+        //   1. Deploy the WebSocket server (see cloud-run/dating-ws/ when created)
+        //   2. Add "dating_ws_url" key to Firebase Remote Config
+        //   3. Uncomment the connection block below
+        //
+        // let wsURL = RemoteConfig.remoteConfig().configValue(forKey: "dating_ws_url").stringValue ?? ""
+        // guard !wsURL.isEmpty, let url = URL(string: wsURL) else {
+        //     print("⚠️ Dating WebSocket URL not configured in Remote Config")
+        //     return
+        // }
         // webSocketTask = URLSession.shared.webSocketTask(with: url)
         // webSocketTask?.resume()
         // receiveMessage()
+        // isConnected = true
         
-        isConnected = true
-        print("🔔 Dating notifications connected")
+        print("⚠️ [DatingNotificationService] WebSocket not yet configured — real-time dating notifications disabled")
+        // Don't set isConnected = true; use polling fallback instead
+        startPolling()
     }
     
     func disconnect() {
@@ -186,7 +199,12 @@ class DatingNotificationService: ObservableObject {
         //     try await APIClient.post("/api/dating/notifications/register", body: ["token": tokenString])
         // }
         
-        print("📱 Device token: \(tokenString)")
+        // PII SANITIZATION: Never log full device tokens in release builds.
+        // Device tokens are sensitive: an attacker with the token can send spoofed pushes.
+        #if DEBUG
+        let tokenPreview = tokenString.prefix(8)
+        dlog("📱 Device token registered (first 8 chars): \(tokenPreview)…")
+        #endif
     }
     
     private func showLocalNotification(title: String, body: String, identifier: String) async {
@@ -216,7 +234,7 @@ class DatingNotificationService: ObservableObject {
         unreadMessageCount = 0
         
         Task { @MainActor in
-            UIApplication.shared.applicationIconBadgeNumber = 0
+            UNUserNotificationCenter.current().setBadgeCount(0) { _ in }
         }
     }
     
@@ -232,7 +250,7 @@ class DatingNotificationService: ObservableObject {
     
     private func updateBadge() {
         Task { @MainActor in
-            UIApplication.shared.applicationIconBadgeNumber = unreadMatchCount + unreadMessageCount
+            UNUserNotificationCenter.current().setBadgeCount(unreadMatchCount + unreadMessageCount) { _ in }
         }
     }
     

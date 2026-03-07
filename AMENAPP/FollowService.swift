@@ -71,25 +71,37 @@ class FollowService: ObservableObject {
     
     /// Follow a user
     func followUser(userId: String) async throws {
-        print("👥 Following user: \(userId)")
+        dlog("👥 Following user: \(userId)")
         
         guard let currentUserId = firebaseManager.currentUser?.uid else {
-            print("❌ Not authenticated - cannot follow user")
+            dlog("❌ Not authenticated - cannot follow user")
             throw FirebaseError.unauthorized
         }
         
-        print("   Current user ID: \(currentUserId)")
-        print("   Target user ID: \(userId)")
+        dlog("   Current user ID: \(currentUserId)")
+        dlog("   Target user ID: \(userId)")
         
         // Don't follow yourself
         guard userId != currentUserId else {
-            print("⚠️ Cannot follow yourself")
+            dlog("⚠️ Cannot follow yourself")
             return
+        }
+        
+        // ✅ CHECK RATE LIMIT FOR NEW ACCOUNTS
+        let rateLimitCheck = await NewAccountRestrictionService.shared.canFollow(userId: currentUserId)
+        guard rateLimitCheck.allowed else {
+            if let reason = rateLimitCheck.reason {
+                dlog("⚠️ Rate limit exceeded: \(reason)")
+                await MainActor.run {
+                    self.error = reason
+                }
+            }
+            throw FirebaseError.rateLimitExceeded
         }
         
         // PREVENT DUPLICATE OPERATIONS
         guard !followOperationsInProgress.contains(userId) else {
-            print("⚠️ Follow operation already in progress for user: \(userId)")
+            dlog("⚠️ Follow operation already in progress for user: \(userId)")
             return
         }
         
@@ -107,15 +119,46 @@ class FollowService: ObservableObject {
             .getDocuments()
         
         if !snapshot.documents.isEmpty {
-            print("⚠️ Already following this user (found in Firestore)")
+            dlog("⚠️ Already following this user (found in Firestore)")
             following.insert(userId) // Update cache
             return
         }
         
-        // Optimistically update local state FIRST (prevents double-tap)
-        await MainActor.run {
-            following.insert(userId)
+        // Check if target account is private — send a follow request instead of instant follow
+        let targetUserDoc = try await db.collection(FirebaseManager.CollectionPath.users)
+            .document(userId)
+            .getDocument()
+        
+        let isPrivate = targetUserDoc.data()?["isPrivate"] as? Bool ?? false
+        
+        if isPrivate {
+            // Check if request already sent
+            let existingRequest = try await db.collection("followRequests")
+                .whereField("fromUserId", isEqualTo: currentUserId)
+                .whereField("toUserId", isEqualTo: userId)
+                .whereField("status", isEqualTo: "pending")
+                .limit(to: 1)
+                .getDocuments()
+            
+            guard existingRequest.documents.isEmpty else {
+                dlog("⚠️ Follow request already pending for user: \(userId)")
+                return
+            }
+            
+            // Create a pending follow request
+            let requestData: [String: Any] = [
+                "fromUserId": currentUserId,
+                "toUserId": userId,
+                "status": "pending",
+                "createdAt": FieldValue.serverTimestamp()
+            ]
+            try await db.collection("followRequests").addDocument(data: requestData)
+            dlog("✅ Follow request sent to private account: \(userId)")
+            return
         }
+        
+        // Public account — optimistically update local state FIRST (prevents double-tap)
+        following.insert(userId)
         
         // Create follow relationship
         let follow = Follow(
@@ -123,7 +166,7 @@ class FollowService: ObservableObject {
             followingId: userId
         )
         
-        print("   Creating follow relationship...")
+        dlog("   Creating follow relationship...")
         
         // Use batch write for atomicity
         let batch = db.batch()
@@ -133,12 +176,21 @@ class FollowService: ObservableObject {
         do {
             try batch.setData(from: follow, forDocument: followRef)
         } catch {
-            print("❌ Failed to encode follow data: \(error)")
+            dlog("❌ Failed to encode follow data: \(error)")
             // Revert optimistic update
             following.remove(userId)
             throw error
         }
-        
+
+        // 1b. Write follows_index entry — used by Firestore privacy rules for O(1) lookups
+        let indexId = "\(currentUserId)_\(userId)"
+        let indexRef = db.collection("follows_index").document(indexId)
+        batch.setData([
+            "followerId": currentUserId,
+            "followingId": userId,
+            "createdAt": FieldValue.serverTimestamp()
+        ], forDocument: indexRef)
+
         // 2. Increment follower count on target user
         let targetUserRef = db.collection(FirebaseManager.CollectionPath.users).document(userId)
         batch.updateData([
@@ -155,12 +207,16 @@ class FollowService: ObservableObject {
         
         // Commit batch
         do {
-            print("   Committing batch write...")
+            dlog("   Committing batch write...")
             try await batch.commit()
-            print("✅ Followed user successfully")
+            dlog("✅ Followed user successfully")
+            
+            // ✅ RECORD RATE LIMIT ACTION
+            await NewAccountRestrictionService.shared.recordAction(.follow, userId: currentUserId)
+            
         } catch {
-            print("❌ Batch commit failed: \(error)")
-            print("   Error details: \((error as NSError).localizedDescription)")
+            dlog("❌ Batch commit failed: \(error)")
+            dlog("   Error details: \((error as NSError).localizedDescription)")
             // Revert optimistic update on error
             following.remove(userId)
             throw error
@@ -173,6 +229,14 @@ class FollowService: ObservableObject {
         // Haptic feedback
         let haptic = UINotificationFeedbackGenerator()
         haptic.notificationOccurred(.success)
+
+        // Invalidate privacy cache so follow state is fresh everywhere
+        await PrivacyAccessControl.shared.invalidate(userId: userId)
+        NotificationCenter.default.post(
+            name: .followRelationshipChanged,
+            object: nil,
+            userInfo: ["userId": userId]
+        )
     }
     
     // MARK: - Unfollow User
@@ -182,7 +246,7 @@ class FollowService: ObservableObject {
     
     /// Unfollow a user
     func unfollowUser(userId: String) async throws {
-        print("👥 Unfollowing user: \(userId)")
+        dlog("👥 Unfollowing user: \(userId)")
         
         guard let currentUserId = firebaseManager.currentUser?.uid else {
             throw FirebaseError.unauthorized
@@ -190,7 +254,7 @@ class FollowService: ObservableObject {
         
         // PREVENT DUPLICATE OPERATIONS
         guard !unfollowOperationsInProgress.contains(userId) else {
-            print("⚠️ Unfollow operation already in progress for user: \(userId)")
+            dlog("⚠️ Unfollow operation already in progress for user: \(userId)")
             return
         }
         
@@ -212,41 +276,42 @@ class FollowService: ObservableObject {
         let snapshot = try await followQuery.getDocuments()
         
         guard let followDoc = snapshot.documents.first else {
-            print("⚠️ Not following this user")
+            dlog("⚠️ Not following this user")
             return
         }
         
-        // Use batch write for atomicity
-        let batch = db.batch()
-        
-        // 1. Delete follow relationship
-        batch.deleteDocument(followDoc.reference)
-        
-        // P1-2: Use transaction-safe decrements to prevent negative counts
-        // Note: We use regular increment(-1) here since transactions are expensive
-        // The defensive clamping in UserProfileView handles edge cases
-        // For a full transaction-based solution, see safeDecrementCount() helper
-        
-        // 2. Decrement follower count on target user
+        let followDocRef = followDoc.reference
         let targetUserRef = db.collection(FirebaseManager.CollectionPath.users).document(userId)
-        batch.updateData([
-            "followersCount": FieldValue.increment(Int64(-1)),
-            "updatedAt": Date()
-        ], forDocument: targetUserRef)
-        
-        // 3. Decrement following count on current user
         let currentUserRef = db.collection(FirebaseManager.CollectionPath.users).document(currentUserId)
-        batch.updateData([
-            "followingCount": FieldValue.increment(Int64(-1)),
-            "updatedAt": Date()
-        ], forDocument: currentUserRef)
         
-        // Commit batch
+        // P1 FIX: Use a transaction to delete the follow doc and clamp-decrement
+        // counters atomically — prevents counts going negative on rapid/duplicate taps.
         do {
-            try await batch.commit()
-            print("✅ Unfollowed user successfully")
+            _ = try await db.runTransaction { transaction, errorPointer in
+                // Read current counts inside the transaction
+                let targetSnap: DocumentSnapshot
+                let currentSnap: DocumentSnapshot
+                do {
+                    targetSnap  = try transaction.getDocument(targetUserRef)
+                    currentSnap = try transaction.getDocument(currentUserRef)
+                } catch let fetchError as NSError {
+                    errorPointer?.pointee = fetchError
+                    return nil
+                }
+                
+                let targetFollowers = max(0, (targetSnap.data()?["followersCount"] as? Int ?? 0) - 1)
+                let currentFollowing = max(0, (currentSnap.data()?["followingCount"] as? Int ?? 0) - 1)
+                
+                transaction.deleteDocument(followDocRef)
+                transaction.updateData(["followersCount": targetFollowers, "updatedAt": Date()], forDocument: targetUserRef)
+                transaction.updateData(["followingCount": currentFollowing, "updatedAt": Date()], forDocument: currentUserRef)
+                // Remove follows_index entry so privacy rules no longer grant access
+                let indexRef = self.db.collection("follows_index").document("\(currentUserId)_\(userId)")
+                transaction.deleteDocument(indexRef)
+                return nil
+            }
         } catch {
-            print("❌ Unfollow failed: \(error)")
+            dlog("❌ Unfollow transaction failed: \(error)")
             // Revert optimistic update on error
             following.insert(userId)
             throw error
@@ -255,6 +320,14 @@ class FollowService: ObservableObject {
         // Haptic feedback
         let haptic = UIImpactFeedbackGenerator(style: .light)
         haptic.impactOccurred()
+
+        // Invalidate privacy cache on unfollow
+        await PrivacyAccessControl.shared.invalidate(userId: userId)
+        NotificationCenter.default.post(
+            name: .followRelationshipChanged,
+            object: nil,
+            userInfo: ["userId": userId]
+        )
     }
     
     // MARK: - Toggle Follow
@@ -297,7 +370,7 @@ class FollowService: ObservableObject {
             
             return isFollowing
         } catch {
-            print("❌ Error checking follow status: \(error)")
+            dlog("❌ Error checking follow status: \(error)")
             return false
         }
     }
@@ -306,7 +379,7 @@ class FollowService: ObservableObject {
     
     /// Fetch all followers for a user (returns user IDs)
     func fetchFollowerIds(userId: String) async throws -> [String] {
-        print("📥 Fetching followers for user: \(userId)")
+        dlog("📥 Fetching followers for user: \(userId)")
         
         // Query without ordering to avoid index requirement
         let snapshot = try await db.collection(FirebaseManager.CollectionPath.follows)
@@ -315,7 +388,7 @@ class FollowService: ObservableObject {
         
         let followerIds = snapshot.documents.compactMap { $0.data()["followerId"] as? String }
         
-        print("✅ Fetched \(followerIds.count) followers")
+        dlog("✅ Fetched \(followerIds.count) followers")
         
         return followerIds
     }
@@ -352,7 +425,7 @@ class FollowService: ObservableObject {
             throw FirebaseError.unauthorized
         }
         
-        print("👥 Removing follower: \(followerId)")
+        dlog("👥 Removing follower: \(followerId)")
         
         // Find the follow relationship where they follow you
         let followQuery = db.collection(FirebaseManager.CollectionPath.follows)
@@ -363,41 +436,51 @@ class FollowService: ObservableObject {
         let snapshot = try await followQuery.getDocuments()
         
         guard let followDoc = snapshot.documents.first else {
-            print("⚠️ No follow relationship found")
+            dlog("⚠️ No follow relationship found")
             return
         }
         
-        // Use batch write
-        let batch = db.batch()
-        
-        // 1. Delete follow relationship
-        batch.deleteDocument(followDoc.reference)
-        
-        // 2. Decrement follower count on current user
+        let followDocRef = followDoc.reference
         let currentUserRef = db.collection(FirebaseManager.CollectionPath.users).document(currentUserId)
-        batch.updateData([
-            "followersCount": FieldValue.increment(Int64(-1)),
-            "updatedAt": Date()
-        ], forDocument: currentUserRef)
-        
-        // 3. Decrement following count on the follower
         let followerRef = db.collection(FirebaseManager.CollectionPath.users).document(followerId)
-        batch.updateData([
-            "followingCount": FieldValue.increment(Int64(-1)),
-            "updatedAt": Date()
-        ], forDocument: followerRef)
         
-        // Commit batch
-        try await batch.commit()
-        
-        print("✅ Follower removed successfully")
+        // P1 FIX: Transaction with clamped decrements to prevent negative counts
+        _ = try await db.runTransaction { transaction, errorPointer in
+            let currentSnap: DocumentSnapshot
+            let followerSnap: DocumentSnapshot
+            do {
+                currentSnap = try transaction.getDocument(currentUserRef)
+                followerSnap = try transaction.getDocument(followerRef)
+            } catch let fetchError as NSError {
+                errorPointer?.pointee = fetchError
+                return nil
+            }
+            let newFollowers = max(0, (currentSnap.data()?["followersCount"] as? Int ?? 0) - 1)
+            let newFollowing = max(0, (followerSnap.data()?["followingCount"] as? Int ?? 0) - 1)
+            transaction.deleteDocument(followDocRef)
+            transaction.updateData(["followersCount": newFollowers, "updatedAt": Date()], forDocument: currentUserRef)
+            transaction.updateData(["followingCount": newFollowing, "updatedAt": Date()], forDocument: followerRef)
+            // Remove follows_index so the removed follower loses private-content access
+            let indexRef = self.db.collection("follows_index").document("\(followerId)_\(currentUserId)")
+            transaction.deleteDocument(indexRef)
+            return nil
+        }
+        dlog("✅ Follower removed successfully")
+
+        // Invalidate privacy cache for the removed follower
+        await PrivacyAccessControl.shared.invalidate(userId: followerId)
+        NotificationCenter.default.post(
+            name: .followRelationshipChanged,
+            object: nil,
+            userInfo: ["userId": followerId]
+        )
     }
     
     // MARK: - Fetch Following
     
     /// Fetch all users that a user is following (returns user IDs)
     func fetchFollowingIds(userId: String) async throws -> [String] {
-        print("📥 Fetching following for user: \(userId)")
+        dlog("📥 Fetching following for user: \(userId)")
         
         // Query without ordering to avoid index requirement
         let snapshot = try await db.collection(FirebaseManager.CollectionPath.follows)
@@ -406,7 +489,7 @@ class FollowService: ObservableObject {
         
         let followingIds = snapshot.documents.compactMap { $0.data()["followingId"] as? String }
         
-        print("✅ Fetched \(followingIds.count) following")
+        dlog("✅ Fetched \(followingIds.count) following")
         
         return followingIds
     }
@@ -428,9 +511,9 @@ class FollowService: ObservableObject {
         do {
             let followingIds = try await fetchFollowingIds(userId: currentUserId)
             following = Set(followingIds)
-            print("✅ Loaded \(followingIds.count) following into cache")
+            dlog("✅ Loaded \(followingIds.count) following into cache")
         } catch {
-            print("❌ Failed to load following: \(error)")
+            dlog("❌ Failed to load following: \(error)")
         }
     }
     
@@ -441,9 +524,9 @@ class FollowService: ObservableObject {
         do {
             let followerIds = try await fetchFollowerIds(userId: currentUserId)
             followers = Set(followerIds)
-            print("✅ Loaded \(followerIds.count) followers into cache")
+            dlog("✅ Loaded \(followerIds.count) followers into cache")
         } catch {
-            print("❌ Failed to load followers: \(error)")
+            dlog("❌ Failed to load followers: \(error)")
         }
     }
     
@@ -455,22 +538,24 @@ class FollowService: ObservableObject {
             return false
         }
         
-        let youFollowThem = await isFollowing(userId: userId)
+        // Run both queries concurrently instead of sequentially.
+        async let youFollowThemTask = isFollowing(userId: userId)
+        async let theyFollowYouTask: Bool = {
+            do {
+                let snapshot = try await db.collection(FirebaseManager.CollectionPath.follows)
+                    .whereField("followerId", isEqualTo: userId)
+                    .whereField("followingId", isEqualTo: currentUserId)
+                    .limit(to: 1)
+                    .getDocuments()
+                return !snapshot.documents.isEmpty
+            } catch {
+                return false
+            }
+        }()
         
-        // Check if they follow you
-        do {
-            let snapshot = try await db.collection(FirebaseManager.CollectionPath.follows)
-                .whereField("followerId", isEqualTo: userId)
-                .whereField("followingId", isEqualTo: currentUserId)
-                .limit(to: 1)
-                .getDocuments()
-            
-            let theyFollowYou = !snapshot.documents.isEmpty
-            
-            return youFollowThem && theyFollowYou
-        } catch {
-            return false
-        }
+        let youFollowThem = await youFollowThemTask
+        let theyFollowYou = await theyFollowYouTask
+        return youFollowThem && theyFollowYou
     }
     
     // MARK: - Real-time Listeners
@@ -479,18 +564,23 @@ class FollowService: ObservableObject {
     func startListening() {
         // ✅ FIX: Prevent duplicate listeners
         guard !isListening else {
-            print("⚠️ Already listening to follow changes")
+            dlog("⚠️ Already listening to follow changes")
             return
         }
         
         guard let currentUserId = firebaseManager.currentUser?.uid else {
-            print("⚠️ No user ID for listener")
+            dlog("⚠️ No user ID for listener")
             return
         }
         
         isListening = true
-        print("🔊 Starting real-time listener for follows...")
-        
+        dlog("🔊 Starting real-time listener for follows...")
+
+        #if DEBUG
+        ListenerCounter.shared.attach("follow-following")
+        ListenerCounter.shared.attach("follow-followers")
+        #endif
+
         // Listen to following
         let followingListener = db.collection(FirebaseManager.CollectionPath.follows)
             .whereField("followerId", isEqualTo: currentUserId)
@@ -498,7 +588,7 @@ class FollowService: ObservableObject {
                 guard let self = self else { return }
                 
                 if let error = error {
-                    print("❌ Following listener error: \(error)")
+                    dlog("❌ Following listener error: \(error)")
                     return
                 }
                 
@@ -511,7 +601,7 @@ class FollowService: ObservableObject {
                 Task { @MainActor in
                     self.following = Set(followingIds)
                     self.currentUserFollowingCount = followingIds.count
-                    print("✅ Real-time update: \(followingIds.count) following")
+                    dlog("✅ Real-time update: \(followingIds.count) following")
                 }
             }
         
@@ -522,7 +612,7 @@ class FollowService: ObservableObject {
                 guard let self = self else { return }
                 
                 if let error = error {
-                    print("❌ Followers listener error: \(error)")
+                    dlog("❌ Followers listener error: \(error)")
                     return
                 }
                 
@@ -535,7 +625,7 @@ class FollowService: ObservableObject {
                 Task { @MainActor in
                     self.followers = Set(followerIds)
                     self.currentUserFollowersCount = followerIds.count
-                    print("✅ Real-time update: \(followerIds.count) followers")
+                    dlog("✅ Real-time update: \(followerIds.count) followers")
                 }
             }
         
@@ -548,7 +638,13 @@ class FollowService: ObservableObject {
     
     /// Stop all listeners
     func stopListening() {
-        print("🔇 Stopping follow listeners...")
+        dlog("🔇 Stopping follow listeners...")
+        #if DEBUG
+        if !listeners.isEmpty {
+            ListenerCounter.shared.detach("follow-following")
+            ListenerCounter.shared.detach("follow-followers")
+        }
+        #endif
         listeners.forEach { $0.remove() }
         listeners.removeAll()
         isListening = false  // ✅ FIX: Reset flag so listeners can be restarted
@@ -594,12 +690,12 @@ class FollowService: ObservableObject {
         
         // P1-1: If requesting current user's counts and we have cached data, use it
         if userId == currentUserId, let cached = getCachedCurrentUserCounts() {
-            print("✅ Using cached counts for current user: \(cached.followers) followers, \(cached.following) following")
+            dlog("✅ Using cached counts for current user: \(cached.followers) followers, \(cached.following) following")
             return cached
         }
         
         // Fall back to Firestore read for other users or if cache unavailable
-        print("📡 Fetching counts from Firestore for user: \(userId)")
+        dlog("📡 Fetching counts from Firestore for user: \(userId)")
         return try await getFollowStats(userId: userId)
     }
     
@@ -612,7 +708,7 @@ class FollowService: ObservableObject {
             return []
         }
         
-        print("📦 Batch fetching \(userIds.count) user profiles...")
+        dlog("📦 Batch fetching \(userIds.count) user profiles...")
         
         // Firestore 'in' query limit is 10 items per batch
         let batchSize = 10
@@ -623,7 +719,7 @@ class FollowService: ObservableObject {
             Array(userIds[$0..<min($0 + batchSize, userIds.count)])
         }
         
-        print("   Processing \(batches.count) batch(es) of \(batchSize) items each")
+        dlog("   Processing \(batches.count) batch(es) of \(batchSize) items each")
         
         // Fetch each batch in parallel for maximum performance
         try await withThrowingTaskGroup(of: [FollowUserProfile].self) { group in
@@ -635,7 +731,8 @@ class FollowService: ObservableObject {
                         .getDocuments()
                     
                     let profiles = snapshot.documents.compactMap { doc -> FollowUserProfile? in
-                        guard let userData = doc.data() as? [String: Any] else {
+                        let userData = doc.data()
+                        guard !userData.isEmpty else {
                             return nil
                         }
                         
@@ -650,7 +747,7 @@ class FollowService: ObservableObject {
                         )
                     }
                     
-                    print("   ✅ Fetched batch of \(profiles.count) users")
+                    dlog("   ✅ Fetched batch of \(profiles.count) users")
                     return profiles
                 }
             }
@@ -661,7 +758,7 @@ class FollowService: ObservableObject {
             }
         }
         
-        print("✅ Batch fetch complete: \(allProfiles.count) profiles fetched")
+        dlog("✅ Batch fetch complete: \(allProfiles.count) profiles fetched")
         
         return allProfiles
     }
@@ -676,7 +773,7 @@ class FollowService: ObservableObject {
         userRef: DocumentReference,
         field: String
     ) async throws {
-        try await db.runTransaction { transaction, errorPointer in
+        _ = try await db.runTransaction { transaction, errorPointer in
             do {
                 let userDoc = try transaction.getDocument(userRef)
                 let currentCount = userDoc.data()?[field] as? Int ?? 0
@@ -688,7 +785,7 @@ class FollowService: ObservableObject {
                         "updatedAt": Date()
                     ], forDocument: userRef)
                 } else {
-                    print("⚠️ Prevented negative decrement for \(field) on user \(userRef.documentID)")
+                    dlog("⚠️ Prevented negative decrement for \(field) on user \(userRef.documentID)")
                 }
                 
                 return nil

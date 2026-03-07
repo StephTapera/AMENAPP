@@ -5,6 +5,7 @@
 //  Debug helper to check profile image status
 //
 
+#if DEBUG
 import SwiftUI
 import FirebaseAuth
 import FirebaseFirestore
@@ -142,3 +143,4 @@ struct ProfileImageDebugView: View {
 #Preview {
     ProfileImageDebugView()
 }
+#endif

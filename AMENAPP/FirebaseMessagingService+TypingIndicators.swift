@@ -18,9 +18,12 @@ extension FirebaseMessagingService {
     
     // MARK: - Typing Indicators Helper
     
-    /// Stop listening to typing indicators (cleanup)
-    /// Clears the current user's typing status when leaving a conversation
+    /// Stop listening to typing indicators and clear the current user's typing status.
     func stopListeningToTyping(conversationId: String) {
+        // Remove the Firestore snapshot listener
+        typingListeners[conversationId]?.remove()
+        typingListeners.removeValue(forKey: conversationId)
+
         // Clear our own typing status when leaving
         Task {
             do {

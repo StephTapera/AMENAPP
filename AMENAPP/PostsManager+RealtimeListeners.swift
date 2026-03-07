@@ -14,21 +14,21 @@ extension PostsManager {
     /// Start listening to posts for a specific category
     /// This enables real-time updates when posts are created, modified, or deleted
     func startListening(for category: Post.PostCategory) {
-        print("📡 PostsManager: Starting real-time listener for \(category.rawValue)")
+        dlog("📡 PostsManager: Starting real-time listener for \(category.rawValue)")
         FirebasePostService.shared.startListening(category: category)
     }
     
     /// Stop all real-time listeners
     /// Call this when you want to stop receiving updates (e.g., when view disappears)
     func stopListening() {
-        print("📡 PostsManager: Stopping all real-time listeners")
+        dlog("📡 PostsManager: Stopping all real-time listeners")
         FirebasePostService.shared.stopListening()
     }
     
     /// Start listening to all categories at once
     /// Useful for main feed views that show posts from all categories
     func startListeningToAllCategories() {
-        print("📡 PostsManager: Starting real-time listener for ALL categories")
+        dlog("📡 PostsManager: Starting real-time listener for ALL categories")
         FirebasePostService.shared.startListening(category: nil)
     }
 }

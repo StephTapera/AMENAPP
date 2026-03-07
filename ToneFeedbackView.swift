@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Combine
 
 struct ToneFeedbackView: View {
     let feedback: AIToneGuidanceService.ToneFeedback

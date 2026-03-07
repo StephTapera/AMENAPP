@@ -37,8 +37,9 @@ class SmartSuggestionsService {
     private let cacheExpiryDays = 7 // Refresh suggestions weekly
     
     private init() {
-        // Use the OpenAI API key
-        self.openAIKey = "YOUR_OPENAI_API_KEY_HERE"
+        // Read OpenAI key from build configuration (xcconfig → Info.plist).
+        // Never hardcode API keys in source files.
+        self.openAIKey = BundleConfig.string(forKey: "OPENAI_API_KEY") ?? ""
     }
     
     // MARK: - Main Suggestion Function

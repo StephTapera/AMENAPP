@@ -8,6 +8,9 @@
 import SwiftUI
 import PhotosUI
 import Combine
+import FirebaseAuth
+import FirebaseFirestore
+import FirebaseStorage
 
 struct AmenConnectProfileSetupView: View {
     @Environment(\.dismiss) private var dismiss
@@ -31,10 +34,11 @@ struct AmenConnectProfileSetupView: View {
                     .padding(.top, 20)
                     
                     // Profile Photo Section
+                    let profileImage = viewModel.profileImage
                     VStack(spacing: 12) {
                         PhotosPicker(selection: $viewModel.selectedPhoto, matching: .images) {
                             ZStack {
-                                if let image = viewModel.profileImage {
+                                if let image = profileImage {
                                     Image(uiImage: image)
                                         .resizable()
                                         .scaledToFill()
@@ -69,7 +73,7 @@ struct AmenConnectProfileSetupView: View {
                                 }
                                 
                                 // Edit button overlay
-                                if viewModel.profileImage != nil {
+                                if profileImage != nil {
                                     VStack {
                                         Spacer()
                                         HStack {
@@ -436,7 +440,7 @@ class ProfileSetupViewModel: ObservableObject {
     
     init() {
         // Watch for photo selection changes
-        Task {
+        Task { @MainActor in
             for await newValue in $selectedPhoto.values {
                 if let newValue {
                     await loadImage(from: newValue)
@@ -457,27 +461,59 @@ class ProfileSetupViewModel: ObservableObject {
     }
     
     func saveProfile() {
-        // Convert image to data
-        let photoData = profileImage?.jpegData(compressionQuality: 0.8)
-        
-        let profile = AmenConnectProfile(
-            name: name,
-            age: age,
-            birthYear: birthYear,
-            bio: bio,
-            profilePhoto: photoData,
-            yearsSaved: yearsSaved,
-            isBaptized: isBaptized,
-            churchName: churchName,
-            churchCity: churchCity,
-            churchState: churchState,
-            interests: interests,
-            denomination: denomination,
-            lookingFor: lookingFor
-        )
-        
-        // TODO: Save to backend/database
-        print("Profile saved: \(profile)")
+        Task { @MainActor in
+            await self.performSave()
+        }
+    }
+
+    private func performSave() async {
+        guard let userId = Auth.auth().currentUser?.uid else {
+            print("⚠️ AmenConnect: No authenticated user — cannot save profile")
+            return
+        }
+
+        let db = Firestore.firestore()
+        var photoURL: String? = nil
+
+        // Upload profile photo to Firebase Storage if one was selected
+        if let imageData = profileImage?.jpegData(compressionQuality: 0.8) {
+            let storageRef = Storage.storage().reference()
+                .child("amenConnect/\(userId)/profile.jpg")
+            let metadata = StorageMetadata()
+            metadata.contentType = "image/jpeg"
+
+            do {
+                _ = try await storageRef.putDataAsync(imageData, metadata: metadata)
+                photoURL = try await storageRef.downloadURL().absoluteString
+            } catch {
+                print("⚠️ AmenConnect: Photo upload failed — \(error.localizedDescription)")
+                // Continue saving profile without photo
+            }
+        }
+
+        var profileData: [String: Any] = [
+            "name": name,
+            "age": age,
+            "birthYear": birthYear,
+            "bio": bio,
+            "yearsSaved": yearsSaved,
+            "isBaptized": isBaptized,
+            "churchName": churchName,
+            "churchCity": churchCity,
+            "churchState": churchState,
+            "interests": interests,
+            "lookingFor": lookingFor,
+            "updatedAt": FieldValue.serverTimestamp()
+        ]
+        if let denomination = denomination { profileData["denomination"] = denomination }
+        if let url = photoURL { profileData["profilePhotoURL"] = url }
+
+        do {
+            try await db.collection("amenConnect").document(userId).setData(profileData, merge: true)
+            print("✅ AmenConnect: Profile saved for user \(userId)")
+        } catch {
+            print("❌ AmenConnect: Failed to save profile — \(error.localizedDescription)")
+        }
     }
 }
 

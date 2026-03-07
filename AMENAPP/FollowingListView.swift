@@ -14,7 +14,7 @@ struct FollowingListView: View {
     let isCurrentUser: Bool
     
     @Environment(\.dismiss) var dismiss
-    @StateObject private var followService = FollowService.shared
+    @ObservedObject private var followService = FollowService.shared
     
     @State private var following: [UserBasicInfo] = []
     @State private var isLoading = true

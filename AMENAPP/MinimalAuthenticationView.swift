@@ -9,6 +9,8 @@
 
 import SwiftUI
 import FirebaseAuth
+import CryptoKit
+import AuthenticationServices
 
 struct MinimalAuthenticationView: View {
     var initialMode: AppLaunchView.AuthMode = .login
@@ -21,7 +23,17 @@ struct MinimalAuthenticationView: View {
     @State private var showPassword = false
     @State private var isLoading = false
     @State private var errorMessage: String?
-    
+
+    // Age collection (sign-up only)
+    @State private var birthDate: Date = Calendar.current.date(
+        byAdding: .year, value: -18, to: Date()) ?? Date()
+    @State private var showDatePicker = false
+    @State private var hasPickedBirthDate = false
+
+    // Apple Sign-In state
+    @State private var currentNonce: String?
+    @State private var appleSignInCoordinator: MinimalAppleSignInCoordinator?
+
     @Environment(\.dismiss) var dismiss
     
     init(initialMode: AppLaunchView.AuthMode = .login) {
@@ -185,6 +197,16 @@ struct MinimalAuthenticationView: View {
                                 )
                                 .transition(.opacity.combined(with: .move(edge: .top)))
                             }
+
+                            // Date of Birth (Sign up only)
+                            if !isLogin {
+                                MinimalDateField(
+                                    birthDate: $birthDate,
+                                    showPicker: $showDatePicker,
+                                    hasPicked: $hasPickedBirthDate
+                                )
+                                .transition(.opacity.combined(with: .move(edge: .top)))
+                            }
                         }
                         
                         // Forgot Password (Login only)
@@ -257,14 +279,14 @@ struct MinimalAuthenticationView: View {
                                 icon: "apple.logo",
                                 title: "Continue with Apple"
                             ) {
-                                // Handle Apple login
+                                handleAppleSignIn()
                             }
                             
                             MinimalSocialButton(
                                 icon: "g.circle.fill",
                                 title: "Continue with Google"
                             ) {
-                                // Handle Google login
+                                handleGoogleSignIn()
                             }
                         }
                     }
@@ -272,7 +294,7 @@ struct MinimalAuthenticationView: View {
                     
                     // Terms (Sign up only)
                     if !isLogin {
-                        Text("By continuing, you agree to our [Terms](https://example.com) & [Privacy Policy](https://example.com)")
+                        Text("By continuing, you agree to our [Terms](https://amenapp.com/terms) & [Privacy Policy](https://amenapp.com/privacy)")
                             .font(.custom("OpenSans-Regular", size: 11))
                             .foregroundStyle(.white.opacity(0.4))
                             .multilineTextAlignment(.center)
@@ -290,12 +312,17 @@ struct MinimalAuthenticationView: View {
     
     @Namespace private var namespace
     
+    private var birthYear: Int {
+        Calendar.current.component(.year, from: birthDate)
+    }
+
     private var isFormValid: Bool {
         if isLogin {
             return !email.isEmpty && !password.isEmpty
         } else {
-            return !fullName.isEmpty && !email.isEmpty && !password.isEmpty && 
-                   !confirmPassword.isEmpty && password == confirmPassword
+            return !fullName.isEmpty && !email.isEmpty && !password.isEmpty &&
+                   !confirmPassword.isEmpty && password == confirmPassword &&
+                   hasPickedBirthDate
         }
     }
     
@@ -305,34 +332,43 @@ struct MinimalAuthenticationView: View {
             showError("Please fill in all fields")
             return
         }
-        
+
         if !isLogin && password != confirmPassword {
             showError("Passwords don't match")
             return
         }
-        
+
+        // Under-13 hard block (COPPA)
+        if !isLogin {
+            if AgeAssuranceService.shouldBlockSignup(birthDate: birthDate) {
+                showError("You must be 13 or older to create an account.")
+                return
+            }
+        }
+
         isLoading = true
         errorMessage = nil
-        
+
         Task {
             do {
                 if isLogin {
                     // LOGIN with Firebase
-                    try await FirebaseManager.shared.signIn(
+                    _ = try await FirebaseManager.shared.signIn(
                         email: email,
                         password: password
                     )
-                    
+
                     print("✅ User logged in successfully")
-                    
+
                 } else {
-                    // SIGN UP with Firebase - Use fullName for displayName
-                    try await FirebaseManager.shared.signUp(
+                    // SIGN UP with Firebase
+                    _ = try await FirebaseManager.shared.signUp(
                         email: email,
                         password: password,
-                        displayName: fullName  // ← fullName is captured from the form!
+                        displayName: fullName,
+                        birthYear: birthYear
                     )
-                    
+
                     print("✅ User created successfully: \(fullName)")
                 }
                 
@@ -386,6 +422,127 @@ struct MinimalAuthenticationView: View {
         withAnimation(.easeInOut(duration: 0.2)) {
             errorMessage = message
         }
+    }
+
+    // MARK: - Social Auth Handlers
+
+    private func handleGoogleSignIn() {
+        isLoading = true
+        errorMessage = nil
+        Task {
+            do {
+                _ = try await FirebaseManager.shared.signInWithGoogle()
+                await MainActor.run {
+                    isLoading = false
+                    let haptic = UINotificationFeedbackGenerator()
+                    haptic.notificationOccurred(.success)
+                    dismiss()
+                }
+            } catch let error as NSError {
+                await MainActor.run {
+                    isLoading = false
+                    // Code -5 = user cancelled Google sheet
+                    if error.code != -5 {
+                        showError(error.localizedDescription)
+                    }
+                }
+            }
+        }
+    }
+
+    private func handleAppleSignIn() {
+        // Generate a fresh nonce for this sign-in attempt
+        let nonce = randomNonceString()
+        currentNonce = nonce
+
+        let appleIDProvider = ASAuthorizationAppleIDProvider()
+        let request = appleIDProvider.createRequest()
+        request.requestedScopes = [.fullName, .email]
+        request.nonce = sha256(nonce)
+
+        let controller = ASAuthorizationController(authorizationRequests: [request])
+        let coordinator = MinimalAppleSignInCoordinator { [self] result in
+            appleSignInCoordinator = nil
+            switch result {
+            case .success(let authorization):
+                guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
+                      let tokenData = credential.identityToken,
+                      let idToken = String(data: tokenData, encoding: .utf8),
+                      let nonce = currentNonce else { return }
+                isLoading = true
+                Task {
+                    do {
+                        _ = try await FirebaseManager.shared.signInWithApple(
+                            idToken: idToken,
+                            nonce: nonce,
+                            fullName: credential.fullName
+                        )
+                        await MainActor.run {
+                            isLoading = false
+                            let haptic = UINotificationFeedbackGenerator()
+                            haptic.notificationOccurred(.success)
+                            dismiss()
+                        }
+                    } catch {
+                        await MainActor.run {
+                            isLoading = false
+                            showError(error.localizedDescription)
+                        }
+                    }
+                }
+            case .failure(let error):
+                let nsError = error as NSError
+                // Code 1001 = user cancelled Apple Sign-In
+                if nsError.code != 1001 {
+                    showError(error.localizedDescription)
+                }
+            }
+        }
+        appleSignInCoordinator = coordinator
+        controller.delegate = coordinator
+        controller.presentationContextProvider = coordinator
+        controller.performRequests()
+    }
+
+    private func randomNonceString(length: Int = 32) -> String {
+        var randomBytes = [UInt8](repeating: 0, count: length)
+        _ = SecRandomCopyBytes(kSecRandomDefault, randomBytes.count, &randomBytes)
+        let charset: [Character] = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._")
+        return String(randomBytes.map { charset[Int($0) % charset.count] })
+    }
+
+    private func sha256(_ input: String) -> String {
+        let inputData = Data(input.utf8)
+        let hashed = SHA256.hash(data: inputData)
+        return hashed.compactMap { String(format: "%02x", $0) }.joined()
+    }
+}
+
+// MARK: - Apple Sign-In Coordinator (Minimal)
+
+private class MinimalAppleSignInCoordinator: NSObject, ASAuthorizationControllerDelegate, ASAuthorizationControllerPresentationContextProviding {
+    private let onCompletion: (Result<ASAuthorization, Error>) -> Void
+
+    init(onCompletion: @escaping (Result<ASAuthorization, Error>) -> Void) {
+        self.onCompletion = onCompletion
+    }
+
+    func authorizationController(controller: ASAuthorizationController, didCompleteWithAuthorization authorization: ASAuthorization) {
+        onCompletion(.success(authorization))
+    }
+
+    func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
+        onCompletion(.failure(error))
+    }
+
+    func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
+        guard let scene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene,
+              let window = scene.windows.first(where: { $0.isKeyWindow }) ?? scene.windows.first else {
+            // Fallback: use any available window scene
+            let fallbackScene = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first
+            return fallbackScene?.windows.first(where: { $0.isKeyWindow }) ?? fallbackScene?.windows.first ?? UIWindow(frame: .zero)
+        }
+        return window
     }
 }
 
@@ -507,6 +664,82 @@ private struct MinimalSocialButton: View {
                             .stroke(Color.white.opacity(0.12), lineWidth: 1)
                     )
             )
+        }
+    }
+}
+
+// MARK: - Minimal Date Field
+
+private struct MinimalDateField: View {
+    @Binding var birthDate: Date
+    @Binding var showPicker: Bool
+    @Binding var hasPicked: Bool
+
+    private static let formatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateStyle = .long
+        f.timeStyle = .none
+        return f
+    }()
+
+    // Latest allowed date: user must be at least 13 to proceed past the picker
+    private var maxDate: Date {
+        Calendar.current.date(byAdding: .year, value: -1, to: Date()) ?? Date()
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Tappable row
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    showPicker.toggle()
+                }
+            } label: {
+                HStack(spacing: 14) {
+                    Image(systemName: "calendar")
+                        .font(.system(size: 16, weight: .light))
+                        .foregroundStyle(.white.opacity(0.4))
+                        .frame(width: 20)
+
+                    Text(hasPicked
+                         ? Self.formatter.string(from: birthDate)
+                         : "Date of Birth")
+                        .font(.custom("OpenSans-Regular", size: 15))
+                        .foregroundStyle(hasPicked ? .white : .white.opacity(0.35))
+
+                    Spacer()
+
+                    Image(systemName: showPicker ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 12, weight: .light))
+                        .foregroundStyle(.white.opacity(0.3))
+                }
+                .padding(.vertical, 16)
+                .padding(.horizontal, 18)
+                .background(RoundedRectangle(cornerRadius: 12).fill(Color.white.opacity(0.05)))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.white.opacity(showPicker ? 0.3 : 0.1), lineWidth: 1)
+                )
+            }
+            .buttonStyle(.plain)
+
+            // Inline wheel picker
+            if showPicker {
+                DatePicker(
+                    "",
+                    selection: $birthDate,
+                    in: ...maxDate,
+                    displayedComponents: .date
+                )
+                .datePickerStyle(.wheel)
+                .labelsHidden()
+                .colorScheme(.dark)
+                .padding(.top, 4)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+                .onChange(of: birthDate) {
+                    hasPicked = true
+                }
+            }
         }
     }
 }

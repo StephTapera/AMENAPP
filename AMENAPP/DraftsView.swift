@@ -10,7 +10,7 @@ import SwiftUI
 // MARK: - Drafts View
 
 struct DraftsView: View {
-    @StateObject private var draftsManager = DraftsManager.shared
+    @ObservedObject private var draftsManager = DraftsManager.shared
     @Environment(\.dismiss) private var dismiss
     @State private var selectedDraft: PostDraft?
     @State private var showDeleteAllConfirmation = false
@@ -337,7 +337,7 @@ struct DraftCard: View {
 
 struct EditDraftView: View {
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var postsManager = PostsManager.shared
+    @ObservedObject private var postsManager = PostsManager.shared
     
     let draft: PostDraft
     let onUpdate: (PostDraft) -> Void

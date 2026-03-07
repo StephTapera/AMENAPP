@@ -7,13 +7,17 @@
 
 import Foundation
 import UIKit
+import FirebaseAuth
 
 // MARK: - Messages API Service
 
 class MessagesAPIService {
     static let shared = MessagesAPIService()
     
-    private let baseURL = "https://api.yourdomain.com/v1" // Replace with your backend URL
+    // NOTE: This service is not wired into the app. Production messaging uses
+    // FirebaseMessagingService directly via Realtime Database. This class exists
+    // as a REST fallback stub. Do not use without replacing this URL first.
+    private let baseURL = "https://api.yourdomain.com/v1" // Replace with real backend URL before use
     private let session: URLSession
     
     private init() {
@@ -26,12 +30,24 @@ class MessagesAPIService {
     // MARK: - Authentication
     
     private var authToken: String? {
-        // TODO: Get from UserDefaults or Keychain
-        return UserDefaults.standard.string(forKey: "auth_token")
+        // Read from Keychain (secure encrypted storage)
+        if let keychainToken = SecureStorage.load(account: "auth_token") {
+            return keychainToken
+        }
+        // One-time migration: if token was previously stored in UserDefaults, move it to Keychain
+        if let legacyToken = UserDefaults.standard.string(forKey: "auth_token") {
+            SecureStorage.save(legacyToken, account: "auth_token")
+            UserDefaults.standard.removeObject(forKey: "auth_token")
+            return legacyToken
+        }
+        return nil
     }
     
     private var currentUserId: String {
-        // TODO: Get from your auth system
+        // Prefer Firebase Auth UID over stored value
+        if let uid = FirebaseManager.shared.currentUser?.uid {
+            return uid
+        }
         return UserDefaults.standard.string(forKey: "user_id") ?? "unknown"
     }
     
@@ -99,7 +115,9 @@ class MessagesAPIService {
     
     /// Fetch messages for a specific conversation
     func fetchMessages(conversationId: String, limit: Int = 50, before: Date? = nil) async throws -> [MessageDTO] {
-        var urlComponents = URLComponents(string: "\(baseURL)/conversations/\(conversationId)/messages")!
+        guard var urlComponents = URLComponents(string: "\(baseURL)/conversations/\(conversationId)/messages") else {
+            throw APIError.invalidURL
+        }
         
         var queryItems: [URLQueryItem] = [
             URLQueryItem(name: "limit", value: "\(limit)")

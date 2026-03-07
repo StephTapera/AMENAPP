@@ -31,6 +31,10 @@ struct NotificationsSettingsView: View {
     @State private var soundEnabled = true
     @State private var vibrationEnabled = true
     @State private var showPreview = true
+
+    // Reply Assist (Dynamic Island smart replies)
+    @AppStorage("replyAssist_suggestionsEnabled") private var replyAssistEnabled = true
+    @AppStorage("replyAssist_showPreviews") private var replyAssistShowPreviews = false
     
     // Loading States
     @State private var isLoading = true
@@ -73,6 +77,7 @@ struct NotificationsSettingsView: View {
             socialSection
             prayerCommunitySection
             notificationStyleSection
+            replyAssistSection
         }
         .navigationTitle("Notifications")
         .navigationBarTitleDisplayMode(.inline)
@@ -303,6 +308,52 @@ struct NotificationsSettingsView: View {
         }
     }
     
+    // MARK: - Reply Assist Section
+
+    private var replyAssistSection: some View {
+        Section {
+            Toggle(isOn: $replyAssistEnabled) {
+                HStack {
+                    Image(systemName: "wand.and.stars")
+                        .frame(width: 24)
+                        .foregroundStyle(.purple)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Show Reply Suggestions")
+                            .font(.custom("OpenSans-SemiBold", size: 15))
+                        Text("Smart replies in Dynamic Island for comments and DMs")
+                            .font(.custom("OpenSans-Regular", size: 12))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .tint(.purple)
+            .disabled(!notificationsEnabled)
+
+            Toggle(isOn: $replyAssistShowPreviews) {
+                HStack {
+                    Image(systemName: "eye.slash.fill")
+                        .frame(width: 24)
+                        .foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Show Message Previews")
+                            .font(.custom("OpenSans-SemiBold", size: 15))
+                        Text("Show sender name and context snippet on Lock Screen")
+                            .font(.custom("OpenSans-Regular", size: 12))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .tint(.blue)
+            .disabled(!replyAssistEnabled || !notificationsEnabled)
+        } header: {
+            Text("REPLY ASSIST")
+                .font(.custom("OpenSans-Bold", size: 12))
+        } footer: {
+            Text("Reply Assist uses Berean AI to generate scripture-aligned suggestions. Previews are hidden by default for privacy.")
+                .font(.custom("OpenSans-Regular", size: 12))
+        }
+    }
+
     private func checkNotificationPermission() async {
         let center = UNUserNotificationCenter.current()
         let settings = await center.notificationSettings()

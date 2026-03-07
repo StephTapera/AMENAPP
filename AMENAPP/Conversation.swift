@@ -23,6 +23,7 @@ public struct ChatConversation: Identifiable, Equatable {
     public let isPinned: Bool // Whether conversation is pinned
     public let isMuted: Bool // Whether notifications are muted
     public let requesterId: String? // User who initiated the conversation (for message requests)
+    public let otherParticipantId: String? // Non-current user's ID for 1:1 conversations
     
     // Equatable conformance
     public static func == (lhs: ChatConversation, rhs: ChatConversation) -> Bool {
@@ -36,7 +37,8 @@ public struct ChatConversation: Identifiable, Equatable {
         lhs.profilePhotoURL == rhs.profilePhotoURL &&
         lhs.isPinned == rhs.isPinned &&
         lhs.isMuted == rhs.isMuted &&
-        lhs.requesterId == rhs.requesterId
+        lhs.requesterId == rhs.requesterId &&
+        lhs.otherParticipantId == rhs.otherParticipantId
         // Note: Excluding avatarColor from comparison as Color doesn't conform to Equatable
     }
     
@@ -52,7 +54,8 @@ public struct ChatConversation: Identifiable, Equatable {
         profilePhotoURL: String? = nil,
         isPinned: Bool = false,
         isMuted: Bool = false,
-        requesterId: String? = nil
+        requesterId: String? = nil,
+        otherParticipantId: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -66,6 +69,7 @@ public struct ChatConversation: Identifiable, Equatable {
         self.isPinned = isPinned
         self.isMuted = isMuted
         self.requesterId = requesterId
+        self.otherParticipantId = otherParticipantId
     }
     
     public var initials: String {

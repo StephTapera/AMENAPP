@@ -10,9 +10,8 @@ import FirebaseAuth
 import FirebaseFirestore
 
 struct TestimoniesView: View {
-    @StateObject private var postsManager = PostsManager.shared
-    @StateObject private var realtimeService = RealtimePostService.shared
-    @StateObject private var testimonyAlgorithm = TestimoniesAlgorithm.shared
+    @ObservedObject private var postsManager = PostsManager.shared
+    @ObservedObject private var testimonyAlgorithm = TestimoniesAlgorithm.shared
     @State private var selectedFilter: TestimonyFilter = .all
     @State private var selectedCategory: TestimonyCategory? = nil
     @State private var isCategoryBrowseExpanded = false
@@ -33,13 +32,13 @@ struct TestimoniesView: View {
     @State private var isLoadingMore = false
     
     @Environment(\.tabBarVisible) private var tabBarVisible
-    @Environment(\.toolbarVisible) private var toolbarVisible
     
     // Animation timing constants
-    private let fastAnimationDuration: Double = 0.15
+    private let fastAnimationDuration: Double = 0.12
     private let standardAnimationDuration: Double = 0.2
     private let springResponse: Double = 0.3
     private let springDamping: Double = 0.7
+    private let filterHaptic = UIImpactFeedbackGenerator(style: .light)
     
     enum TestimonyFilter: String, CaseIterable {
         case all = "All"
@@ -52,10 +51,15 @@ struct TestimoniesView: View {
     var filteredPosts: [Post] {
         var posts = postsManager.testimoniesPosts
 
-        // Apply category filter if selected
+        // Apply category filter if selected.
+        // Match loosely: "Relationships" matches topicTag "relationship", "relationships", etc.
         if let category = selectedCategory {
+            let titleLower = category.title.lowercased()
             posts = posts.filter { post in
-                post.topicTag?.lowercased() == category.title.lowercased()
+                guard let tag = post.topicTag?.lowercased() else { return false }
+                return tag == titleLower
+                    || titleLower.hasPrefix(tag)
+                    || tag.hasPrefix(titleLower)
             }
         }
 
@@ -71,37 +75,41 @@ struct TestimoniesView: View {
             // Intelligent popularity scoring (not just sum)
             posts = testimonyAlgorithm.rankTestimonies(posts, for: testimonyAlgorithm.userPreferences)
         case .following:
-            // TODO: Filter by following status when implemented
-            // For now, show all posts
-            break
+            // Filter to posts from users the current user follows
+            let followingSet = FollowService.shared.following
+            if !followingSet.isEmpty {
+                posts = posts.filter { followingSet.contains($0.authorId) }
+            } else {
+                // No following data yet — show empty (not all posts)
+                posts = []
+            }
         }
 
         return posts
     }
     
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: 20) {
                 // Header
                 if showHeader {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Share your testimony, encourage others")
                             .font(.custom("OpenSans-Regular", size: 12))
                             .foregroundStyle(.secondary)
-                        
+
                         HStack {
-                            Text("Testimonies")
+                            Text("#Testimonies")
                                 .font(.custom("OpenSans-Bold", size: 24))
                                 .foregroundStyle(.black)
-                            
+
                             Spacer()
-                            
+
                             // Loading indicator
                             if isLoadingPosts {
                                 ProgressView()
                                     .scaleEffect(0.8)
                             }
-                            
+
                             // Clear category filter if selected
                             if selectedCategory != nil {
                                 Button {
@@ -123,62 +131,79 @@ struct TestimoniesView: View {
                     .padding(.horizontal)
                     .transition(.move(edge: .top).combined(with: .opacity))
                 }
-                
+
                 // Error banner (if any)
                 if let errorMessage = errorMessage {
                     InlineErrorBanner(message: errorMessage) {
-                        Task {
-                            await refreshTestimonies()
-                        }
+                        Task { await refreshTestimonies() }
                     }
                 }
-                
+
                 // Loading state - show skeletons on initial load
                 if isInitialLoad && isLoadingPosts {
                     PostListSkeletonView(count: 3)
-                }
-                // Empty state - no testimonies
-                else if !isLoadingPosts && filteredPosts.isEmpty {
+                } else if !isLoadingPosts && filteredPosts.isEmpty && selectedFilter != .following {
+                    // Only show full empty state for non-Following tabs when there's truly no data.
+                    // For the Following tab, contentView handles its own empty state so filter
+                    // buttons remain visible even when the user isn't following anyone yet.
                     EmptyPostsView(category: "testimonies")
                         .padding(.top, 40)
-                }
-                // Content - show posts
-                else {
+                } else {
                     contentView
                 }
-            }
-        }
-        .onScrollViewScroll { delta in
-            // Hysteresis: Only trigger animation if scroll delta exceeds threshold
-            let threshold: CGFloat = 5.0
-            
-            withAnimation(.easeInOut(duration: 0.25)) {
-                if delta > threshold {
-                    showHeader = false
-                    toolbarVisible.wrappedValue = false
-                    tabBarVisible.wrappedValue = false
-                } else if delta < -threshold {
-                    showHeader = true
-                    toolbarVisible.wrappedValue = true
-                    tabBarVisible.wrappedValue = true
-                }
-                // If delta is within [-threshold, threshold], do nothing (prevents flicker)
-            }
-        }
-        .refreshable {
-            await refreshTestimonies()
         }
         .toast($currentToast)
+        .sheet(isPresented: $showEditSheet, onDismiss: { editingPost = nil }) {
+            if let post = editingPost {
+                EditPostSheet(post: post)
+            }
+        }
         .task {
             if isInitialLoad {
                 await loadInitialTestimonies()
             }
-            // ✅ Start real-time listener for testimonies (INSTANT UPDATES)
+            if !hasPersonalized {
+                testimonyAlgorithm.loadPreferences()
+                personalizeTestimoniesFeed()
+                hasPersonalized = true
+            }
             FirebasePostService.shared.startListening(category: .testimonies)
         }
+        .onAppear {
+            filterHaptic.prepare()
+            fetchPosts()
+            personalizeTestimoniesFeed()
+        }
         .onDisappear {
-            // ✅ Stop listener when view disappears (memory efficient)
-            // Note: Listeners are managed by RealtimePostService
+            FirebasePostService.shared.stopListening(category: .testimonies)
+        }
+        .onChange(of: postsManager.testimoniesPosts) { oldValue, newValue in
+            if oldValue.count != newValue.count {
+                personalizeTestimoniesFeed()
+            }
+        }
+        .onChange(of: selectedFilter) { _, _ in
+            visiblePostCount = 20
+        }
+        .onChange(of: selectedCategory) { _, _ in
+            visiblePostCount = 20
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .newPostCreated)) { notification in
+            guard let userInfo = notification.userInfo else { return }
+
+            if let category = userInfo["category"] as? String,
+               category == "testimonies" || category == Post.PostCategory.testimonies.rawValue {
+                let haptic = UINotificationFeedbackGenerator()
+                haptic.notificationOccurred(.success)
+                currentToast = Toast(type: .success, message: "Testimony shared! 🙏")
+                return
+            }
+
+            if let post = userInfo["post"] as? Post, post.category == .testimonies {
+                let haptic = UIImpactFeedbackGenerator(style: .light)
+                haptic.impactOccurred()
+                print("✅ New testimony from \(post.authorName) added to feed")
+            }
         }
     }
     
@@ -204,10 +229,7 @@ struct TestimoniesView: View {
                 )
                 .padding(.horizontal)
             } else {
-                Text("Healing • Career • Faith • Family")
-                    .font(.custom("OpenSans-Regular", size: 12))
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal)
+                // Category subtitle removed — tagline lives in the header
             }
             
             // Filters - Center Aligned
@@ -217,8 +239,7 @@ struct TestimoniesView: View {
                     ForEach(TestimonyFilter.allCases, id: \.self) { filter in
                         Button {
                             selectedFilter = filter
-                            // Don't refetch - just rely on computed property filtering
-                            // This keeps newly created posts visible
+                            filterHaptic.impactOccurred()
                         } label: {
                             Text(filter.rawValue)
                                 .font(.custom("OpenSans-SemiBold", size: 14))
@@ -267,35 +288,54 @@ struct TestimoniesView: View {
                         GridItem(.flexible(), spacing: 12),
                         GridItem(.flexible(), spacing: 12)
                     ], spacing: 12) {
-                        TestimonyCategoryCard(category: .healing, isSelected: selectedCategory?.title == TestimonyCategory.healing.title) {
+                        let allPosts = postsManager.testimoniesPosts
+                        TestimonyCategoryCard(
+                            category: .healing,
+                            isSelected: selectedCategory?.title == TestimonyCategory.healing.title,
+                            count: allPosts.filter { $0.topicTag?.lowercased() == "healing" }.count
+                        ) {
                             selectedCategory = .healing
                             isCategoryBrowseExpanded = false
-                            // Don't refetch - computed property handles filtering
                         }
-                        TestimonyCategoryCard(category: .career, isSelected: selectedCategory?.title == TestimonyCategory.career.title) {
+                        TestimonyCategoryCard(
+                            category: .career,
+                            isSelected: selectedCategory?.title == TestimonyCategory.career.title,
+                            count: allPosts.filter { $0.topicTag?.lowercased() == "career" }.count
+                        ) {
                             selectedCategory = .career
                             isCategoryBrowseExpanded = false
-                            // Don't refetch - computed property handles filtering
                         }
-                        TestimonyCategoryCard(category: .relationship, isSelected: selectedCategory?.title == TestimonyCategory.relationship.title) {
+                        TestimonyCategoryCard(
+                            category: .relationship,
+                            isSelected: selectedCategory?.title == TestimonyCategory.relationship.title,
+                            count: allPosts.filter { ["relationships", "relationship"].contains($0.topicTag?.lowercased() ?? "") }.count
+                        ) {
                             selectedCategory = .relationship
                             isCategoryBrowseExpanded = false
-                            // Don't refetch - computed property handles filtering
                         }
-                        TestimonyCategoryCard(category: .financial, isSelected: selectedCategory?.title == TestimonyCategory.financial.title) {
+                        TestimonyCategoryCard(
+                            category: .financial,
+                            isSelected: selectedCategory?.title == TestimonyCategory.financial.title,
+                            count: allPosts.filter { $0.topicTag?.lowercased() == "financial" }.count
+                        ) {
                             selectedCategory = .financial
                             isCategoryBrowseExpanded = false
-                            // Don't refetch - computed property handles filtering
                         }
-                        TestimonyCategoryCard(category: .spiritual, isSelected: selectedCategory?.title == TestimonyCategory.spiritual.title) {
+                        TestimonyCategoryCard(
+                            category: .spiritual,
+                            isSelected: selectedCategory?.title == TestimonyCategory.spiritual.title,
+                            count: allPosts.filter { ["spiritual growth", "spiritual"].contains($0.topicTag?.lowercased() ?? "") }.count
+                        ) {
                             selectedCategory = .spiritual
                             isCategoryBrowseExpanded = false
-                            // Don't refetch - computed property handles filtering
                         }
-                        TestimonyCategoryCard(category: .family, isSelected: selectedCategory?.title == TestimonyCategory.family.title) {
+                        TestimonyCategoryCard(
+                            category: .family,
+                            isSelected: selectedCategory?.title == TestimonyCategory.family.title,
+                            count: allPosts.filter { $0.topicTag?.lowercased() == "family" }.count
+                        ) {
                             selectedCategory = .family
                             isCategoryBrowseExpanded = false
-                            // Don't refetch - computed property handles filtering
                         }
                     }
                     .padding(.horizontal)
@@ -304,26 +344,14 @@ struct TestimoniesView: View {
             }
             
             // Filtered testimonies feed
-            VStack(spacing: 16) {
+            LazyVStack(spacing: 16) {
                 let allPosts = filteredPosts
                 let displayPosts = Array(allPosts.prefix(visiblePostCount))
-                
+
                 ForEach(Array(displayPosts.enumerated()), id: \.element.id) { index, post in
-                    PostCard(
-                        post: post,
-                        isUserPost: post.authorId == Auth.auth().currentUser?.uid
-                    )
-                    .onAppear {
-                        // Track view interaction for learning
-                        testimonyAlgorithm.recordInteraction(with: post, type: .view)
-                        
-                        // PAGINATION: Load more when approaching the end
-                        if index >= displayPosts.count - 3 && !isLoadingMore && visiblePostCount < allPosts.count {
-                            loadMorePosts()
-                        }
-                    }
+                    testimonyRow(post: post, index: index, total: displayPosts.count, allCount: allPosts.count)
                 }
-                
+
                 // Loading indicator for pagination
                 if isLoadingMore && visiblePostCount < allPosts.count {
                     HStack {
@@ -334,19 +362,27 @@ struct TestimoniesView: View {
                         Spacer()
                     }
                 }
-                
-                // Show empty state if no posts
+
+                // Empty state
                 if filteredPosts.isEmpty {
                     VStack(spacing: 16) {
-                        Image(systemName: "hands.sparkles")
+                        Image(systemName: selectedFilter == .following ? "person.2" : "hands.sparkles")
                             .font(.system(size: 48))
                             .foregroundStyle(.secondary)
-                        
-                        if selectedCategory != nil {
+
+                        if selectedFilter == .following {
+                            Text("No testimonies from people you follow")
+                                .font(.custom("OpenSans-Bold", size: 18))
+                                .foregroundStyle(.primary)
+                                .multilineTextAlignment(.center)
+                            Text("Follow others to see their testimonies here.")
+                                .font(.custom("OpenSans-Regular", size: 14))
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                        } else if selectedCategory != nil {
                             Text("No testimonies in this category")
                                 .font(.custom("OpenSans-Bold", size: 18))
                                 .foregroundStyle(.primary)
-                            
                             Text("Be the first to share your story!")
                                 .font(.custom("OpenSans-Regular", size: 14))
                                 .foregroundStyle(.secondary)
@@ -354,7 +390,6 @@ struct TestimoniesView: View {
                             Text("No testimonies yet")
                                 .font(.custom("OpenSans-Bold", size: 18))
                                 .foregroundStyle(.primary)
-                            
                             Text("Share how God is working in your life!")
                                 .font(.custom("OpenSans-Regular", size: 14))
                                 .foregroundStyle(.secondary)
@@ -366,72 +401,20 @@ struct TestimoniesView: View {
             }
             .padding(.horizontal)
         }
-        .task {
-            // Initial fetch when view appears - only fetch once
-            if postsManager.testimoniesPosts.isEmpty {
-                fetchPosts()
-            }
-
-            // Load algorithm preferences and personalize feed
-            if !hasPersonalized {
-                testimonyAlgorithm.loadPreferences()
-                personalizeTestimoniesFeed()
-                hasPersonalized = true
-            }
-        }
-        .onAppear {
-            // ✅ Refresh posts every time view appears (fixes tab switching issue)
-            fetchPosts()
-            // Re-personalize with fresh data
-            personalizeTestimoniesFeed()
-        }
-        .onChange(of: postsManager.testimoniesPosts) { oldValue, newValue in
-            // Re-personalize when posts change
-            if oldValue.count != newValue.count {
-                personalizeTestimoniesFeed()
-            }
-        }
-        .onChange(of: selectedFilter) { _, _ in
-            // Reset pagination when filter changes
-            visiblePostCount = 20
-        }
-        .onChange(of: selectedCategory) { _, _ in
-            // Reset pagination when category changes
-            visiblePostCount = 20
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .newPostCreated)) { notification in
-            // ✅ Handle new post creation with instant feedback
-            if let userInfo = notification.userInfo,
-               let category = userInfo["category"] as? String,
-               category == "testimonies" || category == Post.PostCategory.testimonies.rawValue {
-                
-                let haptic = UINotificationFeedbackGenerator()
-                haptic.notificationOccurred(.success)
-                
-                // The new post is already in realtimeService.testimonies
-                // No need to refetch - the real-time listener handles it
-                print("✅ New testimony post received - already visible in feed")
-                
-                // Show success toast
-                currentToast = Toast(type: .success, message: "Testimony shared! 🙏")
-            }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .newPostCreated)) { notification in
-            // ✅ Handle posts added by real-time listener
-            if let userInfo = notification.userInfo,
-               let post = userInfo["post"] as? Post,
-               post.category == .testimonies {
-                
-                // Subtle haptic for posts added by others
-                let haptic = UIImpactFeedbackGenerator(style: .light)
-                haptic.impactOccurred()
-                
-                print("✅ New testimony from \(post.authorName) added to feed")
-            }
-        }
     }
     
     // MARK: - Helper Functions
+
+    private func testimonyRow(post: Post, index: Int, total: Int, allCount: Int) -> some View {
+        PostCard(post: post, isUserPost: post.authorId == Auth.auth().currentUser?.uid)
+            .feedItemAppear(id: post.id, delay: min(Double(index) * 0.04, 0.20))
+            .onAppear {
+                testimonyAlgorithm.recordInteraction(with: post, type: .view)
+                if index >= total - 3 && !isLoadingMore && visiblePostCount < allCount {
+                    loadMorePosts()
+                }
+            }
+    }
 
     /// Personalize testimonies feed using algorithm
     private func personalizeTestimoniesFeed() {
@@ -440,13 +423,12 @@ struct TestimoniesView: View {
             return
         }
 
-        // Rank testimonies using algorithm (off main thread)
-        Task.detached(priority: .userInitiated) {
-            let ranked = await testimonyAlgorithm.rankTestimonies(
-                postsManager.testimoniesPosts,
-                for: testimonyAlgorithm.userPreferences
-            )
+        // Snapshot posts at call time to avoid capturing stale state during async work
+        let snapshot = postsManager.testimoniesPosts
+        let prefs = testimonyAlgorithm.userPreferences
 
+        Task.detached(priority: .userInitiated) {
+            let ranked = await testimonyAlgorithm.rankTestimonies(snapshot, for: prefs)
             await MainActor.run {
                 personalizedPosts = ranked
                 print("✨ Testimonies personalized: \(personalizedPosts.count) posts ranked")
@@ -478,24 +460,16 @@ struct TestimoniesView: View {
     private func deletePost(_ post: Post) {
         let haptic = UINotificationFeedbackGenerator()
         haptic.notificationOccurred(.warning)
-        
-        // In a real app, delete from backend
-        print("🗑️ Deleting post: \(post.id)")
-        
-        // TODO: Remove from data source
-        // postsManager.deletePost(post.id)
+        postsManager.deletePost(postId: post.id)
+        currentToast = Toast(type: .info, message: "Testimony removed")
     }
     
     private func editPost(_ post: Post) {
         let haptic = UIImpactFeedbackGenerator(style: .medium)
         haptic.impactOccurred()
-        
-        // In a real app, show edit sheet
-        print("✏️ Editing post: \(post.id)")
-        
-        // TODO: Show edit interface
-        // showEditPost = true
-        // editingPost = post
+        editingPost = post
+        editedContent = post.content
+        showEditSheet = true
     }
     
     private func repostPost(_ post: Post) {
@@ -655,8 +629,16 @@ private let sampleTestimonies: [TestimonyPost] = []
 struct TestimonyCategoryCard: View {
     let category: TestimonyCategory
     let isSelected: Bool
+    let count: Int?
     let action: () -> Void
     @State private var showCategoryDetail = false
+
+    init(category: TestimonyCategory, isSelected: Bool, count: Int? = nil, action: @escaping () -> Void) {
+        self.category = category
+        self.isSelected = isSelected
+        self.count = count
+        self.action = action
+    }
     
     var body: some View {
         Button {
@@ -681,7 +663,7 @@ struct TestimonyCategoryCard: View {
                     .font(.custom("OpenSans-Bold", size: 15))
                     .foregroundStyle(.primary)
                 
-                Text(category.subtitle)
+                Text(count != nil ? "\(count!) \(count == 1 ? "Story" : "Stories")" : category.subtitle)
                     .font(.custom("OpenSans-Regular", size: 12))
                     .foregroundStyle(.secondary)
             }
@@ -1195,17 +1177,31 @@ struct TestimonyPostCard: View {
     }
     
     private func muteAuthor() {
-        let haptic = UINotificationFeedbackGenerator()
-        haptic.notificationOccurred(.success)
-        print("🔇 Muted \(post.authorName)")
-        // TODO: Add to muted users list
+        Task {
+            do {
+                try await ModerationService.shared.muteUser(userId: post.authorId)
+                await MainActor.run {
+                    let haptic = UINotificationFeedbackGenerator()
+                    haptic.notificationOccurred(.success)
+                }
+            } catch {
+                print("❌ Failed to mute \(post.authorName): \(error.localizedDescription)")
+            }
+        }
     }
     
     private func blockAuthor() {
-        let haptic = UINotificationFeedbackGenerator()
-        haptic.notificationOccurred(.warning)
-        print("🚫 Blocked \(post.authorName)")
-        // TODO: Add to blocked users list
+        Task {
+            do {
+                try await BlockService.shared.blockUser(userId: post.authorId)
+                await MainActor.run {
+                    let haptic = UINotificationFeedbackGenerator()
+                    haptic.notificationOccurred(.warning)
+                }
+            } catch {
+                print("❌ Failed to block \(post.authorName): \(error.localizedDescription)")
+            }
+        }
     }
 }
 
@@ -1388,24 +1384,26 @@ struct TestimonyCommentSection: View {
     
     private func postComment() {
         guard !commentText.trimmingCharacters(in: .whitespaces).isEmpty else { return }
-        
-        let newComment = TestimonyFeedComment(
-            id: UUID().uuidString,
-            authorName: "You",
-            authorInitials: "ME",
-            timeAgo: "Just now",
-            content: commentText,
-            amenCount: 0
-        )
-        
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-            comments.insert(newComment, at: 0)
-            commentCount += 1
-            commentText = ""
+
+        Task {
+            do {
+                let newComment = try await commentService.addComment(
+                    postId: post.id.uuidString,
+                    content: commentText
+                )
+                await MainActor.run {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        comments.insert(newComment.toTestimonyFeedComment(), at: 0)
+                        commentCount += 1
+                        commentText = ""
+                    }
+                    let haptic = UINotificationFeedbackGenerator()
+                    haptic.notificationOccurred(.success)
+                }
+            } catch {
+                print("❌ Failed to post comment: \(error.localizedDescription)")
+            }
         }
-        
-        let haptic = UINotificationFeedbackGenerator()
-        haptic.notificationOccurred(.success)
     }
 }
 
@@ -1497,11 +1495,35 @@ struct TestimonyCategoryDetailInlineView: View {
     @Environment(\.dismiss) private var dismiss
     let category: TestimonyCategory
     @State private var selectedFilter: CategoryFilter = .recent
+    @ObservedObject private var postsManager = PostsManager.shared
+    private let filterHaptic = UIImpactFeedbackGenerator(style: .light)
     
     enum CategoryFilter: String, CaseIterable {
         case recent = "Recent"
         case popular = "Popular"
         case encouraging = "Most Encouraging"
+    }
+    
+    // Real filtered posts from Firebase via PostsManager
+    private var categoryPosts: [Post] {
+        let allPosts = postsManager.testimoniesPosts
+        // Match both singular and plural forms (e.g. "Relationships" → "relationship")
+        let titleLower = category.title.lowercased()
+        let filtered = allPosts.filter { post in
+            guard let tag = post.topicTag?.lowercased() else { return false }
+            return tag == titleLower
+                || tag == titleLower.trimmingCharacters(in: .init(charactersIn: "s"))
+                || titleLower.hasPrefix(tag)
+                || tag.hasPrefix(titleLower)
+        }
+        switch selectedFilter {
+        case .recent:
+            return filtered.sorted { $0.createdAt > $1.createdAt }
+        case .popular:
+            return filtered.sorted { ($0.amenCount + $0.commentCount) > ($1.amenCount + $1.commentCount) }
+        case .encouraging:
+            return filtered.sorted { $0.amenCount > $1.amenCount }
+        }
     }
     
     var body: some View {
@@ -1542,9 +1564,8 @@ struct TestimonyCategoryDetailInlineView: View {
                         HStack(spacing: 8) {
                             ForEach(CategoryFilter.allCases, id: \.self) { filter in
                                 Button {
-                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                        selectedFilter = filter
-                                    }
+                                    selectedFilter = filter
+                                    filterHaptic.impactOccurred()
                                 } label: {
                                     Text(filter.rawValue)
                                         .font(.custom("OpenSans-SemiBold", size: 13))
@@ -1562,15 +1583,26 @@ struct TestimonyCategoryDetailInlineView: View {
                     }
                     .padding(.horizontal)
                     
-                    // Testimonies Feed
+                    // Testimonies Feed (real data from Firebase)
                     VStack(spacing: 16) {
-                        ForEach(testimonyPosts, id: \.content) { post in
-                            PostCard(
-                                authorName: post.authorName,
-                                timeAgo: post.timeAgo,
-                                content: post.content,
-                                category: .testimonies
-                            )
+                        if categoryPosts.isEmpty {
+                            VStack(spacing: 12) {
+                                Image(systemName: category.icon)
+                                    .font(.system(size: 40))
+                                    .foregroundStyle(category.color.opacity(0.5))
+                                Text("No testimonies in \(category.title) yet")
+                                    .font(.custom("OpenSans-Bold", size: 16))
+                                    .foregroundStyle(.primary)
+                                Text("Be the first to share your story!")
+                                    .font(.custom("OpenSans-Regular", size: 14))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 40)
+                        } else {
+                            ForEach(categoryPosts) { post in
+                                PostCard(post: post, isUserPost: post.authorId == FirebaseManager.shared.currentUser?.uid)
+                            }
                         }
                     }
                     .padding(.horizontal)
@@ -1622,42 +1654,6 @@ struct TestimonyCategoryDetailInlineView: View {
         }
     }
     
-    var testimonyPosts: [(authorName: String, timeAgo: String, content: String)] {
-        switch category.title {
-        case "Healing":
-            return [
-                ("Grace Thompson", "4h", "After 2 years of chronic pain, I'm completely healed! 🙏✨"),
-                ("Daniel Park", "8h", "My daughter's cancer is in complete remission. God is faithful! 💙")
-            ]
-        case "Career":
-            return [
-                ("Sarah Mitchell", "3h", "Just got promoted to a position I wasn't even qualified for! 🚪✨"),
-                ("Marcus Lee", "6h", "Started my own business - now making 3x my previous salary! 💼")
-            ]
-        case "Relationships":
-            return [
-                ("Emily Foster", "5h", "My marriage was headed for divorce. God has completely restored it! 💑"),
-                ("Michael Chen", "7h", "Reconciled with my father after 10 years! 👨‍👦")
-            ]
-        case "Financial":
-            return [
-                ("Patricia Moore", "2h", "Received an unexpected check that covered my entire rent! 💰"),
-                ("George Thompson", "9h", "Paid off $50,000 in debt in 18 months! 🎉")
-            ]
-        case "Spiritual Growth":
-            return [
-                ("Olivia Chen", "6h", "Experiencing God's presence like never before! 🔥"),
-                ("Nathan Parker", "9h", "God gave me a breakthrough in understanding scripture! 📖✨")
-            ]
-        case "Family":
-            return [
-                ("Hannah Davis", "4h", "My son rededicated his life to Christ! 🙏"),
-                ("Jacob Williams", "8h", "God blessed us with a baby after 7 years! 👶")
-            ]
-        default:
-            return [("John Smith", "1h", "God is faithful in every season! 🙏")]
-        }
-    }
 }
 
 // MARK: - Full Comment Sheet
@@ -1671,7 +1667,7 @@ struct TestimonyFullCommentSheet: View {
     @State private var showQuickResponses = false
     @State private var isLoading = true
     @FocusState private var isCommentFocused: Bool
-    @StateObject private var commentService = CommentService.shared
+    @ObservedObject private var commentService = CommentService.shared
     
     @State private var comments: [TestimonyFeedComment] = []
     

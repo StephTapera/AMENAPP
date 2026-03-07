@@ -10,13 +10,33 @@ import SwiftUI
 struct PrivacySettingsOnboardingPage: View {
     @Binding var isAccountPrivate: Bool
     @Binding var whoCanMessage: MessagingPrivacy
+    @Binding var commentModeration: CommentModerationLevel
     let currentPage: Int
     let totalPages: Int
     let canContinue: Bool
     let onBack: () -> Void
     let onSkip: () -> Void
     let onNext: () -> Void
-    
+
+    enum CommentModerationLevel: String, CaseIterable {
+        case standard = "Standard"
+        case strict   = "Strict"
+
+        var icon: String {
+            switch self {
+            case .standard: return "text.bubble"
+            case .strict:   return "shield.fill"
+            }
+        }
+
+        var description: String {
+            switch self {
+            case .standard: return "Filters spam and obvious hate speech"
+            case .strict:   return "Hides all comments until you approve them"
+            }
+        }
+    }
+
     enum MessagingPrivacy: String, CaseIterable {
         case everyone = "Everyone"
         case followersOnly = "People I Follow"
@@ -151,18 +171,103 @@ struct PrivacySettingsOnboardingPage: View {
                             }
                         }
                         
+                        // Comment Moderation Section
+                        VStack(alignment: .leading, spacing: 16) {
+                            Text("Comment Moderation")
+                                .font(.custom("OpenSans-SemiBold", size: 15))
+                                .foregroundStyle(.white.opacity(0.7))
+
+                            VStack(spacing: 12) {
+                                ForEach(CommentModerationLevel.allCases, id: \.self) { level in
+                                    Button(action: {
+                                        let haptic = UIImpactFeedbackGenerator(style: .light)
+                                        haptic.impactOccurred()
+                                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                            commentModeration = level
+                                        }
+                                    }) {
+                                        HStack(spacing: 16) {
+                                            ZStack {
+                                                Circle()
+                                                    .stroke(commentModeration == level ? Color.blue : Color.secondary.opacity(0.3), lineWidth: 2)
+                                                    .frame(width: 24, height: 24)
+                                                if commentModeration == level {
+                                                    Circle()
+                                                        .fill(Color.blue)
+                                                        .frame(width: 12, height: 12)
+                                                }
+                                            }
+
+                                            Image(systemName: level.icon)
+                                                .foregroundStyle(commentModeration == level ? .blue : .white.opacity(0.6))
+                                                .frame(width: 24)
+
+                                            VStack(alignment: .leading, spacing: 4) {
+                                                Text(level.rawValue)
+                                                    .font(.custom("OpenSans-SemiBold", size: 15))
+                                                    .foregroundStyle(.white)
+                                                Text(level.description)
+                                                    .font(.custom("OpenSans-Regular", size: 12))
+                                                    .foregroundStyle(.white.opacity(0.7))
+                                                    .fixedSize(horizontal: false, vertical: true)
+                                            }
+
+                                            Spacer()
+                                        }
+                                        .padding(16)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 12)
+                                                .fill(commentModeration == level ? Color.blue.opacity(0.2) : Color.white.opacity(0.05))
+                                                .overlay(
+                                                    RoundedRectangle(cornerRadius: 12)
+                                                        .stroke(commentModeration == level ? Color.blue : Color.white.opacity(0.2), lineWidth: 2)
+                                                )
+                                        )
+                                    }
+                                    .buttonStyle(PlainButtonStyle())
+                                }
+                            }
+                        }
+
+                        // AI Moderation Disclosure
+                        HStack(alignment: .top, spacing: 12) {
+                            Image(systemName: "cpu.fill")
+                                .foregroundStyle(.blue)
+                                .font(.system(size: 16))
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("AI-Assisted Safety")
+                                    .font(.custom("OpenSans-SemiBold", size: 14))
+                                    .foregroundStyle(.white)
+
+                                Text("Messages are reviewed by AI to detect harmful content and protect our community. No human reads your messages except in confirmed safety escalations.")
+                                    .font(.custom("OpenSans-Regular", size: 12))
+                                    .foregroundStyle(.white.opacity(0.7))
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                        .padding(16)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(.blue.opacity(0.08))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(Color.blue.opacity(0.25), lineWidth: 1)
+                                )
+                        )
+
                         // Additional Info
                         VStack(alignment: .leading, spacing: 12) {
                             HStack(alignment: .top, spacing: 12) {
                                 Image(systemName: "hand.raised.fill")
                                     .foregroundStyle(.orange)
                                     .font(.system(size: 16))
-                                
+
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text("You're Always in Control")
                                         .font(.custom("OpenSans-SemiBold", size: 14))
                                         .foregroundStyle(.white)
-                                    
+
                                     Text("Change these settings anytime in your account settings")
                                         .font(.custom("OpenSans-Regular", size: 12))
                                         .foregroundStyle(.white.opacity(0.7))
@@ -176,8 +281,6 @@ struct PrivacySettingsOnboardingPage: View {
                         )
                     }
                     .padding(.horizontal, 24)
-                    
-                    Spacer(minLength: 100)
                     
                     // Navigation Buttons
                     OnboardingNavigationButtons(
@@ -278,6 +381,7 @@ struct BulletPoint: View {
     PrivacySettingsOnboardingPage(
         isAccountPrivate: .constant(false),
         whoCanMessage: .constant(.everyone),
+        commentModeration: .constant(.standard),
         currentPage: 8,
         totalPages: 13,
         canContinue: true,

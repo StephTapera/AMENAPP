@@ -14,12 +14,17 @@ class RealtimeDatabaseManager {
     
     static let shared = RealtimeDatabaseManager()
     
-    private let database = Database.database().reference()
+    // Lazy so it's only accessed after AppDelegate has configured persistence.
+    // Accessing Database.database() as a stored property at class init time
+    // races with AppDelegate's isPersistenceEnabled = true and triggers
+    // FIRDatabaseAlreadyInUse crashes.
+    private lazy var database: DatabaseReference = Database.database().reference()
     private var observers: [String: DatabaseHandle] = [:]
     
     private init() {
-        // Enable offline persistence
-        Database.database().isPersistenceEnabled = true
+        // Persistence is configured centrally in AppDelegate.application(_:didFinishLaunchingWithOptions:).
+        // Do NOT set isPersistenceEnabled here — it must be set before any Database.database()
+        // access and that guarantee is only possible in AppDelegate.
     }
     
     // MARK: - Current User
@@ -98,7 +103,10 @@ class RealtimeDatabaseManager {
             return
         }
         
-        let amenId = database.child("postInteractions/\(postId)/amens").childByAutoId().key!
+        guard let amenId = database.child("postInteractions/\(postId)/amens").childByAutoId().key else {
+            completion?(false)
+            return
+        }
         
         database.child("postInteractions/\(postId)/amens/\(amenId)")
             .setValue([
@@ -134,9 +142,11 @@ class RealtimeDatabaseManager {
             return
         }
         
-        let commentId = database.child("postInteractions/\(postId)/comments").childByAutoId().key!
-        
-        print("📝 RealtimeDB: Attempting to add comment to post \(postId)")
+        guard let commentId = database.child("postInteractions/\(postId)/comments").childByAutoId().key else {
+            print("❌ RealtimeDB: Failed to generate comment ID")
+            completion?(nil)
+            return
+        }
         
         database.child("postInteractions/\(postId)/comments/\(commentId)")
             .setValue([
@@ -196,8 +206,11 @@ class RealtimeDatabaseManager {
             return
         }
         
-        let replyId = database.child("postInteractions/\(postId)/comments/\(commentId)/replies")
-            .childByAutoId().key!
+        guard let replyId = database.child("postInteractions/\(postId)/comments/\(commentId)/replies")
+            .childByAutoId().key else {
+            completion?(false)
+            return
+        }
         
         database.child("postInteractions/\(postId)/comments/\(commentId)/replies/\(replyId)")
             .setValue([
@@ -291,8 +304,11 @@ class RealtimeDatabaseManager {
             return
         }
         
-        let messageId = database.child("conversations/\(conversationId)/messages")
-            .childByAutoId().key!
+        guard let messageId = database.child("conversations/\(conversationId)/messages")
+            .childByAutoId().key else {
+            completion?(false)
+            return
+        }
         
         database.child("conversations/\(conversationId)/messages/\(messageId)")
             .setValue([
@@ -313,8 +329,11 @@ class RealtimeDatabaseManager {
             return
         }
         
-        let messageId = database.child("conversations/\(conversationId)/messages")
-            .childByAutoId().key!
+        guard let messageId = database.child("conversations/\(conversationId)/messages")
+            .childByAutoId().key else {
+            completion?(false)
+            return
+        }
         
         database.child("conversations/\(conversationId)/messages/\(messageId)")
             .setValue([
@@ -439,7 +458,7 @@ class RealtimeDatabaseManager {
                     let duration = Int(Date().timeIntervalSince1970 * 1000 - startedAt)
                     
                     // Record completed session with duration
-                    let sessionId = self.database.child("prayerActivity/\(postId)/sessions").childByAutoId().key!
+                    guard let sessionId = self.database.child("prayerActivity/\(postId)/sessions").childByAutoId().key else { return }
                     self.database.child("prayerActivity/\(postId)/sessions/\(sessionId)")
                         .setValue([
                             "userId": userId,
@@ -581,7 +600,6 @@ class RealtimeDatabaseManager {
     }
     
     private func extractPath(from key: String) -> String {
-        // Simple path extraction based on observer key naming
         if key.hasPrefix("likeCount_") {
             let postId = key.replacingOccurrences(of: "likeCount_", with: "")
             return "postInteractions/\(postId)/lightbulbCount"
@@ -591,10 +609,38 @@ class RealtimeDatabaseManager {
         } else if key.hasPrefix("commentCount_") {
             let postId = key.replacingOccurrences(of: "commentCount_", with: "")
             return "postInteractions/\(postId)/commentCount"
+        } else if key.hasPrefix("comments_") {
+            let postId = key.replacingOccurrences(of: "comments_", with: "")
+            return "postInteractions/\(postId)/comments"
+        } else if key.hasPrefix("replies_") {
+            // Format: replies_postId_commentId
+            let parts = key.dropFirst("replies_".count).components(separatedBy: "_")
+            if parts.count >= 2 {
+                return "postInteractions/\(parts[0])/comments/\(parts[1])/replies"
+            }
+        } else if key.hasPrefix("replyCount_") {
+            let parts = key.dropFirst("replyCount_".count).components(separatedBy: "_")
+            if parts.count >= 2 {
+                return "postInteractions/\(parts[0])/comments/\(parts[1])/replyCount"
+            }
+        } else if key.hasPrefix("messages_") {
+            let conversationId = key.replacingOccurrences(of: "messages_", with: "")
+            return "conversations/\(conversationId)/messages"
+        } else if key.hasPrefix("prayingNow_") {
+            let postId = key.replacingOccurrences(of: "prayingNow_", with: "")
+            return "prayerActivity/\(postId)/prayingNow"
+        } else if key.hasPrefix("prayingUsers_") {
+            let postId = key.replacingOccurrences(of: "prayingUsers_", with: "")
+            return "prayerActivity/\(postId)/prayingUsers"
         } else if key == "unreadMessages" {
             return "unreadCounts/\(currentUserId ?? "")/messages"
         } else if key == "unreadNotifications" {
             return "unreadCounts/\(currentUserId ?? "")/notifications"
+        } else if key == "activityFeed" {
+            return "activityFeed/global"
+        } else if key.hasPrefix("communityActivity_") {
+            let communityId = key.replacingOccurrences(of: "communityActivity_", with: "")
+            return "communityActivity/\(communityId)"
         }
         return ""
     }

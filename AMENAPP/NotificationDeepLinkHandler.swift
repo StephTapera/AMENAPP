@@ -273,7 +273,7 @@ extension NotificationDeepLinkHandler {
      ) {
          let tokenParts = deviceToken.map { data in String(format: "%02.2hhx", data) }
          let token = tokenParts.joined()
-         print("📱 APNs Token: \(token)")
+         dlog("📱 APNs Token registered (length: \(token.count))")
          
          // Send token to your backend
          Task {

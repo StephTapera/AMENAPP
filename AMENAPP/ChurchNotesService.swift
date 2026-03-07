@@ -24,12 +24,14 @@ class ChurchNotesService: ObservableObject {
     private var notesListener: ListenerRegistration?
     private var foldersListener: ListenerRegistration?
     
-    // P0-3: Cleanup listeners in deinit to prevent memory leaks
+    // P0-3: Cleanup listeners in deinit to prevent memory leaks.
+    // NOTE: Do NOT use Task { @MainActor in self... } here — that captures self strongly
+    // and creates a dangling reference (retain count stays > 0 after deinit).
+    // Snapshot listeners are removed by setting the stored properties to nil from deinit
+    // via the stopListening() helper, which is safe since deinit already owns self exclusively.
     deinit {
-        Task { @MainActor in
-            self.stopListening()
-            print("🧹 ChurchNotesService deallocated, listeners removed")
-        }
+        notesListener?.remove()
+        foldersListener?.remove()
     }
     
     /// Start real-time listener for notes
@@ -39,30 +41,32 @@ class ChurchNotesService: ObservableObject {
             return
         }
         
-        print("🔊 Starting real-time listener for church notes...")
-        
+        dlog("🔊 Starting real-time listener for church notes...")
+        #if DEBUG
+        ListenerCounter.shared.attach("churchNotes-notes")
+        #endif
+
         notesListener = db.collection("churchNotes")
             .whereField("userId", isEqualTo: userId)
             .order(by: "date", descending: true)
             .addSnapshotListener { [weak self] snapshot, error in
                 guard let self = self else { return }
-                
+
                 if let error = error {
-                    print("❌ Church notes listener error: \(error)")
                     self.error = error.localizedDescription
                     return
                 }
-                
+
                 guard let snapshot = snapshot else { return }
-                
+
                 Task { @MainActor in
                     do {
                         self.notes = try snapshot.documents.compactMap { document in
                             try document.data(as: ChurchNote.self)
                         }
-                        print("✅ Real-time update: \(self.notes.count) church notes")
+                        // P1 FIX: Count-only log — never log titles/content.
+                        dlog("Church notes updated: \(self.notes.count) notes")
                     } catch {
-                        print("❌ Failed to decode notes: \(error)")
                         self.error = error.localizedDescription
                     }
                 }
@@ -71,19 +75,26 @@ class ChurchNotesService: ObservableObject {
     
     /// Stop listening to notes
     func stopListening() {
+        #if DEBUG
+        if notesListener != nil { ListenerCounter.shared.detach("churchNotes-notes") }
+        if foldersListener != nil { ListenerCounter.shared.detach("churchNotes-folders") }
+        #endif
         notesListener?.remove()
         notesListener = nil
         foldersListener?.remove()
         foldersListener = nil
-        print("👋 Stopped church notes listener")
+        dlog("👋 Stopped church notes listener")
     }
-    
+
     // MARK: - Folder Management
-    
+
     /// Start listening to folders
     func startFoldersListening() {
         guard let userId = firebaseManager.currentUser?.uid else { return }
-        
+        #if DEBUG
+        ListenerCounter.shared.attach("churchNotes-folders")
+        #endif
+
         foldersListener = db.collection("noteFolders")
             .whereField("userId", isEqualTo: userId)
             .order(by: "createdAt", descending: false)
@@ -102,9 +113,8 @@ class ChurchNotesService: ObservableObject {
                         self.folders = try snapshot.documents.compactMap { document in
                             try document.data(as: NoteFolder.self)
                         }
-                        print("✅ Real-time update: \(self.folders.count) folders")
                     } catch {
-                        print("❌ Failed to decode folders: \(error)")
+                        // Non-fatal decode error — folders are UI-only organisational feature.
                     }
                 }
             }
@@ -198,13 +208,8 @@ class ChurchNotesService: ObservableObject {
         let docRef = db.collection("churchNotes").document()
         newNote.id = docRef.documentID
         
-        print("📝 Creating church note: \(newNote.title)")
-        print("   User ID: \(userId)")
-        print("   Document ID: \(docRef.documentID)")
-        
+        // P1 FIX: Never log note titles, user IDs, or document IDs in production.
         try docRef.setData(from: newNote)
-        
-        print("✅ Created church note successfully!")
         
         // Real-time listener will automatically update the notes array
     }
@@ -216,7 +221,7 @@ class ChurchNotesService: ObservableObject {
         }
         
         // P0-2: Use transaction for optimistic concurrency control
-        try await db.runTransaction { transaction, errorPointer in
+        _ = try await db.runTransaction { transaction, errorPointer in
             let ref = self.db.collection("churchNotes").document(noteId)
             
             do {
@@ -245,7 +250,7 @@ class ChurchNotesService: ObservableObject {
                         ]
                     )
                     errorPointer?.pointee = error
-                    print("⚠️ Version conflict detected: current=\(currentVersion), expected=\(note.version)")
+                    dlog("Version conflict on note update — current=\(currentVersion) expected=\(note.version)")
                     return nil
                 }
                 
@@ -256,7 +261,7 @@ class ChurchNotesService: ObservableObject {
                 
                 try transaction.setData(from: updatedNote, forDocument: ref)
                 
-                print("✅ Updated church note: \(note.title) (version: \(updatedNote.version))")
+                // Version bumped successfully — listener will refresh UI.
                 
                 return nil
             } catch {
@@ -268,6 +273,19 @@ class ChurchNotesService: ObservableObject {
         // Real-time listener will automatically update
     }
     
+    /// Update only the worship songs array for a note — uses merge to bypass version conflict.
+    func updateWorshipSongs(_ songs: [WorshipSongReference], for note: ChurchNote) async throws {
+        guard let noteId = note.id else {
+            throw NSError(domain: "ChurchNotesService", code: 400,
+                          userInfo: [NSLocalizedDescriptionKey: "Note ID is missing"])
+        }
+        let encoder = Firestore.Encoder()
+        let encoded = try songs.map { try encoder.encode($0) }
+        try await db.collection("churchNotes").document(noteId)
+            .setData(["worshipSongs": encoded], merge: true)
+        dlog("Worship songs updated (\(songs.count) songs)")
+    }
+
     /// Delete a note
     func deleteNote(_ note: ChurchNote) async throws {
         guard let noteId = note.id else {
@@ -275,8 +293,6 @@ class ChurchNotesService: ObservableObject {
         }
         
         try await db.collection("churchNotes").document(noteId).delete()
-        
-        print("✅ Deleted church note: \(note.title)")
         
         // Real-time listener will automatically update
     }
@@ -292,8 +308,6 @@ class ChurchNotesService: ObservableObject {
         updatedNote.updatedAt = Date()
         
         try db.collection("churchNotes").document(noteId).setData(from: updatedNote, merge: true)
-        
-        print("✅ Toggled favorite for note: \(note.title)")
         
         // Real-time listener will automatically update
     }
@@ -504,7 +518,6 @@ class ChurchNotesService: ObservableObject {
             try document.data(as: ChurchNote.self)
         }
         
-        print("✅ Found \(sharedNotes.count) notes shared with you")
         return sharedNotes
     }
     
@@ -520,7 +533,6 @@ class ChurchNotesService: ObservableObject {
             try document.data(as: ChurchNote.self)
         }
         
-        print("✅ Found \(publicNotes.count) public notes")
         return publicNotes
     }
 }

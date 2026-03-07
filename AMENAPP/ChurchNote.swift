@@ -10,6 +10,29 @@
 import Foundation
 import FirebaseFirestore
 
+/// A worship song reference saved inside a Church Note.
+/// Lightweight — only stores the identifiers needed to reconstruct playback.
+struct WorshipSongReference: Codable, Identifiable, Hashable {
+    var id: String           // UUID, locally generated
+    var title: String
+    var artist: String
+    var musicKitID: String?  // MusicKit catalog ID for direct playback
+    var appleMusicURL: String?
+    var albumArtURL: String?
+    var addedAt: Date
+
+    init(title: String, artist: String, musicKitID: String? = nil,
+         appleMusicURL: String? = nil, albumArtURL: String? = nil) {
+        self.id = UUID().uuidString
+        self.title = title
+        self.artist = artist
+        self.musicKitID = musicKitID
+        self.appleMusicURL = appleMusicURL
+        self.albumArtURL = albumArtURL
+        self.addedAt = Date()
+    }
+}
+
 enum NotePermission: String, Codable {
     case privateNote = "private"
     case shared = "shared"
@@ -49,6 +72,7 @@ struct ChurchNote: Identifiable, Codable, Hashable {
     var sharedWith: [String] // UserIDs of people note is shared with
     var scriptureReferences: [String] // Array of scripture references
     var shareLinkId: String? // Unique ID for deep linking and sharing
+    var worshipSongs: [WorshipSongReference] // Songs linked to this note
     
     // Coding keys for Firestore
     enum CodingKeys: String, CodingKey {
@@ -72,6 +96,7 @@ struct ChurchNote: Identifiable, Codable, Hashable {
         case sharedWith
         case scriptureReferences
         case shareLinkId
+        case worshipSongs
     }
     
     // Initializer with defaults
@@ -95,7 +120,8 @@ struct ChurchNote: Identifiable, Codable, Hashable {
         permission: NotePermission = .privateNote,
         sharedWith: [String] = [],
         scriptureReferences: [String] = [],
-        shareLinkId: String? = nil
+        shareLinkId: String? = nil,
+        worshipSongs: [WorshipSongReference] = []
     ) {
         self.id = id
         self.userId = userId
@@ -118,8 +144,37 @@ struct ChurchNote: Identifiable, Codable, Hashable {
         self.scriptureReferences = scriptureReferences
         // Generate share link ID if not provided
         self.shareLinkId = shareLinkId ?? UUID().uuidString
+        self.worshipSongs = worshipSongs
     }
     
+    // Custom Decodable init to handle older Firestore documents that were created
+    // before newer fields (version, permission, sharedWith, etc.) were added.
+    // Using decodeIfPresent with safe defaults prevents "keyNotFound" crashes.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id                 = try c.decodeIfPresent(String.self, forKey: .id)
+        userId             = try c.decode(String.self, forKey: .userId)
+        title              = try c.decode(String.self, forKey: .title)
+        sermonTitle        = try c.decodeIfPresent(String.self, forKey: .sermonTitle)
+        churchName         = try c.decodeIfPresent(String.self, forKey: .churchName)
+        pastor             = try c.decodeIfPresent(String.self, forKey: .pastor)
+        date               = try c.decodeIfPresent(Date.self, forKey: .date) ?? Date()
+        content            = try c.decodeIfPresent(String.self, forKey: .content) ?? ""
+        scripture          = try c.decodeIfPresent(String.self, forKey: .scripture)
+        keyPoints          = try c.decodeIfPresent([String].self, forKey: .keyPoints) ?? []
+        tags               = try c.decodeIfPresent([String].self, forKey: .tags) ?? []
+        isFavorite         = try c.decodeIfPresent(Bool.self, forKey: .isFavorite) ?? false
+        createdAt          = try c.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
+        updatedAt          = try c.decodeIfPresent(Date.self, forKey: .updatedAt) ?? Date()
+        version            = try c.decodeIfPresent(Int.self, forKey: .version) ?? 0
+        folderId           = try c.decodeIfPresent(String.self, forKey: .folderId)
+        permission         = try c.decodeIfPresent(NotePermission.self, forKey: .permission) ?? .privateNote
+        sharedWith         = try c.decodeIfPresent([String].self, forKey: .sharedWith) ?? []
+        scriptureReferences = try c.decodeIfPresent([String].self, forKey: .scriptureReferences) ?? []
+        shareLinkId        = try c.decodeIfPresent(String.self, forKey: .shareLinkId) ?? UUID().uuidString
+        worshipSongs       = try c.decodeIfPresent([WorshipSongReference].self, forKey: .worshipSongs) ?? []
+    }
+
     // Hashable conformance
     func hash(into hasher: inout Hasher) {
         hasher.combine(id)
@@ -134,7 +189,6 @@ struct ChurchNote: Identifiable, Codable, Hashable {
 extension ChurchNote {
     static var preview: ChurchNote {
         ChurchNote(
-            id: UUID().uuidString,
             userId: "preview-user",
             title: "The Power of Prayer",
             sermonTitle: "Mountain Moving Faith",
@@ -158,7 +212,6 @@ extension ChurchNote {
     static var previews: [ChurchNote] {
         [
             ChurchNote(
-                id: "1",
                 userId: "preview-user",
                 title: "The Power of Prayer",
                 sermonTitle: "Mountain Moving Faith",
@@ -172,7 +225,6 @@ extension ChurchNote {
                 isFavorite: true
             ),
             ChurchNote(
-                id: "2",
                 userId: "preview-user",
                 title: "God's Love Never Fails",
                 sermonTitle: "Unconditional Love",
@@ -186,7 +238,6 @@ extension ChurchNote {
                 isFavorite: false
             ),
             ChurchNote(
-                id: "3",
                 userId: "preview-user",
                 title: "Walking by Faith",
                 sermonTitle: "Trust in the Lord",

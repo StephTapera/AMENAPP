@@ -80,34 +80,24 @@ class PhotoInsightsService {
     ]
     
     private init() {
-        // SECURITY FIX: Load API key from Info.plist instead of hardcoding
-        if let key = Bundle.main.object(forInfoDictionaryKey: "GOOGLE_VISION_API_KEY") as? String,
-           !key.isEmpty {
-            self.apiKey = key
-        } else {
-            self.apiKey = ""
-            print("⚠️ GOOGLE_VISION_API_KEY not found in Info.plist")
-            print("   Photo insights will be disabled")
-        }
+        self.apiKey = BundleConfig.string(forKey: "GOOGLE_VISION_API_KEY") ?? ""
     }
     
     // MARK: - Main Analysis Function
     
     func analyzeProfilePhoto(imageURL: String, userId: String, currentUserId: String) async throws -> PhotoInsight {
+        // If no API key is configured, skip analysis entirely
+        guard !apiKey.isEmpty else {
+            throw PhotoInsightError.apiKeyMissing
+        }
+
         // Check cache first (can read anyone's cached insights)
         if let cached = try? await getCachedInsight(userId: userId) {
-            print("✅ Using cached photo insights for user: \(userId)")
             return cached
         }
         
         // Determine if we should cache the result
         let shouldCache = (userId == currentUserId)
-        
-        if shouldCache {
-            print("🔍 Analyzing photo for current user: \(userId)")
-        } else {
-            print("🔍 Analyzing photo for other user: \(userId) (read-only mode)")
-        }
         
         // Download image data
         guard let url = URL(string: imageURL) else {
@@ -315,6 +305,7 @@ class PhotoInsightsService {
 // MARK: - Errors
 
 enum PhotoInsightError: Error {
+    case apiKeyMissing
     case invalidURL
     case networkError
     case apiError(Int)

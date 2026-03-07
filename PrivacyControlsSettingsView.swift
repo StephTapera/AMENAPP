@@ -9,7 +9,7 @@ import SwiftUI
 import FirebaseAuth
 
 struct PrivacyControlsSettingsView: View {
-    @StateObject private var trustService = TrustByDesignService.shared
+    @ObservedObject private var trustService = TrustByDesignService.shared
     @Environment(\.dismiss) var dismiss
     @State private var isLoading = true
     @State private var settings: TrustPrivacySettings?

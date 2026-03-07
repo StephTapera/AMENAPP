@@ -30,9 +30,8 @@ class ErrorBannerManager: ObservableObject {
     
     private func startNetworkMonitoring() {
         monitor.pathUpdateHandler = { [weak self] path in
-            Task { @MainActor in
-                self?.isOffline = path.status != .satisfied
-            }
+            let offline = path.status != .satisfied
+            Task { @MainActor [weak self] in self?.isOffline = offline }
         }
         monitor.start(queue: queue)
     }

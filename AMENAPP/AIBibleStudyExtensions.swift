@@ -275,8 +275,8 @@ struct AISettingsView: View {
                             .foregroundStyle(.secondary)
                     }
                     
-                    Link("Privacy Policy", destination: URL(string: "https://example.com/privacy")!)
-                    Link("Terms of Service", destination: URL(string: "https://example.com/terms")!)
+                    Link("Privacy Policy", destination: URL(string: "https://amenapp.com/privacy")!)
+                    Link("Terms of Service", destination: URL(string: "https://amenapp.com/terms")!)
                 }
             }
             .navigationTitle("Settings")

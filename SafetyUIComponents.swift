@@ -7,6 +7,7 @@
 //
 
 import SwiftUI
+import Combine
 import FirebaseAuth
 
 // MARK: - Moderation Feedback Sheet

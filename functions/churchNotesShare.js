@@ -13,7 +13,7 @@ const {onCall, HttpsError} = require("firebase-functions/v2/https");
 exports.shareChurchNote = onCall(
     {
       region: "us-central1",
-      enforceAppCheck: false, // Set to true in production with App Check
+      enforceAppCheck: true, // Set to true in production with App Check
     },
     async (request) => {
       const {noteId, recipientUserIds} = request.data;
@@ -199,7 +199,7 @@ exports.shareChurchNote = onCall(
 exports.revokeChurchNoteShare = onCall(
     {
       region: "us-central1",
-      enforceAppCheck: false,
+      enforceAppCheck: true,
     },
     async (request) => {
       const {noteId, userIds} = request.data;
@@ -271,7 +271,7 @@ exports.revokeChurchNoteShare = onCall(
 exports.generateChurchNoteShareLink = onCall(
     {
       region: "us-central1",
-      enforceAppCheck: false,
+      enforceAppCheck: true,
     },
     async (request) => {
       const {noteId} = request.data;

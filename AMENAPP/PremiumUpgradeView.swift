@@ -11,7 +11,7 @@ import StoreKit
 
 struct PremiumUpgradeView: View {
     @Environment(\.dismiss) var dismiss
-    @StateObject private var premiumManager = PremiumManager.shared
+    @ObservedObject private var premiumManager = PremiumManager.shared
     @State private var selectedProduct: Product?
     @State private var animateGradient = false
     @State private var showingPurchaseSuccess = false

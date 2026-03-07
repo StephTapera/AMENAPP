@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Combine
 
 struct EmailVerificationBanner: View {
     @EnvironmentObject var viewModel: AuthenticationViewModel

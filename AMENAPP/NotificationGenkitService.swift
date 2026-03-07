@@ -12,6 +12,7 @@ import SwiftUI
 import Combine
 import FirebaseAuth
 import FirebaseFirestore
+import FirebaseFunctions
 import UserNotifications
 
 // MARK: - Notification Genkit Service
@@ -23,19 +24,11 @@ class NotificationGenkitService: ObservableObject {
     @Published var isProcessing = false
     @Published var lastError: Error?
     
-    private let genkitEndpoint: String
     private let db = Firestore.firestore()
+    private let functions = Functions.functions(region: "us-central1")
     
     init() {
-        // Configure your Genkit endpoint
-        if let endpoint = Bundle.main.object(forInfoDictionaryKey: "GENKIT_ENDPOINT") as? String {
-            self.genkitEndpoint = endpoint
-        } else {
-            self.genkitEndpoint = "http://localhost:3400"
-            print("⚠️ Using default Genkit endpoint for notifications: \(self.genkitEndpoint)")
-        }
-        
-        print("✅ NotificationGenkitService initialized")
+        print("✅ NotificationGenkitService initialized with Firebase Cloud Functions")
     }
     
     // MARK: - Smart Notification Generation
@@ -55,38 +48,20 @@ class NotificationGenkitService: ObservableObject {
         
         print("🤖 Generating smart notification for: \(eventType.rawValue)")
         
-        // Get recipient interests for personalization
-        let recipientInterests = try await fetchUserInterests(userId: recipientId)
-        
-        // Get shared interests if available
-        var sharedInterests: [String] = []
-        if let senderProfile = senderProfile {
-            sharedInterests = recipientInterests.filter { interest in
-                senderProfile.interests.contains(interest)
-            }
-        }
-        
-        // Call Genkit to generate personalized notification
-        let response = try await callGenkitFlow(
-            flowName: "generateNotificationText",
-            input: [
-                "eventType": eventType.rawValue,
-                "senderName": senderName,
-                "context": context,
-                "recipientInterests": recipientInterests,
-                "sharedInterests": sharedInterests,
-                "metadata": metadata
-            ]
-        )
-        
-        guard let title = response["title"] as? String,
-              let body = response["body"] as? String,
-              let priorityStr = response["priority"] as? String,
-              let category = response["category"] as? String else {
-            throw NotificationGenkitError.invalidResponse
-        }
-        
-        let priority = NotificationPriority(rawValue: priorityStr) ?? .medium
+        // Call Cloud Function to generate personalized notification
+        let callable = functions.httpsCallable("generateNotificationText")
+        let result = try await callable.call([
+            "eventType": eventType.rawValue,
+            "actorName": senderName,
+            "context": context
+        ])
+        let data = result.data as? [String: Any] ?? [:]
+        let notifData = data["notification"] as? [String: Any] ?? [:]
+
+        let title = notifData["title"] as? String ?? senderName
+        let body = notifData["body"] as? String ?? "You have a new notification."
+        let priority: NotificationPriority = .medium
+        let category = eventType.rawValue
         
         print("✅ Smart notification generated:")
         print("   Title: \(title)")
@@ -119,28 +94,14 @@ class NotificationGenkitService: ObservableObject {
         
         print("📊 Summarizing \(notifications.count) notifications...")
         
-        let notificationData = notifications.map { notif in
-            [
-                "type": notif.type,
-                "sender": notif.senderName,
-                "message": notif.message,
-                "timestamp": notif.timestamp.timeIntervalSince1970
-            ] as [String: Any]
-        }
-        
-        let response = try await callGenkitFlow(
-            flowName: "summarizeNotifications",
-            input: [
-                "notifications": notificationData,
-                "maxLength": maxLength
-            ]
-        )
-        
-        guard let summary = response["summary"] as? String,
-              let count = response["count"] as? Int,
-              let topPriority = response["topPriority"] as? String else {
-            throw NotificationGenkitError.invalidResponse
-        }
+        let notificationTexts = notifications.prefix(10).map { "\($0.senderName): \($0.message)" }
+        let callable = functions.httpsCallable("summarizeNotifications")
+        let result = try await callable.call(["notifications": Array(notificationTexts)])
+        let data = result.data as? [String: Any] ?? [:]
+
+        let summary = data["summary"] as? String ?? "You have \(notifications.count) new notifications."
+        let count = notifications.count
+        let topPriority = "medium"
         
         print("✅ Summary generated: \(summary)")
         
@@ -165,7 +126,6 @@ class NotificationGenkitService: ObservableObject {
         
         // Fetch user's activity patterns
         let activityPatterns = try await fetchUserActivityPatterns(userId: userId)
-        let userTimezone = try await fetchUserTimezone(userId: userId)
         
         // For high priority, always send immediately
         if priority == .high {
@@ -176,33 +136,18 @@ class NotificationGenkitService: ObservableObject {
             )
         }
         
-        let response = try await callGenkitFlow(
-            flowName: "optimizeNotificationTiming",
-            input: [
-                "userId": userId,
-                "notificationType": notificationType.rawValue,
-                "priority": priority.rawValue,
-                "userTimezone": userTimezone,
-                "activityPatterns": activityPatterns.map { pattern in
-                    ["hour": pattern.hour, "activeCount": pattern.activeCount]
-                },
-                "currentHour": Calendar.current.component(.hour, from: Date())
-            ]
-        )
-        
-        guard let sendImmediately = response["sendImmediately"] as? Bool,
-              let delayMinutes = response["delayMinutes"] as? Int,
-              let reasoning = response["reasoning"] as? String else {
-            throw NotificationGenkitError.invalidResponse
-        }
-        
-        print("✅ Timing optimized: \(sendImmediately ? "Send now" : "Delay \(delayMinutes) min")")
-        print("   Reasoning: \(reasoning)")
-        
+        // Local timing heuristic: find the peak activity hour closest to now
+        let currentHour = Calendar.current.component(.hour, from: Date())
+        let peakHour = activityPatterns.max(by: { $0.activeCount < $1.activeCount })?.hour ?? 18
+        let diff = abs(peakHour - currentHour)
+        let delayMinutes = diff <= 1 ? 0 : min(diff * 60, 240)
+
+        print("✅ Timing computed locally: \(delayMinutes == 0 ? "Send now" : "Delay \(delayMinutes) min")")
+
         return TimingRecommendation(
-            sendImmediately: sendImmediately,
+            sendImmediately: delayMinutes == 0,
             delayMinutes: delayMinutes,
-            reasoning: reasoning
+            reasoning: "Based on user activity patterns"
         )
     }
     
@@ -335,48 +280,6 @@ class NotificationGenkitService: ObservableObject {
     }
     
     // MARK: - Helper Methods
-    
-    private func callGenkitFlow(
-        flowName: String,
-        input: [String: Any]
-    ) async throws -> [String: Any] {
-        
-        guard let url = URL(string: "\(genkitEndpoint)/\(flowName)") else {
-            throw NotificationGenkitError.invalidEndpoint
-        }
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.timeoutInterval = 30
-        
-        request.httpBody = try JSONSerialization.data(withJSONObject: ["data": input])
-        
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw NotificationGenkitError.requestFailed
-        }
-        
-        guard (200...299).contains(httpResponse.statusCode) else {
-            print("❌ Genkit request failed with status: \(httpResponse.statusCode)")
-            if let errorString = String(data: data, encoding: .utf8) {
-                print("   Error: \(errorString)")
-            }
-            throw NotificationGenkitError.requestFailed
-        }
-        
-        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            throw NotificationGenkitError.invalidResponse
-        }
-        
-        // Genkit wraps response in "result" key
-        if let result = json["result"] as? [String: Any] {
-            return result
-        }
-        
-        return json
-    }
     
     private func fetchUserInterests(userId: String) async throws -> [String] {
         let doc = try await db.collection("users").document(userId).getDocument()
@@ -566,20 +469,14 @@ struct NotificationUserProfile {
 }
 
 enum NotificationGenkitError: LocalizedError {
-    case invalidEndpoint
-    case requestFailed
     case invalidResponse
     case noNotifications
     case noFCMToken
     
     var errorDescription: String? {
         switch self {
-        case .invalidEndpoint:
-            return "Invalid Genkit endpoint URL"
-        case .requestFailed:
-            return "Genkit request failed"
         case .invalidResponse:
-            return "Invalid response from Genkit"
+            return "Invalid response from Cloud Function"
         case .noNotifications:
             return "No notifications to process"
         case .noFCMToken:

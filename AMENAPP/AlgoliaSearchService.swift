@@ -11,6 +11,18 @@ import Foundation
 import Combine
 import Search
 
+// MARK: - AnyCodable → [String: Any] helper
+// AnyCodable's inner `.value` lives in the `Core` module which cannot be imported directly.
+// We use a JSON round-trip to convert additionalProperties to a plain [String: Any] dictionary.
+private func decodeAdditionalProperties<T: Encodable>(_ props: [String: T]?) -> [String: Any] {
+    guard let props else { return [:] }
+    guard let data = try? JSONEncoder().encode(props),
+          let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+        return [:]
+    }
+    return dict
+}
+
 @MainActor
 class AlgoliaSearchService: ObservableObject {
     static let shared = AlgoliaSearchService()
@@ -21,6 +33,10 @@ class AlgoliaSearchService: ObservableObject {
     private var client: SearchClient?
     private var usersIndexName = "users"
     private var postsIndexName = "posts"
+
+    // In-flight task tracking — cancels previous search before starting a new one
+    // to prevent noReachableHosts errors from concurrent cancelled requests.
+    private var activeSearchTask: Task<Void, Never>?
     
     private init() {
         setupAlgoliaClient()
@@ -58,7 +74,10 @@ class AlgoliaSearchService: ObservableObject {
     /// Get autocomplete suggestions for users (fast, limited results)
     func getUserSuggestions(query: String, limit: Int = 5) async throws -> [AlgoliaUserSuggestion] {
         guard !query.isEmpty else { return [] }
-        
+
+        // Bail out immediately if a newer search has already cancelled this task.
+        try Task.checkCancellation()
+
         guard let client = client else {
             throw NSError(
                 domain: "AlgoliaSearchService",
@@ -96,8 +115,9 @@ class AlgoliaSearchService: ObservableObject {
             }
             
             let suggestions = searchResponse.hits.compactMap { hit -> AlgoliaUserSuggestion? in
-                guard let displayName = hit.additionalProperties["displayName"] as? String,
-                      let username = hit.additionalProperties["username"] as? String else {
+                let props = decodeAdditionalProperties(hit.additionalProperties)
+                guard let displayName = props["displayName"] as? String,
+                      let username = props["username"] as? String else {
                     return nil
                 }
                 
@@ -105,8 +125,8 @@ class AlgoliaSearchService: ObservableObject {
                     id: hit.objectID,
                     displayName: displayName,
                     username: username,
-                    profileImageURL: hit.additionalProperties["profileImageURL"] as? String,
-                    followersCount: hit.additionalProperties["followersCount"] as? Int ?? 0
+                    profileImageURL: props["profileImageURL"] as? String,
+                    followersCount: props["followersCount"] as? Int ?? 0
                 )
             }
             
@@ -118,10 +138,14 @@ class AlgoliaSearchService: ObservableObject {
         }
     }
     
-    /// Search users with Algolia (typo-tolerant, instant results)
+    /// Search users with Algolia (typo-tolerant, instant results).
+    /// Call sites should cancel the previous task before creating a new one (see activeSearchTask).
     func searchUsers(query: String, limit: Int = 50) async throws -> [AlgoliaUser] {
         guard !query.isEmpty else { return [] }
-        
+
+        // Bail out immediately if a newer search has already cancelled this task.
+        try Task.checkCancellation()
+
         guard let client = client else {
             throw NSError(
                 domain: "AlgoliaSearchService",
@@ -165,8 +189,9 @@ class AlgoliaSearchService: ObservableObject {
             }
             
             let users = searchResponse.hits.compactMap { hit -> AlgoliaUser? in
-                guard let displayName = hit.additionalProperties["displayName"] as? String,
-                      let username = hit.additionalProperties["username"] as? String else {
+                let props = decodeAdditionalProperties(hit.additionalProperties)
+                guard let displayName = props["displayName"] as? String,
+                      let username = props["username"] as? String else {
                     return nil
                 }
                 
@@ -174,11 +199,11 @@ class AlgoliaSearchService: ObservableObject {
                     objectID: hit.objectID,
                     displayName: displayName,
                     username: username,
-                    bio: hit.additionalProperties["bio"] as? String,
-                    followersCount: hit.additionalProperties["followersCount"] as? Int,
-                    followingCount: hit.additionalProperties["followingCount"] as? Int,
-                    profileImageURL: hit.additionalProperties["profileImageURL"] as? String,
-                    isVerified: hit.additionalProperties["isVerified"] as? Bool ?? false
+                    bio: props["bio"] as? String,
+                    followersCount: props["followersCount"] as? Int,
+                    followingCount: props["followingCount"] as? Int,
+                    profileImageURL: props["profileImageURL"] as? String,
+                    isVerified: props["isVerified"] as? Bool ?? false
                 )
             }
             
@@ -196,7 +221,10 @@ class AlgoliaSearchService: ObservableObject {
     /// Search posts with Algolia
     func searchPosts(query: String, category: String? = nil, limit: Int = 50) async throws -> [AlgoliaPost] {
         guard !query.isEmpty else { return [] }
-        
+
+        // Bail out immediately if a newer search has already cancelled this task.
+        try Task.checkCancellation()
+
         guard let client = client else {
             throw NSError(
                 domain: "AlgoliaSearchService",
@@ -212,7 +240,7 @@ class AlgoliaSearchService: ObservableObject {
             // ✅ P0-8 FIX: Build privacy filter
             // Exclude posts from private accounts unless user follows them
             // Note: This requires authorIsPrivate field in Algolia index
-            var privacyFilter = "authorIsPrivate:false"
+            let privacyFilter = "authorIsPrivate:false"
             
             // Combine category filter with privacy filter
             var combinedFilters: String?
@@ -257,9 +285,10 @@ class AlgoliaSearchService: ObservableObject {
             }
             
             let posts = searchResponse.hits.compactMap { hit -> AlgoliaPost? in
-                guard let content = hit.additionalProperties["content"] as? String,
-                      let authorName = hit.additionalProperties["authorName"] as? String,
-                      let categoryValue = hit.additionalProperties["category"] as? String else {
+                let props = decodeAdditionalProperties(hit.additionalProperties)
+                guard let content = props["content"] as? String,
+                      let authorName = props["authorName"] as? String,
+                      let categoryValue = props["category"] as? String else {
                     return nil
                 }
                 
@@ -267,14 +296,14 @@ class AlgoliaSearchService: ObservableObject {
                     objectID: hit.objectID,
                     content: content,
                     authorName: authorName,
-                    authorId: hit.additionalProperties["authorId"] as? String,  // P0-8
+                    authorId: props["authorId"] as? String,  // P0-8
                     category: categoryValue,
-                    authorIsPrivate: hit.additionalProperties["authorIsPrivate"] as? Bool,  // P0-8
-                    amenCount: hit.additionalProperties["amenCount"] as? Int,
-                    commentCount: hit.additionalProperties["commentCount"] as? Int,
-                    createdAt: hit.additionalProperties["createdAt"] as? TimeInterval,
-                    mediaURLs: hit.additionalProperties["mediaURLs"] as? [String] ?? [],
-                    likesCount: hit.additionalProperties["likesCount"] as? Int ?? 0
+                    authorIsPrivate: props["authorIsPrivate"] as? Bool,  // P0-8
+                    amenCount: props["amenCount"] as? Int,
+                    commentCount: props["commentCount"] as? Int,
+                    createdAt: props["createdAt"] as? TimeInterval,
+                    mediaURLs: props["mediaURLs"] as? [String] ?? [],
+                    likesCount: props["likesCount"] as? Int ?? 0
                 )
             }
             

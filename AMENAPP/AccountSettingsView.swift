@@ -12,7 +12,7 @@ import FirebaseFirestore
 // MARK: - Biometric Setting Row
 
 struct BiometricSettingRow: View {
-    @StateObject private var biometricService = BiometricAuthService.shared
+    @ObservedObject private var biometricService = BiometricAuthService.shared
     @State private var showBiometricSetup = false
     
     var body: some View {
@@ -62,7 +62,7 @@ struct BiometricSettingRow: View {
 // MARK: - Shabbat Mode Setting Row
 
 struct SundayChurchFocusSettingRow: View {
-    @StateObject private var focusManager = SundayChurchFocusManager.shared
+    @ObservedObject private var focusManager = SundayChurchFocusManager.shared
     @State private var candleFlicker = false
     
     var body: some View {
@@ -83,7 +83,7 @@ struct SundayChurchFocusSettingRow: View {
                     
                     // Candle with flame
                     ZStack {
-                        Image(systemName: "candlestick.fill")
+                        Image(systemName: "flame.fill")
                             .font(.system(size: 14))
                             .foregroundStyle(.white)
                         
@@ -512,7 +512,12 @@ struct AccountSettingsView: View {
             ])
             
             print("✅ Updated private account status to: \(newValue)")
-            
+
+            // Invalidate PrivacyAccessControl cache so all views immediately reflect the change.
+            // This covers profile views, feed scoring, and comment gates for the current user.
+            await PrivacyAccessControl.shared.invalidateAll()
+            NotificationCenter.default.post(name: .followRelationshipChanged, object: nil)
+
             // Success haptic
             let successHaptic = UINotificationFeedbackGenerator()
             successHaptic.notificationOccurred(.success)
@@ -736,6 +741,30 @@ struct ChangeDisplayNameView: View {
         isLoading = true
         
         Task {
+            // 🛡️ Profile name safety check before saving
+            let safetyDecision = UnifiedSafetyGate.shared.evaluateProfileField(
+                text: newDisplayName,
+                surface: .profileName
+            )
+            switch safetyDecision {
+            case .block(let reason, _), .escalate(let reason, _):
+                await MainActor.run {
+                    isLoading = false
+                    errorMessage = reason
+                    showError = true
+                }
+                return
+            case .requireEdit(let violation, _):
+                await MainActor.run {
+                    isLoading = false
+                    errorMessage = violation
+                    showError = true
+                }
+                return
+            default:
+                break
+            }
+
             do {
                 // Request display name change (goes to pending)
                 try await userService.requestDisplayNameChange(newDisplayName: newDisplayName)

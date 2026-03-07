@@ -123,15 +123,32 @@ class ActivityFeedService: ObservableObject {
     @Published var communityActivities: [String: [Activity]] = [:] // communityId -> activities
     @Published var isLoading = false
     
-    private let database = Database.database()
+    // Lazy to avoid accessing Database.database() before AppDelegate sets isPersistenceEnabled.
+    nonisolated(unsafe) private lazy var database: Database = Database.database()
     private var ref: DatabaseReference {
         database.reference()
     }
     
-    private var globalObserverHandle: DatabaseHandle?
-    private var communityObserverHandles: [String: DatabaseHandle] = [:]
-    
+    nonisolated(unsafe) private var globalObserverHandle: DatabaseHandle?
+    nonisolated(unsafe) private var communityObserverHandles: [String: DatabaseHandle] = [:]
+
+    // O(1) dedup sets — avoids O(n) `contains(where:)` on every childAdded event
+    private var globalSeenIds: Set<String> = []
+    private var communitySeenIds: [String: Set<String>] = [:]
+
     private init() {}
+
+    deinit {
+        // Remove all Realtime DB handles synchronously.
+        // Firebase DatabaseReference.removeObserver(withHandle:) is thread-safe.
+        let dbRef = database.reference()
+        if let handle = globalObserverHandle {
+            dbRef.child("activityFeed/global").removeObserver(withHandle: handle)
+        }
+        for (communityId, handle) in communityObserverHandles {
+            dbRef.child("communityActivity/\(communityId)").removeObserver(withHandle: handle)
+        }
+    }
     
     var currentUserId: String {
         Auth.auth().currentUser?.uid ?? "anonymous"
@@ -366,28 +383,27 @@ class ActivityFeedService: ObservableObject {
         
         Task { @MainActor in
             if isGlobal {
-                // Add to global feed (newest first)
-                if !globalActivities.contains(where: { $0.id == activity.id }) {
-                    globalActivities.insert(activity, at: 0)
-                    
-                    // Keep only most recent 50
-                    if globalActivities.count > 50 {
-                        globalActivities = Array(globalActivities.prefix(50))
-                    }
+                // O(1) set-based dedup
+                guard !globalSeenIds.contains(activity.id) else { return }
+                globalSeenIds.insert(activity.id)
+                globalActivities.insert(activity, at: 0)
+                if globalActivities.count > 50 {
+                    let removed = globalActivities.removeLast()
+                    globalSeenIds.remove(removed.id)
                 }
             } else if let communityId = communityId {
-                // Add to community feed
+                var seenIds = communitySeenIds[communityId] ?? []
+                guard !seenIds.contains(activity.id) else { return }
+                seenIds.insert(activity.id)
+                communitySeenIds[communityId] = seenIds
+
                 var activities = communityActivities[communityId] ?? []
-                if !activities.contains(where: { $0.id == activity.id }) {
-                    activities.insert(activity, at: 0)
-                    
-                    // Keep only most recent 50
-                    if activities.count > 50 {
-                        activities = Array(activities.prefix(50))
-                    }
-                    
-                    communityActivities[communityId] = activities
+                activities.insert(activity, at: 0)
+                if activities.count > 50 {
+                    let removed = activities.removeLast()
+                    communitySeenIds[communityId]?.remove(removed.id)
                 }
+                communityActivities[communityId] = activities
             }
         }
     }
@@ -399,23 +415,24 @@ class ActivityFeedService: ObservableObject {
         if let handle = globalObserverHandle {
             ref.child("activityFeed/global").removeObserver(withHandle: handle)
             globalObserverHandle = nil
+            globalSeenIds.removeAll()
             print("🔇 Stopped global activity feed observer")
         }
     }
-    
+
     /// Stop observing community feed
     func stopObservingCommunityFeed(communityId: String) {
         if let handle = communityObserverHandles[communityId] {
             ref.child("communityActivity/\(communityId)").removeObserver(withHandle: handle)
             communityObserverHandles.removeValue(forKey: communityId)
+            communitySeenIds.removeValue(forKey: communityId)
             print("🔇 Stopped community activity feed observer for: \(communityId)")
         }
     }
-    
+
     /// Stop all observers
     func stopAllObservers() {
         stopObservingGlobalFeed()
-        
         for communityId in communityObserverHandles.keys {
             stopObservingCommunityFeed(communityId: communityId)
         }
@@ -434,9 +451,7 @@ class ActivityFeedService: ObservableObject {
         let snapshot = try await query.getData()
         var activities: [Activity] = []
         
-        for child in snapshot.children {
-            guard let childSnapshot = child as? DataSnapshot else { continue }
-            
+        for childSnapshot in snapshot.children.allObjects as? [DataSnapshot] ?? [] {
             if let data = childSnapshot.value as? [String: Any],
                let typeString = data["type"] as? String,
                let type = ActivityType(rawValue: typeString),
@@ -481,9 +496,7 @@ class ActivityFeedService: ObservableObject {
         let snapshot = try await query.getData()
         var activities: [Activity] = []
         
-        for child in snapshot.children {
-            guard let childSnapshot = child as? DataSnapshot else { continue }
-            
+        for childSnapshot in snapshot.children.allObjects as? [DataSnapshot] ?? [] {
             if let data = childSnapshot.value as? [String: Any],
                let typeString = data["type"] as? String,
                let type = ActivityType(rawValue: typeString),

@@ -6,13 +6,15 @@
 import FirebaseDatabase
 import FirebaseAuth
 
-// ============================================================================
-// SETUP
-// ============================================================================
+#if DEBUG
 
-let rtdb = Database.database().reference()
-let userId = Auth.auth().currentUser!.uid
-let userName = Auth.auth().currentUser?.displayName ?? "Anonymous"
+// ============================================================================
+// SETUP (Reference only — not called in production)
+// ============================================================================
+// swiftlint:disable identifier_name
+private let rtdb = Database.database().reference()
+private let userId: String = Auth.auth().currentUser?.uid ?? ""
+private let userName: String = Auth.auth().currentUser?.displayName ?? "Anonymous"
 
 // ============================================================================
 // 1. LIKE/UNLIKE POST (💡 Lightbulb)
@@ -47,7 +49,7 @@ func observeLikeCount(postId: String, onChange: @escaping (Int) -> Void) -> Data
 // ============================================================================
 
 func sayAmen(postId: String) {
-    let amenId = rtdb.child("postInteractions/\(postId)/amens").childByAutoId().key!
+    let amenId = rtdb.child("postInteractions/\(postId)/amens").childByAutoId().key ?? UUID().uuidString
     
     rtdb.child("postInteractions/\(postId)/amens/\(amenId)").setValue([
         "userId": userId,
@@ -69,7 +71,7 @@ func observeAmenCount(postId: String, onChange: @escaping (Int) -> Void) -> Data
 // ============================================================================
 
 func addComment(postId: String, text: String, completion: @escaping (String?) -> Void) {
-    let commentId = rtdb.child("postInteractions/\(postId)/comments").childByAutoId().key!
+    let commentId = rtdb.child("postInteractions/\(postId)/comments").childByAutoId().key ?? UUID().uuidString
     
     rtdb.child("postInteractions/\(postId)/comments/\(commentId)").setValue([
         "authorId": userId,
@@ -108,7 +110,7 @@ func observeComments(postId: String, onAdd: @escaping ([String: Any]) -> Void) -
 
 func replyToComment(postId: String, commentId: String, text: String, completion: @escaping (Bool) -> Void) {
     let replyId = rtdb.child("postInteractions/\(postId)/comments/\(commentId)/replies")
-        .childByAutoId().key!
+        .childByAutoId().key ?? UUID().uuidString
     
     rtdb.child("postInteractions/\(postId)/comments/\(commentId)/replies/\(replyId)")
         .setValue([
@@ -146,19 +148,19 @@ func observeReplyCount(postId: String, commentId: String, onChange: @escaping (I
 // ============================================================================
 
 func followUser(userId: String) {
-    let followerId = Auth.auth().currentUser!.uid
+    let followerId = Auth.auth().currentUser?.uid ?? ""
     rtdb.child("follows/\(followerId)/following/\(userId)").setValue(true)
     // Cloud Function automatically updates counts and sends notification
 }
 
 func unfollowUser(userId: String) {
-    let followerId = Auth.auth().currentUser!.uid
+    let followerId = Auth.auth().currentUser?.uid ?? ""
     rtdb.child("follows/\(followerId)/following/\(userId)").removeValue()
     // Cloud Function automatically updates counts
 }
 
 func isFollowing(userId: String, completion: @escaping (Bool) -> Void) {
-    let followerId = Auth.auth().currentUser!.uid
+    let followerId = Auth.auth().currentUser?.uid ?? ""
     rtdb.child("follows/\(followerId)/following/\(userId)")
         .observeSingleEvent(of: .value) { snapshot in
             completion(snapshot.value as? Bool ?? false)
@@ -170,7 +172,7 @@ func isFollowing(userId: String, completion: @escaping (Bool) -> Void) {
 // ============================================================================
 
 func sendMessage(conversationId: String, text: String, completion: @escaping (Bool) -> Void) {
-    let messageId = rtdb.child("conversations/\(conversationId)/messages").childByAutoId().key!
+    let messageId = rtdb.child("conversations/\(conversationId)/messages").childByAutoId().key ?? UUID().uuidString
     
     rtdb.child("conversations/\(conversationId)/messages/\(messageId)").setValue([
         "senderId": userId,
@@ -185,7 +187,7 @@ func sendMessage(conversationId: String, text: String, completion: @escaping (Bo
 }
 
 func sendPhotoMessage(conversationId: String, photoURL: String, completion: @escaping (Bool) -> Void) {
-    let messageId = rtdb.child("conversations/\(conversationId)/messages").childByAutoId().key!
+    let messageId = rtdb.child("conversations/\(conversationId)/messages").childByAutoId().key ?? UUID().uuidString
     
     rtdb.child("conversations/\(conversationId)/messages/\(messageId)").setValue([
         "senderId": userId,
@@ -518,3 +520,5 @@ func setupOfflineSync() {
     keepSynced(path: "postInteractions")
     keepSynced(path: "unreadCounts/\(userId)")
 }
+
+#endif

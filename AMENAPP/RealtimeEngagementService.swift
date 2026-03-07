@@ -32,8 +32,7 @@ class RealtimeEngagementService: ObservableObject {
     }
     
     private init() {
-        self.database = Database.database(url: "https://amen-5e359-default-rtdb.firebaseio.com").reference()
-        print("🔥 RealtimeEngagementService initialized")
+        self.database = Database.database().reference()
     }
     
     deinit {

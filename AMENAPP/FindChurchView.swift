@@ -112,16 +112,38 @@ extension Church {
 }
 
 // MARK: - CLLocationCoordinate2D Extension
-extension CLLocationCoordinate2D: Equatable {
+extension CLLocationCoordinate2D: @retroactive Equatable {
     public static func == (lhs: CLLocationCoordinate2D, rhs: CLLocationCoordinate2D) -> Bool {
         lhs.latitude == rhs.latitude && lhs.longitude == rhs.longitude
     }
 }
 
+// Enum-driven sheet to avoid multiple .sheet() modifiers on same view (SwiftUI limitation).
+// All sheet cases are consolidated here so only a single .sheet(item:) modifier exists on the view.
+private enum FindChurchSheet: Identifiable {
+    case denomination(FindChurchView.ChurchDenomination)
+    case share(Church)
+    case schedule
+    case firstVisit(VisitCompanionChurch)
+    case churchDetail(Church)
+    case comparison([Church])
+
+    var id: String {
+        switch self {
+        case .denomination(let d): return "denomination_\(d.rawValue)"
+        case .share(let c): return "share_\(c.id)"
+        case .schedule: return "schedule"
+        case .firstVisit(let c): return "firstVisit_\(c.id ?? "unknown")"
+        case .churchDetail(let c): return "churchDetail_\(c.id)"
+        case .comparison: return "comparison"
+        }
+    }
+}
+
 struct FindChurchView: View {
     @StateObject private var locationManager = LocationManager()
-    @StateObject private var churchSearchService: ChurchSearchService = .shared
-    @StateObject private var persistenceManager = ChurchPersistenceManager.shared
+    @ObservedObject private var churchSearchService: ChurchSearchService = .shared
+    @ObservedObject private var persistenceManager = ChurchPersistenceManager.shared
     @State private var searchText = ""
     @State private var selectedDenomination: ChurchDenomination = .all
     @State private var region = MKCoordinateRegion(
@@ -154,6 +176,7 @@ struct FindChurchView: View {
     @State private var showFilters = false
     @State private var navigationPath = NavigationPath()
     @State private var showDenominationInfo: ChurchDenomination?
+    @State private var activeSheet: FindChurchSheet?
     @State private var showMapView = false
     @State private var recentSearches: [String] = []
     @State private var showRecentSearches = false
@@ -178,7 +201,7 @@ struct FindChurchView: View {
     
     // Smart features
     struct ChurchVisit: Codable, Identifiable {
-        let id = UUID()
+        var id: UUID = UUID()
         let churchId: UUID
         let date: Date
         let duration: TimeInterval?
@@ -327,7 +350,7 @@ struct FindChurchView: View {
         
         /// Estimate travel time to church (simplified - could integrate with MapKit routing)
         private func estimateTravelTime(to church: Church, from userLocation: CLLocationCoordinate2D?) -> TimeInterval {
-            guard let userLoc = userLocation else {
+            guard userLocation != nil else {
                 // No location - assume 30 minutes
                 return 30 * 60
             }
@@ -405,8 +428,6 @@ struct FindChurchView: View {
     struct ServiceTimePrediction {
         /// Predict next service time considering holidays and special events
         func predictNextService(for church: Church, from date: Date = Date()) -> Date? {
-            let calendar = Calendar.current
-            
             // Check if date is a holiday
             if let holiday = getHoliday(for: date) {
                 return adjustForHoliday(church, holiday: holiday, on: date)
@@ -864,7 +885,7 @@ struct FindChurchView: View {
     }
     
     var locationStatusText: String {
-        if locationManager.isAuthorized, let location = userLocation {
+        if locationManager.isAuthorized, userLocation != nil {
             return currentLocationName
         } else {
             return "Location services disabled"
@@ -1273,47 +1294,73 @@ struct FindChurchView: View {
                     }
                 }
             }
-            .sheet(item: $selectedChurch) { church in
-                EnhancedChurchDetailSheet(
-                    church: church,
-                    isSaved: savedChurchIds.contains(church.id),
-                    isVisited: userPreferences.visitedChurches.contains(church.id),
-                    onSave: { toggleSave(church) },
-                    onGetDirections: { openDirections(to: church) },
-                    onCall: { callChurch(church) },
-                    onShare: { 
-                        shareableChurch = church
-                        showShareSheet = true
-                    },
-                    onCheckIn: { checkInToChurch(church) },
-                    onAddToSchedule: { 
-                        addToSchedule(church)
-                        showScheduleView = true
-                    },
-                    onPlanFirstVisit: {
-                        selectedChurchForVisit = VisitCompanionChurch(from: church)
-                        showFirstVisitCompanion = true
-                    }
-                )
-            }
-            .sheet(item: $showDenominationInfo) { denomination in
-                DenominationInfoSheet(denomination: denomination)
-            }
-            .sheet(isPresented: $showShareSheet, content: {
-                if let church = shareableChurch {
+            // Single .sheet(item:) — ALL sheet presentations flow through activeSheet.
+            // onChange observers bridge legacy @State booleans/optionals so all call sites stay unchanged.
+            .sheet(item: $activeSheet) { sheet in
+                switch sheet {
+                case .denomination(let denomination):
+                    DenominationInfoSheet(denomination: denomination)
+                case .share(let church):
                     ShareSheet(items: [church.shareText])
-                }
-            })
-            .sheet(isPresented: $showScheduleView) {
-                ChurchScheduleView(
-                    savedChurches: persistenceManager.savedChurches,
-                    onDismiss: { showScheduleView = false }
-                )
-            }
-            .sheet(isPresented: $showFirstVisitCompanion) {
-                if let church = selectedChurchForVisit {
+                case .schedule:
+                    ChurchScheduleView(
+                        savedChurches: persistenceManager.savedChurches,
+                        onDismiss: { activeSheet = nil }
+                    )
+                case .firstVisit(let church):
                     FirstVisitCompanionView(church: church)
+                case .churchDetail(let church):
+                    EnhancedChurchDetailSheet(
+                        church: church,
+                        isSaved: savedChurchIds.contains(church.id),
+                        isVisited: userPreferences.visitedChurches.contains(church.id),
+                        onSave: { toggleSave(church) },
+                        onGetDirections: { openDirections(to: church) },
+                        onCall: { callChurch(church) },
+                        onShare: {
+                            shareableChurch = church
+                            activeSheet = .share(church)
+                        },
+                        onCheckIn: { checkInToChurch(church) },
+                        onAddToSchedule: {
+                            addToSchedule(church)
+                            activeSheet = .schedule
+                        },
+                        onPlanFirstVisit: {
+                            let visitChurch = VisitCompanionChurch(from: church)
+                            activeSheet = .firstVisit(visitChurch)
+                        }
+                    )
+                case .comparison(let churches):
+                    ChurchComparisonView(
+                        churches: churches,
+                        onClose: { activeSheet = nil }
+                    )
                 }
+            }
+            // Bridge selectedChurch optional → .churchDetail case
+            .onChange(of: selectedChurch) { _, church in
+                if let c = church { activeSheet = .churchDetail(c); selectedChurch = nil }
+            }
+            // Bridge showComparisonView boolean → .comparison case
+            .onChange(of: showComparisonView) { _, isShowing in
+                if isShowing {
+                    let churches = filteredChurches.filter { selectedChurchesForComparison.contains($0.id) }
+                    activeSheet = .comparison(churches)
+                    showComparisonView = false
+                }
+            }
+            .onChange(of: showDenominationInfo) { _, denomination in
+                if let d = denomination { activeSheet = .denomination(d); showDenominationInfo = nil }
+            }
+            .onChange(of: showShareSheet) { _, isShowing in
+                if isShowing, let church = shareableChurch { activeSheet = .share(church); showShareSheet = false }
+            }
+            .onChange(of: showScheduleView) { _, isShowing in
+                if isShowing { activeSheet = .schedule; showScheduleView = false }
+            }
+            .onChange(of: showFirstVisitCompanion) { _, isShowing in
+                if isShowing, let church = selectedChurchForVisit { activeSheet = .firstVisit(church); showFirstVisitCompanion = false }
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar(.hidden, for: .navigationBar)
@@ -1340,14 +1387,6 @@ struct FindChurchView: View {
             }
         } message: {
             Text(errorMessage)
-        }
-        .sheet(isPresented: $showComparisonView) {
-            ChurchComparisonView(
-                churches: filteredChurches.filter { selectedChurchesForComparison.contains($0.id) },
-                onClose: {
-                    showComparisonView = false
-                }
-            )
         }
         .onAppear {
             locationManager.checkLocationAuthorization()
@@ -1458,36 +1497,23 @@ struct FindChurchView: View {
     
     func reverseGeocodeLocation(_ coordinate: CLLocationCoordinate2D) {
         let location = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
-        let geocoder = CLGeocoder()
-        
-        geocoder.reverseGeocodeLocation(location) { placemarks, error in
-            if let error = error {
-                print("❌ Reverse geocoding error: \(error.localizedDescription)")
-                currentLocationName = "Unknown Location"
-                return
-            }
-            
-            if let placemark = placemarks?.first {
-                // Build location string
-                var locationComponents: [String] = []
-                
-                if let locality = placemark.locality {
-                    locationComponents.append(locality)
+        Task {
+            do {
+                guard let request = MKReverseGeocodingRequest(location: location) else {
+                    currentLocationName = "Unknown Location"
+                    return
                 }
-                
-                if let administrativeArea = placemark.administrativeArea {
-                    locationComponents.append(administrativeArea)
-                }
-                
-                if !locationComponents.isEmpty {
-                    currentLocationName = locationComponents.joined(separator: ", ")
-                } else if let name = placemark.name {
-                    currentLocationName = name
+                let mapItems = try await request.mapItems
+                if let mapItem = mapItems.first,
+                   let addr = mapItem.addressRepresentations?.cityWithContext(.automatic) {
+                    currentLocationName = addr
                 } else {
                     currentLocationName = "Current Location"
                 }
-                
                 print("📍 Location: \(currentLocationName)")
+            } catch {
+                print("❌ Reverse geocoding error: \(error.localizedDescription)")
+                currentLocationName = "Unknown Location"
             }
         }
     }
@@ -1672,7 +1698,10 @@ struct FindChurchView: View {
         let haptic = UIImpactFeedbackGenerator(style: .medium)
         haptic.impactOccurred()
         
-        let mapItem = MKMapItem(placemark: MKPlacemark(coordinate: church.coordinate))
+        let mapItem = MKMapItem(location: CLLocation(
+            latitude: church.coordinate.latitude,
+            longitude: church.coordinate.longitude
+        ), address: nil)
         mapItem.name = church.name
         mapItem.openInMaps(launchOptions: [MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeDriving])
     }
@@ -2454,23 +2483,25 @@ struct EnhancedChurchCard: View {
                         ModernDetailRow(icon: "phone", text: church.phone, color: .orange)
                         
                         if let website = church.website {
-                            Link(destination: URL(string: "https://\(website)")!) {
-                                HStack(spacing: 12) {
-                                    Image(systemName: "globe")
-                                        .font(.system(size: 16))
-                                        .foregroundStyle(.purple)
-                                        .frame(width: 24)
-                                    
-                                    Text(website)
-                                        .font(.custom("OpenSans-Regular", size: 15))
-                                        .foregroundStyle(.purple)
-                                        .underline()
-                                    
-                                    Spacer()
-                                    
-                                    Image(systemName: "arrow.up.right")
-                                        .font(.system(size: 12))
-                                        .foregroundStyle(.purple)
+                            if let websiteURL = URL(string: website.hasPrefix("http://") || website.hasPrefix("https://") ? website : "https://\(website)") {
+                                Link(destination: websiteURL) {
+                                    HStack(spacing: 12) {
+                                        Image(systemName: "globe")
+                                            .font(.system(size: 16))
+                                            .foregroundStyle(.purple)
+                                            .frame(width: 24)
+                                        
+                                        Text(website)
+                                            .font(.custom("OpenSans-Regular", size: 15))
+                                            .foregroundStyle(.purple)
+                                            .underline()
+                                        
+                                        Spacer()
+                                        
+                                        Image(systemName: "arrow.up.right")
+                                            .font(.system(size: 12))
+                                            .foregroundStyle(.purple)
+                                    }
                                 }
                             }
                         }
@@ -3031,9 +3062,11 @@ struct ChurchCard: View {
                                 .font(.system(size: 14))
                                 .foregroundStyle(.blue)
                             
-                            Link(website, destination: URL(string: "https://\(website)")!)
-                                .font(.custom("OpenSans-Regular", size: 14))
-                                .foregroundStyle(.blue)
+                            if let websiteURL = URL(string: website.hasPrefix("http://") || website.hasPrefix("https://") ? website : "https://\(website)") {
+                                Link(website, destination: websiteURL)
+                                    .font(.custom("OpenSans-Regular", size: 14))
+                                    .foregroundStyle(.blue)
+                            }
                         }
                     }
                 }
@@ -3497,7 +3530,8 @@ struct ChurchComparisonView: View {
                                     Text(church.name)
                                         .font(.custom("OpenSans-SemiBold", size: 14))
                                     
-                                    Link(destination: URL(string: "tel://\(church.phone.replacingOccurrences(of: "[^0-9]", with: "", options: .regularExpression))")!) {
+                                    if let telURL = URL(string: "tel://\(church.phone.replacingOccurrences(of: "[^0-9]", with: "", options: .regularExpression))") {
+                                    Link(destination: telURL) {
                                         HStack {
                                             Image(systemName: "phone.fill")
                                                 .font(.system(size: 12))
@@ -3506,6 +3540,7 @@ struct ChurchComparisonView: View {
                                         }
                                         .foregroundStyle(.blue)
                                     }
+                                    } // end if let telURL
                                 }
                                 .padding(.vertical, 8)
                             }
@@ -4195,8 +4230,9 @@ struct ChurchDetailSheet: View {
                         DetailRow(icon: "clock.fill", title: "Service Time", value: church.serviceTime)
                         DetailRow(icon: "phone.fill", title: "Phone", value: church.phone)
                         
-                        if let website = church.website {
-                            Link(destination: URL(string: "https://\(website)")!) {
+                        if let website = church.website,
+                           let websiteURL = URL(string: website.hasPrefix("http://") || website.hasPrefix("https://") ? website : "https://\(website)") {
+                            Link(destination: websiteURL) {
                                 HStack {
                                     VStack(alignment: .leading, spacing: 4) {
                                         HStack(spacing: 8) {
@@ -4660,7 +4696,7 @@ struct EnhancedChurchDetailSheet: View {
                     // Plan First Visit Button
                     Button(action: onPlanFirstVisit) {
                         HStack(spacing: 8) {
-                            Image(systemName: "heart.text.square.fill")
+                            Image(systemName: "calendar.badge.plus")
                                 .font(.system(size: 18))
                             Text("Plan First Visit")
                                 .font(.system(size: 16, weight: .semibold))
@@ -4670,7 +4706,7 @@ struct EnhancedChurchDetailSheet: View {
                         .padding(.vertical, 14)
                         .background(
                             RoundedRectangle(cornerRadius: 12)
-                                .fill(Color.amenGold)
+                                .fill(Color(red: 0.2, green: 0.2, blue: 0.2))
                         )
                     }
                     
@@ -4682,8 +4718,9 @@ struct EnhancedChurchDetailSheet: View {
                         DetailRow(icon: "clock.fill", title: "Service Time", value: church.serviceTime)
                         DetailRow(icon: "phone.fill", title: "Phone", value: church.phone)
                         
-                        if let website = church.website {
-                            Link(destination: URL(string: "https://\(website)")!) {
+                        if let website = church.website,
+                           let websiteURL = URL(string: website.hasPrefix("http://") || website.hasPrefix("https://") ? website : "https://\(website)") {
+                            Link(destination: websiteURL) {
                                 HStack {
                                     VStack(alignment: .leading, spacing: 4) {
                                         HStack(spacing: 8) {

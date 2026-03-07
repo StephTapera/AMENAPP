@@ -10,6 +10,8 @@ import Foundation
 import SwiftUI
 import FirebaseAuth
 
+#if DEBUG
+
 /// Validates that all critical messaging components are present and functional
 struct MessagingSystemValidator {
     
@@ -131,7 +133,7 @@ struct MessagingSystemValidator {
         var results: [ValidationResult] = []
         
         // Validate MessagesView can be created
-        let messagesView = MessagesView()
+        _ = MessagesView()
         results.append(ValidationResult(
             component: "MessagesView",
             isValid: true, // If it compiles, it's valid
@@ -147,7 +149,7 @@ struct MessagingSystemValidator {
             unreadCount: 0,
             avatarColor: .blue
         )
-        let chatView = ModernConversationDetailView(conversation: testConversation)
+        _ = ModernConversationDetailView(conversation: testConversation)
         results.append(ValidationResult(
             component: "ModernConversationDetailView",
             isValid: true,
@@ -155,7 +157,7 @@ struct MessagingSystemValidator {
         ))
         
         // Validate CreateGroupView can be created
-        let createGroupView = CreateGroupView()
+        _ = CreateGroupView()
         results.append(ValidationResult(
             component: "CreateGroupView",
             isValid: true,
@@ -281,3 +283,5 @@ struct ValidationResultRow: View {
 #Preview {
     MessagingValidationView()
 }
+
+#endif

@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import Combine
 
 // MARK: - Policy Types (File-level for cross-file usage)
 

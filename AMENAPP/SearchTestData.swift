@@ -11,6 +11,8 @@ import Foundation
 import SwiftUI
 import Combine
 
+#if DEBUG
+
 // MARK: - Sample Data for AI Components
 // Note: BiblicalSearchResult and FilterSuggestion types are defined in BereanGenkitService.swift
 
@@ -749,3 +751,5 @@ struct SearchResultRow: View {
 #Preview {
     SearchViewWithMockData()
 }
+
+#endif

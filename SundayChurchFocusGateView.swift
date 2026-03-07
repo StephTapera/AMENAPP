@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct SundayChurchFocusGateView: View {
-    @StateObject private var focusManager = SundayChurchFocusManager.shared
+    @ObservedObject private var focusManager = SundayChurchFocusManager.shared
     @Environment(\.dismiss) var dismiss
     @State private var candleFlicker = false
     @Binding var selectedTab: Int  // To navigate to actual tabs
@@ -143,8 +143,8 @@ struct SundayChurchFocusGateView: View {
                     title: "Find a Church",
                     subtitle: "Discover churches near you"
                 ) {
-                    // Navigate to Find Church tab (index 4)
-                    selectedTab = 4
+                    // Navigate to Resources tab (index 3) which contains Find Church
+                    selectedTab = 3
                     dismiss()
                 }
             }

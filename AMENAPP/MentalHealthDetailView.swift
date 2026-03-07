@@ -2,367 +2,473 @@
 //  MentalHealthDetailView.swift
 //  AMENAPP
 //
-//  Created by Steph on 2/2/26.
+//  Redesigned: Support Hub — Mental Health & Wellness
+//  Reference: warm editorial card UI — parchment base, large type, dark pill actions,
+//             full-bleed hero, dot indicators, immersive overlay mode.
 //
 
 import SwiftUI
 
+// MARK: - Mental Health Detail View
+
 struct MentalHealthDetailView: View {
-    @State private var selectedCategory: MentalHealthCategory = .all
-    
-    enum MentalHealthCategory: String, CaseIterable {
-        case all = "All"
-        case counseling = "Counseling"
-        case resources = "Resources"
-        case meditation = "Meditation"
-        case support = "Support"
+    @State private var selectedTab: WellnessTab = .tools
+    @State private var appeared = false
+    @State private var featuredIndex = 0
+    @Environment(\.dismiss) private var dismiss
+
+    enum WellnessTab: String, CaseIterable {
+        case tools    = "Tools"
+        case counsel  = "Counseling"
+        case groups   = "Groups"
+        case faith    = "Faith"
     }
-    
-    var filteredResources: [MentalHealthResource] {
-        guard selectedCategory != .all else {
-            return MentalHealthResource.allResources
-        }
-        return MentalHealthResource.allResources.filter { $0.category == selectedCategory }
-    }
-    
+
+    // Parchment design tokens
+    private let parchment     = Color(red: 0.97, green: 0.95, blue: 0.91)
+    private let ink           = Color(red: 0.14, green: 0.12, blue: 0.10)
+    private let inkSecondary  = Color(red: 0.42, green: 0.38, blue: 0.34)
+    private let tealAccent    = Color(red: 0.12, green: 0.52, blue: 0.50)
+
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                // Hero Section
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack(spacing: 12) {
+        ZStack(alignment: .top) {
+            parchment.ignoresSafeArea()
+
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 0) {
+                    heroSection
+                        .opacity(appeared ? 1 : 0)
+                        .offset(y: appeared ? 0 : 14)
+
+                    // Tab switcher — Reference B floating tabs
+                    tabSwitcher
+                        .padding(.top, 28)
+                        .opacity(appeared ? 1 : 0)
+
+                    // Tab content
+                    tabContent
+                        .padding(.top, 20)
+                        .opacity(appeared ? 1 : 0)
+                        .offset(y: appeared ? 0 : 8)
+
+                    Spacer(minLength: 60)
+                }
+            }
+        }
+        .navigationBarHidden(true)
+        .onAppear {
+            withAnimation(.easeOut(duration: 0.5).delay(0.06)) {
+                appeared = true
+            }
+        }
+    }
+
+    // MARK: Hero
+
+    private var heroSection: some View {
+        ZStack(alignment: .bottomLeading) {
+            // Full-bleed warm gradient — immersive overlay reference
+            LinearGradient(
+                colors: [
+                    Color(red: 0.22, green: 0.42, blue: 0.46),
+                    Color(red: 0.34, green: 0.55, blue: 0.50)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .frame(height: 260)
+
+            // Lens highlight
+            Ellipse()
+                .fill(Color.white.opacity(0.12))
+                .frame(width: 280, height: 100)
+                .blur(radius: 40)
+                .offset(x: 60, y: -40)
+
+            // Overlaid text — Reference right-panel style
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Mental Health\n& Wellness")
+                    .font(.custom("Georgia", size: 32))
+                    .fontWeight(.regular)
+                    .foregroundStyle(.white)
+                    .lineSpacing(2)
+
+                Text("Faith-based care for mind, body, and spirit.")
+                    .font(.custom("OpenSans-Regular", size: 14))
+                    .foregroundStyle(Color.white.opacity(0.80))
+            }
+            .padding(.horizontal, 24)
+            .padding(.bottom, 28)
+
+            // Dismiss ×
+            VStack {
+                HStack {
+                    Button { dismiss() } label: {
                         ZStack {
                             Circle()
-                                .fill(.green.opacity(0.15))
-                                .frame(width: 64, height: 64)
-                            
-                            Image(systemName: "heart.text.square.fill")
-                                .font(.system(size: 28, weight: .semibold))
-                                .foregroundStyle(.green)
-                                .symbolEffect(.pulse, options: .repeating.speed(0.8))
-                        }
-                        
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Mental Health")
-                                .font(.custom("OpenSans-Bold", size: 28))
-                                .foregroundStyle(.primary)
-                            
-                            Text("Faith-based wellness support")
-                                .font(.custom("OpenSans-Regular", size: 16))
-                                .foregroundStyle(.secondary)
+                                .fill(Color.black.opacity(0.28))
+                                .frame(width: 36, height: 36)
+                            Image(systemName: "xmark")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(.white)
                         }
                     }
-                    
-                    Text("Caring for your mental health is caring for the temple God gave you. Find resources, support, and guidance on your wellness journey.")
-                        .font(.custom("OpenSans-Regular", size: 15))
-                        .foregroundStyle(.secondary)
-                        .lineSpacing(4)
+                    .padding(.leading, 20)
+                    .padding(.top, 56)
+                    Spacer()
                 }
-                .padding(.horizontal)
-                .padding(.top)
-                
-                // Scripture Encouragement
-                scriptureCard
-                
-                // Category Filter
-                categoryPicker
-                
-                // Resources Grid
-                VStack(alignment: .leading, spacing: 12) {
-                    ForEach(filteredResources) { resource in
-                        MentalHealthResourceCard(resource: resource)
-                    }
-                }
-                .padding(.horizontal)
-                
-                // Self-Care Tips
-                selfCareTipsSection
-                
-                // Prayer Section
-                prayerSection
-                
-                Spacer(minLength: 40)
+                Spacer()
             }
-            .padding(.vertical)
         }
-        .navigationTitle("Mental Health")
-        .navigationBarTitleDisplayMode(.inline)
+        .frame(maxWidth: .infinity)
+        .frame(height: 260)
+        .clipped()
     }
-    
-    private var scriptureCard: some View {
+
+    // MARK: Tab Switcher — floating pill tabs (Reference B)
+
+    private var tabSwitcher: some View {
+        HStack(spacing: 0) {
+            ForEach(WellnessTab.allCases, id: \.self) { tab in
+                Button {
+                    withAnimation(.spring(response: 0.30, dampingFraction: 0.78)) {
+                        selectedTab = tab
+                    }
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                } label: {
+                    VStack(spacing: 6) {
+                        Text(tab.rawValue)
+                            .font(.custom(selectedTab == tab ? "OpenSans-SemiBold" : "OpenSans-Regular", size: 14))
+                            .foregroundStyle(selectedTab == tab ? ink : inkSecondary)
+                            .padding(.horizontal, 4)
+
+                        // Underline indicator — glides between tabs
+                        Rectangle()
+                            .fill(selectedTab == tab ? tealAccent : Color.clear)
+                            .frame(height: 2)
+                            .cornerRadius(1)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .buttonStyle(SquishButtonStyle())
+            }
+        }
+        .padding(.horizontal, 20)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(inkSecondary.opacity(0.12))
+                .frame(height: 1)
+        }
+    }
+
+    // MARK: Tab Content
+
+    @ViewBuilder
+    private var tabContent: some View {
+        switch selectedTab {
+        case .tools:    wellnessToolsGrid
+        case .counsel:  counselingList
+        case .groups:   supportGroupsList
+        case .faith:    faithResourcesList
+        }
+    }
+
+    // MARK: Tools Tab — grounding exercises + scripture
+
+    private var wellnessToolsGrid: some View {
+        VStack(spacing: 0) {
+            // Scripture card — editorial blockquote
+            scriptureBlockquote
+                .padding(.horizontal, 20)
+
+            // Quick tools — 2-col grid (Reference A folder cards)
+            let tools: [(String, String, String, Color)] = [
+                ("wind", "Breathing",      "Box-breath exercise",       tealAccent),
+                ("brain.head.profile", "Grounding",    "5-4-3-2-1 technique",       Color(red: 0.52, green: 0.36, blue: 0.72)),
+                ("moon.stars.fill",    "Sleep Hygiene", "Rest & restoration tips",   Color(red: 0.28, green: 0.38, blue: 0.62)),
+                ("figure.walk",        "Movement",      "Body & mood connection",    Color(red: 0.22, green: 0.52, blue: 0.38)),
+                ("book.fill",          "Journaling",    "Reflection prompts",        Color(red: 0.72, green: 0.46, blue: 0.22)),
+                ("hands.sparkles.fill","Prayer",        "Centering in Christ",       Color(red: 0.62, green: 0.22, blue: 0.42)),
+            ]
+
+            LazyVGrid(
+                columns: [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)],
+                spacing: 14
+            ) {
+                ForEach(tools, id: \.0) { tool in
+                    WellnessToolCard(
+                        icon: tool.0,
+                        title: tool.1,
+                        subtitle: tool.2,
+                        accent: tool.3,
+                        parchment: parchment,
+                        ink: ink,
+                        inkSecondary: inkSecondary
+                    )
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 20)
+
+            // Berean suggestion
+            bereanWellnessBridge
+                .padding(.horizontal, 20)
+                .padding(.top, 20)
+        }
+    }
+
+    // MARK: Counseling Tab
+
+    private var counselingList: some View {
+        VStack(spacing: 14) {
+            ForEach(MentalHealthResource.counselingResources) { resource in
+                EditorialResourceCard(resource: resource, ink: ink, inkSecondary: inkSecondary, parchment: parchment)
+            }
+        }
+        .padding(.horizontal, 20)
+    }
+
+    // MARK: Groups Tab
+
+    private var supportGroupsList: some View {
+        VStack(spacing: 14) {
+            ForEach(MentalHealthResource.groupResources) { resource in
+                EditorialResourceCard(resource: resource, ink: ink, inkSecondary: inkSecondary, parchment: parchment)
+            }
+        }
+        .padding(.horizontal, 20)
+    }
+
+    // MARK: Faith Tab
+
+    private var faithResourcesList: some View {
+        VStack(spacing: 14) {
+            ForEach(MentalHealthResource.faithResources) { resource in
+                EditorialResourceCard(resource: resource, ink: ink, inkSecondary: inkSecondary, parchment: parchment)
+            }
+        }
+        .padding(.horizontal, 20)
+    }
+
+    // MARK: Scripture Blockquote
+
+    private var scriptureBlockquote: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
-                Image(systemName: "book.fill")
-                    .font(.system(size: 14))
-                    .foregroundStyle(.blue)
-                
-                Text("Scripture for Wellness")
-                    .font(.custom("OpenSans-Bold", size: 15))
-                    .foregroundStyle(.primary)
-            }
-            
-            Text("\"Do not be anxious about anything, but in every situation, by prayer and petition, with thanksgiving, present your requests to God. And the peace of God, which transcends all understanding, will guard your hearts and your minds in Christ Jesus.\"")
-                .font(.custom("OpenSans-Regular", size: 14))
-                .foregroundStyle(.primary)
-                .italic()
-                .lineSpacing(4)
-            
-            Text("— Philippians 4:6-7")
-                .font(.custom("OpenSans-SemiBold", size: 13))
-                .foregroundStyle(.secondary)
-        }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(.blue.opacity(0.1))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(.blue.opacity(0.3), lineWidth: 1)
-                )
-        )
-        .padding(.horizontal)
-    }
-    
-    private var categoryPicker: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(MentalHealthCategory.allCases, id: \.self) { category in
-                    Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                            selectedCategory = category
-                        }
-                        
-                        let haptic = UIImpactFeedbackGenerator(style: .light)
-                        haptic.impactOccurred()
-                    } label: {
-                        Text(category.rawValue)
-                            .font(.custom("OpenSans-SemiBold", size: 14))
-                            .foregroundStyle(selectedCategory == category ? .white : .primary)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 8)
-                            .background(
-                                Capsule()
-                                    .fill(selectedCategory == category ? Color.green : Color(.systemGray6))
-                            )
-                    }
+            Rectangle()
+                .fill(tealAccent)
+                .frame(width: 3, height: 44)
+                .cornerRadius(2)
+                .padding(.bottom, -44)
+                .offset(x: 0)
+
+            HStack(alignment: .top, spacing: 14) {
+                Rectangle()
+                    .fill(tealAccent)
+                    .frame(width: 3)
+                    .cornerRadius(2)
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("\"Do not be anxious about anything, but in every situation, by prayer and petition, present your requests to God.\"")
+                        .font(.custom("Georgia", size: 15))
+                        .fontWeight(.regular)
+                        .foregroundStyle(ink)
+                        .italic()
+                        .lineSpacing(4)
+
+                    Text("— Philippians 4:6")
+                        .font(.custom("OpenSans-Regular", size: 12))
+                        .foregroundStyle(inkSecondary)
                 }
             }
-            .padding(.horizontal)
         }
+        .padding(.top, 4)
     }
-    
-    private var selfCareTipsSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Self-Care Practices")
-                .font(.custom("OpenSans-Bold", size: 20))
-                .foregroundStyle(.primary)
-                .padding(.horizontal)
-            
-            VStack(spacing: 10) {
-                SelfCareTipCard(
-                    icon: "heart.fill",
-                    title: "Rest & Sleep",
-                    description: "Prioritize 7-9 hours of quality sleep each night",
-                    color: .pink
-                )
-                
-                SelfCareTipCard(
-                    icon: "figure.walk",
-                    title: "Physical Activity",
-                    description: "Regular exercise boosts mood and reduces stress",
-                    color: .orange
-                )
-                
-                SelfCareTipCard(
-                    icon: "fork.knife",
-                    title: "Healthy Nutrition",
-                    description: "Nourish your body with wholesome foods",
-                    color: .green
-                )
-                
-                SelfCareTipCard(
-                    icon: "person.2.fill",
-                    title: "Social Connection",
-                    description: "Stay connected with loved ones and community",
-                    color: .blue
-                )
-                
-                SelfCareTipCard(
-                    icon: "book.fill",
-                    title: "Limit News Intake",
-                    description: "Take breaks from constant information streams",
-                    color: .purple
-                )
+
+    // MARK: Berean Bridge
+
+    private var bereanWellnessBridge: some View {
+        HStack(spacing: 14) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(tealAccent.opacity(0.12))
+                    .frame(width: 44, height: 44)
+                Image(systemName: "bubble.left.and.text.bubble.right.fill")
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundStyle(tealAccent)
             }
-            .padding(.horizontal)
-        }
-    }
-    
-    private var prayerSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
-                Image(systemName: "hands.sparkles.fill")
-                    .font(.system(size: 16))
-                    .foregroundStyle(.purple)
-                
-                Text("Prayer for Peace")
-                    .font(.custom("OpenSans-Bold", size: 18))
-                    .foregroundStyle(.primary)
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Ask Berean")
+                    .font(.custom("OpenSans-SemiBold", size: 15))
+                    .foregroundStyle(ink)
+                Text("Private wellness support + scripture")
+                    .font(.custom("OpenSans-Regular", size: 12))
+                    .foregroundStyle(inkSecondary)
             }
-            
-            Text("Lord, grant me peace in times of anxiety. Help me to cast my worries upon You, knowing that You care for me. Fill my mind with Your truth and my heart with Your love. Guide me toward healing and wholeness. Amen.")
-                .font(.custom("OpenSans-Regular", size: 14))
-                .foregroundStyle(.secondary)
-                .lineSpacing(4)
+            Spacer()
+            Image(systemName: "arrow.right")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(tealAccent)
         }
         .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(.purple.opacity(0.1))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(.purple.opacity(0.3), lineWidth: 1)
-                )
+                .fill(Color(red: 0.93, green: 0.97, blue: 0.96))
         )
-        .padding(.horizontal)
     }
 }
 
-// MARK: - Mental Health Resource Card
+// MARK: - Wellness Tool Card (Reference A folder card)
 
-private struct MentalHealthResourceCard: View {
+private struct WellnessToolCard: View {
+    let icon: String
+    let title: String
+    let subtitle: String
+    let accent: Color
+    let parchment: Color
+    let ink: Color
+    let inkSecondary: Color
+
+    @State private var pressed = false
+
+    var body: some View {
+        Button {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        } label: {
+            VStack(alignment: .leading, spacing: 10) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(accent.opacity(0.13))
+                        .frame(width: 40, height: 40)
+                    Image(systemName: icon)
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundStyle(accent)
+                }
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(.custom("OpenSans-SemiBold", size: 14))
+                        .foregroundStyle(ink)
+                    Text(subtitle)
+                        .font(.custom("OpenSans-Regular", size: 11))
+                        .foregroundStyle(inkSecondary)
+                        .lineLimit(2)
+                }
+                Spacer(minLength: 0)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(16)
+            .frame(height: 120)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color(red: 0.99, green: 0.98, blue: 0.96))
+                    .shadow(color: Color(red: 0.14, green: 0.12, blue: 0.10).opacity(0.07), radius: 8, y: 2)
+            )
+        }
+        .buttonStyle(SquishButtonStyle())
+    }
+}
+
+// MARK: - Editorial Resource Card (Reference left-panel detail card)
+
+private struct EditorialResourceCard: View {
     let resource: MentalHealthResource
-    
+    let ink: Color
+    let inkSecondary: Color
+    let parchment: Color
+
     var body: some View {
         Button {
             if let url = URL(string: resource.url) {
                 UIApplication.shared.open(url)
             }
         } label: {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 0) {
+                // Top row
+                HStack(spacing: 14) {
                     ZStack {
-                        Circle()
-                            .fill(resource.color.opacity(0.15))
-                            .frame(width: 52, height: 52)
-                        
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(resource.color.opacity(0.13))
+                            .frame(width: 48, height: 48)
                         Image(systemName: resource.icon)
-                            .font(.system(size: 24, weight: .semibold))
+                            .font(.system(size: 20, weight: .medium))
                             .foregroundStyle(resource.color)
                     }
-                    
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(resource.name)
-                            .font(.custom("OpenSans-Bold", size: 17))
-                            .foregroundStyle(.primary)
-                        
-                        if resource.isFree {
-                            HStack(spacing: 4) {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .font(.system(size: 11))
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack(spacing: 6) {
+                            Text(resource.name)
+                                .font(.custom("OpenSans-SemiBold", size: 15))
+                                .foregroundStyle(ink)
+                                .multilineTextAlignment(.leading)
+                            if resource.isFree {
                                 Text("Free")
-                                    .font(.custom("OpenSans-SemiBold", size: 11))
+                                    .font(.custom("OpenSans-SemiBold", size: 10))
+                                    .foregroundStyle(Color(red: 0.12, green: 0.52, blue: 0.38))
+                                    .padding(.horizontal, 7)
+                                    .padding(.vertical, 3)
+                                    .background(
+                                        Capsule()
+                                            .fill(Color(red: 0.12, green: 0.52, blue: 0.38).opacity(0.12))
+                                    )
                             }
-                            .foregroundStyle(.green)
                         }
+                        Text(resource.categoryLabel)
+                            .font(.custom("OpenSans-Regular", size: 11))
+                            .foregroundStyle(inkSecondary)
+                            .textCase(.uppercase)
+                            .kerning(0.5)
                     }
-                    
+
                     Spacer()
-                    
-                    Image(systemName: "arrow.up.right.circle.fill")
-                        .font(.system(size: 24))
-                        .foregroundStyle(resource.color)
+
+                    // Dark pill action — Reference A "Call/Website/Save" style
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(ink.opacity(0.88))
+                            .frame(width: 34, height: 34)
+                        Image(systemName: "arrow.up.right")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(.white)
+                    }
                 }
-                
+                .padding(16)
+
+                // Description
                 Text(resource.description)
-                    .font(.custom("OpenSans-Regular", size: 14))
-                    .foregroundStyle(.secondary)
+                    .font(.custom("OpenSans-Regular", size: 13))
+                    .foregroundStyle(inkSecondary)
                     .lineSpacing(3)
-                
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 14)
+
+                // Feature tags
                 if !resource.features.isEmpty {
-                    VStack(alignment: .leading, spacing: 6) {
-                        ForEach(resource.features.prefix(3), id: \.self) { feature in
-                            HStack(spacing: 6) {
-                                Image(systemName: "checkmark")
-                                    .font(.system(size: 10, weight: .bold))
-                                    .foregroundStyle(resource.color)
-                                
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 6) {
+                            ForEach(resource.features.prefix(3), id: \.self) { feature in
                                 Text(feature)
-                                    .font(.custom("OpenSans-Regular", size: 13))
-                                    .foregroundStyle(.secondary)
+                                    .font(.custom("OpenSans-Regular", size: 11))
+                                    .foregroundStyle(inkSecondary)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 5)
+                                    .background(
+                                        Capsule()
+                                            .fill(Color(red: 0.14, green: 0.12, blue: 0.10).opacity(0.07))
+                                    )
                             }
                         }
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 16)
                     }
                 }
             }
-            .padding(16)
             .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(.ultraThinMaterial)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16)
-                            .stroke(
-                                LinearGradient(
-                                    colors: [
-                                        Color.white.opacity(0.3),
-                                        Color.white.opacity(0.1)
-                                    ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ),
-                                lineWidth: 1
-                            )
-                    )
+                RoundedRectangle(cornerRadius: 18)
+                    .fill(Color(red: 0.99, green: 0.98, blue: 0.96))
+                    .shadow(color: Color(red: 0.14, green: 0.12, blue: 0.10).opacity(0.07), radius: 10, y: 2)
             )
-            .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
         }
-        .buttonStyle(PlainButtonStyle())
-    }
-}
-
-// MARK: - Self Care Tip Card
-
-struct SelfCareTipCard: View {
-    let icon: String
-    let title: String
-    let description: String
-    let color: Color
-    
-    var body: some View {
-        HStack(spacing: 12) {
-            ZStack {
-                Circle()
-                    .fill(color.opacity(0.15))
-                    .frame(width: 44, height: 44)
-                
-                Image(systemName: icon)
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(color)
-            }
-            
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title)
-                    .font(.custom("OpenSans-Bold", size: 15))
-                    .foregroundStyle(.primary)
-                
-                Text(description)
-                    .font(.custom("OpenSans-Regular", size: 13))
-                    .foregroundStyle(.secondary)
-                    .lineSpacing(2)
-            }
-            
-            Spacer()
-        }
-        .padding(14)
-        .background(
-            RoundedRectangle(cornerRadius: 14)
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14)
-                        .stroke(Color.white.opacity(0.2), lineWidth: 1)
-                )
-        )
-        .shadow(color: .black.opacity(0.04), radius: 6, y: 2)
+        .buttonStyle(SquishButtonStyle())
     }
 }
 
@@ -375,187 +481,150 @@ struct MentalHealthResource: Identifiable {
     let url: String
     let icon: String
     let color: Color
-    let category: MentalHealthDetailView.MentalHealthCategory
+    let categoryLabel: String
     let isFree: Bool
     let features: [String]
-    
-    static let allResources = [
-        // Counseling
+
+    // Legacy category property for existing code compatibility
+    var category: MentalHealthDetailView.WellnessTab {
+        switch categoryLabel {
+        case "Counseling":       return .counsel
+        case "Support Groups":   return .groups
+        default:                 return .faith
+        }
+    }
+
+    static let counselingResources = [
         MentalHealthResource(
             name: "BetterHelp",
-            description: "Online therapy with licensed Christian counselors. Get matched with a therapist in 24 hours.",
+            description: "Online therapy with licensed counselors. Get matched in 24 hours. Christian counselor filters available.",
             url: "https://www.betterhelp.com",
             icon: "person.fill.questionmark",
-            color: .blue,
-            category: .counseling,
+            color: Color(red: 0.22, green: 0.42, blue: 0.72),
+            categoryLabel: "Counseling",
             isFree: false,
-            features: [
-                "Licensed professional counselors",
-                "Text, call, or video sessions",
-                "Financial aid available"
-            ]
+            features: ["Licensed therapists", "Text, call, or video", "Financial aid"]
         ),
         MentalHealthResource(
             name: "Faithful Counseling",
-            description: "Faith-based online therapy connecting you with Christian counselors.",
+            description: "Faith-based online therapy connecting you with Christian counselors who integrate scripture.",
             url: "https://www.faithfulcounseling.com",
             icon: "cross.fill",
-            color: .purple,
-            category: .counseling,
+            color: Color(red: 0.48, green: 0.22, blue: 0.72),
+            categoryLabel: "Counseling",
             isFree: false,
-            features: [
-                "Christian-based therapy",
-                "Licensed therapists",
-                "Flexible scheduling"
-            ]
+            features: ["Christian-based", "Licensed therapists", "Flexible scheduling"]
         ),
         MentalHealthResource(
-            name: "Focus on the Family Counseling",
-            description: "Free phone consultations with licensed counselors. Get referrals to Christian therapists.",
+            name: "Focus on the Family",
+            description: "Free phone consultations with licensed counselors. Referrals to Christian therapists nationwide.",
             url: "https://www.focusonthefamily.com/get-help/counseling-services-and-referrals/",
             icon: "phone.circle.fill",
-            color: .green,
-            category: .counseling,
+            color: Color(red: 0.12, green: 0.52, blue: 0.38),
+            categoryLabel: "Counseling",
             isFree: true,
-            features: [
-                "Free consultations",
-                "Therapist referrals",
-                "Faith-based approach"
-            ]
+            features: ["Free consultations", "Therapist referrals", "Faith-based"]
         ),
-        
-        // Resources
         MentalHealthResource(
-            name: "Mental Health America",
-            description: "Comprehensive mental health screening tools and educational resources.",
-            url: "https://www.mhanational.org",
-            icon: "heart.circle.fill",
-            color: .red,
-            category: .resources,
+            name: "Psychology Today",
+            description: "Find therapists, psychiatrists, and support groups in your area. Filter for faith-informed providers.",
+            url: "https://www.psychologytoday.com/us/therapists",
+            icon: "magnifyingglass.circle.fill",
+            color: Color(red: 0.22, green: 0.48, blue: 0.42),
+            categoryLabel: "Counseling",
             isFree: true,
-            features: [
-                "Free screening tools",
-                "Educational articles",
-                "Local resources"
-            ]
+            features: ["Local directory", "Insurance filters", "Faith filter"]
         ),
-        MentalHealthResource(
-            name: "NAMI (National Alliance on Mental Illness)",
-            description: "Support, education, and advocacy for individuals and families affected by mental illness.",
-            url: "https://www.nami.org",
-            icon: "person.2.fill",
-            color: .orange,
-            category: .resources,
-            isFree: true,
-            features: [
-                "Support groups",
-                "Educational programs",
-                "Advocacy resources"
-            ]
-        ),
-        MentalHealthResource(
-            name: "SAMHSA National Helpline",
-            description: "Free, confidential, 24/7 treatment referral service.",
-            url: "https://www.samhsa.gov/find-help/national-helpline",
-            icon: "phone.fill",
-            color: .blue,
-            category: .resources,
-            isFree: true,
-            features: [
-                "24/7 availability",
-                "Treatment referrals",
-                "Confidential support"
-            ]
-        ),
-        
-        // Meditation & Prayer
-        MentalHealthResource(
-            name: "Pray.com",
-            description: "Christian meditation, prayer, and sleep content to reduce anxiety and find peace.",
-            url: "https://www.pray.com",
-            icon: "hands.sparkles.fill",
-            color: .purple,
-            category: .meditation,
-            isFree: false,
-            features: [
-                "Guided prayers",
-                "Bible-based meditations",
-                "Sleep stories"
-            ]
-        ),
-        MentalHealthResource(
-            name: "Abide - Christian Meditation",
-            description: "Biblical meditation app with sleep stories and mindfulness exercises.",
-            url: "https://www.abide.co",
-            icon: "moon.stars.fill",
-            color: .indigo,
-            category: .meditation,
-            isFree: false,
-            features: [
-                "Scripture-based meditation",
-                "Sleep content",
-                "Stress relief exercises"
-            ]
-        ),
-        MentalHealthResource(
-            name: "YouVersion Bible Plans",
-            description: "Free devotional plans focused on anxiety, depression, and mental wellness.",
-            url: "https://www.bible.com/reading-plans",
-            icon: "book.fill",
-            color: .blue,
-            category: .meditation,
-            isFree: true,
-            features: [
-                "Mental health plans",
-                "Daily devotionals",
-                "100% free"
-            ]
-        ),
-        
-        // Support Groups
+    ]
+
+    static let groupResources = [
         MentalHealthResource(
             name: "Celebrate Recovery",
-            description: "Christ-centered 12-step recovery program for hurts, habits, and hang-ups.",
+            description: "Christ-centered 12-step recovery program for hurts, habits, and hang-ups. Thousands of groups nationwide.",
             url: "https://www.celebraterecovery.com",
             icon: "person.3.fill",
-            color: .green,
-            category: .support,
+            color: Color(red: 0.12, green: 0.52, blue: 0.38),
+            categoryLabel: "Support Groups",
             isFree: true,
-            features: [
-                "Support groups nationwide",
-                "Biblical foundation",
-                "Free to attend"
-            ]
+            features: ["Nationwide groups", "Biblical foundation", "Free to attend"]
         ),
         MentalHealthResource(
             name: "GriefShare",
-            description: "Support groups for people grieving the death of a loved one.",
+            description: "Support groups for people grieving the death of a loved one. Guided by Christian perspectives on loss.",
             url: "https://www.griefshare.org",
             icon: "heart.fill",
-            color: .pink,
-            category: .support,
+            color: Color(red: 0.72, green: 0.32, blue: 0.42),
+            categoryLabel: "Support Groups",
             isFree: true,
-            features: [
-                "Grief support groups",
-                "Christian perspective",
-                "Find local groups"
-            ]
+            features: ["Local grief groups", "Christian perspective", "Workbook included"]
+        ),
+        MentalHealthResource(
+            name: "NAMI Connection",
+            description: "Free peer-led support groups for adults living with mental illness. Evidence-based, confidential.",
+            url: "https://www.nami.org",
+            icon: "person.2.fill",
+            color: Color(red: 0.52, green: 0.28, blue: 0.72),
+            categoryLabel: "Support Groups",
+            isFree: true,
+            features: ["Peer-led", "Evidence-based", "Confidential"]
         ),
         MentalHealthResource(
             name: "DivorceCare",
-            description: "Support groups for people experiencing separation or divorce.",
+            description: "Support groups and resources for people experiencing separation or divorce. Faith-centered healing.",
             url: "https://www.divorcecare.org",
             icon: "figure.2.arms.open",
-            color: .orange,
-            category: .support,
+            color: Color(red: 0.72, green: 0.46, blue: 0.22),
+            categoryLabel: "Support Groups",
             isFree: true,
-            features: [
-                "Weekly support groups",
-                "Expert teaching",
-                "Faith-based healing"
-            ]
-        )
+            features: ["Weekly groups", "Expert teaching", "Workbook"]
+        ),
     ]
+
+    static let faithResources = [
+        MentalHealthResource(
+            name: "Pray.com",
+            description: "Christian meditation, prayer, and sleep content designed to reduce anxiety and anchor you in peace.",
+            url: "https://www.pray.com",
+            icon: "hands.sparkles.fill",
+            color: Color(red: 0.48, green: 0.22, blue: 0.72),
+            categoryLabel: "Faith",
+            isFree: false,
+            features: ["Guided prayers", "Bible meditations", "Sleep content"]
+        ),
+        MentalHealthResource(
+            name: "Abide",
+            description: "Scripture-based meditation with sleep stories, breathing exercises, and mindfulness grounded in the Word.",
+            url: "https://www.abide.co",
+            icon: "moon.stars.fill",
+            color: Color(red: 0.28, green: 0.32, blue: 0.62),
+            categoryLabel: "Faith",
+            isFree: false,
+            features: ["Scripture-based", "Sleep stories", "Stress relief"]
+        ),
+        MentalHealthResource(
+            name: "YouVersion Bible Plans",
+            description: "Free devotional reading plans specifically addressing anxiety, depression, and mental wellness.",
+            url: "https://www.bible.com/reading-plans",
+            icon: "book.fill",
+            color: Color(red: 0.22, green: 0.42, blue: 0.72),
+            categoryLabel: "Faith",
+            isFree: true,
+            features: ["Mental health plans", "Daily devotionals", "100% free"]
+        ),
+        MentalHealthResource(
+            name: "Mental Health America",
+            description: "Free screening tools and education. Understanding your mental health is an act of stewardship.",
+            url: "https://www.mhanational.org",
+            icon: "heart.circle.fill",
+            color: Color(red: 0.72, green: 0.22, blue: 0.22),
+            categoryLabel: "Faith",
+            isFree: true,
+            features: ["Free screenings", "Educational articles", "Local resources"]
+        ),
+    ]
+
+    // All resources combined (used by older search code)
+    static let allResources: [MentalHealthResource] = counselingResources + groupResources + faithResources
 }
 
 #Preview {

@@ -38,6 +38,10 @@ struct Comment: Identifiable, Codable, Equatable {
     
     // Mentions in comment
     var mentionedUserIds: [String]?
+
+    // Comment approval status (set by post author when manual approval is enabled)
+    // Values: "approved" (default/nil = approved), "pending", "rejected"
+    var approvalStatus: String?
     
     enum CodingKeys: String, CodingKey {
         case id
@@ -57,6 +61,7 @@ struct Comment: Identifiable, Codable, Equatable {
         case amenUserIds
         case parentCommentId
         case mentionedUserIds
+        case approvalStatus
     }
     
     init(
@@ -76,7 +81,8 @@ struct Comment: Identifiable, Codable, Equatable {
         replyCount: Int = 0,
         amenUserIds: [String] = [],
         parentCommentId: String? = nil,
-        mentionedUserIds: [String]? = nil
+        mentionedUserIds: [String]? = nil,
+        approvalStatus: String? = nil
     ) {
         self.id = id
         self.postId = postId
@@ -95,6 +101,7 @@ struct Comment: Identifiable, Codable, Equatable {
         self.amenUserIds = amenUserIds
         self.parentCommentId = parentCommentId
         self.mentionedUserIds = mentionedUserIds
+        self.approvalStatus = approvalStatus
     }
     
     /// Display time ago
@@ -105,6 +112,13 @@ struct Comment: Identifiable, Codable, Equatable {
     /// Check if this is a reply (has parent)
     var isReply: Bool {
         parentCommentId != nil
+    }
+
+    /// Non-optional stable identifier for use in ForEach id: parameters.
+    /// ForEach with id: \.id (String?) can assign the same identity to multiple
+    /// nil-id rows, corrupting LazyVStack cell recycling → SIGABRT.
+    var stableId: String {
+        id ?? "pending-\(authorId)-\(Int(createdAt.timeIntervalSince1970 * 1000))"
     }
 }
 

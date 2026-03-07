@@ -6,16 +6,18 @@
 //
 
 import SwiftUI
+import FirebaseAuth
 
 struct TwoFactorAuthView: View {
     @Environment(\.dismiss) var dismiss
-    @StateObject private var twoFactorService = TwoFactorAuthService.shared
+    @ObservedObject private var twoFactorService = TwoFactorAuthService.shared
     
     @State private var phoneNumber = ""
     @State private var verificationCode = ""
     @State private var showSetup = false
     @State private var showVerification = false
     @State private var showDisableConfirmation = false
+    @State private var showBackupCodesSheet = false
     @State private var isLoading = false
     @State private var errorMessage: String?
     @State private var showError = false
@@ -151,11 +153,56 @@ struct TwoFactorAuthView: View {
                         .font(.system(size: 14))
                         .foregroundStyle(.secondary)
                     
-                    Text(twoFactorService.phoneNumber ?? "Not set")
+                    Text(twoFactorService.maskedPhone ?? "Not set")
                         .font(.system(size: 16, weight: .medium))
                 }
                 
                 Spacer()
+            }
+            
+            Divider()
+
+            // Backup codes row
+            Button {
+                showBackupCodesSheet = true
+            } label: {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Recovery Backup Codes")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundStyle(.primary)
+                        if let count = twoFactorService.backupCodesRemaining {
+                            Text("\(count) of 6 codes remaining")
+                                .font(.system(size: 13))
+                                .foregroundStyle(count <= 2 ? .red : .secondary)
+                        }
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .foregroundStyle(.secondary)
+                        .font(.system(size: 13, weight: .semibold))
+                }
+                .padding(.vertical, 4)
+            }
+
+            // Low-stock warning banner
+            if twoFactorService.isBackupCodesLow {
+                HStack(spacing: 10) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Low on backup codes")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(.orange)
+                        Text("Generate new codes before you run out.")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                }
+                .padding(12)
+                .background(Color.orange.opacity(0.1))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
             }
             
             Divider()
@@ -171,6 +218,14 @@ struct TwoFactorAuthView: View {
             }
         }
         .padding(.vertical, 8)
+        .task {
+            if let userId = FirebaseAuth.Auth.auth().currentUser?.uid {
+                await twoFactorService.loadBackupCodeCount(userId: userId)
+            }
+        }
+        .sheet(isPresented: $showBackupCodesSheet) {
+            BackupCodesManagementView()
+        }
     }
     
     private var disabledState: some View {
@@ -237,9 +292,16 @@ struct TwoFactorAuthView: View {
         
         do {
             try await twoFactorService.verifyAndEnable2FA(verificationCode: verificationCode)
+
+            // Generate backup codes and store them
+            if let userId = Auth.auth().currentUser?.uid {
+                _ = try? await twoFactorService.regenerateBackupCodes(userId: userId)
+            }
             
             await MainActor.run {
                 showVerification = false
+                // Open backup codes sheet so user can save their codes immediately
+                showBackupCodesSheet = true
                 
                 // Success haptic
                 let haptic = UINotificationFeedbackGenerator()
@@ -452,6 +514,190 @@ struct VerificationCodeView: View {
                     }
                 }
             }
+        }
+    }
+}
+
+// MARK: - Backup Codes Management View
+
+struct BackupCodesManagementView: View {
+    @Environment(\.dismiss) var dismiss
+    @ObservedObject private var twoFactorService = TwoFactorAuthService.shared
+    @State private var newCodes: [String] = []
+    @State private var isRegenerating = false
+    @State private var showConfirmRegenerate = false
+    @State private var copiedToClipboard = false
+    @State private var errorMessage: String?
+    @State private var showError = false
+
+    private var hasNewCodes: Bool { !newCodes.isEmpty }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 24) {
+                    // Icon + heading
+                    VStack(spacing: 12) {
+                        Image(systemName: "key.fill")
+                            .font(.system(size: 48))
+                            .foregroundStyle(.orange)
+                            .padding(.top, 32)
+
+                        Text("Recovery Backup Codes")
+                            .font(.system(size: 22, weight: .bold))
+
+                        Text("Use a backup code to sign in if you lose access to your phone. Each code can only be used once.")
+                            .font(.system(size: 14))
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 24)
+                    }
+
+                    // Remaining count or new codes
+                    if hasNewCodes {
+                        VStack(spacing: 16) {
+                            HStack {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundStyle(.green)
+                                Text("New codes generated — save these now")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(.green)
+                            }
+
+                            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                                ForEach(newCodes, id: \.self) { code in
+                                    Text(code)
+                                        .font(.system(.body, design: .monospaced))
+                                        .padding(12)
+                                        .frame(maxWidth: .infinity)
+                                        .background(Color(.tertiarySystemBackground))
+                                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                                }
+                            }
+
+                            // Copy all button
+                            Button {
+                                copyNewCodes()
+                            } label: {
+                                HStack(spacing: 8) {
+                                    Image(systemName: copiedToClipboard ? "checkmark.circle.fill" : "doc.on.doc")
+                                    Text(copiedToClipboard ? "Copied!" : "Copy All Codes")
+                                        .font(.system(size: 15, weight: .semibold))
+                                }
+                                .foregroundStyle(copiedToClipboard ? .green : .white)
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(copiedToClipboard ? Color.green : Color.blue)
+                                .clipShape(RoundedRectangle(cornerRadius: 10))
+                            }
+                        }
+                        .padding(20)
+                        .background(Color.green.opacity(0.08))
+                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                        .padding(.horizontal)
+                    } else {
+                        // Current count status
+                        VStack(spacing: 12) {
+                            if let count = twoFactorService.backupCodesRemaining {
+                                HStack(spacing: 10) {
+                                    Image(systemName: count <= 2 ? "exclamationmark.triangle.fill" : "checkmark.shield.fill")
+                                        .foregroundStyle(count <= 2 ? .orange : .green)
+                                    Text("\(count) of 6 codes remaining")
+                                        .font(.system(size: 16, weight: .semibold))
+                                        .foregroundStyle(count <= 2 ? .orange : .primary)
+                                    Spacer()
+                                }
+                                .padding()
+                                .background(Color(count <= 2 ? .systemOrange : .systemGreen).opacity(0.1))
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                            }
+
+                            Text("You cannot view existing codes — they are stored securely and never shown after creation. Generate new codes to replace them.")
+                                .font(.system(size: 13))
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                        }
+                        .padding(.horizontal)
+                    }
+
+                    // Regenerate button
+                    if !hasNewCodes {
+                        Button {
+                            showConfirmRegenerate = true
+                        } label: {
+                            HStack(spacing: 8) {
+                                if isRegenerating {
+                                    ProgressView()
+                                        .tint(.white)
+                                } else {
+                                    Image(systemName: "arrow.clockwise")
+                                }
+                                Text(isRegenerating ? "Generating..." : "Generate New Codes")
+                                    .font(.system(size: 15, weight: .semibold))
+                            }
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.orange)
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                        }
+                        .disabled(isRegenerating)
+                        .padding(.horizontal)
+                    }
+
+                    Color.clear.frame(height: 20)
+                }
+            }
+            .navigationTitle("Backup Codes")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") { dismiss() }
+                }
+            }
+            .alert("Replace All Backup Codes?", isPresented: $showConfirmRegenerate) {
+                Button("Cancel", role: .cancel) { }
+                Button("Generate New", role: .destructive) {
+                    Task { await regenerateCodes() }
+                }
+            } message: {
+                Text("Your existing backup codes will be permanently invalidated and replaced with 6 new codes.")
+            }
+            .alert("Error", isPresented: $showError) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                if let msg = errorMessage { Text(msg) }
+            }
+        }
+    }
+
+    private func regenerateCodes() async {
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+        isRegenerating = true
+        do {
+            let codes = try await twoFactorService.regenerateBackupCodes(userId: userId)
+            await MainActor.run {
+                newCodes = codes
+                isRegenerating = false
+                let haptic = UINotificationFeedbackGenerator()
+                haptic.notificationOccurred(.success)
+            }
+        } catch {
+            await MainActor.run {
+                isRegenerating = false
+                errorMessage = error.localizedDescription
+                showError = true
+            }
+        }
+    }
+
+    private func copyNewCodes() {
+        let text = "AMEN Backup Recovery Codes\n\n\(newCodes.joined(separator: "\n"))\n\nKeep these codes safe. Each can only be used once."
+        UIPasteboard.general.string = text
+        withAnimation { copiedToClipboard = true }
+        Task {
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            await MainActor.run { withAnimation { copiedToClipboard = false } }
         }
     }
 }

@@ -62,8 +62,8 @@ class FirestorePostsDiagnostics {
             return
         }
         
-        print("   ✅ Authenticated as: \(currentUser.uid)")
-        print("   Email: \(currentUser.email ?? "No email")")
+        dlog("   ✅ Authenticated (uid redacted)")
+        dlog("   Email: [REDACTED]")
         print("")
     }
     

@@ -14,11 +14,13 @@ import AVFoundation
 
 struct ProfilePhotoEditView: View {
     @Environment(\.dismiss) var dismiss
-    @StateObject private var socialService = SocialService.shared
+    @ObservedObject private var socialService = SocialService.shared
     @StateObject private var userService = UserService()
     
     @State private var selectedPhoto: PhotosPickerItem?
-    @State private var selectedImage: UIImage?
+    @State private var rawPickedImage: UIImage?      // straight from picker — goes to crop
+    @State private var selectedImage: UIImage?       // cropped result — goes to upload
+    @State private var showCropView = false
     @State private var isUploading = false
     @State private var showCamera = false
     @State private var showDeleteConfirmation = false
@@ -239,7 +241,22 @@ struct ProfilePhotoEditView: View {
                 }
             }
             .sheet(isPresented: $showCamera) {
-                ImagePicker(sourceType: .camera, selectedImage: $selectedImage)
+                ImagePicker(sourceType: .camera, selectedImage: $rawPickedImage)
+            }
+            .fullScreenCover(isPresented: $showCropView) {
+                if let raw = rawPickedImage {
+                    ProfilePhotoCropView(
+                        image: raw,
+                        onCrop: { cropped in
+                            selectedImage = cropped
+                            showCropView = false
+                        },
+                        onCancel: {
+                            rawPickedImage = nil
+                            showCropView = false
+                        }
+                    )
+                }
             }
             .sheet(isPresented: $showPhotoPermissionAlert) {
                 PhotosPicker(selection: $selectedPhoto, matching: .images) {
@@ -275,8 +292,17 @@ struct ProfilePhotoEditView: View {
             Task {
                 if let data = try? await newPhoto?.loadTransferable(type: Data.self),
                    let uiImage = UIImage(data: data) {
-                    selectedImage = uiImage
+                    await MainActor.run {
+                        rawPickedImage = uiImage
+                        showCropView = true
+                    }
                 }
+            }
+        }
+        .onChange(of: rawPickedImage) { _, raw in
+            // Camera path: ImagePicker sets rawPickedImage directly
+            if raw != nil && !showCropView {
+                showCropView = true
             }
         }
     }

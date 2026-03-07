@@ -21,6 +21,11 @@ class HomeFeedAlgorithm: ObservableObject {
     
     @Published var personalizedPosts: [Post] = []
     @Published var userInterests = UserInterests()
+
+    // Cached set of user IDs that the current viewer follows.
+    // Populated by ViewModelsHomeViewModel / PostsManager after loading following list.
+    // Used by scorePost to enforce followers-only visibility in the feed.
+    var followingIds: Set<String> = []
     
     // MARK: - User Interests Model
     
@@ -42,13 +47,45 @@ class HomeFeedAlgorithm: ObservableObject {
     
     /// Score a post for personalized relevance (0-100)
     func scorePost(_ post: Post, for interests: UserInterests, followingIds: Set<String> = []) -> Double {
+        // ✅ HEY FEED: Apply user preferences.
+        // Only enforce mutes/hides once preferences have been loaded from Firestore
+        // (lastRefreshTime != nil). Before that, skip filtering to avoid showing
+        // a muted-free feed on cold start that snaps to filtered state after load.
+        let prefsService = HeyFeedPreferencesService.shared
+        let prefsLoaded = prefsService.lastRefreshTime != nil
+        let prefs = prefsService.preferences
+        
+        // Skip muted authors (only after prefs are loaded)
+        if prefsLoaded && prefs.mutedAuthors.contains(post.authorId) {
+            return 0.0
+        }
+        
+        // Skip hidden posts (only after prefs are loaded)
+        if prefsLoaded && prefs.hiddenPosts.contains(post.firebaseId ?? post.id.uuidString) {
+            return 0.0
+        }
+
+        // Privacy gate: "followers-only" posts must not appear in feed for non-followers.
+        // Private-account posts with visibility=.everyone are blocked at the Firestore rules
+        // layer (callerCanReadPost). This catches the client-side case where the Post was
+        // fetched before a privacy transition or from a cached local store.
+        if post.visibility == .followers && !followingIds.contains(post.authorId) {
+            // Allow own posts (current user may not be in their own followingIds)
+            if let currentUid = Auth.auth().currentUser?.uid, post.authorId != currentUid {
+                return 0.0
+            }
+        }
+        
         var score: Double = 0.0
         
-        // 1. Recency Score (18%) - Newer is better
-        score += calculateRecencyScore(post) * 0.18
+        // Apply mode weights
+        let modeWeights = prefs.mode.weights
         
-        // 2. Following Relationship (23%) - Prioritize people you follow
-        score += calculateFollowingScore(post, followingIds: followingIds) * 0.23
+        // 1. Recency Score - Weighted by mode
+        score += calculateRecencyScore(post) * modeWeights.recency * 100
+        
+        // 2. Following Relationship - Weighted by mode
+        score += calculateFollowingScore(post, followingIds: followingIds) * modeWeights.following * 100
         
         // 3. Topic Relevance (18%) - User's interests
         score += calculateTopicScore(post, interests: interests) * 0.18
@@ -67,6 +104,29 @@ class HomeFeedAlgorithm: ObservableObject {
         
         // 8. Category Boost - Special boost for Tips and Fun Facts
         score += calculateCategoryBoost(post, interests: interests)
+        
+        // ✅ 9. Anti-Ragebait Penalty - Downrank controversial content (with debate level)
+        let controversyPenalty = calculateControversyPenalty(post) * (prefs.debateLevel.controversyPenalty / 50.0)
+        score -= controversyPenalty
+        
+        // ✅ 10. Repetition Penalty - Prevent same author spam
+        let repetitionPenalty = calculateRepetitionPenalty(post, interests: interests)
+        score -= repetitionPenalty
+        
+        // ✅ 11. HEY FEED: Topic Weighting (0x block, 1x neutral, 2x pinned)
+        // Determine post topic (simplified - you may have better topic detection)
+        let postTopic = mapCategoryToTopic(post.category)
+        let topicMultiplier = HeyFeedPreferencesService.shared.getTopicWeight(postTopic)
+        score *= topicMultiplier
+        
+        // ✅ 12. HEY FEED: Boosted Posts/Authors
+        let postId = post.firebaseId ?? post.id.uuidString
+        if prefs.boostedPosts.contains(postId) {
+            score += 20  // +20 points for boosted posts
+        }
+        if prefs.boostedAuthors.contains(post.authorId) {
+            score += 15  // +15 points for boosted authors
+        }
         
         return min(100, max(0, score))
     }
@@ -251,13 +311,80 @@ class HomeFeedAlgorithm: ObservableObject {
         }
     }
     
+    // MARK: - Anti-Ragebait Mechanics
+    
+    /// ✅ Detect and penalize controversial/ragebait content
+    /// Looks for engagement spikes combined with negative signals
+    private func calculateControversyPenalty(_ post: Post) -> Double {
+        var penalty: Double = 0.0
+        
+        // Signal 1: Abnormally high comment-to-reaction ratio (debate/argument)
+        // Healthy posts have ~1:3 comment-to-reaction ratio
+        // Controversial posts have ~1:1 or higher (lots of debate)
+        if post.amenCount > 0 {
+            let commentToReactionRatio = Double(post.commentCount) / Double(post.amenCount)
+            
+            if commentToReactionRatio > 1.5 {
+                // Very high ratio = likely controversial
+                penalty += 30
+            } else if commentToReactionRatio > 1.0 {
+                // Moderate ratio = possibly controversial
+                penalty += 15
+            }
+        }
+        
+        // Signal 2: Rapid engagement spike in short time (viral ragebait)
+        // Posts with 50+ comments in first hour are suspicious
+        let hoursSincePost = Date().timeIntervalSince(post.createdAt) / 3600
+        if hoursSincePost < 1 && post.commentCount > 50 {
+            penalty += 30
+            #if DEBUG
+            dlog("⚠️ [CONTROVERSY] Rapid engagement spike detected")
+            #endif
+        }
+        
+        // Signal 3: Check if post has been reported (future integration with moderation)
+        // This would require adding a reportCount field to Post model
+        // For now, we'll leave this as a placeholder
+        
+        return penalty
+    }
+    
+    /// ✅ Prevent same author from dominating feed (repetition penalty)
+    /// Tracks how many times user has seen this author today
+    private func calculateRepetitionPenalty(_ post: Post, interests: UserInterests) -> Double {
+        // Check how many times user has engaged with this author
+        let authorEngagementCount = interests.engagedAuthors[post.authorId] ?? 0
+        
+        // If user has seen this author 4+ times recently, apply penalty
+        // This prevents feed from being dominated by one prolific poster
+        if authorEngagementCount > 6 {
+            return 25 // Strong penalty (seen 7+ times)
+        } else if authorEngagementCount > 4 {
+            return 15 // Moderate penalty (seen 5-6 times)
+        } else if authorEngagementCount > 3 {
+            return 5  // Light penalty (seen 4 times)
+        }
+        
+        return 0 // No penalty for fresh authors
+    }
+    
     // MARK: - Feed Ranking
     
     /// Rank posts using personalized algorithm with ethical safeguards
     func rankPosts(_ posts: [Post], for interests: UserInterests, followingIds: Set<String> = []) -> [Post] {
         // 1. Filter spam and low-quality content FIRST
         let filteredPosts = applyEthicalFilters(posts)
-        
+
+        // Respect personalizedRecommendations privacy toggle
+        let isPersonalized = UserDefaults.standard.object(forKey: "personalizedRecommendations") as? Bool ?? true
+        guard isPersonalized else {
+            // Chronological order when personalization is off
+            return filteredPosts.sorted {
+                $0.createdAt > $1.createdAt
+            }
+        }
+
         // 2. Score remaining posts (with following relationship)
         let scoredPosts = filteredPosts.map { post in
             (post: post, score: scorePost(post, for: interests, followingIds: followingIds))
@@ -283,7 +410,7 @@ class HomeFeedAlgorithm: ObservableObject {
             // Filter 1: No duplicate/near-duplicate content
             let contentHash = post.content.lowercased().prefix(50)
             guard !seen.contains(String(contentHash)) else {
-                print("🚫 [SPAM FILTER] Duplicate content blocked")
+                dlog("🚫 [SPAM FILTER] Duplicate content blocked")
                 return false
             }
             seen.insert(String(contentHash))
@@ -291,7 +418,7 @@ class HomeFeedAlgorithm: ObservableObject {
             // Filter 2: Limit posts per author (no flooding)
             let count = authorPostCount[post.authorId, default: 0]
             guard count < 10 else {
-                print("🚫 [SPAM FILTER] Author \(post.authorId) flooding blocked")
+                dlog("🚫 [SPAM FILTER] Author \(post.authorId) flooding blocked")
                 return false
             }
             authorPostCount[post.authorId] = count + 1
@@ -299,7 +426,7 @@ class HomeFeedAlgorithm: ObservableObject {
             // Filter 3: Engagement bait detection (all caps, excessive emoji)
             let hasEngagementBait = detectEngagementBait(post)
             if hasEngagementBait {
-                print("🚫 [ENGAGEMENT BAIT] Post filtered")
+                dlog("🚫 [ENGAGEMENT BAIT] Post filtered")
                 return false
             }
             
@@ -368,8 +495,9 @@ class HomeFeedAlgorithm: ObservableObject {
         let currentPref = userInterests.preferredCategories[category] ?? 50
         userInterests.preferredCategories[category] = min(100, currentPref + type.scoreBoost / 2)
         
-        // Record interaction - convert UUID to String
-        userInterests.interactionHistory[post.id.uuidString, default: 0] += 1
+        // Record interaction - use stable Firestore ID if available, fall back to local UUID
+        let postKey = post.firebaseId ?? post.id.uuidString
+        userInterests.interactionHistory[postKey, default: 0] += 1
         
         // Update timestamp
         userInterests.lastUpdate = Date()
@@ -415,13 +543,13 @@ class HomeFeedAlgorithm: ObservableObject {
             let data = try encoder.encode(userInterests)
             UserDefaults.standard.set(data, forKey: "userInterests_v1")
         } catch {
-            print("❌ Failed to save user interests: \(error)")
+            dlog("❌ Failed to save user interests: \(error)")
         }
     }
     
     func loadInterests() {
         guard let data = UserDefaults.standard.data(forKey: "userInterests_v1") else {
-            print("ℹ️ No saved interests found")
+            dlog("ℹ️ No saved interests found")
             // Still try to load goals from Firestore
             Task { await loadGoalsFromFirestore() }
             return
@@ -430,12 +558,12 @@ class HomeFeedAlgorithm: ObservableObject {
         do {
             let decoder = JSONDecoder()
             userInterests = try decoder.decode(UserInterests.self, from: data)
-            print("✅ Loaded user interests: \(userInterests.engagedTopics.count) topics, \(userInterests.engagedAuthors.count) authors")
+            dlog("✅ Loaded user interests: \(userInterests.engagedTopics.count) topics, \(userInterests.engagedAuthors.count) authors")
             
             // Also load goals from Firestore to ensure they're up to date
             Task { await loadGoalsFromFirestore() }
         } catch {
-            print("❌ Failed to load interests: \(error)")
+            dlog("❌ Failed to load interests: \(error)")
         }
     }
     
@@ -450,14 +578,14 @@ class HomeFeedAlgorithm: ObservableObject {
             if let goals = doc.data()?["goals"] as? [String], !goals.isEmpty {
                 await MainActor.run {
                     userInterests.onboardingGoals = goals
-                    print("✅ Loaded \(goals.count) goals from Firestore: \(goals.joined(separator: ", "))")
+                    dlog("✅ Loaded \(goals.count) goals from Firestore: \(goals.joined(separator: ", "))")
                     
                     // Save updated interests
                     saveInterests()
                 }
             }
         } catch {
-            print("❌ Failed to load goals from Firestore: \(error)")
+            dlog("❌ Failed to load goals from Firestore: \(error)")
         }
     }
     
@@ -471,7 +599,10 @@ class HomeFeedAlgorithm: ObservableObject {
     func personalizePostsDebounced(_ posts: [Post]) {
         // Cancel any pending personalization task
         personalizationTask?.cancel()
-        
+
+        // Always sync followingIds from the live FollowService before ranking
+        followingIds = FollowService.shared.following
+
         // Check if we need to debounce (if called within debounce interval)
         if let lastTime = lastPersonalizationTime,
            Date().timeIntervalSince(lastTime) < debounceInterval {
@@ -482,22 +613,455 @@ class HomeFeedAlgorithm: ObservableObject {
                 // Only proceed if not cancelled
                 guard !Task.isCancelled else { return }
                 
+                self.followingIds = FollowService.shared.following
                 self.lastPersonalizationTime = Date()
-                self.personalizedPosts = self.rankPosts(posts, for: self.userInterests)
+                self.personalizedPosts = self.rankPosts(posts, for: self.userInterests, followingIds: self.followingIds)
                 
                 #if DEBUG
-                print("🎯 [DEBOUNCED] Personalized \(posts.count) posts")
+                dlog("🎯 [DEBOUNCED] Personalized \(posts.count) posts")
                 #endif
             }
         } else {
             // First call or outside debounce window - execute immediately
             lastPersonalizationTime = Date()
-            personalizedPosts = rankPosts(posts, for: userInterests)
+            personalizedPosts = rankPosts(posts, for: userInterests, followingIds: followingIds)
             
             #if DEBUG
-            print("🎯 [IMMEDIATE] Personalized \(posts.count) posts")
+            dlog("🎯 [IMMEDIATE] Personalized \(posts.count) posts")
             #endif
         }
+    }
+    
+    // MARK: - Benefit-Optimized Scoring (FinalScore = ValueScore × TrustScore − HarmRisk − AddictionRisk)
+    
+    /// Compute the benefit-optimized final score for a post.
+    /// Objective function: maximize benefit, not engagement.
+    /// Does NOT train on watch time, rewatch, rage comments, or session length.
+    func benefitScore(_ post: Post, for interests: UserInterests) -> BenefitScoreResult {
+        let value    = computeValueScore(post, interests: interests)
+        let trust    = computeTrustScore(post, interests: interests)
+        let harm     = computeHarmRisk(post)
+        let addiction = computeAddictionRisk(post)
+        
+        // Hard constraints applied before combining
+        let harmClamped     = min(harm, 1.0)
+        let addictionClamped = min(addiction, 1.0)
+        
+        let combined = (value * trust) - harmClamped - addictionClamped
+        let final = max(0.0, min(1.0, combined))
+        
+        return BenefitScoreResult(
+            finalScore: final,
+            valueScore: value,
+            trustScore: trust,
+            harmRisk: harmClamped,
+            addictionRisk: addictionClamped
+        )
+    }
+    
+    struct BenefitScoreResult {
+        let finalScore: Double     // 0.0–1.0 combined
+        let valueScore: Double     // "does this help someone?"
+        let trustScore: Double     // author reputation + community signals
+        let harmRisk: Double       // toxicity/harassment/etc — subtract from score
+        let addictionRisk: Double  // scroll-trap patterns — subtract from score
+        
+        /// Hard limits applied before ranking: if either threshold exceeded, post is demoted/held
+        var shouldDownrank: Bool  { harmRisk > 0.6 }
+        var shouldCapImpressions: Bool { addictionRisk > 0.5 }
+    }
+    
+    // MARK: ValueScore — "Does this help someone?"
+    
+    /// Rates a post on its potential to encourage, teach, or move someone to action.
+    /// Higher weight for: scripture, practical step, testimony, encouragement.
+    /// Not influenced by: view time, rewatch, comment count, session length.
+    private func computeValueScore(_ post: Post, interests: UserInterests) -> Double {
+        var score = 0.3 // Baseline: neutral post has some value
+        
+        let content = post.content.lowercased()
+        
+        // Encouragement signals
+        let encouragementTerms = ["you are", "god loves", "you can", "hope", "strength", "grace",
+                                   "peace", "blessed", "grateful", "thankful", "encouragement",
+                                   "you've got this", "believe", "trust in god", "keep going"]
+        let encouragementHits = encouragementTerms.filter { content.contains($0) }.count
+        score += min(0.25, Double(encouragementHits) * 0.06)
+        
+        // Scripture/learning signals
+        let scriptureTerms = ["verse", "scripture", "proverbs", "john", "psalm", "matthew",
+                               "romans", "genesis", "corinthians", "gospel", "word of god",
+                               "bible", "study", "devotional", "sermon", "lesson"]
+        let scriptureHits = scriptureTerms.filter { content.contains($0) }.count
+        score += min(0.25, Double(scriptureHits) * 0.06)
+        
+        // Practical step signals ("do this", "try this", actionable)
+        let practicalTerms = ["step", "action", "try", "practice", "daily", "habit", "commit",
+                               "challenge", "how to", "tip:", "start by", "this week"]
+        let practicalHits = practicalTerms.filter { content.contains($0) }.count
+        score += min(0.15, Double(practicalHits) * 0.05)
+        
+        // Category bonus
+        switch post.category {
+        case .prayer:     score += 0.10 // Prayer requests carry inherent value
+        case .testimonies: score += 0.12 // Personal testimony is high value
+        case .tip:        score += 0.08
+        default: break
+        }
+        
+        // Meaningful action signal: high lightbulb count = others found this valuable
+        // This feeds ValueScore, not just TrustScore — content deemed worth saving is high-value content
+        if post.lightbulbCount >= 5 {
+            score += 0.12
+        } else if post.lightbulbCount >= 2 {
+            score += 0.06
+        } else if post.lightbulbCount >= 1 {
+            score += 0.03
+        }
+        
+        // Goal alignment bonus (user-specific)
+        let goalBonus = calculateGoalScore(post, interests: interests) / 100.0 * 0.10
+        score += goalBonus
+        
+        return min(1.0, score)
+    }
+    
+    // MARK: TrustScore — Author reputation + community signals + consistency
+    
+    /// Not raw engagement count — weighted by quality signals.
+    /// Meaningful actions (saves/lightbulbs, reposts) outweigh fast-tap reactions.
+    /// Penalizes accounts with high report rates or volatile engagement patterns.
+    private func computeTrustScore(_ post: Post, interests: UserInterests) -> Double {
+        var score = 0.5 // Baseline: unknown author starts neutral
+        
+        // Author affinity from user's personal history
+        let affinityRaw = calculateAuthorScore(post, interests: interests) / 100.0
+        score += affinityRaw * 0.25
+        
+        // Meaningful-action signal: lightbulb = "this helped me", repost = worth sharing
+        // These are deliberate, higher-friction actions — weighted 2× over fast-tap amen.
+        let meaningfulActions = post.lightbulbCount + post.repostCount
+        let fastTapActions = post.amenCount
+        
+        if meaningfulActions > 0 {
+            // Lightbulb/repost signal: each meaningful action is worth ~0.04, capped at 0.20
+            score += min(0.20, Double(meaningfulActions) * 0.04)
+        }
+        
+        // Fast-tap reactions contribute less, and only when meaningful actions are also present
+        // Pure amen-only posts get a small bump — prevents totally ignoring them
+        if fastTapActions > 0 && meaningfulActions == 0 {
+            score += min(0.05, Double(fastTapActions) * 0.005) // Modest signal, uncorroborated
+        }
+        
+        // Quality ratio: saves relative to comments — saves = "worth keeping", comments can be debate
+        if post.commentCount > 0 && post.lightbulbCount > 0 {
+            let saveCommentRatio = Double(post.lightbulbCount) / Double(post.commentCount)
+            if saveCommentRatio >= 1.0 {
+                score += 0.12 // More saves than comments = strong content quality
+            } else if saveCommentRatio >= 0.5 {
+                score += 0.06
+            }
+        } else if post.commentCount > 0 {
+            // Only comments, no saves — could be debate-driven, slight penalty
+            let amenCommentRatio = Double(post.amenCount) / Double(post.commentCount)
+            if amenCommentRatio < 0.5 {
+                score -= 0.08 // High debate, low positive reaction
+            }
+        }
+        
+        // Consistency: if user has engaged with this author multiple times, trust is earned
+        let authorEngagement = interests.engagedAuthors[post.authorId] ?? 0
+        if authorEngagement >= 5 {
+            score += 0.15
+        } else if authorEngagement >= 2 {
+            score += 0.08
+        }
+        
+        return min(1.0, max(0.1, score)) // Floor at 0.1 — never zero-trust an unknown author
+    }
+    
+    // MARK: HarmRisk — Toxicity, harassment, sexual, self-harm, extremism, manipulation
+    
+    /// Returns 0.0 (safe) – 1.0 (high harm). Computed independently.
+    /// If > 0.6: post is downranked and queued for review.
+    private func computeHarmRisk(_ post: Post) -> Double {
+        var risk = 0.0
+        let content = post.content.lowercased()
+        
+        // Toxicity/hostility language
+        let hostileTerms = ["you're wrong", "shut up", "idiot", "stupid", "moron",
+                             "hate you", "you all are", "fake christian", "hypocrite",
+                             "go to hell", "dumb", "ignorant people"]
+        let hostileHits = hostileTerms.filter { content.contains($0) }.count
+        risk += min(0.5, Double(hostileHits) * 0.15)
+        
+        // Self-harm language (must be caught early — not filtered, but flagged for care)
+        let selfHarmTerms = ["want to die", "kill myself", "end it all", "no point living",
+                              "suicide", "self harm", "cutting myself", "don't want to be here"]
+        if selfHarmTerms.contains(where: { content.contains($0) }) {
+            // Not a downrank — route to CrisisSupport instead (handled by ContentModerationService)
+            // Here we only flag for feed ranking purposes
+            risk += 0.3
+        }
+        
+        // Manipulation/false urgency patterns
+        let manipulationTerms = ["share or else", "god will punish", "you must share",
+                                  "chain letter", "ignore this and", "proof that god",
+                                  "scientific proof", "they don't want you to know"]
+        let manipulationHits = manipulationTerms.filter { content.contains($0) }.count
+        risk += min(0.4, Double(manipulationHits) * 0.20)
+        
+        // Existing controversy penalty feeds into harm risk
+        let controversyContrib = calculateControversyPenalty(post) / 100.0 * 0.3
+        risk += controversyContrib
+        
+        return min(1.0, risk)
+    }
+    
+    // MARK: AddictionRisk — Scroll-trap patterns (cliffhanger, rage bait, thirst trap, engagement bait)
+    
+    /// Returns 0.0 (healthy) – 1.0 (high addiction risk). Computed independently.
+    /// If > 0.5: impressions capped, removed from autoplay/infinite scroll contexts.
+    private func computeAddictionRisk(_ post: Post) -> Double {
+        var risk = 0.0
+        let content = post.content.lowercased()
+        
+        // Cliffhanger patterns ("wait till you see", "you won't believe", "part 2 coming")
+        let cliffhangerTerms = ["wait till you see", "you won't believe", "stay tuned",
+                                 "part 2", "to be continued", "i'll tell you later",
+                                 "thread below", "comment below for", "link in bio"]
+        let cliffHits = cliffhangerTerms.filter { content.contains($0) }.count
+        risk += min(0.35, Double(cliffHits) * 0.12)
+        
+        // Rage bait ("controversial opinion:", "am I wrong?", "unpopular opinion")
+        let rageBaitTerms = ["controversial opinion", "unpopular opinion", "am i wrong",
+                              "fight me", "nobody talks about", "wake up", "they lied",
+                              "the truth about", "everyone is wrong about"]
+        let rageBaitHits = rageBaitTerms.filter { content.contains($0) }.count
+        risk += min(0.35, Double(rageBaitHits) * 0.12)
+        
+        // Explicit engagement bait ("comment amen if", "like if you agree", "tag someone who")
+        let engagementBaitTerms = ["comment amen if", "like if you agree", "tag someone",
+                                    "repost if", "share if you", "drop an amen", "say amen",
+                                    "type amen", "who agrees", "1 like = 1 prayer"]
+        let engageBaitHits = engagementBaitTerms.filter { content.contains($0) }.count
+        risk += min(0.40, Double(engageBaitHits) * 0.13)
+        
+        // ALL CAPS overuse (existing engagement bait check)
+        if detectEngagementBait(post) { risk += 0.20 }
+        
+        return min(1.0, risk)
+    }
+    
+    // MARK: - Topic Cluster Classification
+    
+    /// Lightweight topic cluster for diversity re-ranking.
+    /// Posts are bucketed into one of these clusters to enforce distribution constraints.
+    enum TopicCluster: String {
+        case scripture      // Bible verses, study, devotional
+        case prayer         // Prayer requests, intercession
+        case testimony      // Personal faith stories
+        case community      // Fellowship, church, relationships
+        case practicalFaith // Tips, how-to, actionable faith steps
+        case reflection     // Gratitude, journaling, introspection
+        case discussion     // Open table general discussion, opinions
+        case other
+        
+        /// "Grounding" clusters must appear at least once per session
+        var isGrounding: Bool {
+            switch self {
+            case .scripture, .prayer, .testimony, .practicalFaith: return true
+            default: return false
+            }
+        }
+    }
+    
+    /// Classify a post into a topic cluster using lightweight keyword heuristics.
+    /// No ML inference at ranking time — runs synchronously per-post.
+    func topicCluster(for post: Post) -> TopicCluster {
+        let content = post.content.lowercased()
+        
+        switch post.category {
+        case .prayer:     return .prayer
+        case .testimonies: return .testimony
+        default: break
+        }
+        
+        // Scripture cluster
+        let scriptureKw = ["verse", "scripture", "proverbs", "psalm", "matthew", "john ", "romans",
+                            "genesis", "corinthians", "acts ", "gospel", "bible", "study", "devotional"]
+        if scriptureKw.contains(where: { content.contains($0) }) { return .scripture }
+        
+        // Practical faith cluster
+        let practicalKw = ["how to", "step ", "tips", "habit", "daily practice", "try this",
+                            "challenge yourself", "this week", "practical", "action"]
+        if practicalKw.contains(where: { content.contains($0) }) { return .practicalFaith }
+        
+        // Reflection cluster
+        let reflectionKw = ["grateful", "thankful", "reflecting", "journal", "pondering",
+                             "sitting with", "peace", "stillness", "rest"]
+        if reflectionKw.contains(where: { content.contains($0) }) { return .reflection }
+        
+        // Prayer cluster (even in openTable)
+        let prayerKw = ["pray", "prayer", "intercede", "worship", "lord", "god, please", "father god"]
+        if prayerKw.contains(where: { content.contains($0) }) { return .prayer }
+        
+        // Community cluster
+        let communityKw = ["church", "fellowship", "community", "together", "gathering", "family of god"]
+        if communityKw.contains(where: { content.contains($0) }) { return .community }
+        
+        // Testimony cluster
+        let testimonyKw = ["testimony", "god did", "he saved me", "my story", "what god has done",
+                            "transformed", "delivered", "miracle"]
+        if testimonyKw.contains(where: { content.contains($0) }) { return .testimony }
+        
+        return .discussion
+    }
+    
+    // MARK: - MMR-Style Diversity Re-Ranker
+    
+    /// Anti-rabbit-hole distribution: re-ranks a scored list using Maximal Marginal Relevance.
+    /// Constraints enforced:
+    ///   - Max 2 consecutive posts in the same topic cluster
+    ///   - Max 40% of the final list from any single cluster
+    ///   - At least 1 "grounding" post (scripture/prayer/testimony/practical) per 10-post window
+    ///
+    /// Pipeline: Candidate generation → Safety filter → Benefit score → MMR diversity → Final list
+    private func applyMMRDiversity(_ scored: [(post: Post, score: Double)]) -> [(post: Post, score: Double)] {
+        guard scored.count > 3 else { return scored }
+        
+        let total = scored.count
+        let maxClusterFraction = 0.40  // No single cluster > 40% of feed
+        let maxClusterCap = max(2, Int(Double(total) * maxClusterFraction))
+        let groundingWindowSize = 10   // At least 1 grounding post per N cards
+        
+        // Track cluster state
+        var clusterCounts: [TopicCluster: Int] = [:]
+        var result: [(post: Post, score: Double)] = []
+        var deferred: [(post: Post, score: Double)] = []
+        
+        // Group posts by cluster for grounding injection
+        var groundingPool: [(post: Post, score: Double)] = []
+        var nonGrounding: [(post: Post, score: Double)] = []
+        for item in scored {
+            let cluster = topicCluster(for: item.post)
+            if cluster.isGrounding {
+                groundingPool.append(item)
+            } else {
+                nonGrounding.append(item)
+            }
+        }
+        
+        // Rebuild candidate list: interleave grounding posts naturally
+        // Ratio: ~1 grounding per 4 posts to prevent echo chambers
+        var candidates: [(post: Post, score: Double)] = []
+        var gi = 0  // grounding index
+        var ni = 0  // non-grounding index
+        while gi < groundingPool.count || ni < nonGrounding.count {
+            // Every 4th position (0-indexed): insert a grounding post if available
+            let pos = candidates.count
+            if pos % 4 == 3 && gi < groundingPool.count {
+                candidates.append(groundingPool[gi]); gi += 1
+            } else if ni < nonGrounding.count {
+                candidates.append(nonGrounding[ni]); ni += 1
+            } else if gi < groundingPool.count {
+                candidates.append(groundingPool[gi]); gi += 1
+            }
+        }
+        
+        // MMR pass: enforce consecutive and session-cap constraints
+        var consecutive = 0
+        var lastCluster: TopicCluster? = nil
+        var groundingInWindow = 0
+        var windowStart = 0
+        
+        for item in candidates {
+            let cluster = topicCluster(for: item.post)
+            let clusterCount = clusterCounts[cluster, default: 0]
+            
+            // CONSTRAINT 1: Cluster session cap (no cluster > 40%)
+            guard clusterCount < maxClusterCap else {
+                deferred.append(item)
+                continue
+            }
+            
+            // CONSTRAINT 2: Max 2 consecutive in same cluster
+            if cluster == lastCluster {
+                consecutive += 1
+                if consecutive >= 2 {
+                    deferred.append(item)
+                    continue
+                }
+            } else {
+                consecutive = 0
+            }
+            
+            // Accept this post
+            result.append(item)
+            clusterCounts[cluster, default: 0] += 1
+            lastCluster = cluster
+            if cluster.isGrounding { groundingInWindow += 1 }
+            
+            // CONSTRAINT 3: Grounding window — if we've placed 10 posts with no grounding,
+            // immediately inject the best available grounding post next
+            if result.count - windowStart >= groundingWindowSize {
+                if groundingInWindow == 0 {
+                    // Find the highest-scoring grounding post still in deferred or groundingPool
+                    if let bestGrounding = deferred.enumerated()
+                        .filter({ topicCluster(for: $0.element.post).isGrounding })
+                        .max(by: { $0.element.score < $1.element.score }) {
+                        result.append(bestGrounding.element)
+                        deferred.remove(at: bestGrounding.offset)
+                        clusterCounts[topicCluster(for: bestGrounding.element.post), default: 0] += 1
+                    }
+                }
+                groundingInWindow = 0
+                windowStart = result.count
+            }
+        }
+        
+        // Append deferred posts that couldn't be placed earlier (ensures nothing is lost)
+        result.append(contentsOf: deferred)
+        return result
+    }
+    
+    // MARK: - Benefit-Ranked Feed
+    
+    /// Rank posts using the benefit-score model.
+    /// Pipeline: Candidate generation → Safety filter → Benefit score → MMR diversity → Final list.
+    /// Objective: benefit, not engagement. No watch-time or session-length signal.
+    func benefitRankPosts(_ posts: [Post], for interests: UserInterests, followingIds: Set<String> = []) -> [Post] {
+        // 1. Candidate generation + safety filtering
+        let filtered = applyEthicalFilters(posts)
+        
+        // 2. Benefit scoring — independent models combined with hard constraints
+        var scored: [(post: Post, result: BenefitScoreResult)] = filtered.map { post in
+            (post: post, result: benefitScore(post, for: interests))
+        }
+        
+        // 3. Hard constraint sort (harm/addiction risk posts move to end)
+        scored.sort {
+            if $0.result.shouldDownrank != $1.result.shouldDownrank { return !$0.result.shouldDownrank }
+            if $0.result.shouldCapImpressions != $1.result.shouldCapImpressions { return !$0.result.shouldCapImpressions }
+            return $0.result.finalScore > $1.result.finalScore
+        }
+        
+        // 4. Blend with recency + follow bonus before diversity pass
+        let withRecency = scored.map { item -> (post: Post, score: Double) in
+            let hoursSince = Date().timeIntervalSince(item.post.createdAt) / 3600
+            let recencyBonus = hoursSince < 2 ? 0.08 : (hoursSince < 6 ? 0.04 : 0.0)
+            let followBonus = followingIds.contains(item.post.authorId) ? 0.06 : 0.0
+            return (item.post, item.result.finalScore + recencyBonus + followBonus)
+        }.sorted { $0.score > $1.score }
+        
+        // 5. MMR-style diversity re-ranking (anti-rabbit-hole constraints)
+        let diversified = applyMMRDiversity(withRecency)
+        
+        // 6. Author diversity (no same author back-to-back)
+        let authorDiversified = applyAuthorDiversity(diversified)
+        
+        return authorDiversified.map { $0.post }
     }
     
     // MARK: - Smart Refresh
@@ -519,6 +1083,26 @@ class HomeFeedAlgorithm: ObservableObject {
     
     // MARK: - Topic Discovery
     
+    // MARK: - HeyFeed Integration Helpers
+    
+    /// Map Post category to HeyFeed topic
+    private func mapCategoryToTopic(_ category: Post.PostCategory) -> FeedTopic {
+        switch category {
+        case .prayer:
+            return .faith
+        case .testimonies:
+            return .faith
+        case .tip:
+            return .faith  // Tips on AMEN are faith/ministry-focused by platform design
+        case .funFact:
+            return .faith  // Fun facts here are Bible/theology facts
+        case .openTable:
+            // OpenTable is general community discussion — if topicTag is available use that;
+            // default to .faith since this is a faith platform.
+            return .faith
+        }
+    }
+    
     /// Suggest new topics based on engagement patterns
     func discoverNewTopics(from allTopics: [String]) -> [String] {
         let engagedTopics = Set(userInterests.engagedTopics.keys)
@@ -529,16 +1113,83 @@ class HomeFeedAlgorithm: ObservableObject {
     }
 }
 
+// MARK: - Feed Session Manager (Finite Sessions)
+
+/// Manages finite feed sessions: N cards per session, then a deliberate stop.
+/// Feed delivery is chunked — continuing scrolling requires an explicit tap.
+/// Server and client both enforce the cap to prevent bypass.
+@MainActor
+class FeedSessionManager: ObservableObject {
+    static let shared = FeedSessionManager()
+    
+    // MARK: - Session Config
+    
+    /// Cards shown per session before the Stop Screen is presented.
+    /// User-configurable; default 25. Range: 10–50.
+    static let defaultSessionCap = 25
+    
+    @Published var sessionCap: Int = defaultSessionCap
+    @Published var cardsSeenThisSession: Int = 0
+    @Published var sessionId: String = UUID().uuidString
+    @Published var isSessionComplete: Bool = false
+    @Published var sessionExtensionsUsed: Int = 0
+    
+    /// Remaining cards before Stop Screen (server would echo this in `session_cap_remaining`)
+    var sessionCapRemaining: Int {
+        max(0, sessionCap - cardsSeenThisSession)
+    }
+    
+    var sessionProgress: Double {
+        guard sessionCap > 0 else { return 0 }
+        return min(1.0, Double(cardsSeenThisSession) / Double(sessionCap))
+    }
+    
+    // MARK: - Session Control
+    
+    func recordCardSeen() {
+        cardsSeenThisSession += 1
+        if cardsSeenThisSession >= sessionCap {
+            isSessionComplete = true
+        }
+    }
+    
+    /// User deliberately chose to continue — start a new batch with a fresh session.
+    /// Each extension is tracked (max 2 per sitting to discourage compulsive use).
+    func extendSession() {
+        guard sessionExtensionsUsed < 2 else { return } // hard cap: 2 extensions per sitting
+        sessionExtensionsUsed += 1
+        cardsSeenThisSession = 0
+        sessionId = UUID().uuidString
+        isSessionComplete = false
+    }
+    
+    func startNewSession() {
+        cardsSeenThisSession = 0
+        sessionId = UUID().uuidString
+        isSessionComplete = false
+        sessionExtensionsUsed = 0
+    }
+    
+    /// Called when user closes the Stop Screen without extending (they're done).
+    func endSession() {
+        startNewSession()
+    }
+    
+    private init() {}
+}
+
 // MARK: - Post Extension for Tracking
 
 extension Post {
     /// Check if user has interacted with this post
     func hasUserInteracted(interests: HomeFeedAlgorithm.UserInterests) -> Bool {
-        return interests.interactionHistory[id.uuidString] != nil
+        let key = firebaseId ?? id.uuidString
+        return interests.interactionHistory[key] != nil
     }
     
     /// Get interaction count for this post
     func userInteractionCount(interests: HomeFeedAlgorithm.UserInterests) -> Int {
-        return interests.interactionHistory[id.uuidString] ?? 0
+        let key = firebaseId ?? id.uuidString
+        return interests.interactionHistory[key] ?? 0
     }
 }

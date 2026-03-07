@@ -15,7 +15,7 @@ struct NotificationPostDetailView: View {
     
     @Environment(\.dismiss) var dismiss
     @StateObject private var viewModel = NotificationPostViewModel()
-    @StateObject private var interactionsService = PostInteractionsService.shared
+    @ObservedObject private var interactionsService = PostInteractionsService.shared
     @State private var showComments = false
     @State private var commentText = ""
     @FocusState private var isCommentFocused: Bool
@@ -370,7 +370,7 @@ struct QuickInteractionButtons: View {
 
 struct CommentsSection: View {
     let postId: String
-    @StateObject private var interactionsService = PostInteractionsService.shared
+    @ObservedObject private var interactionsService = PostInteractionsService.shared
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -466,11 +466,37 @@ class NotificationPostViewModel: ObservableObject {
                 error = NSError(domain: "", code: 404, userInfo: [NSLocalizedDescriptionKey: "Post not found"])
                 return
             }
-            
+
+            let authorId = data["authorId"] as? String ?? ""
+
+            // Privacy gate: check if current viewer can access this post
+            // Server-side rules (callerCanReadPost) are the primary enforcement,
+            // but this client-side check guards against cached/stale data and provides
+            // immediate UI feedback without waiting for a Firestore permission error.
+            if !authorId.isEmpty {
+                let isAuthorPrivate = (data["isPrivate"] as? Bool ?? false)
+                    || (data["isPrivateAccount"] as? Bool ?? false)
+                let visibilityRaw = data["visibility"] as? String ?? "everyone"
+
+                if isAuthorPrivate {
+                    let canView = await PrivacyAccessControl.shared.canViewPrivateContent(of: authorId)
+                    if !canView {
+                        error = NSError(domain: "", code: 403, userInfo: [NSLocalizedDescriptionKey: "This post is from a private account. Follow them to see their content."])
+                        return
+                    }
+                } else if visibilityRaw == "followers" || visibilityRaw == "Followers" {
+                    let canView = await PrivacyAccessControl.shared.canViewPrivateContent(of: authorId)
+                    if !canView {
+                        error = NSError(domain: "", code: 403, userInfo: [NSLocalizedDescriptionKey: "This post is only visible to followers."])
+                        return
+                    }
+                }
+            }
+
             post = NotificationPost(
                 id: postId,
                 content: data["content"] as? String ?? "",
-                authorId: data["authorId"] as? String ?? "",
+                authorId: authorId,
                 authorName: data["authorName"] as? String ?? "Unknown",
                 category: data["category"] as? String ?? "general",
                 createdAt: (data["createdAt"] as? Timestamp)?.dateValue() ?? Date()

@@ -62,7 +62,7 @@ struct PrayerTimerView: View {
                             PhaseIndicator(
                                 phase: phase,
                                 isActive: currentPhase == phase,
-                                isCompleted: PrayerPhase.allCases.firstIndex(of: phase)! < PrayerPhase.allCases.firstIndex(of: currentPhase)!
+                                isCompleted: (PrayerPhase.allCases.firstIndex(of: phase) ?? 0) < (PrayerPhase.allCases.firstIndex(of: currentPhase) ?? 0)
                             )
                         }
                     }
@@ -106,12 +106,12 @@ struct PrayerTimerView: View {
                                 .foregroundStyle(currentPhase.color)
                         }
                         
-                        // Prompt card
+                        // Prompt card — Liquid Glass surface with phase tint
                         VStack(alignment: .leading, spacing: 12) {
                             Text("Prayer Prompt")
                                 .font(.custom("OpenSans-Bold", size: 16))
                                 .foregroundStyle(.secondary)
-                            
+
                             Text(currentPhase.prompt)
                                 .font(.custom("OpenSans-Regular", size: 16))
                                 .foregroundStyle(.primary)
@@ -119,9 +119,9 @@ struct PrayerTimerView: View {
                         }
                         .padding()
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(currentPhase.color.opacity(0.1))
+                        .glassEffect(
+                            Glass.regular.tint(currentPhase.color.opacity(0.18)),
+                            in: RoundedRectangle(cornerRadius: 16, style: .continuous)
                         )
                         .padding(.horizontal)
                         

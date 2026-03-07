@@ -67,11 +67,14 @@ class ChurchSearchService: ObservableObject {
             
             let churches = response.mapItems.compactMap { mapItem -> Church? in
                 guard let name = mapItem.name else { return nil }
+
+                // Use location property for coordinate
+                let coordinate = mapItem.location.coordinate
                 
                 // Calculate distance
                 let churchLocation = CLLocation(
-                    latitude: mapItem.placemark.coordinate.latitude,
-                    longitude: mapItem.placemark.coordinate.longitude
+                    latitude: coordinate.latitude,
+                    longitude: coordinate.longitude
                 )
                 let userLocation = CLLocation(
                     latitude: location.latitude,
@@ -79,16 +82,23 @@ class ChurchSearchService: ObservableObject {
                 )
                 let distanceInMiles = userLocation.distance(from: churchLocation) / 1609.34
                 
+                // Use addressRepresentations (iOS 26+) for address string; fallback to placemark for older OS
+                let addressString: String
+                if #available(iOS 26, *) {
+                    addressString = mapItem.addressRepresentations?.fullAddress(includingRegion: false, singleLine: true) ?? ""
+                } else {
+                    addressString = formatAddress(from: mapItem.placemark)
+                }
                 return Church(
                     id: UUID(), // Generate unique ID for each search result
                     name: name,
                     denomination: extractDenomination(from: name),
-                    address: formatAddress(from: mapItem.placemark),
+                    address: addressString,
                     distance: String(format: "%.1f miles away", distanceInMiles),
                     distanceValue: distanceInMiles,
                     serviceTime: "Contact church for service times",
                     phone: mapItem.phoneNumber ?? "No phone available",
-                    coordinate: mapItem.placemark.coordinate,
+                    coordinate: coordinate,
                     website: mapItem.url?.host,
                     nextServiceCountdown: calculateNextService()
                 )
@@ -156,7 +166,7 @@ class ChurchSearchService: ObservableObject {
         }
     }
     
-    private func formatAddress(from placemark: MKPlacemark) -> String {
+    private func formatAddress(from placemark: CLPlacemark) -> String {
         var addressComponents: [String] = []
         
         if let street = placemark.thoroughfare {

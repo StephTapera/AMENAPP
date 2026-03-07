@@ -168,7 +168,7 @@ class InteractionThrottleService: ObservableObject {
         }
         
         // Check 4: Spam detection - same content across multiple posts
-        if action == .comment, let targetId = targetPostId {
+        if action == .comment, targetPostId != nil {
             let recentComments = userHistory.filter {
                 $0.action == .comment && now.timeIntervalSince($0.timestamp) < 300 // 5 minutes
             }
@@ -314,5 +314,25 @@ class InteractionThrottleService: ObservableObject {
     
     func isUserSuspicious(userId: String) -> Bool {
         return suspiciousUsers.contains(userId)
+    }
+
+    // MARK: - Comment Slow Mode
+
+    /// Per-user last-comment timestamps, keyed by postId.
+    private var lastCommentTimes: [String: Date] = [:]  // key = "\(userId)_\(postId)"
+
+    /// Returns the remaining cooldown seconds (0 if allowed immediately).
+    /// `cooldownSeconds` = 0 means no slow mode enforced (auto setting).
+    func commentCooldownRemaining(userId: String, postId: String, cooldownSeconds: TimeInterval) -> TimeInterval {
+        guard cooldownSeconds > 0 else { return 0 }
+        let key = "\(userId)_\(postId)"
+        guard let last = lastCommentTimes[key] else { return 0 }
+        let elapsed = Date().timeIntervalSince(last)
+        return max(0, cooldownSeconds - elapsed)
+    }
+
+    /// Record that a comment was posted (call after a successful comment submission).
+    func recordCommentPosted(userId: String, postId: String) {
+        lastCommentTimes["\(userId)_\(postId)"] = Date()
     }
 }

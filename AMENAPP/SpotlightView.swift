@@ -268,7 +268,8 @@ enum SpotlightFilter: String, CaseIterable, Identifiable {
 
 struct SpotlightCardSkeleton: View {
     @State private var shimmerOffset: CGFloat = -1
-    
+    @State private var cardWidth: CGFloat = 390  // reasonable default
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             // Author header
@@ -334,7 +335,12 @@ struct SpotlightCardSkeleton: View {
                         endPoint: .trailing
                     )
                 )
-                .offset(x: shimmerOffset * UIScreen.main.bounds.width)
+                .offset(x: shimmerOffset * cardWidth)
+        )
+        .background(
+            GeometryReader { geo in
+                Color.clear.onAppear { cardWidth = geo.size.width }
+            }
         )
         .onAppear {
             withAnimation(.linear(duration: 1.5).repeatForever(autoreverses: false)) {

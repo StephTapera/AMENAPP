@@ -20,9 +20,17 @@ extension Notification.Name {
     /// Posted when a conversation is updated
     static let conversationUpdated = Notification.Name("conversationUpdated")
     
+    /// Posted when the user taps "Publish" — before Firestore confirms.
+    /// UserInfo: ["category": String]
+    static let postingStarted = Notification.Name("postingStarted")
+
     /// Posted when a new post is created
     /// UserInfo should contain: ["category": String]
     static let newPostCreated = Notification.Name("newPostCreated")
+
+    /// Posted when post creation fails (upload error, moderation block, etc.)
+    /// Signals the posting bar to hide immediately.
+    static let postingFailed = Notification.Name("postingFailed")
     
     /// Posted when a post is edited
     static let postEdited = Notification.Name("postEdited")
@@ -39,4 +47,8 @@ extension Notification.Name {
 
     /// Posted to open the create post sheet from anywhere in the app
     static let openCreatePost = Notification.Name("openCreatePost")
+
+    /// Posted when the Share Extension hands off a draft to the main app.
+    /// UserInfo: ["text": String, "linkURL": String, "destination": String]
+    static let openCreatePostFromShare = Notification.Name("openCreatePostFromShare")
 }

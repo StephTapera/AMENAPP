@@ -122,7 +122,7 @@ extension FirebaseMessagingService {
             
             // Prevent duplicate entries
             guard !seenConversationIds.contains(doc.documentID) else {
-                print("⚠️ Skipping duplicate conversation: \(doc.documentID)")
+                dlog("⚠️ Skipping duplicate conversation: \(doc.documentID)")
                 continue
             }
             
@@ -130,13 +130,12 @@ extension FirebaseMessagingService {
             // AND ensure there's at least one message or a clear requester
             guard let requesterId = conversation.requesterId,
                   requesterId != currentUserId else {
-                print("⚠️ Skipping conversation with no requester or user is requester: \(doc.documentID)")
                 continue
             }
             
             // Skip empty conversations with no messages (not real requests yet)
             guard !conversation.lastMessageText.isEmpty else {
-                print("⚠️ Skipping empty conversation (no messages): \(doc.documentID)")
+                dlog("⚠️ Skipping empty conversation (no messages): \(doc.documentID)")
                 continue
             }
             
@@ -159,7 +158,7 @@ extension FirebaseMessagingService {
             requests.append(request)
         }
         
-        print("📬 Loaded \(requests.count) message requests (filtered from \(snapshot.documents.count) pending conversations)")
+        dlog("📬 Loaded \(requests.count) message requests (filtered from \(snapshot.documents.count) pending conversations)")
         return requests
     }
     
@@ -171,6 +170,10 @@ extension FirebaseMessagingService {
         
         let conversationRef = db.collection("conversations").document(requestId)
         
+        // Fetch the conversation first to get requesterId and acceptor name
+        let conversationDoc = try await conversationRef.getDocument()
+        let requesterId = conversationDoc.data()?["requesterId"] as? String
+        
         try await conversationRef.updateData([
             "conversationStatus": "accepted",
             "acceptedAt": Timestamp(date: Date()),
@@ -178,7 +181,25 @@ extension FirebaseMessagingService {
             "updatedAt": Timestamp(date: Date())
         ])
         
-        print("✅ Message request accepted: \(requestId)")
+        // Notify the requester that their message request was accepted
+        if let requesterId, !requesterId.isEmpty, requesterId != currentUserId {
+            let acceptorDoc = try? await db.collection("users").document(currentUserId).getDocument()
+            let acceptorName = acceptorDoc?.data()?["displayName"] as? String ?? "Someone"
+            let notification: [String: Any] = [
+                "toUserId": requesterId,
+                "type": "messageRequestAccepted",
+                "fromUserId": currentUserId,
+                "fromUserName": acceptorName,
+                "conversationId": requestId,
+                "message": "\(acceptorName) accepted your message request",
+                "createdAt": FieldValue.serverTimestamp(),
+                "isRead": false
+            ]
+            _ = try? await db.collection("users").document(requesterId)
+                .collection("notifications").addDocument(data: notification)
+        }
+        
+        dlog("✅ Message request accepted: \(requestId)")
     }
     
     /// Decline a message request
@@ -200,7 +221,7 @@ extension FirebaseMessagingService {
         // Option 2: Hard delete (uncomment if you prefer)
         // try await conversationRef.delete()
         
-        print("✅ Message request declined: \(requestId)")
+        dlog("✅ Message request declined: \(requestId)")
     }
     
     /// Mark message request as read
@@ -227,7 +248,7 @@ extension FirebaseMessagingService {
             .order(by: "updatedAt", descending: true)
             .addSnapshotListener { snapshot, error in
                 guard let snapshot = snapshot else {
-                    print("❌ Error listening to message requests: \(error?.localizedDescription ?? "unknown")")
+                    dlog("❌ Error listening to message requests: \(error?.localizedDescription ?? "unknown")")
                     return
                 }
                 
@@ -273,7 +294,7 @@ extension FirebaseMessagingService {
                     requests.append(request)
                 }
                 
-                print("📬 Real-time: \(requests.count) message requests")
+                dlog("📬 Real-time: \(requests.count) message requests")
                 onChange(requests)
             }
         
@@ -326,7 +347,7 @@ extension FirebaseMessagingService {
         
         try await batch.commit()
         
-        print("✅ User blocked: \(userId)")
+        dlog("✅ User blocked: \(userId)")
     }
     
     /// Unblock a user
@@ -342,7 +363,7 @@ extension FirebaseMessagingService {
         
         try await blockRef.delete()
         
-        print("✅ User unblocked: \(userId)")
+        dlog("✅ User unblocked: \(userId)")
     }
     
     /// Check if a user is blocked by current user
@@ -436,11 +457,11 @@ extension FirebaseMessagingService {
         
         // Auto-block if spam report (optional)
         if reason.lowercased().contains("spam") {
-            print("📊 Spam detected - auto-blocking user")
+            dlog("📊 Spam detected - auto-blocking user")
             try? await blockUser(userId: userId)
         }
         
-        print("✅ User reported: \(userId) for \(reason)")
+        dlog("✅ User reported: \(userId) for \(reason)")
     }
     
     // MARK: - Enhanced Conversation Creation
@@ -494,7 +515,7 @@ extension FirebaseMessagingService {
                     ])
                 }
                 
-                print("✅ Found existing conversation: \(conversationId)")
+                dlog("✅ Found existing conversation: \(conversationId)")
                 return conversationId
             }
         }
@@ -502,7 +523,7 @@ extension FirebaseMessagingService {
         // Create new conversation
         let conversationRef = db.collection("conversations").document()
         
-        var allParticipantIds = [userId, currentUserId]
+        let allParticipantIds = [userId, currentUserId]
         let participantNames = [
             currentUserId: currentUserName,
             userId: userName
@@ -530,7 +551,7 @@ extension FirebaseMessagingService {
         
         try conversationRef.setData(from: conversation)
         
-        print("✅ Conversation created with status: \(status)")
+        dlog("✅ Conversation created with status: \(status)")
         return conversationRef.documentID
     }
 }

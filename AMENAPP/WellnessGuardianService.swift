@@ -94,7 +94,7 @@ class WellnessGuardianService: ObservableObject {
         
         // Start periodic check
         breakCheckTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
-            Task { @MainActor in
+            Task { @MainActor [weak self] in
                 self?.checkIfBreakNeeded()
             }
         }
@@ -189,7 +189,7 @@ class WellnessGuardianService: ObservableObject {
             guard let userId = Auth.auth().currentUser?.uid else { return }
             
             let today = Calendar.current.startOfDay(for: Date())
-            let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: today)!
+            guard let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: today) else { return }
             
             do {
                 let snapshot = try await db.collection("users").document(userId)
@@ -219,7 +219,7 @@ class WellnessGuardianService: ObservableObject {
             return WellnessStats(todayMinutes: 0, weekMinutes: 0, longestStreak: 0, breaksTaken: 0, averageDailyMinutes: 0)
         }
         
-        let weekAgo = Calendar.current.date(byAdding: .day, value: -7, to: Date())!
+        let weekAgo = Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date(timeIntervalSinceNow: -604800)
         
         do {
             let snapshot = try await db.collection("users").document(userId)

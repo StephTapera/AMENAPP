@@ -74,19 +74,30 @@ class VertexAIPersonalizationService {
     
     // Vertex AI Configuration from Firebase Remote Config
     private var vertexAIProjectId: String {
-        RemoteConfig.remoteConfig().configValue(forKey: "vertex_ai_project_id").stringValue ?? ""
+        RemoteConfig.remoteConfig().configValue(forKey: "vertex_ai_project_id").stringValue
     }
     private let vertexAIRegion = "us-central1"
-    private let modelEndpoint = "" // TODO: Deploy model and add endpoint
+    /// Endpoint ID read from Remote Config — set "vertex_ai_model_endpoint" after model is deployed
+    private var modelEndpoint: String {
+        RemoteConfig.remoteConfig().configValue(forKey: "vertex_ai_model_endpoint").stringValue
+    }
     
+    /// Posts whose `.view` event has already been recorded this session.
+    /// Prevents firing a Firestore write every time a card re-appears during scrolling.
+    private var sessionViewedPostIds = Set<String>()
+
     private init() {}
     
     // MARK: - Engagement Tracking
     
-    /// Record user engagement event for ML training
+    /// Record user engagement event for ML training.
+    /// `.view` events are throttled to once per post per app session to avoid
+    /// hammering Firestore on every scroll pass.
     func recordEngagement(_ event: EngagementEvent) async throws {
-        print("📊 [ENGAGEMENT] Recording: \(event.eventType.rawValue) on post \(event.postId)")
-        
+        if event.eventType == .view {
+            guard sessionViewedPostIds.insert(event.postId).inserted else { return }
+        }
+
         // Store in Firestore for batch training
         let eventData: [String: Any] = [
             "userId": event.userId,
@@ -121,16 +132,6 @@ class VertexAIPersonalizationService {
         
         // Update in HomeFeedAlgorithm
         if weight > 0 {
-            let interactionType: HomeFeedAlgorithm.InteractionType = {
-                switch event.eventType {
-                case .view: return .view
-                case .reaction: return .reaction
-                case .comment: return .comment
-                case .share: return .share
-                default: return .view
-                }
-            }()
-            
             // Note: This requires fetching the post to update interests
             // In production, store post metadata with event for efficiency
         }
@@ -198,12 +199,22 @@ class VertexAIPersonalizationService {
         print("🤖 [VERTEX AI] Requesting predictions for \(candidatePosts.count) posts...")
         
         // Call Vertex AI Prediction API
-        let url = URL(string: "https://\(vertexAIRegion)-aiplatform.googleapis.com/v1/projects/\(vertexAIProjectId)/locations/\(vertexAIRegion)/endpoints/\(modelEndpoint):predict")!
+        guard let url = URL(string: "https://\(vertexAIRegion)-aiplatform.googleapis.com/v1/projects/\(vertexAIProjectId)/locations/\(vertexAIRegion)/endpoints/\(modelEndpoint):predict") else {
+            throw NSError(domain: "VertexAI", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid Vertex AI endpoint URL"])
+        }
+        
+        // Fetch Firebase ID token to authenticate the request.
+        // In production, route through a Cloud Function proxy that exchanges this for a
+        // service-account-scoped OAuth2 token before forwarding to Vertex AI.
+        guard let currentUser = Auth.auth().currentUser else {
+            throw NSError(domain: "VertexAI", code: 401, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
+        }
+        let idToken = try await currentUser.getIDToken()
         
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        // TODO: Add OAuth2 token for authentication
+        request.setValue("Bearer \(idToken)", forHTTPHeaderField: "Authorization")
         
         let body: [String: Any] = [
             "instances": candidatePosts.map { postId in
@@ -254,7 +265,7 @@ class VertexAIPersonalizationService {
     /// Hybrid ranking: Combine Vertex AI predictions with local algorithm
     func getHybridFeed(for userId: String, candidatePosts: [Post]) async throws -> [Post] {
         // Step 1: Get Vertex AI predictions
-        let postIds = candidatePosts.map { $0.id.uuidString }
+        let postIds = candidatePosts.map { $0.firebaseId ?? $0.id.uuidString }
         let predictions: [FeedPrediction]
         
         do {
@@ -276,7 +287,8 @@ class VertexAIPersonalizationService {
         var scoredPosts: [(post: Post, score: Double)] = []
         
         for (index, post) in candidatePosts.enumerated() {
-            let vertexScore = predictions.first(where: { $0.postId == post.id.uuidString })?.relevanceScore ?? 0.5
+            let stableId = post.firebaseId ?? post.id.uuidString
+            let vertexScore = predictions.first(where: { $0.postId == stableId })?.relevanceScore ?? 0.5
             let localScore = localScores[index]
             
             // Weighted combination
@@ -417,7 +429,7 @@ class VertexAIPersonalizationService {
         
         // Export latest engagement data
         let endDate = Date()
-        let startDate = Calendar.current.date(byAdding: .day, value: -30, to: endDate)!
+        let startDate = Calendar.current.date(byAdding: .day, value: -30, to: endDate) ?? Date(timeIntervalSinceNow: -30 * 86400)
         
         let exportFile = try await exportEngagementData(startDate: startDate, endDate: endDate)
         

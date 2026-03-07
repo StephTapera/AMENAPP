@@ -12,15 +12,18 @@ import SwiftUI
 import PhotosUI
 import FirebaseAuth
 import FirebaseFirestore
+import Combine
 
 // MARK: - Unified Chat View
 
 struct UnifiedChatView: View {
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var messagingService = FirebaseMessagingService.shared
-    @StateObject private var networkMonitor = NetworkStatusMonitor.shared
-    @StateObject private var toastManager = ToastManager.shared
-    @StateObject private var linkPreviewService = LinkPreviewService.shared
+    @Environment(\.scenePhase) private var scenePhase
+    @ObservedObject private var messagingService = FirebaseMessagingService.shared
+    @ObservedObject private var networkMonitor = NetworkStatusMonitor.shared
+    @ObservedObject private var toastManager = ToastManager.shared
+    @ObservedObject private var linkPreviewService = LinkPreviewService.shared
+    @StateObject private var chatLinkController = ComposerLinkPreviewController()
     
     let conversation: ChatConversation
     
@@ -56,20 +59,32 @@ struct UnifiedChatView: View {
     @State private var otherUserId: String?
     @State private var profilePhotoListener: ListenerRegistration?
 
+    // Mutual follow state — resolved async on appear; used by MinorSafetyService
+    @State private var isMutualFollow: Bool = false
+    @State private var isFollowingOtherUser: Bool = false
+    @State private var isFollowButtonLoading: Bool = false
+
     // Reaction picker state
     @State private var showReactionPicker = false
     @State private var selectedMessageForReaction: AppMessage?
     @State private var reactionPickerOffset: CGPoint = .zero
     
-    // P0-1 FIX: Prevent duplicate message sends
+    // Prevent duplicate in-flight sends: keyed by client message ID (UUID), not content hash.
+    // hashValue is session-unstable and collision-prone for short strings.
     @State private var isSendingMessage = false
-    @State private var inFlightMessageRequests: Set<Int> = []
-    
-    // P0-2 FIX: Listener lifecycle management
+    @State private var inFlightMessageIDs: Set<String> = []
+
+    // Smart reply chips
+    @State private var smartReplySuggestions: [String] = []
+    @State private var isLoadingSmartReplies = false
+
+    // Listener lifecycle management
     @State private var listenerTask: Task<Void, Never>?
-    
-    // P0-4 FIX: Track optimistic messages by content hash
-    @State private var optimisticMessageHashes: [String: Int] = [:]
+    @State private var isViewActive = false  // guard against listener leak on rapid dismiss
+
+    // Track confirmed message IDs received from Firestore for O(1) dedupe.
+    // Key = clientMessageId (UUID). Optimistic message is removed once its ID appears in snapshot.
+    @State private var seenMessageIDs: Set<String> = []
     
     // P1-2 FIX: Scroll position preservation
     @State private var isNearBottom = true
@@ -77,6 +92,32 @@ struct UnifiedChatView: View {
     
     // P1-3 FIX: Pagination state
     @State private var isLoadingMoreMessages = false
+
+    // MARK: — Safety Reporting state
+    @State private var isSubmittingReport = false
+    @State private var reportConfirmationMessage: String?
+    @State private var messageToReport: AppMessage?
+    @State private var showReportConfirmation = false
+    @State private var showBlockConfirmation = false
+    @State private var userIdToBlock: String?
+
+    // MARK: — Safety Gateway state
+    @State private var safetyStrikeCount = 0
+    @State private var safetyStrikeReason = ""
+    @State private var showStrikeNotice = false
+    @State private var showAccountFrozen = false
+    @State private var accountFrozenReason = ""
+    @State private var showCrisisInterstitial = false
+    @State private var pendingCrisisMessageText = ""
+    @State private var pendingCrisisMessageId = ""
+    // messageId → safety warning signals for recipient-side banner
+    @State private var messageWarnings: [String: [SafetySignal]] = [:]
+
+    // PERF: Computed once per render cycle rather than inline in the gradient,
+    // preventing repeated trimmingCharacters calls on every keystroke.
+    private var isMessageEmpty: Bool {
+        messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
 
     var body: some View {
         ZStack {
@@ -98,21 +139,91 @@ struct UnifiedChatView: View {
             .safeAreaInset(edge: .bottom) {
                 // Floating input bar - Automatically anchors to keyboard
                 VStack(spacing: 0) {
-                    // Collapsible media section
-                    if isMediaSectionExpanded {
-                        collapsibleMediaSection
-                            .transition(.asymmetric(
-                                insertion: .move(edge: .bottom).combined(with: .opacity),
-                                removal: .move(edge: .bottom).combined(with: .opacity)
-                            ))
+                    // Safety: strike notice (shown after a message is blocked)
+                    if showStrikeNotice {
+                        StrikeNoticeView(
+                            strikeCount: safetyStrikeCount,
+                            reason: safetyStrikeReason,
+                            onDismiss: {
+                                withAnimation(.spring(response: 0.3)) {
+                                    showStrikeNotice = false
+                                }
+                            },
+                            onFollowThem: otherUserId.map { uid in
+                                {
+                                    guard !isFollowButtonLoading else { return }
+                                    isFollowButtonLoading = true
+                                    Task {
+                                        do {
+                                            try await FollowService.shared.followUser(userId: uid)
+                                            // Re-check follow status so the policy reflects the new follow
+                                            let followStatus = try await FirebaseMessagingService.shared.checkFollowStatus(userId1: Auth.auth().currentUser?.uid ?? "", userId2: uid)
+                                            await MainActor.run {
+                                                isFollowingOtherUser = followStatus.user1FollowsUser2
+                                                isMutualFollow = followStatus.user1FollowsUser2 && followStatus.user2FollowsUser1
+                                                isFollowButtonLoading = false
+                                                // Dismiss the notice — they can now send a message request
+                                                withAnimation(.spring(response: 0.3)) {
+                                                    showStrikeNotice = false
+                                                    // Don't increment strike — following is not a safety violation
+                                                    safetyStrikeCount = max(0, safetyStrikeCount - 1)
+                                                }
+                                            }
+                                        } catch {
+                                            await MainActor.run { isFollowButtonLoading = false }
+                                        }
+                                    }
+                                }
+                            },
+                            isFollowLoading: isFollowButtonLoading
+                        )
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
-                    
-                    // Compact input bar
-                    compactInputBar
-                        .padding(.horizontal, 12)
-                        .padding(.bottom, 4)
+
+                    // Safety: account frozen notice (replaces input bar)
+                    if showAccountFrozen {
+                        AccountFrozenNoticeView(
+                            reason: accountFrozenReason,
+                            onContactSupport: {
+                                // Open support — placeholder for now
+                            }
+                        )
+                        .transition(.opacity)
+                    } else {
+                        // Collapsible media section
+                        if isMediaSectionExpanded {
+                            collapsibleMediaSection
+                                .transition(.asymmetric(
+                                    insertion: .move(edge: .bottom).combined(with: .opacity),
+                                    removal: .move(edge: .bottom).combined(with: .opacity)
+                                ))
+                        }
+
+                        // Live link preview above input
+                        ComposerLinkPreview(controller: chatLinkController)
+                            .padding(.horizontal, 12)
+                            .padding(.top, 4)
+                            .animation(.spring(response: 0.35, dampingFraction: 0.8), value: chatLinkController.activeURL)
+
+                        // Smart reply chips — aligned with the text field inside the input bar
+                        // Leading: 12 (outer hPad) + 40 (+ button) + 12 (spacing) = 64
+                        if messageText.isEmpty && !smartReplySuggestions.isEmpty {
+                            smartReplyChipsRow
+                                .padding(.leading, 64)
+                                .padding(.trailing, 12)
+                                .padding(.bottom, 4)
+                                .transition(.move(edge: .bottom).combined(with: .opacity))
+                        }
+
+                        // Compact input bar
+                        compactInputBar
+                            .padding(.horizontal, 12)
+                            .padding(.bottom, 4)
+                    }
                 }
                 .background(Color.clear)
+                .animation(.spring(response: 0.35, dampingFraction: 0.8), value: showStrikeNotice)
+                .animation(.spring(response: 0.35, dampingFraction: 0.8), value: showAccountFrozen)
             }
 
             // Reaction picker overlay
@@ -137,6 +248,35 @@ struct UnifiedChatView: View {
         }
         .sheet(isPresented: $showGroupInfo) {
             GroupInfoView(conversation: conversation)
+        }
+        // Safety: crisis support interstitial — shown before sending, after message cleared
+        .sheet(isPresented: $showCrisisInterstitial) {
+            SelfHarmCrisisInterstitial(
+                onSendAnyway: {
+                    showCrisisInterstitial = false
+                    // Re-send the held crisis message with crisis flag set
+                    let text = pendingCrisisMessageText
+                    let id = pendingCrisisMessageId
+                    pendingCrisisMessageText = ""
+                    pendingCrisisMessageId = ""
+                    Task {
+                        try? await messagingService.sendMessage(
+                            conversationId: conversation.id,
+                            text: text,
+                            clientMessageId: id
+                        )
+                    }
+                },
+                onClose: {
+                    showCrisisInterstitial = false
+                    pendingCrisisMessageText = ""
+                    pendingCrisisMessageId = ""
+                    // Remove the optimistic message that was held
+                    messages.removeAll { $0.id == pendingCrisisMessageId }
+                    pendingMessages.removeValue(forKey: pendingCrisisMessageId)
+                }
+            )
+            .presentationDetents([.medium, .large])
         }
         .onChange(of: networkMonitor.isConnected) { oldValue, newValue in
             if !oldValue && newValue {
@@ -163,23 +303,59 @@ struct UnifiedChatView: View {
         } message: {
             Text(errorMessage)
         }
+        .alert("Report Message", isPresented: $showReportConfirmation) {
+            Button("Report", role: .destructive) {
+                if let msg = messageToReport {
+                    reportMessage(msg)
+                }
+                messageToReport = nil
+            }
+            Button("Cancel", role: .cancel) { messageToReport = nil }
+        } message: {
+            Text("This message will be reported for review. Thank you for helping keep AMEN safe.")
+        }
+        .alert("Block User", isPresented: $showBlockConfirmation) {
+            Button("Block", role: .destructive) {
+                if let uid = userIdToBlock {
+                    blockSender(userId: uid)
+                }
+                userIdToBlock = nil
+            }
+            Button("Cancel", role: .cancel) { userIdToBlock = nil }
+        } message: {
+            Text("You will no longer receive messages from this person.")
+        }
         .task {
             // P0 FIX: Move all setup to async task for instant view appearance
             await setupChatViewAsync()
         }
         .onAppear {
+            isViewActive = true
             // Only do lightweight, synchronous work here
             generateRandomPlaceholder()
             NotificationAggregationService.shared.trackConversationViewing(conversation.id)
         }
         .onDisappear {
+            isViewActive = false
             cleanupChatView()
-            
+
             // ✅ Reset screen tracking
             NotificationAggregationService.shared.updateCurrentScreen(.messages)
         }
+        .onChange(of: scenePhase) { _, newPhase in
+            // FIX: Re-attach message listener when app returns to foreground.
+            // .task{} only runs once when the view first appears; if the app is backgrounded
+            // while the chat is open and then foregrounded, the listener is gone. Re-attach it.
+            if newPhase == .active {
+                Task { await setupChatViewAsync() }
+            } else if newPhase == .background {
+                cleanupChatView()
+            }
+        }
         .onChange(of: messageText) { _, newValue in
             handleTypingIndicator(isTyping: !newValue.isEmpty)
+            chatLinkController.handleTextChange(newValue)
+            if !newValue.isEmpty { smartReplySuggestions = [] }
         }
         .onChange(of: isInputFocused) { _, newValue in
             withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
@@ -401,7 +577,7 @@ struct UnifiedChatView: View {
         ZStack(alignment: .bottomTrailing) {
             ScrollViewReader { proxy in
                 ScrollView(showsIndicators: false) {
-                    LazyVStack(spacing: 12) {
+                    LazyVStack(spacing: 0) {
                         // P1-3 FIX: Pagination load more button
                         if messagingService.canLoadMoreMessages(conversationId: conversation.id) {
                             Button {
@@ -430,46 +606,148 @@ struct UnifiedChatView: View {
                         }
                         
                         ForEach(Array(messages.enumerated()), id: \.element.id) { index, message in
+                            let currentUID = Auth.auth().currentUser?.uid
+                            let isFromCurrentUser = message.senderId == currentUID
+                            // A message is last in its group when the next message is from a different sender
+                            // or when it's the last message overall.
+                            let nextMessage: AppMessage? = index + 1 < messages.count ? messages[index + 1] : nil
+                            let isLastInGroup = nextMessage == nil || nextMessage?.senderId != message.senderId
+                            // Show read receipt only on the very last outgoing message
+                            let isLastOutgoing = isFromCurrentUser && (nextMessage == nil || nextMessage?.senderId != currentUID)
+                            // Show date header when the day changes between messages
+                            let prevMessage: AppMessage? = index > 0 ? messages[index - 1] : nil
+                            let showDateHeader = prevMessage == nil || !Calendar.current.isDate(prevMessage!.timestamp, inSameDayAs: message.timestamp)
+
                             VStack(spacing: 0) {
+                                // Date group header
+                                if showDateHeader {
+                                    messageDateHeader(date: message.timestamp)
+                                        .padding(.vertical, 10)
+                                }
+
                                 // Unread separator
                                 if message.id == firstUnreadMessageId {
                                     unreadSeparator
                                         .padding(.vertical, 8)
                                         .id("unread-separator")
                                 }
-                                
-                                LiquidGlassMessageBubble(
-                                    message: message,
-                                    isFromCurrentUser: message.senderId == Auth.auth().currentUser?.uid,
-                                    onReply: {
-                                        replyingTo = message
-                                        isInputFocused = true
-                                    },
-                                    onReact: { emoji in
-                                        addReaction(to: message, emoji: emoji)
-                                    },
-                                    onLongPress: {
-                                        selectedMessageForReaction = message
-                                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                            showReactionPicker = true
+
+                                // Safety: warning banner shown to recipient above flagged messages
+                                let isFromOther = !isFromCurrentUser
+                                if isFromOther, let warnings = messageWarnings[message.id], !warnings.isEmpty {
+                                    MessageSafetyWarningBanner(
+                                        signals: warnings,
+                                        onReport: {
+                                            guard let reportedId = otherUserId,
+                                                  let currentId = currentUID,
+                                                  !isSubmittingReport else { return }
+                                            isSubmittingReport = true
+                                            let evidenceIds = messages.suffix(5).map { $0.id }
+                                            let submission = ReportSubmission(
+                                                reporterId: currentId,
+                                                reportedUserId: reportedId,
+                                                conversationId: conversation.id,
+                                                reason: .harassment,
+                                                evidenceMessageIds: evidenceIds,
+                                                additionalContext: "Flagged by in-chat safety scanner",
+                                                blockImmediately: false
+                                            )
+                                            Task {
+                                                _ = await SafetyReportingService.shared.submitReport(submission)
+                                                isSubmittingReport = false
+                                                reportConfirmationMessage = "Report submitted. Thank you for keeping the community safe."
+                                            }
+                                        },
+                                        onBlock: {
+                                            guard let reportedId = otherUserId,
+                                                  let currentId = currentUID,
+                                                  !isSubmittingReport else { return }
+                                            isSubmittingReport = true
+                                            let evidenceIds = messages.suffix(5).map { $0.id }
+                                            let submission = ReportSubmission(
+                                                reporterId: currentId,
+                                                reportedUserId: reportedId,
+                                                conversationId: conversation.id,
+                                                reason: .harassment,
+                                                evidenceMessageIds: evidenceIds,
+                                                additionalContext: "One-tap block from in-chat safety banner",
+                                                blockImmediately: true
+                                            )
+                                            Task {
+                                                _ = await SafetyReportingService.shared.submitReport(submission)
+                                                isSubmittingReport = false
+                                            }
                                         }
-                                    },
-                                    onDelete: {
-                                        deleteMessage(message: message)
-                                    },
-                                    onRetry: message.isSendFailed ? {
-                                        retryFailedMessage(messageId: message.id, text: message.text)
-                                    } : nil
-                                )
-                                .id(message.id)
+                                    )
+                                    .transition(.opacity.combined(with: .move(edge: .top)))
+                                }
+
+                                // Safety: held message indicator for sender's own held messages
+                                if isFromCurrentUser
+                                    && !message.isSent && !message.isSendFailed
+                                    && message.text == pendingCrisisMessageText {
+                                    HeldMessageIndicator()
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 4)
+                                } else {
+                                    VStack(spacing: 4) {
+                                        LiquidGlassMessageBubble(
+                                            message: message,
+                                            isFromCurrentUser: isFromCurrentUser,
+                                            isLastInGroup: isLastInGroup,
+                                            showReadReceipt: isLastOutgoing,
+                                            onReply: {
+                                                replyingTo = message
+                                                isInputFocused = true
+                                            },
+                                            onReact: { emoji in
+                                                addReaction(to: message, emoji: emoji)
+                                            },
+                                            onLongPress: {
+                                                selectedMessageForReaction = message
+                                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                                    showReactionPicker = true
+                                                }
+                                            },
+                                            onDelete: {
+                                                deleteMessage(message: message)
+                                            },
+                                            onRetry: message.isSendFailed ? {
+                                                retryFailedMessage(messageId: message.id, text: message.text)
+                                            } : nil,
+                                            onReport: !isFromCurrentUser ? {
+                                                messageToReport = message
+                                                showReportConfirmation = true
+                                            } : nil,
+                                            onBlock: !isFromCurrentUser ? {
+                                                userIdToBlock = message.senderId
+                                                showBlockConfirmation = true
+                                            } : nil,
+                                            onMute: !isFromCurrentUser ? {
+                                                muteSender(userId: message.senderId)
+                                            } : nil
+                                        )
+                                        // Link preview cards below the bubble
+                                        if let firstPreview = message.linkPreviews.first {
+                                            let previewMeta: LinkPreviewMetadata = LinkPreviewService.shared.getCached(for: firstPreview.url)
+                                                ?? LinkPreviewMetadata(url: firstPreview.url, title: firstPreview.title, siteName: firstPreview.url.host)
+                                            FeedLinkPreviewCard(url: firstPreview.url, metadata: previewMeta)
+                                                .frame(maxWidth: 280)
+                                                .padding(.horizontal, 8)
+                                        }
+                                    }
+                                    .padding(.bottom, isLastInGroup ? 6 : 2)
+                                    .id(message.id)
+                                }
                             }
                         }
-                        
-                        // Typing indicator (REMOVED as requested - keeping structure for reference)
-                        // if isTyping && messages.last?.senderId != Auth.auth().currentUser?.uid {
-                        //     LiquidGlassTypingIndicator()
-                        //         .transition(.scale.combined(with: .opacity))
-                        // }
+
+                        // Typing indicator — shown when the other person is typing
+                        if isTyping {
+                            LiquidGlassTypingIndicator()
+                                .padding(.horizontal, 16)
+                                .transition(.scale(scale: 0.8, anchor: .leading).combined(with: .opacity))
+                        }
                         
                         // P1-2 FIX: Bottom anchor for scroll tracking
                         Color.clear
@@ -487,6 +765,10 @@ struct UnifiedChatView: View {
                             proxy.scrollTo(bottomID, anchor: .bottom)
                         }
                     }
+                    // Refresh smart reply chips when a new incoming message arrives
+                    if newCount > oldCount {
+                        refreshSmartReplies()
+                    }
                 }
                 .onAppear {
                     // Scroll to bottom on first load
@@ -497,7 +779,7 @@ struct UnifiedChatView: View {
                     }
                     
                     // Then scroll to unread if exists
-                    if let firstUnreadId = firstUnreadMessageId {
+                    if firstUnreadMessageId != nil {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                             withAnimation {
                                 proxy.scrollTo("unread-separator", anchor: .top)
@@ -521,6 +803,36 @@ struct UnifiedChatView: View {
         }
     }
     
+    // MARK: - Date Group Header
+
+    // Hoisted to avoid allocating a new DateFormatter on every render pass.
+    private static let messageDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.doesRelativeDateFormatting = true
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .none
+        return formatter
+    }()
+
+    private func messageDateHeader(date: Date) -> some View {
+        let calendar = Calendar.current
+        let label: String
+        if calendar.isDateInToday(date) {
+            label = "Today"
+        } else if calendar.isDateInYesterday(date) {
+            label = "Yesterday"
+        } else {
+            label = Self.messageDateFormatter.string(from: date)
+        }
+        return Text(label)
+            .font(.system(size: 12, weight: .medium))
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 4)
+            .background(.regularMaterial, in: Capsule())
+            .frame(maxWidth: .infinity)
+    }
+
     // MARK: - Unread Separator
     
     private var unreadSeparator: some View {
@@ -610,34 +922,37 @@ struct UnifiedChatView: View {
                 MediaButton(
                     icon: "video.fill",
                     title: "Video",
-                    color: Color(red: 0.15, green: 0.15, blue: 0.15)
+                    color: Color(red: 0.15, green: 0.15, blue: 0.15),
+                    comingSoon: true
                 ) {
-                    // Handle video
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
                         isMediaSectionExpanded = false
                     }
+                    toastManager.showInfo("Video sharing coming soon")
                 }
                 
                 MediaButton(
                     icon: "doc.fill",
                     title: "Files",
-                    color: Color(red: 0.15, green: 0.15, blue: 0.15)
+                    color: Color(red: 0.15, green: 0.15, blue: 0.15),
+                    comingSoon: true
                 ) {
-                    // Handle files
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
                         isMediaSectionExpanded = false
                     }
+                    toastManager.showInfo("File sharing coming soon")
                 }
                 
                 MediaButton(
                     icon: "link",
                     title: "Link",
-                    color: Color(red: 0.15, green: 0.15, blue: 0.15)
+                    color: Color(red: 0.15, green: 0.15, blue: 0.15),
+                    comingSoon: true
                 ) {
-                    // Handle link
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
                         isMediaSectionExpanded = false
                     }
+                    toastManager.showInfo("Link sharing coming soon")
                 }
             }
             .padding(.horizontal, 20)
@@ -723,7 +1038,7 @@ struct UnifiedChatView: View {
                     Circle()
                         .fill(
                             LinearGradient(
-                                colors: messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? [
+                                colors: isMessageEmpty ? [
                                     Color(red: 0.2, green: 0.2, blue: 0.2),
                                     Color(red: 0.2, green: 0.2, blue: 0.2)
                                 ] : [
@@ -736,8 +1051,8 @@ struct UnifiedChatView: View {
                         )
                         .frame(width: 50, height: 50)
                         .shadow(color: .black.opacity(0.15), radius: 8, y: 3)
-                    
-                    if messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+
+                    if isMessageEmpty {
                         // Voice/waveform icon
                         Image(systemName: "waveform")
                             .font(.system(size: 20, weight: .medium))
@@ -779,40 +1094,107 @@ struct UnifiedChatView: View {
         .animation(.spring(response: 0.3, dampingFraction: 0.75), value: messageText)
         .animation(.spring(response: 0.3, dampingFraction: 0.75), value: isInputBarFocused)
     }
-    
-    // MARK: - Actions
-    
-    private func setupChatView() {
-        print("🎬 Chat view opened: \(conversation.name)")
-        
-        // P0-2 FIX: Cancel any existing listener task before starting new one
-        listenerTask?.cancel()
-        
-        // P0-2 FIX: Wrap listeners in a Task for proper lifecycle management
-        listenerTask = Task {
-            loadMessages()
-            startListeningToTypingStatus()
-            detectFirstUnreadMessage()
-            startListeningToProfilePhotoUpdates()
+
+    // MARK: - Smart Reply Chips
+
+    private var smartReplyChipsRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(smartReplySuggestions, id: \.self) { suggestion in
+                    Button {
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        messageText = suggestion
+                        isInputFocused = true
+                    } label: {
+                        Text(suggestion)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(.primary)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .background(
+                                Capsule()
+                                    .fill(.ultraThinMaterial)
+                                    .overlay(
+                                        Capsule()
+                                            .strokeBorder(Color.primary.opacity(0.10), lineWidth: 0.8)
+                                    )
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
         }
     }
+
+    /// Fetch smart reply suggestions using recent conversation context.
+    private func refreshSmartReplies() {
+        guard !isLoadingSmartReplies, messageText.isEmpty else {
+            if !messageText.isEmpty { smartReplySuggestions = [] }
+            return
+        }
+        // Need at least one incoming message to reply to
+        guard messages.contains(where: { !$0.isFromCurrentUser && !$0.text.isEmpty }) else {
+            smartReplySuggestions = []
+            return
+        }
+
+        // Build a short conversation transcript from the last 6 non-empty messages.
+        // Format: "Them: ...\nYou: ...\nThem: ..."  (≤300 chars total)
+        // This gives the AI enough thread context to generate relevant replies.
+        let recentMessages = messages
+            .filter { !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            .suffix(6)
+
+        let otherName = conversation.name.components(separatedBy: " ").first ?? "Them"
+        let transcript = recentMessages.map { msg -> String in
+            let speaker = msg.isFromCurrentUser ? "You" : otherName
+            let snippet = String(msg.text.prefix(80))
+            return "\(speaker): \(snippet)"
+        }.joined(separator: "\n")
+
+        let contextExcerpt = String(transcript.prefix(300))
+
+        isLoadingSmartReplies = true
+        Task {
+            let request = SmartReplySuggestionRequest(
+                mode: .smartReply,
+                contextExcerpt: contextExcerpt,
+                actorDisplayName: otherName,
+                actorIsMinor: false
+            )
+            let result = await SmartReplySuggestionService.shared.generate(request: request)
+            await MainActor.run {
+                var chips: [String] = []
+                for s in [result.suggestion1, result.suggestion2, result.suggestion3] {
+                    if !s.isEmpty, !chips.contains(s) { chips.append(s) }
+                }
+                smartReplySuggestions = chips
+                isLoadingSmartReplies = false
+            }
+        }
+    }
+
+    // MARK: - Actions
     
-    // P0 FIX: Async version for instant view appearance
+    // Start listeners immediately — don't await unread-clear before showing messages.
     private func setupChatViewAsync() async {
-        print("🎬 Chat view opened: \(conversation.name)")
+        let _perfToken = PerfBegin("chat_open")
+        defer { PerfEnd(_perfToken) }
+        dlog("🎬 Chat view opened: \(conversation.name)")
         
         // Cancel any existing listener task before starting new one
         listenerTask?.cancel()
-        
-        // Clear unread badge immediately
-        try? await messagingService.clearUnreadCount(conversationId: conversation.id)
-        
-        // Wrap listeners in a Task for proper lifecycle management
+
+        // Start listeners immediately so messages appear without waiting
         listenerTask = Task {
             loadMessages()
-            startListeningToTypingStatus()
             detectFirstUnreadMessage()
             startListeningToProfilePhotoUpdates()
+        }
+
+        // Clear unread badge fire-and-forget — don't block listener startup
+        Task {
+            try? await messagingService.clearUnreadCount(conversationId: conversation.id)
         }
     }
     
@@ -826,7 +1208,7 @@ struct UnifiedChatView: View {
     }
     
     private func cleanupChatView() {
-        print("👋 Chat view closed: \(conversation.name)")
+        dlog("👋 Chat view closed: \(conversation.name)")
         
         // P0-2 FIX: Cancel listener task immediately to prevent memory leaks
         listenerTask?.cancel()
@@ -849,79 +1231,47 @@ struct UnifiedChatView: View {
     }
     
     private func loadMessages() {
-        Task {
-            do {
-                // Start real-time listener
-                // P0 FIX: Avoid capturing self strongly (struct - no leak but good practice)
-                try await messagingService.startListeningToMessages(
-                    conversationId: conversation.id
-                ) { fetchedMessages in
-                    Task { @MainActor in
-                        // P0-4 FIX: Match messages by content hash instead of ID
-                        // Build hash map for fetched messages
-                        var fetchedMessagesByHash: [Int: AppMessage] = [:]
-                        for message in fetchedMessages {
-                            let contentHash = message.text.hashValue
-                            fetchedMessagesByHash[contentHash] = message
-                        }
-                        
-                        // Remove optimistic messages that have been confirmed by Firebase
-                        var optimisticIdsToRemove: [String] = []
-                        for (optimisticId, contentHash) in optimisticMessageHashes {
-                            if fetchedMessagesByHash[contentHash] != nil {
-                                // Found matching real message - remove optimistic version
-                                pendingMessages.removeValue(forKey: optimisticId)
-                                optimisticIdsToRemove.append(optimisticId)
-                            }
-                        }
-                        
-                        // Clean up confirmed messages from hash tracking
-                        for id in optimisticIdsToRemove {
-                            optimisticMessageHashes.removeValue(forKey: id)
-                        }
-                        
-                        // Also check for ID-based matches (backward compatibility)
-                        let fetchedIds = Set(fetchedMessages.map { $0.id })
-                        for id in fetchedIds {
-                            if pendingMessages[id] != nil {
-                                pendingMessages.removeValue(forKey: id)
-                                optimisticMessageHashes.removeValue(forKey: id)
-                            }
-                        }
+        // startListeningToMessages is synchronous — it attaches a Firestore snapshot listener
+        // and returns immediately. Callbacks arrive on the main actor via the closure below.
+        messagingService.startListeningToMessages(
+            conversationId: conversation.id
+        ) { fetchedMessages in
+            Task { @MainActor in
+                // Build a Set of all IDs returned by the snapshot for O(1) lookup.
+                let fetchedIDs = Set(fetchedMessages.map { $0.id })
 
-                        // Merge: real messages + any remaining optimistic messages
-                        var mergedMessages = fetchedMessages
-                        for (id, pendingMessage) in pendingMessages {
-                            // Only add pending if not already in fetched (double-check)
-                            if !fetchedIds.contains(id) {
-                                mergedMessages.append(pendingMessage)
-                            }
-                        }
-                        mergedMessages.sort { $0.timestamp < $1.timestamp }
-                        self.messages = mergedMessages
-                        
-                        // Detect first unread message
-                        detectFirstUnreadMessage()
-                        
-                        // Mark messages as read when they're fetched
-                        let messageIds = fetchedMessages.map { $0.id }
-                        if !messageIds.isEmpty {
-                            Task {
-                                try? await messagingService.markMessagesAsRead(
-                                    conversationId: conversation.id,
-                                    messageIds: messageIds
-                                )
-                            }
-                        }
-                    }
+                // Any pending (optimistic) message whose ID now appears in the snapshot
+                // has been confirmed by Firestore — remove the optimistic copy.
+                seenMessageIDs.formUnion(fetchedIDs)
+                for id in fetchedIDs where pendingMessages[id] != nil {
+                    pendingMessages.removeValue(forKey: id)
                 }
-                
-                print("✅ Messages loaded for conversation: \(conversation.id)")
-            } catch {
-                print("❌ Error loading messages: \(error)")
-                await MainActor.run {
-                    errorMessage = "Failed to load messages"
-                    showErrorAlert = true
+
+                // Merge: real messages + any remaining optimistic messages.
+                // Dictionary keyed by ID collapses duplicates from rapid snapshot updates —
+                // the fetched version always wins over the optimistic one.
+                var merged: [String: AppMessage] = Dictionary(
+                    uniqueKeysWithValues: fetchedMessages.map { ($0.id, $0) }
+                )
+                for (id, pending) in pendingMessages where merged[id] == nil {
+                    merged[id] = pending
+                }
+
+                // Sort once, assign once — avoids repeated O(n log n) in SwiftUI body.
+                self.messages = merged.values.sorted { $0.timestamp < $1.timestamp }
+
+                detectFirstUnreadMessage()
+
+                // Mark only messages the current user hasn't read yet (not every message every update).
+                let newUnread = fetchedMessages.filter { !$0.isFromCurrentUser && !$0.isRead }
+                if !newUnread.isEmpty {
+                    let ids = newUnread.map { $0.id }
+                    Task {
+                        try? await messagingService.markMessagesAsRead(
+                            conversationId: conversation.id,
+                            messageIds: ids
+                        )
+                    }
                 }
             }
         }
@@ -941,11 +1291,11 @@ struct UnifiedChatView: View {
                     Task { @MainActor in
                         // Prepend older messages to beginning
                         self.messages.insert(contentsOf: olderMessages, at: 0)
-                        print("✅ [P1-3] Loaded \(olderMessages.count) older messages")
+                        dlog("✅ [P1-3] Loaded \(olderMessages.count) older messages")
                     }
                 }
             } catch {
-                print("❌ [P1-3] Error loading more messages: \(error)")
+                dlog("❌ [P1-3] Error loading more messages: \(error)")
             }
             
             await MainActor.run {
@@ -958,29 +1308,30 @@ struct UnifiedChatView: View {
         guard !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return
         }
-        
-        // P0-1 FIX: Prevent duplicate in-flight requests
-        let contentHash = messageText.hashValue
-        guard !inFlightMessageRequests.contains(contentHash) else {
-            print("⚠️ [P0-1] Duplicate send blocked: \(contentHash)")
-            return
-        }
-        
+
+        // Guard: one send at a time. isSendingMessage is the primary gate;
+        // inFlightMessageIDs provides per-message dedup on the rare case of concurrent sends.
         guard !isSendingMessage else {
-            print("⚠️ [P0-1] Already sending message")
+            dlog("⚠️ Send blocked: already sending")
             return
         }
-        
+
         isSendingMessage = true
-        inFlightMessageRequests.insert(contentHash)
-        
+
+        // Generate the client-side message ID once. This UUID is passed to Firestore as the
+        // document ID so that retries (same UUID) are idempotent — no duplicate documents created.
+        let messageId = UUID().uuidString
+
+        // Double-check: if this ID is somehow already in-flight (shouldn't happen with UUID), bail.
+        guard !inFlightMessageIDs.contains(messageId) else { return }
+        inFlightMessageIDs.insert(messageId)
+
         let textToSend = messageText
         let conversationId = conversation.id
-        let messageId = UUID().uuidString
-        
+
         // Detect URLs in message
         let detectedURLs = linkPreviewService.detectURLs(in: textToSend)
-        
+
         let optimisticMessage = AppMessage(
             id: messageId,
             text: textToSend,
@@ -993,16 +1344,17 @@ struct UnifiedChatView: View {
             isSendFailed: false
         )
         pendingMessages[messageId] = optimisticMessage
-        messages.append(optimisticMessage)
-        
-        // P0-4 FIX: Track optimistic message by content hash
-        optimisticMessageHashes[messageId] = contentHash
-        
-        // Clear input immediately
+        // Append only if not already present (belt-and-suspenders)
+        if !messages.contains(where: { $0.id == messageId }) {
+            messages.append(optimisticMessage)
+        }
+
+        // Clear input immediately for snappy UX
         messageText = ""
+        chatLinkController.reset()
         isInputFocused = false
-        
-        // P1-6 FIX: Stop typing indicator immediately when message sent
+
+        // Stop typing indicator immediately when message is sent
         typingDebounceTimer?.invalidate()
         typingDebounceTimer = nil
         Task {
@@ -1011,21 +1363,42 @@ struct UnifiedChatView: View {
                 isTyping: false
             )
         }
-        
+
         // Haptic feedback
         let haptic = UIImpactFeedbackGenerator(style: .light)
         haptic.impactOccurred()
-        
+
         Task {
             defer {
                 Task { @MainActor in
                     isSendingMessage = false
-                    inFlightMessageRequests.remove(contentHash)
+                    inFlightMessageIDs.remove(messageId)
                 }
             }
+
+            // P0-2 FIX: Client-side safety guardrail before Firestore write.
+            // Runs inside the Task so `await` is valid. The optimistic message is
+            // removed from the UI if content is blocked.
+            let guardrailResult = await ThinkFirstGuardrailsService.shared.checkContent(
+                textToSend, context: .message
+            )
+            if guardrailResult.action == .block {
+                let reason = guardrailResult.violations.first?.message
+                    ?? "This message violates community guidelines."
+                await MainActor.run {
+                    // Remove the optimistic message and restore input
+                    pendingMessages.removeValue(forKey: messageId)
+                    messages.removeAll { $0.id == messageId }
+                    messageText = textToSend
+                    errorMessage = reason
+                    showErrorAlert = true
+                }
+                return
+            }
+
             // Fetch link previews in background if URLs detected
             if !detectedURLs.isEmpty {
-                print("🔗 Detected \(detectedURLs.count) URL(s) in message")
+                dlog("🔗 Detected \(detectedURLs.count) URL(s) in message")
                 
                 for url in detectedURLs.prefix(3) { // Limit to first 3 URLs
                     do {
@@ -1042,33 +1415,191 @@ struct UnifiedChatView: View {
                                 )
                                 messages[index].linkPreviews.append(preview)
                             }
-                            if var pendingMsg = pendingMessages[messageId] {
+                            if pendingMessages[messageId] != nil {
                                 let preview = MessageLinkPreview(
                                     url: url,
                                     title: metadata.title,
                                     description: metadata.description,
                                     imageUrl: metadata.imageURL?.absoluteString
                                 )
-                                pendingMsg.linkPreviews.append(preview)
-                                pendingMessages[messageId] = pendingMsg
+                                pendingMessages[messageId]?.linkPreviews.append(preview)
                             }
                         }
                     } catch {
-                        print("⚠️ Failed to fetch link preview: \(error)")
+                        dlog("⚠️ Failed to fetch link preview: \(error)")
                     }
                 }
             }
             
             do {
-                print("📤 Sending message to: \(conversationId)")
-                
+                // ── SAFETY GATEWAY (authoritative enforcement) ──────────────────────
+                // Every message send goes through MessageSafetyGateway before any
+                // Firestore write. No bypass path exists.
+                //
+                // Pipeline:
+                //   1. Build conversation context (history + sender risk profile)
+                //   2. Gateway classifies message + boosts score via ConversationRiskEngine
+                //   3. Decision: allow / warnRecipient / holdForReview / blockAndStrike / freezeAccount
+                //   4. Act on decision before calling messagingService.sendMessage()
+                //   5. Post-delivery async deep scan (fire-and-forget)
+                // ────────────────────────────────────────────────────────────────────
+                let currentUserId = Auth.auth().currentUser?.uid ?? ""
+
+                // P0 FIX: Guard against empty recipientId. If the other user's ID
+                // hasn't resolved yet (async race on first open), fail fast rather than
+                // passing an empty string to the safety gateway and Firestore writes.
+                guard let recipientId = (otherUserId ?? conversation.requesterId).flatMap({ $0.isEmpty ? nil : $0 }) else {
+                    await MainActor.run {
+                        pendingMessages.removeValue(forKey: messageId)
+                        messages.removeAll { $0.id == messageId }
+                        messageText = textToSend
+                        errorMessage = "Could not determine recipient. Please go back and reopen the conversation."
+                        showErrorAlert = true
+                    }
+                    return
+                }
+
+                let context = await ConversationContextBuilder.build(
+                    from: messages,
+                    conversationId: conversationId,
+                    senderId: currentUserId,
+                    recipientId: recipientId,
+                    conversationCreatedAt: Date() // approximate — refinable with Firestore metadata
+                )
+
+                // Resolve minor safety policy for this sender→recipient pair.
+                // This enforces hard age-based blocks (DMs off, media off, etc.)
+                // and applies tighter risk thresholds for minor/unknown recipients.
+                let textLower = textToSend.lowercased()
+                let containsLink = textLower.contains("http://") || textLower.contains("https://")
+                let minorPolicy = await MinorSafetyService.shared.resolvePolicy(
+                    senderId: currentUserId,
+                    recipientId: recipientId,
+                    hasMutualFollow: isMutualFollow,
+                    messageContainsMedia: false,
+                    messageContainsLink: containsLink
+                )
+
+                let gatewayDecision = await MessageSafetyGateway.shared.evaluate(
+                    text: textToSend,
+                    senderId: currentUserId,
+                    recipientId: recipientId,
+                    conversationId: conversationId,
+                    conversationContext: context,
+                    messageId: messageId,
+                    minorPolicy: minorPolicy
+                )
+
+                switch gatewayDecision {
+
+                case .freezeAccount(_, _, let reason):
+                    // Immediate account freeze — remove message, lock input
+                    await MainActor.run {
+                        pendingMessages.removeValue(forKey: messageId)
+                        messages.removeAll { $0.id == messageId }
+                        accountFrozenReason = reason
+                        withAnimation { showAccountFrozen = true }
+                        UINotificationFeedbackGenerator().notificationOccurred(.error)
+                    }
+                    return
+
+                case .blockAndStrike(_, _, let reason):
+                    // Block message + record strike — inform sender clearly
+                    await MainActor.run {
+                        pendingMessages.removeValue(forKey: messageId)
+                        messages.removeAll { $0.id == messageId }
+                        safetyStrikeReason = reason
+                        safetyStrikeCount += 1
+                        withAnimation { showStrikeNotice = true }
+                        UINotificationFeedbackGenerator().notificationOccurred(.error)
+                    }
+                    return
+
+                case .holdForReview(_, _):
+                    // Message held — sender sees a "under review" indicator.
+                    // Recipient does NOT receive this message yet (skip the send call).
+                    // We write directly to a "held_messages" subcollection for moderation.
+                    await MainActor.run {
+                        // Update optimistic message to show held state visually
+                        if let idx = messages.firstIndex(where: { $0.id == messageId }) {
+                            messages[idx].isSent = false
+                            messages[idx].isSendFailed = false
+                        }
+                    }
+                    // Write to held_messages (not the live messages collection)
+                    try? await Firestore.firestore()
+                        .collection("conversations").document(conversationId)
+                        .collection("held_messages").document(messageId)
+                        .setData([
+                            "id": messageId,
+                            "text": textToSend,
+                            "senderId": currentUserId,
+                            "recipientId": recipientId,
+                            "timestamp": FieldValue.serverTimestamp(),
+                            "safetyDecision": "hold_for_review",
+                            "status": "pending_review"
+                        ])
+                    return // Do NOT deliver to recipient
+
+                case .warnRecipient(let signals, _):
+                    // Deliver but attach warning metadata — recipient sees safety banner
+                    await MainActor.run {
+                        messageWarnings[messageId] = signals
+                    }
+                    // Falls through to send below
+
+                case .allow:
+                    // Self-harm: special case — show crisis interstitial to SENDER
+                    // (classified as .allow so the message can ultimately be sent
+                    //  after the sender sees resources)
+                    let (selfHarmSignals, _) = await MessageSafetyGateway.shared.classifyPublic(textToSend)
+                    if selfHarmSignals.contains(.selfHarmCrisis) {
+                        await MainActor.run {
+                            pendingMessages.removeValue(forKey: messageId)
+                            messages.removeAll { $0.id == messageId }
+                            pendingCrisisMessageText = textToSend
+                            pendingCrisisMessageId = messageId
+                            showCrisisInterstitial = true
+                        }
+                        return // Interstitial handles re-send or cancel
+                    }
+                    break
+                }
+                // ── END SAFETY GATEWAY ─────────────────────────────────────────────
+
+                dlog("📤 Sending message to: \(conversationId)")
+
                 try await messagingService.sendMessage(
                     conversationId: conversationId,
                     text: textToSend,
                     clientMessageId: messageId
                 )
-                
-                print("✅ Message sent successfully!")
+
+                dlog("✅ Message sent successfully!")
+
+                // Attach warning flag to Firestore message doc (fire-and-forget)
+                if case .warnRecipient(let signals, let score) = gatewayDecision {
+                    let signalStrings = signals.map { $0.rawValue }
+                    Task.detached(priority: .background) {
+                        try? await Firestore.firestore()
+                            .collection("conversations").document(conversationId)
+                            .collection("messages").document(messageId)
+                            .updateData([
+                                "safetyWarning": true,
+                                "safetySignals": signalStrings,
+                                "safetyRiskScore": score
+                            ])
+                    }
+                }
+
+                // Post-delivery async deep scan (does not block UI)
+                MessageSafetyGateway.shared.runAsyncDeepScan(
+                    messageId: messageId,
+                    conversationId: conversationId,
+                    text: textToSend,
+                    senderId: currentUserId,
+                    recipientId: recipientId
+                )
                 
                 // Success haptic
                 await MainActor.run {
@@ -1077,13 +1608,12 @@ struct UnifiedChatView: View {
                 }
                 
             } catch {
-                print("❌ Error sending message: \(error)")
+                dlog("❌ Error sending message: \(error)")
                 
                 await MainActor.run {
                     // Mark message as failed instead of removing
-                    if var failedMsg = pendingMessages[messageId] {
-                        failedMsg.isSendFailed = true
-                        pendingMessages[messageId] = failedMsg
+                    if pendingMessages[messageId] != nil {
+                        pendingMessages[messageId]?.isSendFailed = true
                         
                         // Update in messages array
                         if let index = messages.firstIndex(where: { $0.id == messageId }) {
@@ -1116,70 +1646,80 @@ struct UnifiedChatView: View {
     }
     
     private func retryFailedMessage(messageId: String, text: String) {
-        print("🔄 Retrying failed message: \(messageId)")
+        dlog("🔄 Retrying failed message: \(messageId)")
         
         // Clear failed state
         failedMessageId = nil
         failedMessageText = nil
         
-        // Remove failed message from UI
-        pendingMessages.removeValue(forKey: messageId)
-        messages.removeAll { $0.id == messageId }
+        // Reuse the original messageId so Firestore setData is idempotent.
+        // Generating a new UUID on every retry would create a new Firestore document
+        // each time, resulting in duplicate messages if the original write actually
+        // succeeded (e.g., network timeout after the write committed).
+        let retryMessageId = messageId
         
-        // Create new message with new ID
-        let newMessageId = UUID().uuidString
-        let optimisticMessage = AppMessage(
-            id: newMessageId,
-            text: text,
-            isFromCurrentUser: true,
-            timestamp: Date(),
-            senderId: Auth.auth().currentUser?.uid ?? "",
-            senderName: messagingService.currentUserName,
-            isSent: false,
-            isDelivered: false,
-            isSendFailed: false
-        )
-        pendingMessages[newMessageId] = optimisticMessage
-        messages.append(optimisticMessage)
+        // Reset the failed message in UI back to "sending" state
+        if pendingMessages[retryMessageId] != nil {
+            pendingMessages[retryMessageId]?.isSendFailed = false
+            pendingMessages[retryMessageId]?.isSent = false
+            if let index = messages.firstIndex(where: { $0.id == retryMessageId }) {
+                messages[index].isSendFailed = false
+                messages[index].isSent = false
+            }
+        } else {
+            // Message was removed from UI — re-insert it
+            let optimisticMessage = AppMessage(
+                id: retryMessageId,
+                text: text,
+                isFromCurrentUser: true,
+                timestamp: Date(),
+                senderId: Auth.auth().currentUser?.uid ?? "",
+                senderName: messagingService.currentUserName,
+                isSent: false,
+                isDelivered: false,
+                isSendFailed: false
+            )
+            pendingMessages[retryMessageId] = optimisticMessage
+            messages.append(optimisticMessage)
+        }
         
         // Haptic feedback
         let haptic = UIImpactFeedbackGenerator(style: .light)
         haptic.impactOccurred()
         
-        // Send message
+        // Send message using the same messageId — Firestore setData overwrites if doc exists
         Task {
             do {
                 try await messagingService.sendMessage(
                     conversationId: conversation.id,
                     text: text,
-                    clientMessageId: newMessageId
+                    clientMessageId: retryMessageId
                 )
                 
-                print("✅ Message retry successful!")
+                dlog("✅ Message retry successful!")
                 
                 await MainActor.run {
                     toastManager.showSuccess("Message sent")
                 }
             } catch {
-                print("❌ Message retry failed: \(error)")
+                dlog("❌ Message retry failed: \(error)")
                 
                 await MainActor.run {
                     // Mark as failed again
-                    if var failedMsg = pendingMessages[newMessageId] {
-                        failedMsg.isSendFailed = true
-                        pendingMessages[newMessageId] = failedMsg
+                    if pendingMessages[retryMessageId] != nil {
+                        pendingMessages[retryMessageId]?.isSendFailed = true
                         
-                        if let index = messages.firstIndex(where: { $0.id == newMessageId }) {
+                        if let index = messages.firstIndex(where: { $0.id == retryMessageId }) {
                             messages[index].isSendFailed = true
                         }
                     }
                     
-                    failedMessageId = newMessageId
+                    failedMessageId = retryMessageId
                     failedMessageText = text
                     
                     let errorMsg = (error as? FirebaseMessagingError)?.localizedDescription ?? "Failed to send message"
                     toastManager.showError(errorMsg) {
-                        self.retryFailedMessage(messageId: newMessageId, text: text)
+                        self.retryFailedMessage(messageId: retryMessageId, text: text)
                     }
                 }
             }
@@ -1208,66 +1748,58 @@ struct UnifiedChatView: View {
         }
     }
     
-    private func startListeningToTypingStatus() {
-        // Listen for other user's typing status
-        Task {
-            // Implementation depends on your Firebase structure
-            // This is a placeholder for typing status listening
-        }
-    }
-    
     private func startListeningToProfilePhotoUpdates() {
-        guard let currentUserId = Auth.auth().currentUser?.uid else {
-            print("⚠️ Cannot start profile photo listener - no current user")
-            return
-        }
-        
-        // Extract the other user's ID from conversation participants
-        guard !conversation.isGroup else {
-            print("📷 Skipping profile photo listener for group conversation")
-            return
-        }
-        
-        // Get the other user's ID
-        let otherUserId = conversation.id.replacingOccurrences(of: currentUserId, with: "").replacingOccurrences(of: "_", with: "")
-        
-        guard !otherUserId.isEmpty, otherUserId != currentUserId else {
-            print("⚠️ Could not determine other user ID")
-            return
-        }
-        
-        self.otherUserId = otherUserId
-        
-        // Set up Firestore listener for user's profile photo
-        let db = Firestore.firestore()
-        profilePhotoListener = db.collection("users").document(otherUserId).addSnapshotListener { snapshot, error in
-            if let error = error {
-                print("❌ Error listening to profile photo updates: \(error)")
-                return
-            }
-            
-            guard let data = snapshot?.data() else {
-                print("⚠️ No user data found for profile photo")
-                return
-            }
-            
-            // Update profile photo if it changed - check both field names
-            let photoURL = data["profilePhotoURL"] as? String ?? data["profileImageURL"] as? String
-            
-            if let photoURL = photoURL, !photoURL.isEmpty {
-                Task { @MainActor in
-                    self.otherUserProfilePhoto = photoURL
-                    print("📷 Profile photo updated: \(photoURL)")
-                }
-            } else {
-                Task { @MainActor in
-                    self.otherUserProfilePhoto = nil
-                    print("📷 Profile photo removed or not found")
+        guard !conversation.isGroup else { return }
+        guard let currentUserId = Auth.auth().currentUser?.uid else { return }
+
+        Task {
+            // Resolve the other participant's ID from the Firestore conversation document.
+            // This avoids fragile string-manipulation on the conversation ID which breaks
+            // for any userId containing underscores.
+            let db = Firestore.firestore()
+            guard let doc = try? await db.collection("conversations")
+                .document(conversation.id)
+                .getDocument(),
+                  let participantIds = doc.data()?["participantIds"] as? [String]
+            else { return }
+
+            guard let resolvedId = participantIds.first(where: { $0 != currentUserId }),
+                  !resolvedId.isEmpty else { return }
+
+            await MainActor.run { self.otherUserId = resolvedId }
+
+            // Resolve mutual-follow status for MinorSafetyService policy.
+            // Done once on appear; refreshed after user taps "Follow them first".
+            if let followStatus = try? await FirebaseMessagingService.shared.checkFollowStatus(
+                userId1: currentUserId, userId2: resolvedId
+            ) {
+                await MainActor.run {
+                    self.isFollowingOtherUser = followStatus.user1FollowsUser2
+                    self.isMutualFollow = followStatus.user1FollowsUser2 && followStatus.user2FollowsUser1
                 }
             }
+
+            // Attach real-time listener to the resolved user doc.
+            let listener = db.collection("users").document(resolvedId)
+                .addSnapshotListener { snapshot, error in
+                    guard error == nil, let data = snapshot?.data() else { return }
+                    let photoURL = data["profilePhotoURL"] as? String
+                                ?? data["profileImageURL"] as? String
+                    Task { @MainActor in
+                        self.otherUserProfilePhoto = photoURL?.isEmpty == false ? photoURL : nil
+                    }
+                }
+
+            await MainActor.run {
+                self.profilePhotoListener?.remove()  // remove old listener before reassigning
+                // If view was dismissed before this Task completed, drop the new listener immediately
+                guard self.isViewActive else {
+                    listener.remove()
+                    return
+                }
+                self.profilePhotoListener = listener
+            }
         }
-        
-        print("📷 Started listening to profile photo updates for user: \(otherUserId)")
     }
     
     private func addReaction(to message: AppMessage, emoji: String) {
@@ -1278,13 +1810,13 @@ struct UnifiedChatView: View {
                     messageId: message.id,
                     emoji: emoji
                 )
-                print("✅ Reaction added: \(emoji)")
+                dlog("✅ Reaction added: \(emoji)")
 
                 // Haptic feedback
                 let haptic = UIImpactFeedbackGenerator(style: .light)
                 haptic.impactOccurred()
             } catch {
-                print("❌ Error adding reaction: \(error)")
+                dlog("❌ Error adding reaction: \(error)")
                 await MainActor.run {
                     toastManager.showError("Failed to add reaction")
                 }
@@ -1299,7 +1831,7 @@ struct UnifiedChatView: View {
                     conversationId: conversation.id,
                     messageId: message.id
                 )
-                print("✅ Message deleted: \(message.id)")
+                dlog("✅ Message deleted: \(message.id)")
 
                 // Remove from local messages
                 await MainActor.run {
@@ -1311,9 +1843,69 @@ struct UnifiedChatView: View {
                     haptic.notificationOccurred(.success)
                 }
             } catch {
-                print("❌ Error deleting message: \(error)")
+                dlog("❌ Error deleting message: \(error)")
                 await MainActor.run {
                     toastManager.showError("Failed to delete message")
+                }
+            }
+        }
+    }
+
+    // MARK: - Report & Block
+
+    private func reportMessage(_ message: AppMessage) {
+        Task {
+            do {
+                // Report the conversation as spam with the specific message ID as context
+                try await messagingService.reportSpam(
+                    conversation.id,
+                    reason: "Inappropriate message (messageId: \(message.id))"
+                )
+                await MainActor.run {
+                    toastManager.showSuccess("Message reported")
+                    let haptic = UINotificationFeedbackGenerator()
+                    haptic.notificationOccurred(.success)
+                }
+            } catch {
+                dlog("❌ Error reporting message: \(error)")
+                await MainActor.run {
+                    toastManager.showError("Failed to report message")
+                }
+            }
+        }
+    }
+
+    private func blockSender(userId: String) {
+        Task {
+            do {
+                try await BlockService.shared.blockUser(userId: userId)
+                await MainActor.run {
+                    toastManager.showSuccess("User blocked")
+                    let haptic = UINotificationFeedbackGenerator()
+                    haptic.notificationOccurred(.success)
+                }
+            } catch {
+                dlog("❌ Error blocking user: \(error)")
+                await MainActor.run {
+                    toastManager.showError("Failed to block user")
+                }
+            }
+        }
+    }
+
+    private func muteSender(userId: String) {
+        Task {
+            do {
+                try await ModerationService.shared.muteUser(userId: userId)
+                await MainActor.run {
+                    toastManager.showSuccess("User muted")
+                    let haptic = UINotificationFeedbackGenerator()
+                    haptic.notificationOccurred(.success)
+                }
+            } catch {
+                dlog("❌ Error muting user: \(error)")
+                await MainActor.run {
+                    toastManager.showError("Failed to mute user")
                 }
             }
         }
@@ -1350,7 +1942,7 @@ struct UnifiedChatView: View {
         Task {
             do {
                 try await messagingService.acceptMessageRequest(conversationId: conversation.id)
-                print("✅ Message request accepted")
+                dlog("✅ Message request accepted")
                 
                 await MainActor.run {
                     toastManager.showSuccess("Request accepted")
@@ -1363,7 +1955,7 @@ struct UnifiedChatView: View {
                     dismiss()
                 }
             } catch {
-                print("❌ Error accepting request: \(error)")
+                dlog("❌ Error accepting request: \(error)")
                 await MainActor.run {
                     toastManager.showError("Failed to accept request")
                 }
@@ -1376,7 +1968,7 @@ struct UnifiedChatView: View {
             do {
                 // Delete the conversation (Instagram-style decline)
                 try await messagingService.deleteConversation(conversationId: conversation.id)
-                print("✅ Message request declined and deleted")
+                dlog("✅ Message request declined and deleted")
                 
                 await MainActor.run {
                     toastManager.showSuccess("Request deleted")
@@ -1389,7 +1981,7 @@ struct UnifiedChatView: View {
                     dismiss()
                 }
             } catch {
-                print("❌ Error declining request: \(error)")
+                dlog("❌ Error declining request: \(error)")
                 await MainActor.run {
                     toastManager.showError("Failed to delete request")
                 }
@@ -1404,8 +1996,8 @@ struct ChatUserProfileSheet: View {
     @Environment(\.dismiss) private var dismiss
     let conversation: ChatConversation
     
-    @StateObject private var userService = LegacyUserService.shared
-    @StateObject private var messagingService = FirebaseMessagingService.shared
+    @ObservedObject private var userService = LegacyUserService.shared
+    @ObservedObject private var messagingService = FirebaseMessagingService.shared
     
     @State private var otherUserProfile: User?
     @State private var isLoading = true
@@ -1414,6 +2006,8 @@ struct ChatUserProfileSheet: View {
     @State private var messageCount: Int = 0
     @State private var averageResponseTime: String = "N/A"
     @State private var showShareSheet = false
+    @State private var isSubmittingReport = false
+    @State private var reportConfirmationMessage: String?
     
     var body: some View {
         ZStack {
@@ -1605,13 +2199,53 @@ struct ChatUserProfileSheet: View {
                                 // More options menu
                                 Menu {
                                     Button {
-                                        // Block/Report user
+                                        guard let reportedId = otherUserProfile?.id,
+                                              let currentId = Auth.auth().currentUser?.uid,
+                                              !isSubmittingReport else { return }
+                                        isSubmittingReport = true
+                                        let submission = ReportSubmission(
+                                            reporterId: currentId,
+                                            reportedUserId: reportedId,
+                                            conversationId: conversation.id,
+                                            reason: .unwantedContact,
+                                            evidenceMessageIds: [],
+                                            additionalContext: nil,
+                                            blockImmediately: false
+                                        )
+                                        Task {
+                                            let result = await SafetyReportingService.shared.submitReport(submission)
+                                            isSubmittingReport = false
+                                            switch result {
+                                            case .success:
+                                                reportConfirmationMessage = "Report submitted."
+                                            case .alreadyReported:
+                                                reportConfirmationMessage = "You've already reported this user recently."
+                                            case .failure:
+                                                reportConfirmationMessage = "Could not submit report. Please try again."
+                                            }
+                                        }
                                     } label: {
                                         Label("Report User", systemImage: "exclamationmark.triangle")
                                     }
                                     
                                     Button(role: .destructive) {
-                                        // Block user
+                                        guard let reportedId = otherUserProfile?.id,
+                                              let currentId = Auth.auth().currentUser?.uid,
+                                              !isSubmittingReport else { return }
+                                        isSubmittingReport = true
+                                        let submission = ReportSubmission(
+                                            reporterId: currentId,
+                                            reportedUserId: reportedId,
+                                            conversationId: conversation.id,
+                                            reason: .unwantedContact,
+                                            evidenceMessageIds: [],
+                                            additionalContext: "User blocked from conversation header",
+                                            blockImmediately: true
+                                        )
+                                        Task {
+                                            _ = await SafetyReportingService.shared.submitReport(submission)
+                                            isSubmittingReport = false
+                                        }
                                     } label: {
                                         Label("Block User", systemImage: "hand.raised")
                                     }
@@ -1748,7 +2382,7 @@ struct ChatUserProfileSheet: View {
                 // Extract other user's ID from conversation (with Firebase fallback)
                 let otherUserId = try await getOtherUserId(from: conversation.id, currentUserId: currentUserId)
                 
-                print("📱 Loading profile for user: \(otherUserId)")
+                dlog("📱 Loading profile for user: \(otherUserId)")
                 
                 // Fetch user profile
                 let profile = try await userService.fetchUser(userId: otherUserId)
@@ -1761,10 +2395,10 @@ struct ChatUserProfileSheet: View {
                     self.isLoading = false
                 }
                 
-                print("✅ Profile loaded successfully: \(profile.displayName)")
+                dlog("✅ Profile loaded successfully: \(profile.displayName)")
                 
             } catch {
-                print("❌ Error loading profile: \(error)")
+                dlog("❌ Error loading profile: \(error)")
                 await MainActor.run {
                     self.errorMessage = error.localizedDescription
                     self.isLoading = false
@@ -1794,7 +2428,7 @@ struct ChatUserProfileSheet: View {
         }
         
         // Fallback: Fetch conversation document from Firebase to get participant IDs
-        print("⚠️ Conversation ID doesn't match expected format, fetching from Firebase...")
+        dlog("⚠️ Conversation ID doesn't match expected format, fetching from Firebase...")
         
         do {
             let db = Firestore.firestore()
@@ -1807,13 +2441,13 @@ struct ChatUserProfileSheet: View {
             // Get participantIds array from conversation document
             if let participantIds = conversationDoc.data()?["participantIds"] as? [String],
                let otherUserId = participantIds.first(where: { $0 != currentUserId }) {
-                print("✅ Found other user ID from Firebase: \(otherUserId)")
+                dlog("✅ Found other user ID from Firebase: \(otherUserId)")
                 return otherUserId
             }
             
             throw NSError(domain: "ChatUserProfileSheet", code: 400, userInfo: [NSLocalizedDescriptionKey: "Could not determine other user ID from conversation"])
         } catch {
-            print("❌ Error fetching conversation: \(error)")
+            dlog("❌ Error fetching conversation: \(error)")
             throw error
         }
     }
@@ -1882,305 +2516,420 @@ struct ProfileStatItem: View {
     }
 }
 
+// MARK: - iMessage-Style Bubble Shape
+
+/// Produces the classic iMessage asymmetric rounded-rectangle with a small "tail"
+/// at the bottom corner pointing toward the sender's side.
+private struct MessageBubbleShape: Shape {
+    let isFromCurrentUser: Bool
+
+    func path(in rect: CGRect) -> Path {
+        let r: CGFloat = 18          // large corner radius (most corners)
+        let tail: CGFloat = 4        // small tail-corner radius
+        var path = Path()
+
+        if isFromCurrentUser {
+            // Outgoing: tail at bottom-right
+            path.move(to: CGPoint(x: rect.minX + r, y: rect.minY))
+            path.addLine(to: CGPoint(x: rect.maxX - r, y: rect.minY))
+            path.addArc(center: CGPoint(x: rect.maxX - r, y: rect.minY + r),
+                        radius: r, startAngle: .degrees(-90), endAngle: .degrees(0), clockwise: false)
+            path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - tail))
+            path.addArc(center: CGPoint(x: rect.maxX - tail, y: rect.maxY - tail),
+                        radius: tail, startAngle: .degrees(0), endAngle: .degrees(90), clockwise: false)
+            path.addLine(to: CGPoint(x: rect.minX + r, y: rect.maxY))
+            path.addArc(center: CGPoint(x: rect.minX + r, y: rect.maxY - r),
+                        radius: r, startAngle: .degrees(90), endAngle: .degrees(180), clockwise: false)
+            path.addLine(to: CGPoint(x: rect.minX, y: rect.minY + r))
+            path.addArc(center: CGPoint(x: rect.minX + r, y: rect.minY + r),
+                        radius: r, startAngle: .degrees(180), endAngle: .degrees(270), clockwise: false)
+        } else {
+            // Incoming: tail at bottom-left
+            path.move(to: CGPoint(x: rect.minX + r, y: rect.minY))
+            path.addLine(to: CGPoint(x: rect.maxX - r, y: rect.minY))
+            path.addArc(center: CGPoint(x: rect.maxX - r, y: rect.minY + r),
+                        radius: r, startAngle: .degrees(-90), endAngle: .degrees(0), clockwise: false)
+            path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - r))
+            path.addArc(center: CGPoint(x: rect.maxX - r, y: rect.maxY - r),
+                        radius: r, startAngle: .degrees(0), endAngle: .degrees(90), clockwise: false)
+            path.addLine(to: CGPoint(x: rect.minX + tail, y: rect.maxY))
+            path.addArc(center: CGPoint(x: rect.minX + tail, y: rect.maxY - tail),
+                        radius: tail, startAngle: .degrees(90), endAngle: .degrees(180), clockwise: false)
+            path.addLine(to: CGPoint(x: rect.minX, y: rect.minY + r))
+            path.addArc(center: CGPoint(x: rect.minX + r, y: rect.minY + r),
+                        radius: r, startAngle: .degrees(180), endAngle: .degrees(270), clockwise: false)
+        }
+        path.closeSubpath()
+        return path
+    }
+}
+
 // MARK: - Liquid Glass Message Bubble
 
 struct LiquidGlassMessageBubble: View {
     let message: AppMessage
     let isFromCurrentUser: Bool
+    /// Whether this bubble is the last in a consecutive run from the same sender.
+    /// Controls tail visibility and spacing.
+    var isLastInGroup: Bool = true
+    var showReadReceipt: Bool = false
     var onReply: () -> Void
     var onReact: (String) -> Void
     var onLongPress: () -> Void
     var onDelete: () -> Void
     var onRetry: (() -> Void)? = nil
+    var onReport: (() -> Void)? = nil
+    var onBlock: (() -> Void)? = nil
+    var onMute: (() -> Void)? = nil
 
-    @State private var showReactions = false
-    
-    var body: some View {
-        HStack(alignment: .bottom, spacing: 8) {
+    // Inline double-tap reaction bar state
+    @State private var showInlineReactions = false
+
+    // Reactions for inline quick-tap (iMessage style)
+    private let quickReactions = ["❤️", "🙏", "🔥", "😂", "😮", "👍"]
+
+    // iMessage outgoing color
+    private let sentColor = Color(red: 0.0, green: 0.48, blue: 1.0)   // iMessage blue
+    // App's existing dark color alternative (kept for reference; using blue per brief)
+
+    private var bubbleBackground: some View {
+        Group {
             if isFromCurrentUser {
-                Spacer(minLength: 60)
-            }
-            
-            VStack(alignment: isFromCurrentUser ? .trailing : .leading, spacing: 4) {
-                // Message bubble
-                HStack(alignment: .bottom, spacing: 8) {
-                    if !isFromCurrentUser && message.senderName != nil {
-                        // Sender avatar (for group chats) - with profile image support
-                        if let profileImageURL = message.senderProfileImageURL,
-                           !profileImageURL.isEmpty,
-                           let url = URL(string: profileImageURL) {
-                            CachedAsyncImage(
-                                url: url,
-                                content: { image in
-                                    image
-                                        .resizable()
-                                        .scaledToFill()
-                                        .frame(width: 28, height: 28)
-                                        .clipShape(Circle())
-                                },
-                                placeholder: {
-                                    senderInitialsAvatar
-                                }
-                            )
-                        } else {
-                            senderInitialsAvatar
-                        }
-                    }
-                    
-                    VStack(alignment: isFromCurrentUser ? .trailing : .leading, spacing: 2) {
-                        // Sender name (for group chats)
-                        if !isFromCurrentUser, let senderName = message.senderName {
-                            Text(senderName)
-                                .font(.system(size: 11, weight: .medium))
-                                .foregroundColor(.secondary)
-                                .padding(.leading, 12)
-                        }
-                        
-                        HStack(spacing: 8) {
-                            // P1-2 FIX: Message text with proper layout constraints
-                            Text(message.text)
-                                .font(.system(size: 15))
-                                .foregroundColor(isFromCurrentUser ? .white : .primary)
-                                .fixedSize(horizontal: false, vertical: true)  // Allow vertical expansion, constrain horizontal
-                                .frame(maxWidth: 280, alignment: isFromCurrentUser ? .trailing : .leading)  // Max bubble width
-                            
-                            // Failed message indicator with retry button
-                            if isFromCurrentUser && message.isSendFailed {
-                                Button(action: {
-                                    onRetry?()
-                                }) {
-                                    Image(systemName: "exclamationmark.circle.fill")
-                                        .font(.system(size: 16))
-                                        .foregroundColor(.red)
-                                }
-                            }
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
-                        .background(
-                            ZStack {
-                                if isFromCurrentUser {
-                                    // Sent message - refined black gradient
-                                    RoundedRectangle(cornerRadius: 20, style: .continuous)
-                                        .fill(
-                                            LinearGradient(
-                                                colors: message.isSendFailed ? [
-                                                    Color.red.opacity(0.3),
-                                                    Color.red.opacity(0.2)
-                                                ] : [
-                                                    Color(red: 0.15, green: 0.15, blue: 0.15),
-                                                    Color(red: 0.05, green: 0.05, blue: 0.05)
-                                                ],
-                                                startPoint: .topLeading,
-                                                endPoint: .bottomTrailing
-                                            )
-                                        )
-                                        .shadow(color: .black.opacity(0.2), radius: 12, y: 4)
-                                    
-                                    // Failed message border
-                                    if message.isSendFailed {
-                                        RoundedRectangle(cornerRadius: 20, style: .continuous)
-                                            .strokeBorder(Color.red.opacity(0.5), lineWidth: 1.5)
-                                    }
-                                } else {
-                                    // Received message - clean white frosted glass
-                                    RoundedRectangle(cornerRadius: 20, style: .continuous)
-                                        .fill(.white)
-                                        .shadow(color: .black.opacity(0.06), radius: 12, y: 3)
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                                                .stroke(Color.black.opacity(0.04), lineWidth: 1)
-                                        )
-                                }
-                            }
+                if message.isSendFailed {
+                    MessageBubbleShape(isFromCurrentUser: true)
+                        .fill(Color.red.opacity(0.25))
+                        .overlay(
+                            MessageBubbleShape(isFromCurrentUser: true)
+                                .stroke(Color.red.opacity(0.6), lineWidth: 1.5)
                         )
-                    }
+                } else {
+                    MessageBubbleShape(isFromCurrentUser: true)
+                        .fill(sentColor)
+                        .shadow(color: sentColor.opacity(0.25), radius: 6, y: 2)
                 }
-                .onTapGesture(count: 2) {
-                    // Double-tap to show reactions (like Instagram)
-                    let haptic = UIImpactFeedbackGenerator(style: .medium)
-                    haptic.impactOccurred()
-                    onLongPress()
-                }
-                .contextMenu {
-                    // React button at the top
-                    Button {
-                        onLongPress()
-                    } label: {
-                        Label("React", systemImage: "face.smiling")
-                    }
-
-                    Button {
-                        onReply()
-                    } label: {
-                        Label("Reply", systemImage: "arrowshape.turn.up.left")
-                    }
-
-                    Button {
-                        UIPasteboard.general.string = message.text
-                    } label: {
-                        Label("Copy", systemImage: "doc.on.doc")
-                    }
-
-                    if isFromCurrentUser {
-                        Button(role: .destructive) {
-                            onDelete()
-                        } label: {
-                            Label("Delete", systemImage: "trash")
-                        }
-                    }
-                }
-                
-                // Link Previews
-                if !message.linkPreviews.isEmpty {
-                    VStack(alignment: isFromCurrentUser ? .trailing : .leading, spacing: 8) {
-                        ForEach(message.linkPreviews.prefix(2)) { preview in
-                            let url = preview.url
-                            Button(action: {
-                                if UIApplication.shared.canOpenURL(url) {
-                                    UIApplication.shared.open(url)
-                                }
-                            }) {
-                                    VStack(alignment: .leading, spacing: 6) {
-                                        if let title = preview.title {
-                                            Text(title)
-                                                .font(.system(size: 13, weight: .semibold))
-                                                .foregroundColor(.primary)
-                                                .lineLimit(2)
-                                                .multilineTextAlignment(.leading)
-                                        }
-                                        
-                                        if let description = preview.description {
-                                            Text(description)
-                                                .font(.system(size: 12))
-                                                .foregroundColor(.secondary)
-                                                .lineLimit(2)
-                                                .multilineTextAlignment(.leading)
-                                        }
-                                        
-                                        HStack(spacing: 4) {
-                                            Image(systemName: "link")
-                                                .font(.system(size: 10))
-                                                .foregroundColor(.secondary)
-                                            
-                                            Text(url.host ?? url.absoluteString)
-                                                .font(.system(size: 11))
-                                                .foregroundColor(.secondary)
-                                                .lineLimit(1)
-                                        }
-                                    }
-                                    .frame(maxWidth: 240, alignment: .leading)
-                                    .padding(10)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                            .fill(Color.gray.opacity(0.1))
-                                    )
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                            .strokeBorder(Color.gray.opacity(0.2), lineWidth: 1)
-                                    )
-                                }
-                                .buttonStyle(PlainButtonStyle())
-                        }
-                    }
-                    .padding(.horizontal, 12)
-                }
-                
-                // Reactions
-                if !message.reactions.isEmpty {
-                    HStack(spacing: 4) {
-                        // Group reactions by emoji
-                        let groupedReactions = Dictionary(grouping: message.reactions, by: { $0.emoji })
-                        ForEach(Array(groupedReactions.keys.sorted()), id: \.self) { emoji in
-                            let count = groupedReactions[emoji]?.count ?? 0
-                            HStack(spacing: 2) {
-                                Text(emoji)
-                                    .font(.system(size: 14))
-                                if count > 1 {
-                                    Text("\(count)")
-                                        .font(.system(size: 11, weight: .medium))
-                                        .foregroundColor(.secondary)
-                                }
-                            }
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(
-                                Capsule()
-                                    .fill(.ultraThinMaterial)
-                                    .shadow(color: .black.opacity(0.05), radius: 4, y: 2)
-                            )
-                        }
-                    }
-                    .padding(.horizontal, 12)
-                }
-                
-                // Timestamp
-                Text(message.formattedTimestamp)
-                    .font(.system(size: 11))
-                    .foregroundColor(.secondary)
-                    .padding(.horizontal, 12)
-            }
-            
-            if !isFromCurrentUser {
-                Spacer(minLength: 60)
+            } else {
+                MessageBubbleShape(isFromCurrentUser: false)
+                    .fill(Color(.systemGray6))
+                    .shadow(color: .black.opacity(0.05), radius: 4, y: 1)
             }
         }
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: showReactions)
     }
-    
+
+    var body: some View {
+        VStack(alignment: isFromCurrentUser ? .trailing : .leading, spacing: 0) {
+            // Inline reaction bar (appears above bubble on double-tap, no background box)
+            if showInlineReactions {
+                inlineReactionBar
+                    .transition(.scale(scale: 0.7, anchor: isFromCurrentUser ? .bottomTrailing : .bottomLeading)
+                                .combined(with: .opacity))
+                    .padding(.bottom, 4)
+            }
+
+            HStack(alignment: .bottom, spacing: 6) {
+                if isFromCurrentUser { Spacer(minLength: 52) }
+
+                // Avatar (incoming only, group chats, last in group)
+                if !isFromCurrentUser {
+                    if isLastInGroup {
+                        avatarView
+                    } else {
+                        Color.clear.frame(width: 28, height: 28) // placeholder to maintain alignment
+                    }
+                }
+
+                VStack(alignment: isFromCurrentUser ? .trailing : .leading, spacing: 3) {
+                    // Sender name (group chats)
+                    if !isFromCurrentUser, let name = message.senderName, isLastInGroup {
+                        Text(name)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(.secondary)
+                            .padding(isFromCurrentUser ? .trailing : .leading, 14)
+                    }
+
+                    // Reply quote
+                    if let reply = message.replyTo {
+                        replyQuote(replyMessage: reply)
+                            .padding(.bottom, 2)
+                    }
+
+                    // Bubble
+                    HStack(alignment: .bottom, spacing: 6) {
+                        // Failed indicator (left of bubble for outgoing)
+                        if isFromCurrentUser && message.isSendFailed {
+                            Button { onRetry?() } label: {
+                                Image(systemName: "exclamationmark.circle.fill")
+                                    .font(.system(size: 18))
+                                    .foregroundStyle(.red)
+                            }
+                        }
+
+                        Text(message.text)
+                            .font(.system(size: 16))
+                            .foregroundStyle(isFromCurrentUser ? .white : Color(.label))
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 9)
+                            .background(bubbleBackground)
+                            .frame(maxWidth: 280, alignment: isFromCurrentUser ? .trailing : .leading)
+                            .onTapGesture(count: 2) {
+                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.65)) {
+                                    showInlineReactions.toggle()
+                                }
+                            }
+                            .contextMenu {
+                                Button { onReply() } label: {
+                                    Label("Reply", systemImage: "arrowshape.turn.up.left")
+                                }
+                                Button { onLongPress() } label: {
+                                    Label("React", systemImage: "face.smiling")
+                                }
+                                Button {
+                                    UIPasteboard.general.string = message.text
+                                } label: {
+                                    Label("Copy", systemImage: "doc.on.doc")
+                                }
+                                if isFromCurrentUser {
+                                    Divider()
+                                    Button(role: .destructive) { onDelete() } label: {
+                                        Label("Delete", systemImage: "trash")
+                                    }
+                                }
+                                if !isFromCurrentUser {
+                                    Divider()
+                                    if let onReport {
+                                        Button(role: .destructive) { onReport() } label: {
+                                            Label("Report", systemImage: "exclamationmark.bubble.fill")
+                                        }
+                                    }
+                                    if let onBlock {
+                                        Button(role: .destructive) { onBlock() } label: {
+                                            Label("Block", systemImage: "person.slash.fill")
+                                        }
+                                    }
+                                    if let onMute {
+                                        Button { onMute() } label: {
+                                            Label("Mute", systemImage: "speaker.slash.fill")
+                                        }
+                                    }
+                                }
+                            }
+                    }
+
+                    // Reactions row (below bubble, no background pill)
+                    if !message.reactions.isEmpty {
+                        reactionsRow
+                    }
+
+                    // Read receipt (outgoing only, last in group)
+                    if isFromCurrentUser && isLastInGroup {
+                        readReceiptView
+                    }
+                }
+
+                if !isFromCurrentUser { Spacer(minLength: 52) }
+            }
+        }
+        .animation(.spring(response: 0.28, dampingFraction: 0.7), value: showInlineReactions)
+    }
+
+    // MARK: - Inline Reaction Bar (floats above bubble, no background, iMessage style)
+
+    private var inlineReactionBar: some View {
+        HStack(spacing: 2) {
+            ForEach(quickReactions, id: \.self) { emoji in
+                Button {
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    onReact(emoji)
+                    withAnimation { showInlineReactions = false }
+                } label: {
+                    Text(emoji)
+                        .font(.system(size: 26))
+                        .padding(6)
+                        .background(
+                            Circle()
+                                .fill(.ultraThinMaterial)
+                                .shadow(color: .black.opacity(0.12), radius: 4, y: 2)
+                        )
+                }
+                .buttonStyle(ScaleButtonStyle())
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(
+            Capsule()
+                .fill(.regularMaterial)
+                .shadow(color: .black.opacity(0.15), radius: 10, y: 4)
+        )
+    }
+
+    // MARK: - Reactions row
+
+    private var reactionsRow: some View {
+        let grouped = Dictionary(grouping: message.reactions, by: { $0.emoji })
+        return HStack(spacing: 4) {
+            ForEach(Array(grouped.keys.sorted()), id: \.self) { emoji in
+                let count = grouped[emoji]?.count ?? 0
+                Button {
+                    onReact(emoji)
+                } label: {
+                    HStack(spacing: 2) {
+                        Text(emoji).font(.system(size: 13))
+                        if count > 1 {
+                            Text("\(count)")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(
+                        Capsule()
+                            .fill(Color(.systemBackground))
+                            .shadow(color: .black.opacity(0.08), radius: 3, y: 1)
+                            .overlay(Capsule().strokeBorder(Color(.systemGray4), lineWidth: 0.5))
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 4)
+    }
+
+    // MARK: - Read receipt
+
+    private var readReceiptView: some View {
+        Group {
+            if message.isSendFailed {
+                EmptyView()
+            } else if !message.isSent {
+                Image(systemName: "clock")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+            } else if message.isRead {
+                HStack(spacing: 1) {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 9, weight: .semibold))
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 9, weight: .semibold))
+                }
+                .foregroundStyle(sentColor)
+            } else if message.isDelivered {
+                HStack(spacing: 1) {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 9, weight: .semibold))
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 9, weight: .semibold))
+                }
+                .foregroundStyle(.secondary)
+            } else {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.trailing, 2)
+    }
+
+    // MARK: - Reply quote
+
+    private func replyQuote(replyMessage: AppMessage) -> some View {
+        HStack(spacing: 6) {
+            RoundedRectangle(cornerRadius: 2)
+                .fill(isFromCurrentUser ? Color.white.opacity(0.6) : Color.accentColor.opacity(0.7))
+                .frame(width: 3)
+
+            VStack(alignment: .leading, spacing: 1) {
+                if let name = replyMessage.senderName {
+                    Text(name)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(isFromCurrentUser ? .white.opacity(0.85) : Color.accentColor)
+                        .lineLimit(1)
+                }
+                Text(replyMessage.text)
+                    .font(.system(size: 12))
+                    .foregroundStyle(isFromCurrentUser ? .white.opacity(0.7) : .secondary)
+                    .lineLimit(2)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(isFromCurrentUser ? Color.white.opacity(0.15) : Color.accentColor.opacity(0.08))
+        )
+        .frame(maxWidth: 260)
+        .padding(.horizontal, 4)
+    }
+
+    // MARK: - Avatar
+
+    private var avatarView: some View {
+        Group {
+            if let profileImageURL = message.senderProfileImageURL,
+               !profileImageURL.isEmpty,
+               let url = URL(string: profileImageURL) {
+                CachedAsyncImage(
+                    url: url,
+                    content: { img in
+                        img.resizable().scaledToFill()
+                            .frame(width: 28, height: 28)
+                            .clipShape(Circle())
+                    },
+                    placeholder: { senderInitialsAvatar }
+                )
+            } else {
+                senderInitialsAvatar
+            }
+        }
+    }
+
     // MARK: - Sender Initials Avatar (Fallback)
-    
+
     private var senderInitialsAvatar: some View {
         Circle()
-            .fill(Color.blue.opacity(0.2))
+            .fill(Color.accentColor.opacity(0.18))
             .frame(width: 28, height: 28)
             .overlay(
                 Text(String(message.senderName?.prefix(1) ?? "?").uppercased())
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(.blue)
+                    .foregroundStyle(Color.accentColor)
             )
     }
 }
 
-// MARK: - Liquid Glass Typing Indicator
+// MARK: - Typing Indicator (iMessage 3-dot bounce)
 
 struct LiquidGlassTypingIndicator: View {
-    @State private var animationPhase = 0
-    
+    @State private var phase: Int = 0
+    private let timer = Timer.publish(every: 0.3, on: .main, in: .common).autoconnect()
+
     var body: some View {
-        HStack(alignment: .bottom, spacing: 8) {
-            HStack(spacing: 6) {
-                ForEach(0..<3) { index in
+        HStack(alignment: .bottom, spacing: 6) {
+            // Bubble
+            HStack(spacing: 5) {
+                ForEach(0..<3) { i in
                     Circle()
-                        .fill(Color.gray)
+                        .fill(Color(.systemGray3))
                         .frame(width: 8, height: 8)
-                        .scaleEffect(animationPhase == index ? 1.2 : 0.8)
-                        .animation(
-                            .easeInOut(duration: 0.6)
-                                .repeatForever(autoreverses: true)
-                                .delay(Double(index) * 0.2),
-                            value: animationPhase
-                        )
+                        .offset(y: phase == i ? -4 : 0)
+                        .animation(.spring(response: 0.3, dampingFraction: 0.5), value: phase)
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 11)
             .background(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(.ultraThinMaterial)
-                    .shadow(color: .black.opacity(0.08), radius: 8, y: 2)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 20, style: .continuous)
-                            .stroke(Color.white.opacity(0.3), lineWidth: 1)
-                    )
+                MessageBubbleShape(isFromCurrentUser: false)
+                    .fill(Color(.systemGray6))
+                    .shadow(color: .black.opacity(0.05), radius: 4, y: 1)
             )
-            
-            Spacer(minLength: 60)
+
+            Spacer(minLength: 52)
         }
-        .onAppear {
-            withAnimation {
-                animationPhase = 1
-            }
+        .onReceive(timer) { _ in
+            phase = (phase + 1) % 3
         }
     }
 }
@@ -2203,9 +2952,8 @@ struct MediaButton: View {
     let icon: String
     let title: String
     let color: Color
+    var comingSoon: Bool = false
     let action: () -> Void
-    
-    @State private var isPressed = false
     
     var body: some View {
         Button {
@@ -2214,114 +2962,99 @@ struct MediaButton: View {
             action()
         } label: {
             VStack(spacing: 8) {
-                ZStack {
+                ZStack(alignment: .topTrailing) {
                     Circle()
-                        .fill(color.opacity(0.08))
+                        .fill(color.opacity(comingSoon ? 0.04 : 0.08))
                         .frame(width: 52, height: 52)
                     
                     Image(systemName: icon)
                         .font(.system(size: 22, weight: .semibold))
-                        .foregroundStyle(color)
+                        .foregroundStyle(comingSoon ? Color.gray.opacity(0.5) : color)
+                        .frame(width: 52, height: 52)
+                    
+                    if comingSoon {
+                        Text("Soon")
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 2)
+                            .background(Color.gray.opacity(0.6))
+                            .clipShape(Capsule())
+                            .offset(x: 4, y: -2)
+                    }
                 }
                 
                 Text(title)
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(Color.gray)
+                    .foregroundStyle(comingSoon ? Color.gray.opacity(0.5) : Color.gray)
             }
         }
         .buttonStyle(SpringButtonStyle())
+        .opacity(comingSoon ? 0.75 : 1.0)
     }
 }
 
 // Note: ScaleButtonStyle is defined in SharedUIComponents.swift
 // Note: placeholder(when:alignment:placeholder:) extension is defined in SharedUIComponents.swift
 
-// MARK: - Reaction Picker Overlay (iMessage/Instagram Style)
+// MARK: - Reaction Picker Overlay (long-press, centered above screen midpoint)
 
 struct ReactionPickerOverlay: View {
     let message: AppMessage
     @Binding var isShowing: Bool
     var onReaction: (String) -> Void
 
-    // 5 black and white reaction emojis
-    private let reactions = ["🙏", "❤️", "🔥", "👍", "😊"]
+    private let reactions = ["❤️", "🙏", "🔥", "😂", "😮", "👍", "😢", "🙌"]
 
     var body: some View {
-        GeometryReader { geometry in
-            ZStack(alignment: .top) {
-                // Semi-transparent background - tap to dismiss
-                Color.clear
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                            isShowing = false
-                        }
+        ZStack {
+            // Dimmed backdrop
+            Color.black.opacity(0.35)
+                .ignoresSafeArea()
+                .onTapGesture {
+                    withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) {
+                        isShowing = false
                     }
+                }
 
-                // Reaction buttons hovering near top (like iMessage/Instagram)
-                HStack(spacing: 8) {
+            VStack(spacing: 16) {
+                // Preview of the message being reacted to
+                Text(message.text)
+                    .font(.system(size: 15))
+                    .foregroundStyle(.primary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 12)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
+                    .frame(maxWidth: 280)
+
+                // Emoji grid
+                HStack(spacing: 10) {
                     ForEach(reactions, id: \.self) { emoji in
-                        Button(action: {
+                        Button {
+                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                             onReaction(emoji)
-                        }) {
-                            ZStack {
-                                // Black and white circle background
-                                Circle()
-                                    .fill(
-                                        LinearGradient(
-                                            colors: [
-                                                Color(red: 0.15, green: 0.15, blue: 0.15),
-                                                Color(red: 0.05, green: 0.05, blue: 0.05)
-                                            ],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        )
-                                    )
-                                    .frame(width: 48, height: 48)
-
-                                // White border
-                                Circle()
-                                    .strokeBorder(
-                                        LinearGradient(
-                                            colors: [
-                                                Color.white.opacity(0.4),
-                                                Color.white.opacity(0.2)
-                                            ],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        ),
-                                        lineWidth: 1.5
-                                    )
-                                    .frame(width: 48, height: 48)
-
-                                // Emoji
-                                Text(emoji)
-                                    .font(.system(size: 24))
-                            }
+                        } label: {
+                            Text(emoji)
+                                .font(.system(size: 32))
+                                .padding(10)
+                                .background(
+                                    Circle()
+                                        .fill(.regularMaterial)
+                                        .shadow(color: .black.opacity(0.1), radius: 4, y: 2)
+                                )
                         }
                         .buttonStyle(ScaleButtonStyle())
                     }
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
-                .background(
-                    RoundedRectangle(cornerRadius: 30, style: .continuous)
-                        .fill(.ultraThinMaterial)
-                        .shadow(color: .black.opacity(0.25), radius: 16, y: 6)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 30, style: .continuous)
-                                .strokeBorder(
-                                    Color.white.opacity(0.2),
-                                    lineWidth: 1
-                                )
-                        )
-                )
-                .scaleEffect(isShowing ? 1.0 : 0.5)
-                .opacity(isShowing ? 1.0 : 0.0)
-                .animation(.spring(response: 0.35, dampingFraction: 0.7), value: isShowing)
-                .position(x: geometry.size.width / 2, y: 100) // Positioned near top, hovering
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(.regularMaterial, in: Capsule())
+                .shadow(color: .black.opacity(0.18), radius: 16, y: 8)
             }
-            .ignoresSafeArea(.keyboard)
+            .scaleEffect(isShowing ? 1.0 : 0.8)
+            .opacity(isShowing ? 1.0 : 0.0)
+            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isShowing)
         }
     }
 }

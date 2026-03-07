@@ -26,7 +26,9 @@ class BadgeCountManager: ObservableObject {
     // Cache with TTL
     private var cachedBadgeCount: Int?
     private var cacheTimestamp: Date?
-    private let cacheTTL: TimeInterval = 30 // 30 seconds cache
+    private let cacheTTL: TimeInterval = 2 // 2 second cache — just enough to coalesce
+                                            // simultaneous listener fires; short enough
+                                            // that a markAsRead write is reflected immediately
     
     // Debouncing
     private var updateTask: Task<Void, Never>?
@@ -41,14 +43,37 @@ class BadgeCountManager: ObservableObject {
     private var notificationsListener: ListenerRegistration?
     private var isListening = false
     
+    // Auth state listener — clears badge on sign-out, starts updates on sign-in
+    private var authStateListener: AuthStateDidChangeListenerHandle?
+    
     private init() {
         print("🔰 BadgeCountManager initialized")
+        setupAuthStateListener()
     }
     
     deinit {
-        // Cleanup listeners synchronously
         conversationsListener?.remove()
         notificationsListener?.remove()
+        if let authStateListener {
+            Auth.auth().removeStateDidChangeListener(authStateListener)
+        }
+    }
+    
+    private func setupAuthStateListener() {
+        authStateListener = Auth.auth().addStateDidChangeListener { [weak self] _, user in
+            guard let self = self else { return }
+            Task { @MainActor in
+                if user != nil {
+                    // User signed in — start real-time updates (idempotent)
+                    self.startRealtimeUpdates()
+                } else {
+                    // User signed out — immediately zero the badge and stop listeners
+                    self.stopRealtimeUpdates()
+                    self.clearBadge()
+                    print("🧹 Badge cleared on sign-out")
+                }
+            }
+        }
     }
     
     // MARK: - Public API
@@ -99,8 +124,52 @@ class BadgeCountManager: ObservableObject {
         unreadNotifications = 0
         cachedBadgeCount = 0
         cacheTimestamp = Date()
-        UIApplication.shared.applicationIconBadgeNumber = 0
+        UNUserNotificationCenter.current().setBadgeCount(0) { _ in }
         print("🧹 Badge cleared")
+    }
+
+    /// Optimistically zero the messages dot and write unreadCounts=0 to Firestore
+    /// for all conversations. The snapshot listener will confirm the zero once the
+    /// writes land, keeping local and remote state consistent.
+    func clearMessages() {
+        unreadMessages = 0
+        totalBadgeCount = unreadNotifications
+        cachedBadgeCount = nil
+        cacheTimestamp = nil
+        applyBadgeCount(unreadNotifications)
+        print("🧹 Messages badge cleared")
+
+        // Zero unreadCounts in Firestore so the real-time listener stays at 0
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+        let db = self.db  // capture before leaving @MainActor
+        Task.detached(priority: .utility) {
+            do {
+                let snapshot = try await db.collection("conversations")
+                    .whereField("participantIds", arrayContains: userId)
+                    .whereField("conversationStatus", isEqualTo: "accepted")
+                    .getDocuments()
+                let batch = db.batch()
+                for doc in snapshot.documents {
+                    if let counts = doc.data()["unreadCounts"] as? [String: Int],
+                       let count = counts[userId], count > 0 {
+                        batch.updateData(["unreadCounts.\(userId)": 0], forDocument: doc.reference)
+                    }
+                }
+                try await batch.commit()
+            } catch {
+                print("⚠️ Failed to clear Firestore unreadCounts: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    /// Optimistically zero the notifications dot immediately (real count will follow from listener)
+    func clearNotifications() {
+        unreadNotifications = 0
+        totalBadgeCount = unreadMessages
+        cachedBadgeCount = nil
+        cacheTimestamp = nil
+        applyBadgeCount(unreadMessages)
+        print("🧹 Notifications badge cleared")
     }
     
     // MARK: - Private Methods
@@ -215,54 +284,74 @@ class BadgeCountManager: ObservableObject {
 // MARK: - Notification Listener Extensions
 
 extension BadgeCountManager {
-    /// Setup real-time listener for badge updates (optional, more responsive)
+    /// Setup real-time listener for badge updates (optional, more responsive).
+    ///
+    /// DEDUPE FIX: Both the conversations listener and the notifications listener call
+    /// `requestBadgeUpdate()`, which is debounced (500 ms).  Even if both fire within
+    /// the same millisecond only ONE `performBadgeUpdate` runs, eliminating the
+    /// double-badge-increment race window that existed previously.
     func startRealtimeUpdates() {
-        // P0 FIX: Prevent duplicate listeners
         guard !isListening else {
             print("⚠️ Badge listeners already active")
             return
         }
-        
         guard let userId = Auth.auth().currentUser?.uid else { return }
-        
-        // P0 FIX: Store listener for cleanup
+
         conversationsListener = db.collection("conversations")
             .whereField("participantIds", arrayContains: userId)
+            .whereField("conversationStatus", isEqualTo: "accepted")
             .addSnapshotListener { [weak self] snapshot, error in
                 guard let self = self else { return }
-                
                 if let error = error {
-                    print("❌ Conversations listener error: \(error)")
+                    print("❌ Badge – conversations listener error: \(error.localizedDescription)")
                     return
                 }
-                
+                // Compute unread message count directly from snapshot — avoids
+                // stale cached values after a markAsRead write.
+                guard let docs = snapshot?.documents else { return }
+                let uid = Auth.auth().currentUser?.uid ?? ""
+                var msgCount = 0
+                for doc in docs {
+                    if let counts = doc.data()["unreadCounts"] as? [String: Int],
+                       let c = counts[uid] { msgCount += c }
+                }
                 Task { @MainActor in
+                    self.unreadMessages = msgCount
+                    // Invalidate cache so the combined total is recomputed fresh
+                    self.cachedBadgeCount = nil
+                    self.cacheTimestamp = nil
                     self.requestBadgeUpdate()
                 }
             }
-        
-        // P0 FIX: Store listener for cleanup
+
         notificationsListener = db.collection("users")
             .document(userId)
             .collection("notifications")
             .whereField("read", isEqualTo: false)
             .addSnapshotListener { [weak self] snapshot, error in
                 guard let self = self else { return }
-                
                 if let error = error {
-                    print("❌ Notifications listener error: \(error)")
+                    print("❌ Badge – notifications listener error: \(error.localizedDescription)")
                     return
                 }
-                
+                // Use snapshot count directly — Firestore delivers this listener
+                // only after the read=true write commits, so it's always fresh.
+                let count = snapshot?.documents.count ?? 0
                 Task { @MainActor in
+                    self.unreadNotifications = count
+                    // Invalidate cache so the combined total is recomputed fresh,
+                    // matching the conversations listener pattern. This avoids applying
+                    // a stale unreadMessages value when both listeners fire simultaneously.
+                    self.cachedBadgeCount = nil
+                    self.cacheTimestamp = nil
                     self.requestBadgeUpdate()
                 }
             }
-        
+
         isListening = true
         print("✅ Real-time badge listeners started")
     }
-    
+
     /// Stop real-time updates and cleanup listeners
     func stopRealtimeUpdates() {
         conversationsListener?.remove()

@@ -227,7 +227,7 @@ struct GlassEffectModifier: ViewModifier {
 // MARK: - AnyShape (Type-erased Shape)
 
 struct AnyShape: Shape {
-    private let _path: (CGRect) -> Path
+    private let _path: @Sendable (CGRect) -> Path
     
     init<S: Shape>(_ shape: S) {
         _path = { rect in
@@ -237,6 +237,25 @@ struct AnyShape: Shape {
     
     func path(in rect: CGRect) -> Path {
         _path(rect)
+    }
+}
+
+// MARK: - Shake Effect
+
+/// A `GeometryEffect` that produces a rapid horizontal shake to signal an error or rejection.
+/// Usage: `.modifier(ShakeEffect(shakes: triggerBool ? 3 : 0))`
+struct ShakeEffect: GeometryEffect {
+    var shakes: CGFloat
+
+    var animatableData: CGFloat {
+        get { shakes }
+        set { shakes = newValue }
+    }
+
+    func effectValue(size: CGSize) -> ProjectionTransform {
+        let angle = sin(shakes * .pi * 3) * 6.0
+        let translation = CGAffineTransform(translationX: angle, y: 0)
+        return ProjectionTransform(translation)
     }
 }
 

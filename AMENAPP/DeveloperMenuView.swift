@@ -6,6 +6,7 @@
 //  ⚠️ Remove this from production builds
 //
 
+#if DEBUG
 import SwiftUI
 
 struct DeveloperMenuView: View {
@@ -95,3 +96,4 @@ struct DeveloperMenuView: View {
 #Preview {
     DeveloperMenuView()
 }
+#endif

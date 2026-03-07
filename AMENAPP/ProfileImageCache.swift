@@ -9,42 +9,48 @@
 
 import Foundation
 import SwiftUI
+import UIKit
 
-/// In-memory cache for profile images
+/// In-memory cache for profile images backed by NSCache for automatic memory-pressure eviction.
 class ProfileImageCache {
     static let shared = ProfileImageCache()
-    
-    private var cache: [String: Image] = [:]
-    private let maxCacheSize = 100  // Maximum number of images to cache
-    private let lock = NSLock()  // Thread-safe access
-    
-    private init() {}
-    
-    /// Get cached image for URL (thread-safe)
+
+    // NSCache is thread-safe and automatically evicts entries under memory pressure.
+    // We wrap SwiftUI Image in a trivial box because NSCache requires AnyObject values.
+    private final class ImageBox {
+        let image: Image
+        init(_ image: Image) { self.image = image }
+    }
+
+    private let cache = NSCache<NSString, ImageBox>()
+
+    private init() {
+        cache.countLimit = 150  // max 150 profile images
+        // Register for memory warnings so the cache is cleared immediately
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleMemoryWarning),
+            name: UIApplication.didReceiveMemoryWarningNotification,
+            object: nil
+        )
+    }
+
+    @objc private func handleMemoryWarning() {
+        cache.removeAllObjects()
+    }
+
+    /// Get cached image for URL.
     func image(for url: String) -> Image? {
-        lock.lock()
-        defer { lock.unlock() }
-        return cache[url]
+        cache.object(forKey: url as NSString)?.image
     }
-    
-    /// Store image in cache (thread-safe)
+
+    /// Store image in cache.
     func setImage(_ image: Image, for url: String) {
-        lock.lock()
-        defer { lock.unlock() }
-        
-        // Simple LRU: remove oldest if cache is full
-        if cache.count >= maxCacheSize {
-            cache.removeValue(forKey: cache.keys.first ?? "")
-        }
-        cache[url] = image
+        cache.setObject(ImageBox(image), forKey: url as NSString)
     }
-    
-    /// Clear cache (thread-safe)
+
+    /// Clear all cached images.
     func clearCache() {
-        lock.lock()
-        defer { lock.unlock() }
-        
-        cache.removeAll()
-        print("🗑️ Profile image cache cleared")
+        cache.removeAllObjects()
     }
 }

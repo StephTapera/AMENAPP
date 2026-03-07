@@ -10,7 +10,7 @@ import SwiftUI
 
 struct AIBibleStudyView: View {
     @Environment(\.dismiss) var dismiss
-    @StateObject private var premiumManager = PremiumManager.shared
+    @ObservedObject private var premiumManager = PremiumManager.shared
     @State var selectedTab: AIStudyTab = .chat
     @State private var userInput = ""
     @State var messages: [AIStudyMessage] = []
@@ -27,7 +27,7 @@ struct AIBibleStudyView: View {
     @State var conversationHistory: [[AIStudyMessage]] = []
     @State var showHistory = false
     @State private var showSettings = false
-    @State private var currentStreak = 7
+    // streak removed — no streak incentives
     
     private var hasProAccess: Bool {
         premiumManager.hasProAccess
@@ -163,13 +163,6 @@ struct AIBibleStudyView: View {
                     ScrollViewReader { proxy in
                         ScrollView(showsIndicators: false) {
                             VStack(spacing: 0) {
-                                // Streak Banner (only for chat tab)
-                                if selectedTab == .chat && hasProAccess {
-                                    StreakBanner(currentStreak: $currentStreak)
-                                        .padding(.horizontal, 16)
-                                        .padding(.top, 16)
-                                        .padding(.bottom, 12)
-                                }
                                 
                                 switch selectedTab {
                                 case .chat:
@@ -574,7 +567,6 @@ struct AIBibleStudyView: View {
             showProUpgrade = true
             
             // Show feedback message
-            let remainingMessages = premiumManager.freeMessagesRemaining
             messages.append(AIStudyMessage(
                 text: "You've reached your daily limit of \(premiumManager.FREE_MESSAGES_PER_DAY) free messages. Upgrade to Pro for unlimited AI conversations! ✨\n\nYour limit resets at midnight, or upgrade now for unlimited access.",
                 isUser: false
@@ -2448,89 +2440,7 @@ let studyPlans = [
     )
 ]
 
-// MARK: - Streak Banner
 
-struct StreakBanner: View {
-    @Binding var currentStreak: Int
-    @State private var animateFlame = false
-    
-    var body: some View {
-        HStack(spacing: 14) {
-            // Flame icon with animation
-            ZStack {
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [Color.orange.opacity(0.2), Color.red.opacity(0.1)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .frame(width: 50, height: 50)
-                
-                Image(systemName: "flame.fill")
-                    .font(.system(size: 26))
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [Color.orange, Color.red],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-                    .scaleEffect(animateFlame ? 1.1 : 1.0)
-                    .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: animateFlame)
-            }
-            
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 4) {
-                    Text("\(currentStreak) Day Streak!")
-                        .font(.custom("OpenSans-Bold", size: 17))
-                        .foregroundStyle(.primary)
-                    
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.orange)
-                        .symbolEffect(.pulse.byLayer, options: .repeating)
-                }
-                
-                Text("Keep your daily study habit going")
-                    .font(.custom("OpenSans-Regular", size: 13))
-                    .foregroundStyle(.secondary)
-            }
-            
-            Spacer()
-            
-            Image(systemName: "chevron.right")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(.secondary)
-        }
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(
-                    LinearGradient(
-                        colors: [Color.orange.opacity(0.08), Color.red.opacity(0.05)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(
-                            LinearGradient(
-                                colors: [Color.orange.opacity(0.3), Color.red.opacity(0.2)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1
-                        )
-                )
-        )
-        .onAppear {
-            animateFlame = true
-        }
-    }
-}
 
 // MARK: - Usage Limit Banner
 

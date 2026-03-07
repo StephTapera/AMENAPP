@@ -10,27 +10,33 @@ import Foundation
 import FirebaseAppCheck
 import FirebaseCore
 
-/// Debug provider factory for App Check - use only in DEBUG builds
+/// Debug provider factory for App Check - use only in simulator
 class AppCheckDebugProviderFactory: NSObject, AppCheckProviderFactory {
     func createProvider(with app: FirebaseApp) -> AppCheckProvider? {
-        // Always use debug provider when using this factory
-        // For production, use DeviceCheckProviderFactory directly in AppDelegate
         return AppCheckDebugProvider(app: app)
     }
 }
 
-/// Extension to configure App Check based on build configuration
+/// App Attest provider factory for App Check - use on real devices
+/// Firebase does not ship a dedicated AppAttestProviderFactory, so we define one here.
+class AppCheckAppAttestProviderFactory: NSObject, AppCheckProviderFactory {
+    func createProvider(with app: FirebaseApp) -> AppCheckProvider? {
+        return AppAttestProvider(app: app)
+    }
+}
+
+/// Extension to configure App Check based on environment
 extension FirebaseApp {
     static func configureAppCheck() {
-        #if DEBUG
-        // For development/simulator: Use debug provider
-        print("🔧 Configuring App Check with DEBUG provider (simulator compatible)")
+        #if targetEnvironment(simulator)
+        // Simulator: use debug provider (requires registered debug token in Firebase Console)
+        print("🔧 Configuring App Check with DEBUG provider (simulator)")
         let providerFactory = AppCheckDebugProviderFactory()
         AppCheck.setAppCheckProviderFactory(providerFactory)
         #else
-        // For production: Use DeviceCheck provider
-        print("🔧 Configuring App Check with DeviceCheck provider (production)")
-        let providerFactory = DeviceCheckProviderFactory()
+        // Real device: use App Attest
+        print("🔧 Configuring App Check with App Attest provider (real device)")
+        let providerFactory = AppCheckAppAttestProviderFactory()
         AppCheck.setAppCheckProviderFactory(providerFactory)
         #endif
     }

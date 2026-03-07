@@ -13,7 +13,11 @@ struct ChurchNotesShareHelper {
     
     /// Share note using UIActivityViewController
     static func shareNote(_ note: ChurchNote, from view: UIView?) {
-        let shareText = ChurchNotesService().generateShareText(for: note)
+        // P0 FIX: Use the stateless generateShareText helper directly — do NOT
+        // instantiate a bare ChurchNotesService() here; that object has no auth
+        // context and its notes array is empty, which caused exportAllNotes()
+        // to silently produce empty exports.
+        let shareText = generateShareText(for: note)
         
         let activityVC = UIActivityViewController(
             activityItems: [shareText],
@@ -40,6 +44,41 @@ struct ChurchNotesShareHelper {
         }
     }
     
+    // MARK: - Share Text Generation
+
+    /// Generate shareable text from a note without requiring a live service instance.
+    /// P0 FIX: The previous code created ChurchNotesService() here which had no auth context
+    /// and an empty notes array, making exportAllNotes() produce a blank export.
+    static func generateShareText(for note: ChurchNote) -> String {
+        var text = "📖 \(note.title)\n\n"
+        if let sermonTitle = note.sermonTitle { text += "Sermon: \(sermonTitle)\n" }
+        if let pastor = note.pastor          { text += "Pastor: \(pastor)\n" }
+        if let churchName = note.churchName  { text += "Church: \(churchName)\n" }
+        text += "Date: \(note.date.formatted(date: .long, time: .omitted))\n"
+        if !note.scriptureReferences.isEmpty {
+            text += "Scripture: \(note.scriptureReferences.joined(separator: ", "))\n"
+        }
+        text += "\n---\n\n\(note.content)"
+        if !note.tags.isEmpty {
+            text += "\n\n🏷️ Tags: \(note.tags.joined(separator: ", "))"
+        }
+        text += "\n\n✨ Shared from AMEN App"
+        return text
+    }
+
+    /// Export a collection of notes to a single text block.
+    static func exportNotes(_ notes: [ChurchNote]) -> String {
+        var out = "🙏 Church Notes from AMEN\n"
+        out += "Exported: \(Date().formatted(date: .long, time: .shortened))\n"
+        out += "Total Notes: \(notes.count)\n\n"
+        out += String(repeating: "=", count: 50) + "\n\n"
+        for (i, note) in notes.enumerated() {
+            out += "[\(i + 1)] \(generateShareText(for: note))\n\n"
+            out += String(repeating: "-", count: 50) + "\n\n"
+        }
+        return out
+    }
+
     /// Generate PDF from note
     static func generatePDF(for note: ChurchNote) -> Data? {
         let pdfMetaData = [
@@ -172,8 +211,8 @@ struct ChurchNotesShareHelper {
     
     /// Export all notes as text file
     static func exportAllNotes(_ notes: [ChurchNote], from view: UIView?) {
-        let service = ChurchNotesService()
-        let exportText = service.exportAllNotes()
+        // P0 FIX: Use the passed-in notes array directly via the static helper.
+        let exportText = exportNotes(notes)
         
         // Save to temporary directory
         let tempDir = FileManager.default.temporaryDirectory
@@ -205,7 +244,7 @@ struct ChurchNotesShareHelper {
     
     /// Share to community (posts note to community feed)
     static func shareToCommunit(_ note: ChurchNote, completion: @escaping (Bool) -> Void) {
-        guard let userId = FirebaseManager.shared.currentUser?.uid else {
+        guard FirebaseManager.shared.currentUser?.uid != nil else {
             completion(false)
             return
         }

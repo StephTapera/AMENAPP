@@ -16,6 +16,8 @@
 const {onDocumentCreated, onDocumentDeleted} = require("firebase-functions/v2/firestore");
 const {onCall} = require("firebase-functions/v2/https");
 const admin = require("firebase-admin");
+const {moderatePostText} = require("./contentModeration");
+const {applyDefaultLimit} = require("./rateLimiter");
 
 const db = admin.firestore();
 
@@ -94,24 +96,64 @@ async function sendPushNotificationToUser(userId, title, body, data = {}, notifi
 
     const userDoc = await db.collection("users").doc(userId).get();
     const userData = userDoc.data();
-    const fcmToken = userData?.fcmToken;
 
-    if (!fcmToken) {
-      console.log(`⚠️ No FCM token for user ${userId}`);
+    // ✅ P0 FIX: Fan-out to ALL enabled device tokens from the subcollection.
+    // This supports multi-device users and avoids sending to stale legacy tokens.
+    // Falls back to the single top-level fcmToken field for older clients.
+    let tokens = [];
+
+    const deviceTokensSnap = await db.collection("users")
+        .doc(userId)
+        .collection("deviceTokens")
+        .where("enabled", "==", true)
+        .get();
+
+    if (!deviceTokensSnap.empty) {
+      tokens = deviceTokensSnap.docs.map((d) => d.data().token).filter(Boolean);
+    } else if (userData?.fcmToken) {
+      // Legacy fallback: single-token field
+      tokens = [userData.fcmToken];
+    }
+
+    if (tokens.length === 0) {
+      console.log(`⚠️ No FCM tokens for user ${userId}`);
       return null;
     }
 
-    const message = {
-      notification: {
-        title,
-        body,
-      },
+    const messageBase = {
+      notification: {title, body},
       data,
-      token: fcmToken,
     };
 
-    await admin.messaging().send(message);
-    console.log(`✅ Push notification sent to ${userId}`);
+    // Send to all tokens; collect invalid ones for cleanup
+    const staleTokens = [];
+    await Promise.all(tokens.map(async (token) => {
+      try {
+        await admin.messaging().send({...messageBase, token});
+      } catch (err) {
+        // registration-token-not-registered / invalid-registration-token = stale
+        if (err.code === "messaging/registration-token-not-registered" ||
+            err.code === "messaging/invalid-registration-token") {
+          staleTokens.push(token);
+        } else {
+          throw err;
+        }
+      }
+    }));
+
+    // ✅ P0 FIX: Remove stale tokens so they don't accumulate
+    if (staleTokens.length > 0) {
+      const batch = db.batch();
+      deviceTokensSnap.docs.forEach((d) => {
+        if (staleTokens.includes(d.data().token)) {
+          batch.delete(d.ref);
+        }
+      });
+      await batch.commit();
+      console.log(`🧹 Removed ${staleTokens.length} stale FCM token(s) for ${userId}`);
+    }
+
+    console.log(`✅ Push notification sent to ${userId} (${tokens.length - staleTokens.length} device(s))`);
     return {success: true};
   } catch (error) {
     console.error(`❌ Error sending push notification to ${userId}:`, error);
@@ -133,6 +175,17 @@ exports.onUserFollow = onDocumentCreated(
         console.log("⚠️ Missing followerId or followingId");
         return null;
       }
+
+      // ── Rate limit guard ──────────────────────────────────────────────────
+      try {
+        await applyDefaultLimit(followerId, "follow");
+      } catch (err) {
+        if (err.code === "resource-exhausted") {
+          console.log(`🚫 Rate limit exceeded for ${followerId} on follow`);
+          return null;
+        }
+      }
+      // ─────────────────────────────────────────────────────────────────────
 
       try {
         const followerDoc = await db.collection("users").doc(followerId).get();
@@ -239,6 +292,20 @@ exports.onCommentCreate = onDocumentCreated(
     async (event) => {
       const {postId} = event.params;
       const commentData = event.data.data();
+      const commentAuthorId = commentData.userId || commentData.authorId;
+
+      // ── Rate limit guard ──────────────────────────────────────────────────
+      if (commentAuthorId) {
+        try {
+          await applyDefaultLimit(commentAuthorId, "comment_create");
+        } catch (err) {
+          if (err.code === "resource-exhausted") {
+            console.log(`🚫 Rate limit exceeded for ${commentAuthorId} on comment_create`);
+            return null;
+          }
+        }
+      }
+      // ─────────────────────────────────────────────────────────────────────
 
       try {
         // Get post to find the author
@@ -478,88 +545,124 @@ exports.onCommentReply = onDocumentCreated(
 );
 
 // ============================================================================
-// 4. MENTION NOTIFICATIONS (NEW)
+// 4. MENTION NOTIFICATIONS
 // ============================================================================
+//
+// P0 FIX: Consolidated single trigger for posts/{postId}.
+// Previously two separate triggers (onPostCreate + onPostCreated) both fired
+// on the same document path, causing duplicate mention notifications.
+// This single function handles both sources of mention data:
+//   1. Explicit `mentions` array (set by the client, preferred — deterministic IDs)
+//   2. Regex scan of `content` as fallback for posts without the array
+//
+// P1 FIX: Mention regex updated to /@([\w.]+)/g so usernames with dots are matched.
 
 exports.onPostCreate = onDocumentCreated(
     {document: "posts/{postId}"},
     async (event) => {
       const postData = event.data.data();
       const {postId} = event.params;
+      const {authorId, content, mentions: explicitMentions} = postData;
 
-      // Extract mentions from post content (simple regex for @username)
-      const mentionRegex = /@(\w+)/g;
-      const mentions = [...postData.content.matchAll(mentionRegex)]
-          .map((match) => match[1]);
-
-      if (mentions.length === 0) {
-        return null;
+      // ── Rate limit guard ──────────────────────────────────────────────────
+      if (authorId) {
+        try {
+          await applyDefaultLimit(authorId, "post_create");
+        } catch (err) {
+          if (err.code === "resource-exhausted") {
+            console.log(`🚫 Rate limit exceeded for ${authorId} on post_create`);
+            return null;
+          }
+        }
       }
+      // ─────────────────────────────────────────────────────────────────────
+
+      // 🛡️ SERVER-SIDE TEXT MODERATION — runs async after write, fails open.
+      if (content && authorId) {
+        const modResult = await moderatePostText(postId, authorId, content);
+        if (modResult.shouldRemove) {
+          console.log(`🚫 Skipping notifications for removed post ${postId}`);
+          return null;
+        }
+      }
+
+      if (!authorId) return null;
 
       try {
         // Get author's profile
-        const authorDoc = await db.collection("users").doc(postData.authorId).get();
+        const authorDoc = await db.collection("users").doc(authorId).get();
+        if (!authorDoc.exists) return null;
+
         const authorData = authorDoc.data();
-        const authorName = authorData?.displayName || "Someone";
-
-        // ✅ NEW: Include profile photo
+        const authorName = authorData?.displayName || authorData?.username || "Someone";
+        const authorUsername = authorData?.username || "";
         const actorProfileImageURL = authorData?.profileImageURL ||
-                                     authorData?.profilePictureURL ||
-                                     "";
+                                     authorData?.profilePictureURL || "";
+        const contentPreview = (content || "").substring(0, 50) +
+            ((content || "").length > 50 ? "..." : "");
 
-        // Create notification for each mentioned user
-        const batch = db.batch();
+        // ── Build mention list ───────────────────────────────────────────────
+        // Strategy: prefer explicit mentions array (has userId, deterministic);
+        // fall back to regex scan if the array is absent/empty.
+        let mentionedUserIds = []; // [{userId, username}]
 
-        for (const username of mentions) {
-          // Find user by username
-          const userQuery = await db.collection("users")
-              .where("username", "==", username)
-              .limit(1)
-              .get();
+        if (explicitMentions && explicitMentions.length > 0) {
+          // Client-provided mentions array — already has resolved userIds
+          mentionedUserIds = explicitMentions
+              .filter((m) => m.userId && m.userId !== authorId)
+              .map((m) => ({userId: m.userId, username: m.username || ""}));
+        } else if (content) {
+          // Regex fallback — P1 FIX: [\w.] matches dots in usernames (e.g. john.doe)
+          const mentionRegex = /@([\w.]+)/g;
+          const usernames = [...content.matchAll(mentionRegex)].map((m) => m[1]);
 
-          if (!userQuery.empty) {
-            const mentionedUserDoc = userQuery.docs[0];
-            const mentionedUserId = mentionedUserDoc.id;
-
-            // Don't notify if user mentions themselves
-            if (mentionedUserId === postData.authorId) {
-              continue;
+          for (const username of usernames) {
+            const q = await db.collection("users")
+                .where("username", "==", username)
+                .limit(1)
+                .get();
+            if (!q.empty && q.docs[0].id !== authorId) {
+              mentionedUserIds.push({userId: q.docs[0].id, username});
             }
-
-            const notificationRef = db.collection("users")
-                .doc(mentionedUserId)
-                .collection("notifications")
-                .doc();
-
-            batch.set(notificationRef, {
-              type: "mention",
-              actorId: postData.authorId,
-              actorName: authorName,
-              actorUsername: authorData?.username || "",
-              actorProfileImageURL: actorProfileImageURL,  // ✅ NEW
-              postId: postId,
-              userId: mentionedUserId,
-              read: false,
-              createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            });
-
-            // Send push notification
-            await sendPushNotificationToUser(
-                mentionedUserId,
-                "You were mentioned",
-                `${authorName} mentioned you in a post`,
-                {
-                  type: "mention",
-                  actorId: postData.authorId,
-                  postId: postId,
-                },
-            );
           }
         }
 
-        await batch.commit();
-        console.log(`✅ Mention notifications created for ${mentions.length} users`);
+        if (mentionedUserIds.length === 0) return null;
 
+        // ── Fan-out notifications ────────────────────────────────────────────
+        const notificationPromises = mentionedUserIds.map(async ({userId: mentionedUserId, username}) => {
+          // ✅ Deterministic ID prevents duplicate mention notifications on CF retry
+          const notificationId = `mention_${authorId}_${postId}_${mentionedUserId}`;
+
+          await db.collection("users")
+              .doc(mentionedUserId)
+              .collection("notifications")
+              .doc(notificationId)
+              .set({
+                type: "mention",
+                actorId: authorId,
+                actorName: authorName,
+                actorUsername: authorUsername,
+                actorProfileImageURL: actorProfileImageURL,
+                postId: postId,
+                commentText: contentPreview,
+                userId: mentionedUserId,
+                read: false,
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+              }, {merge: true});
+
+          await sendPushNotificationToUser(
+              mentionedUserId,
+              `${authorName} mentioned you`,
+              contentPreview,
+              {type: "mention", postId, actorId: authorId},
+              "mention",
+          );
+        });
+
+        await Promise.all(notificationPromises);
+        console.log(`✅ Sent ${mentionedUserIds.length} mention notification(s) for post ${postId}`);
         return null;
       } catch (error) {
         console.error("❌ Error in onPostCreate:", error);
@@ -805,10 +908,14 @@ exports.onRepostCreate = onDocumentCreated(
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
         };
 
+        // ✅ P0 FIX: Use deterministic ID — prevents duplicate notifications on Cloud Function
+        // retry or client-side double-tap. Same reposter+post always maps to one doc.
+        const notificationId = `repost_${reposterId}_${repostData.postId}`;
         await db.collection("users")
             .doc(postAuthorId)
             .collection("notifications")
-            .add(notification);
+            .doc(notificationId)
+            .set(notification, {merge: true});
 
         console.log(`✅ Repost notification created for ${postAuthorId}`);
 
@@ -952,104 +1059,8 @@ exports.onMessageRequestAccepted = onDocumentCreated(
 );
 
 // ============================================================================
-// 9. POST MENTION NOTIFICATIONS
-// ============================================================================
-
-/**
- * Triggered when a new post is created
- * Sends mention notifications to all mentioned users
- */
-exports.onPostCreated = onDocumentCreated(
-    {document: "posts/{postId}"},
-    async (event) => {
-      const postData = event.data.data();
-      const postId = event.params.postId;
-      const {authorId, content, mentions} = postData;
-
-      if (!mentions || mentions.length === 0) {
-        console.log("📝 No mentions in post, skipping");
-        return null;
-      }
-
-      try {
-        // Get author data
-        const authorDoc = await db.collection("users").doc(authorId).get();
-        if (!authorDoc.exists) {
-          console.log("⚠️ Author not found");
-          return null;
-        }
-
-        const authorData = authorDoc.data();
-        const authorName = authorData?.displayName || authorData?.username || "Someone";
-        const authorUsername = authorData?.username || "";
-        const authorProfileImageURL = authorData?.profileImageURL || "";
-
-        // Get preview of post content (first 50 chars)
-        const contentPreview = content.substring(0, 50) + (content.length > 50 ? "..." : "");
-
-        // Send notification to each mentioned user
-        const notificationPromises = mentions.map(async (mention) => {
-          const mentionedUserId = mention.userId;
-
-          // Don't notify if user mentioned themselves
-          if (mentionedUserId === authorId) {
-            console.log(`⚠️ User mentioned themselves, skipping`);
-            return null;
-          }
-
-          // Create deterministic notification ID to prevent duplicates
-          const notificationId = `mention_${authorId}_${postId}_${mentionedUserId}`;
-
-          const notification = {
-            type: "mention",
-            actorId: authorId,
-            actorName: authorName,
-            actorUsername: authorUsername,
-            actorProfileImageURL: authorProfileImageURL,
-            postId: postId,
-            commentText: contentPreview, // Preview of post content
-            userId: mentionedUserId,
-            read: false,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-          };
-
-          // Save notification to Firestore with deterministic ID
-          await db.collection("users")
-              .doc(mentionedUserId)
-              .collection("notifications")
-              .doc(notificationId)
-              .set(notification, {merge: true});
-
-          console.log(`✅ Mention notification created for @${mention.username}`);
-
-          // Send push notification
-          await sendPushNotificationToUser(
-              mentionedUserId,
-              `${authorName} mentioned you`,
-              contentPreview,
-              {
-                type: "mention",
-                postId: postId,
-                actorId: authorId,
-              },
-          );
-
-          return {success: true, userId: mentionedUserId};
-        });
-
-        await Promise.all(notificationPromises);
-        console.log(`✅ Sent ${mentions.length} mention notifications for post ${postId}`);
-        return {success: true, count: mentions.length};
-      } catch (error) {
-        console.error("❌ Error in onPostCreated:", error);
-        return null;
-      }
-    },
-);
-
-// ============================================================================
-// 10. MESSAGE REACTION NOTIFICATIONS
+// 9. MESSAGE REACTION NOTIFICATIONS
+// NOTE: onPostCreated was removed — mention logic is consolidated into onPostCreate (section 4).
 // ============================================================================
 
 exports.onMessageReaction = onDocumentCreated(
@@ -1147,10 +1158,24 @@ exports.onMessageReaction = onDocumentCreated(
 
 exports.sendPushNotification = onCall(async (request) => {
   const {userId, title, body, data} = request.data;
+  const callerId = request.auth?.uid;
 
   if (!userId || !title || !body) {
     throw new Error("Missing required parameters: userId, title, body");
   }
+
+  // ── Rate limit guard ──────────────────────────────────────────────────────
+  if (callerId) {
+    try {
+      await applyDefaultLimit(callerId, "push_send");
+    } catch (err) {
+      if (err.code === "resource-exhausted") {
+        console.log(`🚫 Rate limit exceeded for ${callerId} on push_send`);
+        throw err;
+      }
+    }
+  }
+  // ───────────────────────────────────────────────────────────────────────────
 
   try {
     const result = await sendPushNotificationToUser(userId, title, body, data || {});

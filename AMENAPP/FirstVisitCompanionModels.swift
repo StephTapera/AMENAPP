@@ -37,7 +37,7 @@ struct VisitCompanionChurch: Identifiable, Codable, Hashable {
     let verified: Bool
     
     enum CodingKeys: String, CodingKey {
-        case id
+        // Note: `id` intentionally omitted — @DocumentID is populated by Firestore, not from document data
         case name
         case denomination
         case address
@@ -206,10 +206,12 @@ extension VisitCompanionChurch {
             phoneNumber: findChurchModel.phone.isEmpty ? nil : findChurchModel.phone,
             website: findChurchModel.website,
             description: nil,
-            dressCode: "Come as you are",
-            parkingInfo: "Parking available on-site",
-            accessibilityInfo: "Wheelchair accessible",
-            childcareAvailable: true,
+            // Leave these nil — the AI Visit Guide fills in practical tips,
+            // and "Contact the church for details." is shown until real data arrives.
+            dressCode: nil,
+            parkingInfo: nil,
+            accessibilityInfo: nil,
+            childcareAvailable: false,
             welcomeTeamContact: nil,
             services: [
                 VisitCompanionChurchService(

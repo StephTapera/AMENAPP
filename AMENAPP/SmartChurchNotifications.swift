@@ -71,7 +71,7 @@ enum ChurchNotificationType: String {
 
 /// Notification preferences view
 struct NotificationPreferencesView: View {
-    @StateObject private var notificationManager = ChurchNotificationManager.shared
+    @ObservedObject private var notificationManager = ChurchNotificationManager.shared
     @State private var preferences = NotificationPreferences()
     @Environment(\.dismiss) private var dismiss
     

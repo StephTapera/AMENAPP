@@ -11,7 +11,7 @@ import Combine
 // MARK: - API Service Protocol
 
 protocol APIServiceProtocol {
-    func fetch<T: Decodable>(endpoint: String, type: T.Type) async throws -> T
+    func fetch<T: Decodable & Sendable>(endpoint: String, type: T.Type) async throws -> T
 }
 
 // MARK: - Main API Service
@@ -29,7 +29,7 @@ class APIService: APIServiceProtocol {
         self.session = URLSession(configuration: configuration)
     }
     
-    func fetch<T: Decodable>(endpoint: String, type: T.Type) async throws -> T {
+    func fetch<T: Decodable & Sendable>(endpoint: String, type: T.Type) async throws -> T {
         guard let url = URL(string: "\(baseURL)/\(endpoint)") else {
             throw APIError.invalidURL
         }

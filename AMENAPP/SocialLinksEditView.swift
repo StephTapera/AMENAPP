@@ -69,7 +69,7 @@ struct SocialLinkUI: Identifiable, Equatable {
 
 struct SocialLinksEditView: View {
     @Environment(\.dismiss) var dismiss
-    @StateObject private var socialLinksService = SocialLinksService.shared
+    @ObservedObject private var socialLinksService = SocialLinksService.shared
     
     @Binding var socialLinks: [SocialLinkUI]
     

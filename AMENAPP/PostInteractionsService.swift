@@ -23,13 +23,11 @@ class PostInteractionsService: ObservableObject {
         if let db = _database {
             return db
         }
-        let databaseURL = "https://amen-5e359-default-rtdb.firebaseio.com"
-        print("🔥 Initializing PostInteractions Database with URL: [\(databaseURL)]")
-        let db = Database.database(url: databaseURL)
+        let db = Database.database()
         
         // ✅ NOTE: Offline persistence is already enabled globally in AppDelegate.swift
         // No need to call isPersistenceEnabled here (would crash if called after first access)
-        print("✅ PostInteractions Database initialized successfully (using global persistence)")
+        dlog("✅ PostInteractions Database initialized successfully (using global persistence)")
         
         _database = db
         return db
@@ -52,9 +50,31 @@ class PostInteractionsService: ObservableObject {
     @Published var userRepostedPosts: Set<String> = []     // Posts current user reposted
     
     @Published var postCommentsData: [String: [RealtimeComment]] = [:]  // postId -> comments
+
+    // P1-B FIX: Track per-post content expansion state here (not as PostCard @State)
+    // so the expanded state survives SwiftUI view recycling during scroll.
+    // PostCard reads and writes this set; the published change propagates via @ObservedObject.
+    @Published var expandedPostIds: Set<String> = []
+
+    /// Toggle or read per-post content expansion. Used by PostCard instead of local @State.
+    func isExpanded(_ postId: String) -> Bool { expandedPostIds.contains(postId) }
+    func toggleExpanded(_ postId: String) {
+        if expandedPostIds.contains(postId) {
+            expandedPostIds.remove(postId)
+        } else {
+            expandedPostIds.insert(postId)
+        }
+    }
     
     private var observers: [String: DatabaseHandle] = [:]
-    
+
+    // P0 FIX: In-flight guards prevent concurrent toggle calls (rapid double-tap).
+    // Keyed by postId so different posts can toggle independently.
+    private var lightbulbTogglesInFlight: Set<String> = []
+    private var amenTogglesInFlight: Set<String> = []
+    // P0-A FIX: Repost also needs an in-flight guard to prevent double-writes on rapid taps.
+    private var repostTogglesInFlight: Set<String> = []
+
     // Cache user's display name from Firestore
     @Published var cachedUserDisplayName: String?
     
@@ -85,18 +105,18 @@ class PostInteractionsService: ObservableObject {
                 await MainActor.run {
                     cachedUserDisplayName = displayName
                 }
-                print("✅ Loaded user display name: \(displayName)")
+                dlog("✅ Loaded user display name: \(displayName)")
                 
                 // Also update Firebase Auth profile if needed
                 if Auth.auth().currentUser?.displayName != displayName {
                     let changeRequest = Auth.auth().currentUser?.createProfileChangeRequest()
                     changeRequest?.displayName = displayName
                     try? await changeRequest?.commitChanges()
-                    print("✅ Updated Auth displayName")
+                    dlog("✅ Updated Auth displayName")
                 }
             }
         } catch {
-            print("⚠️ Could not load user display name: \(error)")
+            dlog("⚠️ Could not load user display name: \(error)")
         }
     }
     
@@ -131,33 +151,50 @@ class PostInteractionsService: ObservableObject {
         guard currentUserId != "anonymous" else {
             throw NSError(domain: "PostInteractions", code: -1, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
         }
-        
+
+        // P0 FIX: Prevent concurrent toggle calls from rapid double-taps.
+        // Without this guard two simultaneous read→write cycles can produce count drift.
+        guard !lightbulbTogglesInFlight.contains(postId) else {
+            dlog("⏭️ [Lightbulb] Toggle already in-flight for \(postId), ignoring duplicate")
+            return
+        }
+        lightbulbTogglesInFlight.insert(postId)
+        defer { lightbulbTogglesInFlight.remove(postId) }
+
         let userLightbulbRef = ref.child("postInteractions").child(postId).child("lightbulbs").child(currentUserId)
-        
-        // Check current state
-        let snapshot = try await userLightbulbRef.getData()
-        let isCurrentlyLit = snapshot.exists()
-        
+
+        // Use cached state — avoids a blocking getData() round-trip before the write.
+        // The cache is kept in sync by startListening() and the real-time observer.
+        let isCurrentlyLit = userLightbulbedPosts.contains(postId)
+
         if isCurrentlyLit {
             // Remove lightbulb
             try await userLightbulbRef.removeValue()
             
-            // Decrement count
-            try await ref.child("postInteractions").child(postId).child("lightbulbCount").setValue(ServerValue.increment(-1))
-            
-            // Update user interaction index
-            try await syncUserInteraction(type: "lightbulbs", postId: postId, value: false)
-            
-            // Update local state
-            userLightbulbedPosts.remove(postId)
-            if let currentCount = postLightbulbs[postId] {
-                postLightbulbs[postId] = max(0, currentCount - 1)
+            // Decrement count atomically with a transaction to prevent race conditions
+            try await ref.child("postInteractions").child(postId).child("lightbulbCount").runTransactionBlock { currentData in
+                if let count = currentData.value as? Int, count > 0 {
+                    currentData.value = count - 1
+                } else if currentData.value == nil {
+                    currentData.value = 0
+                }
+                return TransactionResult.success(withValue: currentData)
             }
             
-            print("💡 [DEBUG] Lightbulb removed from post: \(postId)")
-            print("   - User: \(currentUserId)")
-            print("   - New count: \(postLightbulbs[postId] ?? 0)")
-            print("   - User's total lightbulbs: \(userLightbulbedPosts.count)")
+            // Mirror to user interaction index in background (non-critical path)
+            Task.detached { [weak self] in
+                guard let self else { return }
+                try? await self.syncUserInteraction(type: "lightbulbs", postId: postId, value: false)
+            }
+
+            // Update local boolean state only — count is owned by the real-time observer.
+            // Mutating postLightbulbs here causes double-counting when the observer fires.
+            userLightbulbedPosts.remove(postId)
+
+            dlog("💡 [DEBUG] Lightbulb removed from post: \(postId)")
+            dlog("   - User: \(currentUserId)")
+            dlog("   - New count: \(postLightbulbs[postId] ?? 0)")
+            dlog("   - User's total lightbulbs: \(userLightbulbedPosts.count)")
         } else {
             // Add lightbulb
             try await userLightbulbRef.setValue([
@@ -165,29 +202,38 @@ class PostInteractionsService: ObservableObject {
                 "userName": currentUserName,
                 "timestamp": ServerValue.timestamp()
             ])
+
+            // Increment count atomically with a transaction to prevent race conditions
+            try await ref.child("postInteractions").child(postId).child("lightbulbCount").runTransactionBlock { currentData in
+                let count = currentData.value as? Int ?? 0
+                currentData.value = count + 1
+                return TransactionResult.success(withValue: currentData)
+            }
+
+            // Mirror to user interaction index in background (non-critical path)
+            Task.detached { [weak self] in
+                guard let self else { return }
+                try? await self.syncUserInteraction(type: "lightbulbs", postId: postId, value: true)
+            }
             
-            // Increment count
-            try await ref.child("postInteractions").child(postId).child("lightbulbCount").setValue(ServerValue.increment(1))
-            
-            // Update user interaction index
-            try await syncUserInteraction(type: "lightbulbs", postId: postId, value: true)
-            
-            // Update local state
+            // Update local boolean state only — count is owned by the real-time observer.
             userLightbulbedPosts.insert(postId)
-            postLightbulbs[postId] = (postLightbulbs[postId] ?? 0) + 1
-            
+
             // ✅ OPTIMIZED: Create notification asynchronously (fire-and-forget, doesn't block UI)
             Task.detached { [weak self] in
                 guard let self = self else { return }
-                if let postAuthorId = try? await self.getPostAuthorId(postId: postId) {
-                    try? await self.createNotification(type: "lightbulb", postId: postId, postAuthorId: postAuthorId)
+                do {
+                    let postAuthorId = try await self.getPostAuthorId(postId: postId)
+                    try await self.createNotification(type: "lightbulb", postId: postId, postAuthorId: postAuthorId)
+                } catch {
+                    dlog("⚠️ Lightbulb notification failed for post \(postId): \(error.localizedDescription)")
                 }
             }
             
-            print("💡 [DEBUG] Lightbulb added to post: \(postId)")
-            print("   - User: \(currentUserId)")
-            print("   - New count: \(postLightbulbs[postId] ?? 1)")
-            print("   - User's total lightbulbs: \(userLightbulbedPosts.count)")
+            dlog("💡 [DEBUG] Lightbulb added to post: \(postId)")
+            dlog("   - User: \(currentUserId)")
+            dlog("   - New count: \(postLightbulbs[postId] ?? 1)")
+            dlog("   - User's total lightbulbs: \(userLightbulbedPosts.count)")
         }
     }
     
@@ -200,21 +246,20 @@ class PostInteractionsService: ObservableObject {
             let snapshot = try await ref.child("userInteractions").child(currentUserId).child("lightbulbs").child(postId).getData()
             let exists = snapshot.exists()
             
-            // ✅ Sync cache with RTDB state to ensure consistency
-            // Delay updates to prevent "multiple updates per frame" warning when loading many posts
-            try? await Task.sleep(nanoseconds: 10_000_000) // 10ms delay
-            
-            if exists && !userLightbulbedPosts.contains(postId) {
-                userLightbulbedPosts.insert(postId)
-                print("💡 Added \(postId.prefix(8)) to lightbulb cache from RTDB query")
-            } else if !exists && userLightbulbedPosts.contains(postId) {
-                userLightbulbedPosts.remove(postId)
-                print("💡 Removed \(postId.prefix(8)) from lightbulb cache (not in RTDB)")
+            // ✅ Sync cache in background — don't block the caller waiting for a frame boundary.
+            // The 10ms sleep was preventing concurrent frame warnings but delayed every PostCard load.
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if exists && !self.userLightbulbedPosts.contains(postId) {
+                    self.userLightbulbedPosts.insert(postId)
+                } else if !exists && self.userLightbulbedPosts.contains(postId) {
+                    self.userLightbulbedPosts.remove(postId)
+                }
             }
             
             return exists
         } catch {
-            print("❌ Failed to check lightbulb status: \(error)")
+            dlog("❌ Failed to check lightbulb status: \(error)")
             // Return cache state on error
             return userLightbulbedPosts.contains(postId)
         }
@@ -226,7 +271,7 @@ class PostInteractionsService: ObservableObject {
             let snapshot = try await ref.child("postInteractions").child(postId).child("lightbulbCount").getData()
             return snapshot.value as? Int ?? 0
         } catch {
-            print("❌ Failed to get lightbulb count: \(error)")
+            dlog("❌ Failed to get lightbulb count: \(error)")
             return 0
         }
     }
@@ -238,33 +283,47 @@ class PostInteractionsService: ObservableObject {
         guard currentUserId != "anonymous" else {
             throw NSError(domain: "PostInteractions", code: -1, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
         }
-        
+
+        // P0 FIX: Prevent concurrent toggle calls from rapid double-taps.
+        guard !amenTogglesInFlight.contains(postId) else {
+            dlog("⏭️ [Amen] Toggle already in-flight for \(postId), ignoring duplicate")
+            return
+        }
+        amenTogglesInFlight.insert(postId)
+        defer { amenTogglesInFlight.remove(postId) }
+
         let userAmenRef = ref.child("postInteractions").child(postId).child("amens").child(currentUserId)
-        
-        // Check current state
-        let snapshot = try await userAmenRef.getData()
-        let isCurrentlyAmened = snapshot.exists()
-        
+
+        // Use cached state — avoids a blocking getData() round-trip before the write.
+        let isCurrentlyAmened = userAmenedPosts.contains(postId)
+
         if isCurrentlyAmened {
             // Remove amen
             try await userAmenRef.removeValue()
-            
-            // Decrement count
-            try await ref.child("postInteractions").child(postId).child("amenCount").setValue(ServerValue.increment(-1))
-            
-            // Update user interaction index
-            try await syncUserInteraction(type: "amens", postId: postId, value: false)
-            
-            // Update local state
-            userAmenedPosts.remove(postId)
-            if let currentCount = postAmens[postId] {
-                postAmens[postId] = max(0, currentCount - 1)
+
+            // Decrement count atomically with a transaction to prevent race conditions
+            try await ref.child("postInteractions").child(postId).child("amenCount").runTransactionBlock { currentData in
+                if let count = currentData.value as? Int, count > 0 {
+                    currentData.value = count - 1
+                } else if currentData.value == nil {
+                    currentData.value = 0
+                }
+                return TransactionResult.success(withValue: currentData)
             }
-            
-            print("🙏 [DEBUG] Amen removed from post: \(postId)")
-            print("   - User: \(currentUserId)")
-            print("   - New count: \(postAmens[postId] ?? 0)")
-            print("   - User's total amens: \(userAmenedPosts.count)")
+
+            // Mirror to user interaction index in background (non-critical path)
+            Task.detached { [weak self] in
+                guard let self else { return }
+                try? await self.syncUserInteraction(type: "amens", postId: postId, value: false)
+            }
+
+            // Update local boolean state only — count is owned by the real-time observer.
+            userAmenedPosts.remove(postId)
+
+            dlog("🙏 [DEBUG] Amen removed from post: \(postId)")
+            dlog("   - User: \(currentUserId)")
+            dlog("   - New count: \(postAmens[postId] ?? 0)")
+            dlog("   - User's total amens: \(userAmenedPosts.count)")
         } else {
             // Add amen
             try await userAmenRef.setValue([
@@ -272,29 +331,38 @@ class PostInteractionsService: ObservableObject {
                 "userName": currentUserName,
                 "timestamp": ServerValue.timestamp()
             ])
+
+            // Increment count atomically with a transaction to prevent race conditions
+            try await ref.child("postInteractions").child(postId).child("amenCount").runTransactionBlock { currentData in
+                let count = currentData.value as? Int ?? 0
+                currentData.value = count + 1
+                return TransactionResult.success(withValue: currentData)
+            }
+
+            // Mirror to user interaction index in background (non-critical path)
+            Task.detached { [weak self] in
+                guard let self else { return }
+                try? await self.syncUserInteraction(type: "amens", postId: postId, value: true)
+            }
             
-            // Increment count
-            try await ref.child("postInteractions").child(postId).child("amenCount").setValue(ServerValue.increment(1))
-            
-            // Update user interaction index
-            try await syncUserInteraction(type: "amens", postId: postId, value: true)
-            
-            // Update local state
+            // Update local boolean state only — count is owned by the real-time observer.
             userAmenedPosts.insert(postId)
-            postAmens[postId] = (postAmens[postId] ?? 0) + 1
-            
+
             // ✅ OPTIMIZED: Create notification asynchronously (fire-and-forget, doesn't block UI)
             Task.detached { [weak self] in
                 guard let self = self else { return }
-                if let postAuthorId = try? await self.getPostAuthorId(postId: postId) {
-                    try? await self.createNotification(type: "amen", postId: postId, postAuthorId: postAuthorId)
+                do {
+                    let postAuthorId = try await self.getPostAuthorId(postId: postId)
+                    try await self.createNotification(type: "amen", postId: postId, postAuthorId: postAuthorId)
+                } catch {
+                    dlog("⚠️ Amen notification failed for post \(postId): \(error.localizedDescription)")
                 }
             }
             
-            print("🙏 [DEBUG] Amen added to post: \(postId)")
-            print("   - User: \(currentUserId)")
-            print("   - New count: \(postAmens[postId] ?? 1)")
-            print("   - User's total amens: \(userAmenedPosts.count)")
+            dlog("🙏 [DEBUG] Amen added to post: \(postId)")
+            dlog("   - User: \(currentUserId)")
+            dlog("   - New count: \(postAmens[postId] ?? 1)")
+            dlog("   - User's total amens: \(userAmenedPosts.count)")
         }
     }
     
@@ -307,21 +375,19 @@ class PostInteractionsService: ObservableObject {
             let snapshot = try await ref.child("userInteractions").child(currentUserId).child("amens").child(postId).getData()
             let exists = snapshot.exists()
             
-            // ✅ Sync cache with RTDB state to ensure consistency
-            // Delay updates to prevent "multiple updates per frame" warning when loading many posts
-            try? await Task.sleep(nanoseconds: 20_000_000) // 20ms delay (stagger from lightbulb)
-            
-            if exists && !userAmenedPosts.contains(postId) {
-                userAmenedPosts.insert(postId)
-                print("🙏 Added \(postId.prefix(8)) to amen cache from RTDB query")
-            } else if !exists && userAmenedPosts.contains(postId) {
-                userAmenedPosts.remove(postId)
-                print("🙏 Removed \(postId.prefix(8)) from amen cache (not in RTDB)")
+            // ✅ Sync cache in background — don't block the caller waiting for a frame boundary.
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if exists && !self.userAmenedPosts.contains(postId) {
+                    self.userAmenedPosts.insert(postId)
+                } else if !exists && self.userAmenedPosts.contains(postId) {
+                    self.userAmenedPosts.remove(postId)
+                }
             }
             
             return exists
         } catch {
-            print("❌ Failed to check amen status: \(error)")
+            dlog("❌ Failed to check amen status: \(error)")
             // Return cache state on error
             return userAmenedPosts.contains(postId)
         }
@@ -333,25 +399,67 @@ class PostInteractionsService: ObservableObject {
             let snapshot = try await ref.child("postInteractions").child(postId).child("amenCount").getData()
             return snapshot.value as? Int ?? 0
         } catch {
-            print("❌ Failed to get amen count: \(error)")
+            dlog("❌ Failed to get amen count: \(error)")
             return 0
         }
     }
     
     // MARK: - Comments
     
+    // P0: Prevent double-tap duplicate comments.
+    // Key = userId + postId + content-prefix + truncated-second.
+    @MainActor private var inflightComments: [String: Task<String, Error>] = [:]
+
     /// Add a comment to a post
     func addComment(
-        postId: String, 
-        content: String, 
-        authorInitials: String = "??", 
+        postId: String,
+        content: String,
+        authorInitials: String = "??",
         authorUsername: String,
-        authorProfileImageURL: String? = nil  // ✅ NEW PARAMETER
+        authorProfileImageURL: String? = nil,
+        clientRequestId: String? = nil  // Optimistic UI dedup key written to RTDB
     ) async throws -> String {
         guard currentUserId != "anonymous" else {
             throw NSError(domain: "PostInteractions", code: -1, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
         }
-        
+
+        // P0 IDEMPOTENCY: coalesce rapid double-taps on "Send"
+        let truncatedSecond = Int(Date().timeIntervalSince1970)
+        let commentIdempotencyKey = "\(currentUserId)_\(postId)_\(content.prefix(32))_\(truncatedSecond)"
+        if let existingTask = inflightComments[commentIdempotencyKey] {
+            dlog("⏭️ [Idempotency] Comment already in flight, waiting for existing task")
+            return try await existingTask.value
+        }
+
+        let commentTask = Task<String, Error> { [weak self] in
+            guard let self else { throw NSError(domain: "PostInteractions", code: -2) }
+            defer {
+                Task { @MainActor in
+                    self.inflightComments.removeValue(forKey: commentIdempotencyKey)
+                }
+            }
+            return try await self._performAddComment(
+                postId: postId,
+                content: content,
+                authorInitials: authorInitials,
+                authorUsername: authorUsername,
+                authorProfileImageURL: authorProfileImageURL,
+                clientRequestId: clientRequestId
+            )
+        }
+        inflightComments[commentIdempotencyKey] = commentTask
+        return try await commentTask.value
+    }
+
+    /// Internal implementation called after idempotency gate.
+    private func _performAddComment(
+        postId: String,
+        content: String,
+        authorInitials: String = "??",
+        authorUsername: String,
+        authorProfileImageURL: String? = nil,
+        clientRequestId: String? = nil
+    ) async throws -> String {
         let commentRef = ref.child("postInteractions").child(postId).child("comments").childByAutoId()
         
         guard let commentId = commentRef.key else {
@@ -376,25 +484,30 @@ class PostInteractionsService: ObservableObject {
         // ✅ Add profile image URL if available
         if let profileImageURL = authorProfileImageURL, !profileImageURL.isEmpty {
             commentData["authorProfileImageURL"] = profileImageURL
-            print("✅ Storing profile image URL in comment: \(profileImageURL)")
+            dlog("✅ Storing profile image URL in comment: \(profileImageURL)")
+        }
+
+        // Write clientRequestId so the real-time listener can match optimistic entries
+        if let clientRequestId = clientRequestId {
+            commentData["clientRequestId"] = clientRequestId
         }
         
         do {
             try await commentRef.setValue(commentData)
-            print("✅ Comment data written to RTDB successfully")
-            print("   Path: postInteractions/\(postId)/comments/\(commentId)")
-            print("   Data keys: \(commentData.keys.joined(separator: ", "))")
+            dlog("✅ Comment data written to RTDB successfully")
+            dlog("   Path: postInteractions/\(postId)/comments/\(commentId)")
+            dlog("   Data keys: \(commentData.keys.joined(separator: ", "))")
         } catch {
-            print("❌ CRITICAL: Failed to write comment to RTDB: \(error)")
+            dlog("❌ CRITICAL: Failed to write comment to RTDB: \(error)")
             throw error
         }
         
         // Increment comment count
         do {
             try await ref.child("postInteractions").child(postId).child("commentCount").setValue(ServerValue.increment(1))
-            print("✅ Comment count incremented successfully")
+            dlog("✅ Comment count incremented successfully")
         } catch {
-            print("⚠️ Warning: Failed to increment comment count: \(error)")
+            dlog("⚠️ Warning: Failed to increment comment count: \(error)")
             // Don't throw - comment was still created
         }
         
@@ -404,13 +517,16 @@ class PostInteractionsService: ObservableObject {
         // ✅ Create notification for post author
         Task.detached { [weak self] in
             guard let self = self else { return }
-            if let postAuthorId = try? await self.getPostAuthorId(postId: postId) {
-                try? await self.createNotification(type: "comment", postId: postId, postAuthorId: postAuthorId)
+            do {
+                let postAuthorId = try await self.getPostAuthorId(postId: postId)
+                try await self.createNotification(type: "comment", postId: postId, postAuthorId: postAuthorId)
+            } catch {
+                dlog("⚠️ Comment notification failed for post \(postId): \(error.localizedDescription)")
             }
         }
         
-        print("💬 Comment added to post: \(postId) by @\(authorUsername)")
-        print("🔍 You can verify at: postInteractions/\(postId)/comments")
+        dlog("💬 Comment added to post: \(postId) by @\(authorUsername)")
+        dlog("🔍 You can verify at: postInteractions/\(postId)/comments")
         
         return commentId
     }
@@ -432,46 +548,55 @@ class PostInteractionsService: ObservableObject {
         }
         
         try await commentRef.removeValue()
-        
-        // Decrement comment count
-        try await ref.child("postInteractions").child(postId).child("commentCount").setValue(ServerValue.increment(-1))
-        
+
+        // P1 FIX: Use a transaction to decrement with a floor of 0.
+        // ServerValue.increment(-1) alone can produce negative counts if multiple
+        // deletes race. The transaction aborts if the value would go below 0.
+        try await ref.child("postInteractions").child(postId).child("commentCount").runTransactionBlock { currentData in
+            if let count = currentData.value as? Int, count > 0 {
+                currentData.value = count - 1
+            } else {
+                currentData.value = 0
+            }
+            return TransactionResult.success(withValue: currentData)
+        }
+
         // Update local state
         if let currentCount = postComments[postId] {
             postComments[postId] = max(0, currentCount - 1)
         }
         
-        print("💬 Comment deleted: \(commentId)")
+        dlog("💬 Comment deleted: \(commentId)")
     }
     
     /// Get comments for a post
     func getComments(postId: String) async -> [RealtimeComment] {
-        print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-        print("🔍 [RTDB] GET COMMENTS CALLED")
-        print("🔍 [RTDB] Post ID: \(postId)")
-        print("🔍 [RTDB] Querying path: postInteractions/\(postId)/comments")
-        print("🔍 [RTDB] Database URL: \(database.app?.options.databaseURL ?? "unknown")")
-        print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        dlog("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        dlog("🔍 [RTDB] GET COMMENTS CALLED")
+        dlog("🔍 [RTDB] Post ID: \(postId)")
+        dlog("🔍 [RTDB] Querying path: postInteractions/\(postId)/comments")
+        dlog("🔍 [RTDB] Database URL: \(database.app?.options.databaseURL ?? "unknown")")
+        dlog("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
         
         // ✅ FIX: Use observeSingleEvent instead of getData() to properly use offline cache
         // getData() bypasses cache on cold start, observeSingleEvent uses cache-first approach
         return await withCheckedContinuation { continuation in
-            print("🔍 [RTDB] Using observeSingleEvent for cache-friendly loading...")
+            dlog("🔍 [RTDB] Using observeSingleEvent for cache-friendly loading...")
             
             ref.child("postInteractions").child(postId).child("comments")
                 .observeSingleEvent(of: .value) { snapshot in
-                    print("🔍 [RTDB] observeSingleEvent returned successfully")
-                    print("🔍 [RTDB] Snapshot exists: \(snapshot.exists()), hasChildren: \(snapshot.hasChildren())")
-                    print("🔍 [RTDB] Children count: \(snapshot.childrenCount)")
+                    dlog("🔍 [RTDB] observeSingleEvent returned successfully")
+                    dlog("🔍 [RTDB] Snapshot exists: \(snapshot.exists()), hasChildren: \(snapshot.hasChildren())")
+                    dlog("🔍 [RTDB] Children count: \(snapshot.childrenCount)")
 
                     // Debug: Print raw snapshot value
                     if let rawValue = snapshot.value {
-                        print("🔍 [RTDB] Raw snapshot value type: \(type(of: rawValue))")
+                        dlog("🔍 [RTDB] Raw snapshot value type: \(type(of: rawValue))")
                         if let dict = rawValue as? [String: Any] {
-                            print("🔍 [RTDB] Comment IDs in snapshot: \(dict.keys.joined(separator: ", "))")
+                            dlog("🔍 [RTDB] Comment IDs in snapshot: \(dict.keys.joined(separator: ", "))")
                         }
                     } else {
-                        print("⚠️ [RTDB] Snapshot value is nil!")
+                        dlog("⚠️ [RTDB] Snapshot value is nil!")
                     }
                     
                     var comments: [RealtimeComment] = []
@@ -516,15 +641,15 @@ class PostInteractionsService: ObservableObject {
                     // Sort by timestamp
                     comments.sort { $0.timestamp < $1.timestamp }
                     
-                    print("✅ [RTDB] Successfully parsed \(comments.count) comments")
+                    dlog("✅ [RTDB] Successfully parsed \(comments.count) comments")
                     for comment in comments {
-                        print("   📝 ID: \(comment.id) - Content: \"\(comment.content)\"")
+                        dlog("   📝 ID: \(comment.id) - Content: \"\(comment.content)\"")
                     }
                     
                     continuation.resume(returning: comments)
                 } withCancel: { error in
-                    print("❌ [RTDB] Failed to get comments: \(error)")
-                    print("   Error details: \(error.localizedDescription)")
+                    dlog("❌ [RTDB] Failed to get comments: \(error)")
+                    dlog("   Error details: \(error.localizedDescription)")
                     continuation.resume(returning: [])
                 }
         }
@@ -536,7 +661,7 @@ class PostInteractionsService: ObservableObject {
             let snapshot = try await ref.child("postInteractions").child(postId).child("commentCount").getData()
             return snapshot.value as? Int ?? 0
         } catch {
-            print("❌ Failed to get comment count: \(error)")
+            dlog("❌ Failed to get comment count: \(error)")
             return 0
         }
     }
@@ -548,22 +673,39 @@ class PostInteractionsService: ObservableObject {
         guard currentUserId != "anonymous" else {
             throw NSError(domain: "PostInteractions", code: -1, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
         }
-        
+
+        // P0-A FIX: Prevent concurrent repost toggle calls from rapid double-taps.
+        guard !repostTogglesInFlight.contains(postId) else {
+            dlog("⏭️ [Repost] Toggle already in-flight for \(postId), ignoring duplicate")
+            return userRepostedPosts.contains(postId)
+        }
+        repostTogglesInFlight.insert(postId)
+        defer { repostTogglesInFlight.remove(postId) }
+
         let userRepostRef = ref.child("postInteractions").child(postId).child("reposts").child(currentUserId)
-        
-        // Check current state
-        let snapshot = try await userRepostRef.getData()
-        let isCurrentlyReposted = snapshot.exists()
-        
+
+        // Use cached state — avoids a blocking getData() round-trip before the write.
+        let isCurrentlyReposted = userRepostedPosts.contains(postId)
+
         if isCurrentlyReposted {
             // Remove repost
             try await userRepostRef.removeValue()
-            
-            // Decrement count
-            try await ref.child("postInteractions").child(postId).child("repostCount").setValue(ServerValue.increment(-1))
-            
-            // Update user interaction index
-            try await syncUserInteraction(type: "reposts", postId: postId, value: false)
+
+            // P0-E FIX: Use a transaction to decrement with a floor of 0.
+            try await ref.child("postInteractions").child(postId).child("repostCount").runTransactionBlock { currentData in
+                if let count = currentData.value as? Int, count > 0 {
+                    currentData.value = count - 1
+                } else {
+                    currentData.value = 0
+                }
+                return TransactionResult.success(withValue: currentData)
+            }
+
+            // Mirror to user interaction index in background (non-critical path)
+            Task.detached { [weak self] in
+                guard let self else { return }
+                try? await self.syncUserInteraction(type: "reposts", postId: postId, value: false)
+            }
             
             // Update local state
             userRepostedPosts.remove(postId)
@@ -571,10 +713,10 @@ class PostInteractionsService: ObservableObject {
                 postReposts[postId] = max(0, currentCount - 1)
             }
             
-            print("🔄 [DEBUG] Repost removed from post: \(postId)")
-            print("   - User: \(currentUserId)")
-            print("   - New count: \(postReposts[postId] ?? 0)")
-            print("   - User's total reposts: \(userRepostedPosts.count)")
+            dlog("🔄 [DEBUG] Repost removed from post: \(postId)")
+            dlog("   - User: \(currentUserId)")
+            dlog("   - New count: \(postReposts[postId] ?? 0)")
+            dlog("   - User's total reposts: \(userRepostedPosts.count)")
             return false
         } else {
             // Add repost
@@ -586,10 +728,13 @@ class PostInteractionsService: ObservableObject {
             
             // Increment count
             try await ref.child("postInteractions").child(postId).child("repostCount").setValue(ServerValue.increment(1))
-            
-            // Update user interaction index
-            try await syncUserInteraction(type: "reposts", postId: postId, value: true)
-            
+
+            // Mirror to user interaction index in background (non-critical path)
+            Task.detached { [weak self] in
+                guard let self else { return }
+                try? await self.syncUserInteraction(type: "reposts", postId: postId, value: true)
+            }
+
             // Update local state
             userRepostedPosts.insert(postId)
             postReposts[postId] = (postReposts[postId] ?? 0) + 1
@@ -597,15 +742,18 @@ class PostInteractionsService: ObservableObject {
             // ✅ Create notification for post author
             Task.detached { [weak self] in
                 guard let self = self else { return }
-                if let postAuthorId = try? await self.getPostAuthorId(postId: postId) {
-                    try? await self.createNotification(type: "repost", postId: postId, postAuthorId: postAuthorId)
+                do {
+                    let postAuthorId = try await self.getPostAuthorId(postId: postId)
+                    try await self.createNotification(type: "repost", postId: postId, postAuthorId: postAuthorId)
+                } catch {
+                    dlog("⚠️ Repost notification failed for post \(postId): \(error.localizedDescription)")
                 }
             }
             
-            print("🔄 [DEBUG] Repost added to post: \(postId)")
-            print("   - User: \(currentUserId)")
-            print("   - New count: \(postReposts[postId] ?? 1)")
-            print("   - User's total reposts: \(userRepostedPosts.count)")
+            dlog("🔄 [DEBUG] Repost added to post: \(postId)")
+            dlog("   - User: \(currentUserId)")
+            dlog("   - New count: \(postReposts[postId] ?? 1)")
+            dlog("   - User's total reposts: \(userRepostedPosts.count)")
             return true
         }
     }
@@ -619,21 +767,19 @@ class PostInteractionsService: ObservableObject {
             let snapshot = try await ref.child("userInteractions").child(currentUserId).child("reposts").child(postId).getData()
             let exists = snapshot.exists()
             
-            // ✅ Sync cache with RTDB state to ensure consistency
-            // Delay updates to prevent "multiple updates per frame" warning when loading many posts
-            try? await Task.sleep(nanoseconds: 30_000_000) // 30ms delay (stagger from lightbulb/amen)
-            
-            if exists && !userRepostedPosts.contains(postId) {
-                userRepostedPosts.insert(postId)
-                print("🔄 Added \(postId.prefix(8)) to repost cache from RTDB query")
-            } else if !exists && userRepostedPosts.contains(postId) {
-                userRepostedPosts.remove(postId)
-                print("🔄 Removed \(postId.prefix(8)) from repost cache (not in RTDB)")
+            // ✅ Sync cache in background — don't block the caller waiting for a frame boundary.
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if exists && !self.userRepostedPosts.contains(postId) {
+                    self.userRepostedPosts.insert(postId)
+                } else if !exists && self.userRepostedPosts.contains(postId) {
+                    self.userRepostedPosts.remove(postId)
+                }
             }
             
             return exists
         } catch {
-            print("❌ Failed to check repost status: \(error)")
+            dlog("❌ Failed to check repost status: \(error)")
             // Return cache state on error
             return userRepostedPosts.contains(postId)
         }
@@ -645,7 +791,7 @@ class PostInteractionsService: ObservableObject {
             let snapshot = try await ref.child("postInteractions").child(postId).child("repostCount").getData()
             return snapshot.value as? Int ?? 0
         } catch {
-            print("❌ Failed to get repost count: \(error)")
+            dlog("❌ Failed to get repost count: \(error)")
             return 0
         }
     }
@@ -659,47 +805,54 @@ class PostInteractionsService: ObservableObject {
         
         let postRef = ref.child("postInteractions").child(postId)
         
-        // Observe lightbulb count
-        let lightbulbHandle = postRef.child("lightbulbCount").observe(.value) { [weak self] snapshot in
+        // PERF: Observe all 4 counts in a single listener on the parent node.
+        // This batches lightbulb/amen/comment/repost updates into one objectWillChange publish
+        // instead of 4 separate ones, cutting PostCard .onChange callbacks by 75%.
+        let countsHandle = postRef.observe(.value) { [weak self] snapshot in
             guard let self = self else { return }
-            let count = snapshot.value as? Int ?? 0
-            self.postLightbulbs[postId] = count
+            // Firebase callbacks run on a background thread; extract plain values now
+            // so we never mutate @Published properties off MainActor (causes SIGABRT).
+            guard let data = snapshot.value as? [String: Any] else { return }
+            let lightbulbs = data["lightbulbCount"] as? Int ?? 0
+            let amens      = data["amenCount"]      as? Int ?? 0
+            let comments   = data["commentCount"]   as? Int ?? 0
+            let reposts    = data["repostCount"]    as? Int ?? 0
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                // Send objectWillChange once, then mutate all 4 backing stores directly
+                // so SwiftUI sees a single state-change notification.
+                self.objectWillChange.send()
+                self.postLightbulbs.updateValue(lightbulbs, forKey: postId)
+                self.postAmens.updateValue(amens,      forKey: postId)
+                self.postComments.updateValue(comments, forKey: postId)
+                self.postReposts.updateValue(reposts,  forKey: postId)
+            }
         }
-        observers["\(postId)_lightbulbs"] = lightbulbHandle
-        
-        // Observe amen count
-        let amenHandle = postRef.child("amenCount").observe(.value) { [weak self] snapshot in
-            guard let self = self else { return }
-            let count = snapshot.value as? Int ?? 0
-            self.postAmens[postId] = count
-        }
-        observers["\(postId)_amens"] = amenHandle
-        
-        // Observe comment count
-        let commentHandle = postRef.child("commentCount").observe(.value) { [weak self] snapshot in
-            guard let self = self else { return }
-            let count = snapshot.value as? Int ?? 0
-            self.postComments[postId] = count
-        }
-        observers["\(postId)_comments"] = commentHandle
-        
-        // Observe repost count
-        let repostHandle = postRef.child("repostCount").observe(.value) { [weak self] snapshot in
-            guard let self = self else { return }
-            let count = snapshot.value as? Int ?? 0
-            self.postReposts[postId] = count
-        }
-        observers["\(postId)_reposts"] = repostHandle
+        observers["\(postId)_counts"] = countsHandle
         
         // Observe comments data
         let commentsDataHandle = postRef.child("comments").observe(.value) { [weak self] snapshot in
             guard let self = self else { return }
-            
-            var comments: [RealtimeComment] = []
-            
-            for child in snapshot.children {
-                guard let childSnapshot = child as? DataSnapshot,
-                      let commentData = childSnapshot.value as? [String: Any],
+
+            // ⚠️ CRITICAL: DataSnapshot memory is only valid synchronously within this callback.
+            // Extract everything into plain Swift value types NOW, before crossing an async boundary.
+            struct RawRealtimeComment {
+                let id: String
+                let postId: String
+                let authorId: String
+                let authorName: String
+                let authorInitials: String
+                let authorUsername: String?
+                let authorProfileImageURL: String?
+                let content: String
+                let timestamp: Int64
+                let likes: Int
+                let parentCommentId: String?
+            }
+
+            var rawComments: [RawRealtimeComment] = []
+            for child in snapshot.children.allObjects as? [DataSnapshot] ?? [] {
+                guard let commentData = child.value as? [String: Any],
                       let id = commentData["id"] as? String,
                       let authorId = commentData["authorId"] as? String,
                       let authorName = commentData["authorName"] as? String,
@@ -708,34 +861,42 @@ class PostInteractionsService: ObservableObject {
                       let timestamp = commentData["timestamp"] as? Int64 else {
                     continue
                 }
-                
-                let likes = commentData["likes"] as? Int ?? 0
-                // ✅ NEW: Read username from RTDB
-                let authorUsername = commentData["authorUsername"] as? String
-                // ✅ NEW: Read profile image URL from RTDB
-                let authorProfileImageURL = commentData["authorProfileImageURL"] as? String
-                // ✅ NEW: Read parentCommentId for replies
-                let parentCommentId = commentData["parentCommentId"] as? String
-                
-                let comment = RealtimeComment(
+                rawComments.append(RawRealtimeComment(
                     id: id,
                     postId: postId,
                     authorId: authorId,
                     authorName: authorName,
                     authorInitials: authorInitials,
-                    authorUsername: authorUsername,  // ✅ Pass username
-                    authorProfileImageURL: authorProfileImageURL,  // ✅ Pass profile image URL
+                    authorUsername: commentData["authorUsername"] as? String,
+                    authorProfileImageURL: commentData["authorProfileImageURL"] as? String,
                     content: content,
-                    timestamp: Date(timeIntervalSince1970: Double(timestamp) / 1000.0),
-                    likes: likes,
-                    parentCommentId: parentCommentId  // ✅ Pass parentCommentId
-                )
-                
-                comments.append(comment)
+                    timestamp: timestamp,
+                    likes: commentData["likes"] as? Int ?? 0,
+                    parentCommentId: commentData["parentCommentId"] as? String
+                ))
             }
-            
-            comments.sort { $0.timestamp < $1.timestamp }
-            self.postCommentsData[postId] = comments
+            // DataSnapshot is no longer referenced after this point.
+
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                var comments: [RealtimeComment] = rawComments.map { raw in
+                    RealtimeComment(
+                        id: raw.id,
+                        postId: raw.postId,
+                        authorId: raw.authorId,
+                        authorName: raw.authorName,
+                        authorInitials: raw.authorInitials,
+                        authorUsername: raw.authorUsername,
+                        authorProfileImageURL: raw.authorProfileImageURL,
+                        content: raw.content,
+                        timestamp: Date(timeIntervalSince1970: Double(raw.timestamp) / 1000.0),
+                        likes: raw.likes,
+                        parentCommentId: raw.parentCommentId
+                    )
+                }
+                comments.sort { $0.timestamp < $1.timestamp }
+                self.postCommentsData[postId] = comments
+            }
         }
         observers["\(postId)_commentsData"] = commentsDataHandle
 
@@ -743,20 +904,27 @@ class PostInteractionsService: ObservableObject {
     
     /// Stop observing a specific post
     func stopObservingPost(postId: String) {
-        let pathMapping: [String: String] = [
-            "\(postId)_lightbulbs": "lightbulbCount",
-            "\(postId)_amens": "amenCount",
-            "\(postId)_comments": "commentCount",
-            "\(postId)_reposts": "repostCount",
-            "\(postId)_commentsData": "comments"
-        ]
-        
-        for (key, path) in pathMapping {
+        // _counts: single parent-node listener (replaces the old 4 per-field listeners)
+        // _commentsData: comments sub-tree listener
+        let keys = ["\(postId)_counts", "\(postId)_commentsData"]
+        let postRef = ref.child("postInteractions").child(postId)
+        for key in keys {
             if let handle = observers[key] {
-                ref.child("postInteractions").child(postId).child(path).removeObserver(withHandle: handle)
+                postRef.removeObserver(withHandle: handle)
                 observers.removeValue(forKey: key)
             }
         }
+    }
+    
+    /// Stop ALL active observers — call on sign-out or when no posts are visible.
+    func stopAllObservers() {
+        // Each key is formatted as "\(postId)_<suffix>" where suffix is one of the
+        // five known suffixes. We remove by handle directly on the root ref so we
+        // don't need to reconstruct the path (avoids any fragility with postId format).
+        for (_, handle) in observers {
+            ref.removeObserver(withHandle: handle)
+        }
+        observers.removeAll()
     }
     
     // MARK: - Load User Interactions
@@ -764,11 +932,11 @@ class PostInteractionsService: ObservableObject {
     /// Load all user's interactions on app start
     private func loadUserInteractions() {
         guard currentUserId != "anonymous" else { 
-            print("⚠️ Cannot load user interactions: anonymous user")
+            dlog("⚠️ Cannot load user interactions: anonymous user")
             return 
         }
         
-        print("🔄 Loading user interactions for user: \(currentUserId)")
+        dlog("🔄 Loading user interactions for user: \(currentUserId)")
         
         // ✅ CRITICAL FIX: Don't load with getData() - it races with the observer and clears data!
         // The real-time observer (observeUserInteractions) loads from cache instantly via .observe()
@@ -787,7 +955,7 @@ class PostInteractionsService: ObservableObject {
     private func loadInitialUserInteractionsFromCache() async {
         guard currentUserId != "anonymous" else { return }
         
-        print("📦 Loading initial user interactions from cache...")
+        dlog("📦 Loading initial user interactions from cache...")
         let userInteractionsRef = ref.child("userInteractions").child(currentUserId)
         
         // ✅ FIX: Use observeSingleEvent instead of getData() for instant cache-first reads
@@ -802,7 +970,7 @@ class PostInteractionsService: ObservableObject {
             func checkCompletion() {
                 if hasLoadedLightbulbs && hasLoadedAmens && hasLoadedReposts {
                     Task { @MainActor in
-                        print("✅ Initial user interactions loaded successfully from cache")
+                        dlog("✅ Initial user interactions loaded successfully from cache")
                         self.hasLoadedInitialCache = true
                         continuation.resume()
                     }
@@ -820,10 +988,10 @@ class PostInteractionsService: ObservableObject {
                 Task { @MainActor in
                     if let data = snapshot.value as? [String: Bool] {
                         self.userLightbulbedPosts = Set(data.keys)
-                        print("✅ Loaded \(self.userLightbulbedPosts.count) lightbulbed posts from cache")
-                        print("   💡 Post IDs: \(self.userLightbulbedPosts.map { $0.prefix(8) }.joined(separator: ", "))")
+                        dlog("✅ Loaded \(self.userLightbulbedPosts.count) lightbulbed posts from cache")
+                        dlog("   💡 Post IDs: \(self.userLightbulbedPosts.map { $0.prefix(8) }.joined(separator: ", "))")
                     } else {
-                        print("📭 No lightbulbed posts in cache")
+                        dlog("📭 No lightbulbed posts in cache")
                     }
                     hasLoadedLightbulbs = true
                     checkCompletion()
@@ -841,9 +1009,9 @@ class PostInteractionsService: ObservableObject {
                 Task { @MainActor in
                     if let data = snapshot.value as? [String: Bool] {
                         self.userAmenedPosts = Set(data.keys)
-                        print("✅ Loaded \(self.userAmenedPosts.count) amened posts from cache")
+                        dlog("✅ Loaded \(self.userAmenedPosts.count) amened posts from cache")
                     } else {
-                        print("📭 No amened posts in cache")
+                        dlog("📭 No amened posts in cache")
                     }
                     hasLoadedAmens = true
                     checkCompletion()
@@ -861,9 +1029,9 @@ class PostInteractionsService: ObservableObject {
                 Task { @MainActor in
                     if let data = snapshot.value as? [String: Bool] {
                         self.userRepostedPosts = Set(data.keys)
-                        print("✅ Loaded \(self.userRepostedPosts.count) reposted posts from cache")
+                        dlog("✅ Loaded \(self.userRepostedPosts.count) reposted posts from cache")
                     } else {
-                        print("📭 No reposted posts in cache")
+                        dlog("📭 No reposted posts in cache")
                     }
                     hasLoadedReposts = true
                     checkCompletion()
@@ -875,16 +1043,16 @@ class PostInteractionsService: ObservableObject {
     /// Observe user's interactions in real-time
     private func observeUserInteractions() {
         guard currentUserId != "anonymous" else { 
-            print("⚠️ Cannot observe user interactions: anonymous user")
+            dlog("⚠️ Cannot observe user interactions: anonymous user")
             return 
         }
         
-        print("👀 Starting real-time observers for user interactions")
+        dlog("👀 Starting real-time observers for user interactions")
         
         // ✅ CRITICAL FIX: Keep user interactions synced locally for offline persistence
         let userInteractionsRef = ref.child("userInteractions").child(currentUserId)
         userInteractionsRef.keepSynced(true)
-        print("✅ Enabled offline sync for user interactions")
+        dlog("✅ Enabled offline sync for user interactions")
         
         // Observe user's lightbulbs
         userInteractionsRef.child("lightbulbs").observe(.value) { [weak self] snapshot in
@@ -893,16 +1061,16 @@ class PostInteractionsService: ObservableObject {
             Task { @MainActor in
                 if let data = snapshot.value as? [String: Bool] {
                     self.userLightbulbedPosts = Set(data.keys)
-                    print("🔄 Updated lightbulbed posts: \(self.userLightbulbedPosts.count) posts")
-                    print("   💡 Post IDs: \(self.userLightbulbedPosts.map { $0.prefix(8) }.joined(separator: ", "))")
+                    dlog("🔄 Updated lightbulbed posts: \(self.userLightbulbedPosts.count) posts")
+                    dlog("   💡 Post IDs: \(self.userLightbulbedPosts.map { $0.prefix(8) }.joined(separator: ", "))")
                 } else {
                     // ✅ CRITICAL: Don't clear on empty - could be initial cache miss
                     // Only clear if we explicitly have an empty object (not nil/missing)
                     if snapshot.exists() {
                         self.userLightbulbedPosts = []
-                        print("🔄 Cleared lightbulbed posts (explicitly empty)")
+                        dlog("🔄 Cleared lightbulbed posts (explicitly empty)")
                     } else {
-                        print("⏭️ Skipping empty snapshot (cache not ready or no data yet)")
+                        dlog("⏭️ Skipping empty snapshot (cache not ready or no data yet)")
                     }
                 }
             }
@@ -915,13 +1083,13 @@ class PostInteractionsService: ObservableObject {
             Task { @MainActor in
                 if let data = snapshot.value as? [String: Bool] {
                     self.userAmenedPosts = Set(data.keys)
-                    print("🔄 Updated amened posts: \(self.userAmenedPosts.count) posts")
+                    dlog("🔄 Updated amened posts: \(self.userAmenedPosts.count) posts")
                 } else {
                     if snapshot.exists() {
                         self.userAmenedPosts = []
-                        print("🔄 Cleared amened posts (explicitly empty)")
+                        dlog("🔄 Cleared amened posts (explicitly empty)")
                     } else {
-                        print("⏭️ Skipping empty amen snapshot (cache not ready or no data yet)")
+                        dlog("⏭️ Skipping empty amen snapshot (cache not ready or no data yet)")
                     }
                 }
             }
@@ -934,19 +1102,19 @@ class PostInteractionsService: ObservableObject {
             Task { @MainActor in
                 if let data = snapshot.value as? [String: Bool] {
                     self.userRepostedPosts = Set(data.keys)
-                    print("🔄 Updated reposted posts: \(self.userRepostedPosts.count) posts")
+                    dlog("🔄 Updated reposted posts: \(self.userRepostedPosts.count) posts")
                 } else {
                     if snapshot.exists() {
                         self.userRepostedPosts = []
-                        print("🔄 Cleared reposted posts (explicitly empty)")
+                        dlog("🔄 Cleared reposted posts (explicitly empty)")
                     } else {
-                        print("⏭️ Skipping empty repost snapshot (cache not ready or no data yet)")
+                        dlog("⏭️ Skipping empty repost snapshot (cache not ready or no data yet)")
                     }
                 }
             }
         }
         
-        print("✅ Real-time observers active for user interactions")
+        dlog("✅ Real-time observers active for user interactions")
     }
     
     /// Sync user interaction to user index
@@ -995,21 +1163,14 @@ class PostInteractionsService: ObservableObject {
     // MARK: - Cleanup
     
     func cleanup() {
-        // Remove all observers
-        for (key, handle) in observers {
-            let components = key.split(separator: "_")
-            if components.count == 2 {
-                let postId = String(components[0])
-                let path = String(components[1])
-                ref.child("postInteractions").child(postId).child(path).removeObserver(withHandle: handle)
-            }
-        }
-        observers.removeAll()
+        stopAllObservers()
     }
     
     deinit {
-        Task { @MainActor in
-            cleanup()
+        // Schedule cleanup on MainActor since ref is MainActor-isolated.
+        // stopAllObservers() removes handles directly without fragile key parsing.
+        Task { @MainActor [weak self] in
+            self?.stopAllObservers()
         }
     }
 }
@@ -1044,21 +1205,19 @@ struct RealtimeComment: Identifiable, Codable {
 extension PostInteractionsService {
     /// Monitor Firebase Realtime Database connection state
     func monitorDatabaseConnection() {
-        let connectedRef = Database.database(url: "https://amen-5e359-default-rtdb.firebaseio.com").reference(withPath: ".info/connected")
+        let connectedRef = Database.database().reference(withPath: ".info/connected")
         
         var hasLoggedInitialConnection = false
         
-        connectedRef.observe(.value) { [weak self] snapshot in
-            guard let self = self else { return }
-            
+        connectedRef.observe(.value) { snapshot in
             if let connected = snapshot.value as? Bool {
                 #if DEBUG
                 // Only log initial connection and disconnections (not reconnections)
                 if connected && !hasLoggedInitialConnection {
-                    print("✅ Firebase Realtime Database: CONNECTED")
+                    dlog("✅ Firebase Realtime Database: CONNECTED")
                     hasLoggedInitialConnection = true
                 } else if !connected {
-                    print("⚠️ Firebase Realtime Database: DISCONNECTED (will auto-reconnect)")
+                    dlog("⚠️ Firebase Realtime Database: DISCONNECTED (will auto-reconnect)")
                 }
                 #endif
             }
@@ -1102,9 +1261,14 @@ extension PostInteractionsService {
             "createdAt": FieldValue.serverTimestamp()
         ]
         
-        try await firestore.collection("users")
-            .document(postAuthorId)
-            .collection("notifications")
-            .addDocument(data: notification)
+        // Write to the top-level /notifications collection.
+        // The NotificationService listener reads from this collection filtered by userId.
+        // This avoids writing to another user's subcollection (which requires App Check
+        // to pass, causing 403 errors on simulator where App Check uses a debug token).
+        // Deterministic ID prevents duplicate notifications for the same action.
+        let deterministicId = "\(type)_\(postId)_\(currentUserId)"
+        try await firestore.collection("notifications")
+            .document(deterministicId)
+            .setData(notification, merge: true)
     }
 }

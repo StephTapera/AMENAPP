@@ -28,20 +28,52 @@ class CommentService: ObservableObject {
     
     private let firebaseManager = FirebaseManager.shared
     private let userService = UserService()
-    private let database = Database.database()
+    // Lazy to avoid accessing Database.database() before AppDelegate sets isPersistenceEnabled.
+    nonisolated(unsafe) private lazy var database: Database = Database.database()
     private var ref: DatabaseReference {
         database.reference()
     }
-    private var listeners: [DatabaseHandle] = []
-    private var listenerPaths: [String: DatabaseHandle] = [:]
+    nonisolated(unsafe) private var listenerPaths: [String: DatabaseHandle] = [:]
     
     // P0-1 FIX: Prevent duplicate comment creation
     private var inFlightCommentRequests: Set<String> = []
     
-    // P0-2 FIX: Track optimistic comments for replacement
-    private var optimisticComments: [String: (content: String, hash: Int)] = [:]
+    // P0-2 FIX: Track optimistic comments for replacement.
+    // Key: clientRequestId (written into RTDB alongside the comment).
+    // Value: the local tempId used for UI dedup.
+    // Using clientRequestId instead of content.hashValue avoids false matches
+    // when two comments have identical content.
+    private var optimisticComments: [String: String] = [:]  // clientRequestId -> tempId
     
     private init() {}
+
+    // MARK: - Content Normalization
+
+    /// Trims whitespace and collapses internal runs of whitespace to a single space.
+    /// Used for dedup keys and moderation — never for display.
+    private func normalizedContent(_ text: String) -> String {
+        text.trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+    }
+
+    /// Deterministic, stable in-flight request key. Does NOT use hashValue
+    /// (which is not stable across processes and can collide on different content).
+    private func makeRequestId(postId: String, userId: String, content: String) -> String {
+        "\(postId)|\(userId)|\(normalizedContent(content).lowercased())"
+    }
+
+    deinit {
+        // Guard: if listenerPaths is empty the lazy `database` was never accessed,
+        // so skip cleanup to avoid triggering lazy init during teardown.
+        guard !listenerPaths.isEmpty else { return }
+
+        // Remove all Realtime DB handles synchronously.
+        // Firebase DatabaseReference.removeObserver(withHandle:) is thread-safe.
+        let dbRef = database.reference()
+        for (postId, handle) in listenerPaths {
+            dbRef.child("postInteractions").child(postId).child("comments").removeObserver(withHandle: handle)
+        }
+    }
     
     // MARK: - Helper Types
     
@@ -70,16 +102,19 @@ class CommentService: ObservableObject {
             return true
             
         case .following:
-            // Check if post author follows current user
+            // "Following only": current user must follow the post author to comment.
+            // isFollowing(userId:) returns true when current user is following that userId.
             return await FollowService.shared.isFollowing(userId: post.authorId)
-            
+
         case .mentioned:
-            // Check if user is mentioned in the post
-            // Extract mentions from post content
-            let mentions = extractMentions(from: post.content)
-            return mentions.contains { mention in
-                mention.lowercased() == "@\(currentUserId.lowercased())"
+            // "Mentioned only": current user must be mentioned in the post by @username.
+            // We compare @username (not UID) because post text uses handles, not auth UIDs.
+            guard let profile = try? await userService.fetchUserProfile(userId: currentUserId),
+                  !profile.username.isEmpty else {
+                return false
             }
+            let mentions = extractMentions(from: post.content)
+            return mentions.contains { $0.lowercased() == "@\(profile.username.lowercased())" }
             
         case .off:
             return false
@@ -110,16 +145,55 @@ class CommentService: ObservableObject {
         mentionedUserIds: [String]? = nil,
         post: Post? = nil  // Optional post object (avoid refetch if already available)
     ) async throws -> Comment {
-        print("💬 Adding comment to post: \(postId)")
+        dlog("💬 Adding comment to post: \(postId)")
 
         guard let userId = firebaseManager.currentUser?.uid else {
             throw NSError(domain: "CommentService", code: -1, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
         }
 
-        // P0-1 FIX: Prevent duplicate in-flight requests
-        let requestId = "\(postId)_\(content.hashValue)_\(userId)"
+        // ✅ CHECK RATE LIMIT FOR NEW ACCOUNTS
+        let rateLimitCheck = await NewAccountRestrictionService.shared.canComment(userId: userId)
+        guard rateLimitCheck.allowed else {
+            let reason = rateLimitCheck.reason ?? "Comment limit reached. Please try again later."
+            dlog("⚠️ Comment rate limit exceeded: \(reason)")
+            throw NSError(domain: "CommentService", code: -11,
+                         userInfo: [NSLocalizedDescriptionKey: reason])
+        }
+
+        // 🛡️ CHECK ANTI-HARASSMENT RESTRICTION
+        if let restriction = try? await AntiHarassmentEngine.shared.checkRestriction(
+            userId: userId,
+            type: .commenting
+        ), restriction.isRestricted {
+            let endsAt = restriction.endsAt.map {
+                DateFormatter.localizedString(from: $0, dateStyle: .none, timeStyle: .short)
+            } ?? "soon"
+            dlog("⛔ Commenting restricted for user \(userId) until \(endsAt)")
+            throw NSError(
+                domain: "CommentService",
+                code: -12,
+                userInfo: [NSLocalizedDescriptionKey: "Your commenting ability is temporarily restricted until \(endsAt) due to a community guidelines violation."]
+            )
+        }
+
+        // 🛡️ LAYER 0: Synchronous local content guard (offline, zero-latency)
+        // Runs BEFORE any async checks — instant hard block for slurs, profanity,
+        // harassment, sexual content, hate speech, violence.
+        let localGuardResult = LocalContentGuard.check(content)
+        if localGuardResult.isBlocked {
+            dlog("⛔ [LocalContentGuard] Comment blocked: \(localGuardResult.category.rawValue)")
+            throw NSError(
+                domain: "CommentService",
+                code: -13,
+                userInfo: [NSLocalizedDescriptionKey: localGuardResult.userMessage]
+            )
+        }
+
+        // P0-1 FIX: Prevent duplicate in-flight requests.
+        // makeRequestId uses normalized content (not hashValue) for a stable, collision-resistant key.
+        let requestId = makeRequestId(postId: postId, userId: userId, content: content)
         guard !inFlightCommentRequests.contains(requestId) else {
-            print("⚠️ [P0-1] Duplicate comment request blocked: \(requestId)")
+            dlog("⚠️ [P0-1] Duplicate comment request blocked: \(requestId)")
             throw NSError(domain: "CommentService", code: -10, 
                          userInfo: [NSLocalizedDescriptionKey: "Comment already being submitted"])
         }
@@ -130,7 +204,7 @@ class CommentService: ObservableObject {
         // ============================================================================
         // ✅ PRIVACY CHECK: Verify user can comment on this post
         // ============================================================================
-        print("🔒 Checking comment permissions for post: \(postId)")
+        dlog("🔒 Checking comment permissions for post: \(postId)")
         
         // Fetch post if not provided
         let postData: Post
@@ -164,167 +238,49 @@ class CommentService: ObservableObject {
         )
         
         if !canCommentOnPost {
-            print("❌ Comment permission denied for post: \(postId)")
+            dlog("❌ Comment permission denied for post: \(postId)")
             throw NSError(domain: "CommentService", code: -4,
                          userInfo: [NSLocalizedDescriptionKey: "You don't have permission to comment on this post"])
         }
         
-        print("✅ Comment permission granted")
+        dlog("✅ Comment permission granted")
 
-        // ⚡ OPTIMIZATION: Fetch user profile and run moderation IN PARALLEL
-        async let userProfileTask: UserModel? = {
-            do {
-                return try await userService.fetchUserProfile(userId: userId)
-            } catch {
-                print("⚠️ Failed to fetch user profile: \(error)")
-                return nil
-            }
-        }()
-
-        async let moderationTask: ModerationDecision = {
-            let signals = AuthenticitySignals(
-                typedCharacters: content.count,
-                pastedCharacters: 0,
-                typedVsPastedRatio: 1.0,
-                largestPasteLength: 0,
-                pasteEventCount: 0,
-                typingDurationSeconds: 0,
-                hasLargePaste: false
-            )
-            return try await ContentModerationService.moderateContent(
-                text: content,
-                category: .comment,
-                signals: signals
-            )
-        }()
-
-        // 🛡️ ENHANCED SAFETY: Run CommentSafetySystem checks (pile-on, repeat harassment)
-        async let safetyCheckTask: CommentSafetySystem.SafetyCheckResult? = {
-            do {
-                return try await CommentSafetySystem.shared.checkCommentSafety(
-                    content: content,
-                    postId: postId,
-                    postAuthorId: postData.authorId,
-                    commenterId: userId
-                )
-            } catch {
-                print("⚠️ Safety check failed (allowing with fallback): \(error)")
-                return nil  // Fail-open: allow if safety check fails
-            }
-        }()
-
-        // ⚡ Wait for all parallel tasks to complete
-        let (userProfile, moderationResult, safetyResult) = try await (userProfileTask, moderationTask, safetyCheckTask)
-
-        // Block comment if moderation fails
-        if moderationResult.shouldBlock {
-            let reasons = moderationResult.reasons
-            print("❌ Comment blocked by moderation: \(reasons.joined(separator: ", "))")
-
-            await MainActor.run {
-                ModerationToastManager.shared.show(reasons: reasons)
-            }
-
-            throw NSError(
-                domain: "CommentService",
-                code: -2,
-                userInfo: [NSLocalizedDescriptionKey: "Content flagged"]
-            )
+        // ⚡ FAST PATH: Only fetch user profile on the critical path.
+        // Moderation, safety, and AI checks run AFTER the write (see fire-and-forget task below).
+        let userProfile: UserModel?
+        do {
+            userProfile = try await userService.fetchUserProfile(userId: userId)
+        } catch {
+            dlog("⚠️ Failed to fetch user profile: \(error)")
+            userProfile = nil
         }
 
-        // 🛡️ Block comment if safety check fails
-        if let safety = safetyResult, safety.action.isBlocking {
-            print("❌ Comment blocked by safety system: \(safety.violations)")
+        dlog("✅ Comment passed fast-path checks")
 
-            let errorMessage = safety.userMessage ?? "This comment violates our community guidelines."
-
-            await MainActor.run {
-                // Show user-friendly error with suggestions
-                if let suggestions = safety.suggestedRevisions, !suggestions.isEmpty {
-                    print("💡 Suggested revisions: \(suggestions.joined(separator: ", "))")
-                }
-            }
-
-            throw NSError(
-                domain: "CommentService",
-                code: -5,
-                userInfo: [
-                    NSLocalizedDescriptionKey: errorMessage,
-                    "suggestedRevisions": safety.suggestedRevisions as Any,
-                    "violations": safety.violations.map { $0.rawValue }
-                ]
-            )
-        }
-
-        // 🛡️ Apply cooldown if required
-        if let safety = safetyResult, safety.action == .cooldown, let cooldownSeconds = safety.cooldownSeconds {
-            print("⏱️ Comment rate-limited: \(cooldownSeconds) seconds")
-            throw NSError(
-                domain: "CommentService",
-                code: -6,
-                userInfo: [
-                    NSLocalizedDescriptionKey: "Please wait \(cooldownSeconds) seconds before commenting again.",
-                    "cooldownSeconds": cooldownSeconds
-                ]
-            )
-        }
-
-        print("✅ Comment passed all safety checks")
-
-        // Get username and profile image from parallel fetch
+        // Get username and profile image from profile fetch
         let authorUsername: String
         let authorProfileImageURL: String?
         if let profile = userProfile {
             authorUsername = profile.username
             authorProfileImageURL = profile.profileImageURL
-            print("✅ Using username: @\(authorUsername)")
+            dlog("✅ Using username: @\(authorUsername)")
         } else {
             authorUsername = "user\(userId.prefix(8))"
             authorProfileImageURL = nil
-            print("⚠️ Using fallback username")
+            dlog("⚠️ Using fallback username")
         }
 
         // ⚡ Immediate haptic feedback BEFORE database write
         let haptic = UIImpactFeedbackGenerator(style: .medium)
         haptic.impactOccurred()
 
-        // P0-2 FIX: Create optimistic comment with tracking
+        // Assign a tempId and clientRequestId for listener dedup.
+        // We do NOT insert optimistically into comments[postId]. The RTDB listener fires
+        // within milliseconds (local persistence) and is the sole writer of comments[postId],
+        // eliminating concurrent-mutation crashes.
         let tempId = UUID().uuidString
-        let contentHash = content.hashValue
-        
-        let optimisticComment = Comment(
-            id: tempId,
-            postId: postId,
-            authorId: userId,
-            authorName: firebaseManager.currentUser?.displayName ?? "Unknown User",
-            authorUsername: authorUsername,
-            authorInitials: firebaseManager.currentUser?.displayName?.prefix(2).uppercased() ?? "??",
-            authorProfileImageURL: authorProfileImageURL,
-            content: content,
-            createdAt: Date(),
-            updatedAt: Date(),
-            amenCount: 0,
-            replyCount: 0,
-            amenUserIds: [],
-            parentCommentId: nil,
-            mentionedUserIds: mentionedUserIds
-        )
-
-        // P0-2: Track optimistic comment for replacement
-        optimisticComments[tempId] = (content: content, hash: contentHash)
-        
-        // ⚡ Post optimistic update IMMEDIATELY for instant UI
-        NotificationCenter.default.post(
-            name: Notification.Name("newCommentCreated"),
-            object: nil,
-            userInfo: [
-                "comment": optimisticComment,
-                "isOptimistic": true,
-                "tempId": tempId,
-                "contentHash": contentHash
-            ]
-        )
-        print("⚡ Posted optimistic comment to UI (tempId: \(tempId))")
+        let clientRequestId = UUID().uuidString
+        optimisticComments[clientRequestId] = tempId
 
         // P1-3 FIX: Write to database with retry logic and timeout
         let interactionsService = PostInteractionsService.shared
@@ -342,11 +298,12 @@ class CommentService: ObservableObject {
                         content: content,
                         authorInitials: self.firebaseManager.currentUser?.displayName?.prefix(2).uppercased() ?? "??",
                         authorUsername: authorUsername,
-                        authorProfileImageURL: authorProfileImageURL
+                        authorProfileImageURL: authorProfileImageURL,
+                        clientRequestId: clientRequestId
                     )
                 }
                 
-                print("✅ [P1-3] Comment created with ID: \(commentId!) (attempt \(retryCount + 1))")
+                dlog("✅ [P1-3] Comment created with ID: \(commentId!) (attempt \(retryCount + 1))")
                 break // Success, exit retry loop
                 
             } catch {
@@ -355,18 +312,17 @@ class CommentService: ObservableObject {
                 
                 if retryCount < maxRetries {
                     let backoffDelay = Double(retryCount) * 1.0 // 1s, 2s, 3s
-                    print("⚠️ [P1-3] Comment submission failed (attempt \(retryCount)/\(maxRetries)), retrying in \(backoffDelay)s...")
+                    dlog("⚠️ [P1-3] Comment submission failed (attempt \(retryCount)/\(maxRetries)), retrying in \(backoffDelay)s...")
                     try await Task.sleep(nanoseconds: UInt64(backoffDelay * 1_000_000_000))
                 } else {
-                    print("❌ [P1-3] All \(maxRetries) attempts failed")
+                    dlog("❌ [P1-3] All \(maxRetries) attempts failed")
                 }
             }
         }
         
         // If all retries failed, clean up and throw
         guard let finalCommentId = commentId else {
-            // Remove optimistic comment
-            optimisticComments.removeValue(forKey: tempId)
+            optimisticComments.removeValue(forKey: clientRequestId)
             
             NotificationCenter.default.post(
                 name: Notification.Name("commentFailed"),
@@ -377,23 +333,15 @@ class CommentService: ObservableObject {
             throw lastError!
         }
         
-        print("✅ Comment created with ID: \(finalCommentId)")
-
-        // P0-2: Clean up optimistic tracking
-        optimisticComments.removeValue(forKey: tempId)
+        dlog("✅ Comment created with ID: \(finalCommentId)")
         
-        // Post confirmation notification for UI to replace optimistic with real
-        NotificationCenter.default.post(
-            name: Notification.Name("commentConfirmed"),
-            object: nil,
-            userInfo: [
-                "realId": finalCommentId,
-                "tempId": tempId,
-                "postId": postId,
-                "contentHash": contentHash
-            ]
-        )
-        print("✅ Posted comment confirmation (real ID: \(finalCommentId), replacing temp: \(tempId))")
+        // ✅ RECORD RATE LIMIT ACTION
+        await NewAccountRestrictionService.shared.recordAction(.comment, userId: userId)
+
+        // P0-2: Clean up optimistic tracking — the RTDB listener will replace the
+        // optimistic entry (matched by clientRequestId) when the real write fires.
+        optimisticComments.removeValue(forKey: clientRequestId)
+        dlog("✅ Comment written to RTDB (ID: \(finalCommentId)); listener will replace optimistic \(tempId)")
 
         // Final comment with real ID
         let finalComment = Comment(
@@ -414,10 +362,102 @@ class CommentService: ObservableObject {
             mentionedUserIds: mentionedUserIds
         )
 
-        // ⚡ FIRE-AND-FORGET: Mention notifications (don't block UI)
+        // ⚡ FIRE-AND-FORGET: Post-write moderation pipeline.
+        // Runs AFTER the RTDB write — user sees their comment immediately.
+        // If violations are found the comment is flagged/deleted server-side
+        // without blocking the original submission.
+        let capturedContent = content
+        let capturedPostId = postId
+        let capturedPostAuthorId = postData.authorId
+        let capturedUserId = userId
+        let capturedFinalCommentId = finalCommentId
+        Task.detached(priority: .utility) {
+            let signals = AuthenticitySignals(
+                typedCharacters: capturedContent.count,
+                pastedCharacters: 0,
+                typedVsPastedRatio: 1.0,
+                largestPasteLength: 0,
+                pasteEventCount: 0,
+                typingDurationSeconds: 0,
+                hasLargePaste: false
+            )
+
+            async let moderationTask: ModerationDecision = {
+                return try await ContentModerationService.moderateContent(
+                    text: capturedContent,
+                    category: .comment,
+                    signals: signals
+                )
+            }()
+
+            async let safetyCheckTask: CommentSafetySystem.SafetyCheckResult? = {
+                do {
+                    return try await CommentSafetySystem.shared.checkCommentSafety(
+                        content: capturedContent,
+                        postId: capturedPostId,
+                        postAuthorId: capturedPostAuthorId,
+                        commenterId: capturedUserId
+                    )
+                } catch {
+                    return nil
+                }
+            }()
+
+            async let aiDetectionTask: AIContentDetectionResult = {
+                return await AIContentDetectionService.shared.detectAIContent(capturedContent)
+            }()
+
+            guard let (moderationResult, safetyResult, aiDetectionResult) = try? await (moderationTask, safetyCheckTask, aiDetectionTask) else {
+                return
+            }
+
+            // Read @MainActor-isolated properties on the main actor, then capture as plain values.
+            let (moderationShouldBlock, moderationReasons, safetyIsBlocking, isAIGenerated) =
+                await MainActor.run {
+                    (
+                        moderationResult.shouldBlock,
+                        moderationResult.reasons,
+                        safetyResult?.action.isBlocking == true,
+                        aiDetectionResult.isAIGenerated
+                    )
+                }
+
+            // Determine if comment should be removed after the fact
+            let shouldRemove = moderationShouldBlock || safetyIsBlocking || isAIGenerated
+
+            if shouldRemove {
+                // Remove the comment from RTDB (silent enforcement)
+                let dbRef = Database.database().reference()
+                    .child("postInteractions")
+                    .child(capturedPostId)
+                    .child("comments")
+                    .child(capturedFinalCommentId)
+                do {
+                    try await dbRef.removeValue()
+                    dlog("🛡️ [Post-write] Comment \(capturedFinalCommentId) removed by async moderation pipeline")
+                } catch {
+                    dlog("⚠️ [Post-write] Failed to remove flagged comment: \(error)")
+                }
+
+                // Notify UI on main actor so caller can reflect removal if visible
+                await MainActor.run {
+                    if moderationShouldBlock {
+                        ModerationToastManager.shared.show(reasons: moderationReasons)
+                    }
+                    NotificationCenter.default.post(
+                        name: Notification.Name("commentRemovedByModeration"),
+                        object: nil,
+                        userInfo: ["commentId": capturedFinalCommentId, "postId": capturedPostId]
+                    )
+                }
+            }
+        }
+
+        // ⚡ FIRE-AND-FORGET: Mention notifications (don't block UI).
+        // Plain Task (not Task.detached) preserves @MainActor context safely.
         let mentionUsernames = extractMentionUsernames(from: content)
         if !mentionUsernames.isEmpty {
-            Task.detached { [weak self] in
+            Task { [weak self] in
                 guard let self = self else { return }
                 var mentions: [MentionedUser] = []
 
@@ -445,18 +485,18 @@ class CommentService: ObservableObject {
                                     username: username,
                                     displayName: displayName
                                 ))
-                                print("✅ Mention permission granted for @\(username)")
+                                dlog("✅ Mention permission granted for @\(username)")
                             } else {
-                                print("⚠️ Mention permission denied for @\(username) - skipping notification")
+                                dlog("⚠️ Mention permission denied for @\(username) - skipping notification")
                             }
                         }
                     } catch {
-                        print("⚠️ Failed to resolve @\(username): \(error)")
+                        dlog("⚠️ Failed to resolve @\(username): \(error)")
                     }
                 }
 
                 if !mentions.isEmpty {
-                    try? await NotificationService.shared.sendMentionNotifications(
+                    await NotificationService.shared.sendMentionNotifications(
                         mentions: mentions,
                         actorId: userId,
                         actorName: self.firebaseManager.currentUser?.displayName ?? "User",
@@ -499,18 +539,14 @@ class CommentService: ObservableObject {
         mentionedUserIds: [String]? = nil,
         post: Post? = nil  // ✅ Optional post object to avoid Firestore lookup
     ) async throws -> Comment {
-        print("↩️ Adding reply to comment: \(parentCommentId)")
+        dlog("↩️ Adding reply to comment: \(parentCommentId)")
 
-        // ⚡ Immediate haptic feedback BEFORE any async work
-        let haptic = UIImpactFeedbackGenerator(style: .light)
-        haptic.impactOccurred()
-
-        // ✅ Add comment first (moderation + optimistic update happens inside)
+        // ✅ Add comment first — moderation runs inside; haptic fires AFTER success
         let comment = try await addComment(postId: postId, content: content, mentionedUserIds: mentionedUserIds, post: post)
 
         // P1-1 FIX: Set parentCommentId SYNCHRONOUSLY (not fire-and-forget)
         guard let commentId = comment.id else {
-            print("⚠️ Comment has no ID, cannot set parentCommentId")
+            dlog("⚠️ Comment has no ID, cannot set parentCommentId")
             return comment
         }
 
@@ -523,8 +559,12 @@ class CommentService: ObservableObject {
         try await commentRef.updateChildValues([
             "parentCommentId": parentCommentId
         ])
+
+        // Haptic fires here — after the write succeeds — not before moderation/auth checks
+        let haptic = UIImpactFeedbackGenerator(style: .light)
+        haptic.impactOccurred()
         
-        print("✅ [P1-1] Reply linked to parent: \(parentCommentId) (synchronous)")
+        dlog("✅ [P1-1] Reply linked to parent: \(parentCommentId) (synchronous)")
 
         // Create updated comment with parent ID
         var updatedComment = comment
@@ -536,7 +576,7 @@ class CommentService: ObservableObject {
             object: nil,
             userInfo: ["comment": updatedComment, "isReply": true, "parentCommentId": parentCommentId]
         )
-        print("📬 Posted newCommentCreated notification for reply")
+        dlog("📬 Posted newCommentCreated notification for reply")
 
         return updatedComment
     }
@@ -545,15 +585,15 @@ class CommentService: ObservableObject {
     
     /// Fetch all comments for a post from Realtime Database
     func fetchComments(for postId: String) async throws -> [Comment] {
-        print("📥 Fetching comments for post: \(postId)")
-        print("🔍 [DEBUG] Querying path: postInteractions/\(postId)/comments")
+        dlog("📥 Fetching comments for post: \(postId)")
+        dlog("🔍 [DEBUG] Querying path: postInteractions/\(postId)/comments")
         
         isLoading = true
         defer { isLoading = false }
         
         let interactionsService = PostInteractionsService.shared
-        let realtimeComments = try await interactionsService.getComments(postId: postId)
-        print("🔍 [DEBUG] Raw query returned \(realtimeComments.count) comments from RTDB")
+        let realtimeComments = await interactionsService.getComments(postId: postId)
+        dlog("🔍 [DEBUG] Raw query returned \(realtimeComments.count) comments from RTDB")
         
         // Convert to Comment objects and filter out replies (only get top-level comments)
         var fetchedComments: [Comment] = []
@@ -561,7 +601,7 @@ class CommentService: ObservableObject {
         for rtComment in realtimeComments {
             // ✅ Skip replies (these are handled separately)
             guard rtComment.parentCommentId == nil else {
-                print("⏭️ Skipping reply: \(rtComment.id)")
+                dlog("⏭️ Skipping reply: \(rtComment.id)")
                 continue
             }
             
@@ -571,16 +611,16 @@ class CommentService: ObservableObject {
             
             if let storedUsername = rtComment.authorUsername, !storedUsername.isEmpty {
                 authorUsername = storedUsername
-                print("✅ Using stored username: @\(authorUsername)")
+                dlog("✅ Using stored username: @\(authorUsername)")
             } else {
-                print("⚠️ No stored username, using fallback")
+                dlog("⚠️ No stored username, using fallback")
                 authorUsername = "user\(rtComment.authorId.prefix(8))"
             }
             
             // ✅ Get profile image URL from RTDB
             authorProfileImageURL = rtComment.authorProfileImageURL
             if let imageURL = authorProfileImageURL {
-                print("✅ Profile image URL: \(imageURL)")
+                dlog("✅ Profile image URL: \(imageURL)")
             }
             
             let comment = Comment(
@@ -604,7 +644,7 @@ class CommentService: ObservableObject {
             fetchedComments.append(comment)
         }
         
-        print("✅ Fetched \(fetchedComments.count) top-level comments from Realtime DB")
+        dlog("✅ Fetched \(fetchedComments.count) top-level comments from Realtime DB")
         
         // Update local cache
         comments[postId] = fetchedComments
@@ -614,18 +654,18 @@ class CommentService: ObservableObject {
     
     /// Fetch replies for a specific comment
     func fetchReplies(for commentId: String) async throws -> [Comment] {
-        print("📥 Fetching replies for comment: \(commentId)")
+        dlog("📥 Fetching replies for comment: \(commentId)")
         
         // ✅ FIXED: First check cache (populated by real-time listener)
         if let cachedReplies = commentReplies[commentId], !cachedReplies.isEmpty {
-            print("✅ Returning \(cachedReplies.count) cached replies for comment: \(commentId)")
+            dlog("✅ Returning \(cachedReplies.count) cached replies for comment: \(commentId)")
             return cachedReplies
         }
         
         // ✅ If cache is empty, fetch from database
         // This happens when the real-time listener hasn't populated the cache yet
         // or when loading historical data
-        print("⚠️ No cached replies, fetching from database for comment: \(commentId)")
+        dlog("⚠️ No cached replies, fetching from database for comment: \(commentId)")
         
         // We need to find which post this comment belongs to
         // Search through all cached posts' comments to find the parent
@@ -638,13 +678,13 @@ class CommentService: ObservableObject {
         }
         
         guard let postId = parentPostId else {
-            print("⚠️ Could not find post for comment: \(commentId)")
+            dlog("⚠️ Could not find post for comment: \(commentId)")
             return []
         }
         
         // Fetch all comments for the post and filter replies
         let interactionsService = PostInteractionsService.shared
-        let allComments = try await interactionsService.getComments(postId: postId)
+        let allComments = await interactionsService.getComments(postId: postId)
         
         var replies: [Comment] = []
         for rtComment in allComments {
@@ -689,13 +729,13 @@ class CommentService: ObservableObject {
         // Update cache
         commentReplies[commentId] = replies
         
-        print("✅ Fetched \(replies.count) replies from database for comment: \(commentId)")
+        dlog("✅ Fetched \(replies.count) replies from database for comment: \(commentId)")
         return replies
     }
     
     /// Fetch all comments by a specific user
     func fetchUserComments(userId: String, limit: Int = 50) async throws -> [Comment] {
-        print("📥 Fetching comments for user: \(userId)")
+        dlog("📥 Fetching comments for user: \(userId)")
         
         // Would need to query across all posts - not implemented yet
         return []
@@ -703,11 +743,11 @@ class CommentService: ObservableObject {
     
     /// Fetch comments with nested replies
     func fetchCommentsWithReplies(for postId: String) async throws -> [CommentWithReplies] {
-        print("📥 Fetching comments with replies for post: \(postId)")
+        dlog("📥 Fetching comments with replies for post: \(postId)")
         
         // ✅ IMPROVED: Check if real-time listener has already populated the cache
         if let cachedComments = comments[postId], !cachedComments.isEmpty {
-            print("✅ Using cached comments from real-time listener (\(cachedComments.count) comments)")
+            dlog("✅ Using cached comments from real-time listener (\(cachedComments.count) comments)")
             
             var commentsWithReplies: [CommentWithReplies] = []
             
@@ -724,48 +764,71 @@ class CommentService: ObservableObject {
                 commentsWithReplies.append(commentWithReplies)
             }
             
-            print("✅ Built \(commentsWithReplies.count) comments with replies from cache")
+            dlog("✅ Built \(commentsWithReplies.count) comments with replies from cache")
             return commentsWithReplies
         }
         
-        // ✅ If cache is empty, fetch from database (happens on initial load before listener fires)
-        print("⚠️ Cache empty, fetching comments from database")
-        
-        // Fetch top-level comments
-        let topLevelComments = try await fetchComments(for: postId)
-        
-        // For each comment, fetch its replies
-        var commentsWithReplies: [CommentWithReplies] = []
-        
-        for comment in topLevelComments {
-            guard let commentId = comment.id else { continue }
-            
-            let replies = try await fetchReplies(for: commentId)
-            
-            var updatedComment = comment
-            updatedComment.replyCount = replies.count
-            
-            let commentWithReplies = CommentWithReplies(comment: updatedComment, replies: replies)
-            commentsWithReplies.append(commentWithReplies)
-        }
-        
-        print("✅ Fetched \(commentsWithReplies.count) comments with replies from database")
-        
-        return commentsWithReplies
+        // Cache is empty — the real-time listener (started in PostDetailView.task) will
+        // populate comments[postId] within milliseconds via the RTDB local cache.
+        // Returning [] here is safe: PostDetailView uses the computed property which reads
+        // directly from comments[postId], so as soon as the listener fires SwiftUI redraws.
+        // This eliminates the N+1 pattern (1 full fetch + N reply fetches per comment).
+        dlog("⚠️ Cache empty — listener will populate shortly")
+        return []
     }
     
     // MARK: - Update Comment
     
     /// Edit comment content
     func editComment(commentId: String, postId: String, newContent: String) async throws {
-        print("✏️ Editing comment: \(commentId)")
-        
-        guard !newContent.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+        dlog("✏️ Editing comment: \(commentId)")
+
+        let trimmedContent = normalizedContent(newContent)
+        guard !trimmedContent.isEmpty else {
             throw NSError(domain: "CommentService", code: -3, userInfo: [NSLocalizedDescriptionKey: "Comment cannot be empty"])
         }
         
         guard let userId = firebaseManager.currentUser?.uid else {
             throw NSError(domain: "CommentService", code: -1, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
+        }
+
+        // 🛡️ LAYER 0: Run the same local content guard as on creation.
+        // Prevents a user posting clean content then editing to abusive content.
+        let localGuardResult = LocalContentGuard.check(trimmedContent)
+        if localGuardResult.isBlocked {
+            dlog("⛔ [editComment][LocalContentGuard] Blocked: \(localGuardResult.category.rawValue)")
+            throw NSError(
+                domain: "CommentService",
+                code: -13,
+                userInfo: [NSLocalizedDescriptionKey: localGuardResult.userMessage]
+            )
+        }
+
+        // 🛡️ MODERATION: Re-run the full moderation pipeline on edited content.
+        let signals = AuthenticitySignals(
+            typedCharacters: trimmedContent.count,
+            pastedCharacters: 0,
+            typedVsPastedRatio: 1.0,
+            largestPasteLength: 0,
+            pasteEventCount: 0,
+            typingDurationSeconds: 0,
+            hasLargePaste: false
+        )
+        let moderationResult = try await ContentModerationService.moderateContent(
+            text: trimmedContent,
+            category: .comment,
+            signals: signals
+        )
+        if moderationResult.shouldBlock {
+            dlog("❌ [editComment] Blocked by moderation: \(moderationResult.reasons.joined(separator: ", "))")
+            await MainActor.run {
+                ModerationToastManager.shared.show(reasons: moderationResult.reasons)
+            }
+            throw NSError(
+                domain: "CommentService",
+                code: -2,
+                userInfo: [NSLocalizedDescriptionKey: "Edited content flagged by moderation"]
+            )
         }
         
         let commentRef = ref.child("postInteractions").child(postId).child("comments").child(commentId)
@@ -780,20 +843,20 @@ class CommentService: ObservableObject {
         
         // Update content and timestamp
         let updates: [String: Any] = [
-            "content": newContent,
+            "content": trimmedContent,
             "updatedAt": Int64(Date().timeIntervalSince1970 * 1000),
             "isEdited": true
         ]
         
         try await commentRef.updateChildValues(updates)
         
-        print("✅ Comment edited successfully")
+        dlog("✅ Comment edited successfully")
         
         // Update local cache
         if var postComments = comments[postId] {
             if let index = postComments.firstIndex(where: { $0.id == commentId }) {
                 var updatedComment = postComments[index]
-                updatedComment.content = newContent
+                updatedComment.content = trimmedContent
                 updatedComment.updatedAt = Date()
                 postComments[index] = updatedComment
                 comments[postId] = postComments
@@ -803,21 +866,21 @@ class CommentService: ObservableObject {
     
     /// Delete comment
     func deleteComment(commentId: String, postId: String) async throws {
-        print("🗑️ Deleting comment: \(commentId)")
-        print("   Post ID: \(postId)")
+        dlog("🗑️ Deleting comment: \(commentId)")
+        dlog("   Post ID: \(postId)")
         
         guard let userId = firebaseManager.currentUser?.uid else {
-            print("❌ [DELETE] User not authenticated")
+            dlog("❌ [DELETE] User not authenticated")
             throw NSError(domain: "CommentService", code: -1, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
         }
         
-        print("   User ID: \(userId)")
+        dlog("   User ID: \(userId)")
         
         let commentRef = ref.child("postInteractions").child(postId).child("comments").child(commentId)
-        print("   Path: postInteractions/\(postId)/comments/\(commentId)")
+        dlog("   Path: postInteractions/\(postId)/comments/\(commentId)")
         
         // Verify ownership
-        print("   Fetching comment data to verify ownership...")
+        dlog("   Fetching comment data to verify ownership...")
         
         // ✅ FIX: Use observeSingleEvent instead of getData() for proper data retrieval
         let snapshot = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<DataSnapshot, Error>) in
@@ -828,41 +891,54 @@ class CommentService: ObservableObject {
             }
         }
         
-        print("   Snapshot exists: \(snapshot.exists())")
+        dlog("   Snapshot exists: \(snapshot.exists())")
         
         guard snapshot.exists() else {
-            print("❌ [DELETE] Comment not found at path")
+            dlog("❌ [DELETE] Comment not found at path")
             throw NSError(domain: "CommentService", code: -6, userInfo: [NSLocalizedDescriptionKey: "Comment not found"])
         }
         
         guard let commentData = snapshot.value as? [String: Any] else {
-            print("❌ [DELETE] Invalid comment data format")
-            print("   Snapshot value type: \(type(of: snapshot.value))")
-            print("   Snapshot value: \(String(describing: snapshot.value))")
+            dlog("❌ [DELETE] Invalid comment data format")
+            dlog("   Snapshot value type: \(type(of: snapshot.value))")
+            dlog("   Snapshot value: \(String(describing: snapshot.value))")
             throw NSError(domain: "CommentService", code: -7, userInfo: [NSLocalizedDescriptionKey: "Invalid comment data"])
         }
         
-        print("   Comment data keys: \(commentData.keys.joined(separator: ", "))")
+        dlog("   Comment data keys: \(commentData.keys.joined(separator: ", "))")
         
         guard let authorId = commentData["authorId"] as? String else {
-            print("❌ [DELETE] No authorId found in comment data")
-            print("   Available keys: \(commentData.keys.joined(separator: ", "))")
+            dlog("❌ [DELETE] No authorId found in comment data")
+            dlog("   Available keys: \(commentData.keys.joined(separator: ", "))")
             throw NSError(domain: "CommentService", code: -8, userInfo: [NSLocalizedDescriptionKey: "Comment has no author"])
         }
         
-        print("   Author ID: \(authorId)")
-        print("   Owner match: \(authorId == userId)")
+        dlog("   Author ID: \(authorId)")
+        dlog("   Owner match: \(authorId == userId)")
         
         guard authorId == userId else {
-            print("❌ [DELETE] User \(userId) is not owner \(authorId)")
+            dlog("❌ [DELETE] User \(userId) is not owner \(authorId)")
             throw NSError(domain: "CommentService", code: -4, userInfo: [NSLocalizedDescriptionKey: "You can only delete your own comments"])
         }
         
-        // P2-2 FIX: Check if comment has replies before deletion
-        let replies = commentReplies[commentId] ?? []
-        if !replies.isEmpty {
-            print("⚠️ [P2-2] Cannot delete comment with \(replies.count) replies")
-            throw NSError(domain: "CommentService", code: -5, 
+        // P2-2 FIX: Check for replies directly in RTDB — never rely on the local cache,
+        // which may be stale or not yet populated.
+        let allCommentsSnapshot = try await ref
+            .child("postInteractions").child(postId).child("comments")
+            .getData()
+        var replyCount = 0
+        if allCommentsSnapshot.exists() {
+            for child in allCommentsSnapshot.children.allObjects as? [DataSnapshot] ?? [] {
+                if let data = child.value as? [String: Any],
+                   let parentId = data["parentCommentId"] as? String,
+                   parentId == commentId {
+                    replyCount += 1
+                }
+            }
+        }
+        if replyCount > 0 {
+            dlog("⚠️ [P2-2] Cannot delete comment with \(replyCount) replies (from DB)")
+            throw NSError(domain: "CommentService", code: -5,
                          userInfo: [NSLocalizedDescriptionKey: "Cannot delete a comment that has replies. Delete the replies first."])
         }
         
@@ -870,7 +946,6 @@ class CommentService: ObservableObject {
         try await commentRef.removeValue()
         
         // Decrement comment count on the post
-        let interactionsService = PostInteractionsService.shared
         let countRef = ref.child("postInteractions").child(postId).child("commentCount")
         try await countRef.runTransactionBlock { currentData in
             if let currentCount = currentData.value as? Int {
@@ -881,7 +956,7 @@ class CommentService: ObservableObject {
             return TransactionResult.success(withValue: currentData)
         }
         
-        print("✅ Comment deleted successfully")
+        dlog("✅ Comment deleted successfully")
         
         // Update local cache
         if var postComments = comments[postId] {
@@ -900,7 +975,7 @@ class CommentService: ObservableObject {
     ///   - commentId: The comment ID to toggle
     ///   - postId: The post ID (required for direct Firebase access)
     func toggleAmen(commentId: String, postId: String) async throws {
-        print("🙏 Toggling Amen on comment: \(commentId) in post: \(postId)")
+        dlog("🙏 Toggling Amen on comment: \(commentId) in post: \(postId)")
         
         guard let userId = firebaseManager.currentUser?.uid else {
             throw NSError(domain: "CommentService", code: -1, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
@@ -930,7 +1005,7 @@ class CommentService: ObservableObject {
                 return TransactionResult.success(withValue: currentData)
             }
             
-            print("✅ Removed amen from comment")
+            dlog("✅ Removed amen from comment")
         } else {
             // Add like
             try await userLikeRef.setValue(true)
@@ -945,7 +1020,7 @@ class CommentService: ObservableObject {
                 return TransactionResult.success(withValue: currentData)
             }
             
-            print("✅ Added amen to comment")
+            dlog("✅ Added amen to comment")
         }
         
         // Haptic feedback
@@ -961,11 +1036,11 @@ class CommentService: ObservableObject {
     func startListening(to postId: String) {
         // ✅ Prevent duplicate listeners
         if listenerPaths[postId] != nil {
-            print("⚠️ Already listening to post: \(postId)")
+            dlog("⚠️ Already listening to post: \(postId)")
             return
         }
         
-        print("🔊 Starting real-time listener for comments on post: \(postId)")
+        dlog("🔊 Starting real-time listener for comments on post: \(postId)")
         
         let commentsRef = ref.child("postInteractions").child(postId).child("comments")
         
@@ -975,56 +1050,67 @@ class CommentService: ObservableObject {
         
         let handle = commentsRef.observe(.value) { [weak self] snapshot in
             guard let self = self else { return }
-            
-            Task { @MainActor in
-                print("📥 [LISTENER] Real-time data received for post: \(postId)")
-                print("   Snapshot exists: \(snapshot.exists())")
-                print("   Children count: \(snapshot.childrenCount)")
-                
-                // ✅ Check if this data came from cache (offline) or server
-                if let metadata = snapshot.value as? [String: Any] {
-                    print("   Data source: \(metadata.keys.count) comment(s)")
-                } else if snapshot.exists() {
-                    print("   Data source: Has data but not a dictionary")
-                } else {
-                    print("   Data source: Empty snapshot (no comments)")
+
+            // ⚠️ CRITICAL: Firebase DataSnapshot memory is only valid synchronously
+            // within this callback. Extract everything into plain Swift value types
+            // NOW, before dispatching to the main actor — never hold DataSnapshot
+            // across an async boundary (causes heap corruption / SIGABRT).
+            let snapshotExists = snapshot.exists()
+            let childCount = snapshot.childrenCount
+
+            // Pre-extract all child data synchronously on the Firebase background thread.
+            struct RawComment {
+                let key: String
+                let data: [String: Any]
+            }
+            var rawComments: [RawComment] = []
+            if snapshotExists {
+                for child in snapshot.children.allObjects as? [DataSnapshot] ?? [] {
+                    if let data = child.value as? [String: Any] {
+                        rawComments.append(RawComment(key: child.key, data: data))
+                    }
                 }
-                
+            }
+            // DataSnapshot is no longer referenced after this point.
+
+            Task { @MainActor [weak self] in
+                guard let self = self else { return }
+
+                dlog("📥 [LISTENER] Real-time data received for post: \(postId)")
+                dlog("   Snapshot exists: \(snapshotExists)")
+                dlog("   Children count: \(childCount)")
+                dlog("   Data source: \(rawComments.count) comment(s)")
+
                 var fetchedComments: [Comment] = []
                 var repliesMap: [String: [Comment]] = [:]
-                
-                for child in snapshot.children {
-                    guard let childSnapshot = child as? DataSnapshot,
-                          let commentData = childSnapshot.value as? [String: Any],
-                          let authorId = commentData["authorId"] as? String,
+
+                for raw in rawComments {
+                    let commentData = raw.data
+                    guard let authorId = commentData["authorId"] as? String,
                           let authorName = commentData["authorName"] as? String,
                           let authorInitials = commentData["authorInitials"] as? String,
                           let content = commentData["content"] as? String,
                           let timestamp = commentData["timestamp"] as? Int64 else {
                         continue
                     }
-                    
+
                     // ✅ Get username and profile image from RTDB (stored during comment creation)
                     let authorUsername: String
-                    let authorProfileImageURL: String?
-                    
                     if let storedUsername = commentData["authorUsername"] as? String, !storedUsername.isEmpty {
                         authorUsername = storedUsername
-                        print("✅ Using stored username: @\(authorUsername)")
+                        dlog("✅ Using stored username: @\(authorUsername)")
                     } else {
-                        // Fallback for old comments without username
                         authorUsername = "user\(authorId.prefix(8))"
-                        print("⚠️ No stored username, using fallback: @\(authorUsername)")
+                        dlog("⚠️ No stored username, using fallback: @\(authorUsername)")
                     }
-                    
-                    // ✅ Get profile image URL from RTDB
-                    authorProfileImageURL = commentData["authorProfileImageURL"] as? String
+
+                    let authorProfileImageURL = commentData["authorProfileImageURL"] as? String
                     if let imageURL = authorProfileImageURL {
-                        print("✅ Profile image URL found: \(imageURL)")
+                        dlog("✅ Profile image URL found: \(imageURL)")
                     }
-                    
-                    var comment = Comment(
-                        id: childSnapshot.key,
+
+                    let comment = Comment(
+                        id: raw.key,
                         postId: postId,
                         authorId: authorId,
                         authorName: authorName,
@@ -1040,67 +1126,74 @@ class CommentService: ObservableObject {
                         parentCommentId: commentData["parentCommentId"] as? String,
                         mentionedUserIds: nil
                     )
-                    
-                    // P0-2 FIX: Check if this comment replaces an optimistic one
-                    let contentHash = content.hashValue
-                    if let (tempId, tracked) = self.optimisticComments.first(where: { $0.value.hash == contentHash }) {
-                        print("🔄 [P0-2] Real comment \(childSnapshot.key) replaces optimistic \(tempId)")
-                        
-                        // Post replacement notification
+
+                    // P0-2 FIX: Check if this comment replaces an optimistic one.
+                    // Match on clientRequestId written into RTDB, not content.hashValue —
+                    // avoids false matches when two comments have identical content.
+                    if let clientRequestId = commentData["clientRequestId"] as? String,
+                       let tempId = self.optimisticComments[clientRequestId] {
+                        dlog("🔄 [P0-2] Real comment \(raw.key) replaces optimistic \(tempId) via clientRequestId")
                         NotificationCenter.default.post(
                             name: Notification.Name("commentConfirmed"),
                             object: nil,
                             userInfo: [
-                                "realId": childSnapshot.key,
+                                "realId": raw.key,
                                 "tempId": tempId,
                                 "postId": postId
                             ]
                         )
-                        
-                        // Clean up tracking
-                        self.optimisticComments.removeValue(forKey: tempId)
+                        self.optimisticComments.removeValue(forKey: clientRequestId)
                     }
-                    
+
                     fetchedComments.append(comment)
                 }
-                
+
                 // Sort by timestamp
                 fetchedComments.sort { $0.createdAt < $1.createdAt }
-                
+
                 // ✅ Separate top-level comments and replies
                 let topLevelComments = fetchedComments.filter { $0.parentCommentId == nil }
                 let replies = fetchedComments.filter { $0.parentCommentId != nil }
-                
-                // ✅ Update cache ONCE with new data
-                self.comments[postId] = topLevelComments
-                
-                // ✅ Clear and rebuild replies map
+
+                // ✅ Guard: don't overwrite a populated cache with an empty snapshot.
+                if topLevelComments.isEmpty, let existing = self.comments[postId], !existing.isEmpty {
+                    dlog("⚠️ [LISTENER] Empty snapshot received — keeping \(existing.count) cached comment(s)")
+                    return
+                }
+
+                // ✅ Build the full replies dict locally BEFORE touching any @Published property.
+                // This prevents SwiftUI from rendering a half-updated state (comments updated but
+                // commentReplies not yet updated) which causes LazyVStack cell recycling corruption → SIGABRT.
                 for reply in replies {
                     guard let parentId = reply.parentCommentId else { continue }
-                    
                     if repliesMap[parentId] != nil {
                         repliesMap[parentId]?.append(reply)
                     } else {
                         repliesMap[parentId] = [reply]
                     }
                 }
-                
-                // ✅ Sort replies by timestamp within each parent
-                for (parentId, var replies) in repliesMap {
-                    replies.sort { $0.createdAt < $1.createdAt }
-                    self.commentReplies[parentId] = replies
+                for parentId in repliesMap.keys {
+                    repliesMap[parentId]?.sort { $0.createdAt < $1.createdAt }
                 }
-                
-                // ✅ Remove old replies that no longer exist
+
+                // ✅ Remove old reply parents that no longer exist in the new snapshot.
                 let currentReplyParents = Set(replies.compactMap { $0.parentCommentId })
                 let cachedReplyParents = Set(self.commentReplies.keys)
+                var newCommentReplies = repliesMap
                 for oldParent in cachedReplyParents where !currentReplyParents.contains(oldParent) {
-                    self.commentReplies.removeValue(forKey: oldParent)
+                    newCommentReplies.removeValue(forKey: oldParent)
                 }
-                
-                print("✅ Real-time update: \(topLevelComments.count) comments, \(replies.count) replies")
-                
-                // ✅ Post notification to immediately update UI
+
+                // ✅ Update commentReplies BEFORE comments so that when SwiftUI re-renders
+                // due to the comments assignment, commentReplies already holds the correct
+                // new data. Previously comments was set first, causing SwiftUI to compute
+                // commentsWithReplies (which reads BOTH dicts) while commentReplies was still
+                // being mutated — producing stale/nil ids → LazyVStack cell corruption → SIGABRT.
+                self.commentReplies = newCommentReplies
+                self.comments[postId] = topLevelComments
+
+                dlog("✅ Real-time update: \(topLevelComments.count) comments, \(replies.count) replies")
+
                 NotificationCenter.default.post(
                     name: Notification.Name("commentsUpdated"),
                     object: nil,
@@ -1112,10 +1205,12 @@ class CommentService: ObservableObject {
         listenerPaths[postId] = handle
     }
     
-    // P0-3 FIX: Stop listener for specific post (prevents memory leak)
-    func stopListening(to postId: String) {
+    // P0-3 FIX: Stop listener for specific post (prevents memory leak).
+    // Pass clearCache: true only when the post will not be shown again (e.g. full dismiss).
+    // Leaving cache intact lets a screen that briefly disappears and returns avoid a re-fetch.
+    func stopListening(to postId: String, clearCache: Bool = false) {
         guard let handle = listenerPaths[postId] else {
-            print("⚠️ [P0-3] No listener to stop for post: \(postId)")
+            dlog("⚠️ [P0-3] No listener to stop for post: \(postId)")
             return
         }
         
@@ -1124,15 +1219,16 @@ class CommentService: ObservableObject {
         
         listenerPaths.removeValue(forKey: postId)
         
-        // Optionally clear cache for this post
-        comments.removeValue(forKey: postId)
+        if clearCache {
+            comments.removeValue(forKey: postId)
+        }
         
-        print("🔇 [P0-3] Stopped listener for post: \(postId) (active: \(listenerPaths.count))")
+        dlog("🔇 [P0-3] Stopped listener for post: \(postId), clearCache=\(clearCache) (active: \(listenerPaths.count))")
     }
     
     /// Stop all listeners
     func stopListening() {
-        print("🔇 Stopping all comment listeners...")
+        dlog("🔇 Stopping all comment listeners...")
         
         for (postId, handle) in listenerPaths {
             ref.child("postInteractions").child(postId).child("comments").removeObserver(withHandle: handle)
@@ -1141,7 +1237,7 @@ class CommentService: ObservableObject {
         listenerPaths.removeAll()
         comments.removeAll()
         
-        print("✅ All listeners stopped and cache cleared")
+        dlog("✅ All listeners stopped and cache cleared")
     }
     
     // MARK: - Helper Methods
@@ -1158,7 +1254,9 @@ class CommentService: ObservableObject {
                 throw TimeoutError(operation: "Comment submission timed out after \(seconds)s")
             }
             
-            let result = try await group.next()!
+            guard let result = try await group.next() else {
+                throw TimeoutError(operation: "No result from task group")
+            }
             group.cancelAll()
             return result
         }
@@ -1176,10 +1274,10 @@ class CommentService: ObservableObject {
         do {
             let snapshot = try await userLikeRef.getData()
             let hasLiked = snapshot.exists()
-            print("✅ hasUserAmened check - commentId: \(commentId), postId: \(postId), result: \(hasLiked)")
+            dlog("✅ hasUserAmened check - commentId: \(commentId), postId: \(postId), result: \(hasLiked)")
             return hasLiked
         } catch {
-            print("❌ Error checking amen status: \(error)")
+            dlog("❌ Error checking amen status: \(error)")
             return false
         }
     }
@@ -1192,7 +1290,51 @@ class CommentService: ObservableObject {
         postAuthorId: String,
         commenterName: String
     ) async throws {
-        print("📬 Comment notification: skipped")
+        guard let commenterId = firebaseManager.currentUser?.uid,
+              commenterId != postAuthorId else { return }
+        
+        let db = Firestore.firestore()
+        // Grouped comment notification — deterministic ID so multiple comments on same post
+        // accumulate into a single notification row (Threads-style grouping)
+        let deterministicId = "comment_group_\(postId)"
+        let existingDoc = try? await db.collection("users").document(postAuthorId)
+            .collection("notifications").document(deterministicId).getDocument()
+        
+        if let existing = existingDoc, existing.exists,
+           var actors = existing.data()?["actorIds"] as? [String] {
+            // Append actor if not already present, update count and preview
+            if !actors.contains(commenterId) {
+                actors.append(commenterId)
+            }
+            try? await db.collection("users").document(postAuthorId)
+                .collection("notifications").document(deterministicId).updateData([
+                    "actorIds": actors,
+                    "actorCount": actors.count,
+                    "fromUserId": commenterId,
+                    "fromUserName": commenterName,
+                    "commentId": commentId,
+                    "isRead": false,
+                    "updatedAt": FieldValue.serverTimestamp()
+                ])
+        } else {
+            let notification: [String: Any] = [
+                "toUserId": postAuthorId,
+                "type": "comment",
+                "fromUserId": commenterId,
+                "fromUserName": commenterName,
+                "postId": postId,
+                "commentId": commentId,
+                "actorIds": [commenterId],
+                "actorCount": 1,
+                "message": "\(commenterName) commented on your post",
+                "createdAt": FieldValue.serverTimestamp(),
+                "updatedAt": FieldValue.serverTimestamp(),
+                "isRead": false
+            ]
+            try? await db.collection("users").document(postAuthorId)
+                .collection("notifications").document(deterministicId).setData(notification)
+        }
+        dlog("📬 Comment notification sent to post author: \(postAuthorId)")
     }
     
     private func createReplyNotification(
@@ -1202,7 +1344,25 @@ class CommentService: ObservableObject {
         parentAuthorId: String,
         replierName: String
     ) async throws {
-        print("📬 Reply notification: skipped")
+        guard let replierId = firebaseManager.currentUser?.uid,
+              replierId != parentAuthorId else { return }
+        
+        let db = Firestore.firestore()
+        let notification: [String: Any] = [
+            "toUserId": parentAuthorId,
+            "type": "reply",
+            "fromUserId": replierId,
+            "fromUserName": replierName,
+            "postId": postId,
+            "commentId": commentId,
+            "replyId": replyId,
+            "message": "\(replierName) replied to your comment",
+            "createdAt": FieldValue.serverTimestamp(),
+            "isRead": false
+        ]
+        _ = try? await db.collection("users").document(parentAuthorId)
+            .collection("notifications").addDocument(data: notification)
+        dlog("📬 Reply notification sent to comment author: \(parentAuthorId)")
     }
     
     private func createMentionNotification(
@@ -1211,6 +1371,23 @@ class CommentService: ObservableObject {
         mentionedUserId: String,
         mentionerName: String
     ) async throws {
-        print("📬 Mention notification: skipped")
+        guard let mentionerId = firebaseManager.currentUser?.uid,
+              mentionerId != mentionedUserId else { return }
+        
+        let db = Firestore.firestore()
+        let notification: [String: Any] = [
+            "toUserId": mentionedUserId,
+            "type": "mention",
+            "fromUserId": mentionerId,
+            "fromUserName": mentionerName,
+            "postId": postId,
+            "commentId": commentId,
+            "message": "\(mentionerName) mentioned you in a comment",
+            "createdAt": FieldValue.serverTimestamp(),
+            "isRead": false
+        ]
+        _ = try? await db.collection("users").document(mentionedUserId)
+            .collection("notifications").addDocument(data: notification)
+        dlog("📬 Mention notification sent to: \(mentionedUserId)")
     }
 }

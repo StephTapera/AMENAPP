@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct ScrollBudgetSettingsView: View {
-    @StateObject private var budgetManager = ScrollBudgetManager.shared
+    @ObservedObject private var budgetManager = ScrollBudgetManager.shared
     @Environment(\.dismiss) var dismiss
     
     var body: some View {

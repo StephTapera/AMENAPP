@@ -49,6 +49,7 @@ struct CreatePostView: View {
     @State private var showingScheduleSheet = false
     @State private var isPublishing = false
     @State private var showDraftsSheet = false
+    @State private var showFirstPostGuidelinesPrompt = false
     @State private var scheduledDate: Date?
     @State private var showingErrorAlert = false
     @State private var errorMessage = ""
@@ -63,15 +64,19 @@ struct CreatePostView: View {
     
     // MARK: - New Features State
     @State private var autoSaveTask: Task<Void, Never>?
+    @State private var mentionSearchTask: Task<Void, Never>?
+    @StateObject private var linkController = ComposerLinkPreviewController()
     @State private var showMentionSuggestions = false
     @State private var mentionSuggestions: [AlgoliaUser] = []
     @State private var currentMentionQuery = ""
-    @State private var linkMetadata: LinkPreviewMetadata?
-    @State private var isLoadingLinkPreview = false
     @State private var showDraftRecovery = false
     @State private var recoveredDraft: Draft?
     @State private var uploadProgress: Double = 0.0
     @State private var isUploadingImages = false
+    
+    // Tag people
+    @State private var taggedUsers: [MentionedUser] = []
+    @State private var showingTagPeopleSheet = false
     
     // P0-1 FIX: Prevent duplicate post creation
     @State private var inFlightPostHash: Int? = nil
@@ -81,16 +86,37 @@ struct CreatePostView: View {
     
     // TRUST & SAFETY: Content moderation tracking
     @StateObject private var integrityTracker = ComposerIntegrityTracker()
-    @StateObject private var rateLimiter = ComposerRateLimiter.shared
+    @ObservedObject private var rateLimiter = ComposerRateLimiter.shared
     @State private var showModerationNudge = false
     @State private var moderationNudgeMessage = ""
     @State private var showModerationBlockingModal = false
     @State private var blockingModerationDecision: ModerationDecision?
+    @State private var shakePublishButton = false
     
     // AI CONTENT DETECTION
     @State private var showAIContentAlert = false
     @State private var aiContentConfidence: Double = 0.0
     @State private var aiContentReason: String = ""
+    
+    // ✅ AUTHENTICITY PROMPT (gentle nudge for suspicious content)
+    @State private var showAuthenticityPrompt = false
+    @State private var authenticityPromptMessage = ""
+    @State private var personalContextText = ""  // User's added personal context
+
+    // ✅ SOURCE LABEL — when AI-flagged content is allowed through with disclosure
+    @State private var showSourcePrompt = false
+    @State private var pendingSourceContent = ""  // content waiting for source decision
+    @State private var postContentSource: String? = nil  // "ChatGPT" | "External" | nil
+    
+    // ✅ HEY FEED: Think First guardrails
+    @State private var showThinkFirstPrompt = false
+    @State private var thinkFirstCheckResult: ThinkFirstGuardrailsService.ContentCheckResult?
+    @State private var pendingPostContent = ""  // Store content during guardrail check
+    
+    // Berean AI tone assist
+    @State private var bereanToneSuggestion: String?
+    @State private var isLoadingBereanTone = false
+    @State private var showBereanToneSheet = false
     
     // MARK: - Initializer
     
@@ -251,56 +277,21 @@ struct CreatePostView: View {
                     .animation(.easeOut(duration: 0.2), value: showingDraftSavedNotice)
                 }
                 
-                // Success notification (for post published) - Subtle black & white
+                // Success notification — Dynamic Island–style black pill
                 if showingSuccessNotice {
                     VStack {
                         Spacer()
-                        
-                        HStack(spacing: 10) {
-                            Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundStyle(.black)
-                            
-                            Text("Post published")
-                                .font(.custom("OpenSans-SemiBold", size: 14))
-                                .foregroundStyle(.black.opacity(0.8))
-                        }
-                        .padding(.horizontal, 18)
-                        .padding(.vertical, 12)
-                        .background(
-                            Capsule()
-                                .fill(.white)
-                                .overlay(
-                                    Capsule()
-                                        .stroke(.black.opacity(0.1), lineWidth: 1)
-                                )
-                                .shadow(color: .black.opacity(0.08), radius: 8, y: 2)
-                        )
-                        .padding(.bottom, 100)
+                        PostedPill()
+                            .padding(.bottom, 36)
                     }
                     .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .animation(.spring(response: 0.4, dampingFraction: 0.8), value: showingSuccessNotice)
+                    .animation(.spring(response: 0.45, dampingFraction: 0.72), value: showingSuccessNotice)
                 }
             }
             .navigationTitle("Create Post")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    GlassmorphicButton(
-                        icon: "xmark",
-                        style: .secondary
-                    ) {
-                        isTextFieldFocused = false
-                        if !postText.isEmpty {
-                            saveDraft()
-                        }
-                        dismiss()
-                    }
-                    .accessibilityLabel("Close")
-                    .accessibilityHint("Saves draft if content exists and closes the post editor")
-                }
-                
-                // Drafts button
+                // Drafts button (leading)
                 ToolbarItem(placement: .navigationBarLeading) {
                     if !draftsManager.drafts.isEmpty {
                         Button {
@@ -328,143 +319,57 @@ struct CreatePostView: View {
                     }
                 }
                 
-                // P1-5 FIX: Manual "Save as Draft" button
+                // Berean AI tone assist — black/white pill button
                 ToolbarItem(placement: .navigationBarTrailing) {
                     if !postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isPublishing {
-                        Button {
-                            isTextFieldFocused = false
-                            saveDraft()
-                            // Show brief success feedback
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                showingDraftSavedNotice = true
-                            }
-                            // P0-2 FIX: Use cancellable task
-                            scheduleDelayedAction(seconds: 1.5) {
-                                withAnimation {
-                                    showingDraftSavedNotice = false
-                                }
-                            }
-                        } label: {
-                            HStack(spacing: 4) {
-                                Image(systemName: "square.and.arrow.down")
-                                    .font(.system(size: 14, weight: .semibold))
-                                Text("Save")
-                                    .font(.custom("OpenSans-SemiBold", size: 14))
-                            }
-                            .foregroundStyle(.secondary)
-                        }
-                        .accessibilityLabel("Save draft")
-                        .accessibilityHint("Saves your post as a draft without publishing")
-                    }
-                }
-                
-                // Post Button - Top Right
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: {
-                        print("🔵 Post button tapped!")
-                        print("   canPost: \(canPost)")
-                        print("   isPublishing: \(isPublishing)")
-                        print("   postText: '\(postText)'")
-                        print("   selectedCategory: \(selectedCategory.rawValue)")
-                        print("   selectedTopicTag: '\(selectedTopicTag)'")
-                        
-                        guard canPost && !isPublishing else {
-                            print("❌ Button action blocked - canPost=\(canPost), isPublishing=\(isPublishing)")
-                            return
-                        }
-                        
-                        // ⚡ INSTANT: No delay - dismiss keyboard and post immediately
-                        isTextFieldFocused = false
-                        print("✅ Calling publishPost() immediately (Instagram-fast)")
-                        publishPost()
-                    }) {
-                        ZStack {
-                            // Dark glass background
-                            Circle()
-                                .fill(Color(red: 0.2, green: 0.2, blue: 0.2))
-                                .frame(width: 36, height: 36)
-                            
-                            // Metallic rainbow shimmer border when enabled
-                            if canPost {
-                                Circle()
-                                    .strokeBorder(
-                                        AngularGradient(
-                                            gradient: Gradient(colors: [
-                                                Color(red: 0.5, green: 0.8, blue: 1.0),
-                                                Color(red: 0.8, green: 0.5, blue: 1.0),
-                                                Color(red: 1.0, green: 0.7, blue: 0.5),
-                                                Color(red: 1.0, green: 1.0, blue: 0.7),
-                                                Color(red: 0.5, green: 0.8, blue: 1.0),
-                                            ]),
-                                            center: .center
-                                        ),
-                                        lineWidth: 1.5
-                                    )
-                                    .frame(width: 36, height: 36)
-                            } else {
-                                Circle()
-                                    .strokeBorder(Color.gray.opacity(0.3), lineWidth: 1.5)
-                                    .frame(width: 36, height: 36)
-                            }
-                            
-                            // Icon
-                            if isPublishing {
-                                ProgressView()
-                                    .tint(.white)
-                                    .scaleEffect(0.8)
-                            } else {
-                                Image(systemName: scheduledDate != nil ? "calendar.badge.clock" : "arrow.up")
-                                    .font(.system(size: 16, weight: .semibold))
-                                    .foregroundStyle(canPost ? Color.white : Color.white.opacity(0.4))
-                            }
+                        BereanToneButton(isLoading: isLoadingBereanTone) {
+                            requestBereanToneAssist()
                         }
                     }
-                    .disabled(!canPost || isPublishing || isUploadingImages)  // P1 FIX: Also disable during image upload
-                    .accessibilityLabel(scheduledDate != nil ? "Schedule post" : "Publish post")
-                    .accessibilityHint(canPost ? "Double tap to publish" : "Post is incomplete or invalid")
                 }
             }
             .safeAreaInset(edge: .bottom) {
                 bottomToolbar
             }
-            .sheet(isPresented: $showingImagePicker) {
-                // P0 FIX: Changed from 4 to 2 photos max (as per requirements)
-                PhotosPicker(selection: $selectedImages, maxSelectionCount: 2, matching: .images) {
-                    Text("Select Photos")
-                }
-                .onChange(of: selectedImages) { _, newItems in
-                    Task {
-                        selectedImageData = []
-                        var oversizedImages = 0
-                        
-                        for item in newItems {
-                            if let data = try? await item.loadTransferable(type: Data.self) {
-                                // Check if image is too large (max 10MB)
-                                let maxSize = 10 * 1024 * 1024 // 10MB
-                                if data.count > maxSize {
-                                    oversizedImages += 1
-                                    print("⚠️ Image exceeds 10MB limit, skipping")
-                                    continue
-                                }
-                                selectedImageData.append(data)
+            // Photo picker — uses the system modifier (not a sheet wrapper) so
+            // onChange fires in the main view scope and selectedImageData is updated.
+            .photosPicker(
+                isPresented: $showingImagePicker,
+                selection: $selectedImages,
+                maxSelectionCount: 2,
+                matching: .images
+            )
+            .onChange(of: selectedImages) { _, newItems in
+                Task {
+                    selectedImageData = []
+                    var oversizedImages = 0
+
+                    for item in newItems {
+                        if let data = try? await item.loadTransferable(type: Data.self) {
+                            let maxSize = 10 * 1024 * 1024 // 10 MB
+                            if data.count > maxSize {
+                                oversizedImages += 1
+                                dlog("⚠️ Image exceeds 10MB limit, skipping")
+                                continue
                             }
+                            selectedImageData.append(data)
                         }
-                        
-                        // Show warning if some images were too large
-                        if oversizedImages > 0 {
-                            await MainActor.run {
-                                showError(
-                                    title: "Some Images Too Large",
-                                    message: "\(oversizedImages) image(s) exceeded the 10MB size limit and were skipped. Try using smaller images."
-                                )
-                            }
+                    }
+
+                    if oversizedImages > 0 {
+                        await MainActor.run {
+                            showError(
+                                title: "Some Images Too Large",
+                                message: "\(oversizedImages) image(s) exceeded the 10MB size limit and were skipped. Try using smaller images."
+                            )
                         }
                     }
                 }
             }
             .sheet(isPresented: $showingLinkSheet) {
                 LinkInputSheet(url: $linkURL, isPresented: $showingLinkSheet) { url in
-                    fetchLinkMetadata(for: url)
+                    // Delegate to controller so manual URL also gets rich preview
+                    linkController.handleTextChange(url)
                 }
             }
             .sheet(isPresented: $showingTopicTagSheet) {
@@ -499,6 +404,51 @@ struct CreatePostView: View {
                         }
                     )
                 }
+            }
+            .sheet(isPresented: $showAuthenticityPrompt) {
+                AuthenticityPromptSheet(
+                    message: authenticityPromptMessage,
+                    personalContext: $personalContextText,
+                    onContinue: {
+                        // User added personal context, allow post to continue
+                        showAuthenticityPrompt = false
+                        // Append personal context to the post
+                        if !personalContextText.isEmpty {
+                            postText += "\n\n" + personalContextText
+                            personalContextText = "" // Reset for next time
+                        }
+                        // Retry publishing with the updated content
+                        publishPost()
+                    },
+                    onCancel: {
+                        showAuthenticityPrompt = false
+                        personalContextText = ""
+                    }
+                )
+                .presentationDetents([.medium])
+            }
+            .sheet(isPresented: $showSourcePrompt) {
+                SourceLabelPrompt(
+                    onPostWithSource: { source in
+                        showSourcePrompt = false
+                        postContentSource = source
+                        publishPost()
+                    },
+                    onEdit: {
+                        showSourcePrompt = false
+                        postContentSource = nil
+                    }
+                )
+                .presentationDetents([.height(560)])
+                .presentationDragIndicator(.hidden)
+                .presentationCornerRadius(28)
+                .presentationBackground(.clear)
+            }
+            .sheet(isPresented: $showThinkFirstPrompt) {
+                thinkFirstPromptSheetContent
+            }
+            .sheet(isPresented: $showBereanToneSheet) {
+                bereanToneSheetContent
             }
             .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { notification in
                 if let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect {
@@ -549,6 +499,13 @@ struct CreatePostView: View {
         } message: {
             Text("AMEN is a community for authentic, personal sharing. We noticed this content may not be written in your own words.\n\nPlease share your personal thoughts, experiences, and reflections. We want to hear from you, not from AI tools.")
         }
+        .sheet(isPresented: $showFirstPostGuidelinesPrompt) {
+            CommunityGuidelinesPrompt {
+                showFirstPostGuidelinesPrompt = false
+                // Re-call publishPost after user acknowledges
+                publishPost()
+            }
+        }
         .onAppear {
             isTextFieldFocused = true
             updateHashtagSuggestions()
@@ -563,6 +520,14 @@ struct CreatePostView: View {
             // Stop auto-save task when view disappears
             autoSaveTask?.cancel()
             autoSaveTask = nil
+            
+            // Cancel in-flight mention search so its callback cannot write to @State
+            // after the TextEditor's UITextView is torn down (prevents RTIInputSystemClient SIGABRT)
+            mentionSearchTask?.cancel()
+            mentionSearchTask = nil
+            
+            // Cancel pending link preview
+            linkController.reset()
             
             // P0-2 FIX: Cancel all delayed tasks to prevent crash on rapid navigation
             delayedTasks.forEach { $0.cancel() }
@@ -625,6 +590,53 @@ struct CreatePostView: View {
         }
     }
     
+    // Berean AI tone assist — fun interactive popup
+    @ViewBuilder
+    private var bereanToneSheetContent: some View {
+        BereanTonePopup(
+            suggestion: bereanToneSuggestion,
+            onUse: { suggestion in
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                postText = suggestion
+                bereanToneSuggestion = nil
+                showBereanToneSheet = false
+            },
+            onDismiss: {
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                showBereanToneSheet = false
+            }
+        )
+        .presentationDetents([.height(480)])
+        .presentationDragIndicator(.hidden)
+        .presentationCornerRadius(28)
+        .presentationBackground(.clear)
+    }
+    
+    // ✅ HEY FEED: Think First prompt sheet content
+    @ViewBuilder
+    private var thinkFirstPromptSheetContent: some View {
+        if let checkResult = thinkFirstCheckResult {
+            ThinkFirstPromptSheet(
+                checkResult: checkResult,
+                originalText: pendingPostContent.isEmpty ? postText : pendingPostContent,
+                onRevise: { revisedText in
+                    showThinkFirstPrompt = false
+                    thinkFirstCheckResult = nil
+                    // Update post text with revised content
+                    postText = revisedText
+                    pendingPostContent = ""
+                },
+                onProceed: {
+                    showThinkFirstPrompt = false
+                    thinkFirstCheckResult = nil
+                    // User chose to proceed anyway
+                    proceedWithPublish()
+                }
+            )
+            .presentationDetents([.medium, .large])
+        }
+    }
+    
     private var placeholderText: String {
         switch selectedCategory {
         case .openTable:
@@ -653,7 +665,7 @@ struct CreatePostView: View {
                     .transition(.move(edge: .top).combined(with: .opacity))
                 }
                 
-                if selectedCategory == .openTable || selectedCategory == .prayer {
+                if selectedCategory == .openTable || selectedCategory == .prayer || selectedCategory == .testimonies {
                     topicTagSelectorView
                 }
                 textEditorView
@@ -681,17 +693,18 @@ struct CreatePostView: View {
                     }
                     .padding(.horizontal, 20)
                 }
-                if !linkURL.isEmpty {
-                    LinkPreviewCardView(
-                        url: linkURL,
-                        metadata: linkMetadata,
-                        isLoading: isLoadingLinkPreview
-                    ) {
-                        linkURL = ""
-                        linkMetadata = nil
-                    }
+                ComposerLinkPreview(controller: linkController)
                     .padding(.horizontal, 20)
+                    .animation(.spring(response: 0.35, dampingFraction: 0.8), value: linkController.activeURL)
+
+                // Rich link card — shown when user manually adds a link URL via the sheet
+                if !linkURL.isEmpty && linkController.activeURL == nil {
+                    LinkCardView(urlString: linkURL, onRemove: { linkURL = "" })
+                        .padding(.horizontal, 20)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: linkURL)
                 }
+
                 if let scheduledDate = scheduledDate {
                     scheduleIndicatorView(scheduledDate: scheduledDate)
                 }
@@ -700,10 +713,12 @@ struct CreatePostView: View {
         }
         .scrollDismissesKeyboard(.interactively) // ✅ Dismiss keyboard on scroll (swipe down)
         .contentShape(Rectangle()) // Make entire scroll view tappable
-        .onTapGesture {
+        .simultaneousGesture(TapGesture().onEnded {
             // ✅ Dismiss keyboard when tapping empty space (like Threads)
+            // simultaneousGesture instead of onTapGesture so TextEditor's
+            // long-press text selection (copy/paste) is not consumed.
             isTextFieldFocused = false
-        }
+        })
     }
     
     private var bottomToolbar: some View {
@@ -729,8 +744,37 @@ struct CreatePostView: View {
                 .animation(.easeOut(duration: 0.15), value: postText.count > 400)
             }
             
-            // Compact sleek glass toolbar (matching design image)
-            HStack(spacing: 14) {
+            // Unified bottom toolbar: X | Draft | tools | POST
+            HStack(spacing: 10) {
+                // X (close) button — leftmost
+                CompactGlassButton(icon: "xmark", isActive: false) {
+                    isTextFieldFocused = false
+                    if !postText.isEmpty { saveDraft() }
+                    dismiss()
+                }
+                .accessibilityLabel("Close")
+                
+                // Draft button (slides in when text exists)
+                if !postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    CompactGlassButton(icon: "square.and.arrow.down", isActive: false) {
+                        isTextFieldFocused = false
+                        saveDraft()
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            showingDraftSavedNotice = true
+                        }
+                        scheduleDelayedAction(seconds: 1.5) {
+                            withAnimation { showingDraftSavedNotice = false }
+                        }
+                    }
+                    .accessibilityLabel("Save draft")
+                    .transition(.opacity.combined(with: .scale(scale: 0.8)))
+                }
+                
+                // Thin divider
+                Rectangle()
+                    .fill(Color.white.opacity(0.25))
+                    .frame(width: 0.5, height: 22)
+                
                 // Photo button
                 CompactGlassButton(
                     icon: "photo.fill",
@@ -746,7 +790,7 @@ struct CreatePostView: View {
                 // Link button
                 CompactGlassButton(
                     icon: "link",
-                    isActive: !linkURL.isEmpty
+                    isActive: !linkURL.isEmpty || linkController.activeURL != nil
                 ) {
                     withAnimation(.easeOut(duration: 0.15)) {
                         showingLinkSheet = true
@@ -765,7 +809,7 @@ struct CreatePostView: View {
                 }
                 .accessibilityLabel("Schedule post")
                 
-                // ✅ Comment controls (opens permission sheet)
+                // Comment controls
                 CompactGlassButton(
                     icon: allowComments ? "bubble.left.and.bubble.right.fill" : "bubble.left.and.bubble.right",
                     isActive: allowComments
@@ -773,16 +817,78 @@ struct CreatePostView: View {
                     showCommentControls = true
                 }
                 .accessibilityLabel("Comment controls")
+                
+                // Tag people button
+                CompactGlassButton(
+                    icon: "person.badge.plus",
+                    isActive: !taggedUsers.isEmpty,
+                    count: taggedUsers.count
+                ) {
+                    withAnimation(.easeOut(duration: 0.15)) {
+                        showingTagPeopleSheet = true
+                    }
+                }
+                .accessibilityLabel("Tag people")
+                
+                // Thin divider
+                Rectangle()
+                    .fill(Color.white.opacity(0.25))
+                    .frame(width: 0.5, height: 22)
+                
+                // POST button — rightmost, neumorphic send style
+                Button(action: {
+                    guard canPost && !isPublishing else { return }
+                    isTextFieldFocused = false
+                    publishPost()
+                }) {
+                    ZStack {
+                        // Outer neumorphic raised circle
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        Color(.systemBackground).opacity(canPost ? 1.0 : 0.7),
+                                        Color(.secondarySystemBackground).opacity(canPost ? 1.0 : 0.7)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 36, height: 36)
+                            // Light shadow (top-left highlight)
+                            .shadow(color: Color.white.opacity(0.8), radius: 3, x: -2, y: -2)
+                            // Dark shadow (bottom-right depth)
+                            .shadow(color: Color.black.opacity(0.18), radius: 4, x: 2, y: 2)
+                        
+                        // Inner pressed inset when disabled/inactive
+                        if !canPost {
+                            Circle()
+                                .fill(Color(.tertiarySystemBackground).opacity(0.6))
+                                .frame(width: 28, height: 28)
+                                .shadow(color: Color.black.opacity(0.08), radius: 2, x: 1, y: 1)
+                        }
+                        
+                        if isPublishing {
+                            ProgressView()
+                                .tint(Color(.label))
+                                .scaleEffect(0.75)
+                        } else {
+                            Image(systemName: scheduledDate != nil ? "calendar.badge.clock" : "paperplane.fill")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundStyle(canPost ? Color(.label) : Color(.label).opacity(0.3))
+                        }
+                    }
+                }
+                .disabled(!canPost || isPublishing || isUploadingImages)
+                .accessibilityLabel(scheduledDate != nil ? "Schedule post" : "Publish post")
+                .modifier(ShakeEffect(shakes: shakePublishButton ? 3 : 0))
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8) // Reduced from 10
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
             .background(
                 ZStack {
-                    // Glass effect background
                     Capsule()
                         .fill(.ultraThinMaterial)
-                    
-                    // Subtle white gradient overlay
                     Capsule()
                         .fill(
                             LinearGradient(
@@ -794,8 +900,6 @@ struct CreatePostView: View {
                                 endPoint: .bottom
                             )
                         )
-                    
-                    // Inner border highlight
                     Capsule()
                         .strokeBorder(
                             LinearGradient(
@@ -812,41 +916,32 @@ struct CreatePostView: View {
             )
             .shadow(color: .black.opacity(0.06), radius: 12, y: 3)
             .shadow(color: .white.opacity(0.4), radius: 6, y: -1)
-            .padding(.horizontal, 40)
-            .padding(.bottom, 6) // Reduced from 8
+            .padding(.horizontal, 20)
+            .padding(.bottom, 6)
         }
         .animation(.easeOut(duration: 0.15), value: selectedImageData.count)
         .animation(.easeOut(duration: 0.15), value: linkURL)
         .animation(.easeOut(duration: 0.15), value: scheduledDate)
         .animation(.easeOut(duration: 0.15), value: allowComments)
+        .animation(.easeOut(duration: 0.15), value: taggedUsers.count)
+        .animation(.spring(response: 0.25, dampingFraction: 0.75), value: postText.isEmpty)
+        .sheet(isPresented: $showingTagPeopleSheet) {
+            TagPeopleSheet(taggedUsers: $taggedUsers)
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+        }
     }
     
     // MARK: - View Components
     
     private var categorySelectorView: some View {
-        HStack(spacing: 0) {
-            ForEach(PostCategory.allCases, id: \.self) { category in
-                LiquidGlassCategoryButton(
-                    category: category,
-                    isSelected: selectedCategory == category,
-                    namespace: categoryNamespace
-                ) {
-                    handleCategorySelection(category)
-                }
-            }
+        GlassCategoryBar(
+            categories: PostCategory.allCases,
+            selected: $selectedCategory,
+            namespace: categoryNamespace
+        ) { category in
+            handleCategorySelection(category)
         }
-        .padding(4)
-        .background(categorySelectorBackground)
-    }
-    
-    private var categorySelectorBackground: some View {
-        Capsule()
-            .fill(.ultraThinMaterial)
-            .overlay(
-                Capsule()
-                    .stroke(Color.black.opacity(0.05), lineWidth: 1)
-            )
-            .shadow(color: Color.black.opacity(0.08), radius: 10, y: 3)
     }
     
     private var topicTagSelectorView: some View {
@@ -870,15 +965,15 @@ struct CreatePostView: View {
         HStack {
             Image(systemName: "tag.fill")
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(.black)
+                .foregroundStyle(.red)
             
-            Text(selectedCategory == .openTable ? "Topic Tag" : "Prayer Type")
+            Text(selectedCategory == .testimonies ? "Testimony Category" : selectedCategory == .openTable ? "Topic Tag" : "Prayer Type")
                 .font(.custom("OpenSans-Bold", size: 15))
                 .foregroundStyle(.primary)
             
             Spacer()
             
-            if selectedTopicTag.isEmpty {
+            if selectedTopicTag.isEmpty && selectedCategory != .testimonies {
                 Text("Required")
                     .font(.custom("OpenSans-SemiBold", size: 12))
                     .foregroundStyle(.red)
@@ -888,6 +983,16 @@ struct CreatePostView: View {
                         Capsule()
                             .fill(Color.red.opacity(0.1))
                     )
+            } else if selectedTopicTag.isEmpty && selectedCategory == .testimonies {
+                Text("Optional")
+                    .font(.custom("OpenSans-SemiBold", size: 12))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(
+                        Capsule()
+                            .fill(Color.gray.opacity(0.1))
+                    )
             }
         }
     }
@@ -895,7 +1000,7 @@ struct CreatePostView: View {
     private var topicTagButtonContent: some View {
         HStack {
             if selectedTopicTag.isEmpty {
-                Text(selectedCategory == .openTable ? "Select a topic tag" : "Select prayer type")
+                Text(selectedCategory == .testimonies ? "Select a category (optional)" : selectedCategory == .openTable ? "Select a topic tag" : "Select prayer type")
                     .font(.custom("OpenSans-Regular", size: 15))
                     .foregroundStyle(.secondary)
             } else {
@@ -933,19 +1038,21 @@ struct CreatePostView: View {
                         .focused($isTextFieldFocused)
                         .scrollContentBackground(.hidden)
                         .onChange(of: postText) { oldValue, newValue in
-                            // Track typing vs pasting for authenticity signals
+                            // Defer side effects so they don't trigger a re-render mid-paste,
+                            // which would interrupt the paste operation on SwiftUI TextEditor.
                             let addedLength = newValue.count - oldValue.count
-                            if addedLength > 50 {
-                                // Likely a paste event
-                                let pastedText = String(newValue.suffix(addedLength))
-                                integrityTracker.trackPaste(text: pastedText)
-                            } else if addedLength > 0 {
-                                // Likely typing
-                                integrityTracker.trackTyping(addedCharacters: addedLength)
+                            let snapshot = newValue
+                            Task { @MainActor in
+                                // Track typing vs pasting for authenticity signals
+                                if addedLength > 50 {
+                                    let pastedText = String(snapshot.suffix(addedLength))
+                                    integrityTracker.trackPaste(text: pastedText)
+                                } else if addedLength > 0 {
+                                    integrityTracker.trackTyping(addedCharacters: addedLength)
+                                }
+                                detectHashtags(in: snapshot)
                             }
-                            
-                            detectHashtags(in: newValue)
-                            detectAndFetchLinkPreview(in: newValue)
+                            linkController.handleTextChange(newValue)
                         }
                     
                     // Placeholder overlay
@@ -972,69 +1079,101 @@ struct CreatePostView: View {
             if showMentionSuggestions && !mentionSuggestions.isEmpty {
                 mentionSuggestionsView
             }
+            
+            // MARK: - Tagged People Chips
+            if !taggedUsers.isEmpty {
+                taggedUsersChipsView
+            }
         }
         .padding(.horizontal, 20)
     }
     
-    // MARK: - Mention Suggestions View
-    
-    private var mentionSuggestionsView: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Image(systemName: "at")
-                    .font(.system(size: 12, weight: .semibold))
+    private var taggedUsersChipsView: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 4) {
+                Image(systemName: "person.badge.plus")
+                    .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(Color.purple)
-                
-                Text("Mention User")
-                    .font(.custom("OpenSans-Bold", size: 13))
+                Text("Tagged")
+                    .font(.custom("OpenSans-Bold", size: 12))
                     .foregroundStyle(.secondary)
             }
-            
-            VStack(spacing: 8) {
-                ForEach(mentionSuggestions, id: \.objectID) { user in
-                    Button {
-                        insertMention(user)
-                    } label: {
-                        HStack(spacing: 12) {
-                            // Avatar placeholder
-                            Circle()
-                                .fill(Color.purple.opacity(0.2))
-                                .frame(width: 32, height: 32)
-                                .overlay(
-                                    Text(user.displayName.prefix(1))
-                                        .font(.custom("OpenSans-Bold", size: 14))
-                                        .foregroundStyle(.purple)
-                                )
-                            
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(user.displayName)
-                                    .font(.custom("OpenSans-Bold", size: 14))
-                                    .foregroundStyle(.primary)
-                                
-                                Text("@\(user.username)")
-                                    .font(.custom("OpenSans-Regular", size: 12))
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(taggedUsers, id: \.userId) { user in
+                        HStack(spacing: 5) {
+                            Text("@\(user.username)")
+                                .font(.custom("OpenSans-SemiBold", size: 12))
+                                .foregroundStyle(.purple)
+                            Button {
+                                withAnimation(.easeOut(duration: 0.15)) {
+                                    taggedUsers.removeAll { $0.userId == user.userId }
+                                }
+                                HapticManager.impact(style: .light)
+                            } label: {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 9, weight: .bold))
                                     .foregroundStyle(.secondary)
                             }
-                            
-                            Spacer()
+                            .buttonStyle(.plain)
                         }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 5)
                         .background(
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(Color(.systemGray6))
+                            Capsule()
+                                .fill(Color.purple.opacity(0.08))
+                                .overlay(Capsule().strokeBorder(Color.purple.opacity(0.2), lineWidth: 1))
                         )
                     }
                 }
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .transition(.opacity.combined(with: .move(edge: .top)))
+    }
+    
+    // MARK: - Mention Suggestions View
+
+    private var mentionSuggestionsView: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Section label
+            HStack(spacing: 5) {
+                Image(systemName: "at")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(.secondary)
+                Text("Mention User")
+                    .font(.custom("OpenSans-SemiBold", size: 12))
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 14)
+            .padding(.top, 12)
+            .padding(.bottom, 8)
+
+            Divider().padding(.horizontal, 14)
+
+            VStack(spacing: 0) {
+                ForEach(mentionSuggestions, id: \.objectID) { user in
+                    AlgoliaMentionSuggestionRow(user: user) {
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        insertMention(user)
+                    }
+
+                    if user.objectID != mentionSuggestions.last?.objectID {
+                        Divider().padding(.leading, 62)
+                    }
+                }
+            }
+            .padding(.bottom, 4)
+        }
         .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(.systemGray6))
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color(uiColor: .secondarySystemBackground))
+                .shadow(color: .black.opacity(0.08), radius: 12, y: 4)
         )
-        .transition(.move(edge: .top).combined(with: .opacity))
+        .transition(.asymmetric(
+            insertion: .move(edge: .top).combined(with: .opacity),
+            removal: .opacity
+        ))
+        .animation(.spring(response: 0.3, dampingFraction: 0.78), value: mentionSuggestions.count)
     }
     
     private var hashtagSuggestionsView: some View {
@@ -1247,7 +1386,7 @@ struct CreatePostView: View {
         alert.addAction(UIAlertAction(title: "View All Resources", style: .default) { _ in
             // Navigate to Resources view
             if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-               let rootVC = windowScene.windows.first?.rootViewController {
+               windowScene.windows.first?.rootViewController != nil {
                 // Present resources view
             }
         })
@@ -1329,8 +1468,8 @@ struct CreatePostView: View {
         guard !urlString.isEmpty,
               let url = URL(string: urlString),
               let scheme = url.scheme,
-              let host = url.host,
-              ["http", "https"].contains(scheme.lowercased()) else {
+              ["http", "https"].contains(scheme.lowercased()),
+              url.host != nil else {
             return false
         }
         return true
@@ -1385,6 +1524,73 @@ struct CreatePostView: View {
         }
     }
     
+    // MARK: - Berean AI Tone Assist
+    
+    private func requestBereanToneAssist() {
+        guard !postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              !isLoadingBereanTone else { return }
+        isLoadingBereanTone = true
+        let draft = postText
+        let userId = FirebaseManager.shared.currentUser?.uid ?? ""
+        Task {
+            do {
+                let rawResponse = try await BereanOrchestrator.shared.getPostToneSuggestions(
+                    draft: draft,
+                    userId: userId
+                )
+                // Parse the JSON response — we only want the suggestedRewrite string
+                let rewrite = Self.extractSuggestedRewrite(from: rawResponse)
+                await MainActor.run {
+                    if let rewrite {
+                        bereanToneSuggestion = rewrite
+                        isLoadingBereanTone = false
+                        showBereanToneSheet = true
+                        UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+                    } else {
+                        // No rewrite needed — tone is already good
+                        isLoadingBereanTone = false
+                        // Show brief confirmation that tone is great
+                        bereanToneSuggestion = nil
+                        showBereanToneSheet = true
+                        UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+                    }
+                }
+            } catch {
+                dlog("⚠️ [Berean] Post tone assist unavailable: \(error)")
+                await MainActor.run {
+                    isLoadingBereanTone = false
+                }
+            }
+        }
+    }
+
+    /// Extracts the `suggestedRewrite` field from the Berean JSON response.
+    /// Returns nil if the rewrite is null/absent (meaning tone is already good).
+    private static func extractSuggestedRewrite(from jsonString: String) -> String? {
+        // Strip markdown code fences if present
+        var cleaned = jsonString.trimmingCharacters(in: .whitespacesAndNewlines)
+        if cleaned.hasPrefix("```") {
+            cleaned = cleaned
+                .components(separatedBy: "\n")
+                .dropFirst()              // remove ```json line
+                .dropLast()              // remove closing ```
+                .joined(separator: "\n")
+        }
+        guard let data = cleaned.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            // Not valid JSON — return the raw string trimmed as a fallback
+            let fallback = jsonString.trimmingCharacters(in: .whitespacesAndNewlines)
+            return fallback.isEmpty ? nil : fallback
+        }
+        // suggestedRewrite can be a String or NSNull
+        if let rewrite = json["suggestedRewrite"] as? String,
+           !rewrite.isEmpty,
+           rewrite.lowercased() != "null" {
+            return rewrite
+        }
+        return nil
+    }
+    
     private func saveDraft() {
         // Save post using DraftsManager
         draftsManager.saveDraft(
@@ -1408,30 +1614,69 @@ struct CreatePostView: View {
         
     }
     
+    /// Triggers a short shake animation on the publish button to signal rejection.
+    private func triggerPublishShake() {
+        let haptic = UINotificationFeedbackGenerator()
+        haptic.notificationOccurred(.error)
+        withAnimation(.default) {
+            shakePublishButton = true
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            shakePublishButton = false
+        }
+    }
+
     private func publishPost() {
-        print("🔵 publishPost() called")
-        print("   isPublishing: \(isPublishing)")
-        print("   canPost: \(canPost)")
+        dlog("🔵 publishPost() called")
+        dlog("   isPublishing: \(isPublishing)")
+        dlog("   canPost: \(canPost)")
+
+        // First-post community guidelines prompt (shown once, gated by UserDefaults)
+        let hasSeenGuidelinesKey = "hasSeenFirstPostGuidelines"
+        if !UserDefaults.standard.bool(forKey: hasSeenGuidelinesKey) {
+            showFirstPostGuidelinesPrompt = true
+            UserDefaults.standard.set(true, forKey: hasSeenGuidelinesKey)
+            return  // publishPost() will be called again after user dismisses the prompt
+        }
+
+        // Cancel auto-save immediately — no point saving a post that's about to be published
+        autoSaveTask?.cancel()
+        autoSaveTask = nil
         
-        // P0-3 FIX: Block duplicate post attempts with stable hash (UUID + timestamp)
-        let stableId = "\(UUID().uuidString)_\(Int(Date().timeIntervalSince1970))"
-        let contentHash = stableId.hashValue
+        // Cancel in-flight mention search (keyboard is about to be dismissed)
+        mentionSearchTask?.cancel()
+        mentionSearchTask = nil
+        showMentionSuggestions = false
+        mentionSuggestions = []
+        
+        // P0-3 FIX: Block duplicate post attempts using a stable hash of
+        // the actual content + category so rapid double-taps are deduplicated.
+        let contentHash = "\(postText)|\(selectedCategory.rawValue)|\(selectedTopicTag)".hashValue
         if let existingHash = inFlightPostHash, existingHash == contentHash {
-            print("⚠️ [P0-1] Duplicate post blocked (hash: \(contentHash))")
+            dlog("⚠️ [P0-1] Duplicate post blocked (hash: \(contentHash))")
             return
         }
         
         guard !isPublishing else {
-            print("⚠️ Already publishing, skipping")
+            dlog("⚠️ Already publishing, skipping")
             return
         }
         
         // P0-4 FIX: Check rate limiting before posting
         if rateLimiter.isRateLimited(for: .post) {
-            let remaining = rateLimiter.getRemainingPosts(for: .post)
+            let unlockMessage: String
+            if let unlockDate = rateLimiter.getUnlockTime(for: .post) {
+                let formatter = DateFormatter()
+                formatter.timeStyle = .short
+                let seconds = Int(unlockDate.timeIntervalSinceNow)
+                let mins = max(1, (seconds + 59) / 60)
+                unlockMessage = "You can post again at \(formatter.string(from: unlockDate)) (\(mins) min\(mins == 1 ? "" : "s") from now)."
+            } else {
+                unlockMessage = "Please wait a few minutes before sharing more."
+            }
             showError(
                 title: "Slow Down",
-                message: "You're posting quite frequently. Please wait a few minutes before sharing more. (You can post \(remaining) more times in the next 5 minutes)"
+                message: "You're posting quite frequently. \(unlockMessage)"
             )
             inFlightPostHash = nil
             return
@@ -1445,11 +1690,12 @@ struct CreatePostView: View {
         
         // Validate content
         let sanitizedContent = sanitizeContent(postText)
-        print("📝 Post content: '\(sanitizedContent)'")
-        print("   Content length: \(sanitizedContent.count)")
+        dlog("📝 Post content: '\(sanitizedContent)'")
+        dlog("   Content length: \(sanitizedContent.count)")
         
         guard !sanitizedContent.isEmpty else {
-            print("❌ Empty post detected")
+            dlog("❌ Empty post detected")
+            inFlightPostHash = nil  // P1 FIX: Allow retry after fixing validation error
             showError(
                 title: "Empty Post",
                 message: "Please write something before posting."
@@ -1458,7 +1704,8 @@ struct CreatePostView: View {
         }
         
         guard sanitizedContent.count <= 500 else {
-            print("❌ Post too long: \(sanitizedContent.count) characters")
+            dlog("❌ Post too long: \(sanitizedContent.count) characters")
+            inFlightPostHash = nil  // P1 FIX: Allow retry after fixing validation error
             showError(
                 title: "Post Too Long",
                 message: "Your post is \(sanitizedContent.count - 500) characters over the limit. Please shorten it to 500 characters or less."
@@ -1468,7 +1715,8 @@ struct CreatePostView: View {
         
         // Validate topic tag for #OPENTABLE and Prayer
         if (selectedCategory == .openTable || selectedCategory == .prayer) && selectedTopicTag.isEmpty {
-            print("❌ Topic tag required but missing")
+            dlog("❌ Topic tag required but missing")
+            inFlightPostHash = nil  // P1 FIX: Allow retry after fixing validation error
             showError(
                 title: "Topic Tag Required",
                 message: selectedCategory == .openTable ? 
@@ -1480,7 +1728,8 @@ struct CreatePostView: View {
         
         // Validate link URL if provided
         if !linkURL.isEmpty && !isValidURL(linkURL) {
-            print("❌ Invalid link URL: \(linkURL)")
+            dlog("❌ Invalid link URL: \(linkURL)")
+            inFlightPostHash = nil  // P1 FIX: Allow retry after fixing validation error
             showError(
                 title: "Invalid Link",
                 message: "The link you provided is not valid. Please enter a complete URL starting with http:// or https://"
@@ -1490,7 +1739,8 @@ struct CreatePostView: View {
         
         // Validate image count
         if selectedImageData.count > 4 {
-            print("❌ Too many images: \(selectedImageData.count)")
+            dlog("❌ Too many images: \(selectedImageData.count)")
+            inFlightPostHash = nil  // P1 FIX: Allow retry after fixing validation error
             showError(
                 title: "Too Many Images",
                 message: "You can only attach up to 4 images per post. Please remove \(selectedImageData.count - 4) image(s)."
@@ -1498,35 +1748,157 @@ struct CreatePostView: View {
             return
         }
         
-        print("✅ All validations passed!")
-        print("   Setting isPublishing = true")
+        dlog("✅ All validations passed!")
+        
+        // ============================================================================
+        // ✅ HEY FEED: Think First Guardrails + MODERATION CONSTITUTION Stage 1
+        // ============================================================================
+        Task {
+            // ── Stage 1: ModerationIngestService (local guard + doxxing + grooming) ──
+            let authorId = Auth.auth().currentUser?.uid ?? ""
+            let ingestContentType: ModerationContentType = {
+                switch selectedCategory {
+                case .prayer: return .prayer
+                case .testimonies: return .testimony
+                default: return .post
+                }
+            }()
+
+            let preSubmitResult = await ModerationIngestService.shared.check(
+                text: sanitizedContent,
+                contentType: ingestContentType,
+                authorId: authorId
+            )
+
+            switch preSubmitResult {
+            case .block(let reason, _):
+                await MainActor.run {
+                    inFlightPostHash = nil
+                    showError(title: "Can't Post This", message: reason)
+                }
+                return
+            case .requireEdit(let message, let redacted):
+                await MainActor.run {
+                    inFlightPostHash = nil
+                    if let redacted { postText = redacted }
+                    showError(title: "Edit Required", message: message)
+                }
+                return
+            case .softPrompt(let message, let canOverride):
+                if !canOverride {
+                    await MainActor.run {
+                        inFlightPostHash = nil
+                        showError(title: "Content Notice", message: message)
+                    }
+                    return
+                }
+                dlog("⚠️ [ModerationIngest] Soft prompt (continuing): \(message)")
+            case .allow:
+                break
+            }
+
+            // ── Stage 2: ThinkFirst Guardrails ──────────────────────────────────
+            let context: ContentContext = {
+                switch selectedCategory {
+                case .prayer:
+                    return .normalPost
+                case .testimonies:
+                    return .normalPost
+                case .openTable:
+                    // Check if topic is political
+                    return selectedTopicTag.lowercased().contains("politic") ? .politicalTopic : .normalPost
+                default:
+                    return .normalPost
+                }
+            }()
+            
+            let checkResult = await ThinkFirstGuardrailsService.shared.checkContent(
+                sanitizedContent,
+                context: context
+            )
+            
+            await MainActor.run {
+                // Store result for sheet display
+                thinkFirstCheckResult = checkResult
+                pendingPostContent = sanitizedContent
+                
+                switch checkResult.action {
+                case .allow:
+                    // All clear - proceed with posting
+                    #if DEBUG
+                    dlog("✅ Think First: Content approved, proceeding")
+                    #endif
+                    proceedWithPublish()
+                    
+                case .softPrompt:
+                    // Show gentle prompt but allow posting
+                    #if DEBUG
+                    dlog("⚠️ Think First: Soft prompt - showing user suggestions")
+                    #endif
+                    showThinkFirstPrompt = true
+                    
+                case .requireEdit:
+                    // Strongly recommend editing (e.g., PII detected with auto-redaction)
+                    #if DEBUG
+                    dlog("⚠️ Think First: Edit required - showing redaction options")
+                    #endif
+                    showThinkFirstPrompt = true
+                    
+                case .block:
+                    // Hard block for policy violations
+                    #if DEBUG
+                    dlog("🚫 Think First: Content blocked")
+                    #endif
+                    showThinkFirstPrompt = true
+                }
+            }
+        }
+    }
+    
+    /// Fires the .postingFailed notification so ContentView hides the posting bar.
+    /// Call this on every path that sets isPublishing = false due to an error.
+    @MainActor private func notifyPostingFailed() {
+        NotificationCenter.default.post(name: .postingFailed, object: nil)
+    }
+
+    // ============================================================================
+    // ✅ NEW: Proceed with publish after guardrails check
+    // ============================================================================
+    private func proceedWithPublish() {
+        let sanitizedContent = pendingPostContent.isEmpty ? sanitizeContent(postText) : pendingPostContent
+        
+        dlog("   Setting isPublishing = true")
         isPublishing = true
+        // Notify the feed so the Threads-style posting bar appears immediately
+        let _startCategory = selectedCategory.toPostCategory.rawValue
+        NotificationCenter.default.post(name: .postingStarted, object: nil,
+                                        userInfo: ["category": _startCategory])
         
         // Convert CreatePostView.PostCategory to Post.PostCategory for backend
         let postCategory = selectedCategory.toPostCategory
-        print("   Post category: \(postCategory.rawValue)")
+        dlog("   Post category: \(postCategory.rawValue)")
         
         // Check if post is scheduled
         if let scheduledDate = scheduledDate {
-            print("📅 Scheduling post for: \(scheduledDate)")
+            dlog("📅 Scheduling post for: \(scheduledDate)")
             // Handle scheduled post
             schedulePost(
                 content: sanitizedContent,
                 category: postCategory,
                 topicTag: selectedTopicTag.isEmpty ? nil : selectedTopicTag,
                 allowComments: allowComments,
-                linkURL: linkURL.isEmpty ? nil : linkURL,
+                linkURL: linkURL.isEmpty ? linkController.activeURL?.absoluteString : linkURL,
                 scheduledFor: scheduledDate
             )
         } else {
-            print("📤 Publishing immediately")
+            dlog("📤 Publishing immediately")
             // Publish immediately
             publishImmediately(
                 content: sanitizedContent,
                 category: postCategory,
                 topicTag: selectedTopicTag.isEmpty ? nil : selectedTopicTag,
                 allowComments: allowComments,
-                linkURL: linkURL.isEmpty ? nil : linkURL
+                linkURL: linkURL.isEmpty ? linkController.activeURL?.absoluteString : linkURL
             )
         }
     }
@@ -1540,13 +1912,13 @@ struct CreatePostView: View {
     ) {
         Task {
             do {
-                print("🚀 Starting post creation...")
-                print("   Content length: \(content.count)")
-                print("   Category: \(category.rawValue)")
-                print("   Topic tag: \(topicTag ?? "none")")
-                print("   Allow comments: \(allowComments)")
-                print("   Link URL: \(linkURL ?? "none")")
-                print("   Images: \(selectedImageData.count)")
+                dlog("🚀 Starting post creation...")
+                dlog("   Content length: \(content.count)")
+                dlog("   Category: \(category.rawValue)")
+                dlog("   Topic tag: \(topicTag ?? "none")")
+                dlog("   Allow comments: \(allowComments)")
+                dlog("   Link URL: \(linkURL ?? "none")")
+                dlog("   Images: \(selectedImageData.count)")
                 
                 guard let currentUserId = Auth.auth().currentUser?.uid else {
                     throw NSError(domain: "CreatePostView", code: 401, 
@@ -1557,36 +1929,49 @@ struct CreatePostView: View {
                 // ⚡ INSTAGRAM-FAST: Run moderation and post creation in parallel
                 // ============================================================================
                 
+                // ── TIER 0: Instant client-side hard block ───────────────
+                // Runs offline — no network, no latency.
+                // Catches profanity, harassment, sexual content, hate speech, violence.
+                let localGuard = LocalContentGuard.check(content)
+                if localGuard.isBlocked {
+                    dlog("🚫 [LocalGuard] Blocked (\(localGuard.category.rawValue)): content rejected before network")
+                    await MainActor.run {
+                        isPublishing = false
+                        inFlightPostHash = nil
+                        notifyPostingFailed()
+                        showError(
+                            title: "Post Not Allowed",
+                            message: localGuard.userMessage
+                        )
+                    }
+                    return
+                }
+                // ─────────────────────────────────────────────────────────
+
                 // P1-1 FIX: PARALLEL MODERATION - Run all safety checks in parallel
                 let contentCategory: ContentCategory = category == .prayer ? .post : .post
-                print("🛡️ Starting parallel moderation checks...")
+                dlog("🛡️ Starting parallel moderation checks...")
                 
                 // TRUST & SAFETY: Export real authenticity signals from tracking
                 let signals = integrityTracker.exportAuthenticitySignals()
-                print("📊 Authenticity: typed=\(signals.typedCharacters) pasted=\(signals.pastedCharacters) ratio=\(signals.typedVsPastedRatio)")
+                dlog("📊 Authenticity: typed=\(signals.typedCharacters) pasted=\(signals.pastedCharacters) ratio=\(signals.typedVsPastedRatio)")
                 
                 let pasteRatio = signals.pastedCharacters > 0 ? 
                     Double(signals.pastedCharacters) / Double(signals.pastedCharacters + signals.typedCharacters) : 0.0
                 
-                // P1-1: Run AI detection and content moderation IN PARALLEL (not sequential)
-                async let aiDetectionResult = AIContentDetectionService.shared.detectAIContent(content, pastedRatio: pasteRatio)
-                async let earlyModerationResult = ContentModerationService.moderateContent(
-                    text: content,
-                    category: contentCategory,
-                    signals: signals,
-                    parentContentId: nil
-                )
+                // ⚡ FAST PATH: Only run AI detection on the critical path (client-side, instant).
+                // ContentModerationService (Cloud Function, 500–1500ms) runs post-write.
+                let aiResult = await AIContentDetectionService.shared.detectAIContent(content, pastedRatio: pasteRatio)
                 
-                // Wait for both checks to complete
-                let (aiResult, modResult) = await (aiDetectionResult, earlyModerationResult)
-                
-                // Check AI detection result
+                // ✅ CHECK AI DETECTION RESULT WITH TIERED RESPONSE
+                // Tier 1: High confidence (≥40%) - BLOCK
                 if aiResult.isAIGenerated {
-                    print("🚫 AI content detected - blocking post (confidence: \(Int(aiResult.confidence * 100))%)")
-                    print("   Reason: \(aiResult.reason)")
+                    dlog("🚫 AI content detected - blocking post (confidence: \(Int(aiResult.confidence * 100))%)")
+                    dlog("   Reason: \(aiResult.reason)")
                     await MainActor.run {
                         isPublishing = false
                         inFlightPostHash = nil
+                        notifyPostingFailed()
                         showError(
                             title: "Share Your Own Voice",
                             message: "AMEN is a community for authentic, personal sharing. We noticed this content may not be written in your own words.\n\nPlease share your personal thoughts, experiences, and reflections. We want to hear from you, not from AI tools."
@@ -1594,28 +1979,20 @@ struct CreatePostView: View {
                     }
                     return
                 }
-                
-                // Check content moderation result
-                if modResult.action == .reject {
-                    print("🚫 Content moderation blocked post")
-                    print("   Reasons: \(modResult.reasons.joined(separator: ", "))")
+                // Tier 2: Medium confidence (25-39%) - SOURCE LABEL OPTION
+                // User may post with a visible "via ChatGPT" label instead of being blocked
+                else if aiResult.confidence >= 0.25 && aiResult.confidence < 0.4 {
+                    dlog("⚠️ Pasted/AI content detected - showing source label prompt (confidence: \(Int(aiResult.confidence * 100))%)")
                     await MainActor.run {
                         isPublishing = false
                         inFlightPostHash = nil
-                        showError(
-                            title: "Content Not Allowed",
-                            message: modResult.reasons.first ?? "This content violates our community guidelines."
-                        )
+                        notifyPostingFailed()
+                        showSourcePrompt = true
                     }
                     return
-                } else if modResult.action == .holdForReview {
-                    print("⚠️ Content flagged for review - allowing with flag")
                 }
-                
-                print("✅ All moderation checks passed (AI + Content Safety)")
-                
-                // Store moderation result for analytics
-                let moderationTask = Task { return modResult }
+
+                dlog("✅ Fast-path checks passed (AI detection)")
                 
                 // Start fetching user data in parallel
                 guard let currentUser = Auth.auth().currentUser else {
@@ -1626,7 +2003,7 @@ struct CreatePostView: View {
                 let timestamp = Date()
                 
                 // ⚡ PARALLEL: Fetch profile picture while other tasks run
-                print("🖼️ Fetching profile picture in parallel...")
+                dlog("🖼️ Fetching profile picture in parallel...")
                 let userDataTask = Task {
                     try await FirebaseManager.shared.firestore
                         .collection("users")
@@ -1637,10 +2014,10 @@ struct CreatePostView: View {
                 // P0-3 FIX: Make image upload BLOCKING if images attached
                 var imageURLs: [String]? = nil
                 if !selectedImageData.isEmpty {
-                    print("📤 Uploading \(selectedImageData.count) images (blocking)...")
+                    dlog("📤 Uploading \(selectedImageData.count) images (blocking)...")
                     do {
                         imageURLs = try await uploadImages()
-                        print("✅ Images uploaded: \(imageURLs?.count ?? 0)")
+                        dlog("✅ Images uploaded: \(imageURLs?.count ?? 0)")
                         
                         // Verify we got URLs back
                         if imageURLs == nil || imageURLs!.isEmpty {
@@ -1656,6 +2033,7 @@ struct CreatePostView: View {
                         await MainActor.run {
                             isPublishing = false
                             inFlightPostHash = nil
+                            notifyPostingFailed()
                             let friendlyError = getUserFriendlyError(from: error)
                             
                             // Check if error is network-related (retryable)
@@ -1675,7 +2053,7 @@ struct CreatePostView: View {
                                 } : nil
                             )
                         }
-                        print("❌ [P0-3] Image upload failed - aborting post creation")
+                        dlog("❌ [P0-3] Image upload failed - aborting post creation")
                         return
                     }
                 }
@@ -1684,69 +2062,14 @@ struct CreatePostView: View {
                 let userDoc = try await userDataTask.value
                 let userData = userDoc.data()
                 let authorProfileImageURL = userData?["profileImageURL"] as? String
-                
-                // Check moderation result (should be fast since it started first)
-                let moderationResult = try await moderationTask.value
-                
-                // TRUST & SAFETY: Handle all enforcement actions
-                switch moderationResult.action {
-                case .allow:
-                    print("✅ Content approved")
-                    
-                case .nudgeRewrite:
-                    // Gentle nudge - allow posting but show message
-                    await MainActor.run {
-                        showModerationNudge = true
-                        moderationNudgeMessage = moderationResult.userMessage
-                    }
-                    print("💡 Nudge shown: \(moderationResult.userMessage)")
-                    
-                case .requireRevision:
-                    // Strong suggestion to revise - block posting
-                    await MainActor.run {
-                        isPublishing = false
-                        inFlightPostHash = nil
-                        blockingModerationDecision = moderationResult
-                        showModerationBlockingModal = true
-                    }
-                    print("⚠️ Revision required: \(moderationResult.reasons)")
-                    return
-                    
-                case .holdForReview, .reject:
-                    // Hard block - cannot post
-                    await MainActor.run {
-                        isPublishing = false
-                        inFlightPostHash = nil
-                        blockingModerationDecision = moderationResult
-                        showModerationBlockingModal = true
-                    }
-                    print("❌ Post blocked: \(moderationResult.reasons)")
-                    return
-                    
-                case .rateLimit:
-                    // Already handled by client-side rate limiter, but respect server decision
-                    await MainActor.run {
-                        isPublishing = false
-                        inFlightPostHash = nil
-                        showError(
-                            title: "Slow Down",
-                            message: moderationResult.userMessage
-                        )
-                    }
-                    print("🛑 Rate limited by server")
-                    return
-                    
-                case .shadowRestrict:
-                    // Silent action - allow posting but flag for review
-                    print("👁️ Shadow restricted - post allowed but flagged")
-                }
+                let authorUsername = userData?["username"] as? String
                 
                 // P1-3 FIX: Parallelize mention resolution
                 let mentionUsernames = Post.extractMentionUsernames(from: content)
                 var mentions: [MentionedUser] = []
                 
                 if !mentionUsernames.isEmpty {
-                    print("📧 [P1-3] Found \(mentionUsernames.count) mentions: \(mentionUsernames)")
+                    dlog("📧 [P1-3] Found \(mentionUsernames.count) mentions: \(mentionUsernames)")
                     
                     // Fetch all mentions in parallel using TaskGroup
                     await withTaskGroup(of: MentionedUser?.self) { group in
@@ -1762,7 +2085,7 @@ struct CreatePostView: View {
                                     if let userDoc = userQuery.documents.first {
                                         let userId = userDoc.documentID
                                         let displayName = userDoc.data()["displayName"] as? String ?? username
-                                        print("   ✓ Resolved @\(username) -> \(userId)")
+                                        dlog("   ✓ Resolved @\(username) -> \(userId)")
                                         
                                         // ✅ PRIVACY CHECK: Verify user can mention this person
                                         let canMention = try await TrustByDesignService.shared.canMention(
@@ -1771,19 +2094,19 @@ struct CreatePostView: View {
                                         )
                                         
                                         if canMention {
-                                            print("   ✅ Mention permission granted for @\(username)")
+                                            dlog("   ✅ Mention permission granted for @\(username)")
                                             return MentionedUser(
                                                 userId: userId,
                                                 username: username,
                                                 displayName: displayName
                                             )
                                         } else {
-                                            print("   ⚠️ Mention permission denied for @\(username) - skipping")
+                                            dlog("   ⚠️ Mention permission denied for @\(username) - skipping")
                                             return nil
                                         }
                                     }
                                 } catch {
-                                    print("   ⚠️ Failed to resolve @\(username): \(error)")
+                                    dlog("   ⚠️ Failed to resolve @\(username): \(error)")
                                 }
                                 return nil
                             }
@@ -1797,7 +2120,7 @@ struct CreatePostView: View {
                         }
                     }
                     
-                    print("✅ [P1-3] Resolved \(mentions.count)/\(mentionUsernames.count) mentions in parallel")
+                    dlog("✅ [P1-3] Resolved \(mentions.count)/\(mentionUsernames.count) mentions in parallel")
                 }
                 
                 // Create Post object with mentions
@@ -1806,7 +2129,7 @@ struct CreatePostView: View {
                     firebaseId: nil, // Will be set after Firestore save
                     authorId: currentUser.uid,
                     authorName: currentUser.displayName ?? "User",
-                    authorUsername: nil, // TODO: Get from user profile
+                    authorUsername: authorUsername,
                     authorInitials: String((currentUser.displayName ?? "U").prefix(1)),
                     authorProfileImageURL: authorProfileImageURL, // ✅ Include profile picture!
                     timeAgo: "now",
@@ -1817,11 +2140,11 @@ struct CreatePostView: View {
                     allowComments: allowComments,
                     commentPermissions: allowComments ? mapToPostCommentPermissions(commentPermission) : .off,
                     imageURLs: imageURLs,
-                    linkURL: linkURL,
-                    linkPreviewTitle: linkMetadata?.title,
-                    linkPreviewDescription: linkMetadata?.description,
-                    linkPreviewImageURL: linkMetadata?.imageURL?.absoluteString,
-                    linkPreviewSiteName: linkMetadata?.siteName,
+                    linkURL: linkURL ?? linkController.activeURL?.absoluteString,
+                    linkPreviewTitle: linkController.metadata?.title,
+                    linkPreviewDescription: linkController.metadata?.description,
+                    linkPreviewImageURL: linkController.metadata?.imageURL?.absoluteString,
+                    linkPreviewSiteName: linkController.metadata?.siteName,
                     createdAt: timestamp,
                     amenCount: 0,
                     lightbulbCount: 0,
@@ -1834,7 +2157,16 @@ struct CreatePostView: View {
                     newPost.mentions = mentions
                 }
                 
-                print("   ✅ Post object created: \(postId)")
+                // Set tagged users if any were selected
+                if !taggedUsers.isEmpty {
+                    newPost.taggedUserIds = taggedUsers.map(\.userId)
+                    // Default all tags to "approved" — recipient can remove themselves later
+                    newPost.tagStatusByUid = Dictionary(
+                        uniqueKeysWithValues: taggedUsers.map { ($0.userId, "approved") }
+                    )
+                }
+                
+                dlog("   ✅ Post object created: \(postId)")
                 
                 // Save to Firestore immediately
                 var postData: [String: Any] = [
@@ -1847,7 +2179,7 @@ struct CreatePostView: View {
                     "visibility": "everyone",
                     "allowComments": allowComments,
                     "imageURLs": imageURLs as Any,
-                    "linkURL": linkURL as Any,
+                    "linkURL": (linkURL ?? linkController.activeURL?.absoluteString) as Any? as Any,
                     "createdAt": Timestamp(date: timestamp),
                     "amenCount": 0,
                     "commentCount": 0,
@@ -1858,6 +2190,11 @@ struct CreatePostView: View {
                 // ✅ Add profile picture if available
                 if let authorProfileImageURL = authorProfileImageURL {
                     postData["authorProfileImageURL"] = authorProfileImageURL
+                }
+                
+                // ✅ Add username if available
+                if let authorUsername = authorUsername {
+                    postData["authorUsername"] = authorUsername
                 }
                 
                 // ✅ Add mentions if available
@@ -1871,27 +2208,45 @@ struct CreatePostView: View {
                     }
                 }
                 
+                // ✅ Add tagged users if any were selected
+                if !taggedUsers.isEmpty {
+                    postData["taggedUserIds"] = taggedUsers.map(\.userId)
+                    postData["tagStatusByUid"] = Dictionary(
+                        uniqueKeysWithValues: taggedUsers.map { ($0.userId, "approved") }
+                    ) as [String: Any]
+                }
+                
                 // ✅ Add link preview metadata if available
-                if let linkMetadata = linkMetadata {
-                    postData["linkPreviewTitle"] = linkMetadata.title as Any
-                    postData["linkPreviewDescription"] = linkMetadata.description as Any
-                    postData["linkPreviewImageURL"] = linkMetadata.imageURL?.absoluteString as Any
-                    postData["linkPreviewSiteName"] = linkMetadata.siteName as Any
-                    print("   🔗 Link preview metadata added")
+                if let lm = linkController.metadata {
+                    postData["linkPreviewTitle"] = lm.title as Any
+                    postData["linkPreviewDescription"] = lm.description as Any
+                    postData["linkPreviewImageURL"] = lm.imageURL?.absoluteString as Any
+                    postData["linkPreviewSiteName"] = lm.siteName as Any
+                    postData["linkPreviewType"] = lm.previewType.rawValue
+                    if let ref = lm.verseReference { postData["verseReference"] = ref }
+                    if let vt = lm.verseText { postData["verseText"] = vt }
+                    dlog("   🔗 Link preview metadata added (type=\(lm.previewType.rawValue))")
+                }
+
+                // ✅ Add content source label if user acknowledged non-original content
+                if let source = postContentSource {
+                    postData["contentSource"] = source
+                    dlog("   🏷️ Content source label: \(source)")
                 }
                 
                 // P0-4 FIX: Check if post already exists (idempotency)
-                print("   🔍 Checking for existing post (idempotency)...")
+                dlog("   🔍 Checking for existing post (idempotency)...")
                 let existingPost = try? await FirebaseManager.shared.firestore
                     .collection("posts")
                     .document(postId.uuidString)
                     .getDocument()
                 
                 if let existing = existingPost, existing.exists {
-                    print("⏭️ [P0-4] Post already created (idempotency): \(postId.uuidString)")
+                    dlog("⏭️ [P0-4] Post already created (idempotency): \(postId.uuidString)")
                     // Post already exists, skip creation but still show success
                     await MainActor.run {
                         inFlightPostHash = nil
+                        linkController.reset()
                         UserDefaults.standard.removeObject(forKey: "autoSavedDraft")
                         withAnimation { showingSuccessNotice = true }
                         // P0-2 FIX: Critical - cancellable dismiss task
@@ -1903,17 +2258,54 @@ struct CreatePostView: View {
                     return
                 }
                 
-                print("   📤 Saving to Firestore immediately...")
+                dlog("   📤 Saving to Firestore immediately...")
                 try await FirebaseManager.shared.firestore
                     .collection("posts")
                     .document(postId.uuidString)
                     .setData(postData)
                 
-                print("✅ Post saved to Firestore successfully!")
-                print("   Post ID: \(newPost.id)")
-                print("   Category: \(newPost.category.rawValue)")
-                print("   Author: \(newPost.authorName)")
-                
+                dlog("✅ Post saved to Firestore successfully!")
+                dlog("   Post ID: \(newPost.id)")
+                dlog("   Category: \(newPost.category.rawValue)")
+                dlog("   Author: \(newPost.authorName)")
+
+                // ⚡ FIRE-AND-FORGET: Post-write content moderation pipeline.
+                // ContentModerationService (Cloud Function, 500–1500ms) runs after the
+                // Firestore write so the user sees instant confirmation.
+                // If the post is flagged it is deleted silently server-side.
+                let capturedPostIdStr = postId.uuidString
+                let capturedContent = content
+                let capturedContentCategory = contentCategory
+                let capturedSignals = signals
+                Task.detached(priority: .utility) {
+                    guard let modResult = try? await ContentModerationService.moderateContent(
+                        text: capturedContent,
+                        category: capturedContentCategory,
+                        signals: capturedSignals,
+                        parentContentId: nil
+                    ) else { return }
+
+                    let shouldDelete = await MainActor.run { modResult.action == .reject }
+                    if shouldDelete {
+                        do {
+                            try await FirebaseManager.shared.firestore
+                                .collection("posts")
+                                .document(capturedPostIdStr)
+                                .delete()
+                            dlog("🛡️ [Post-write] Post \(capturedPostIdStr) removed by async moderation pipeline")
+                        } catch {
+                            dlog("⚠️ [Post-write] Failed to remove flagged post: \(error)")
+                        }
+                        await MainActor.run {
+                            NotificationCenter.default.post(
+                                name: Notification.Name("postRemovedByModeration"),
+                                object: nil,
+                                userInfo: ["postId": capturedPostIdStr]
+                            )
+                        }
+                    }
+                }
+
                 // TRUST & SAFETY: Track post for rate limiting and reset tracker
                 rateLimiter.trackPost(category: .post)
                 integrityTracker.reset()
@@ -1934,7 +2326,7 @@ struct CreatePostView: View {
                 
                 // P0-2 FIX: Only dismiss AFTER Firestore confirms success
                 await MainActor.run {
-                    print("📬 Sending notification to update UI...")
+                    dlog("📬 Sending notification to update UI...")
                     NotificationCenter.default.post(
                         name: .newPostCreated,
                         object: nil,
@@ -1944,10 +2336,11 @@ struct CreatePostView: View {
                             "isOptimistic": true
                         ]
                     )
-                    print("✅ Notification sent successfully")
+                    dlog("✅ Notification sent successfully")
                     
                     // Clear state (P0-1, P1-2)
                     inFlightPostHash = nil
+                    postContentSource = nil  // reset source label for next post
                     UserDefaults.standard.removeObject(forKey: "autoSavedDraft")
                     
                     // ✅ Show success and dismiss ONLY after Firestore success
@@ -1957,24 +2350,24 @@ struct CreatePostView: View {
                     
                     // P0-2 FIX: Critical - cancellable dismiss task
                     scheduleDelayedAction(seconds: 0.15) {
-                        print("👋 Dismissing CreatePostView (safe after Firestore)")
+                        dlog("👋 Dismissing CreatePostView (safe after Firestore)")
                         dismiss()
                     }
                     
                     // Reset publishing state
                     isPublishing = false
-                    print("✅ Post creation flow completed!")
+                    dlog("✅ Post creation flow completed!")
                 }
                 
                 // Success! Sync to Algolia for search (non-blocking background task)
-                print("🔍 Syncing to Algolia in background...")
+                dlog("🔍 Syncing to Algolia in background...")
                 syncPostToAlgolia(newPost)
                 
                 // ============================================================================
                 // ✅ CRISIS DETECTION (for prayer requests - in background after dismiss)
                 // ============================================================================
                 if category == .prayer {
-                    print("🚨 Running crisis detection for prayer request in background...")
+                    dlog("🚨 Running crisis detection for prayer request in background...")
                     Task {
                         do {
                             let crisisResult = try await CrisisDetectionService.shared.detectCrisis(
@@ -1987,50 +2380,58 @@ struct CreatePostView: View {
                                 await MainActor.run {
                                     showCrisisResourcesAlert(crisisResult: crisisResult)
                                 }
-                                print("🚨 Crisis detected: \(crisisResult.crisisTypes.map { $0.displayName })")
+                                dlog("🚨 Crisis detected: \(crisisResult.crisisTypes.map { $0.displayName })")
                             }
                         } catch {
-                            print("⚠️ Crisis detection failed (non-critical): \(error)")
+                            dlog("⚠️ Crisis detection failed (non-critical): \(error)")
                         }
                     }
                 }
             } catch let error as NSError {
                 // ⚠️ Post creation failed in background - user already saw success
-                print("❌ Failed to create post in background (NSError)")
-                print("   Error domain: \(error.domain)")
-                print("   Error code: \(error.code)")
-                print("   Error description: \(error.localizedDescription)")
-                print("   Error userInfo: \(error.userInfo)")
-                print("   Localized failure reason: \(error.localizedFailureReason ?? "none")")
-                print("   Localized recovery suggestion: \(error.localizedRecoverySuggestion ?? "none")")
-                
-                // TODO: Could show a toast notification that post failed
-                // For now, just log - user won't see their post appear
-                
+                dlog("❌ Failed to create post in background (NSError)")
+                dlog("   Error domain: \(error.domain)")
+                dlog("   Error code: \(error.code)")
+                dlog("   Error description: \(error.localizedDescription)")
+                dlog("   Error userInfo: \(error.userInfo)")
+                dlog("   Localized failure reason: \(error.localizedFailureReason ?? "none")")
+                dlog("   Localized recovery suggestion: \(error.localizedRecoverySuggestion ?? "none")")
+
                 await MainActor.run {
                     isPublishing = false
                     inFlightPostHash = nil  // P0-1 FIX: Clear hash on error
+                    notifyPostingFailed()
+                    ToastManager.shared.show(ToastNotification(
+                        message: "Post failed to send. Please try again.",
+                        style: .error,
+                        action: { publishPost() },
+                        actionLabel: "Retry"
+                    ))
                 }
             } catch {
                 // ⚠️ Post creation failed in background - user already saw success
-                print("❌ Failed to create post in background (Generic Error)")
-                print("   Error: \(error)")
-                print("   Error type: \(type(of: error))")
-                print("   Error description: \(String(describing: error))")
-                
+                dlog("❌ Failed to create post in background (Generic Error)")
+                dlog("   Error: \(error)")
+                dlog("   Error type: \(type(of: error))")
+                dlog("   Error description: \(String(describing: error))")
+
                 // Try to get more details
                 if let error = error as? LocalizedError {
-                    print("   Error description: \(error.errorDescription ?? "none")")
-                    print("   Failure reason: \(error.failureReason ?? "none")")
-                    print("   Recovery suggestion: \(error.recoverySuggestion ?? "none")")
+                    dlog("   Error description: \(error.errorDescription ?? "none")")
+                    dlog("   Failure reason: \(error.failureReason ?? "none")")
+                    dlog("   Recovery suggestion: \(error.recoverySuggestion ?? "none")")
                 }
-                
-                // TODO: Could show a toast notification that post failed
-                // For now, just log - user won't see their post appear
-                
+
                 await MainActor.run {
                     isPublishing = false
                     inFlightPostHash = nil  // P0-1 FIX: Clear hash on error
+                    notifyPostingFailed()
+                    ToastManager.shared.show(ToastNotification(
+                        message: "Post failed to send. Please try again.",
+                        style: .error,
+                        action: { publishPost() },
+                        actionLabel: "Retry"
+                    ))
                 }
             }
         }
@@ -2060,10 +2461,10 @@ struct CreatePostView: View {
                     postData: postData
                 )
                 
-                print("✅ Post synced to Algolia: \(post.id.uuidString)")
+                dlog("✅ Post synced to Algolia: \(post.id.uuidString)")
             } catch {
                 // Silently log - Algolia sync is non-critical
-                print("⚠️ Failed to sync post to Algolia (non-critical): \(error)")
+                dlog("⚠️ Failed to sync post to Algolia (non-critical): \(error)")
             }
         }
     }
@@ -2091,19 +2492,22 @@ struct CreatePostView: View {
         
         var failedUploads = 0
         let totalImages = selectedImageData.count
-        
+        // Stable folder ID groups all images for this post under post_media/{userId}/{uploadGroupId}/
+        let uploadGroupId = UUID().uuidString
+
         for (index, imageData) in selectedImageData.enumerated() {
             guard !Task.isCancelled else {
-                print("⚠️ Image upload cancelled")
+                dlog("⚠️ Image upload cancelled")
                 break
             }
-            
+
             do {
-                // Create a unique filename
+                // Create a unique filename under the canonical post_media path
                 let filename = "\(UUID().uuidString)_\(index).jpg"
                 let storageRef = FirebaseManager.shared.storage.reference()
-                    .child("posts")
+                    .child("post_media")
                     .child(userId)
+                    .child(uploadGroupId)
                     .child(filename)
                 
                 // PERF-1 FIX: Compress image on background thread (CPU-intensive)
@@ -2112,7 +2516,7 @@ struct CreatePostView: View {
                 }.value
                 
                 guard let compressedData = compressedData else {
-                    print("⚠️ Failed to compress image \(index)")
+                    dlog("⚠️ Failed to compress image \(index)")
                     failedUploads += 1
                     continue
                 }
@@ -2128,6 +2532,7 @@ struct CreatePostView: View {
                     if !moderationDecision.isApproved {
                         await MainActor.run {
                             isUploadingImages = false
+                            uploadProgress = 0.0
                         }
                         throw NSError(
                             domain: "ImageModeration",
@@ -2138,6 +2543,7 @@ struct CreatePostView: View {
                 } catch let moderationError as ImageModerationError {
                     await MainActor.run {
                         isUploadingImages = false
+                        uploadProgress = 0.0
                     }
                     throw NSError(
                         domain: "ImageModeration",
@@ -2162,15 +2568,16 @@ struct CreatePostView: View {
                     uploadProgress = progress
                 }
                 
-                print("✅ Uploaded image \(index + 1)/\(totalImages)")
+                dlog("✅ Uploaded image \(index + 1)/\(totalImages)")
             } catch {
-                print("❌ Failed to upload image \(index): \(error)")
+                dlog("❌ Failed to upload image \(index): \(error)")
                 failedUploads += 1
                 
                 // If more than half the images fail, throw error
                 if failedUploads > totalImages / 2 {
                     await MainActor.run {
                         isUploadingImages = false
+                        uploadProgress = 0.0
                     }
                     throw NSError(
                         domain: "ImageUpload",
@@ -2188,14 +2595,14 @@ struct CreatePostView: View {
         
         // Warn user if some images failed but post can still be created
         if failedUploads > 0 && !imageURLs.isEmpty {
-            print("⚠️ \(failedUploads) image(s) failed to upload, but continuing with \(imageURLs.count) successful upload(s)")
+            dlog("⚠️ \(failedUploads) image(s) failed to upload, but continuing with \(imageURLs.count) successful upload(s)")
         }
         
         return imageURLs
     }
     
     /// Compress image to target size
-    private func compressImage(_ data: Data, maxSizeInMB: Double) -> Data? {
+    nonisolated private func compressImage(_ data: Data, maxSizeInMB: Double) -> Data? {
         guard let image = UIImage(data: data) else { return nil }
         
         let maxBytes = Int(maxSizeInMB * 1024 * 1024)
@@ -2227,9 +2634,14 @@ struct CreatePostView: View {
                 }
                 
                 // MARK: - ✅ IMPLEMENTED: Scheduled Posts with Cloud Functions
-                print("📅 Scheduling post via Cloud Functions...")
+                dlog("📅 Scheduling post via Cloud Functions...")
                 
                 // Save to Firestore scheduled_posts collection
+                guard let scheduledAuthorId = Auth.auth().currentUser?.uid else {
+                    throw NSError(domain: "CreatePostView", code: 401,
+                                  userInfo: [NSLocalizedDescriptionKey: "Not authenticated"])
+                }
+                
                 let scheduledPostData: [String: Any] = [
                     "content": content,
                     "category": category.rawValue,
@@ -2239,7 +2651,7 @@ struct CreatePostView: View {
                     "imageURLs": imageURLs as Any,
                     "scheduledFor": Timestamp(date: scheduledFor),
                     "createdAt": Timestamp(date: Date()),
-                    "authorId": Auth.auth().currentUser?.uid ?? "",
+                    "authorId": scheduledAuthorId,
                     "status": "pending"
                 ]
                 
@@ -2254,13 +2666,14 @@ struct CreatePostView: View {
                     }
                     
                     isPublishing = false
+                    inFlightPostHash = nil  // FIX: clear hash so user can post again after scheduling
                     
                     // P0-2 FIX: Cancellable dismiss
                     scheduleDelayedAction(seconds: 0.5) {
                         dismiss()
                     }
                     
-                    print("✅ Post scheduled successfully for: \(scheduledFor)")
+                    dlog("✅ Post scheduled successfully for: \(scheduledFor)")
                 }
                 
                 // NOTE: Cloud Function will publish at scheduled time
@@ -2313,11 +2726,18 @@ struct CreatePostView: View {
             return
         }
         
-        Task {
+        // Cancel any in-flight search so a stale callback cannot write to @State
+        // after the TextEditor's keyboard session has been torn down, which would
+        // trigger RTIInputSystemClient UIEmojiSearchOperations on a null session → SIGABRT.
+        mentionSearchTask?.cancel()
+        mentionSearchTask = Task {
             do {
                 let results = try await AlgoliaSearchService.shared.searchUsers(query: query)
                 
+                guard !Task.isCancelled else { return }
+                
                 await MainActor.run {
+                    guard !Task.isCancelled else { return }
                     withAnimation {
                         // Limit to 5 results
                         mentionSuggestions = Array(results.prefix(5))
@@ -2325,7 +2745,7 @@ struct CreatePostView: View {
                     }
                 }
             } catch {
-                print("⚠️ Failed to search for mentions: \(error)")
+                dlog("⚠️ Failed to search for mentions: \(error)")
             }
         }
     }
@@ -2362,7 +2782,7 @@ struct CreatePostView: View {
     private func autoSaveDraft() {
         // P1-2 FIX: Don't auto-save while publishing
         guard !isPublishing else {
-            print("⏭️ [P1-2] Skipping auto-save - post is publishing")
+            dlog("⏭️ [P1-2] Skipping auto-save - post is publishing")
             return
         }
         
@@ -2390,7 +2810,7 @@ struct CreatePostView: View {
         
         UserDefaults.standard.set(autoSaveDraft, forKey: "autoSavedDraft")
         
-        print("💾 Auto-saved draft at \(Date())")
+        dlog("💾 Auto-saved draft at \(Date())")
     }
     
     /// Check for draft recovery on appear
@@ -2436,7 +2856,7 @@ struct CreatePostView: View {
         selectedTopicTag = draft.topicTag ?? ""
         linkURL = draft.linkURL ?? ""
         
-        print("✅ Recovered draft from \(draft.createdAt)")
+        dlog("✅ Recovered draft from \(draft.createdAt)")
     }
     
     /// Clear recovered draft
@@ -2445,46 +2865,7 @@ struct CreatePostView: View {
         recoveredDraft = nil
     }
     
-    // MARK: - ✅ IMPLEMENTED: Link Previews
-    
-    /// Fetch link metadata when URL is added
-    private func fetchLinkMetadata(for url: String) {
-        guard isValidURL(url), let urlObject = URL(string: url) else { return }
-        
-        isLoadingLinkPreview = true
-        
-        Task {
-            do {
-                let metadata = try await LinkPreviewService.shared.fetchMetadata(for: urlObject)
-                
-                await MainActor.run {
-                    linkMetadata = metadata
-                    isLoadingLinkPreview = false
-                }
-            } catch {
-                print("⚠️ Failed to fetch link preview: \(error)")
-                await MainActor.run {
-                    isLoadingLinkPreview = false
-                }
-            }
-        }
-    }
-    
-    /// Auto-detect URLs in text and fetch link preview
-    private func detectAndFetchLinkPreview(in text: String) {
-        // Only detect if we don't already have a link
-        guard linkURL.isEmpty else { return }
-        
-        // Detect URLs in the text
-        let urls = LinkPreviewService.shared.detectURLs(in: text)
-        
-        // If we found a URL, use the first one
-        if let firstURL = urls.first {
-            linkURL = firstURL.absoluteString
-            fetchLinkMetadata(for: linkURL)
-            print("🔗 Auto-detected URL: \(linkURL)")
-        }
-    }
+    // Link preview is handled by linkController (ComposerLinkPreviewController).
     
     // MARK: - ScheduledWhenLine Helper View
     
@@ -2515,17 +2896,11 @@ struct CreatePostView: View {
         var body: some View {
             Group {
                 if isEmpty {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(placeholder)
-                            .font(.custom("OpenSans-Regular", size: 17))
-                            .foregroundStyle(.secondary)
-                        Text(description)
-                            .font(.custom("OpenSans-Regular", size: 14))
-                            .foregroundStyle(.tertiary)
-                            .padding(.top, 4)
-                    }
-                    .padding(.top, 8)
-                    .allowsHitTesting(false)
+                    Text(placeholder)
+                        .font(.custom("OpenSans-Regular", size: 17))
+                        .foregroundStyle(.secondary)
+                        .padding(.top, 8)
+                        .allowsHitTesting(false)
                 }
             }
         }
@@ -2534,61 +2909,158 @@ struct CreatePostView: View {
 
 // MARK: - Supporting Views
 
-// Liquid Glass Category Button (matching the image design)
-struct LiquidGlassCategoryButton: View {
+// MARK: - Glass Category Bar
+// Frosted-glass capsule pill with a sliding selection lens.
+// Matches the Apple Music floating control reference: single blurred container,
+// moving inner-capsule "lens" behind the selected segment, haptic on selection.
+
+struct GlassCategoryBar: View {
+    let categories: [CreatePostView.PostCategory]
+    @Binding var selected: CreatePostView.PostCategory
+    let namespace: Namespace.ID
+    let onSelect: (CreatePostView.PostCategory) -> Void
+
+    var body: some View {
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 0) {
+                    ForEach(categories, id: \.self) { category in
+                        GlassCategorySegment(
+                            category: category,
+                            isSelected: selected == category,
+                            namespace: namespace
+                        ) {
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
+                                selected = category
+                            }
+                            onSelect(category)
+                        }
+                        .id(category)
+                    }
+                }
+                .padding(.horizontal, 5)
+                .padding(.vertical, 5)
+            }
+            .frame(height: 48)
+            // Outer pill — the glass container
+            .background(
+                Capsule()
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        // Subtle top-edge specular highlight
+                        Capsule()
+                            .strokeBorder(
+                                LinearGradient(
+                                    colors: [
+                                        Color.white.opacity(0.55),
+                                        Color.white.opacity(0.10)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 1
+                            )
+                    )
+                    .shadow(color: Color.black.opacity(0.10), radius: 16, x: 0, y: 4)
+                    .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 1)
+            )
+            .clipShape(Capsule())
+            .onChange(of: selected) { _, newVal in
+                withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
+                    proxy.scrollTo(newVal, anchor: .center)
+                }
+            }
+        }
+    }
+}
+
+/// A single segment inside GlassCategoryBar.
+private struct GlassCategorySegment: View {
     let category: CreatePostView.PostCategory
     let isSelected: Bool
     let namespace: Namespace.ID
     let action: () -> Void
-    
+
     @State private var isPressed = false
-    
+
+    // Label only shows for selected — matches Apple Music shrink-to-icon-when-unselected.
+    private var showLabel: Bool { isSelected }
+
     var body: some View {
-        Button(action: {
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
-                isPressed = true
-            }
-            
-            // Button animation reset (non-critical, safe to use DispatchQueue)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
-                    isPressed = false
-                }
-            }
-            
-            action()
-        }) {
-            HStack(spacing: 5) {
-                Image(systemName: category.icon)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(isSelected ? .white : .black.opacity(0.7))
-                
+        Button(action: action) {
+            ZStack {
+                // Sliding selection lens — matched geometry so it travels between segments
                 if isSelected {
-                    Text(category.displayName)
-                        .font(.custom("OpenSans-Bold", size: 13))
-                        .foregroundStyle(.white)
-                        .transition(.scale.combined(with: .opacity))
+                    Capsule()
+                        .fill(.regularMaterial)
+                        .overlay(
+                            Capsule()
+                                .strokeBorder(
+                                    LinearGradient(
+                                        colors: [
+                                            Color.white.opacity(0.80),
+                                            Color.white.opacity(0.20)
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    ),
+                                    lineWidth: 1
+                                )
+                        )
+                        .shadow(color: Color.black.opacity(0.12), radius: 6, x: 0, y: 2)
+                        .matchedGeometryEffect(id: "selectionLens", in: namespace)
                 }
-            }
-            .padding(.horizontal, isSelected ? 14 : 11)
-            .padding(.vertical, 8)
-            .background(
-                Group {
-                    if isSelected {
-                        Capsule()
-                            .fill(Color.black)
-                            .matchedGeometryEffect(id: "selectedCategory", in: namespace)
-                            .shadow(color: .black.opacity(0.15), radius: 5, y: 2)
-                    } else {
-                        Capsule()
-                            .fill(Color.clear)
+
+                // Icon + optional label
+                HStack(spacing: 5) {
+                    Image(systemName: category.icon)
+                        .font(.system(size: 14, weight: isSelected ? .semibold : .regular))
+                        .foregroundStyle(isSelected ? .primary : .secondary)
+                        .symbolRenderingMode(.hierarchical)
+
+                    if showLabel {
+                        Text(segmentLabel)
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                            .transition(.opacity.combined(with: .scale(scale: 0.85)))
                     }
                 }
-            )
-            .scaleEffect(isPressed ? 0.95 : 1.0)
+                .padding(.horizontal, isSelected ? 13 : 11)
+                .padding(.vertical, 6)
+            }
+            // Minimum 44pt height for accessibility
+            .frame(minHeight: 38)
+            .scaleEffect(isPressed ? 0.96 : 1.0)
+            .contentShape(Capsule())
         }
-        .buttonStyle(PlainButtonStyle())
-        .animation(.spring(response: 0.35, dampingFraction: 0.75), value: isSelected)
+        .buttonStyle(.plain)
+        .accessibilityLabel(category.displayName)
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+        // Press feedback via a simultaneous DragGesture with zero threshold
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in
+                    guard !isPressed else { return }
+                    withAnimation(.spring(response: 0.18, dampingFraction: 0.7)) { isPressed = true }
+                }
+                .onEnded { _ in
+                    withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) { isPressed = false }
+                }
+        )
+        .animation(.spring(response: 0.32, dampingFraction: 0.78), value: isSelected)
+    }
+
+    // Short label to keep the pill compact
+    private var segmentLabel: String {
+        switch category {
+        case .openTable:   return "OpenTable"
+        case .testimonies: return "Testimony"
+        case .prayer:      return "Prayer"
+        case .tip:         return "Tip"
+        case .funFact:     return "Fun Fact"
+        }
     }
 }
 
@@ -2690,9 +3162,23 @@ struct TopicTagSheet: View {
         ("Praise Report", "hands.clap.fill", Color(red: 1.0, green: 0.7, blue: 0.4)),
         ("Answered Prayer", "checkmark.seal.fill", Color(red: 0.4, green: 0.85, blue: 0.7))
     ]
+
+    // Testimony category tags — must match TestimonyCategory.title values for filtering
+    let testimonyTags: [(String, String, Color)] = [
+        ("Healing", "heart.fill", .pink),
+        ("Career", "briefcase.fill", .green),
+        ("Relationships", "heart.circle.fill", .red),
+        ("Financial", "dollarsign.circle.fill", .orange),
+        ("Spiritual Growth", "sparkles", .purple),
+        ("Family", "house.fill", .blue)
+    ]
     
     var displayTags: [(String, String, Color)] {
-        selectedCategory == .prayer ? prayerTypes : openTableTags
+        switch selectedCategory {
+        case .prayer: return prayerTypes
+        case .testimonies: return testimonyTags
+        default: return openTableTags
+        }
     }
     
     var body: some View {
@@ -2700,11 +3186,13 @@ struct TopicTagSheet: View {
             ScrollView {
                 VStack(spacing: 16) {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text(selectedCategory == .prayer ? "Select Prayer Type" : "Select a Topic Tag")
+                        Text(selectedCategory == .prayer ? "Select Prayer Type" : selectedCategory == .testimonies ? "Testimony Category" : "Select a Topic Tag")
                             .font(.custom("OpenSans-Bold", size: 20))
                         
-                        Text(selectedCategory == .prayer ? 
+                        Text(selectedCategory == .prayer ?
                              "Let others know what kind of prayer this is" :
+                             selectedCategory == .testimonies ?
+                             "Choose a category so others can find your testimony" :
                              "Help others discover your post in #OPENTABLE")
                             .font(.custom("OpenSans-Regular", size: 14))
                             .foregroundStyle(.secondary)
@@ -3341,8 +3829,8 @@ struct LinkInputSheet: View {
         guard !string.isEmpty,
               let url = URL(string: string),
               let scheme = url.scheme,
-              let host = url.host,
-              ["http", "https"].contains(scheme.lowercased()) else {
+              ["http", "https"].contains(scheme.lowercased()),
+              url.host != nil else {
             return false
         }
         return true
@@ -3906,6 +4394,949 @@ struct Draft: Identifiable {
     let createdAt: Date
 }
 
+// MARK: - Authenticity Prompt Sheet
 
+/// ✅ Gentle prompt to add personal context when content seems copy-pasted
+struct AuthenticityPromptSheet: View {
+    let message: String
+    @Binding var personalContext: String
+    let onContinue: () -> Void
+    let onCancel: () -> Void
+    
+    @FocusState private var isTextFieldFocused: Bool
+    
+    var body: some View {
+        NavigationView {
+            VStack(alignment: .leading, spacing: 20) {
+                // Header
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 12) {
+                        ZStack {
+                            Circle()
+                                .fill(Color.orange.opacity(0.1))
+                                .frame(width: 48, height: 48)
+                            
+                            Image(systemName: "sparkles")
+                                .font(.system(size: 22))
+                                .foregroundStyle(Color.orange)
+                        }
+                        
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Add a Personal Touch")
+                                .font(.custom("OpenSans-Bold", size: 20))
+                                .foregroundStyle(.primary)
+                            
+                            Text("Make it uniquely yours")
+                                .font(.custom("OpenSans-Regular", size: 14))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    
+                    Text(message)
+                        .font(.custom("OpenSans-Regular", size: 15))
+                        .foregroundStyle(.secondary)
+                        .padding(.top, 8)
+                }
+                .padding()
+                
+                // Text field
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Share your personal thoughts:")
+                        .font(.custom("OpenSans-SemiBold", size: 14))
+                        .foregroundStyle(.secondary)
+                    
+                    TextEditor(text: $personalContext)
+                        .font(.custom("OpenSans-Regular", size: 15))
+                        .frame(height: 120)
+                        .padding(12)
+                        .background(Color(.systemGray6))
+                        .cornerRadius(12)
+                        .focused($isTextFieldFocused)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color.orange.opacity(0.3), lineWidth: 1)
+                        )
+                    
+                    Text("\(personalContext.count)/280")
+                        .font(.custom("OpenSans-Regular", size: 12))
+                        .foregroundStyle(personalContext.count > 280 ? .red : .secondary)
+                }
+                .padding(.horizontal)
+                
+                Spacer()
+                
+                // Action buttons
+                VStack(spacing: 12) {
+                    Button(action: onContinue) {
+                        HStack {
+                            Image(systemName: "checkmark.circle.fill")
+                            Text("Continue Posting")
+                                .font(.custom("OpenSans-SemiBold", size: 16))
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(
+                            personalContext.isEmpty || personalContext.count > 280 ? 
+                            Color.gray.opacity(0.3) : Color.black
+                        )
+                        .foregroundStyle(.white)
+                        .cornerRadius(12)
+                    }
+                    .disabled(personalContext.isEmpty || personalContext.count > 280)
+                    
+                    Button(action: onCancel) {
+                        Text("Cancel")
+                            .font(.custom("OpenSans-Regular", size: 15))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding()
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: onCancel) {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+        .onAppear {
+            isTextFieldFocused = true
+        }
+    }
+}
+// MARK: - Dynamic Island–style "Posted" pill
 
+private struct PostedPill: View {
+    // Blocks animation state
+    @State private var blocksOpacity: Double = 0
+    @State private var blocksScale: CGFloat = 0.5
+    @State private var blocksPulse: Bool = false
+
+    // Checkmark animation state
+    @State private var checkmarkProgress: CGFloat = 0
+    @State private var checkmarkOpacity: Double = 0
+    @State private var checkmarkScale: CGFloat = 0.6
+
+    // Label animation state
+    @State private var labelOpacity: Double = 0
+    @State private var labelOffset: CGFloat = 8
+    @State private var labelText: String = "Posting..."
+
+    var body: some View {
+        HStack(spacing: 10) {
+            // Icon area — switches between blocks and checkmark
+            ZStack {
+                // Phase 1: pixel/blocks grid in pink–red gradient
+                PixelBlocksIcon()
+                    .scaleEffect(blocksPulse ? 1.08 : 1.0)
+                    .opacity(blocksOpacity)
+                    .scaleEffect(blocksScale)
+
+                // Phase 2: stroke checkmark in white
+                ZStack {
+                    Circle()
+                        .fill(Color.white.opacity(0.15))
+                        .frame(width: 26, height: 26)
+                    Circle()
+                        .stroke(Color.white.opacity(0.22), lineWidth: 1.5)
+                        .frame(width: 26, height: 26)
+                    AnimatedCheckmark(progress: checkmarkProgress)
+                        .stroke(Color.white, style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+                        .frame(width: 13, height: 10)
+                }
+                .opacity(checkmarkOpacity)
+                .scaleEffect(checkmarkScale)
+            }
+            .frame(width: 26, height: 26)
+
+            Text(labelText)
+                .font(.custom("OpenSans-SemiBold", size: 15))
+                .foregroundStyle(.white)
+                .opacity(labelOpacity)
+                .offset(x: labelOffset)
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 13)
+        .background(
+            Capsule()
+                .fill(Color.black)
+                .shadow(color: .black.opacity(0.40), radius: 22, x: 0, y: 8)
+        )
+        .onAppear {
+            // Phase 1: blocks fade + scale in
+            withAnimation(.spring(response: 0.30, dampingFraction: 0.72)) {
+                blocksOpacity = 1
+                blocksScale = 1
+            }
+            withAnimation(.spring(response: 0.36, dampingFraction: 0.78).delay(0.12)) {
+                labelOpacity = 1
+                labelOffset = 0
+            }
+            // Subtle pulse on blocks
+            withAnimation(.easeInOut(duration: 0.55).repeatForever(autoreverses: true).delay(0.25)) {
+                blocksPulse = true
+            }
+            // Phase 2: transition to checkmark after brief moment
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
+                // Swap label text
+                withAnimation(.easeInOut(duration: 0.18)) {
+                    labelOpacity = 0
+                }
+                // Blocks exit
+                withAnimation(.spring(response: 0.22, dampingFraction: 0.82).delay(0.08)) {
+                    blocksOpacity = 0
+                    blocksScale = 0.4
+                }
+                // Checkmark enters
+                withAnimation(.spring(response: 0.28, dampingFraction: 0.70).delay(0.18)) {
+                    checkmarkOpacity = 1
+                    checkmarkScale = 1
+                }
+                withAnimation(.linear(duration: 0.36).delay(0.20)) {
+                    checkmarkProgress = 1
+                }
+                // Label updates to "Posted"
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
+                    labelText = "Posted"
+                    withAnimation(.spring(response: 0.34, dampingFraction: 0.76)) {
+                        labelOpacity = 1
+                        labelOffset = 0
+                    }
+                }
+            }
+        }
+    }
+}
+
+// 2×2 grid of rounded squares with pink–red gradient
+private struct PixelBlocksIcon: View {
+    private let gradient = LinearGradient(
+        colors: [Color(red: 1.0, green: 0.28, blue: 0.36), Color(red: 0.95, green: 0.18, blue: 0.52)],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
+    )
+    private let blockSize: CGFloat = 7
+    private let gap: CGFloat = 2.5
+
+    var body: some View {
+        VStack(spacing: gap) {
+            HStack(spacing: gap) {
+                RoundedRectangle(cornerRadius: 2, style: .continuous).fill(gradient).frame(width: blockSize, height: blockSize)
+                RoundedRectangle(cornerRadius: 2, style: .continuous).fill(gradient).frame(width: blockSize, height: blockSize).opacity(0.70)
+            }
+            HStack(spacing: gap) {
+                RoundedRectangle(cornerRadius: 2, style: .continuous).fill(gradient).frame(width: blockSize, height: blockSize).opacity(0.70)
+                RoundedRectangle(cornerRadius: 2, style: .continuous).fill(gradient).frame(width: blockSize, height: blockSize)
+            }
+        }
+    }
+}
+
+// Draws the checkmark tick as a trimmed path (progress 0→1)
+private struct AnimatedCheckmark: Shape {
+    var progress: CGFloat
+
+    var animatableData: CGFloat {
+        get { progress }
+        set { progress = newValue }
+    }
+
+    func path(in rect: CGRect) -> Path {
+        let w = rect.width
+        let h = rect.height
+        let p1 = CGPoint(x: 0, y: h * 0.52)
+        let p2 = CGPoint(x: w * 0.38, y: h)
+        let p3 = CGPoint(x: w, y: 0)
+
+        var path = Path()
+        path.move(to: p1)
+        path.addLine(to: p2)
+        path.addLine(to: p3)
+        return path.trimmedPath(from: 0, to: progress)
+    }
+}
+
+// MARK: - Berean Tone Button (toolbar)
+
+/// AMEN-logo glass circle button that triggers Berean tone analysis.
+/// Matches the Berean nav button design in the main feed.
+private struct BereanToneButton: View {
+    let isLoading: Bool
+    let action: () -> Void
+
+    @State private var pulseScale: CGFloat = 1.0
+    @State private var isAnimating = false
+
+    var body: some View {
+        Button(action: {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            action()
+        }) {
+            ZStack {
+                Circle()
+                    .fill(.ultraThinMaterial)
+                    .frame(width: 34, height: 34)
+                    .overlay(
+                        Circle().stroke(
+                            LinearGradient(
+                                colors: [Color.white.opacity(0.5), Color.white.opacity(0.1)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1
+                        )
+                    )
+                    .shadow(color: .black.opacity(0.08), radius: 4, y: 2)
+                
+                if isLoading {
+                    // Pulsing dots while AI is thinking
+                    HStack(spacing: 3) {
+                        ForEach(0..<3) { i in
+                            Circle()
+                                .fill(Color.primary.opacity(0.6))
+                                .frame(width: 3.5, height: 3.5)
+                                .scaleEffect(pulseScale)
+                                .animation(
+                                    .easeInOut(duration: 0.55)
+                                        .repeatForever()
+                                        .delay(Double(i) * 0.18),
+                                    value: pulseScale
+                                )
+                        }
+                    }
+                } else {
+                    Image("amen-logo")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 28, height: 28)
+                        .blendMode(.multiply)
+                        .rotationEffect(.degrees(isAnimating ? 2 : 0))
+                }
+            }
+        }
+        .buttonStyle(PlainButtonStyle())
+        .disabled(isLoading)
+        .accessibilityLabel("Berean tone assist")
+        .onAppear {
+            if isLoading { pulseScale = 1.4 }
+            withAnimation(.easeInOut(duration: 2.5).repeatForever(autoreverses: true)) {
+                isAnimating = true
+            }
+        }
+        .onChange(of: isLoading) { _, loading in
+            pulseScale = loading ? 1.4 : 1.0
+        }
+    }
+}
+
+// MARK: - Algolia Mention Suggestion Row
+
+/// Mention row for CreatePostView's inline @-trigger, which uses AlgoliaUser.
+private struct AlgoliaMentionSuggestionRow: View {
+    let user: AlgoliaUser
+    let onTap: () -> Void
+
+    @State private var isPressed = false
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 12) {
+                // ── Avatar ─────────────────────────────────────────────
+                ZStack {
+                    Circle()
+                        .fill(Color(uiColor: .tertiarySystemFill))
+                        .frame(width: 40, height: 40)
+
+                    if let urlStr = user.profileImageURL,
+                       !urlStr.isEmpty,
+                       let url = URL(string: urlStr) {
+                        CachedAsyncImage(url: url) { img in
+                            img.resizable().scaledToFill()
+                                .frame(width: 40, height: 40)
+                                .clipShape(Circle())
+                        } placeholder: {
+                            Text(user.displayName.prefix(1).uppercased())
+                                .font(.custom("OpenSans-Bold", size: 16))
+                                .foregroundStyle(.primary)
+                        }
+                    } else {
+                        Text(user.displayName.prefix(1).uppercased())
+                            .font(.custom("OpenSans-Bold", size: 16))
+                            .foregroundStyle(.primary)
+                    }
+                }
+
+                // ── Name + username ────────────────────────────────────
+                VStack(alignment: .leading, spacing: 2) {
+                    // Display name with yellow marker highlight
+                    Text(user.displayName)
+                        .font(.custom("OpenSans-Bold", size: 15))
+                        .foregroundStyle(.primary)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 1)
+                        .background(alignment: .center) {
+                            AlgoliaBrushstrokeHighlight()
+                                .foregroundStyle(Color(red: 1.0, green: 0.88, blue: 0.15, opacity: 0.75))
+                        }
+
+                    Text("@\(user.username)")
+                        .font(.custom("OpenSans-Regular", size: 13))
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                // Subtle chevron affordance
+                Image(systemName: "arrow.up.left")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .contentShape(Rectangle())
+            .background(
+                isPressed
+                    ? Color(uiColor: .tertiarySystemFill)
+                    : Color.clear
+            )
+            .animation(.easeOut(duration: 0.1), value: isPressed)
+        }
+        .buttonStyle(PlainButtonStyle())
+        ._onButtonGesture { pressing in
+            isPressed = pressing
+        } perform: {}
+    }
+}
+
+// MARK: - Brushstroke highlight shape
+
+private struct AlgoliaBrushstrokeHighlight: Shape {
+    func path(in rect: CGRect) -> Path {
+        var p = Path()
+        let w = rect.width, h = rect.height
+        // Slightly irregular rounded rect that mimics a marker sweep
+        p.move(to: CGPoint(x: w * 0.02, y: h * 0.55))
+        p.addCurve(
+            to: CGPoint(x: w * 0.98, y: h * 0.45),
+            control1: CGPoint(x: w * 0.25, y: h * 0.20),
+            control2: CGPoint(x: w * 0.75, y: h * 0.10)
+        )
+        p.addCurve(
+            to: CGPoint(x: w * 0.04, y: h * 0.95),
+            control1: CGPoint(x: w * 0.80, y: h * 1.10),
+            control2: CGPoint(x: w * 0.30, y: h * 1.05)
+        )
+        p.closeSubpath()
+        return p
+    }
+}
+
+// MARK: - Berean Tone Popup
+
+// MARK: - Berean Tone Popup (Liquid Glass + Sticker Label Aesthetic)
+private struct BereanTonePopup: View {
+    let suggestion: String?
+    let onUse: (String) -> Void
+    let onDismiss: () -> Void
+
+    @State private var cardScale: CGFloat = 0.88
+    @State private var cardOpacity: Double = 0
+    @State private var sparkleRotation: Double = -8
+    @State private var usePressed = false
+    @State private var keepPressed = false
+    @State private var labelWiggle: Double = 0
+
+    // Sticker label highlight color (warm yellow)
+    private let stickerYellow = Color(red: 1.0, green: 0.90, blue: 0.25)
+    private let stickerMint   = Color(red: 0.72, green: 0.98, blue: 0.88)
+    private let stickerBlue   = Color(red: 0.72, green: 0.88, blue: 1.0)
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.01)
+                .ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                Spacer()
+
+                // ── Main card: frosted white glass ────────────────────
+                VStack(spacing: 0) {
+                    // Drag pill
+                    Capsule()
+                        .fill(Color.black.opacity(0.15))
+                        .frame(width: 36, height: 4)
+                        .padding(.top, 14)
+                        .padding(.bottom, 16)
+
+                    // ── Header row ────────────────────────────────────
+                    HStack(alignment: .top) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            // Sticker-label title — tilted, on yellow strip
+                            HStack(spacing: 8) {
+                                Image(systemName: "sparkles")
+                                    .font(.system(size: 17, weight: .black))
+                                    .foregroundStyle(Color(red: 0.15, green: 0.15, blue: 0.15))
+                                    .rotationEffect(.degrees(sparkleRotation))
+                                Text("Tone Check")
+                                    .font(.custom("OpenSans-ExtraBold", size: 19))
+                                    .foregroundStyle(Color(red: 0.10, green: 0.10, blue: 0.10))
+                            }
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                    .fill(stickerYellow)
+                                    .rotationEffect(.degrees(-1.2))
+                            )
+                            .rotationEffect(.degrees(-1.2))
+                            .rotationEffect(.degrees(labelWiggle))
+
+                            Text(suggestion != nil
+                                 ? "Here's a kinder way to say this"
+                                 : "Your post sounds great as-is!")
+                                .font(.custom("OpenSans-Regular", size: 13))
+                                .foregroundStyle(Color.secondary)
+                        }
+                        Spacer()
+                        // Close button
+                        Button { onDismiss() } label: {
+                            ZStack {
+                                Circle()
+                                    .fill(Color.black.opacity(0.08))
+                                    .frame(width: 30, height: 30)
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundStyle(Color.secondary)
+                            }
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 16)
+
+                    // ── Suggestion area ───────────────────────────────
+                    if let suggestion = suggestion {
+                        VStack(alignment: .leading, spacing: 12) {
+                            // Context label — plain language explanation
+                            HStack(spacing: 6) {
+                                Image(systemName: "lightbulb.fill")
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(Color(red: 0.10, green: 0.45, blue: 0.35))
+                                Text("Suggested rewrite — tap \"Use this\" to replace your post")
+                                    .font(.custom("OpenSans-SemiBold", size: 11))
+                                    .foregroundStyle(Color(red: 0.10, green: 0.45, blue: 0.35))
+                            }
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    .fill(stickerMint.opacity(0.7))
+                            )
+                            .padding(.horizontal, 16)
+
+                            // Suggestion text on frosted glass card
+                            Text(suggestion)
+                                .font(.custom("OpenSans-Regular", size: 15))
+                                .foregroundStyle(Color.primary)
+                                .lineSpacing(5)
+                                .padding(16)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                        .fill(.regularMaterial)
+                                        .overlay {
+                                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                                .strokeBorder(
+                                                    LinearGradient(
+                                                        colors: [Color.white.opacity(0.7), Color.white.opacity(0.2)],
+                                                        startPoint: .topLeading,
+                                                        endPoint: .bottomTrailing
+                                                    ),
+                                                    lineWidth: 1
+                                                )
+                                        }
+                                )
+                                .padding(.horizontal, 16)
+
+                            // ── Action buttons ────────────────────────
+                            HStack(spacing: 10) {
+                                // "Use this" — replaces the post text with the suggestion
+                                Button { onUse(suggestion) } label: {
+                                    HStack(spacing: 6) {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .font(.system(size: 15, weight: .semibold))
+                                        Text("Use this")
+                                            .font(.custom("OpenSans-Bold", size: 15))
+                                    }
+                                    .foregroundStyle(.white)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 15)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                            .fill(
+                                                LinearGradient(
+                                                    colors: [
+                                                        Color(red: 0.25, green: 0.55, blue: 1.0),
+                                                        Color(red: 0.45, green: 0.72, blue: 1.0)
+                                                    ],
+                                                    startPoint: .leading,
+                                                    endPoint: .trailing
+                                                )
+                                            )
+                                            .shadow(color: Color(red: 0.25, green: 0.55, blue: 1.0).opacity(0.35), radius: 8, y: 4)
+                                    )
+                                    .scaleEffect(usePressed ? 0.94 : 1.0)
+                                    .animation(.spring(response: 0.2, dampingFraction: 0.6), value: usePressed)
+                                }
+                                .buttonStyle(PlainButtonStyle())
+                                ._onButtonGesture { pressing in usePressed = pressing } perform: {}
+
+                                // "Keep mine" — closes popup, post unchanged
+                                Button { onDismiss() } label: {
+                                    HStack(spacing: 6) {
+                                        Image(systemName: "pencil")
+                                            .font(.system(size: 13, weight: .semibold))
+                                        Text("Keep mine")
+                                            .font(.custom("OpenSans-Bold", size: 15))
+                                    }
+                                    .foregroundStyle(Color.primary)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 15)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                            .fill(.regularMaterial)
+                                            .overlay {
+                                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                                    .strokeBorder(Color.primary.opacity(0.12), lineWidth: 1)
+                                            }
+                                    )
+                                    .scaleEffect(keepPressed ? 0.94 : 1.0)
+                                    .animation(.spring(response: 0.2, dampingFraction: 0.6), value: keepPressed)
+                                }
+                                .buttonStyle(PlainButtonStyle())
+                                ._onButtonGesture { pressing in keepPressed = pressing } perform: {}
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.top, 4)
+                            .padding(.bottom, 36)
+                        }
+                    } else {
+                        // No rewrite needed — tone is already good
+                        VStack(spacing: 16) {
+                            Text("✅")
+                                .font(.system(size: 40))
+                            Text("Your post has a great tone!\nNo changes needed.")
+                                .font(.custom("OpenSans-Regular", size: 15))
+                                .foregroundStyle(Color.secondary)
+                                .multilineTextAlignment(.center)
+                                .lineSpacing(4)
+                            Button { onDismiss() } label: {
+                                Text("Got it")
+                                    .font(.custom("OpenSans-Bold", size: 15))
+                                    .foregroundStyle(.white)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 15)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                            .fill(
+                                                LinearGradient(
+                                                    colors: [Color(red: 0.25, green: 0.55, blue: 1.0), Color(red: 0.45, green: 0.72, blue: 1.0)],
+                                                    startPoint: .leading, endPoint: .trailing
+                                                )
+                                            )
+                                    )
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                            .padding(.horizontal, 16)
+                        }
+                        .padding(.bottom, 36)
+                    }
+                }
+                // Liquid glass card background: bright frosted white
+                .background(
+                    RoundedRectangle(cornerRadius: 28, style: .continuous)
+                        .fill(.regularMaterial)
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [Color.white.opacity(0.55), Color.white.opacity(0.15)],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                        }
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                                .strokeBorder(
+                                    LinearGradient(
+                                        colors: [Color.white.opacity(0.8), Color.white.opacity(0.2)],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    ),
+                                    lineWidth: 1
+                                )
+                        }
+                        .shadow(color: .black.opacity(0.10), radius: 24, y: 8)
+                )
+                .scaleEffect(cardScale)
+                .opacity(cardOpacity)
+                .onAppear {
+                    withAnimation(.spring(response: 0.40, dampingFraction: 0.70)) {
+                        cardScale = 1.0
+                        cardOpacity = 1.0
+                    }
+                    // Sparkle rocks back and forth
+                    withAnimation(.easeInOut(duration: 1.4).repeatForever(autoreverses: true).delay(0.3)) {
+                        sparkleRotation = 8
+                    }
+                    // Label has a tiny playful wiggle on appear
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.4).delay(0.45)) {
+                        labelWiggle = 2
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.5)) {
+                            labelWiggle = 0
+                        }
+                    }
+                }
+            }
+            .ignoresSafeArea(edges: .bottom)
+        }
+    }
+}
+
+// MARK: - Source Label Prompt (shown when AI/pasted content detected at medium confidence)
+private struct SourceLabelPrompt: View {
+    let onPostWithSource: (String) -> Void   // passes the source string e.g. "ChatGPT"
+    let onEdit: () -> Void                    // user wants to rewrite
+
+    @State private var cardScale: CGFloat = 0.88
+    @State private var cardOpacity: Double = 0
+    @State private var selectedSource: String = "ChatGPT"
+    @State private var postPressed = false
+    @State private var editPressed = false
+
+    private let sourceOptions = ["ChatGPT", "External", "Other AI"]
+    private let stickerOrange = Color(red: 1.0, green: 0.75, blue: 0.30)
+    private let stickerBlue   = Color(red: 0.72, green: 0.88, blue: 1.0)
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.01).ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                Spacer()
+
+                VStack(spacing: 0) {
+                    // Drag pill
+                    Capsule()
+                        .fill(Color.black.opacity(0.15))
+                        .frame(width: 36, height: 4)
+                        .padding(.top, 14)
+                        .padding(.bottom, 18)
+
+                    // ── Header ────────────────────────────────────────
+                    VStack(spacing: 8) {
+                        // Icon
+                        ZStack {
+                            Circle()
+                                .fill(stickerOrange.opacity(0.2))
+                                .frame(width: 56, height: 56)
+                            Text("🔍")
+                                .font(.system(size: 26))
+                        }
+
+                        // Title on orange sticker label
+                        Text("Looks copy-pasted")
+                            .font(.custom("OpenSans-ExtraBold", size: 18))
+                            .foregroundStyle(Color(red: 0.12, green: 0.10, blue: 0.08))
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                    .fill(stickerOrange)
+                                    .rotationEffect(.degrees(-1))
+                            )
+                            .rotationEffect(.degrees(-1))
+
+                        Text("AMEN values your authentic voice.\nIf this isn't fully your own writing, label it so your community knows.")
+                            .font(.custom("OpenSans-Regular", size: 14))
+                            .foregroundStyle(Color.secondary)
+                            .multilineTextAlignment(.center)
+                            .lineSpacing(3)
+                            .padding(.horizontal, 24)
+                    }
+                    .padding(.bottom, 20)
+
+                    // ── Source picker ─────────────────────────────────
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(spacing: 5) {
+                            Image(systemName: "tag.fill")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundStyle(Color(red: 0.20, green: 0.40, blue: 0.80))
+                            Text("source label")
+                                .font(.custom("OpenSans-Bold", size: 10))
+                                .foregroundStyle(Color(red: 0.20, green: 0.40, blue: 0.80))
+                                .textCase(.uppercase)
+                                .kerning(0.8)
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(
+                            RoundedRectangle(cornerRadius: 5, style: .continuous)
+                                .fill(stickerBlue)
+                                .rotationEffect(.degrees(0.6))
+                        )
+                        .rotationEffect(.degrees(0.6))
+                        .padding(.leading, 20)
+
+                        // Pill selector
+                        HStack(spacing: 8) {
+                            ForEach(sourceOptions, id: \.self) { opt in
+                                Button {
+                                    withAnimation(.spring(response: 0.2, dampingFraction: 0.6)) {
+                                        selectedSource = opt
+                                    }
+                                } label: {
+                                    Text(opt)
+                                        .font(.custom(selectedSource == opt ? "OpenSans-Bold" : "OpenSans-Regular", size: 13))
+                                        .foregroundStyle(selectedSource == opt ? .white : Color.primary)
+                                        .padding(.horizontal, 14)
+                                        .padding(.vertical, 8)
+                                        .background(
+                                            Capsule()
+                                                .fill(selectedSource == opt
+                                                    ? Color(red: 0.25, green: 0.55, blue: 1.0)
+                                                    : Color.primary.opacity(0.08))
+                                        )
+                                }
+                                .buttonStyle(PlainButtonStyle())
+                            }
+                        }
+                        .padding(.horizontal, 20)
+                    }
+                    .padding(.bottom, 20)
+
+                    // ── Preview badge ─────────────────────────────────
+                    HStack(spacing: 6) {
+                        Image(systemName: "info.circle.fill")
+                            .font(.system(size: 11))
+                            .foregroundStyle(Color.secondary)
+                        Text("Your post will show a \"via \(selectedSource)\" label")
+                            .font(.custom("OpenSans-Regular", size: 12))
+                            .foregroundStyle(Color.secondary)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(.regularMaterial)
+                    )
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 20)
+
+                    // ── Action buttons ────────────────────────────────
+                    VStack(spacing: 10) {
+                        // Post with source label
+                        Button { onPostWithSource(selectedSource) } label: {
+                            HStack(spacing: 7) {
+                                Image(systemName: "paperplane.fill")
+                                    .font(.system(size: 14, weight: .semibold))
+                                Text("Post with source label")
+                                    .font(.custom("OpenSans-Bold", size: 15))
+                            }
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 15)
+                            .background(
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [
+                                                Color(red: 0.25, green: 0.55, blue: 1.0),
+                                                Color(red: 0.45, green: 0.72, blue: 1.0)
+                                            ],
+                                            startPoint: .leading,
+                                            endPoint: .trailing
+                                        )
+                                    )
+                                    .shadow(color: Color(red: 0.25, green: 0.55, blue: 1.0).opacity(0.35), radius: 8, y: 4)
+                            )
+                            .scaleEffect(postPressed ? 0.94 : 1.0)
+                            .animation(.spring(response: 0.2, dampingFraction: 0.6), value: postPressed)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        ._onButtonGesture { pressing in postPressed = pressing } perform: {}
+
+                        // Edit — write it yourself
+                        Button { onEdit() } label: {
+                            HStack(spacing: 7) {
+                                Image(systemName: "pencil")
+                                    .font(.system(size: 13, weight: .semibold))
+                                Text("Write it myself")
+                                    .font(.custom("OpenSans-Bold", size: 15))
+                            }
+                            .foregroundStyle(Color.primary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 15)
+                            .background(
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .fill(.regularMaterial)
+                                    .overlay {
+                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                            .strokeBorder(Color.primary.opacity(0.12), lineWidth: 1)
+                                    }
+                            )
+                            .scaleEffect(editPressed ? 0.94 : 1.0)
+                            .animation(.spring(response: 0.2, dampingFraction: 0.6), value: editPressed)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        ._onButtonGesture { pressing in editPressed = pressing } perform: {}
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 36)
+                }
+                .background(
+                    RoundedRectangle(cornerRadius: 28, style: .continuous)
+                        .fill(.regularMaterial)
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [Color.white.opacity(0.55), Color.white.opacity(0.15)],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                        }
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                                .strokeBorder(
+                                    LinearGradient(
+                                        colors: [Color.white.opacity(0.8), Color.white.opacity(0.2)],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    ),
+                                    lineWidth: 1
+                                )
+                        }
+                        .shadow(color: .black.opacity(0.10), radius: 24, y: 8)
+                )
+                .scaleEffect(cardScale)
+                .opacity(cardOpacity)
+                .onAppear {
+                    withAnimation(.spring(response: 0.40, dampingFraction: 0.70)) {
+                        cardScale = 1.0
+                        cardOpacity = 1.0
+                    }
+                }
+            }
+            .ignoresSafeArea(edges: .bottom)
+        }
+    }
+}
 

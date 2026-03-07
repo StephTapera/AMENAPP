@@ -21,14 +21,15 @@ struct PostCard: View {
     let topicTag: String?
     let isUserPost: Bool // Track if this is the current user's post
     
-    // P0 FIX: Use @ObservedObject for ALL shared singletons to prevent full feed redraw
-    // @StateObject creates new observation per cell, causing every cell to redraw when ANY property changes
-    @ObservedObject private var postsManager = PostsManager.shared
+    // PERF: Only observe services whose published properties are actually read in the view body.
+    // postsManager and moderationService are only used in action handlers — not observed.
     @ObservedObject private var savedPostsService = RealtimeSavedPostsService.shared
     @ObservedObject private var followService = FollowService.shared
-    @ObservedObject private var moderationService = ModerationService.shared
     @ObservedObject private var pinnedPostService = PinnedPostService.shared
     @ObservedObject private var interactionsService = PostInteractionsService.shared
+    // Action-only singletons — accessed directly without observation to avoid render storms
+    private let postsManager = PostsManager.shared
+    private let moderationService = ModerationService.shared
     @State private var showingMenu = false
     @State private var showingEditSheet = false
     @State private var showingDeleteAlert = false
@@ -37,18 +38,28 @@ struct PostCard: View {
     @State private var hasSaidAmen = false
     @State private var isLightbulbAnimating = false
     @State private var showShareSheet = false
-    @State private var showPostDetail = false  // ✅ NEW: Show PostDetailView - replaces showCommentsSheet
+    @State private var showPostDetail = false  // ✅ Show PostDetailView (for tapping header/content)
+    @State private var showCommentsSheet = false  // ✅ Show CommentsView (for comment button and swipe)
     // ❌ REMOVED: @State private var isFollowing = false  // P0 FIX: Replaced with computed property
     @State private var showReportSheet = false
     @State private var showUserProfile = false
+    @State private var lastProfileNavDate: Date = .distantPast
+    @State private var tappedMentionUserId: String? = nil
+    @State private var showMentionedUserProfile = false
     @State private var isSaved = false
+    @State private var showBereanSheet = false  // AI sparkle → Berean AI
     @State private var hasReposted = false
+    @State private var hasCommented = false  // illuminates comment button after user comments
     @State private var isSaveInFlight = false
     @State private var isLightbulbToggleInFlight = false
     @State private var expectedLightbulbState = false
     @State private var isRepostToggleInFlight = false
     @State private var expectedRepostState = false
     @State private var isAmenToggleInFlight = false  // P0 FIX: Prevent duplicate amen toggles
+    @State private var amenShakeError = false         // H) Triggers shake on backend failure
+    @State private var lightbulbShakeError = false    // H) Shake on lightbulb backend failure
+    @State private var saveShakeError = false         // H) Shake on save backend failure
+    @State private var repostShakeError = false       // H) Shake on repost backend failure
     @State private var lastSaveActionTimestamp: Date?  // ✅ NEW: Track last save action for debouncing
     @State private var saveActionCounter = 0  // ✅ NEW: Count save actions for debugging
     @State private var isFollowInFlight = false  // P0 FIX: Prevent duplicate follow operations
@@ -60,8 +71,8 @@ struct PostCard: View {
     // Animation timing constants
     private let fastAnimationDuration: Double = 0.15
     private let standardAnimationDuration: Double = 0.2
-    private let springResponse: Double = 0.3
-    private let springDamping: Double = 0.7
+    private let springResponse: Double = 0.12
+    private let springDamping: Double = 0.75
     
     // Moderation confirmations
     @State private var showMuteConfirmation = false
@@ -93,10 +104,12 @@ struct PostCard: View {
     @State private var translatedContent: String?
     @State private var detectedLanguage: String?
     @State private var isTranslating = false
-    @StateObject private var translationService = PostTranslationService.shared
+    // PERF: translationService only called for getDeviceLanguage() which never changes mid-session
+    private let translationService = PostTranslationService.shared
     
-    // P0 FIX: Content expansion for long posts
-    @State private var isContentExpanded = false
+    // P1-B FIX: Content expansion state now lives in PostInteractionsService
+    // (keyed by stablePostId) so it survives SwiftUI view recycling during scroll.
+    // Reading and writing goes through interactionsService.isExpanded / toggleExpanded.
     
     // P0 FIX: Stable post ID for reactions/interactions
     // Always use firebaseId if available, fallback to UUID
@@ -207,7 +220,7 @@ struct PostCard: View {
         let timestamp = Date().formatted(date: .omitted, time: .standard)
         let logEntry = "[\(timestamp)][\(category)] \(message)"
         debugLog.append(logEntry)
-        print("🔍 [POSTCARD-DEBUG][\(category)] \(message)")
+        dlog("🔍 [POSTCARD-DEBUG][\(category)] \(message)")
         
         // Keep only last 50 entries
         if debugLog.count > 50 {
@@ -224,72 +237,59 @@ struct PostCard: View {
     // MARK: - Extracted Views
     
     private var avatarButton: some View {
-        Button {
-            // ✅ FIXED: Validate post and authorId before opening profile
-            guard let post = post, !post.authorId.isEmpty else {
-                print("❌ Cannot open profile: Invalid post or authorId")
-                return
-            }
-            
-            showUserProfile = true
-            let haptic = UIImpactFeedbackGenerator(style: .light)
-            haptic.impactOccurred()
-        } label: {
-            avatarContent
-        }
-        .buttonStyle(.liquidGlass)  // P0 FIX: Instant visual press feedback
-    }
-    
-    private var avatarContent: some View {
         ZStack(alignment: .bottomTrailing) {
-            // ✅ Show real-time profile image if available, otherwise fallback to post data, then initials
-            Group {
-                if let profileImageURL = currentProfileImageURL, !profileImageURL.isEmpty {
-                    profileImageView(url: profileImageURL)
-                        .onAppear {
-                            // Current profile image displayed
-                        }
-                        .id("current-\(profileImageURL)")
-                } else if let post = post, let profileImageURL = post.authorProfileImageURL, !profileImageURL.isEmpty {
-                    profileImageView(url: profileImageURL)
-                        .onAppear {
-                            // Cached profile image displayed
-                        }
-                        .id("cached-\(profileImageURL)")
-                } else {
-                    // Fallback to gradient with initials
-                    avatarCircleWithInitials
-                        .onAppear {
-                            // Showing initials fallback
-                        }
-                        .id("initials")
+            // Profile image button (tappable to view profile)
+            Button {
+                // ✅ FIXED: Validate post and authorId before opening profile
+                guard let post = post, !post.authorId.isEmpty else {
+                    dlog("❌ Cannot open profile: Invalid post or authorId")
+                    return
                 }
+                // Dedicated profile debounce — independent of shared NavigationGuard
+                let now = Date()
+                guard now.timeIntervalSince(lastProfileNavDate) > 0.35 else { return }
+                lastProfileNavDate = now
+                showUserProfile = true
+                HapticManager.impact(style: .light)
+            } label: {
+                avatarContent
             }
-            .id(currentProfileImageURL ?? post?.authorProfileImageURL ?? "no-image")
-            .onChange(of: currentProfileImageURL) { oldValue, newValue in
-                #if DEBUG
-                // Profile image URL updated
-                #endif
-            }
+            .buttonStyle(.liquidGlass)  // P0 FIX: Instant visual press feedback
             
-            // Follow button - only show if not user's post AND post exists
+            // Follow button - positioned outside the avatar button to avoid nesting
             if !isUserPost && post != nil {
                 followButton
             }
         }
+    }
+    
+    private var avatarContent: some View {
+        Group {
+            // ✅ Show real-time profile image if available, otherwise fallback to post data, then initials
+            if let profileImageURL = currentProfileImageURL, !profileImageURL.isEmpty {
+                profileImageView(url: profileImageURL)
+                    .id("current-\(profileImageURL)")
+            } else if let post = post, let profileImageURL = post.authorProfileImageURL, !profileImageURL.isEmpty {
+                profileImageView(url: profileImageURL)
+                    .id("cached-\(profileImageURL)")
+            } else {
+                // Fallback to gradient with initials
+                avatarCircleWithInitials
+                    .id("initials")
+            }
+        }
+        // P1 FIX: Single .onChange to sync currentProfileImageURL from Post; removed duplicate
+        // outer .id() (each branch already has its own .id()) and redundant empty .onChange.
         .task {
-            // ✅ Profile image now comes from Post object (set by PostsManager migration)
-            // No need to fetch individually - improves performance 2x
+            // Set initial value on appear — covers first render before any onChange fires
             if let post = post, let profileImageURL = post.authorProfileImageURL, !profileImageURL.isEmpty {
                 currentProfileImageURL = profileImageURL
             }
         }
         .onChange(of: post?.authorProfileImageURL) { oldValue, newValue in
-            // ✅ Sync currentProfileImageURL when Post updates from PostsManager
+            // Sync currentProfileImageURL when Post updates from PostsManager
             if let newURL = newValue, !newURL.isEmpty, newURL != currentProfileImageURL {
-                #if DEBUG
-                print("🔄 [POSTCARD] Profile image updated in Post object: \(newURL.prefix(50))...")
-                #endif
+                dlog("🔄 [POSTCARD] Profile image updated: \(newURL.prefix(50))...")
                 currentProfileImageURL = newURL
             }
         }
@@ -375,19 +375,24 @@ struct PostCard: View {
     
     private var followButtonIcon: some View {
         ZStack {
-            // Background circle
+            // Tap target — invisible, keeps hit area generous
+            Circle()
+                .fill(Color.clear)
+                .frame(width: 30, height: 30)
+
+            // Visual circle — smaller
             Circle()
                 .fill(isFollowing ? Color.black : Color.white)
-                .frame(width: 20, height: 20)
+                .frame(width: 16, height: 16)
                 .overlay(
                     Circle()
                         .strokeBorder(Color.black.opacity(0.2), lineWidth: 0.5)
                 )
                 .shadow(color: .black.opacity(0.2), radius: 2, y: 1)
             
-            // Icon - smaller "+" symbol
+            // Icon
             Image(systemName: isFollowing ? "checkmark" : "plus")
-                .font(.system(size: 9, weight: .bold))
+                .font(.system(size: 7, weight: .bold))
                 .foregroundStyle(isFollowing ? .white : .black)
         }
     }
@@ -404,13 +409,13 @@ struct PostCard: View {
     private func handleFollowButtonTap() {
         // P0 FIX: Prevent duplicate follow operations
         guard !isFollowInFlight else {
-            print("⚠️ Follow operation already in progress")
+            dlog("⚠️ Follow operation already in progress")
             return
         }
         
         Task {
             guard let post = post else { 
-                print("⚠️ No post available for follow action")
+                dlog("⚠️ No post available for follow action")
                 return 
             }
             
@@ -419,7 +424,7 @@ struct PostCard: View {
             // Prevent following yourself
             if let currentUserId = Auth.auth().currentUser?.uid,
                authorId == currentUserId {
-                print("⚠️ Cannot follow yourself")
+                dlog("⚠️ Cannot follow yourself")
                 return
             }
             
@@ -430,26 +435,16 @@ struct PostCard: View {
             
             // P0 FIX: No local state to update - FollowService.shared.following Set updates automatically
             // The computed property 'isFollowing' will reflect the change immediately across ALL PostCards
-            let wasFollowing = isFollowing
             
             do {
                 try await followService.toggleFollow(userId: authorId)
-                
-                // Haptic feedback
-                let haptic = UINotificationFeedbackGenerator()
-                haptic.notificationOccurred(isFollowing ? .success : .warning)
-                
+                HapticManager.notification(type: isFollowing ? .success : .warning)
             } catch {
                 #if DEBUG
-                print("❌ Follow error: \(error.localizedDescription)")
+                dlog("❌ Follow error: \(error.localizedDescription)")
                 #endif
-                
                 // FollowService already handles rollback in its optimistic update logic
-                // No need to revert local state since we're using computed property
-                
-                // Show error haptic
-                let haptic = UINotificationFeedbackGenerator()
-                haptic.notificationOccurred(.error)
+                HapticManager.notification(type: .error)
             }
             
             // P0 FIX: Reset in-flight flag
@@ -490,12 +485,10 @@ struct PostCard: View {
                 Task {
                     do {
                         try await pinnedPostService.togglePin(postId: post.firestoreId)
-                        let haptic = UINotificationFeedbackGenerator()
-                        haptic.notificationOccurred(.success)
+                        HapticManager.notification(type: .success)
                     } catch {
-                        print("❌ Pin error: \(error)")
-                        let haptic = UINotificationFeedbackGenerator()
-                        haptic.notificationOccurred(.error)
+                        dlog("❌ Pin error: \(error)")
+                        HapticManager.notification(type: .error)
                     }
                 }
             } label: {
@@ -566,6 +559,20 @@ struct PostCard: View {
             Label("Mute \(authorName)", systemImage: "speaker.slash")
         }
         
+        if let postAuthorId = post?.authorId {
+            Button {
+                Task {
+                    await RestrictService.shared.loadIfNeeded()
+                    await RestrictService.shared.toggleRestrict(postAuthorId)
+                    let isNowRestricted = RestrictService.shared.isRestricted(postAuthorId)
+                    ToastManager.shared.success(isNowRestricted ? "\(authorName) restricted" : "\(authorName) unrestricted")
+                }
+            } label: {
+                let isRestricted = RestrictService.shared.isRestricted(postAuthorId)
+                Label(isRestricted ? "Unrestrict \(authorName)" : "Restrict \(authorName)", systemImage: isRestricted ? "checkmark.circle" : "hand.raised.slash")
+            }
+        }
+        
         Button(role: .destructive) {
             showBlockConfirmation = true
         } label: {
@@ -597,29 +604,27 @@ struct PostCard: View {
             if !isUserPost {
                 toggleLightbulb()
             } else {
-                // Haptic feedback
-                let haptic = UINotificationFeedbackGenerator()
-                haptic.notificationOccurred(.warning)
-                print("⚠️ Users cannot light their own posts")
+                HapticManager.notification(type: .warning)
+                dlog("⚠️ Users cannot light their own posts")
             }
         } label: {
             lightbulbButtonLabel
         }
         .buttonStyle(.instantFeedback)  // P0 FIX: INSTANT touch-down feedback
         .symbolEffect(.bounce, value: hasLitLightbulb)
-        .disabled(isUserPost) // Disable for user's own posts
-        .opacity(isUserPost ? 0.5 : 1.0) // Visual feedback that it's disabled
+        .disabled(isUserPost)
+        .opacity(isUserPost ? 0.5 : 1.0)
+        .shakeOnError(lightbulbShakeError)
+        // P2-B FIX: VoiceOver label so the button is not announced as "lightbulb" image
+        .accessibilityLabel(hasLitLightbulb ? "Remove lightbulb reaction" : "Add lightbulb reaction")
+        .accessibilityHint(isUserPost ? "You cannot react to your own post" : "")
     }
     
     private var lightbulbButtonLabel: some View {
         HStack(spacing: 6) {
             lightbulbIcon
-            
-            if lightbulbCount > 0 {
-                Text("\(lightbulbCount)")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(hasLitLightbulb ? Color.red : Color.secondary)
-            }
+            // Reaction counts are private — not shown publicly.
+            // The icon state (filled/outlined) reflects the user's own action only.
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
@@ -670,18 +675,20 @@ struct PostCard: View {
             if !isUserPost {
                 toggleAmen()
             } else {
-                // Haptic feedback
-                let haptic = UINotificationFeedbackGenerator()
-                haptic.notificationOccurred(.warning)
-                print("⚠️ Users cannot amen their own posts")
+                HapticManager.notification(type: .warning)
+                dlog("⚠️ Users cannot amen their own posts")
             }
         } label: {
             amenButtonLabel
         }
         .buttonStyle(.instantFeedback)  // P0 FIX: INSTANT touch-down feedback
         .symbolEffect(.bounce, value: hasSaidAmen)
-        .disabled(isUserPost) // Disable for user's own posts
-        .opacity(isUserPost ? 0.5 : 1.0) // Visual feedback that it's disabled
+        .disabled(isUserPost)
+        .opacity(isUserPost ? 0.5 : 1.0)
+        .shakeOnError(amenShakeError)
+        // P2-B FIX: VoiceOver label
+        .accessibilityLabel(hasSaidAmen ? "Remove Amen" : "Say Amen")
+        .accessibilityHint(isUserPost ? "You cannot react to your own post" : "")
     }
     
     private var amenButtonLabel: some View {
@@ -703,11 +710,8 @@ struct PostCard: View {
                     .shadow(color: hasSaidAmen ? Color.blue.opacity(0.2) : Color.clear, radius: 4, x: 0, y: 1)
             }
             
-            if amenCount > 0 {
-                Text("\(amenCount)")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(hasSaidAmen ? Color.blue : Color.secondary)
-            }
+            // Amen count is private — not shown publicly.
+            // Icon state (filled/outlined) reflects user's own amen only.
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
@@ -745,13 +749,15 @@ struct PostCard: View {
         Button {
             // ✅ FIXED: Validate post and authorId before opening profile
             guard let post = post, !post.authorId.isEmpty else {
-                print("❌ Cannot open profile: Invalid post or authorId")
+                dlog("❌ Cannot open profile: Invalid post or authorId")
                 return
             }
-            
+            // Dedicated profile debounce — independent of shared NavigationGuard
+            let now = Date()
+            guard now.timeIntervalSince(lastProfileNavDate) > 0.35 else { return }
+            lastProfileNavDate = now
             showUserProfile = true
-            let haptic = UIImpactFeedbackGenerator(style: .light)
-            haptic.impactOccurred()
+            HapticManager.impact(style: .light)
         } label: {
             authorInfoContent
         }
@@ -808,6 +814,22 @@ struct PostCard: View {
                 // Fallback for preview posts without full Post object
                 categoryBadge
             }
+
+            // AI-generated content label (shown when user chose to add a source label)
+            if let post = post, let source = post.contentSource, !source.isEmpty {
+                HStack(spacing: 3) {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 9, weight: .semibold))
+                    Text("via \(source)")
+                        .font(.system(size: 10, weight: .medium))
+                        .lineLimit(1)
+                }
+                .foregroundStyle(.purple.opacity(0.8))
+                .padding(.horizontal, 7)
+                .padding(.vertical, 3)
+                .background(Color.purple.opacity(0.08), in: Capsule())
+                .overlay(Capsule().strokeBorder(Color.purple.opacity(0.15), lineWidth: 0.8))
+            }
         }
     }
     
@@ -833,11 +855,10 @@ struct PostCard: View {
     
     private var translationToggleButton: some View {
         Button {
+            HapticManager.impact(style: .light)
             withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                 showTranslatedContent.toggle()
             }
-            let haptic = UIImpactFeedbackGenerator(style: .light)
-            haptic.impactOccurred()
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: "globe")
@@ -876,6 +897,34 @@ struct PostCard: View {
                             .fill(Color.primary.opacity(0.08))
                     )
             }
+            
+            // Source label badge — shown when content was labeled as AI/external
+            if let source = post?.contentSource, !source.isEmpty {
+                Text("•")
+                    .foregroundStyle(.secondary)
+                HStack(spacing: 4) {
+                    Image(systemName: "info.circle")
+                        .font(.system(size: 9, weight: .semibold))
+                    Text("via \(source)")
+                        .font(.custom("OpenSans-SemiBold", size: 10))
+                }
+                .foregroundStyle(Color(red: 0.20, green: 0.40, blue: 0.80))
+                .padding(.horizontal, 7)
+                .padding(.vertical, 3)
+                .background(
+                    Capsule()
+                        .fill(Color(red: 0.72, green: 0.88, blue: 1.0).opacity(0.50))
+                )
+            }
+        }
+    }
+    
+    private var bereanInitialQuery: String {
+        let text = post?.content ?? content
+        if category == .testimonies {
+            return "I'd like to reflect on this testimony: \"\(text)\"\n\nWhat scripture speaks to this, and what can I learn from it?"
+        } else {
+            return "Someone shared this thought: \"\(text)\"\n\nWhat does scripture say about this topic? Please ground your answer in specific Bible verses."
         }
     }
     
@@ -891,18 +940,28 @@ struct PostCard: View {
         .buttonStyle(.plain)
     }
     
-    var body: some View {
-        ZStack(alignment: .topTrailing) {
-            cardContent
-                .modifier(PostCardSheetsModifier(
+    // Break up the modifier chain into intermediate steps so the Swift type-checker
+    // can resolve each piece independently (avoids "expression too complex" timeout).
+
+    @ViewBuilder
+    private var cardWithSheets: some View {
+        cardContent
+            .contextMenu {
+                menuContent
+            }
+            .modifier(PostCardSheetsModifier(
                 showUserProfile: $showUserProfile,
                 showingEditSheet: $showingEditSheet,
                 showShareSheet: $showShareSheet,
                 showPostDetail: $showPostDetail,
+                showCommentsSheet: $showCommentsSheet,
                 showingDeleteAlert: $showingDeleteAlert,
                 showReportSheet: $showReportSheet,
                 showChurchNoteDetail: $showChurchNoteDetail,
                 churchNote: $churchNote,
+                showMentionedUserProfile: $showMentionedUserProfile,
+                tappedMentionUserId: $tappedMentionUserId,
+                hasCommented: $hasCommented,
                 post: post,
                 authorName: authorName,
                 category: category,
@@ -925,22 +984,23 @@ struct PostCard: View {
                 isLightbulbToggleInFlight: $isLightbulbToggleInFlight,
                 expectedLightbulbState: $expectedLightbulbState,
                 isRepostToggleInFlight: $isRepostToggleInFlight,
-                expectedRepostState: $expectedRepostState
+                expectedRepostState: $expectedRepostState,
+                hasCommented: $hasCommented
             ))
+    }
 
+    @ViewBuilder
+    private var cardWithAlerts: some View {
+        cardWithSheets
             .alert("Mute \(authorName)?", isPresented: $showMuteConfirmation) {
                 Button("Cancel", role: .cancel) { }
-                Button("Mute", role: .destructive) {
-                    muteAuthor()
-                }
+                Button("Mute", role: .destructive) { muteAuthor() }
             } message: {
                 Text("You won't see posts from \(authorName) in your feed anymore. You can unmute them from your settings.")
             }
             .alert("Block \(authorName)?", isPresented: $showBlockConfirmation) {
                 Button("Cancel", role: .cancel) { }
-                Button("Block", role: .destructive) {
-                    blockAuthor()
-                }
+                Button("Block", role: .destructive) { blockAuthor() }
             } message: {
                 Text("\(authorName) won't be able to see your posts or interact with you. You can unblock them from your settings.")
             }
@@ -956,9 +1016,7 @@ struct PostCard: View {
             }
             .alert("Not Interested?", isPresented: $showNotInterestedConfirmation) {
                 Button("Cancel", role: .cancel) { }
-                Button("Confirm") {
-                    markNotInterested()
-                }
+                Button("Confirm") { markNotInterested() }
             } message: {
                 Text("You'll see fewer posts like this. This helps us personalize your feed.")
             }
@@ -972,33 +1030,20 @@ struct PostCard: View {
             } message: {
                 Text(errorMessage)
             }
-            
-            #if DEBUG
-            // Debug overlay - tap post card 3 times quickly to toggle
-            if showDebugOverlay {
-                debugOverlayView
+    }
+    
+    var body: some View {
+        cardWithAlerts
+            .pressableCard(scale: 0.985)   // A) Subtle press-down on the whole card
+            .sheet(isPresented: $showBereanSheet) {
+                BereanAIAssistantView(initialQuery: bereanInitialQuery)
             }
-            #endif
-        }
-        #if DEBUG
-        .onTapGesture(count: 3) {
-            withAnimation {
-                showDebugOverlay.toggle()
-            }
-            let haptic = UIImpactFeedbackGenerator(style: .heavy)
-            haptic.impactOccurred()
-            logDebug("Debug overlay toggled: \(showDebugOverlay)", category: "DEBUG")
-        }
-        #endif
-        // P0 PERF FIX: Remove auto-translation on card load
-        // Translation should be user-initiated only (tap to translate)
-        // This removes 50+ concurrent API calls when scrolling feed
     }
     
     // MARK: - Translation Logic
     
     private func detectAndTranslatePost() async {
-        guard let post = post, !content.isEmpty else { return }
+        guard post != nil, !content.isEmpty else { return }
         
         do {
             // Detect language
@@ -1039,7 +1084,7 @@ struct PostCard: View {
                 }
             }
         } catch {
-            print("❌ Translation detection failed: \(error.localizedDescription)")
+            dlog("❌ Translation detection failed: \(error.localizedDescription)")
             await MainActor.run {
                 isTranslating = false
             }
@@ -1141,45 +1186,80 @@ struct PostCard: View {
     
     private var cardContent: some View {
         VStack(alignment: .leading, spacing: 0) {
+            // Moderation status banner — only visible to post author
+            if isUserPost, let post = post {
+                if post.flaggedForReview {
+                    HStack(spacing: 8) {
+                        Image(systemName: "clock.badge.exclamationmark")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(.orange)
+                        Text("Under review")
+                            .font(.custom("OpenSans-SemiBold", size: 12))
+                            .foregroundStyle(.orange)
+                        Spacer()
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 6)
+                    .background(Color.orange.opacity(0.08))
+                } else if post.removed {
+                    HStack(spacing: 8) {
+                        Image(systemName: "exclamationmark.circle")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(.red)
+                        Text("Removed — violated community guidelines")
+                            .font(.custom("OpenSans-SemiBold", size: 12))
+                            .foregroundStyle(.red)
+                        Spacer()
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 6)
+                    .background(Color.red.opacity(0.08))
+                }
+            }
+
             // Header with author info and menu
             headerView
                 .padding(.horizontal, 20)
                 .padding(.top, 20)
                 .contentShape(Rectangle())
                 .onTapGesture {
-                    // Tap on header opens post detail
+                    // Tap on header opens post detail — C) tap-guard
+                    guard NavigationGuard.shared.shouldNavigate() else { return }
                     showPostDetail = true
                 }
             
             // Post content with mention support
             VStack(alignment: .leading, spacing: 8) {
                 MentionTextView(
-                    text: showTranslatedContent && translatedContent != nil ? translatedContent! : content,
+                    text: showTranslatedContent ? (translatedContent ?? content) : content,
                     mentions: post?.mentions,
                     font: .custom("OpenSans-Regular", size: 16),
+                    fontSize: 16,
                     lineSpacing: 6
                 ) { mention in
-                    // Navigate to mentioned user's profile
-                    print("📧 Tapped mention: @\(mention.username) (\(mention.userId))")
-                    // TODO: Navigate to user profile
+                    guard NavigationGuard.shared.shouldNavigate() else { return }
+                    tappedMentionUserId = mention.userId
+                    showMentionedUserProfile = true
+                    HapticManager.impact(style: .light)
                 }
                 .foregroundStyle(.primary)
-                .lineLimit(isContentExpanded ? nil : 10)
-                .frame(maxHeight: isContentExpanded ? nil : 400)
+                // P1-B FIX: Read expansion state from the service (survives scroll recycle)
+                .lineLimit(interactionsService.isExpanded(stablePostId) ? nil : 10)
+                .frame(maxHeight: interactionsService.isExpanded(stablePostId) ? nil : 400)
                 .contentShape(Rectangle())
                 .onTapGesture {
-                    // Tap on content opens post detail
+                    // Tap on content opens post detail — C) tap-guard
+                    guard NavigationGuard.shared.shouldNavigate() else { return }
                     showPostDetail = true
                 }
-                
-                // P0 FIX: Show More button for long content
-                if !isContentExpanded && content.count > 300 {
+
+                // Show More button for long content
+                if !interactionsService.isExpanded(stablePostId) && content.count > 300 {
                     Button {
+                        HapticManager.impact(style: .light)
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                            isContentExpanded = true
+                            interactionsService.toggleExpanded(stablePostId)
                         }
-                        let haptic = UIImpactFeedbackGenerator(style: .light)
-                        haptic.impactOccurred()
                     } label: {
                         Text("Show more")
                             .font(.custom("OpenSans-SemiBold", size: 14))
@@ -1211,34 +1291,32 @@ struct PostCard: View {
                     .padding(.top, 16)
             }
 
-            // ✅ Link Preview Card if post has a link
-            if let post = post, 
-               let linkURLString = post.linkURL, 
+            // ✅ Link / Verse Preview Card if post has a link
+            if let post = post,
+               let linkURLString = post.linkURL,
                !linkURLString.isEmpty,
                let linkURL = URL(string: linkURLString) {
-                // Create metadata from post fields
-                let metadata = LinkPreviewMetadata(
+                // Reconstruct metadata from post fields (prefer cached metadata)
+                let cachedMeta = LinkPreviewService.shared.getCached(for: linkURL)
+                let meta = cachedMeta ?? LinkPreviewMetadata(
                     url: linkURL,
+                    previewType: post.linkPreviewType == "verse" ? .verse : .link,
                     title: post.linkPreviewTitle,
                     description: post.linkPreviewDescription,
-                    imageURL: post.linkPreviewImageURL != nil ? URL(string: post.linkPreviewImageURL!) : nil,
-                    siteName: post.linkPreviewSiteName
+                    imageURL: post.linkPreviewImageURL.flatMap { URL(string: $0) },
+                    siteName: post.linkPreviewSiteName,
+                    verseReference: post.verseReference,
+                    verseText: post.verseText
                 )
-                
-                LinkPreviewCard(metadata: metadata) {
-                    // Open link in Safari when tapped
-                    UIApplication.shared.open(linkURL)
-                    
-                    // Haptic feedback
-                    let haptic = UIImpactFeedbackGenerator(style: .medium)
-                    haptic.impactOccurred()
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 12)
+                FeedLinkPreviewCard(url: linkURL, metadata: meta)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 12)
             }
             
-            // Repost indicator if this is a repost
-            if let post = post, post.isRepost, let originalAuthor = post.originalAuthorName {
+            // Repost indicator if this is a repost.
+            // Fall back to authorName if originalAuthorName is absent (older posts).
+            if let post = post, post.isRepost {
+                let originalAuthor = post.originalAuthorName ?? post.authorName
                 repostIndicator(originalAuthor: originalAuthor)
                     .padding(.horizontal, 20)
                     .padding(.top, 12)
@@ -1256,11 +1334,11 @@ struct PostCard: View {
                 if abs(swipeOffset) > 20 {
                     HStack {
                         if swipeDirection == .right {
-                            // Like/Amen indicator on left
+                            // Like/Amen/Pray indicator on left
                             swipeIndicator(
-                                icon: category == .openTable ? "lightbulb.fill" : "hands.sparkles.fill",
-                                color: category == .openTable ? .yellow : .purple,
-                                text: category == .openTable ? "Light" : "Amen"
+                                icon: category == .openTable ? "lightbulb.fill" : (category == .prayer ? "hands.sparkles.fill" : "hands.clap.fill"),
+                                color: category == .openTable ? .yellow : (category == .prayer ? .black : .blue),
+                                text: category == .openTable ? "Light" : (category == .prayer ? "Pray" : "Amen")
                             )
                             .opacity(min(Double(abs(swipeOffset)) / 80.0, 1.0))
                             .padding(.leading, 20)
@@ -1279,17 +1357,15 @@ struct PostCard: View {
                     }
                 }
                 
-                RoundedRectangle(cornerRadius: 20)
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
                     .fill(Color(.systemBackground))
-                    // P0 PERF FIX: Reduced shadow radius from 12 to 4 for 60fps scroll
-                    // Heavy shadow blur causes GPU overdraw on every frame
                     .shadow(color: .black.opacity(0.04), radius: 4, y: 2)
             }
         )
         .offset(x: swipeOffset)
-        // P0 PERF FIX: Use .highPriorityGesture to prevent scroll conflicts
-        // Only activates after clear horizontal intent (30pt minimum + 3x ratio)
-        .highPriorityGesture(
+        // FIX: Use .simultaneousGesture so the parent ScrollView keeps priority for vertical scrolling
+        // Direction guards (3x horizontal:vertical ratio) prevent accidental horizontal triggers
+        .simultaneousGesture(
             DragGesture(minimumDistance: 30) // Increased from 20 to reduce false triggers
                 .onChanged { value in
                     // Only respond to predominantly horizontal swipes
@@ -1374,18 +1450,18 @@ struct PostCard: View {
     private func triggerSwipeLikeAction() {
         // Prevent users from liking their own posts
         guard !isUserPost else {
-            let haptic = UINotificationFeedbackGenerator()
-            haptic.notificationOccurred(.warning)
-            print("⚠️ Users cannot like their own posts")
+            HapticManager.notification(type: .warning)
+            dlog("⚠️ Users cannot like their own posts")
             return
         }
-        
-        let haptic = UIImpactFeedbackGenerator(style: .medium)
-        haptic.impactOccurred()
-        
+
+        // Haptic fires inside each toggle function now (at optimistic update time)
         if category == .openTable {
             // Toggle lightbulb
             toggleLightbulb()
+        } else if category == .prayer {
+            // Toggle praying
+            togglePraying()
         } else {
             // Toggle amen
             toggleAmen()
@@ -1393,11 +1469,8 @@ struct PostCard: View {
     }
     
     private func triggerSwipeCommentAction() {
-        let haptic = UIImpactFeedbackGenerator(style: .light)
-        haptic.impactOccurred()
-
-        // Open post detail with comments - unified with tap behavior
-        showPostDetail = true
+        HapticManager.impact(style: .light)
+        showCommentsSheet = true
     }
     
     private func repostIndicator(originalAuthor: String) -> some View {
@@ -1422,9 +1495,8 @@ struct PostCard: View {
     private func churchNotePreview(churchNoteId: String) -> some View {
         if let note = churchNote {
             ChurchNotePreviewCard(note: note) {
+                HapticManager.impact(style: .light)
                 showChurchNoteDetail = true
-                let haptic = UIImpactFeedbackGenerator(style: .light)
-                haptic.impactOccurred()
             }
         } else {
             // Loading state
@@ -1444,7 +1516,7 @@ struct PostCard: View {
                 // Church note reference exists but document is missing (deleted or invalid)
                 // This is a non-critical error - silently skip showing the preview
                 #if DEBUG
-                print("⚠️ Church note reference exists but document not found: \(id.prefix(8))")
+                dlog("⚠️ Church note reference exists but document not found: \(id.prefix(8))")
                 #endif
                 return
             }
@@ -1455,14 +1527,14 @@ struct PostCard: View {
         } catch {
             // Network or parsing error - only log in debug mode
             #if DEBUG
-            print("⚠️ Error loading church note \(id.prefix(8)): \(error.localizedDescription)")
+            dlog("⚠️ Error loading church note \(id.prefix(8)): \(error.localizedDescription)")
             #endif
         }
     }
 
     private var interactionButtons: some View {
-        HStack(spacing: 20) {
-            // ✅ 1. Lightbulb (OpenTable) / Amen (Other categories)
+        HStack(spacing: 16) {
+            // 1. Lightbulb (OpenTable) / Praying hands (Prayer) / Amen clap (other)
             if category == .openTable {
                 circularInteractionButton(
                     icon: hasLitLightbulb ? "lightbulb.fill" : "lightbulb",
@@ -1494,44 +1566,56 @@ struct PostCard: View {
                     if !isUserPost { toggleAmen() }
                 }
             }
-            
-            // ✅ 2. Comment button (opens CommentsView)
+
+            // 2. Comment — illuminates when current user has commented
             circularInteractionButton(
-                icon: "bubble",
+                icon: hasCommented ? "bubble.fill" : "bubble",
                 count: commentCount > 0 ? commentCount : nil,
-                isActive: false,  // Comments don't have "active" state
+                isActive: hasCommented,
                 activeColor: .black,
                 disabled: false,
-                enableBounce: false
+                enableBounce: false,
+                accessibilityLabel: "Comment"
             ) {
-                showPostDetail = true
+                showCommentsSheet = true
             }
 
-            // ✅ 3. Repost / Share button
+            // 3. Repost (repeat — illuminates when active)
             circularInteractionButton(
-                icon: hasReposted ? "paperplane.fill" : "paperplane",
+                icon: "repeat",
                 count: nil,
                 isActive: hasReposted,
                 activeColor: .black,
-                disabled: isUserPost || isRepostToggleInFlight
+                disabled: isUserPost,  // only disable for own posts; in-flight guard is inside toggleRepost
+                accessibilityLabel: hasReposted ? "Remove repost" : "Repost"
             ) {
-                if !isUserPost && !isRepostToggleInFlight {
-                    toggleRepost()
-                }
+                if !isUserPost { toggleRepost() }
             }
-            
-            Spacer()
-            
-            // ✅ 4. Bookmark (right aligned)
+            .shakeOnError(repostShakeError)
+
+            // 4. Bookmark (next to repost)
             circularInteractionButton(
                 icon: isSaved ? "bookmark.fill" : "bookmark",
                 count: nil,
                 isActive: isSaved,
                 activeColor: .black,
-                disabled: isSaveInFlight,
-                enableBounce: false
+                disabled: false,  // in-flight guard is inside toggleSave; always show press feedback
+                enableBounce: false,
+                accessibilityLabel: isSaved ? "Remove bookmark" : "Bookmark post"
             ) {
                 toggleSave()
+            }
+            .shakeOnError(saveShakeError)
+
+            Spacer()
+
+            // 5. Berean AI sparkle (far right, testimonies + OpenTable + prayer)
+            if category == .testimonies || category == .openTable || category == .prayer {
+                AISparkleSearchButton {
+                    HapticManager.impact(style: .light)
+                    showBereanSheet = true
+                }
+                .frame(width: 20, height: 20)
             }
         }
     }
@@ -1545,19 +1629,26 @@ struct PostCard: View {
         activeColor: Color,
         disabled: Bool,
         enableBounce: Bool = true,
+        // P2-B FIX: Accessibility label so VoiceOver announces the action rather than
+        // reading the raw SF Symbol name (e.g. "repeat" -> "Repost" / "Remove repost").
+        accessibilityLabel: String? = nil,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
-            // ✅ NO COUNTS - Just the icon (minimal, clean aesthetic)
+            // Threads-style: small, uniform icons; filled/bold weight when active
             Image(systemName: icon)
-                .font(.system(size: 20, weight: isActive ? .regular : .thin))
-                .foregroundStyle(isActive ? Color.black : Color.black.opacity(0.6))
-                .contentTransition(.symbolEffect(.replace))
+                .font(.system(size: 17, weight: isActive ? .semibold : .thin))
+                .foregroundStyle(isActive ? Color.black : Color.black.opacity(0.55))
+                .contentTransition(.identity)  // instant swap — spring handles the visual transition
+                // E) Reaction pop/dip on toggle — only when bounce is enabled
+                .reactionPop(isActive: enableBounce ? isActive : false)
         }
         .buttonStyle(MinimalReactionButtonStyle(isActive: isActive))
         .disabled(disabled)
         .opacity(disabled ? 0.4 : 1.0)
-        .animation(.easeInOut(duration: 0.2), value: isActive)
+        // Fast spring so icon color/weight change feels instant on tap
+        .animation(.spring(response: 0.12, dampingFraction: 0.75), value: isActive)
+        .accessibilityLabel(accessibilityLabel ?? icon)
     }
     
     private var prayingNowButton: some View {
@@ -1634,15 +1725,16 @@ struct PostCard: View {
     private func openAuthorProfile() {
         // Don't open profile for current user's own posts
         guard !isUserPost, let post = post else {
-            print("ℹ️ Cannot open profile for own post")
+            dlog("ℹ️ Cannot open profile for own post")
             return
         }
-        
-        let haptic = UIImpactFeedbackGenerator(style: .light)
-        haptic.impactOccurred()
-        
+        // Dedicated profile debounce — independent of shared NavigationGuard
+        let now = Date()
+        guard now.timeIntervalSince(lastProfileNavDate) > 0.35 else { return }
+        lastProfileNavDate = now
+        HapticManager.impact(style: .light)
         showUserProfile = true
-        print("👤 Opening profile for: \(authorName) (ID: \(post.authorId))")
+        dlog("👤 Opening profile for: \(authorName) (ID: \(post.authorId))")
     }
     
     /// Check if post can be edited (within 30 minutes of creation)
@@ -1685,65 +1777,51 @@ struct PostCard: View {
         
         expectedLightbulbState = !previousState
         isLightbulbToggleInFlight = true
-        
-        // Optimistic UI update for the active state only (not the count)
+
+        // Haptic + optimistic update fire immediately — before the network round-trip
+        HapticManager.impact(style: .medium)
         withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
             hasLitLightbulb.toggle()
             isLightbulbAnimating = true
         }
-        
+
         logDebug("  OPTIMISTIC: hasLitLightbulb=\(hasLitLightbulb), count=\(lightbulbCount)", category: "LIGHTBULB")
-        
-        Task {
-            // P0 FIX: Use defer to guarantee immediate reset of in-flight flag
-            defer {
-                Task { @MainActor in
-                    isLightbulbToggleInFlight = false
-                }
-            }
-            
+
+        Task { @MainActor in
+            // Guarantee in-flight flag is cleared when this task exits, regardless of outcome
+            defer { isLightbulbToggleInFlight = false }
+
             do {
                 logDebug("📤 Calling PostInteractionsService.toggleLightbulb...", category: "LIGHTBULB")
-                
+
                 // P0 FIX: Use stable ID for toggle
                 // Call Realtime Database to toggle lightbulb
                 // The count will be updated by the real-time observer
                 let stableId = post.firebaseId ?? post.id.uuidString
                 try await interactionsService.toggleLightbulb(postId: stableId)
-                
+
                 logDebug("✅ Backend write SUCCESS", category: "LIGHTBULB")
                 logDebug("  AFTER: hasLitLightbulb=\(hasLitLightbulb), count=\(lightbulbCount)", category: "LIGHTBULB")
                 logDebug("  Note: Count will update via real-time observer", category: "LIGHTBULB")
-                
-                // Haptic feedback
-                let haptic = UIImpactFeedbackGenerator(style: .medium)
-                haptic.impactOccurred()
-                
+
                 // Reset animation state
-                await MainActor.run {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-                        isLightbulbAnimating = false
-                    }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                    isLightbulbAnimating = false
                 }
-                
+
             } catch {
                 logDebug("❌ Backend write FAILED: \(error.localizedDescription)", category: "LIGHTBULB")
                 logDebug("  ROLLBACK: Reverting to hasLitLightbulb=\(previousState)", category: "LIGHTBULB")
-                
+
                 // Revert optimistic update on error
-                await MainActor.run {
-                    withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
-                        hasLitLightbulb = previousState
-                    }
-                    isLightbulbAnimating = false
-                    // Note: isLightbulbToggleInFlight reset handled by defer block
+                withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
+                    hasLitLightbulb = previousState
                 }
-                
+                isLightbulbAnimating = false
+                lightbulbShakeError.toggle()
+                HapticManager.notification(type: .error)
+
                 logDebug("  AFTER ROLLBACK: hasLitLightbulb=\(hasLitLightbulb)", category: "LIGHTBULB")
-                
-                // Error haptic
-                let haptic = UINotificationFeedbackGenerator()
-                haptic.notificationOccurred(.error)
             }
         }
     }
@@ -1766,65 +1844,66 @@ struct PostCard: View {
         }
         
         isAmenToggleInFlight = true
-        
-        // P0 FIX: Always reset in-flight flag when done
-        defer {
-            Task { @MainActor in
-                isAmenToggleInFlight = false
-            }
-        }
-        
+
         // Store previous state for rollback
         let previousState = hasSaidAmen
         let previousCount = amenCount
-        
+
         logDebug("USER_ACTION: toggleAmen() called", category: "AMEN")
         logDebug("  postId: \(post.firestoreId)", category: "AMEN")
         logDebug("  currentUserId: \(currentUserId)", category: "AMEN")
         logDebug("  BEFORE: hasSaidAmen=\(previousState), count=\(previousCount)", category: "AMEN")
         logDebug("  Source: Local @State", category: "AMEN")
-        
-        // Optimistic UI update for the active state only (not the count)
+
+        // Haptic + optimistic update fire immediately — before the network round-trip
+        HapticManager.notification(type: .success)
         withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
             hasSaidAmen.toggle()
         }
-        
+
         logDebug("  OPTIMISTIC: hasSaidAmen=\(hasSaidAmen), count=\(amenCount)", category: "AMEN")
-        
-        Task {
+
+        Task { @MainActor in
+            // Guarantee in-flight flag is cleared when this task exits, regardless of outcome
+            defer { isAmenToggleInFlight = false }
             do {
                 logDebug("📤 Calling PostInteractionsService.toggleAmen...", category: "AMEN")
-                
+
                 // P0 FIX: Use stable ID for toggle
                 // Call Realtime Database to toggle amen
                 // The count will be updated by the real-time observer
                 let stableId = post.firebaseId ?? post.id.uuidString
                 try await interactionsService.toggleAmen(postId: stableId)
-                
+
                 logDebug("✅ Backend write SUCCESS", category: "AMEN")
                 logDebug("  AFTER: hasSaidAmen=\(hasSaidAmen), count=\(amenCount)", category: "AMEN")
                 logDebug("  Note: Count will update via real-time observer", category: "AMEN")
-                
-                // Haptic feedback
-                let haptic = UINotificationFeedbackGenerator()
-                haptic.notificationOccurred(.success)
-                
+
+                // Record engagement for ML training (only on amen, not un-amen)
+                if hasSaidAmen, let userId = Auth.auth().currentUser?.uid {
+                    let event = EngagementEvent(
+                        userId: userId,
+                        postId: stableId,
+                        eventType: .reaction,
+                        timestamp: Date(),
+                        duration: nil,
+                        metadata: nil
+                    )
+                    try? await VertexAIPersonalizationService.shared.recordEngagement(event)
+                }
+
             } catch {
                 logDebug("❌ Backend write FAILED: \(error.localizedDescription)", category: "AMEN")
                 logDebug("  ROLLBACK: Reverting to hasSaidAmen=\(previousState)", category: "AMEN")
-                
+
                 // Revert optimistic update on error
-                await MainActor.run {
-                    withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
-                        hasSaidAmen = previousState
-                    }
+                withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
+                    hasSaidAmen = previousState
                 }
-                
+                amenShakeError.toggle()
+                HapticManager.notification(type: .error)
+
                 logDebug("  AFTER ROLLBACK: hasSaidAmen=\(hasSaidAmen)", category: "AMEN")
-                
-                // Error haptic
-                let haptic = UINotificationFeedbackGenerator()
-                haptic.notificationOccurred(.error)
             }
         }
     }
@@ -1844,7 +1923,7 @@ struct PostCard: View {
             userInfo: ["postId": post.id]
         )
         
-        print("🗑️ Post deleted - notification sent")
+        dlog("🗑️ Post deleted - notification sent")
     }
     
     private func toggleRepost() {
@@ -1881,98 +1960,95 @@ struct PostCard: View {
         defer {
             Task { @MainActor in
                 // Wait for animation to complete before resetting flag
-                try? await Task.sleep(for: .seconds(1.5))
+                try? await Task.sleep(for: .seconds(0.6))
                 isRepostToggleInFlight = false
             }
         }
         
-        // Optimistic UI update
+        // Haptic + optimistic update fire immediately — before the network round-trip
+        HapticManager.notification(type: .success)
         withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
             hasReposted.toggle()
         }
-        
+
         logDebug("  OPTIMISTIC: hasReposted=\(hasReposted), count=\(repostCount)", category: "REPOST")
-        
+
         Task {
             do {
                 logDebug("📤 Calling PostInteractionsService.toggleRepost...", category: "REPOST")
-                
+
                 // Toggle repost in Realtime Database
                 let isReposted = try await interactionsService.toggleRepost(postId: post.firestoreId)
-                
+
                 logDebug("✅ Backend write SUCCESS", category: "REPOST")
                 logDebug("  Backend returned: isReposted=\(isReposted)", category: "REPOST")
-                
+
                 // Update UI to match database state
                 await MainActor.run {
                     withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
                         hasReposted = isReposted
                     }
-                    // P0 FIX: Flag reset now handled by defer block (safer)
                 }
-                
+
                 logDebug("  AFTER: hasReposted=\(hasReposted), count=\(repostCount)", category: "REPOST")
-                
+
                 if isReposted {
-                    // Create repost via PostsManager for user's profile
                     postsManager.repostToProfile(originalPost: post)
-                    
-                    // Send notification for real-time ProfileView update
                     NotificationCenter.default.post(
                         name: Notification.Name("postReposted"),
                         object: nil,
                         userInfo: ["post": post]
                     )
-                    
                     logDebug("✅ Reposted to profile", category: "REPOST")
                 } else {
-                    // Remove repost from PostsManager
-                    // ✅ Pass Firestore ID for proper repost removal
                     postsManager.removeRepost(postId: post.id, firestoreId: post.firestoreId)
-                    
-                    // Send notification for real-time ProfileView update
                     NotificationCenter.default.post(
                         name: Notification.Name("repostRemoved"),
                         object: nil,
                         userInfo: ["postId": post.id]
                     )
-                    
                     logDebug("✅ Repost removed from profile", category: "REPOST")
                 }
-                
-                // Haptic feedback
-                let haptic = UINotificationFeedbackGenerator()
-                haptic.notificationOccurred(.success)
-                
+
             } catch {
                 logDebug("❌ Backend write FAILED: \(error.localizedDescription)", category: "REPOST")
                 logDebug("  ROLLBACK: Reverting to hasReposted=\(previousState)", category: "REPOST")
-                
-                // Revert on error
+
                 await MainActor.run {
                     withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
                         hasReposted = previousState
                     }
-                    // P0 FIX: Flag reset handled by defer block
-                    
+                    repostShakeError.toggle()
                     errorMessage = "Failed to toggle repost. Please try again."
                     showErrorAlert = true
                 }
-                
+                HapticManager.notification(type: .error)
+
                 logDebug("  AFTER ROLLBACK: hasReposted=\(hasReposted)", category: "REPOST")
-                
-                // Error haptic
-                let haptic = UINotificationFeedbackGenerator()
-                haptic.notificationOccurred(.error)
             }
         }
     }
     
 
     private func sharePost() {
+        HapticManager.impact(style: .light)
         showShareSheet = true
-        let haptic = UIImpactFeedbackGenerator(style: .light)
-        haptic.impactOccurred()
+        
+        // Record share engagement for ML training
+        if let post = post, let userId = Auth.auth().currentUser?.uid {
+            let postId = post.firebaseId ?? post.id.uuidString
+            Task {
+                let event = EngagementEvent(
+                    userId: userId,
+                    postId: postId,
+                    eventType: .share,
+                    timestamp: Date(),
+                    duration: nil,
+                    metadata: nil
+                )
+                try? await VertexAIPersonalizationService.shared.recordEngagement(event)
+            }
+        }
     }
     
     private func copyLink() {
@@ -1982,18 +2058,16 @@ struct PostCard: View {
         let deepLink = "amenapp://post/\(post.id.uuidString)"
 
         UIPasteboard.general.string = deepLink
-
-        let haptic = UINotificationFeedbackGenerator()
-        haptic.notificationOccurred(.success)
-        print("🔗 Deep link copied to clipboard: \(deepLink)")
+        HapticManager.notification(type: .success)
+        ToastManager.shared.success("Link copied")
+        dlog("🔗 Deep link copied to clipboard: \(deepLink)")
     }
     
     private func copyPostText() {
         UIPasteboard.general.string = content
-        
-        let haptic = UINotificationFeedbackGenerator()
-        haptic.notificationOccurred(.success)
-        print("📋 Post text copied to clipboard")
+        HapticManager.notification(type: .success)
+        ToastManager.shared.success("Text copied")
+        dlog("📋 Post text copied to clipboard")
     }
     
     private func muteAuthor() {
@@ -2003,23 +2077,18 @@ struct PostCard: View {
         Task {
             do {
                 try await moderationService.muteUser(userId: authorId)
-                print("🔇 Muted \(authorName)")
+                dlog("🔇 Muted \(authorName)")
                 
                 await MainActor.run {
                     showMuteSuccess = true
-                    
-                    let haptic = UINotificationFeedbackGenerator()
-                    haptic.notificationOccurred(.success)
+                    HapticManager.notification(type: .success)
                 }
             } catch {
-                print("❌ Failed to mute: \(error)")
-                
+                dlog("❌ Failed to mute: \(error)")
                 await MainActor.run {
                     errorMessage = "Failed to mute user. Please try again."
                     showErrorAlert = true
-                    
-                    let haptic = UINotificationFeedbackGenerator()
-                    haptic.notificationOccurred(.error)
+                    HapticManager.notification(type: .error)
                 }
             }
         }
@@ -2032,23 +2101,18 @@ struct PostCard: View {
         Task {
             do {
                 try await moderationService.blockUser(userId: authorId)
-                print("🚫 Blocked \(authorName)")
+                dlog("🚫 Blocked \(authorName)")
                 
                 await MainActor.run {
                     showBlockSuccess = true
-                    
-                    let haptic = UINotificationFeedbackGenerator()
-                    haptic.notificationOccurred(.success)
+                    HapticManager.notification(type: .success)
                 }
             } catch {
-                print("❌ Failed to block: \(error)")
-                
+                dlog("❌ Failed to block: \(error)")
                 await MainActor.run {
                     errorMessage = "Failed to block user. Please try again."
                     showErrorAlert = true
-                    
-                    let haptic = UINotificationFeedbackGenerator()
-                    haptic.notificationOccurred(.error)
+                    HapticManager.notification(type: .error)
                 }
             }
         }
@@ -2074,23 +2138,18 @@ struct PostCard: View {
                         "timestamp": FieldValue.serverTimestamp()
                     ])
                 
-                print("👎 Marked post as not interested: \(post.firestoreId)")
+                dlog("👎 Marked post as not interested: \(post.firestoreId)")
                 
                 await MainActor.run {
                     showNotInterestedSuccess = true
-                    
-                    let haptic = UINotificationFeedbackGenerator()
-                    haptic.notificationOccurred(.success)
+                    HapticManager.notification(type: .success)
                 }
             } catch {
-                print("❌ Failed to mark not interested: \(error)")
-                
+                dlog("❌ Failed to mark not interested: \(error)")
                 await MainActor.run {
                     errorMessage = "Failed to save feedback. Please try again."
                     showErrorAlert = true
-                    
-                    let haptic = UINotificationFeedbackGenerator()
-                    haptic.notificationOccurred(.error)
+                    HapticManager.notification(type: .error)
                 }
             }
         }
@@ -2100,27 +2159,27 @@ struct PostCard: View {
         // ✅ IDEMPOTENCY CHECK #1: Prevent saves already in flight
         guard !isSaveInFlight else {
             logDebug("⚠️ Save already in flight, ignoring", category: "SAVE")
-            print("⚠️ [SAVE-GUARD-1] Blocked duplicate save attempt (already in flight)")
+            dlog("⚠️ [SAVE-GUARD-1] Blocked duplicate save attempt (already in flight)")
             return
         }
         
         guard let post = post else {
             logDebug("❌ No post object available", category: "SAVE")
-            print("❌ [SAVE-GUARD-2] No post object - cannot save")
+            dlog("❌ [SAVE-GUARD-2] No post object - cannot save")
             return
         }
         
         guard let currentUserId = Auth.auth().currentUser?.uid else {
             logDebug("❌ No current user ID", category: "SAVE")
-            print("❌ [SAVE-GUARD-3] No current user - not authenticated")
+            dlog("❌ [SAVE-GUARD-3] No current user - not authenticated")
             return
         }
         
-        // ✅ IDEMPOTENCY CHECK #2: Debounce rapid taps (prevent saves within 500ms)
+        // ✅ IDEMPOTENCY CHECK #2: Debounce rapid taps (prevent saves within 300ms)
         if let lastTimestamp = lastSaveActionTimestamp {
             let timeSinceLastSave = Date().timeIntervalSince(lastTimestamp)
-            if timeSinceLastSave < 0.5 {
-                print("⚠️ [SAVE-GUARD-4] Debounced: \(Int(timeSinceLastSave * 1000))ms since last save (min 500ms)")
+            if timeSinceLastSave < 0.3 {
+                dlog("⚠️ [SAVE-GUARD-4] Debounced: \(Int(timeSinceLastSave * 1000))ms since last save (min 300ms)")
                 return
             }
         }
@@ -2128,23 +2187,22 @@ struct PostCard: View {
         // ✅ Check network first
         guard AMENNetworkMonitor.shared.isConnected else {
             logDebug("📱 Offline - cannot save/unsave posts", category: "SAVE")
-            print("📱 [SAVE-GUARD-5] Offline - save blocked")
+            dlog("📱 [SAVE-GUARD-5] Offline - save blocked")
             errorMessage = "You're offline. Please check your connection and try again."
             showErrorAlert = true
             
-            let haptic = UINotificationFeedbackGenerator()
-            haptic.notificationOccurred(.warning)
+            HapticManager.notification(type: .warning)
             return
         }
-        
+
         // Record this save action
         saveActionCounter += 1
         lastSaveActionTimestamp = Date()
         isSaveInFlight = true
-        
+
         // Store previous state for rollback
         let previousState = isSaved
-        
+
         logDebug("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", category: "SAVE")
         logDebug("USER_ACTION #\(saveActionCounter): toggleSave() called", category: "SAVE")
         logDebug("  postId: \(post.firestoreId)", category: "SAVE")
@@ -2154,8 +2212,9 @@ struct PostCard: View {
         logDebug("  Source: User tap on bookmark button", category: "SAVE")
         logDebug("  Timestamp: \(Date())", category: "SAVE")
         logDebug("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", category: "SAVE")
-        
-        // Optimistic UI update
+
+        // Haptic + optimistic update fire immediately — before the network round-trip
+        HapticManager.impact(style: .medium)
         logDebug("  📤 Performing OPTIMISTIC UI update...", category: "SAVE")
         withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
             isSaved.toggle()
@@ -2190,6 +2249,7 @@ struct PostCard: View {
                 
                 logDebug("  AFTER: isSaved=\(isSaved)", category: "SAVE")
                 logDebug(isSavedNow ? "💾 Post saved" : "🗑️ Post unsaved", category: "SAVE")
+                ToastManager.shared.success(isSavedNow ? "Post saved" : "Post unsaved")
                 
                 // ✅ Post notification with full Post object for ProfileView
                 if isSavedNow {
@@ -2199,6 +2259,19 @@ struct PostCard: View {
                         userInfo: ["post": post]
                     )
                     logDebug("📬 Posted postSaved notification", category: "SAVE")
+                    
+                    // Record save engagement for ML training
+                    if let userId = Auth.auth().currentUser?.uid {
+                        let event = EngagementEvent(
+                            userId: userId,
+                            postId: post.firestoreId,
+                            eventType: .save,
+                            timestamp: Date(),
+                            duration: nil,
+                            metadata: nil
+                        )
+                        try? await VertexAIPersonalizationService.shared.recordEngagement(event)
+                    }
                 } else {
                     NotificationCenter.default.post(
                         name: Notification.Name("postUnsaved"),
@@ -2207,11 +2280,7 @@ struct PostCard: View {
                     )
                     logDebug("📬 Posted postUnsaved notification", category: "SAVE")
                 }
-                
-                // Haptic feedback
-                let haptic = UIImpactFeedbackGenerator(style: .medium)
-                haptic.impactOccurred()
-                
+
             } catch {
                 logDebug("❌ Backend write FAILED: \(error.localizedDescription)", category: "SAVE")
                 logDebug("  ROLLBACK: Reverting to isSaved=\(previousState)", category: "SAVE")
@@ -2236,6 +2305,7 @@ struct PostCard: View {
                     }
                     
                     showErrorAlert = true
+                    saveShakeError.toggle() // H) Shake save/bookmark button
                     
                     let haptic = UINotificationFeedbackGenerator()
                     haptic.notificationOccurred(.error)
@@ -2245,69 +2315,58 @@ struct PostCard: View {
     }
     
     private func togglePraying() {
-        print("🙏 togglePraying() called")
+        dlog("🙏 togglePraying() called")
         
         guard let post = post else {
-            print("❌ No post object available")
+            dlog("❌ No post object available")
             return
         }
         
         guard category == .prayer else {
-            print("⚠️ Not a prayer post")
+            dlog("⚠️ Not a prayer post")
             return
         }
         
-        print("   - Post ID: \(post.firestoreId)")
-        print("   - Current state: \(isPraying ? "praying" : "not praying")")
+        dlog("   - Post ID: \(post.firestoreId)")
+        dlog("   - Current state: \(isPraying ? "praying" : "not praying")")
         
         // Store previous state for rollback
         let previousState = isPraying
         
-        // Optimistic UI update for the active state only (not the count)
+        // Haptic + optimistic update fire immediately — before the network round-trip
+        HapticManager.impact(style: .medium)
         withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
             isPraying.toggle()
         }
-        
+
         let rtdb = RealtimeDatabaseManager.shared
-        
+
         Task {
             let success: Bool
-            
+
             if isPraying {
-                // Start praying
                 success = await withCheckedContinuation { continuation in
                     rtdb.startPraying(postId: post.firestoreId) { result in
                         continuation.resume(returning: result)
                     }
                 }
             } else {
-                // Stop praying
                 success = await withCheckedContinuation { continuation in
                     rtdb.stopPraying(postId: post.firestoreId) { result in
                         continuation.resume(returning: result)
                     }
                 }
             }
-            
+
             if success {
-                print("✅ \(isPraying ? "Started" : "Stopped") praying for post")
-                
-                // Haptic feedback
-                await MainActor.run {
-                    let haptic = UIImpactFeedbackGenerator(style: .medium)
-                    haptic.impactOccurred()
-                }
+                dlog("✅ \(isPraying ? "Started" : "Stopped") praying for post")
             } else {
-                print("❌ Failed to \(isPraying ? "start" : "stop") praying")
-                
-                // Revert on error
+                dlog("❌ Failed to \(isPraying ? "start" : "stop") praying")
                 await MainActor.run {
                     withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
                         isPraying = previousState
                     }
-                    
-                    let haptic = UINotificationFeedbackGenerator()
-                    haptic.notificationOccurred(.error)
+                    HapticManager.notification(type: .error)
                 }
             }
         }
@@ -2398,9 +2457,8 @@ struct ReportPostSheet: View {
                                 reason: reason,
                                 isSelected: selectedReason == reason
                             ) {
+                                HapticManager.impact(style: .light)
                                 selectedReason = reason
-                                let haptic = UIImpactFeedbackGenerator(style: .light)
-                                haptic.impactOccurred()
                             }
                         }
                     }
@@ -2530,14 +2588,14 @@ struct ReportPostSheet: View {
                     additionalDetails: additionalDetails.isEmpty ? nil : additionalDetails
                 )
                 
-                print("✅ Report submitted successfully")
+                dlog("✅ Report submitted successfully")
                 
                 await MainActor.run {
                     showSuccessAlert = true
                 }
                 
             } catch {
-                print("❌ Failed to submit report: \(error)")
+                dlog("❌ Failed to submit report: \(error)")
                 
                 await MainActor.run {
                     // Show error to user
@@ -2626,11 +2684,16 @@ private struct PostCardSheetsModifier: ViewModifier {
     @Binding var showUserProfile: Bool
     @Binding var showingEditSheet: Bool
     @Binding var showShareSheet: Bool
-    @Binding var showPostDetail: Bool  // ✅ Shows post detail with comments - replaces showCommentsSheet
+    @Binding var showPostDetail: Bool  // ✅ Shows full post detail view
+    @Binding var showCommentsSheet: Bool  // ✅ Shows dedicated comments UI
     @Binding var showingDeleteAlert: Bool
     @Binding var showReportSheet: Bool
     @Binding var showChurchNoteDetail: Bool
     @Binding var churchNote: ChurchNote?
+    @Binding var showMentionedUserProfile: Bool
+    @Binding var tappedMentionUserId: String?
+
+    @Binding var hasCommented: Bool
 
     let post: Post?
     let authorName: String
@@ -2659,6 +2722,14 @@ private struct PostCardSheetsModifier: ViewModifier {
                     .padding()
                 }
             }
+            // ✅ Mentioned user profile — tapping @username in post text
+            .sheet(isPresented: $showMentionedUserProfile, onDismiss: {
+                tappedMentionUserId = nil
+            }) {
+                if let uid = tappedMentionUserId {
+                    UserProfileView(userId: uid, showsDismissButton: true)
+                }
+            }
             .sheet(isPresented: $showingEditSheet) {
                 if let post = post {
                     EditPostSheet(post: post)
@@ -2675,8 +2746,34 @@ private struct PostCardSheetsModifier: ViewModifier {
                     }
                 }
             }
-            // ✅ Unified CommentsView - shown for comment button tap and swipe-to-comment
+            // ✅ Full PostDetailView - shown when tapping header/content
             .sheet(isPresented: $showPostDetail) {
+                if let post = post {
+                    PostDetailView(post: post)
+                }
+            }
+            // ✅ CommentsView - shown for comment button tap and swipe-to-comment
+            .sheet(isPresented: $showCommentsSheet, onDismiss: {
+                // Re-check if user has commented after dismissing the sheet
+                if let post = post, let userId = Auth.auth().currentUser?.uid {
+                    let postId = post.firestoreId
+                    Task {
+                        let ref = Database.database().reference()
+                            .child("user_comments").child(userId)
+                        let snapshot = try? await ref.getData()
+                        if let children = snapshot?.children.allObjects as? [DataSnapshot] {
+                            let didComment = children.contains {
+                                ($0.childSnapshot(forPath: "postId").value as? String) == postId
+                            }
+                            await MainActor.run {
+                                withAnimation(.spring(response: 0.12, dampingFraction: 0.75)) {
+                                    hasCommented = didComment
+                                }
+                            }
+                        }
+                    }
+                }
+            }) {
                 if let post = post {
                     CommentsView(post: post)
                 }
@@ -2737,6 +2834,7 @@ private struct PostCardInteractionsModifier: ViewModifier {
     @Binding var expectedLightbulbState: Bool
     @Binding var isRepostToggleInFlight: Bool
     @Binding var expectedRepostState: Bool
+    @Binding var hasCommented: Bool
     
     @State private var hasCompletedInitialLoad = false
     
@@ -2762,11 +2860,26 @@ private struct PostCardInteractionsModifier: ViewModifier {
                 guard let post = post else { return }
                 // P0 FIX: Use firebaseId if available, fallback to UUID for stable ID
                 let postId = post.firebaseId ?? post.id.uuidString
-                guard let currentUserId = Auth.auth().currentUser?.uid else { return }
+                guard Auth.auth().currentUser?.uid != nil else { return }
                 
                 // P0 PERF FIX: Start observation WITHOUT blocking the main thread
                 // This allows the PostCard to render immediately while interactions load in background
                 interactionsService.observePostInteractions(postId: postId)
+                
+                // Record view engagement for ML training (fire-and-forget, low priority)
+                if let userId = Auth.auth().currentUser?.uid {
+                    Task(priority: .background) {
+                        let event = EngagementEvent(
+                            userId: userId,
+                            postId: postId,
+                            eventType: .view,
+                            timestamp: Date(),
+                            duration: nil,
+                            metadata: nil
+                        )
+                        try? await VertexAIPersonalizationService.shared.recordEngagement(event)
+                    }
+                }
                 
                 // P0 PERF FIX: Removed cache wait loop - causes 150 tasks to poll simultaneously
                 // InteractionsService publishes updates via Combine, so state syncs automatically
@@ -2779,6 +2892,22 @@ private struct PostCardInteractionsModifier: ViewModifier {
                     hasSaidAmen = interactionsService.userAmenedPosts.contains(postId)
                     if !isRepostToggleInFlight {
                         hasReposted = interactionsService.userRepostedPosts.contains(postId)
+                    }
+                }
+                
+                // Load hasCommented in background — checks RTDB user_comments index
+                if let userId = Auth.auth().currentUser?.uid {
+                    let firestoreId = post.firestoreId
+                    Task(priority: .background) {
+                        let ref = Database.database().reference()
+                            .child("user_comments").child(userId)
+                        if let snapshot = try? await ref.getData(),
+                           let children = snapshot.children.allObjects as? [DataSnapshot] {
+                            let didComment = children.contains {
+                                ($0.childSnapshot(forPath: "postId").value as? String) == firestoreId
+                            }
+                            await MainActor.run { hasCommented = didComment }
+                        }
                     }
                 }
                 
@@ -2852,7 +2981,7 @@ private struct PostCardInteractionsModifier: ViewModifier {
             }
             // ✅ Update lightbulb state when userLightbulbedPosts changes
             .onChange(of: isPostLightbulbed) { oldState, newState in
-                guard let post = post else { return }
+                guard post != nil else { return }
                 guard oldState != newState else { return }
                 
                 let animation: Animation? = hasCompletedInitialLoad ? .default : nil
@@ -2877,7 +3006,7 @@ private struct PostCardInteractionsModifier: ViewModifier {
             }
             // ✅ Update amen state when userAmenedPosts changes
             .onChange(of: isPostAmened) { oldState, newState in
-                guard let post = post else { return }
+                guard post != nil else { return }
                 guard oldState != newState else { return }
                 
                 let animation: Animation? = hasCompletedInitialLoad ? .default : nil
@@ -2890,7 +3019,7 @@ private struct PostCardInteractionsModifier: ViewModifier {
             }
             // ✅ Update repost state when userRepostedPosts changes (after initial load only)
             .onChange(of: isPostReposted) { oldState, newState in
-                guard let post = post else { return }
+                guard post != nil else { return }
                 guard oldState != newState else { return }
                 
                 let animation: Animation? = hasCompletedInitialLoad ? .default : nil
@@ -2936,16 +3065,19 @@ private struct PostCardInteractionsModifier: ViewModifier {
     private func checkIfPraying(postId: String) async -> Bool {
         // Check if current user is praying for this post
         guard let userId = Auth.auth().currentUser?.uid else { return false }
-        
+
         return await withCheckedContinuation { continuation in
             let ref = Database.database().reference()
                 .child("prayerActivity")
                 .child(postId)
                 .child("prayingUsers")
                 .child(userId)
-            
+
             ref.observeSingleEvent(of: .value) { snapshot in
                 continuation.resume(returning: snapshot.exists())
+            } withCancel: { _ in
+                // Permission denied or network error — treat as not praying.
+                continuation.resume(returning: false)
             }
         }
     }
@@ -2979,7 +3111,7 @@ private struct PostCardInteractionsModifier: ViewModifier {
 
 struct EditCommentSheet: View {
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var commentService = CommentService.shared
+    @ObservedObject private var commentService = CommentService.shared
     
     let comment: Comment
     @State private var editedContent: String
@@ -3063,20 +3195,17 @@ struct EditCommentSheet: View {
                 )
                 
                 await MainActor.run {
-                    let haptic = UINotificationFeedbackGenerator()
-                    haptic.notificationOccurred(.success)
+                    HapticManager.notification(type: .success)
                     dismiss()
                 }
-                
-                print("✅ Comment updated successfully")
-                
+
+                dlog("✅ Comment updated successfully")
+
             } catch {
-                print("❌ Failed to update comment: \(error)")
-                
+                dlog("❌ Failed to update comment: \(error)")
                 await MainActor.run {
                     isSaving = false
-                    let haptic = UINotificationFeedbackGenerator()
-                    haptic.notificationOccurred(.error)
+                    HapticManager.notification(type: .error)
                 }
             }
         }
@@ -3220,7 +3349,7 @@ struct PostLinkButton: View {
     
     private func openURL() {
         guard let url = URL(string: url) else {
-            print("❌ Invalid URL: \(url)")
+            dlog("❌ Invalid URL: \(url)")
             return
         }
         
@@ -3230,34 +3359,27 @@ struct PostLinkButton: View {
         
         // Open in Safari
         UIApplication.shared.open(url)
-        print("✅ Opening URL: \(url)")
+        dlog("✅ Opening URL: \(url)")
     }
 }
 
 // MARK: - Minimal Reaction Button Style (Instagram/Threads Style)
-/// Custom button style for minimal outline/filled reactions
-/// Provides smooth scale animation: 0.9 → 1.05 → 1.0 on tap
+/// Custom button style for minimal outline/filled reactions.
+/// Press-down: immediate tight spring. Release: crisp snap back via Motion presets.
 struct MinimalReactionButtonStyle: ButtonStyle {
     let isActive: Bool
-    
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? 0.9 : 1.0)
+            .scaleEffect(configuration.isPressed ? 0.88 : 1.0)
             .animation(
-                configuration.isPressed
-                    ? .easeInOut(duration: 0.15)
-                    : .spring(response: 0.3, dampingFraction: 0.6),
+                Motion.adaptive(
+                    configuration.isPressed ? Motion.springPress : Motion.springRelease
+                ),
                 value: configuration.isPressed
             )
-            .onChange(of: configuration.isPressed) { oldValue, newValue in
-                if !newValue && oldValue {
-                    // Released: bounce to 1.05 then settle to 1.0
-                    withAnimation(.spring(response: 0.2, dampingFraction: 0.5)) {
-                        // Spring animation handles the overshoot naturally
-                    }
-                }
-            }
     }
 }
+
 
 

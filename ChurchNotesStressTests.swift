@@ -206,7 +206,7 @@ class ChurchNotesStressTests: ObservableObject {
         let db = Firestore.firestore()
         let settings = db.settings
         
-        guard settings.isPersistenceEnabled else {
+        guard settings.cacheSettings is PersistentCacheSettings else {
             throw TestError.configuration("Firestore offline persistence not enabled")
         }
         

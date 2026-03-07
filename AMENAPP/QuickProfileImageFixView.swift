@@ -5,6 +5,7 @@
 //  Quick fix view to update profile image cache and migrate posts
 //
 
+#if DEBUG
 import SwiftUI
 import FirebaseAuth
 import FirebaseFirestore
@@ -82,42 +83,26 @@ struct QuickProfileImageFixView: View {
         statusMessage = "Refreshing profile data..."
         
         Task {
-            do {
-                // Step 1: Refresh cache from Firestore
-                await UserProfileImageCache.shared.cacheCurrentUserProfile()
-                
-                await MainActor.run {
-                    statusMessage = "Cache updated! Checking profile image..."
-                }
-                
-                // Step 2: Verify the cache has an image URL
-                let cachedURL = UserDefaults.standard.string(forKey: "currentUserProfileImageURL")
-                
-                await MainActor.run {
-                    if let url = cachedURL, !url.isEmpty {
-                        statusMessage = "✅ Success! Profile image cache updated.\n\nYour new posts will now include your profile picture.\n\nProfile URL: \(url.prefix(50))..."
-                        showSuccess = true
-                    } else {
-                        statusMessage = "⚠️ No profile image found in Firestore.\n\nPlease upload a profile picture first:\n1. Go to your Profile\n2. Tap on your avatar\n3. Upload a photo"
-                        showSuccess = false
-                    }
-                    isProcessing = false
-                }
-                
-                // Haptic feedback
-                let haptic = UINotificationFeedbackGenerator()
-                haptic.notificationOccurred(cachedURL != nil ? .success : .warning)
-                
-            } catch {
-                await MainActor.run {
-                    statusMessage = "❌ Error: \(error.localizedDescription)"
-                    isProcessing = false
-                    showSuccess = false
-                }
-                
-                let haptic = UINotificationFeedbackGenerator()
-                haptic.notificationOccurred(.error)
+            // Step 1: Refresh cache from Firestore
+            await UserProfileImageCache.shared.cacheCurrentUserProfile()
+            
+            statusMessage = "Cache updated! Checking profile image..."
+            
+            // Step 2: Verify the cache has an image URL
+            let cachedURL = UserDefaults.standard.string(forKey: "currentUserProfileImageURL")
+            
+            if let url = cachedURL, !url.isEmpty {
+                statusMessage = "✅ Success! Profile image cache updated.\n\nYour new posts will now include your profile picture.\n\nProfile URL: \(url.prefix(50))..."
+                showSuccess = true
+            } else {
+                statusMessage = "⚠️ No profile image found in Firestore.\n\nPlease upload a profile picture first:\n1. Go to your Profile\n2. Tap on your avatar\n3. Upload a photo"
+                showSuccess = false
             }
+            isProcessing = false
+            
+            // Haptic feedback
+            let haptic = UINotificationFeedbackGenerator()
+            haptic.notificationOccurred(cachedURL != nil ? .success : .warning)
         }
     }
 }
@@ -127,3 +112,4 @@ struct QuickProfileImageFixView: View {
         QuickProfileImageFixView()
     }
 }
+#endif

@@ -36,15 +36,13 @@ struct LoginSession: Identifiable, Codable {
 class LoginHistoryService: ObservableObject {
     static let shared = LoginHistoryService()
     
-    private let database = Database.database(url: "https://amen-5e359-default-rtdb.firebaseio.com")
+    private let database = Database.database()
     @Published var loginSessions: [LoginSession] = []
     @Published var isLoading = false
     
     private var currentSessionId: String?
     
-    private init() {
-        print("🔐 LoginHistoryService initialized")
-    }
+    private init() {}
     
     // MARK: - Track Login
     

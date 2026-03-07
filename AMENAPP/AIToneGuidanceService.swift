@@ -22,13 +22,7 @@ class AIToneGuidanceService: ObservableObject {
     private let apiKey: String
 
     private init() {
-        // Get API key from Info.plist
-        if let key = Bundle.main.object(forInfoDictionaryKey: "OPENAI_API_KEY") as? String {
-            self.apiKey = key
-        } else {
-            self.apiKey = ""
-            print("⚠️ OpenAI API key not found in Info.plist")
-        }
+        self.apiKey = BundleConfig.string(forKey: "OPENAI_API_KEY") ?? ""
         print("✅ AIToneGuidanceService initialized")
     }
 
@@ -172,7 +166,10 @@ class AIToneGuidanceService: ObservableObject {
         // Call OpenAI Moderation API (completely FREE)
         let moderationEndpoint = "https://api.openai.com/v1/moderations"
 
-        var request = URLRequest(url: URL(string: moderationEndpoint)!)
+        guard let moderationURL = URL(string: moderationEndpoint) else {
+            throw URLError(.badURL)
+        }
+        var request = URLRequest(url: moderationURL)
         request.httpMethod = "POST"
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")

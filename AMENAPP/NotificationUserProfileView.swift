@@ -82,7 +82,7 @@ struct NotificationUserProfileView: View {
 struct ProfileContentView: View {
     let profile: NotificationProfileData
     
-    @StateObject private var followService = FollowService.shared
+    @ObservedObject private var followService = FollowService.shared
     @State private var isFollowing = false
     @State private var isProcessing = false
     

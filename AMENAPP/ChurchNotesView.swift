@@ -29,7 +29,11 @@ struct ChurchNotesView: View {
     @AppStorage("hasSeenChurchNotesOnboarding") private var hasSeenOnboarding = false
     @State private var showOnboarding = false
     @Namespace private var animation
-    
+
+    // For You personalization: loaded on appear
+    @State private var userChurchName: String? = nil
+    @State private var userChurchTags: Set<String> = []
+
     enum FilterOption: String, CaseIterable {
         case forYou = "For You"
         case recent = "Recent"
@@ -61,14 +65,11 @@ struct ChurchNotesView: View {
         case .forYou:
             // Personalized "For You" feed with ranking algorithm
             let userFollowing = followService.following
-            // TODO: Get user church and tags from profile once implemented
-            let userChurch: String? = nil
-            let userTags: Set<String> = []
             return discoveryService.getForYouFeed(
                 from: filtered,
                 userFollowing: userFollowing,
-                userChurch: userChurch,
-                userTags: userTags
+                userChurch: userChurchName,
+                userTags: userChurchTags
             )
 
         case .recent:
@@ -205,11 +206,64 @@ struct ChurchNotesView: View {
                     showOnboarding = true
                 }
             }
+
+            // Fetch user's church for For You personalization
+            Task {
+                await loadUserChurchForPersonalization()
+            }
         }
         .onDisappear {
             // Stop listener when view disappears
             notesService.stopListening()
             // Note: We keep followService listening as it's used app-wide
+        }
+    }
+
+    // MARK: - For You Personalization
+
+    /// Fetches the user's church name from Firestore `userChurchRelations`
+    /// and common tags from their recent notes, used to power the For You feed ranking.
+    private func loadUserChurchForPersonalization() async {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        let db = Firestore.firestore()
+
+        // 1. Look up user's most recent church relation (member or regular visitor)
+        do {
+            let snapshot = try await db.collection("userChurchRelations")
+                .whereField("userId", isEqualTo: uid)
+                .order(by: "since", descending: true)
+                .limit(to: 1)
+                .getDocuments()
+
+            if let data = snapshot.documents.first?.data(),
+               let churchId = data["churchId"] as? String {
+                // Fetch church name from churches collection
+                let churchDoc = try await db.collection("churches").document(churchId).getDocument()
+                if let name = churchDoc.data()?["name"] as? String {
+                    await MainActor.run { userChurchName = name }
+                }
+            }
+        } catch {
+            // Non-fatal — For You falls back to follow-based ranking
+        }
+
+        // 2. Derive popular tags from user's own notes (top 5 most used)
+        do {
+            let notesSnap = try await db.collection("churchNotes")
+                .whereField("authorId", isEqualTo: uid)
+                .order(by: "createdAt", descending: true)
+                .limit(to: 30)
+                .getDocuments()
+
+            var tagCounts: [String: Int] = [:]
+            for doc in notesSnap.documents {
+                let tags = doc.data()["tags"] as? [String] ?? []
+                tags.forEach { tagCounts[$0, default: 0] += 1 }
+            }
+            let topTags = Set(tagCounts.sorted { $0.value > $1.value }.prefix(5).map(\.key))
+            await MainActor.run { userChurchTags = topTags }
+        } catch {
+            // Non-fatal — tags default to empty set
         }
     }
 }
@@ -1427,7 +1481,8 @@ struct LiquidGlassNoteCard: View {
         """
 
         do {
-            // Create post via FirebasePostService
+            // Create post via FirebasePostService — pass churchNoteId so AI detection
+            // is skipped (church note content is the user's own sermon notes, not AI-generated).
             try await FirebasePostService.shared.createPost(
                 content: shareContent.trimmingCharacters(in: .whitespacesAndNewlines),
                 category: .openTable,
@@ -1435,7 +1490,8 @@ struct LiquidGlassNoteCard: View {
                 visibility: .everyone,
                 allowComments: true,
                 imageURLs: nil,
-                linkURL: nil
+                linkURL: nil,
+                churchNoteId: note.id
             )
 
             // Success haptic
@@ -1444,9 +1500,9 @@ struct LiquidGlassNoteCard: View {
                 haptic.notificationOccurred(.success)
             }
 
-            print("✅ Church note shared to #OPENTABLE")
+            dlog("✅ Church note shared to #OPENTABLE")
         } catch {
-            print("❌ Failed to share church note: \(error)")
+            dlog("❌ Failed to share church note: \(error)")
             await MainActor.run {
                 let haptic = UINotificationFeedbackGenerator()
                 haptic.notificationOccurred(.error)
@@ -1460,7 +1516,7 @@ struct LiquidGlassNoteCard: View {
     
     private func copyNoteShareLink() {
         guard let linkId = note.shareLinkId else {
-            print("❌ Note has no share link ID")
+            dlog("❌ Note has no share link ID")
             return
         }
         
@@ -1477,7 +1533,7 @@ struct LiquidGlassNoteCard: View {
         let haptic = UINotificationFeedbackGenerator()
         haptic.notificationOccurred(.success)
         
-        print("✅ Note link copied: \(shareURL)")
+        dlog("✅ Note link copied: \(shareURL)")
         
         // Hide toast after 2 seconds
         Task {
@@ -1525,6 +1581,8 @@ struct NewChurchNoteView: View {
     @State private var errorMessage = ""
     @State private var showSaveConfirmation = false
     @State private var saveConfirmationScale: CGFloat = 0.5
+    @State private var worshipSongs: [WorshipSongReference] = []
+    @State private var showWorshipPicker = false
     
     var canSave: Bool {
         !title.isEmpty && !content.isEmpty
@@ -1747,6 +1805,84 @@ struct NewChurchNoteView: View {
                         }
                         .padding(20)
                         .glassEffect(GlassEffectStyle.regular, in: RoundedRectangle(cornerRadius: 20))
+
+                        // ── Worship Music Section ──────────────────────────
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack {
+                                Label("Worship Music", systemImage: "music.note.list")
+                                    .font(.custom("OpenSans-Bold", size: 16))
+                                    .foregroundStyle(.white.opacity(0.9))
+
+                                Spacer()
+
+                                Button {
+                                    showWorshipPicker = true
+                                } label: {
+                                    HStack(spacing: 6) {
+                                        Image(systemName: "plus.circle.fill")
+                                        Text("Add Song")
+                                    }
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(.purple)
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 7)
+                                    .background(
+                                        Capsule().fill(Color.purple.opacity(0.18))
+                                    )
+                                }
+                                .buttonStyle(.plain)
+                            }
+
+                            if worshipSongs.isEmpty {
+                                HStack(spacing: 10) {
+                                    Image(systemName: "music.note")
+                                        .foregroundStyle(.white.opacity(0.3))
+                                    Text("Tap \u{201C}Add Song\u{201D} to attach worship music to this note")
+                                        .font(.system(size: 13))
+                                        .foregroundStyle(.white.opacity(0.4))
+                                }
+                                .padding(.vertical, 4)
+                            } else {
+                                VStack(spacing: 8) {
+                                    ForEach(worshipSongs) { song in
+                                        HStack(spacing: 10) {
+                                            Image(systemName: "music.note")
+                                                .font(.system(size: 14))
+                                                .foregroundStyle(.purple)
+                                            VStack(alignment: .leading, spacing: 1) {
+                                                Text(song.title)
+                                                    .font(.system(size: 14, weight: .semibold))
+                                                    .foregroundStyle(.white)
+                                                    .lineLimit(1)
+                                                Text(song.artist)
+                                                    .font(.system(size: 12))
+                                                    .foregroundStyle(.white.opacity(0.55))
+                                                    .lineLimit(1)
+                                            }
+                                            Spacer()
+                                            Button {
+                                                withAnimation {
+                                                    worshipSongs.removeAll { $0.id == song.id }
+                                                }
+                                            } label: {
+                                                Image(systemName: "minus.circle.fill")
+                                                    .foregroundStyle(.red.opacity(0.7))
+                                            }
+                                            .buttonStyle(.plain)
+                                        }
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 8)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 10)
+                                                .fill(Color.white.opacity(0.06))
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        .padding(20)
+                        .glassEffect(GlassEffectStyle.regular.tint(.purple), in: RoundedRectangle(cornerRadius: 20))
+                        // ─────────────────────────────────────────────────
                     }
                     .padding(20)
                     .padding(.bottom, 40)
@@ -1754,6 +1890,17 @@ struct NewChurchNoteView: View {
             }
             .scrollDismissesKeyboard(.interactively)
             .scrollIndicators(.hidden)
+        }
+        .sheet(isPresented: $showWorshipPicker) {
+            WorshipSongPickerSheet(noteId: nil) { ref in
+                withAnimation {
+                    if !worshipSongs.contains(where: {
+                        $0.title == ref.title && $0.artist == ref.artist
+                    }) {
+                        worshipSongs.append(ref)
+                    }
+                }
+            }
         }
         .alert("Error", isPresented: $showErrorAlert) {
             Button("OK", role: .cancel) { }
@@ -1866,7 +2013,8 @@ struct NewChurchNoteView: View {
             content: content,
             scripture: scripture.isEmpty ? nil : scripture,
             keyPoints: [],
-            tags: tags
+            tags: tags,
+            worshipSongs: worshipSongs
         )
         
         Task {
@@ -1963,17 +2111,30 @@ struct TagPill: View {
 
 // MARK: - Church Note Detail View with Liquid Glass
 
+private enum ChurchNoteDetailSheet: Identifiable {
+    case shareOptions
+    case shareToOpenTable
+    case shareWithFriends
+
+    var id: String {
+        switch self {
+        case .shareOptions: return "shareOptions"
+        case .shareToOpenTable: return "shareToOpenTable"
+        case .shareWithFriends: return "shareWithFriends"
+        }
+    }
+}
+
 struct ChurchNoteDetailView: View {
     @Environment(\.dismiss) var dismiss
     let note: ChurchNote
     @ObservedObject var notesService: ChurchNotesService
     
     @State private var showDeleteConfirmation = false
-    @State private var showShareSheet = false
+    @State private var activeSheet: ChurchNoteDetailSheet?
     @State private var showCopiedToast = false
-    @State private var showShareToOpenTableSheet = false
-    @State private var showShareWithFriendsSheet = false
-    
+    @State private var localWorshipSongs: [WorshipSongReference] = []
+
     var body: some View {
         ZStack {
             // Dark gradient background
@@ -2029,13 +2190,13 @@ struct ChurchNoteDetailView: View {
                         Divider()
                         
                         Button {
-                            showShareWithFriendsSheet = true
+                            activeSheet = .shareWithFriends
                         } label: {
                             Label("Share with Friends", systemImage: "person.2.fill")
                         }
                         
                         Button {
-                            showShareSheet = true
+                            activeSheet = .shareOptions
                         } label: {
                             Label("Share Externally", systemImage: "square.and.arrow.up")
                         }
@@ -2135,7 +2296,7 @@ struct ChurchNoteDetailView: View {
                                 Label("Tags", systemImage: "tag")
                                     .font(.custom("OpenSans-Bold", size: 18))
                                     .foregroundStyle(.white.opacity(0.9))
-                                
+
                                 FlowLayout(spacing: 10) {
                                     ForEach(note.tags, id: \.self) { tag in
                                         Text("#\(tag)")
@@ -2150,12 +2311,30 @@ struct ChurchNoteDetailView: View {
                             .padding(24)
                             .glassEffect(GlassEffectStyle.regular, in: RoundedRectangle(cornerRadius: 24))
                         }
+
+                        // Saved worship songs — always visible when the note has songs
+                        if !localWorshipSongs.isEmpty {
+                            SavedWorshipSongsSection(
+                                songs: localWorshipSongs,
+                                noteId: note.id,
+                                onRemove: { song in
+                                    localWorshipSongs.removeAll { $0.id == song.id }
+                                    Task {
+                                        try? await notesService.updateWorshipSongs(localWorshipSongs, for: note)
+                                    }
+                                }
+                            )
+                        }
+
+                        // Live "Now Playing" card — only shown while a song for this note is active
+                        NoteWorshipSection(noteId: note.id)
                     }
                     .padding(20)
                     .padding(.bottom, 40)
                 }
             }
         }
+        .onAppear { localWorshipSongs = note.worshipSongs }
         .confirmationDialog("Delete this note?", isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
             Button("Delete", role: .destructive) {
                 Task {
@@ -2165,14 +2344,15 @@ struct ChurchNoteDetailView: View {
             }
             Button("Cancel", role: .cancel) {}
         }
-        .sheet(isPresented: $showShareSheet) {
-            ChurchNoteShareOptionsSheet(note: note)
-        }
-        .sheet(isPresented: $showShareToOpenTableSheet) {
-            ShareNoteToOpenTableSheet(note: note)
-        }
-        .sheet(isPresented: $showShareWithFriendsSheet) {
-            ShareWithFriendsSheet(note: note, notesService: notesService)
+        .sheet(item: $activeSheet) { sheet in
+            switch sheet {
+            case .shareOptions:
+                ChurchNoteShareOptionsSheet(note: note)
+            case .shareToOpenTable:
+                ShareNoteToOpenTableSheet(note: note)
+            case .shareWithFriends:
+                ShareWithFriendsSheet(note: note, notesService: notesService)
+            }
         }
         .overlay(alignment: .bottom) {
             // Toast notification for copy confirmation
@@ -2225,7 +2405,7 @@ struct ChurchNoteDetailView: View {
     
     private func copyNoteShareLink() {
         guard let linkId = note.shareLinkId else {
-            print("❌ Note has no share link ID")
+            dlog("❌ Note has no share link ID")
             return
         }
         
@@ -2242,7 +2422,7 @@ struct ChurchNoteDetailView: View {
         let haptic = UINotificationFeedbackGenerator()
         haptic.notificationOccurred(.success)
         
-        print("✅ Note link copied: \(shareURL)")
+        dlog("✅ Note link copied: \(shareURL)")
         
         // Hide toast after 2 seconds
         Task {
@@ -2258,7 +2438,7 @@ struct ChurchNoteDetailView: View {
     // MARK: - Share to OpenTable
     
     private func shareToOpenTable() {
-        showShareToOpenTableSheet = true
+        activeSheet = .shareToOpenTable
     }
 }
 
@@ -3732,7 +3912,7 @@ struct ShareNoteToOpenTableSheet: View {
     @State private var postContent = ""
     @State private var isPosting = false
     @State private var showSuccessMessage = false
-    @StateObject private var postsManager = PostsManager.shared
+    @ObservedObject private var postsManager = PostsManager.shared
     
     var body: some View {
         NavigationView {
@@ -3885,19 +4065,33 @@ struct ShareNoteToOpenTableSheet: View {
                 
                 fullContent += "\n" + note.content
                 
-                // Post to Firebase using the correct function signature
+                // Post to Firebase — pass churchNoteId to bypass AI detection
+                // (church note content is the user's own sermon notes, not AI-generated).
                 try await FirebasePostService.shared.createPost(
                     content: fullContent,
                     category: .openTable,
-                    topicTag: note.sermonTitle
+                    topicTag: note.sermonTitle,
+                    churchNoteId: note.id
                 )
+                
+                // Write a share event for Cloud Function fanout to followers/church members
+                if let sharerId = Auth.auth().currentUser?.uid {
+                    let db = Firestore.firestore()
+                    _ = try? await db.collection("churchNoteShareEvents").addDocument(data: [
+                        "noteId": note.id ?? "",
+                        "noteTitle": note.title,
+                        "sharerId": sharerId,
+                        "churchName": note.churchName ?? "",
+                        "sharedAt": FieldValue.serverTimestamp()
+                    ])
+                }
                 
                 await MainActor.run {
                     isPosting = false
                     showSuccessMessage = true
                 }
             } catch {
-                print("❌ Failed to share to OpenTable: \(error)")
+                dlog("❌ Failed to share to OpenTable: \(error)")
                 await MainActor.run {
                     isPosting = false
                 }
@@ -4028,7 +4222,7 @@ struct ElegantChurchNotesFeedForChurchNotesView: View {
                 selectedChurchNote = try? document.data(as: ChurchNote.self)
             }
         } catch {
-            print("Error loading church note: \(error)")
+            dlog("Error loading church note: \(error)")
         }
     }
 }
@@ -4162,7 +4356,7 @@ struct ElegantChurchNoteCardForChurchNotesView: View {
             }
             isLoading = false
         } catch {
-            print("Error loading church note: \(error)")
+            dlog("Error loading church note: \(error)")
             isLoading = false
         }
     }
@@ -4179,7 +4373,7 @@ struct ElegantChurchNoteReadView: View {
     @State private var hasAmenned = false
     @State private var amenCount = 0
     @State private var commentCount = 0
-    @StateObject private var interactionsService = PostInteractionsService.shared
+    @ObservedObject private var interactionsService = PostInteractionsService.shared
     
     var body: some View {
         ZStack {
@@ -4319,6 +4513,14 @@ struct ElegantChurchNoteReadView: View {
                                         .cornerRadius(6)
                                 }
                             }
+                        }
+
+                        // Worship Music — read-only (no remove button for other users' notes)
+                        if !churchNote.worshipSongs.isEmpty {
+                            ElegantWorshipSongsSection(
+                                songs: churchNote.worshipSongs,
+                                noteId: churchNote.id
+                            )
                         }
                     }
                     .padding(.horizontal, 20)
@@ -4471,6 +4673,132 @@ struct ElegantChurchNoteReadView: View {
 
 // MARK: - Metadata Row Component for Elegant Read View
 
+// MARK: - ElegantWorshipSongsSection
+// Read-only worship songs section shown in ElegantChurchNoteReadView (other users' notes).
+// Matches the light beige aesthetic of that view — no remove button.
+struct ElegantWorshipSongsSection: View {
+    let songs: [WorshipSongReference]
+    let noteId: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 8) {
+                Image(systemName: "music.note.list")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(Color.purple.opacity(0.7))
+                Text("WORSHIP MUSIC")
+                    .font(.system(size: 11, weight: .semibold))
+                    .tracking(0.8)
+                    .foregroundStyle(Color.black.opacity(0.4))
+            }
+
+            VStack(spacing: 8) {
+                ForEach(songs) { song in
+                    ElegantWorshipSongRow(song: song, noteId: noteId)
+                }
+            }
+        }
+        .padding(16)
+        .background(Color.white.opacity(0.6))
+        .cornerRadius(12)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .strokeBorder(Color.purple.opacity(0.12), lineWidth: 1)
+        )
+    }
+}
+
+private struct ElegantWorshipSongRow: View {
+    let song: WorshipSongReference
+    let noteId: String?
+
+    @ObservedObject private var vm = WorshipNowPlayingViewModel.shared
+    @State private var isLoading = false
+
+    private var isCurrentSong: Bool {
+        vm.currentSong?.title == song.title && vm.currentSong?.artist == song.artist
+    }
+    private var isPlaying: Bool { isCurrentSong && vm.isPlaying }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            // Album art thumbnail
+            ZStack {
+                RoundedRectangle(cornerRadius: 7)
+                    .fill(Color.purple.opacity(0.10))
+                    .frame(width: 42, height: 42)
+                if let urlStr = song.albumArtURL, let url = URL(string: urlStr) {
+                    AsyncImage(url: url) { phase in
+                        if case .success(let img) = phase {
+                            img.resizable().scaledToFill()
+                                .frame(width: 42, height: 42)
+                                .clipShape(RoundedRectangle(cornerRadius: 7))
+                        } else {
+                            noteIcon
+                        }
+                    }
+                } else {
+                    noteIcon
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(song.title)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color.black.opacity(0.8))
+                    .lineLimit(1)
+                Text(song.artist)
+                    .font(.system(size: 12))
+                    .foregroundStyle(Color.black.opacity(0.45))
+                    .lineLimit(1)
+            }
+
+            Spacer()
+
+            // Play / Pause
+            Button {
+                if isCurrentSong {
+                    WorshipMusicService.shared.pauseResume()
+                } else {
+                    isLoading = true
+                    Task {
+                        await WorshipMusicService.shared.playSong(
+                            title: song.title, artist: song.artist, churchNoteId: noteId
+                        )
+                        await MainActor.run { isLoading = false }
+                    }
+                }
+            } label: {
+                ZStack {
+                    if isLoading {
+                        ProgressView().scaleEffect(0.7)
+                    } else {
+                        Image(systemName: isPlaying ? "pause.circle.fill" : "play.circle.fill")
+                            .font(.system(size: 28))
+                            .foregroundStyle(isCurrentSong ? Color.purple : Color.black.opacity(0.45))
+                    }
+                }
+                .frame(width: 32, height: 32)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 9)
+                .fill(isCurrentSong ? Color.purple.opacity(0.07) : Color.clear)
+        )
+        .animation(.spring(duration: 0.3), value: isCurrentSong)
+    }
+
+    private var noteIcon: some View {
+        Image(systemName: isPlaying ? "waveform" : "music.note")
+            .font(.system(size: 16))
+            .foregroundStyle(Color.purple.opacity(0.7))
+            .symbolEffect(.variableColor.iterative, isActive: isPlaying)
+    }
+}
+
 struct ElegantMetadataRow: View {
     let icon: String
     let label: String
@@ -4506,7 +4834,7 @@ struct ShareWithFriendsSheet: View {
     let note: ChurchNote
     @ObservedObject var notesService: ChurchNotesService
     
-    @StateObject private var followService = FollowService.shared
+    @ObservedObject private var followService = FollowService.shared
     @State private var selectedFriends = Set<String>()
     @State private var isSharing = false
     @State private var showSuccessToast = false
@@ -5236,7 +5564,9 @@ struct MinimalNewNoteSheet: View {
     @State private var showingToolbar = false
     @State private var editorSelection = NSRange(location: 0, length: 0)
     @State private var isEditorFocused = false
-    
+    @State private var worshipSongs: [WorshipSongReference] = []
+    @State private var showWorshipPicker = false
+
     var canSave: Bool {
         !title.isEmpty && !content.isEmpty
     }
@@ -5428,8 +5758,100 @@ struct MinimalNewNoteSheet: View {
                             .padding(.horizontal, 20)
                             .animation(.easeInOut(duration: 0.2), value: isEditorFocused)
                         }
+
+                        // Worship Music section
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack {
+                                Text("Worship Music")
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundStyle(.black.opacity(0.5))
+                                    .textCase(.uppercase)
+                                    .tracking(1)
+                                Spacer()
+                                Button {
+                                    showWorshipPicker = true
+                                } label: {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "plus")
+                                            .font(.system(size: 12, weight: .semibold))
+                                        Text("Add Song")
+                                            .font(.system(size: 12, weight: .medium))
+                                    }
+                                    .foregroundStyle(.black.opacity(0.6))
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 6)
+                                    .background(Capsule().fill(Color.black.opacity(0.06)))
+                                    .overlay(Capsule().stroke(Color.black.opacity(0.15), lineWidth: 0.5))
+                                }
+                            }
+                            .padding(.horizontal, 20)
+
+                            if worshipSongs.isEmpty {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "music.note")
+                                        .font(.system(size: 14))
+                                        .foregroundStyle(.black.opacity(0.25))
+                                    Text("Add worship songs from this sermon")
+                                        .font(.system(size: 14))
+                                        .foregroundStyle(.black.opacity(0.3))
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 16)
+                                .background(Color.white)
+                                .cornerRadius(8)
+                                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.black.opacity(0.08), lineWidth: 1))
+                                .padding(.horizontal, 20)
+                            } else {
+                                VStack(spacing: 8) {
+                                    ForEach(worshipSongs) { song in
+                                        HStack(spacing: 12) {
+                                            Image(systemName: "music.note")
+                                                .font(.system(size: 14))
+                                                .foregroundStyle(.black.opacity(0.4))
+                                                .frame(width: 32, height: 32)
+                                                .background(Color.black.opacity(0.05))
+                                                .clipShape(RoundedRectangle(cornerRadius: 6))
+                                            VStack(alignment: .leading, spacing: 2) {
+                                                Text(song.title)
+                                                    .font(.system(size: 14, weight: .medium))
+                                                    .foregroundStyle(.black)
+                                                    .lineLimit(1)
+                                                Text(song.artist)
+                                                    .font(.system(size: 12))
+                                                    .foregroundStyle(.black.opacity(0.5))
+                                                    .lineLimit(1)
+                                            }
+                                            Spacer()
+                                            Button {
+                                                worshipSongs.removeAll { $0.id == song.id }
+                                            } label: {
+                                                Image(systemName: "xmark")
+                                                    .font(.system(size: 12, weight: .medium))
+                                                    .foregroundStyle(.black.opacity(0.4))
+                                                    .frame(width: 28, height: 28)
+                                                    .background(Color.black.opacity(0.05))
+                                                    .clipShape(Circle())
+                                            }
+                                        }
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 10)
+                                        .background(Color.white)
+                                        .cornerRadius(8)
+                                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.black.opacity(0.08), lineWidth: 1))
+                                        .padding(.horizontal, 20)
+                                    }
+                                }
+                            }
+                        }
                     }
                     .padding(.bottom, 40)
+                }
+            }
+        }
+        .sheet(isPresented: $showWorshipPicker) {
+            WorshipSongPickerSheet(noteId: nil) { song in
+                if !worshipSongs.contains(where: { $0.title == song.title && $0.artist == song.artist }) {
+                    worshipSongs.append(song)
                 }
             }
         }
@@ -5448,7 +5870,7 @@ struct MinimalNewNoteSheet: View {
         }
         
         guard canSave else {
-            print("⚠️ Cannot save: title=\(title.isEmpty ? "empty" : "ok"), content=\(content.isEmpty ? "empty" : "ok")")
+            dlog("⚠️ Cannot save: title=\(title.isEmpty ? "empty" : "ok"), content=\(content.isEmpty ? "empty" : "ok")")
             return
         }
         
@@ -5464,13 +5886,14 @@ struct MinimalNewNoteSheet: View {
             content: content,
             scripture: scripture.isEmpty ? nil : scripture,
             keyPoints: [],
-            tags: tags
+            tags: tags,
+            worshipSongs: worshipSongs
         )
         
-        print("💾 Attempting to save note:")
-        print("   Title: \(note.title)")
-        print("   Content length: \(note.content.count) chars")
-        print("   User ID: \(userId)")
+        dlog("💾 Attempting to save note:")
+        dlog("   Title: \(note.title)")
+        dlog("   Content length: \(note.content.count) chars")
+        dlog("   User ID: \(userId)")
         
         Task {
             do {
@@ -5478,12 +5901,12 @@ struct MinimalNewNoteSheet: View {
                 await MainActor.run {
                     let haptic = UINotificationFeedbackGenerator()
                     haptic.notificationOccurred(.success)
-                    print("✅ Note saved successfully, dismissing sheet")
+                    dlog("✅ Note saved successfully, dismissing sheet")
                     dismiss()
                 }
             } catch {
-                print("❌ Save failed: \(error)")
-                print("   Error details: \(error.localizedDescription)")
+                dlog("❌ Save failed: \(error)")
+                dlog("   Error details: \(error.localizedDescription)")
                 await MainActor.run {
                     isSaving = false
                     errorMessage = "Failed to save note: \(error.localizedDescription)"
@@ -5596,7 +6019,8 @@ struct MinimalNoteDetailSheet: View {
     @State private var showDeleteConfirmation = false
     @State private var showShareSheet = false
     @State private var showCopiedToast = false
-    
+    @State private var localWorshipSongs: [WorshipSongReference] = []
+
     // AI Features
     @State private var noteSummary: NoteSummary?
     @State private var isGeneratingSummary = false
@@ -5878,11 +6302,27 @@ struct MinimalNoteDetailSheet: View {
                             .foregroundStyle(.black)
                             .lineSpacing(6)
                             .padding(.horizontal, 20)
+
+                        // Worship songs
+                        if !localWorshipSongs.isEmpty {
+                            SavedWorshipSongsSection(
+                                songs: localWorshipSongs,
+                                noteId: note.id,
+                                onRemove: { song in
+                                    localWorshipSongs.removeAll { $0.id == song.id }
+                                    Task {
+                                        try? await notesService.updateWorshipSongs(localWorshipSongs, for: note)
+                                    }
+                                }
+                            )
+                            .padding(.horizontal, 20)
+                        }
                     }
                     .padding(.bottom, 40)
                 }
             }
         }
+        .onAppear { localWorshipSongs = note.worshipSongs }
         .confirmationDialog("Delete this note?", isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
             Button("Delete", role: .destructive) {
                 Task {
@@ -5925,7 +6365,7 @@ struct MinimalNoteDetailSheet: View {
     
     private func copyNoteShareLink() {
         guard let linkId = note.shareLinkId else {
-            print("❌ Note has no share link ID")
+            dlog("❌ Note has no share link ID")
             return
         }
         
@@ -5942,7 +6382,7 @@ struct MinimalNoteDetailSheet: View {
         let haptic = UINotificationFeedbackGenerator()
         haptic.notificationOccurred(.success)
         
-        print("✅ Note link copied: \(shareURL)")
+        dlog("✅ Note link copied: \(shareURL)")
         
         // Hide toast after 2 seconds
         Task {
@@ -5961,23 +6401,56 @@ struct MinimalNoteDetailSheet: View {
         isGeneratingSummary = true
         
         Task {
-            let summary = await AINoteSummarizationService.shared.summarizeNote(content: note.content)
-            
-            await MainActor.run {
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
-                    noteSummary = summary
-                    isGeneratingSummary = false
+            let userId = FirebaseManager.shared.currentUser?.uid ?? ""
+            do {
+                // Route through BereanOrchestrator (multi-provider, RAG-grounded, circuit-broken)
+                let jsonString = try await BereanOrchestrator.shared.summarizeChurchNote(
+                    content: note.content,
+                    userId: userId
+                )
+                // Parse structured JSON into NoteSummary
+                let summary = parseBereanNoteSummary(jsonString)
+                await MainActor.run {
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                        noteSummary = summary
+                        isGeneratingSummary = false
+                    }
                 }
-            }
-            
-            if summary != nil {
                 let haptic = UINotificationFeedbackGenerator()
                 haptic.notificationOccurred(.success)
-                print("✅ AI Summary generated successfully")
-            } else {
-                print("⚠️ AI Summary unavailable (Cloud Function not deployed)")
+                dlog("✅ [Berean] Note summary generated via orchestrator")
+            } catch {
+                // Graceful degradation: orchestrator failed (all providers down), hide spinner
+                dlog("⚠️ [Berean] Note summary unavailable: \(error)")
+                await MainActor.run {
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                        isGeneratingSummary = false
+                    }
+                }
             }
         }
+    }
+    
+    /// Parse Berean orchestrator JSON output into NoteSummary model
+    private func parseBereanNoteSummary(_ json: String) -> NoteSummary? {
+        guard let data = json.data(using: .utf8),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            // If orchestrator returned plain text (emergency local fallback), wrap it
+            return NoteSummary(
+                mainTheme: json,
+                scripture: [],
+                keyPoints: [],
+                actionSteps: [],
+                generatedAt: Date()
+            )
+        }
+        return NoteSummary(
+            mainTheme: obj["mainTheme"] as? String ?? obj["theme"] as? String ?? "Summary",
+            scripture: obj["scripture"] as? [String] ?? [],
+            keyPoints: obj["keyPoints"] as? [String] ?? obj["key_points"] as? [String] ?? [],
+            actionSteps: obj["actionSteps"] as? [String] ?? obj["action_steps"] as? [String] ?? [],
+            generatedAt: Date()
+        )
     }
     
     private func loadScriptureReferences() {
@@ -5990,7 +6463,7 @@ struct MinimalNoteDetailSheet: View {
         let extractedVerses = AIScriptureCrossRefService.shared.extractVerseReferences(from: allText)
         
         guard !extractedVerses.isEmpty else {
-            print("ℹ️ No scripture references found in note")
+            dlog("ℹ️ No scripture references found in note")
             return
         }
         
@@ -6012,14 +6485,14 @@ struct MinimalNoteDetailSheet: View {
                     if !references.isEmpty {
                         let haptic = UINotificationFeedbackGenerator()
                         haptic.notificationOccurred(.success)
-                        print("✅ Found \(references.count) related scripture references")
+                        dlog("✅ Found \(references.count) related scripture references")
                     } else {
-                        print("⚠️ Scripture references unavailable (Cloud Function not deployed)")
+                        dlog("⚠️ Scripture references unavailable (Cloud Function not deployed)")
                     }
                 }
             } catch {
                 // This shouldn't happen anymore since findRelatedVerses doesn't throw
-                print("❌ Failed to load scripture references: \(error)")
+                dlog("❌ Failed to load scripture references: \(error)")
                 await MainActor.run {
                     isLoadingScripture = false
                 }

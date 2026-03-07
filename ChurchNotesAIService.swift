@@ -18,7 +18,8 @@ class ChurchNotesAIService: ObservableObject {
     @Published var lastResult: String?
     @Published var lastError: Error?
     
-    private let openAIService = OpenAIService.shared
+    // ClaudeService routes church note helpers to Haiku (fast, cost-efficient for summaries).
+    private let openAIService = ClaudeService.shared
     
     // Rate limiting: 10 requests per hour per user
     private var requestCounts: [String: (count: Int, resetTime: Date)] = [:]
@@ -249,7 +250,7 @@ enum AIServiceError: LocalizedError {
 
 struct ChurchNoteAIAssistantView: View {
     let note: ChurchNote
-    @StateObject private var aiService = ChurchNotesAIService.shared
+    @ObservedObject private var aiService = ChurchNotesAIService.shared
     @State private var selectedFeature: AIFeature?
     @State private var result: String?
     @State private var showError = false

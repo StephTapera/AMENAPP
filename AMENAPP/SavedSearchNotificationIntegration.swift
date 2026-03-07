@@ -139,7 +139,7 @@ struct SavedSearchNotificationHelper {
             queue: .main
         ) { notification in
             guard let userInfo = notification.userInfo,
-                  let searchId = userInfo["searchId"] as? String,
+                  userInfo["searchId"] as? String != nil,
                   let query = userInfo["query"] as? String else {
                 return
             }

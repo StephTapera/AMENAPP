@@ -1,155 +1,266 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    
+
     // Helper function to check if user is authenticated
     function isAuthenticated() {
       return request.auth != null;
     }
-    
+
     // Helper function to check file size (in MB)
     function isValidSize(maxSizeMB) {
       return request.resource.size < maxSizeMB * 1024 * 1024;
     }
-    
-    // Helper function to check if file is an image
-    function isImage() {
-      return request.resource.contentType.matches('image/.*');
+
+    // P0 FIX: Explicit MIME allowlists to prevent SVG/script injection and
+    // exotic video container exploits. 'image/.*' would allow image/svg+xml
+    // which can contain embedded scripts.
+    function isAllowedImage() {
+      return request.resource.contentType in [
+        'image/jpeg', 'image/jpg', 'image/png',
+        'image/webp', 'image/heic', 'image/heif'
+      ];
     }
-    
-    // Helper function to check if file is video
-    function isVideo() {
-      return request.resource.contentType.matches('video/.*');
+
+    function isAllowedVideo() {
+      return request.resource.contentType in [
+        'video/mp4', 'video/quicktime', 'video/x-m4v'
+      ];
     }
-    
+
     // ========================================
     // PROFILE IMAGES
     // ========================================
     match /profile_images/{userId}/{fileName} {
       // Anyone can read profile images (public)
       allow read;
-      
+
       // Users can only upload to their own folder
-      // Max 5MB, must be an image
-      allow write: if isAuthenticated() 
+      // Max 5MB, must be an allowed image type
+      allow write: if isAuthenticated()
         && request.auth.uid == userId
         && isValidSize(5)
-        && isImage();
-      
+        && isAllowedImage();
+
       // Users can delete their own profile images
-      allow delete: if isAuthenticated() 
+      allow delete: if isAuthenticated()
         && request.auth.uid == userId;
     }
-    
+
+    // ========================================
+    // PROFILE IMAGE RESIZED VARIANTS
+    // Written ONLY by the firebase/storage-resize-images extension service account.
+    // P0 FIX: Deny ALL client writes here. The resize extension writes via admin SDK
+    // (bypasses rules). Previously any authenticated user could overwrite
+    // another user's resized avatar with arbitrary content.
+    // ========================================
+    match /profile_images/{userId}/resized/{fileName} {
+      allow read;
+      // No client write — extension uses admin SDK which bypasses rules.
+      allow write: if false;
+      allow delete: if false;
+    }
+
     // ========================================
     // USER PHOTOS (Gallery, additional photos)
     // ========================================
     match /user_photos/{userId}/{albumName}/{fileName} {
       // Anyone can read user photos (public)
       allow read;
-      
+
       // Users can only upload to their own folder
       // Max 10MB, must be an image or video
-      allow write: if isAuthenticated() 
+      allow write: if isAuthenticated()
         && request.auth.uid == userId
         && isValidSize(10)
-        && (isImage() || isVideo());
-      
+        && (isAllowedImage() || isAllowedVideo());
+
       // Users can delete their own photos
-      allow delete: if isAuthenticated() 
+      allow delete: if isAuthenticated()
         && request.auth.uid == userId;
     }
-    
+
     // ========================================
-    // POST MEDIA (Photos/videos in posts)
+    // POST MEDIA — canonical path (new uploads)
+    // Path: post_media/{authorUserId}/{postId}/{fileName}
+    // The authorUserId segment enforces ownership — only the author can upload
+    // to their own post media folder.
     // ========================================
-    match /post_media/{postId}/{fileName} {
-      // Anyone authenticated can read post media
+    match /post_media/{authorUserId}/{postId}/{fileName} {
+      // Authenticated users can read post media (posts are public within the app).
       allow read: if isAuthenticated();
-      
-      // Users can upload media for their posts
-      // Max 20MB (for videos)
+
+      // Only the author can upload media to their own post folder.
+      // Max 20MB, must be an explicitly allowed image or video MIME type.
+      allow write: if isAuthenticated()
+        && request.auth.uid == authorUserId
+        && isValidSize(20)
+        && (isAllowedImage() || isAllowedVideo());
+
+      // Only the author can delete their own post media.
+      allow delete: if isAuthenticated()
+        && request.auth.uid == authorUserId;
+    }
+
+    // ========================================
+    // POST IMAGES — legacy upload path used by CreatePostView and
+    // FirebasePostServiceEnhancements (posts/{userId}/{fileName} and
+    // posts/images/{fileName}).
+    // Ownership is enforced on the userId segment where present.
+    // ========================================
+
+    // posts/{userId}/{fileName}  — CreatePostView current path
+    match /posts/{userId}/{fileName} {
+      // Authenticated users can read (posts are public).
+      allow read: if isAuthenticated();
+
+      // Only the owner can upload to their own folder.
+      // Max 20MB, image or video.
+      allow write: if isAuthenticated()
+        && request.auth.uid == userId
+        && isValidSize(20)
+        && (isAllowedImage() || isAllowedVideo());
+
+      // Only the owner can delete.
+      allow delete: if isAuthenticated()
+        && request.auth.uid == userId;
+    }
+
+    // posts/images/{fileName}  — FirebasePostServiceEnhancements path
+    // No per-user ownership is encoded in this path; restrict writes to
+    // authenticated users and enforce MIME + size only.
+    match /posts/images/{fileName} {
+      // Authenticated users can read.
+      allow read: if isAuthenticated();
+
+      // Any authenticated user can upload here (no userId in path).
+      // Max 20MB, image or video.
       allow write: if isAuthenticated()
         && isValidSize(20)
-        && (isImage() || isVideo());
-      
-      // Users can delete their own post media
-      allow delete: if isAuthenticated();
+        && (isAllowedImage() || isAllowedVideo());
+
+      // P1 FIX: No userId in this legacy path so ownership cannot be verified.
+      // Block all client deletes — deletion handled by account-deletion Cloud Function
+      // (admin SDK) or by the post author via the post_media canonical path.
+      allow delete: if false;
     }
-    
+
     // ========================================
     // TESTIMONY MEDIA
+    // Path: testimony_media/{authorUserId}/{testimonyId}/{fileName}
     // ========================================
-    match /testimony_media/{testimonyId}/{fileName} {
-      // Anyone authenticated can read testimonies
+    match /testimony_media/{authorUserId}/{testimonyId}/{fileName} {
+      // Authenticated users can read testimony media (testimonies are public).
       allow read: if isAuthenticated();
-      
-      // Users can upload testimony media
+
+      // Only the testimony author can upload media to their own folder.
+      // Max 15MB, must be an explicitly allowed image or video MIME type.
       allow write: if isAuthenticated()
+        && request.auth.uid == authorUserId
         && isValidSize(15)
-        && (isImage() || isVideo());
-      
-      // Users can delete their testimony media
-      allow delete: if isAuthenticated();
+        && (isAllowedImage() || isAllowedVideo());
+
+      // Only the testimony author can delete their own media.
+      allow delete: if isAuthenticated()
+        && request.auth.uid == authorUserId;
     }
-    
+
     // ========================================
     // DATING PROFILE PHOTOS
     // ========================================
     match /dating_photos/{userId}/{fileName} {
       // Anyone authenticated can read dating photos
       allow read: if isAuthenticated();
-      
+
       // Users can only upload to their own folder
-      // Max 8MB, must be an image
-      allow write: if isAuthenticated() 
+      // Max 8MB, must be an explicitly allowed image type
+      allow write: if isAuthenticated()
         && request.auth.uid == userId
         && isValidSize(8)
-        && isImage();
-      
+        && isAllowedImage();
+
       // Users can delete their own dating photos
-      allow delete: if isAuthenticated() 
+      allow delete: if isAuthenticated()
         && request.auth.uid == userId;
     }
-    
+
     // ========================================
     // MESSAGE ATTACHMENTS
+    // Path: message_attachments/{senderId}/{recipientId}/{fileName}
+    // Both senderId and recipientId are in the path so Storage rules can
+    // verify participant identity without a Firestore lookup.
     // ========================================
-    match /message_attachments/{senderId}/{fileName} {
-      // Only sender and receiver can read message attachments
-      allow read: if isAuthenticated();
-      
-      // Users can upload attachments
-      // Max 10MB
-      allow write: if isAuthenticated() 
+    match /message_attachments/{senderId}/{recipientId}/{fileName} {
+      // Only the sender or the recipient of this attachment can read it.
+      allow read: if isAuthenticated()
+        && (request.auth.uid == senderId || request.auth.uid == recipientId);
+
+      // Only the sender can upload (Max 10MB; any content type — voice notes, docs, etc.)
+      allow write: if isAuthenticated()
         && request.auth.uid == senderId
         && isValidSize(10);
-      
-      // Users can delete their own attachments
-      allow delete: if isAuthenticated() 
+
+      // Only the sender can delete their own attachments.
+      allow delete: if isAuthenticated()
         && request.auth.uid == senderId;
     }
-    
+
+    // ========================================
+    // GROUP CHAT PHOTOS
+    // Path: group_photos/{uploaderId}/{fileName}
+    // P0-F FIX: Added {uploaderId} segment so Storage rules can verify the uploader's
+    // identity. Previously any authenticated user could overwrite any group avatar because
+    // the flat group_photos/{fileName} path carried no ownership information.
+    // Full group-admin gating (only the group admin may set the avatar) is enforced server-
+    // side by the Cloud Function that processes the upload. The Storage rule provides a
+    // necessary first layer: the caller must be the authenticated user whose UID matches
+    // the path segment, preventing anonymous overwrites of other groups' avatars.
+    // ========================================
+    match /group_photos/{uploaderId}/{fileName} {
+      // Any authenticated user can read group photos (public within app).
+      allow read: if isAuthenticated();
+
+      // Only the authenticated user matching the uploaderId path segment may write.
+      // Max 5MB, must be an allowed image type.
+      // Group-admin enforcement is performed by the server-side Cloud Function.
+      allow write: if isAuthenticated()
+        && request.auth.uid == uploaderId
+        && isValidSize(5)
+        && isAllowedImage();
+
+      // Only the uploader can delete their uploaded group photos.
+      // Bulk cleanup on group deletion is handled by the account/group-deletion Cloud Function.
+      allow delete: if isAuthenticated()
+        && request.auth.uid == uploaderId;
+    }
+
+    // Legacy flat path - deny writes, allow reads for backward compatibility with old URLs.
+    match /group_photos/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+      allow delete: if false;
+    }
+
     // ========================================
     // CHURCH VERIFICATION DOCUMENTS
     // ========================================
     match /verification_docs/{userId}/{fileName} {
       // Only the user and admins can read verification docs
-      allow read: if isAuthenticated() 
+      allow read: if isAuthenticated()
         && request.auth.uid == userId;
-      
+
       // Users can upload verification documents
       // Max 5MB, must be image or PDF
-      allow write: if isAuthenticated() 
+      allow write: if isAuthenticated()
         && request.auth.uid == userId
         && isValidSize(5)
-        && (isImage() || request.resource.contentType == 'application/pdf');
-      
+        && (isAllowedImage() || request.resource.contentType == 'application/pdf');
+
       // Users can delete their verification docs
-      allow delete: if isAuthenticated() 
+      allow delete: if isAuthenticated()
         && request.auth.uid == userId;
     }
-    
+
     // ========================================
     // DEFAULT - DENY ALL
     // ========================================

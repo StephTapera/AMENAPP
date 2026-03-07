@@ -10,14 +10,19 @@ import SwiftUI
 struct ResourcesView: View {
     @State private var searchText = ""
     @State private var selectedCategory: ResourceCategory = .all
-    @State private var bibleFact: BibleFact = .sample
-    @State private var isRefreshingFact = false
     @FocusState private var isSearchFocused: Bool
     @State private var keyboardHeight: CGFloat = 0
     @State private var scrollToResults = false
     @State private var aiSearchResults: [AISearchResult] = []
     @State private var isSearchingWithAI = false
     @State private var useAISearch = false
+    // P0 FIX: Store observer tokens so removeObserver works correctly for
+    // closure-based NotificationCenter observers. The old removeObserver(self,…)
+    // form is a no-op for these and caused duplicate/leaked observers on each appear.
+    @State private var keyboardShowToken: NSObjectProtocol?
+    @State private var keyboardHideToken: NSObjectProtocol?
+    // P1 FIX: Store AI search task so it can be cancelled on disappear.
+    @State private var aiSearchTask: Task<Void, Never>?
     
     enum ResourceCategory: String, CaseIterable {
         case all = "All"
@@ -94,6 +99,9 @@ struct ResourcesView: View {
             }
             .onDisappear {
                 removeKeyboardObservers()
+                // P1 FIX: Cancel any in-flight AI search when view disappears.
+                aiSearchTask?.cancel()
+                aiSearchTask = nil
             }
             .padding(.bottom, keyboardHeight)
             .animation(.easeOut(duration: 0.25), value: keyboardHeight)
@@ -145,17 +153,11 @@ struct ResourcesView: View {
         HStack(spacing: 14) {
             // Circular icon button with glass effect
             Button {
-                print("🔍 [DEBUG] Search button tapped, searchText: '\(searchText)'")
                 if !searchText.isEmpty {
-                    print("🔍 [DEBUG] Calling performAISearch()")
-                    // Trigger AI search
                     performAISearch()
-                    
                     let haptic = UIImpactFeedbackGenerator(style: .medium)
                     haptic.impactOccurred()
                 } else {
-                    print("🔍 [DEBUG] Search text empty, focusing search field")
-                    // Focus search field when empty
                     isSearchFocused = true
                 }
             } label: {
@@ -291,14 +293,6 @@ struct ResourcesView: View {
     // MARK: - Content View
     private var contentView: some View {
         VStack(alignment: .leading, spacing: 20) {
-            // AI-Powered Daily Bible Verse Card (with safe loading)
-            SafeAIDailyVerseCard()
-            
-            // Fun Bible Fact Card
-            BibleFactCard(fact: bibleFact, isRefreshing: $isRefreshingFact) {
-                refreshBibleFact()
-            }
-            
             // AMEN | Connect Section - Condensed with Color Accents
             if selectedCategory == .all || selectedCategory == .community {
                 VStack(alignment: .leading, spacing: 14) {
@@ -309,19 +303,6 @@ struct ResourcesView: View {
                     
                     // Grid layout for connect cards
                     VStack(spacing: 12) {
-                        // Private Communities - Full width, colored
-                        NavigationLink(destination: PrivateCommunitiesView()) {
-                            MinimalConnectCard(
-                                icon: "person.3.fill",
-                                title: "Private Communities",
-                                subtitle: "Church, university & more",
-                                badge: "COMING SOON",
-                                accentColor: .blue,
-                                isFullWidth: true
-                            )
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                        
                         // Two-column grid
                         HStack(spacing: 12) {
                             // Find Church
@@ -345,38 +326,6 @@ struct ResourcesView: View {
                                     subtitle: "Take & share",
                                     badge: nil,
                                     accentColor: .orange,
-                                    isFullWidth: false
-                                )
-                            }
-                            .buttonStyle(PlainButtonStyle())
-                        }
-                        
-                        HStack(spacing: 12) {
-                            // Christian Dating - Coming Soon
-                            Button {
-                                // Show coming soon
-                            } label: {
-                                MinimalConnectCard(
-                                    icon: "heart.text.square.fill",
-                                    title: "Dating",
-                                    subtitle: "Coming soon",
-                                    badge: nil,
-                                    accentColor: .pink,
-                                    isFullWidth: false
-                                )
-                            }
-                            .buttonStyle(PlainButtonStyle())
-                            
-                            // Find Friends - Coming Soon
-                            Button {
-                                // Show coming soon
-                            } label: {
-                                MinimalConnectCard(
-                                    icon: "person.2.fill",
-                                    title: "Find Friends",
-                                    subtitle: "Coming soon",
-                                    badge: nil,
-                                    accentColor: .cyan,
                                     isFullWidth: false
                                 )
                             }
@@ -529,43 +478,13 @@ struct ResourcesView: View {
         .padding(.vertical)
     }
     
-    private func refreshBibleFact() {
-        Task {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
-                isRefreshingFact = true
-            }
-            
-            // Try to get AI-generated fact first
-            do {
-                let aiFact = try await BereanGenkitService.shared.generateFunBibleFact(category: nil)
-                
-                await MainActor.run {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
-                        bibleFact = BibleFact(text: aiFact)
-                        isRefreshingFact = false
-                    }
-                }
-                
-                print("✅ AI-generated Bible fact loaded")
-                
-            } catch {
-                print("⚠️ AI fact generation failed, using fallback: \(error.localizedDescription)")
-                
-                // Fallback to static random facts if AI fails
-                await MainActor.run {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
-                        bibleFact = BibleFact.random()
-                        isRefreshingFact = false
-                    }
-                }
-            }
-        }
-    }
-    
     // MARK: - Keyboard Handling
     
     private func setupKeyboardObservers() {
-        NotificationCenter.default.addObserver(
+        // Guard against duplicate registration on repeated onAppear calls.
+        guard keyboardShowToken == nil else { return }
+
+        keyboardShowToken = NotificationCenter.default.addObserver(
             forName: UIResponder.keyboardWillShowNotification,
             object: nil,
             queue: .main
@@ -575,8 +494,8 @@ struct ResourcesView: View {
                 keyboardHeight = keyboardFrame.height
             }
         }
-        
-        NotificationCenter.default.addObserver(
+
+        keyboardHideToken = NotificationCenter.default.addObserver(
             forName: UIResponder.keyboardWillHideNotification,
             object: nil,
             queue: .main
@@ -586,41 +505,42 @@ struct ResourcesView: View {
             }
         }
     }
-    
+
     private func removeKeyboardObservers() {
-        NotificationCenter.default.removeObserver(self, name: UIResponder.keyboardWillShowNotification, object: nil)
-        NotificationCenter.default.removeObserver(self, name: UIResponder.keyboardWillHideNotification, object: nil)
+        if let token = keyboardShowToken {
+            NotificationCenter.default.removeObserver(token)
+            keyboardShowToken = nil
+        }
+        if let token = keyboardHideToken {
+            NotificationCenter.default.removeObserver(token)
+            keyboardHideToken = nil
+        }
     }
     
     // MARK: - AI Search
     
     private func performAISearch() {
-        print("🔍 [DEBUG] performAISearch() called")
-        guard !searchText.isEmpty else {
-            print("🔍 [DEBUG] Search text is empty, returning")
-            return
-        }
-        
-        print("🔍 [DEBUG] Starting AI search task for query: '\(searchText)'")
-        print("🔍 [DEBUG] Total resources available: \(allResources.count)")
-        
-        Task {
+        guard !searchText.isEmpty else { return }
+
+        // P1 FIX: Cancel any previous in-flight search before starting a new one.
+        aiSearchTask?.cancel()
+
+        let querySnapshot = searchText
+        aiSearchTask = Task {
             await MainActor.run {
                 isSearchingWithAI = true
                 isSearchFocused = false
             }
-            print("🔍 [DEBUG] Set isSearchingWithAI = true")
-            
+
             do {
-                // Call AI search service
-                print("🔍 [DEBUG] Calling AIResourceSearchService.shared.searchWithAI()")
                 let results = try await AIResourceSearchService.shared.searchWithAI(
-                    query: searchText,
+                    query: querySnapshot,
                     allResources: allResources
                 )
-                
-                print("🔍 [DEBUG] AI search returned \(results.count) results")
-                
+
+                // Don't update state if the task was cancelled while awaiting.
+                guard !Task.isCancelled else { return }
+
                 await MainActor.run {
                     withAnimation(.easeOut(duration: 0.3)) {
                         aiSearchResults = results
@@ -629,14 +549,10 @@ struct ResourcesView: View {
                         scrollToResults = true
                     }
                 }
-                
-                print("✅ AI search complete: \(results.count) results")
-                
+
             } catch {
-                print("❌ AI search error: \(error)")
-                print("❌ Error details: \(error.localizedDescription)")
-                
-                // Fall back to keyword search
+                guard !Task.isCancelled else { return }
+                // Fall back to keyword search on error.
                 await MainActor.run {
                     withAnimation(.easeOut(duration: 0.3)) {
                         useAISearch = false
@@ -644,7 +560,6 @@ struct ResourcesView: View {
                         scrollToResults = true
                     }
                 }
-                print("🔍 [DEBUG] Fell back to keyword search")
             }
         }
     }
@@ -789,6 +704,7 @@ struct FeaturedBanner: View {
     
     @State private var shimmerPhase: CGFloat = 0
     @State private var isHovered = false
+    @State private var isVisible = false
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -913,9 +829,18 @@ struct FeaturedBanner: View {
         .scaleEffect(isHovered ? 1.02 : 1.0)
         .animation(.spring(response: 0.25, dampingFraction: 0.75), value: isHovered)
         .onAppear {
+            isVisible = true
+            // P1 FIX: Only run shimmer while visible. The previous unconditional
+            // repeatForever kept the animation alive even off-screen, wasting CPU.
+            guard isVisible else { return }
             withAnimation(.linear(duration: 3).repeatForever(autoreverses: false)) {
                 shimmerPhase = 400
             }
+        }
+        .onDisappear {
+            isVisible = false
+            // Reset so the animation restarts cleanly when the view reappears.
+            shimmerPhase = 0
         }
     }
 }

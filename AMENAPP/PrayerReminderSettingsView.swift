@@ -12,7 +12,7 @@ import UserNotifications
 
 struct PrayerReminderSettingsView: View {
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var notificationManager = PushNotificationManager.shared
+    @ObservedObject private var notificationManager = PushNotificationManager.shared
     
     @State private var remindersEnabled = false
     @State private var selectedReminderStyle: ReminderStyle = .standard

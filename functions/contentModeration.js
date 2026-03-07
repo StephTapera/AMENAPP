@@ -76,15 +76,30 @@ exports.moderateContent = functions.https.onCall(async (data, context) => {
       contentText
     );
 
-    // 5. Log moderation event
-    await logModerationEvent({
-      userId,
-      contentType,
-      contentText: contentText.substring(0, 500),  // Truncate for storage
-      decision,
-      scores,
-      timestamp: admin.firestore.FieldValue.serverTimestamp()
-    });
+    // 5. Log moderation event (legacy collection) + unified moderation_jobs
+    const contentId = data.contentId || `${userId}_${Date.now()}`;
+    await Promise.all([
+      logModerationEvent({
+        userId,
+        contentType,
+        contentText: contentText.substring(0, 500),
+        decision,
+        scores,
+        timestamp: admin.firestore.FieldValue.serverTimestamp()
+      }),
+      writeModerationJob({
+        contentId,
+        contentType,
+        authorId: userId,
+        contentSnapshot: contentText.substring(0, 4000),
+        scores,
+        decision,
+        signals: [
+          ...(spamResult.indicators || []),
+          ...(aiSuspicionResult.signals || []),
+        ],
+      }),
+    ]);
 
     // 6. Update user integrity signals if violation detected
     if (decision.action !== 'allow' && decision.action !== 'nudge_rewrite') {
@@ -109,12 +124,12 @@ exports.moderateContent = functions.https.onCall(async (data, context) => {
 
   } catch (error) {
     console.error('Moderation error:', error);
-    // Default to allow on error (fail open, log for review)
+    // Fail closed on error — hold for human review rather than auto-approving
     await logModerationError(userId, contentType, error);
     return {
-      decision: 'allow',
+      decision: 'hold_for_review',
       confidence: 0,
-      reasons: ['Error in moderation - defaulting to allow'],
+      reasons: ['Moderation service error — held for human review'],
       reviewRequired: true
     };
   }
@@ -472,6 +487,106 @@ async function logModerationEvent(event) {
   }
 }
 
+// ============================================================================
+// MODERATION CONSTITUTION: unified moderation_jobs writer
+// Maps existing pipeline output → ModerationConstitutionModels schema.
+// Called by both moderateContent (callable) and serverSidePostModeration.
+// ============================================================================
+
+/**
+ * Maps internal action strings to EnforcementActionType values from the Swift data model.
+ */
+function mapActionToConstitutionType(action) {
+  const map = {
+    'allow': 'allow',
+    'nudge_rewrite': 'nudge',
+    'require_revision': 'require_edit',
+    'hold_for_review': 'hold_review',
+    'flag_for_review': 'hold_review',
+    'rate_limit': 'account_cooldown',
+    'shadow_restrict': 'shadow_restrict',
+    'reject': 'remove_permanent',
+    'remove': 'remove_permanent',
+    'error_allow': 'allow',
+  };
+  return map[action] || 'hold_review';
+}
+
+/**
+ * Writes a ModerationJob document to moderation_jobs/{jobId}.
+ * jobId is deterministic: {contentType}_{contentId}_{epochMs} so callers
+ * can reference it in content docs without a separate lookup.
+ *
+ * @param {Object} params
+ * @param {string} params.contentId       - Firestore document id of the content
+ * @param {string} params.contentType     - 'post'|'comment'|'dm'|'profile'|etc.
+ * @param {string} params.authorId        - uid of the author
+ * @param {string} params.contentSnapshot - truncated text for review (max 4000 chars)
+ * @param {Object} params.scores          - { toxicity, spam, aiSuspicion, duplicateMatch, userRiskScore }
+ * @param {Object} params.decision        - output of determineEnforcementAction()
+ * @param {string[]} params.signals       - SafetySignal raw values detected
+ * @returns {Promise<string>}             - The new job's document id
+ */
+async function writeModerationJob({
+  contentId,
+  contentType,
+  authorId,
+  contentSnapshot = '',
+  scores = {},
+  decision = {},
+  signals = [],
+}) {
+  try {
+    const db = admin.firestore();
+    const now = admin.firestore.FieldValue.serverTimestamp();
+    const jobId = `${contentType}_${contentId}_${Date.now()}`;
+
+    const jobData = {
+      // Source content pointer
+      content_id: contentId,
+      content_type: contentType,
+      author_id: authorId,
+
+      // Pipeline scores
+      toxicity_score: scores.toxicity ?? null,
+      spam_score: scores.spam ?? null,
+      ai_suspicion_score: scores.aiSuspicion ?? null,
+      overall_risk_score: Math.max(
+        scores.toxicity ?? 0,
+        scores.spam ?? 0,
+        scores.aiSuspicion ?? 0,
+        scores.userRiskScore ?? 0,
+      ),
+
+      // Signals
+      signals,
+
+      // Decision (mapped to constitution schema)
+      decision: mapActionToConstitutionType(decision.action || 'allow'),
+      decision_actor: 'ai_automatic',
+      decision_reason: (decision.reasons || []).join('; ') || null,
+      decision_confidence: decision.confidence ?? null,
+
+      // Violations
+      zero_tolerance_violations: [],
+      high_risk_violations: [],
+      sensitive_categories: [],
+
+      // Timestamps
+      created_at: now,
+      completed_at: now,
+    };
+
+    await db.collection('moderation_jobs').doc(jobId).set(jobData);
+    console.log(`📋 [moderation_jobs] Wrote job ${jobId} → decision: ${jobData.decision}`);
+    return jobId;
+  } catch (err) {
+    // Non-fatal: don't break the content submission pipeline
+    console.error('[writeModerationJob] Error:', err);
+    return null;
+  }
+}
+
 async function incrementUserViolations(userId, violationType) {
   try {
     const db = admin.firestore();
@@ -519,3 +634,159 @@ async function logModerationError(userId, contentType, error) {
     console.error('Log error failed:', err);
   }
 }
+
+// MARK: - Internal helper for Firestore triggers (not callable by clients)
+
+/**
+ * Runs toxicity + spam checks on post text from a Firestore trigger.
+ * Returns { shouldRemove, action, reasons } so the caller can decide.
+ * Fails open on error (post remains visible; flagged for review).
+ *
+ * @param {string} postId
+ * @param {string} userId
+ * @param {string} text
+ * @returns {Promise<{shouldRemove: boolean, action: string, reasons: string[]}>}
+ */
+exports.moderatePostText = async function moderatePostText(postId, userId, text) {
+  try {
+    const [toxicityResult, spamResult] = await Promise.all([
+      checkToxicity(text),
+      checkSpam(text, 'post'),
+    ]);
+
+    const reasons = [];
+    let action = 'allow';
+
+    if (toxicityResult.score >= 0.8) {
+      reasons.push('high_toxicity');
+      action = 'remove';
+    } else if (toxicityResult.score >= 0.6) {
+      reasons.push('moderate_toxicity');
+      action = 'flag_for_review';
+    }
+
+    if (spamResult.score >= 0.7) {
+      reasons.push('spam');
+      action = action === 'remove' ? 'remove' : 'flag_for_review';
+    }
+
+    if (action !== 'allow') {
+      const db = admin.firestore();
+      await db.collection('moderation_queue').add({
+        postId,
+        userId,
+        action,
+        reasons,
+        toxicityScore: toxicityResult.score,
+        spamScore: spamResult.score,
+        contentPreview: text.substring(0, 300),
+        source: 'onPostCreate_trigger',
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        reviewed: false,
+      });
+
+      if (action === 'remove') {
+        await db.collection('posts').doc(postId).update({
+          removed: true,
+          removedReason: reasons.join(', '),
+          removedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        await incrementUserViolations(userId, action);
+        console.log(`🚫 [onPostCreate] Post ${postId} auto-removed: ${reasons.join(', ')}`);
+      } else {
+        await db.collection('posts').doc(postId).update({
+          flaggedForReview: true,
+          flagReasons: reasons,
+          flaggedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        console.log(`⚠️ [onPostCreate] Post ${postId} flagged for review: ${reasons.join(', ')}`);
+      }
+    }
+
+    return { shouldRemove: action === 'remove', action, reasons };
+  } catch (error) {
+    console.error(`[onPostCreate moderation] Error for post ${postId}:`, error);
+    // Fail open: post stays visible, flagged for async review
+    return { shouldRemove: false, action: 'error_allow', reasons: [] };
+  }
+};
+
+// ============================================================================
+// SERVER-SIDE POST MODERATION TRIGGER (Firestore onWrite)
+// Runs moderation whenever a new post is created or its text changes.
+// Bypasses client-side moderation for direct Firestore writes.
+// ============================================================================
+
+const {onDocumentWritten} = require('firebase-functions/v2/firestore');
+
+exports.serverSidePostModeration = onDocumentWritten(
+  {document: 'posts/{postId}', region: 'us-central1'},
+  async (event) => {
+    const postId = event.params.postId;
+    const afterData = event.data.after.data();
+
+    // Skip deletes
+    if (!afterData) return null;
+
+    // Skip if already moderated server-side (avoid infinite loops)
+    if (afterData.serverModerated === true) return null;
+
+    // Skip if post is already removed or flagged (no need to re-run)
+    if (afterData.removed === true) return null;
+
+    const userId = afterData.userId || afterData.authorId;
+    const text = afterData.content || '';
+
+    if (!text || text.length < 3) return null;
+
+    console.log(`🛡️ [serverSidePostModeration] Running on post ${postId}`);
+
+    try {
+      const result = await exports.moderatePostText(postId, userId, text);
+      const db = admin.firestore();
+
+      // Write unified moderation_jobs record (non-fatal)
+      await writeModerationJob({
+        contentId: postId,
+        contentType: 'post',
+        authorId: userId,
+        contentSnapshot: text.substring(0, 4000),
+        scores: {
+          toxicity: result.toxicityScore || 0,
+          spam: result.spamScore || 0,
+        },
+        decision: { action: result.action, reasons: result.reasons, confidence: result.confidence || 0 },
+        signals: result.reasons || [],
+      });
+
+      if (result.action === 'remove') {
+        await db.collection('posts').doc(postId).update({
+          removed: true,
+          moderationStatus: 'rejected',
+          moderationReasons: result.reasons,
+          serverModerated: true,
+          serverModeratedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        console.log(`🚫 [serverSidePostModeration] Post ${postId} removed`);
+      } else if (result.action === 'flag_for_review') {
+        await db.collection('posts').doc(postId).update({
+          flaggedForReview: true,
+          moderationReasons: result.reasons,
+          serverModerated: true,
+          serverModeratedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        console.log(`⚠️ [serverSidePostModeration] Post ${postId} flagged`);
+      } else {
+        // Mark as server-moderated so we don't re-run
+        await db.collection('posts').doc(postId).update({
+          serverModerated: true,
+          serverModeratedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      }
+    } catch (err) {
+      console.error(`[serverSidePostModeration] Error:`, err);
+    }
+
+    return null;
+  }
+);

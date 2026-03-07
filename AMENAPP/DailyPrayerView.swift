@@ -42,29 +42,6 @@ struct EnhancedDailyPrayerView: View {
                     }
                     
                     Spacer()
-                    
-                    // Streak badge
-                    VStack(spacing: 4) {
-                        Text("7")
-                            .font(.custom("OpenSans-Bold", size: 20))
-                            .foregroundStyle(.orange)
-                        
-                        HStack(spacing: 2) {
-                            Image(systemName: "flame.fill")
-                                .font(.system(size: 12))
-                                .foregroundStyle(.orange)
-                            
-                            Text("day streak")
-                                .font(.custom("OpenSans-SemiBold", size: 10))
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color.orange.opacity(0.1))
-                    )
                 }
                 .padding(.horizontal)
                 .padding(.top, 20)

@@ -12,7 +12,7 @@ import SwiftUI
 // MARK: - AI Daily Verse Card
 
 struct AIDailyVerseCard: View {
-    @StateObject private var verseService = DailyVerseGenkitService.shared
+    @ObservedObject private var verseService = DailyVerseGenkitService.shared
     
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {

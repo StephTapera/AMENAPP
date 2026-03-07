@@ -587,7 +587,7 @@ class FollowersAnalyticsViewModel: ObservableObject {
         var currentCount = max(0, totalFollowers - Int.random(in: 0...20))
         
         for i in 0..<actualDays {
-            let date = Calendar.current.date(byAdding: .day, value: -actualDays + i, to: Date())!
+            let date = Calendar.current.date(byAdding: .day, value: -actualDays + i, to: Date()) ?? Date()
             currentCount += Int.random(in: -2...5)
             currentCount = max(0, currentCount)
             

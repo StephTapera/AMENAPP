@@ -38,8 +38,8 @@ enum MessageSheetType: Identifiable {
 /*
 
 struct MessagesView: View {
-    @StateObject private var messagingService = FirebaseMessagingService.shared
-    @StateObject private var messagingCoordinator = MessagingCoordinator.shared
+    @ObservedObject private var messagingService = FirebaseMessagingService.shared
+    @ObservedObject private var messagingCoordinator = MessagingCoordinator.shared
     @State private var searchText = ""
     @State private var selectedTab: MessageTab = .messages
     @State private var messageRequests: [MessageRequest] = []

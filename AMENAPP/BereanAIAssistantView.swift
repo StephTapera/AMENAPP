@@ -10,6 +10,9 @@ import Combine
 
 /// Berean AI Assistant - Your intelligent Bible study companion
 struct BereanAIAssistantView: View {
+    /// Optional initial query — when set, sent automatically on appear (e.g. from testimony sparkle button)
+    var initialQuery: String? = nil
+    
     @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel = BereanViewModel()
     @State private var messageText = ""
@@ -19,12 +22,18 @@ struct BereanAIAssistantView: View {
     @State private var scrollOffset: CGFloat = 0
     @State private var showSmartFeatures = false
     @State private var keyboardHeight: CGFloat = 0
+    // Stored tokens for closure-based NotificationCenter observers.
+    // removeObserver(self, name:) is a no-op for closure-based observers;
+    // the token returned by addObserver(forName:object:queue:using:) must be passed instead.
+    @State private var keyboardShowObserver: NSObjectProtocol?
+    @State private var keyboardHideObserver: NSObjectProtocol?
     @State private var isVoiceListening = false
     @State private var showContextMenu = false
     @State private var showShareSheet = false
     @State private var messageToShare: BereanMessage?
     @State private var showPremiumUpgrade = false
     @State private var isGenerating = false  // ✅ Track if AI is generating
+    @State private var siriAnimationProgress: Double = 0  // ✅ Siri-like looping animation
     
     // ✅ New state variables for enhancements
     @State private var showTranslationPicker = false
@@ -70,6 +79,11 @@ struct BereanAIAssistantView: View {
     @State private var showStudyPlanner = false
     @State private var showScriptureAnalyzer = false
     
+    // Selah reading view
+    @State private var selahMessage: BereanMessage?
+    @State private var showSelahView = false
+    @State private var selahQuery = ""
+
     // ✅ Plus button menu
     @State private var showPlusMenu = false
     @State private var showImagePicker = false
@@ -84,6 +98,18 @@ struct BereanAIAssistantView: View {
     
     // ✅ Response mode for cost-effective AI
     @State private var responseMode: BereanResponseMode = .balanced
+
+    // ✅ Personality mode — controls Berean's voice/tone via system prompt prefix
+    @State private var personalityMode: BereanPersonalityMode = .shepherd
+
+    // ✅ Memory status banner
+    @State private var showClearSessionConfirm = false
+    
+    // ✅ Debounce for contextual suggestions (avoids firing on every keystroke)
+    @State private var suggestionDebounceTask: Task<Void, Never>?
+    // Tasks used for delayed onAppear effects so they can be cancelled on disappear.
+    @State private var initialQueryTask: Task<Void, Never>?
+    @State private var longPressHintTask: Task<Void, Never>?
     
     // ✅ Long press quick actions
     @State private var showQuickActions = false
@@ -272,7 +298,15 @@ struct BereanAIAssistantView: View {
                             } else {
                                 // Messages
                                 ForEach(viewModel.messages) { message in
-                                    MessageBubbleView(message: message)
+                                    MessageBubbleView(
+                                        message: message,
+                                        onOpenSelah: { msg in
+                                            selahQuery = viewModel.messages
+                                                .last(where: { $0.isFromUser })?.content ?? ""
+                                            selahMessage = msg
+                                            showSelahView = true
+                                        }
+                                    )
                                         .id(message.id)
                                         .transition(.asymmetric(
                                             insertion: .scale(scale: 0.9).combined(with: .opacity),
@@ -338,6 +372,20 @@ struct BereanAIAssistantView: View {
                 
                 // Input Bar - Always at bottom
                 inputBarView
+
+                // AI Transparency Disclosure — required so users know they are interacting
+                // with an AI assistant. Must remain visible and non-dismissible.
+                HStack(spacing: 4) {
+                    Image(systemName: "cpu")
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundStyle(.secondary)
+                    Text("Berean is an AI assistant. Responses may contain errors — verify with Scripture.")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 4)
             }
             
             // Smart Features Overlay
@@ -422,6 +470,17 @@ struct BereanAIAssistantView: View {
         .fullScreenCover(isPresented: $showOnboarding) {
             BereanOnboardingView(isPresented: $showOnboarding)
         }
+        // Selah reading view
+        .fullScreenCover(item: $selahMessage) { msg in
+            SelahView(
+                message: msg,
+                originalQuery: selahQuery,
+                onContinueInChat: nil,
+                onAskFollowUp: { followUp in
+                    messageText = followUp
+                }
+            )
+        }
         // ✅ Saved Messages
         .sheet(isPresented: $showSavedMessages) {
             BereanSavedMessagesView()
@@ -493,18 +552,31 @@ struct BereanAIAssistantView: View {
             // Initialize speech recognizer
             speechRecognizer = SpeechRecognitionService()
             
-            // Show long press hint for first-time users
+            // Auto-send initial query (e.g. testimony reflection from PostCard).
+            // Use a stored Task so it can be cancelled in onDisappear, preventing
+            // a use-after-free if the view is dismissed before the delay fires.
+            if let query = initialQuery, !query.isEmpty {
+                initialQueryTask?.cancel()
+                initialQueryTask = Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 400_000_000) // 0.4 s
+                    guard !Task.isCancelled else { return }
+                    sendMessage(query)
+                }
+            }
+
+            // Show long press hint for first-time users.
             if !hasSeenLongPressHint {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                longPressHintTask?.cancel()
+                longPressHintTask = Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 2_000_000_000) // 2.0 s
+                    guard !Task.isCancelled else { return }
                     withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
                         showFirstTimeLongPressHint = true
                     }
-                    
-                    // Auto-hide hint after 5 seconds
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
-                        withAnimation(.easeOut(duration: 0.3)) {
-                            showFirstTimeLongPressHint = false
-                        }
+                    try? await Task.sleep(nanoseconds: 5_000_000_000) // 5.0 s
+                    guard !Task.isCancelled else { return }
+                    withAnimation(.easeOut(duration: 0.3)) {
+                        showFirstTimeLongPressHint = false
                     }
                 }
             }
@@ -513,6 +585,14 @@ struct BereanAIAssistantView: View {
             removeKeyboardObservers()
             // ✅ P0-3: Cancel any ongoing generation when view disappears
             viewModel.stopGeneration()
+            // Cancel suggestion debounce task
+            suggestionDebounceTask?.cancel()
+            suggestionDebounceTask = nil
+            // Cancel delayed onAppear tasks so they don't fire after view is gone
+            initialQueryTask?.cancel()
+            initialQueryTask = nil
+            longPressHintTask?.cancel()
+            longPressHintTask = nil
             // Auto-save conversation if there are messages
             if !viewModel.messages.isEmpty {
                 viewModel.saveCurrentConversation()
@@ -528,6 +608,33 @@ struct BereanAIAssistantView: View {
                 // Check network first
                 guard networkMonitor.isConnected else {
                     throw BereanError.networkUnavailable
+                }
+
+                // Safety gate: run ThinkFirst guardrails before posting to OpenTable.
+                // Berean responses are scripture-grounded but may contain user-added personal
+                // notes that could violate community guidelines.
+                let safetyResult = await ThinkFirstGuardrailsService.shared.checkContent(
+                    text, context: .normalPost
+                )
+                switch safetyResult.action {
+                case .block:
+                    let reason = safetyResult.violations.first?.message
+                        ?? "This content can't be shared to OpenTable."
+                    await MainActor.run {
+                        showError = .unknown(reason)
+                        showErrorBanner = true
+                    }
+                    return
+                case .requireEdit:
+                    let reason = safetyResult.violations.first?.message
+                        ?? "Please review your personal note before sharing."
+                    await MainActor.run {
+                        showError = .unknown(reason)
+                        showErrorBanner = true
+                    }
+                    return
+                case .allow, .softPrompt:
+                    break  // proceed
                 }
                 
                 // Extract personal note if present
@@ -1202,9 +1309,124 @@ struct BereanAIAssistantView: View {
     }
     
     // MARK: - Input Bar (Glassmorphic - Bottom Fixed)
-    
+
+    // MARK: Memory Status Banner
+
+    /// Pill displayed above the input bar when there are messages in session memory.
+    /// Lets the user see retention status and clear the session with one tap.
+    private var memoryStatusBanner: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "brain")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(Color(red: 0.4, green: 0.7, blue: 1.0))
+
+            Text("\(viewModel.messages.count) message\(viewModel.messages.count == 1 ? "" : "s") in session")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(Color(white: 0.3))
+
+            Spacer()
+
+            Button {
+                let haptic = UIImpactFeedbackGenerator(style: .light)
+                haptic.impactOccurred()
+                showClearSessionConfirm = true
+            } label: {
+                Text("Clear")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Color(red: 1.0, green: 0.4, blue: 0.4))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(
+                        Capsule()
+                            .fill(Color(red: 1.0, green: 0.4, blue: 0.4).opacity(0.1))
+                    )
+            }
+            .accessibilityLabel("Clear session memory")
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color.white.opacity(0.85))
+                .shadow(color: .black.opacity(0.06), radius: 4, y: 2)
+        )
+        .padding(.horizontal, 12)
+        .padding(.bottom, 4)
+        .confirmationDialog(
+            "Clear Session Memory?",
+            isPresented: $showClearSessionConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Clear Session", role: .destructive) {
+                withAnimation(.easeOut(duration: 0.25)) {
+                    viewModel.clearMessages()
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Berean will forget this conversation. Saved conversations are not affected.")
+        }
+        .transition(.asymmetric(
+            insertion: .move(edge: .bottom).combined(with: .opacity),
+            removal: .move(edge: .bottom).combined(with: .opacity)
+        ))
+    }
+
+    // MARK: Personality Mode Selector
+
+    /// Horizontally scrollable chip row to switch Berean's persona/voice.
+    /// Visible only when the input is empty (no clutter mid-conversation).
+    private var personalityModeSelectorView: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                ForEach(BereanPersonalityMode.allCases) { mode in
+                    Button {
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            personalityMode = mode
+                        }
+                        let haptic = UIImpactFeedbackGenerator(style: .light)
+                        haptic.impactOccurred()
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: mode.icon)
+                                .font(.system(size: 10, weight: .medium))
+                            Text(mode.rawValue)
+                                .font(.system(size: 11, weight: .semibold))
+                        }
+                        .foregroundStyle(personalityMode == mode ? .white : Color(white: 0.35))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(
+                            Capsule()
+                                .fill(personalityMode == mode
+                                    ? Color(red: 0.2, green: 0.5, blue: 0.9)
+                                    : Color.white.opacity(0.6))
+                        )
+                    }
+                    .accessibilityLabel("\(mode.rawValue) mode: \(mode.description)")
+                }
+            }
+            .padding(.horizontal, 12)
+        }
+        .padding(.bottom, 4)
+        .transition(.asymmetric(
+            insertion: .move(edge: .bottom).combined(with: .opacity),
+            removal: .move(edge: .bottom).combined(with: .opacity)
+        ))
+    }
+
     private var inputBarView: some View {
         VStack(spacing: 0) {
+            // Memory status banner — shown when there are messages and input is empty
+            if !viewModel.messages.isEmpty && messageText.isEmpty {
+                memoryStatusBanner
+            }
+
+            // Personality mode selector — shown when input is empty (welcome state or mid-session)
+            if messageText.isEmpty && !isGenerating {
+                personalityModeSelectorView
+            }
+
             // ✅ Smart Contextual Suggestions (ChatGPT-style)
             if showContextualSuggestions && !contextualSuggestions.isEmpty && viewModel.messages.isEmpty {
                 contextualSuggestionsView
@@ -1308,9 +1530,15 @@ struct BereanAIAssistantView: View {
                 .submitLabel(.send)
                 .accessibilityLabel("Message input field")
                 .onChange(of: messageText) { _, newValue in
-                    // ✅ Generate contextual suggestions as user types
+                    // ✅ Update typing indicator immediately
                     isTyping = !newValue.isEmpty
-                    generateContextualSuggestions(for: newValue)
+                    // ✅ Debounce suggestions — don't fire on every keystroke
+                    suggestionDebounceTask?.cancel()
+                    suggestionDebounceTask = Task { @MainActor in
+                        try? await Task.sleep(nanoseconds: 400_000_000) // 400ms
+                        guard !Task.isCancelled else { return }
+                        generateContextualSuggestions(for: newValue)
+                    }
                 }
             
             // ✅ Smart typing indicator (subtle)
@@ -1498,21 +1726,57 @@ struct BereanAIAssistantView: View {
                     )
             )
             .overlay(
-                Capsule()
-                    .stroke(
-                        LinearGradient(
-                            colors: [
-                                .white.opacity(0.5),
-                                .white.opacity(0.2)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 1.5
-                    )
+                Group {
+                    // Regular border
+                    Capsule()
+                        .stroke(
+                            LinearGradient(
+                                colors: [
+                                    .white.opacity(0.5),
+                                    .white.opacity(0.2)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1.5
+                        )
+                    
+                    // ✅ Siri-like looping animation when generating
+                    if isGenerating {
+                        Capsule()
+                            .trim(from: siriAnimationProgress, to: siriAnimationProgress + 0.3)
+                            .stroke(
+                                LinearGradient(
+                                    colors: [
+                                        Color.blue.opacity(0.8),
+                                        Color.purple.opacity(0.6),
+                                        Color.pink.opacity(0.5),
+                                        Color.clear
+                                    ],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                ),
+                                lineWidth: 2.5
+                            )
+                            .animation(
+                                .linear(duration: 1.5)
+                                .repeatForever(autoreverses: false),
+                                value: siriAnimationProgress
+                            )
+                    }
+                }
             )
             .shadow(color: .black.opacity(0.15), radius: 20, x: 0, y: 8)
             .shadow(color: .white.opacity(0.2), radius: 2, x: 0, y: -1)
+            .onChange(of: isGenerating) { oldValue, newValue in
+                if newValue {
+                    // Start looping animation
+                    siriAnimationProgress = 1.0
+                } else {
+                    // Reset animation
+                    siriAnimationProgress = 0
+                }
+            }
     }
     
     // MARK: - Input Bar Action Handlers
@@ -1592,9 +1856,16 @@ struct BereanAIAssistantView: View {
         }
     }
     
-    /// Setup keyboard observers for smooth animations
+    /// Setup keyboard observers for smooth animations.
+    /// Uses token-based addObserver so that the returned tokens can be passed to
+    /// removeObserver(_:) on cleanup. Calling setupKeyboardObservers more than once
+    /// is safe because existing tokens are removed first.
     private func setupKeyboardObservers() {
-        NotificationCenter.default.addObserver(
+        // Always tear down any existing observers before registering new ones to
+        // prevent stacking when the view appears multiple times (e.g., modal re-presentation).
+        removeKeyboardObservers()
+
+        keyboardShowObserver = NotificationCenter.default.addObserver(
             forName: UIResponder.keyboardWillShowNotification,
             object: nil,
             queue: .main
@@ -1604,8 +1875,8 @@ struct BereanAIAssistantView: View {
                 keyboardHeight = keyboardFrame.height
             }
         }
-        
-        NotificationCenter.default.addObserver(
+
+        keyboardHideObserver = NotificationCenter.default.addObserver(
             forName: UIResponder.keyboardWillHideNotification,
             object: nil,
             queue: .main
@@ -1615,11 +1886,19 @@ struct BereanAIAssistantView: View {
             }
         }
     }
-    
-    /// Remove keyboard observers
+
+    /// Remove keyboard observers using the stored tokens.
+    /// `removeObserver(self, name:)` is a no-op for closure-based observers;
+    /// the token returned by addObserver(forName:object:queue:using:) must be used.
     private func removeKeyboardObservers() {
-        NotificationCenter.default.removeObserver(self, name: UIResponder.keyboardWillShowNotification, object: nil)
-        NotificationCenter.default.removeObserver(self, name: UIResponder.keyboardWillHideNotification, object: nil)
+        if let token = keyboardShowObserver {
+            NotificationCenter.default.removeObserver(token)
+            keyboardShowObserver = nil
+        }
+        if let token = keyboardHideObserver {
+            NotificationCenter.default.removeObserver(token)
+            keyboardHideObserver = nil
+        }
     }
     
     /// Retry the last failed message
@@ -1901,6 +2180,7 @@ struct BereanAIAssistantView: View {
             for: trimmedText,
             requestId: requestId,  // ✅ Pass request ID
             responseMode: responseMode,  // ✅ Pass response mode for cost control
+            personalityPrefix: personalityMode.systemPromptPrefix,  // ✅ Pass personality voice
             onChunk: { chunk in
                 // ✅ P1-1: Update UI efficiently (SwiftUI will batch updates automatically)
                 if let lastIndex = viewModel.messages.lastIndex(where: { $0.role == .assistant }) {
@@ -2253,6 +2533,7 @@ struct SuggestedPromptCard: View {
 
 struct MessageBubbleView: View {
     let message: BereanMessage
+    var onOpenSelah: ((BereanMessage) -> Void)? = nil
     @State private var showActions = false
     @State private var lightbulbPressed = false
     @State private var praisePressed = false
@@ -2334,6 +2615,30 @@ struct MessageBubbleView: View {
                             withAnimation(.easeOut(duration: 0.2)) {
                                 praisePressed.toggle()
                             }
+                        }
+
+                        // Selah button — shown for long responses
+                        if message.content.count > 400 {
+                            Button {
+                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                onOpenSelah?(message)
+                            } label: {
+                                HStack(spacing: 3) {
+                                    Image("amen-logo")
+                                        .resizable()
+                                        .scaledToFit()
+                                        .frame(width: 13, height: 13)
+                                        .blendMode(.multiply)
+                                    Text("Selah")
+                                        .font(.system(size: 11, weight: .semibold))
+                                }
+                                .foregroundStyle(Color.accentColor)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.accentColor.opacity(0.10), in: Capsule())
+                            }
+                            .buttonStyle(.plain)
+                            .transition(.scale.combined(with: .opacity))
                         }
                         
                         Spacer()
@@ -3138,6 +3443,7 @@ class BereanViewModel: ObservableObject {
         for query: String,
         requestId: UUID = UUID(),  // ✅ P0-1: Add request ID for idempotency
         responseMode: BereanResponseMode = .balanced,  // ✅ P0-2: Response mode for cost control
+        personalityPrefix: String = "",  // ✅ Personality mode prefix injected from view
         onChunk: @escaping (String) -> Void,
         onComplete: @escaping (BereanMessage) -> Void,
         onError: @escaping (Error) -> Void
@@ -3187,11 +3493,13 @@ class BereanViewModel: ObservableObject {
                 // Stream response from Genkit with timeout monitoring
                 // ⚡ Use limited history and response mode parameters for cost control
                 for try await chunk in genkitService.sendMessage(
-                    query, 
+                    query,
                     conversationHistory: recentHistory,
                     maxTokens: responseMode.maxTokens,
                     temperature: responseMode.temperature,
-                    systemPromptSuffix: responseMode.systemPromptSuffix
+                    // Combine personality prefix (voice/tone) with response mode suffix (depth/format).
+                    // The personality prefix is injected by the view at call time.
+                    systemPromptSuffix: (personalityPrefix.isEmpty ? "" : personalityPrefix + " ") + responseMode.systemPromptSuffix
                 ) {
                     // ✅ Check if task was cancelled
                     if Task.isCancelled {
@@ -3381,8 +3689,10 @@ class BereanViewModel: ObservableObject {
     }
     
     private func isValidReference(_ reference: String) -> Bool {
-        // Parse book name and chapter
-        let components = reference.components(separatedBy: " ")
+        // Parse book name and chapter — trim whitespace/newlines first so leading
+        // newlines from regex captures don't produce empty components.
+        let trimmed = reference.trimmingCharacters(in: .whitespacesAndNewlines)
+        let components = trimmed.components(separatedBy: " ").filter { !$0.isEmpty }
         guard components.count >= 2 else { return false }
         
         // Handle multi-word book names (e.g., "1 Corinthians", "Song of Solomon")
@@ -4504,5 +4814,77 @@ enum BereanResponseMode: String, CaseIterable {
         }
     }
 }
+
+// MARK: - Berean Personality Mode
+
+/// Controls the persona/voice of Berean AI (not the response depth — that's BereanResponseMode).
+/// The selected mode is injected as a prefix in the system prompt so the AI's tone and focus shift.
+enum BereanPersonalityMode: String, CaseIterable, Identifiable {
+    case shepherd   = "Shepherd"
+    case scholar    = "Scholar"
+    case coach      = "Coach"
+    case builder    = "Builder"
+    case strategist = "Strategist"
+    case creator    = "Creator"
+    case debater    = "Debater"
+    var id: String { rawValue }
+
+    var icon: String {
+        switch self {
+        case .shepherd:   return "person.crop.circle.fill"
+        case .scholar:    return "graduationcap.fill"
+        case .coach:      return "figure.run"
+        case .builder:    return "hammer.fill"
+        case .strategist: return "checklist"
+        case .creator:    return "paintbrush.fill"
+        case .debater:    return "text.bubble.fill"
+        }
+    }
+
+    var description: String {
+        switch self {
+        case .shepherd:   return "Gentle pastoral guidance"
+        case .scholar:    return "Deep theological analysis"
+        case .coach:      return "Practical daily application"
+        case .builder:    return "Faith-building encouragement"
+        case .strategist: return "Structured study planning"
+        case .creator:    return "Creative devotional content"
+        case .debater:    return "Socratic faith exploration"
+        }
+    }
+
+    /// Injected at the start of the system prompt to set tone and focus.
+    var systemPromptPrefix: String {
+        switch self {
+        case .shepherd:
+            return "You are Berean in Shepherd mode: warm, pastoral, and comforting. " +
+                   "Respond like a caring pastor who listens first and grounds every answer in " +
+                   "Scripture's comfort and grace."
+        case .scholar:
+            return "You are Berean in Scholar mode: precise, rigorous, and academically thorough. " +
+                   "Prioritize original language insights, historical-grammatical context, and " +
+                   "citations from credible theological sources."
+        case .coach:
+            return "You are Berean in Coach mode: practical, action-oriented, and encouraging. " +
+                   "Connect every Scripture answer to a concrete step the user can take today."
+        case .builder:
+            return "You are Berean in Builder mode: constructive, discipleship-focused, and " +
+                   "progressive. Help the user build their faith systematically, brick by brick."
+        case .strategist:
+            return "You are Berean in Strategist mode: structured, analytical, and goal-oriented. " +
+                   "Provide well-organized frameworks for Bible study, prayer plans, or spiritual " +
+                   "growth goals."
+        case .creator:
+            return "You are Berean in Creator mode: imaginative, reflective, and devotional. " +
+                   "Craft responses that inspire worship, creativity, and personal meditation on " +
+                   "God's Word."
+        case .debater:
+            return "You are Berean in Debater mode: intellectually rigorous and Socratic. " +
+                   "Engage theological questions with careful reasoning, present multiple " +
+                   "perspectives fairly, and always anchor conclusions in Scripture."
+        }
+    }
+}
+
 
 

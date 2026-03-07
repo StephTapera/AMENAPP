@@ -26,7 +26,7 @@ struct Post: Identifiable, Codable, Equatable {
     let authorName: String
     let authorUsername: String?  // Optional username (e.g., @johndoe)
     let authorInitials: String
-    let authorProfileImageURL: String?  // Profile image URL
+    var authorProfileImageURL: String?  // Profile image URL (var for profile-refresh updates)
     let timeAgo: String
     var content: String  // Made mutable for editing
     let category: PostCategory
@@ -36,10 +36,13 @@ struct Post: Identifiable, Codable, Equatable {
     var commentPermissions: CommentPermissions? // Who can comment
     let imageURLs: [String]?
     let linkURL: String?
-    let linkPreviewTitle: String?  // Link preview title
-    let linkPreviewDescription: String?  // Link preview description
-    let linkPreviewImageURL: String?  // Link preview image
-    let linkPreviewSiteName: String?  // Link preview site name
+    let linkPreviewTitle: String?      // Link preview title
+    let linkPreviewDescription: String? // Link preview description
+    let linkPreviewImageURL: String?   // Link preview image
+    let linkPreviewSiteName: String?   // Link preview site name
+    let linkPreviewType: String?       // "link" | "verse"
+    let verseReference: String?        // e.g. "John 3:16"
+    let verseText: String?             // verse body text (optional)
     let createdAt: Date
     var amenCount: Int
     var lightbulbCount: Int
@@ -50,11 +53,21 @@ struct Post: Identifiable, Codable, Equatable {
     var originalAuthorId: String? = nil // Track original author ID if repost
     var churchNoteId: String? = nil // Optional church note ID if post contains a shared note
     var mentions: [MentionedUser]? = nil // User mentions in this post
+    var taggedUserIds: [String]? = nil // Users explicitly tagged in this post
+    var tagStatusByUid: [String: String]? = nil // "approved" | "pending" per tagged user
     
     // Translation metadata
     var originalContent: String? = nil // Original content before translation
     var detectedLanguage: String? = nil // Detected source language (ISO 639-1 code)
     var isTranslated: Bool = false // Whether this post is currently showing translated content
+
+    // Content source — set when user acknowledges the content is not fully their own
+    // e.g. "ChatGPT", "External" — nil means organic/original
+    var contentSource: String? = nil
+
+    // Moderation metadata (set by server-side onPostCreate trigger)
+    var flaggedForReview: Bool = false // Post is under review by moderators
+    var removed: Bool = false // Post was removed by automated moderation
 
     enum PostCategory: String, Codable, CaseIterable {
         case openTable = "openTable"      // ✅ Firebase-safe (no special chars)
@@ -122,10 +135,14 @@ struct Post: Identifiable, Codable, Equatable {
     enum CodingKeys: String, CodingKey {
         case id, firebaseId, authorId, authorName, authorUsername, authorInitials, authorProfileImageURL, timeAgo
         case content, category, topicTag, visibility, allowComments, commentPermissions
-        case imageURLs, linkURL, linkPreviewTitle, linkPreviewDescription, linkPreviewImageURL, linkPreviewSiteName, createdAt
+        case imageURLs, linkURL, linkPreviewTitle, linkPreviewDescription, linkPreviewImageURL, linkPreviewSiteName
+        case linkPreviewType, verseReference, verseText
+        case createdAt
         case amenCount, lightbulbCount, commentCount, repostCount
         case isRepost, originalAuthorName, originalAuthorId, churchNoteId, mentions
+        case taggedUserIds, tagStatusByUid
         case originalContent, detectedLanguage, isTranslated
+        case contentSource
     }
     
     init(from decoder: Decoder) throws {
@@ -157,6 +174,9 @@ struct Post: Identifiable, Codable, Equatable {
         linkPreviewDescription = try container.decodeIfPresent(String.self, forKey: .linkPreviewDescription)
         linkPreviewImageURL = try container.decodeIfPresent(String.self, forKey: .linkPreviewImageURL)
         linkPreviewSiteName = try container.decodeIfPresent(String.self, forKey: .linkPreviewSiteName)
+        linkPreviewType = try container.decodeIfPresent(String.self, forKey: .linkPreviewType)
+        verseReference = try container.decodeIfPresent(String.self, forKey: .verseReference)
+        verseText = try container.decodeIfPresent(String.self, forKey: .verseText)
         createdAt = try container.decode(Date.self, forKey: .createdAt)
         amenCount = try container.decode(Int.self, forKey: .amenCount)
         lightbulbCount = try container.decode(Int.self, forKey: .lightbulbCount)
@@ -167,9 +187,12 @@ struct Post: Identifiable, Codable, Equatable {
         originalAuthorId = try container.decodeIfPresent(String.self, forKey: .originalAuthorId)
         churchNoteId = try container.decodeIfPresent(String.self, forKey: .churchNoteId)
         mentions = try container.decodeIfPresent([MentionedUser].self, forKey: .mentions)
+        taggedUserIds = try container.decodeIfPresent([String].self, forKey: .taggedUserIds)
+        tagStatusByUid = try container.decodeIfPresent([String: String].self, forKey: .tagStatusByUid)
         originalContent = try container.decodeIfPresent(String.self, forKey: .originalContent)
         detectedLanguage = try container.decodeIfPresent(String.self, forKey: .detectedLanguage)
         isTranslated = try container.decodeIfPresent(Bool.self, forKey: .isTranslated) ?? false
+        contentSource = try container.decodeIfPresent(String.self, forKey: .contentSource)
     }
     
     func encode(to encoder: Encoder) throws {
@@ -195,6 +218,9 @@ struct Post: Identifiable, Codable, Equatable {
         try container.encodeIfPresent(linkPreviewDescription, forKey: .linkPreviewDescription)
         try container.encodeIfPresent(linkPreviewImageURL, forKey: .linkPreviewImageURL)
         try container.encodeIfPresent(linkPreviewSiteName, forKey: .linkPreviewSiteName)
+        try container.encodeIfPresent(linkPreviewType, forKey: .linkPreviewType)
+        try container.encodeIfPresent(verseReference, forKey: .verseReference)
+        try container.encodeIfPresent(verseText, forKey: .verseText)
         try container.encode(createdAt, forKey: .createdAt)
         try container.encode(amenCount, forKey: .amenCount)
         try container.encode(lightbulbCount, forKey: .lightbulbCount)
@@ -205,9 +231,12 @@ struct Post: Identifiable, Codable, Equatable {
         try container.encodeIfPresent(originalAuthorId, forKey: .originalAuthorId)
         try container.encodeIfPresent(churchNoteId, forKey: .churchNoteId)
         try container.encodeIfPresent(mentions, forKey: .mentions)
+        try container.encodeIfPresent(taggedUserIds, forKey: .taggedUserIds)
+        try container.encodeIfPresent(tagStatusByUid, forKey: .tagStatusByUid)
         try container.encodeIfPresent(originalContent, forKey: .originalContent)
         try container.encodeIfPresent(detectedLanguage, forKey: .detectedLanguage)
         try container.encode(isTranslated, forKey: .isTranslated)
+        try container.encodeIfPresent(contentSource, forKey: .contentSource)
     }
     
     init(
@@ -231,6 +260,9 @@ struct Post: Identifiable, Codable, Equatable {
         linkPreviewDescription: String? = nil,
         linkPreviewImageURL: String? = nil,
         linkPreviewSiteName: String? = nil,
+        linkPreviewType: String? = nil,
+        verseReference: String? = nil,
+        verseText: String? = nil,
         createdAt: Date = Date(),
         amenCount: Int = 0,
         lightbulbCount: Int = 0,
@@ -239,7 +271,8 @@ struct Post: Identifiable, Codable, Equatable {
         isRepost: Bool = false,
         originalAuthorName: String? = nil,
         originalAuthorId: String? = nil,
-        churchNoteId: String? = nil
+        churchNoteId: String? = nil,
+        contentSource: String? = nil
     ) {
         self.id = id
         self.firebaseId = firebaseId
@@ -261,6 +294,9 @@ struct Post: Identifiable, Codable, Equatable {
         self.linkPreviewDescription = linkPreviewDescription
         self.linkPreviewImageURL = linkPreviewImageURL
         self.linkPreviewSiteName = linkPreviewSiteName
+        self.linkPreviewType = linkPreviewType
+        self.verseReference = verseReference
+        self.verseText = verseText
         self.createdAt = createdAt
         self.amenCount = amenCount
         self.lightbulbCount = lightbulbCount
@@ -270,6 +306,7 @@ struct Post: Identifiable, Codable, Equatable {
         self.originalAuthorName = originalAuthorName
         self.originalAuthorId = originalAuthorId
         self.churchNoteId = churchNoteId
+        self.contentSource = contentSource
     }
 
     var backendId: String {
@@ -292,18 +329,20 @@ class PostsManager: ObservableObject {
     private let firebasePostService = FirebasePostService.shared
     private let personalizationService = PersonalizationService.shared
     private var profileUpdateListeners: [String: Any] = [:] // Store Firestore listeners
+    private var profileRefreshTask: Task<Void, Never>? // Batch profile refresh loop — must be cancelled on cleanup
     
     private var cancellables = Set<AnyCancellable>()
 
     private init() {
-        // Setup real-time sync with FirebasePostService using Combine
+        // Setup real-time sync with FirebasePostService using Combine.
+        // Posts flow in via the Combine sink when FirebasePostService's listener delivers data
+        // (started by AMENAPPApp.onAppear → FirebasePostService.startListening).
+        // Do NOT call fetchAllPosts() here — that causes a duplicate Firestore round-trip
+        // on startup, racing with preloadCacheSync() and the real-time listener.
         setupFirebaseSync()
         
-        // PERFORMANCE FIX: Eagerly load posts from cache on init
-        // Don't start listener here - let views control their own listeners
         Task {
-            await loadPostsFromFirebase()
-            // Start listening for profile picture updates
+            // Start listening for profile picture updates (batch timer, not per-post listener)
             await startListeningForProfileUpdates()
         }
     }
@@ -315,56 +354,46 @@ class PostsManager: ObservableObject {
         // - Use removeDuplicates() instead to prevent redundant updates
         // - Debounce only after initial load for rapid server updates
         
-        var prayerInitialLoad = true
-        var testimoniesInitialLoad = true
-        var openTableInitialLoad = true
-        var allPostsInitialLoad = true
-        
         // Listen to prayer posts changes
         firebasePostService.$prayerPosts
             .removeDuplicates { $0.count == $1.count && $0.first?.id == $1.first?.id }
-            .handleEvents(receiveOutput: { _ in prayerInitialLoad = false })
             .receive(on: DispatchQueue.main)
             .sink { [weak self] newPosts in
                 guard let self = self else { return }
                 self.prayerPosts = newPosts
-                print("🔄 Prayer posts updated: \(newPosts.count) posts")
+                #if DEBUG
+                dlog("🔄 Prayer posts updated: \(newPosts.count) posts")
+                #endif
             }
             .store(in: &cancellables)
 
         // Listen to testimonies posts changes
         firebasePostService.$testimoniesPosts
             .removeDuplicates { $0.count == $1.count && $0.first?.id == $1.first?.id }
-            .handleEvents(receiveOutput: { _ in testimoniesInitialLoad = false })
             .receive(on: DispatchQueue.main)
             .sink { [weak self] newPosts in
                 guard let self = self else { return }
                 self.testimoniesPosts = newPosts
-                print("🔄 Testimonies posts updated: \(newPosts.count) posts")
             }
             .store(in: &cancellables)
 
         // Listen to open table posts changes
         firebasePostService.$openTablePosts
             .removeDuplicates { $0.count == $1.count && $0.first?.id == $1.first?.id }
-            .handleEvents(receiveOutput: { _ in openTableInitialLoad = false })
             .receive(on: DispatchQueue.main)
             .sink { [weak self] newPosts in
                 guard let self = self else { return }
                 self.openTablePosts = newPosts
-                print("⚡️ OpenTable posts updated: \(newPosts.count) posts (instant)")
             }
             .store(in: &cancellables)
 
         // Listen to all posts changes
         firebasePostService.$posts
             .removeDuplicates { $0.count == $1.count && $0.first?.id == $1.first?.id }
-            .handleEvents(receiveOutput: { _ in allPostsInitialLoad = false })
             .receive(on: DispatchQueue.main)
             .sink { [weak self] newPosts in
                 guard let self = self else { return }
                 self.allPosts = newPosts
-                print("🔄 All posts updated: \(newPosts.count) posts")
             }
             .store(in: &cancellables)
     }
@@ -373,13 +402,9 @@ class PostsManager: ObservableObject {
     
     func loadPostsFromFirebase() async {
         // Skip loading if user is not authenticated
-        guard Auth.auth().currentUser != nil else {
-            print("⏭️ Skipping post load - user not authenticated")
-            return
-        }
-        
+        guard Auth.auth().currentUser != nil else { return }
+
         do {
-            print("📥 Loading posts from Firebase...")
             try await firebasePostService.fetchAllPosts()
             
             // ✅ Don't start listener here - let individual views handle it with their category filters
@@ -392,10 +417,10 @@ class PostsManager: ObservableObject {
                 self.testimoniesPosts = firebasePostService.testimoniesPosts
                 self.prayerPosts = firebasePostService.prayerPosts
                 
-                print("✅ Posts loaded: \(allPosts.count) total, \(prayerPosts.count) prayer, \(testimoniesPosts.count) testimonies, \(openTablePosts.count) openTable")
+                dlog("✅ Posts loaded: \(allPosts.count) total, \(prayerPosts.count) prayer, \(testimoniesPosts.count) testimonies, \(openTablePosts.count) openTable")
             }
         } catch {
-            print("❌ Failed to load posts from Firebase: \(error)")
+            dlog("❌ Failed to load posts from Firebase: \(error)")
             self.error = error.localizedDescription
         }
     }
@@ -430,11 +455,8 @@ class PostsManager: ObservableObject {
                     churchNoteId: churchNoteId
                 )
                 
-                print("✅ Post created successfully")
-                
-                // Real-time listener will automatically update the UI
-                // But we can manually refresh if needed
-                await refreshPosts()
+                // Real-time Combine publisher in setupFirebaseSync() will automatically
+                // propagate the new post — no manual refresh needed.
                 
                 // Post notification for UI update
                 NotificationCenter.default.post(
@@ -444,7 +466,7 @@ class PostsManager: ObservableObject {
                 )
                 
             } catch {
-                print("❌ Failed to create post: \(error)")
+                dlog("❌ Failed to create post: \(error)")
                 self.error = error.localizedDescription
             }
         }
@@ -474,7 +496,7 @@ class PostsManager: ObservableObject {
         topicTag: String? = nil
     ) async {
         do {
-            print("📥 Fetching filtered posts: category=\(category.rawValue), filter=\(filter), topicTag=\(topicTag ?? "none")")
+            dlog("📥 Fetching filtered posts: category=\(category.rawValue), filter=\(filter), topicTag=\(topicTag ?? "none")")
             
             let posts = try await firebasePostService.fetchPosts(
                 for: category,
@@ -504,10 +526,10 @@ class PostsManager: ObservableObject {
                 break
             }
             
-            print("✅ Updated \(category.rawValue) posts with \(finalPosts.count) items (personalized: \(filter == "For You"))")
+            dlog("✅ Updated \(category.rawValue) posts with \(finalPosts.count) items (personalized: \(filter == "For You"))")
             
         } catch {
-            print("❌ Failed to fetch filtered posts: \(error)")
+            dlog("❌ Failed to fetch filtered posts: \(error)")
             self.error = error.localizedDescription
         }
     }
@@ -515,11 +537,11 @@ class PostsManager: ObservableObject {
     // MARK: - Edit Post
     
     func editPost(postId: UUID, newContent: String) {
-        Task {
+        Task { @MainActor in
             do {
                 try await firebasePostService.editPost(postId: postId.uuidString, newContent: newContent)
                 
-                print("✅ Post edited successfully")
+                dlog("✅ Post edited successfully")
                 
                 // Update local cache
                 updatePostInAllArrays(postId: postId) { post in
@@ -540,7 +562,7 @@ class PostsManager: ObservableObject {
                 haptic.notificationOccurred(.success)
                 
             } catch {
-                print("❌ Failed to edit post: \(error)")
+                dlog("❌ Failed to edit post: \(error)")
                 self.error = error.localizedDescription
             }
         }
@@ -553,7 +575,7 @@ class PostsManager: ObservableObject {
             do {
                 try await firebasePostService.deletePost(postId: postId.uuidString)
                 
-                print("✅ Post deleted successfully")
+                dlog("✅ Post deleted successfully")
                 
                 // Remove from local arrays
                 allPosts.removeAll { $0.id == postId }
@@ -573,7 +595,7 @@ class PostsManager: ObservableObject {
                 haptic.notificationOccurred(.warning)
                 
             } catch {
-                print("❌ Failed to delete post: \(error)")
+                dlog("❌ Failed to delete post: \(error)")
                 self.error = error.localizedDescription
             }
         }
@@ -582,20 +604,20 @@ class PostsManager: ObservableObject {
     // MARK: - Repost to Profile
     
     func repostToProfile(originalPost: Post, userInitials: String = "JD", userName: String = "John Disciple") {
-        print("🔵 [POSTSMANAGER] repostToProfile() called for post: \(originalPost.firestoreId)")
+        dlog("🔵 [POSTSMANAGER] repostToProfile() called for post: \(originalPost.firestoreId)")
         Task {
             do {
-                print("🔵 [POSTSMANAGER] Calling RealtimeRepostsService.repostPost()...")
+                dlog("🔵 [POSTSMANAGER] Calling RealtimeRepostsService.repostPost()...")
                 // Use RealtimeRepostsService for reposts
                 try await RealtimeRepostsService.shared.repostPost(postId: originalPost.id, originalPost: originalPost)
 
-                print("✅ Post reposted successfully via RealtimeRepostsService")
+                dlog("✅ Post reposted successfully via RealtimeRepostsService")
 
                 // Notification is already sent by RealtimeRepostsService
                 // No need to send duplicate notification here
 
             } catch {
-                print("❌ Failed to repost: \(error)")
+                dlog("❌ Failed to repost: \(error)")
                 self.error = error.localizedDescription
             }
         }
@@ -609,7 +631,7 @@ class PostsManager: ObservableObject {
                 // ✅ Pass Firestore ID instead of UUID
                 try await RealtimeRepostsService.shared.undoRepost(firestoreId: firestoreId)
 
-                print("✅ Repost removed successfully via RealtimeRepostsService")
+                dlog("✅ Repost removed successfully via RealtimeRepostsService")
 
                 // Remove from local cache
                 allPosts.removeAll { $0.id == postId && $0.isRepost }
@@ -618,7 +640,7 @@ class PostsManager: ObservableObject {
                 prayerPosts.removeAll { $0.id == postId && $0.isRepost }
 
             } catch {
-                print("❌ Failed to remove repost: \(error)")
+                dlog("❌ Failed to remove repost: \(error)")
                 self.error = error.localizedDescription
             }
         }
@@ -627,7 +649,7 @@ class PostsManager: ObservableObject {
     // MARK: - Update Post Interactions
     
     func updateAmenCount(postId: UUID, increment: Bool) {
-        Task {
+        Task { @MainActor in
             do {
                 try await firebasePostService.toggleAmen(postId: postId.uuidString)
                 
@@ -638,13 +660,13 @@ class PostsManager: ObservableObject {
                     return updatedPost
                 }
             } catch {
-                print("❌ Failed to update amen count: \(error)")
+                dlog("❌ Failed to update amen count: \(error)")
             }
         }
     }
     
     func updateLightbulbCount(postId: UUID, increment: Bool) {
-        Task {
+        Task { @MainActor in
             do {
                 try await firebasePostService.toggleLightbulb(postId: postId.uuidString)
                 
@@ -655,13 +677,13 @@ class PostsManager: ObservableObject {
                     return updatedPost
                 }
             } catch {
-                print("❌ Failed to update lightbulb count: \(error)")
+                dlog("❌ Failed to update lightbulb count: \(error)")
             }
         }
     }
     
     func updateCommentCount(postId: UUID, increment: Bool) {
-        Task {
+        Task { @MainActor in
             do {
                 if increment {
                     try await firebasePostService.incrementCommentCount(postId: postId.uuidString)
@@ -674,11 +696,12 @@ class PostsManager: ObservableObject {
                     return updatedPost
                 }
             } catch {
-                print("❌ Failed to update comment count: \(error)")
+                dlog("❌ Failed to update comment count: \(error)")
             }
         }
     }
     
+    @MainActor
     func updateRepostCount(postId: UUID, increment: Bool) {
         // This is handled automatically by repostToProfile
         updatePostInAllArrays(postId: postId) { post in
@@ -690,6 +713,7 @@ class PostsManager: ObservableObject {
     
     // MARK: - Helper Methods
     
+    @MainActor
     private func updatePostInAllArrays(postId: UUID, update: (Post) -> Post) {
         // Update in all posts
         if let index = allPosts.firstIndex(where: { $0.id == postId }) {
@@ -715,17 +739,20 @@ class PostsManager: ObservableObject {
     /// P0 FIX: Replace N+1 real-time listeners with periodic batch updates
     /// Instead of 50-100 listeners, use a single timer to refresh profile images every 5 minutes
     private func startListeningForProfileUpdates() async {
-        print("👂 [PERF FIX] Using batch profile updates instead of individual listeners")
+        dlog("👂 [PERF FIX] Using batch profile updates instead of individual listeners")
         
-        // Start a timer to refresh profile images every 5 minutes
-        Task {
+        // Start a timer to refresh profile images every 5 minutes.
+        // Stored so it can be cancelled when the manager is done.
+        profileRefreshTask?.cancel()
+        profileRefreshTask = Task {
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 300_000_000_000) // 5 minutes
+                guard !Task.isCancelled else { break }
                 await refreshProfileImages()
             }
         }
         
-        print("✅ Batch profile update timer started (5 min intervals)")
+        dlog("✅ Batch profile update timer started (5 min intervals)")
     }
     
     /// Batch refresh profile images for all unique authors
@@ -742,7 +769,7 @@ class PostsManager: ObservableObject {
         
         guard !authorIds.isEmpty else { return }
         
-        print("🔄 Refreshing profile images for \(authorIds.count) authors...")
+        dlog("🔄 Refreshing profile images for \(authorIds.count) authors...")
         
         // Batch fetch user profiles (10 at a time due to Firestore 'in' limit)
         let authorIdArray = Array(authorIds)
@@ -762,7 +789,7 @@ class PostsManager: ObservableObject {
                     }
                 }
             } catch {
-                print("⚠️ Failed to batch fetch profiles: \(error)")
+                dlog("⚠️ Failed to batch fetch profiles: \(error)")
             }
         }
     }
@@ -772,10 +799,10 @@ class PostsManager: ObservableObject {
     /// Call this from view onDisappear blocks
     @MainActor
     func stopListeningForProfileUpdates() {
-        print("🛑 Stopping \(profileUpdateListeners.count) profile picture listeners...")
+        dlog("🛑 Stopping \(profileUpdateListeners.count) profile picture listeners...")
         
         // Remove all Firestore listeners
-        for (authorId, listener) in profileUpdateListeners {
+        for (_, listener) in profileUpdateListeners {
             if let firestoreListener = listener as? ListenerRegistration {
                 firestoreListener.remove()
             }
@@ -784,140 +811,43 @@ class PostsManager: ObservableObject {
         // Clear the dictionary
         profileUpdateListeners.removeAll()
         
-        print("✅ All profile listeners stopped")
+        // Cancel the background refresh loop
+        profileRefreshTask?.cancel()
+        profileRefreshTask = nil
+        
+        dlog("✅ All profile listeners stopped")
     }
     
     /// Update all posts from a specific user with their new profile image
     private func updatePostsForUser(userId: String, newProfileImageURL: String) {
-        print("🔄 Updating posts for user \(userId) with new profile picture")
-        
+        // P2 PERF FIX: Single pass over allPosts, then derive category arrays —
+        // replaces the previous 4× separate .map that iterated every array independently.
         var postsUpdated = 0
-        
-        // Update all posts arrays
+
         allPosts = allPosts.map { post in
             guard post.authorId == userId else { return post }
             postsUpdated += 1
-            return Post(
-                id: post.id,
-                firebaseId: post.firebaseId,
-                authorId: post.authorId,
-                authorName: post.authorName,
-                authorUsername: post.authorUsername,
-                authorInitials: post.authorInitials,
-                authorProfileImageURL: newProfileImageURL,
-                timeAgo: post.timeAgo,
-                content: post.content,
-                category: post.category,
-                topicTag: post.topicTag,
-                visibility: post.visibility,
-                allowComments: post.allowComments,
-                imageURLs: post.imageURLs,
-                linkURL: post.linkURL,
-                createdAt: post.createdAt,
-                amenCount: post.amenCount,
-                lightbulbCount: post.lightbulbCount,
-                commentCount: post.commentCount,
-                repostCount: post.repostCount,
-                isRepost: post.isRepost,
-                originalAuthorName: post.originalAuthorName,
-                originalAuthorId: post.originalAuthorId
-            )
+            var updated = post
+            updated.authorProfileImageURL = newProfileImageURL
+            return updated
         }
-        
-        openTablePosts = openTablePosts.map { post in
-            guard post.authorId == userId else { return post }
-            return Post(
-                id: post.id,
-                firebaseId: post.firebaseId,
-                authorId: post.authorId,
-                authorName: post.authorName,
-                authorUsername: post.authorUsername,
-                authorInitials: post.authorInitials,
-                authorProfileImageURL: newProfileImageURL,
-                timeAgo: post.timeAgo,
-                content: post.content,
-                category: post.category,
-                topicTag: post.topicTag,
-                visibility: post.visibility,
-                allowComments: post.allowComments,
-                imageURLs: post.imageURLs,
-                linkURL: post.linkURL,
-                createdAt: post.createdAt,
-                amenCount: post.amenCount,
-                lightbulbCount: post.lightbulbCount,
-                commentCount: post.commentCount,
-                repostCount: post.repostCount,
-                isRepost: post.isRepost,
-                originalAuthorName: post.originalAuthorName,
-                originalAuthorId: post.originalAuthorId
-            )
+
+        // Derive category arrays from the already-updated allPosts (no extra iteration)
+        openTablePosts  = allPosts.filter { $0.category == .openTable }
+        testimoniesPosts = allPosts.filter { $0.category == .testimonies }
+        prayerPosts     = allPosts.filter { $0.category == .prayer }
+
+        #if DEBUG
+        if postsUpdated > 0 {
+            dlog("✅ Updated \(postsUpdated) posts with new profile picture for \(userId)")
         }
-        
-        testimoniesPosts = testimoniesPosts.map { post in
-            guard post.authorId == userId else { return post }
-            return Post(
-                id: post.id,
-                firebaseId: post.firebaseId,
-                authorId: post.authorId,
-                authorName: post.authorName,
-                authorUsername: post.authorUsername,
-                authorInitials: post.authorInitials,
-                authorProfileImageURL: newProfileImageURL,
-                timeAgo: post.timeAgo,
-                content: post.content,
-                category: post.category,
-                topicTag: post.topicTag,
-                visibility: post.visibility,
-                allowComments: post.allowComments,
-                imageURLs: post.imageURLs,
-                linkURL: post.linkURL,
-                createdAt: post.createdAt,
-                amenCount: post.amenCount,
-                lightbulbCount: post.lightbulbCount,
-                commentCount: post.commentCount,
-                repostCount: post.repostCount,
-                isRepost: post.isRepost,
-                originalAuthorName: post.originalAuthorName,
-                originalAuthorId: post.originalAuthorId
-            )
-        }
-        
-        prayerPosts = prayerPosts.map { post in
-            guard post.authorId == userId else { return post }
-            return Post(
-                id: post.id,
-                firebaseId: post.firebaseId,
-                authorId: post.authorId,
-                authorName: post.authorName,
-                authorUsername: post.authorUsername,
-                authorInitials: post.authorInitials,
-                authorProfileImageURL: newProfileImageURL,
-                timeAgo: post.timeAgo,
-                content: post.content,
-                category: post.category,
-                topicTag: post.topicTag,
-                visibility: post.visibility,
-                allowComments: post.allowComments,
-                imageURLs: post.imageURLs,
-                linkURL: post.linkURL,
-                createdAt: post.createdAt,
-                amenCount: post.amenCount,
-                lightbulbCount: post.lightbulbCount,
-                commentCount: post.commentCount,
-                repostCount: post.repostCount,
-                isRepost: post.isRepost,
-                originalAuthorName: post.originalAuthorName,
-                originalAuthorId: post.originalAuthorId
-            )
-        }
-        
-        print("✅ Updated \(postsUpdated) posts with new profile picture")
+        #endif
     }
     
     /// Sync all posts with fresh user profile images from Firestore
     /// This ensures profile pictures are always up-to-date when the app opens
     func syncAllPostsWithUserProfiles() async {
-        print("🔄 Syncing all posts with user profile images...")
+        dlog("🔄 Syncing all posts with user profile images...")
         
         let db = Firestore.firestore()
         
@@ -931,11 +861,11 @@ class PostsManager: ObservableObject {
         }
         
         guard !authorIds.isEmpty else {
-            print("ℹ️ No posts to sync")
+            dlog("ℹ️ No posts to sync")
             return
         }
         
-        print("📊 Found \(authorIds.count) unique authors to sync")
+        dlog("📊 Found \(authorIds.count) unique authors to sync")
         
         // Fetch fresh profile data for all authors
         var profileImageMap: [String: String] = [:]
@@ -950,11 +880,11 @@ class PostsManager: ObservableObject {
                     profileImageMap[authorId] = profileImageURL
                 }
             } catch {
-                print("⚠️ Failed to fetch profile for user \(authorId): \(error)")
+                dlog("⚠️ Failed to fetch profile for user \(authorId): \(error)")
             }
         }
         
-        print("✅ Fetched \(profileImageMap.count) profile images")
+        dlog("✅ Fetched \(profileImageMap.count) profile images")
         
         // Update all posts with fresh profile images
         await MainActor.run {
@@ -1014,7 +944,7 @@ class PostsManager: ObservableObject {
             self.testimoniesPosts = updatedTestimoniesPosts
             self.prayerPosts = updatedPrayerPosts
             
-            print("✅ Profile picture sync complete! Updated \(updatedAllPosts.count) posts")
+            dlog("✅ Profile picture sync complete! Updated \(updatedAllPosts.count) posts")
         }
     }
 }

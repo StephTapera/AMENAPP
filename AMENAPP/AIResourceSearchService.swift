@@ -8,7 +8,6 @@
 //
 
 import Foundation
-import FirebaseFirestore
 
 // MARK: - Search Result Model
 
@@ -23,8 +22,7 @@ struct AISearchResult: Identifiable {
 
 class AIResourceSearchService {
     static let shared = AIResourceSearchService()
-    private let db = Firestore.firestore()
-    
+
     private init() {}
     
     /// Search resources using natural language with AI
@@ -37,13 +35,12 @@ class AIResourceSearchService {
         allResources: [ResourceItem]
     ) async throws -> [AISearchResult] {
         
-        print("🔍 [AI SEARCH] Natural language query: \"\(query)\"")
+        dlog("[AISearch] Processing query")
         
         // Step 1: Call Firebase Cloud Function for AI analysis
         let aiAnalysis = try await analyzeSearchIntent(query: query)
         
-        print("🤖 [AI SEARCH] Intent: \(aiAnalysis.intent)")
-        print("🤖 [AI SEARCH] Keywords: \(aiAnalysis.keywords.joined(separator: ", "))")
+
         
         // Step 2: Rank resources based on AI analysis
         let rankedResults = rankResources(
@@ -51,7 +48,7 @@ class AIResourceSearchService {
             analysis: aiAnalysis
         )
         
-        print("✅ [AI SEARCH] Found \(rankedResults.count) relevant results")
+        dlog("[AISearch] \(rankedResults.count) results")
         
         return rankedResults
     }
@@ -60,7 +57,7 @@ class AIResourceSearchService {
     private func analyzeSearchIntent(query: String) async throws -> SearchIntent {
         
         // Use enhanced fallback that works immediately
-        print("🔍 [AI SEARCH] Using enhanced keyword analysis...")
+
         return analyzeSearchWithKeywords(query: query)
     }
     
@@ -144,7 +141,7 @@ class AIResourceSearchService {
         keywords = Array(Set(keywords))
         categories = Array(Set(categories))
         
-        print("🤖 [ENHANCED SEARCH] Intent: \(intent), Categories: \(categories.joined(separator: ", "))")
+
         
         return SearchIntent(
             intent: intent,
@@ -152,40 +149,6 @@ class AIResourceSearchService {
             categories: categories,
             sentiment: sentiment,
             urgency: urgency
-        )
-    }
-    
-    /// Wait for AI search analysis response
-    private func waitForSearchResponse(requestId: String) async throws -> SearchIntent {
-        for _ in 0..<6 { // 6 attempts × 0.5s = 3 seconds
-            try await Task.sleep(nanoseconds: 500_000_000)
-            
-            let snapshot = try await db.collection("aiSearchResults")
-                .document(requestId)
-                .getDocument()
-            
-            if snapshot.exists,
-               let data = snapshot.data(),
-               let intent = data["intent"] as? String,
-               let keywords = data["keywords"] as? [String],
-               let categories = data["categories"] as? [String],
-               let sentiment = data["sentiment"] as? String,
-               let urgency = data["urgency"] as? String {
-                
-                return SearchIntent(
-                    intent: intent,
-                    keywords: keywords,
-                    categories: categories,
-                    sentiment: sentiment,
-                    urgency: urgency
-                )
-            }
-        }
-        
-        throw NSError(
-            domain: "AIResourceSearch",
-            code: 408,
-            userInfo: [NSLocalizedDescriptionKey: "AI search timeout"]
         )
     }
     

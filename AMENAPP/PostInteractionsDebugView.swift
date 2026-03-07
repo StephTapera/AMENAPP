@@ -6,6 +6,7 @@
 //  Displays lightbulbs, amens, comments, reposts, and saved posts
 //
 
+#if DEBUG
 import SwiftUI
 import FirebaseAuth
 
@@ -463,3 +464,4 @@ struct PostInteractionsDebugView: View {
 #Preview {
     PostInteractionsDebugView()
 }
+#endif

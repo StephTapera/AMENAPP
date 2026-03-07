@@ -11,7 +11,7 @@ import SwiftUI
 
 struct DevotionalGeneratorView: View {
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var genkitService = BereanGenkitService.shared
+    @ObservedObject private var genkitService = BereanGenkitService.shared
     
     @State private var topic = ""
     @State private var devotional: Devotional?
@@ -320,7 +320,7 @@ struct DevotionalDisplay: View {
 
 struct StudyPlanGeneratorView: View {
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var genkitService = BereanGenkitService.shared
+    @ObservedObject private var genkitService = BereanGenkitService.shared
     
     @State private var topic = ""
     @State private var duration = 7
@@ -624,7 +624,7 @@ struct StudyPlanDisplay: View {
 
 struct ScriptureAnalyzerView: View {
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var genkitService = BereanGenkitService.shared
+    @ObservedObject private var genkitService = BereanGenkitService.shared
     
     @State private var reference = ""
     @State private var analysisType: ScriptureAnalysisType = .context

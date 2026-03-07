@@ -71,6 +71,7 @@ public enum FirebaseMessagingError: LocalizedError {
 
 // MARK: - Firebase Messaging Service
 
+@MainActor
 public class FirebaseMessagingService: ObservableObject {
     public static let shared = FirebaseMessagingService()
     
@@ -89,6 +90,7 @@ public class FirebaseMessagingService: ObservableObject {
     private var conversationsListener: ListenerRegistration?
     private var archivedConversationsListener: ListenerRegistration?
     private var messagesListeners: [String: ListenerRegistration] = [:]
+    var typingListeners: [String: ListenerRegistration] = [:]
     private var isListeningToConversations = false
     
     // Message pagination state
@@ -96,21 +98,23 @@ public class FirebaseMessagingService: ObservableObject {
     private var hasMoreMessages: [String: Bool] = [:] // conversationId: hasMore
     
     // P0 FIX: Prevent duplicate conversation creation during rapid calls
-    private var inflightConversationCreations: [String: Task<String, Error>] = [:] // userId: creation task
-    private let conversationCreationLock = NSLock()
+    // MainActor-isolated so dictionary access is implicitly serialized (no NSLock needed)
+    @MainActor private var inflightConversationCreations: [String: Task<String, Error>] = [:]
     
     private init() {
         // Note: Offline persistence is already configured in AppDelegate
         // Do NOT configure cache settings here - it must be done immediately after FirebaseApp.configure()
-        print("✅ FirebaseMessagingService initialized (using global Firestore settings)")
+        dlog("✅ FirebaseMessagingService initialized (using global Firestore settings)")
     }
     
     // P0-5 FIX: Clean up all message listeners on deallocation
+    // Note: deinit is nonisolated so we call remove() directly on the stored listeners.
+    // stopListeningToConversations() is @MainActor-isolated and cannot be called from deinit.
     deinit {
-        print("🧹 Cleaning up FirebaseMessagingService listeners")
-        stopListeningToConversations()
+        dlog("🧹 Cleaning up FirebaseMessagingService listeners")
+        conversationsListener?.remove()
+        archivedConversationsListener?.remove()
         messagesListeners.values.forEach { $0.remove() }
-        messagesListeners.removeAll()
     }
     
     // MARK: - Current User
@@ -184,10 +188,10 @@ public class FirebaseMessagingService: ObservableObject {
                 // Cache in UserDefaults
                 UserDefaults.standard.set(displayName, forKey: "currentUserDisplayName")
                 
-                print("✅ Current user name cached: \(displayName)")
+                dlog("✅ Current user name cached: \(displayName)")
             }
         } catch {
-            print("❌ Error fetching current user name: \(error)")
+            dlog("❌ Error fetching current user name: \(error)")
         }
     }
     
@@ -202,7 +206,7 @@ public class FirebaseMessagingService: ObservableObject {
         
         // Skip if already listening (prevents redundant calls)
         if isListeningToConversations {
-            print("⏭️ Already listening to conversations, skipping redundant call")
+            dlog("⏭️ Already listening to conversations, skipping redundant call")
             return
         }
         
@@ -213,6 +217,9 @@ public class FirebaseMessagingService: ObservableObject {
         isLoading = true
         lastError = nil
         
+        #if DEBUG
+        ListenerCounter.shared.attach("messaging-conversations")
+        #endif
         conversationsListener = db.collection("conversations")
             .whereField("participantIds", arrayContains: currentUserId)
             .order(by: "updatedAt", descending: true)
@@ -220,7 +227,7 @@ public class FirebaseMessagingService: ObservableObject {
                 guard let self = self else { return }
                 
                 if let error = error {
-                    print("❌ Error fetching conversations: \(error)")
+                    dlog("❌ Error fetching conversations: \(error)")
                     self.lastError = .networkError(error)
                     self.isLoading = false
                     return
@@ -256,76 +263,56 @@ public class FirebaseMessagingService: ObservableObject {
                     // P0-2 FIX: Skip if we've already processed this ID
                     if conversationsDict[convId] != nil {
                         skippedDuplicates += 1
-                        print("   ⏭️ [P0-2] Skipping duplicate conversation ID: \(convId)")
                         continue
                     }
-                    
-                    // Debug: Log each conversation
-                    print("   📋 Conv ID: \(convId), isGroup: \(firebaseConv.isGroup), name: \(firebaseConv.groupName ?? "N/A")")
-                    
+
                     // Check if conversation is archived for current user (array-based)
                     if let archivedBy = firebaseConv.archivedByArray,
                        archivedBy.contains(self.currentUserId) {
-                        print("   ⏭️ Skipping archived conversation: \(convId)")
                         continue
                     }
-                    
+
                     // Check if conversation is deleted for current user
                     if let deletedBy = firebaseConv.deletedBy,
                        deletedBy[self.currentUserId] == true {
-                        print("   ⏭️ Skipping deleted conversation: \(convId)")
                         continue
                     }
-                    
-                    // 🔍 DEBUG: Log conversation status details
-                    print("   📊 Conversation \(convId):")
-                    print("      Status: \(firebaseConv.conversationStatus ?? "nil")")
-                    print("      RequesterID: \(firebaseConv.requesterId ?? "nil")")
-                    print("      CurrentUserID: \(self.currentUserId)")
-                    print("      ✅ KEEPING: All conversations (filtering handled in MessagesView)")
-                    
+
                     let conversation = firebaseConv.toConversation()
                     conversationsDict[convId] = conversation
-                    print("      ➕ Added to conversations list")
-                }
-                
-                if skippedDuplicates > 0 {
-                    print("⚠️ [P0-2] Prevented \(skippedDuplicates) duplicate conversations at source")
                 }
                 
                 // P0-2 FIX: Convert to sorted array (already deduplicated)
                 self.conversations = conversationsDict.values.sorted { $0.timestamp > $1.timestamp }
-                
-                print("✅ Loaded \(self.conversations.count) unique conversations")
-                
-                // ✅ Log groups specifically
-                let groupCount = self.conversations.filter { $0.isGroup }.count
-                print("   🎨 Groups: \(groupCount)")
-                
-                // 🔍 DEBUG: Log breakdown of conversations
-                print("   📊 Final conversations breakdown:")
-                for conv in self.conversations {
-                    print("      - \(conv.id ?? "no-id"): name=\(conv.name)")
-                }
-                
+
                 self.isLoading = false
-                
-                // Log offline status
-                if let metadata = snapshot?.metadata {
-                    if metadata.isFromCache {
-                        print("📦 Conversations loaded from cache (offline mode)")
-                    } else {
-                        print("🌐 Conversations loaded from server")
-                    }
+
+                #if DEBUG
+                if skippedDuplicates > 0 {
+                    dlog("⚠️ [P0-2] Prevented \(skippedDuplicates) duplicate conversations")
                 }
+                if let metadata = snapshot?.metadata, metadata.isFromCache {
+                    dlog("📦 Conversations from cache (offline)")
+                }
+                #endif
             }
     }
     
     /// Stop listening to conversations
     func stopListeningToConversations() {
+        #if DEBUG
+        if conversationsListener != nil { ListenerCounter.shared.detach("messaging-conversations") }
+        #endif
         conversationsListener?.remove()
         conversationsListener = nil
         isListeningToConversations = false
+
+        // Also stop all per-conversation message and typing listeners to prevent
+        // permission_denied floods after sign-out.
+        messagesListeners.values.forEach { $0.remove() }
+        messagesListeners.removeAll()
+        typingListeners.values.forEach { $0.remove() }
+        typingListeners.removeAll()
     }
     
     /// Start listening to archived conversations for the current user
@@ -338,7 +325,7 @@ public class FirebaseMessagingService: ObservableObject {
         // Stop existing listener to prevent duplicates
         stopListeningToArchivedConversations()
         
-        print("👂 Starting real-time listener for archived conversations")
+        dlog("👂 Starting real-time listener for archived conversations")
         
         archivedConversationsListener = db.collection("conversations")
             .whereField("participantIds", arrayContains: currentUserId)
@@ -347,7 +334,7 @@ public class FirebaseMessagingService: ObservableObject {
                 guard let self = self else { return }
                 
                 if let error = error {
-                    print("❌ Error fetching archived conversations: \(error)")
+                    dlog("❌ Error fetching archived conversations: \(error)")
                     return
                 }
                 
@@ -372,12 +359,12 @@ public class FirebaseMessagingService: ObservableObject {
                         continue
                     }
                     
-                    print("   📦 Found archived: \(convId), name: \(firebaseConv.groupName ?? firebaseConv.participantNames.values.first ?? "Unknown")")
+                    dlog("   📦 Found archived: \(convId), name: \(firebaseConv.groupName ?? firebaseConv.participantNames.values.first ?? "Unknown")")
                     
                     // Don't include deleted conversations in archived list
                     if let deletedBy = firebaseConv.deletedBy,
                        deletedBy[self.currentUserId] == true {
-                        print("   ⏭️ Skipping deleted archived conversation: \(convId)")
+                        dlog("   ⏭️ Skipping deleted archived conversation: \(convId)")
                         continue
                     }
                     
@@ -391,14 +378,14 @@ public class FirebaseMessagingService: ObservableObject {
                         return conv1.timestamp > conv2.timestamp
                     }
                 
-                print("✅ Loaded \(self.archivedConversations.count) unique archived conversations")
+                dlog("✅ Loaded \(self.archivedConversations.count) unique archived conversations")
                 
                 // Log offline status
                 if let metadata = snapshot?.metadata {
                     if metadata.isFromCache {
-                        print("📦 Archived conversations loaded from cache (offline mode)")
+                        dlog("📦 Archived conversations loaded from cache (offline mode)")
                     } else {
-                        print("🌐 Archived conversations loaded from server")
+                        dlog("🌐 Archived conversations loaded from server")
                     }
                 }
             }
@@ -408,7 +395,7 @@ public class FirebaseMessagingService: ObservableObject {
     func stopListeningToArchivedConversations() {
         archivedConversationsListener?.remove()
         archivedConversationsListener = nil
-        print("🔇 Stopped listening to archived conversations")
+        dlog("🔇 Stopped listening to archived conversations")
     }
     
     /// Create a new conversation
@@ -445,7 +432,7 @@ public class FirebaseMessagingService: ObservableObject {
                     participantPhotoURLs[userId] = photoURL
                 }
             } catch {
-                print("⚠️ Failed to fetch profile photo for user \(userId): \(error)")
+                dlog("⚠️ Failed to fetch profile photo for user \(userId): \(error)")
                 // Continue - missing photo URLs are optional
             }
         }
@@ -478,22 +465,22 @@ public class FirebaseMessagingService: ObservableObject {
         ]
         
         // 🔍 DEBUG: Log conversation creation details
-        print("📝 Creating conversation:")
-        print("   ID: \(conversationRef.documentID)")
-        print("   Participants: \(allParticipantIds)")
-        print("   Status: \(finalStatus)")
-        print("   RequesterID: \(currentUserId)")
-        print("   IsGroup: \(isGroup)")
-        print("   Profile Photos: \(participantPhotoURLs.count) fetched")
+        dlog("📝 Creating conversation:")
+        dlog("   ID: \(conversationRef.documentID)")
+        dlog("   Participants: \(allParticipantIds)")
+        dlog("   Status: \(finalStatus)")
+        dlog("   RequesterID: \(currentUserId)")
+        dlog("   IsGroup: \(isGroup)")
+        dlog("   Profile Photos: \(participantPhotoURLs.count) fetched")
 
         do {
             try await conversationRef.setData(conversationData)
-            print("✅ Conversation created successfully: \(conversationRef.documentID)")
-            print("   Status saved: \(finalStatus)")
-            print("   RequesterID saved: \(currentUserId)")
+            dlog("✅ Conversation created successfully: \(conversationRef.documentID)")
+            dlog("   Status saved: \(finalStatus)")
+            dlog("   RequesterID saved: \(currentUserId)")
             return conversationRef.documentID
         } catch {
-            print("❌ Error creating conversation: \(error)")
+            dlog("❌ Error creating conversation: \(error)")
             throw FirebaseMessagingError.networkError(error)
         }
     }
@@ -527,24 +514,24 @@ public class FirebaseMessagingService: ObservableObject {
                 // Skip if conversation is deleted by current user
                 if let deletedBy = conversation.deletedBy,
                    deletedBy[currentUserId] == true {
-                    print("   ⏭️ Skipping deleted conversation: \(doc.documentID)")
+                    dlog("   ⏭️ Skipping deleted conversation: \(doc.documentID)")
                     continue
                 }
                 
                 // Skip if conversation is archived by current user
                 if let archivedBy = conversation.archivedByArray,
                    archivedBy.contains(currentUserId) {
-                    print("   ⏭️ Skipping archived conversation: \(doc.documentID)")
+                    dlog("   ⏭️ Skipping archived conversation: \(doc.documentID)")
                     continue
                 }
                 
-                print("✅ Found existing conversation: \(doc.documentID)")
+                dlog("✅ Found existing conversation: \(doc.documentID)")
                 return doc.documentID
             }
         }
         
         // ✅ STEP 2: No existing conversation - create new one
-        print("📝 Creating new conversation with \(userId)")
+        dlog("📝 Creating new conversation with \(userId)")
         return try await createConversation(
             participantIds: [userId],
             participantNames: [
@@ -576,12 +563,13 @@ public class FirebaseMessagingService: ObservableObject {
             }
             return conversation.toConversation()
         } catch {
-            print("❌ Error fetching conversation: \(error)")
+            dlog("❌ Error fetching conversation: \(error)")
             return nil
         }
     }
     
     /// Get or create a direct conversation with a user
+    @MainActor
     public func getOrCreateDirectConversation(
         withUserId userId: String,
         userName: String
@@ -596,27 +584,25 @@ public class FirebaseMessagingService: ObservableObject {
         }
         
         // P0 FIX: Check if there's already an inflight creation for this user
-        conversationCreationLock.lock()
+        // @MainActor isolation replaces NSLock — dictionary access is serialized on the main actor
         if let existingTask = inflightConversationCreations[userId] {
-            conversationCreationLock.unlock()
-            print("⏭️ Conversation creation already in progress for user: \(userId), waiting...")
+            dlog("⏭️ Conversation creation already in progress for user: \(userId), waiting...")
             return try await existingTask.value
         }
         
         // Create a new task for this conversation creation
         let creationTask = Task<String, Error> {
             defer {
-                // Clean up the inflight task when done
-                conversationCreationLock.lock()
-                inflightConversationCreations.removeValue(forKey: userId)
-                conversationCreationLock.unlock()
+                // Clean up the inflight task when done (back on MainActor)
+                Task { @MainActor in
+                    self.inflightConversationCreations.removeValue(forKey: userId)
+                }
             }
             
             return try await self._performConversationCreation(withUserId: userId, userName: userName)
         }
         
         inflightConversationCreations[userId] = creationTask
-        conversationCreationLock.unlock()
         
         return try await creationTask.value
     }
@@ -627,9 +613,10 @@ public class FirebaseMessagingService: ObservableObject {
         userName: String
     ) async throws -> String {
         do {
-            // Check if user is blocked - using the extension's methods
-            let isBlocked = try await checkIfBlocked(userId: userId)
-            let isBlockedBy = try await checkIfBlockedByUser(userId: userId)
+            // Run both block checks in parallel — cuts ~300-600ms off the common path
+            async let blockedResult = checkIfBlocked(userId: userId)
+            async let blockedByResult = checkIfBlockedByUser(userId: userId)
+            let (isBlocked, isBlockedBy) = try await (blockedResult, blockedByResult)
             
             if isBlocked || isBlockedBy {
                 throw FirebaseMessagingError.permissionDenied
@@ -650,18 +637,18 @@ public class FirebaseMessagingService: ObservableObject {
                     // Skip if conversation is deleted by current user
                     if let deletedBy = conversation.deletedBy,
                        deletedBy[currentUserId] == true {
-                        print("   ⏭️ Skipping deleted conversation: \(conversationId)")
+                        dlog("   ⏭️ Skipping deleted conversation: \(conversationId)")
                         continue
                     }
                     
                     // Skip if conversation is archived by current user
                     if let archivedBy = conversation.archivedByArray,
                        archivedBy.contains(currentUserId) {
-                        print("   ⏭️ Skipping archived conversation: \(conversationId)")
+                        dlog("   ⏭️ Skipping archived conversation: \(conversationId)")
                         continue
                     }
                     
-                    print("✅ Found existing conversation: \(conversationId)")
+                    dlog("✅ Found existing conversation: \(conversationId)")
                     return conversationId
                 }
             }
@@ -700,7 +687,7 @@ public class FirebaseMessagingService: ObservableObject {
                 userId: userName
             ]
             
-            print("📝 Creating new conversation with \(userName) - Status: \(conversationStatus)")
+            dlog("📝 Creating new conversation with \(userName) - Status: \(conversationStatus)")
             return try await createConversation(
                 participantIds: [userId],
                 participantNames: participantNames,
@@ -710,7 +697,7 @@ public class FirebaseMessagingService: ObservableObject {
         } catch let error as FirebaseMessagingError {
             throw error
         } catch {
-            print("❌ Error in getOrCreateDirectConversation: \(error)")
+            dlog("❌ Error in getOrCreateDirectConversation: \(error)")
             throw FirebaseMessagingError.networkError(error)
         }
     }
@@ -735,6 +722,17 @@ public class FirebaseMessagingService: ObservableObject {
         limit: Int,
         onUpdate: @escaping ([AppMessage]) -> Void
     ) {
+        // Guard: remove any existing listener for this conversation before attaching a new one.
+        // Without this, calling startListeningToMessages twice for the same conversationId
+        // would attach two Firestore snapshot listeners, causing every message to be delivered twice.
+        if let existingListener = messagesListeners[conversationId] {
+            existingListener.remove()
+            messagesListeners.removeValue(forKey: conversationId)
+            #if DEBUG
+            ListenerCounter.shared.detach("messaging-messages-\(conversationId.prefix(8))")
+            #endif
+        }
+        
         let listener = db.collection("conversations")
             .document(conversationId)
             .collection("messages")
@@ -744,7 +742,7 @@ public class FirebaseMessagingService: ObservableObject {
                 guard let self = self else { return }
                 
                 if let error = error {
-                    print("❌ Error fetching messages: \(error)")
+                    dlog("❌ Error fetching messages: \(error)")
                     self.lastError = .networkError(error)
                     return
                 }
@@ -773,14 +771,17 @@ public class FirebaseMessagingService: ObservableObject {
                 // Log offline status
                 if let metadata = snapshot?.metadata {
                     if metadata.isFromCache {
-                        print("📦 Messages loaded from cache (offline mode)")
+                        dlog("📦 Messages loaded from cache (offline mode)")
                     } else {
-                        print("🌐 Messages loaded from server")
+                        dlog("🌐 Messages loaded from server")
                     }
                 }
             }
         
         messagesListeners[conversationId] = listener
+        #if DEBUG
+        ListenerCounter.shared.attach("messaging-messages-\(conversationId.prefix(8))")
+        #endif
     }
     
     /// Load more messages (pagination)
@@ -790,12 +791,12 @@ public class FirebaseMessagingService: ObservableObject {
         onUpdate: @escaping ([AppMessage]) -> Void
     ) async throws {
         guard let lastDoc = lastDocuments[conversationId] else {
-            print("⚠️ No last document found for pagination")
+            dlog("⚠️ No last document found for pagination")
             return
         }
         
         guard hasMoreMessages[conversationId] == true else {
-            print("📭 No more messages to load")
+            dlog("📭 No more messages to load")
             return
         }
         
@@ -810,7 +811,7 @@ public class FirebaseMessagingService: ObservableObject {
             
             guard !snapshot.documents.isEmpty else {
                 hasMoreMessages[conversationId] = false
-                print("📭 Reached end of messages")
+                dlog("📭 Reached end of messages")
                 return
             }
             
@@ -830,10 +831,10 @@ public class FirebaseMessagingService: ObservableObject {
             }.reversed()
             
             onUpdate(Array(messages))
-            print("✅ Loaded \(messages.count) more messages")
+            dlog("✅ Loaded \(messages.count) more messages")
             
         } catch {
-            print("❌ Error loading more messages: \(error)")
+            dlog("❌ Error loading more messages: \(error)")
             throw FirebaseMessagingError.networkError(error)
         }
     }
@@ -845,6 +846,11 @@ public class FirebaseMessagingService: ObservableObject {
     
     /// Stop listening to messages
     func stopListeningToMessages(conversationId: String) {
+        #if DEBUG
+        if messagesListeners[conversationId] != nil {
+            ListenerCounter.shared.detach("messaging-messages-\(conversationId.prefix(8))")
+        }
+        #endif
         messagesListeners[conversationId]?.remove()
         messagesListeners.removeValue(forKey: conversationId)
         
@@ -882,7 +888,7 @@ public class FirebaseMessagingService: ObservableObject {
             if totalMessages == 0 {
                 // First message - create as pending request
                 shouldCreatePendingRequest = true
-                print("📩 [P1-4] Creating message request (first message to non-follower)")
+                dlog("📩 [P1-4] Creating message request (first message to non-follower)")
             } else {
                 // Not first message and can't send - throw error
                 throw FirebaseMessagingError.invalidInput(reason ?? "Cannot send message")
@@ -899,7 +905,76 @@ public class FirebaseMessagingService: ObservableObject {
                 .document(conversationId)
                 .collection("messages")
                 .document(messageId)
-            
+
+            // ── SINGLE CONVERSATION FETCH ──────────────────────────────────────
+            // Fetch the conversation document once; reuse for both the safety
+            // gateway (needs participantIds) and the batch write (needs status,
+            // requesterId, participantIds).  Eliminates the duplicate Firestore
+            // read that was previously at lines 915 and 1003.
+            // ──────────────────────────────────────────────────────────────────
+            let conversationRef = db.collection("conversations").document(conversationId)
+            let conversationDoc = try await conversationRef.getDocument()
+
+            guard conversationDoc.exists else {
+                throw FirebaseMessagingError.conversationNotFound
+            }
+
+            guard let conversation = try? conversationDoc.data(as: FirebaseConversation.self) else {
+                throw FirebaseMessagingError.conversationNotFound
+            }
+
+            // ── TEXT SAFETY GATEWAY ────────────────────────────────────────────
+            // Every text message is evaluated before Firestore write.
+            // The gateway runs pattern classifiers + conversation risk engine.
+            // Decision: allow / warnRecipient / holdForReview / blockAndStrike / freezeAccount
+            // No message bypasses this — not even retries or offline flushes.
+            // ──────────────────────────────────────────────────────────────────
+            let recipientId = conversation.participantIds.first(where: { $0 != currentUserId }) ?? ""
+            let safetyDecision = await MessageSafetyGateway.shared.evaluate(
+                text: text,
+                senderId: currentUserId,
+                recipientId: recipientId,
+                conversationId: conversationId,
+                conversationContext: .empty,
+                messageId: messageId
+            )
+            // Record audit log for all non-trivial decisions (fire-and-forget)
+            if safetyDecision != .allow {
+                ModerationAuditLogService.shared.recordDMTextDecision(
+                    senderId: currentUserId,
+                    recipientId: recipientId,
+                    conversationId: conversationId,
+                    messageId: messageId,
+                    text: text,
+                    decision: safetyDecision
+                )
+            }
+
+            switch safetyDecision {
+            case .blockAndStrike(_, _, let reason):
+                throw FirebaseMessagingError.invalidInput(reason)
+            case .freezeAccount(_, _, let reason):
+                throw FirebaseMessagingError.invalidInput(reason)
+            case .holdForReview:
+                // Message written to held_messages subcollection; not delivered to recipient.
+                let heldRef = db.collection("conversations")
+                    .document(conversationId)
+                    .collection("held_messages")
+                    .document(messageId)
+                try await heldRef.setData([
+                    "text": text,
+                    "senderId": currentUserId,
+                    "timestamp": Timestamp(date: Date()),
+                    "reason": "safety_hold",
+                    "messageId": messageId
+                ])
+                dlog("⚠️ [Safety] Message held for review: \(messageId)")
+                return
+            case .allow, .warnRecipient:
+                break  // Proceed with normal delivery
+            }
+            // ──────────────────────────────────────────────────────────────────
+
             var replyToMessage: FirebaseMessage.ReplyInfo? = nil
             
             // Fetch reply-to message if specified
@@ -938,18 +1013,6 @@ public class FirebaseMessagingService: ObservableObject {
                 readBy: [currentUserId]
             )
             
-            // Fetch conversation to get participants and status
-            let conversationRef = db.collection("conversations").document(conversationId)
-            let conversationDoc = try await conversationRef.getDocument()
-            
-            guard conversationDoc.exists else {
-                throw FirebaseMessagingError.conversationNotFound
-            }
-            
-            guard let conversation = try? conversationDoc.data(as: FirebaseConversation.self) else {
-                throw FirebaseMessagingError.conversationNotFound
-            }
-            
             let participantIds = conversation.participantIds
             let status = conversation.conversationStatus ?? "accepted"
             let requesterId = conversation.requesterId
@@ -973,13 +1036,13 @@ public class FirebaseMessagingService: ObservableObject {
             if shouldCreatePendingRequest {
                 updates["conversationStatus"] = "pending"
                 updates["requesterId"] = currentUserId
-                print("📩 [P1-4] Conversation set to pending (message request)")
+                dlog("📩 [P1-4] Conversation set to pending (message request)")
             }
             
             // ✅ NEW: Auto-accept if recipient sends a message (Instagram/Threads style)
             if status == "pending" && requesterId != currentUserId {
                 updates["conversationStatus"] = "accepted"
-                print("✅ Conversation auto-accepted (recipient replied)")
+                dlog("✅ Conversation auto-accepted (recipient replied)")
             }
             
             // Increment unread count for all participants except sender
@@ -991,12 +1054,12 @@ public class FirebaseMessagingService: ObservableObject {
             
             try await batch.commit()
             
-            print("✅ Message sent and unread counts updated for other participants")
+            dlog("✅ Message sent and unread counts updated for other participants")
         } catch let error as FirebaseMessagingError {
-            print("❌ FirebaseMessagingError: \(error.localizedDescription)")
+            dlog("❌ FirebaseMessagingError: \(error.localizedDescription)")
             throw error
         } catch {
-            print("❌ Error sending message: \(error)")
+            dlog("❌ Error sending message: \(error)")
             throw FirebaseMessagingError.networkError(error)
         }
     }
@@ -1056,7 +1119,38 @@ public class FirebaseMessagingService: ObservableObject {
             }
             
             let participantIds = conversationDoc.data()?["participantIds"] as? [String] ?? []
-            
+            let recipientId = participantIds.first(where: { $0 != currentUserId }) ?? ""
+
+            // ── MEDIA SAFETY GATEWAY ─────────────────────────────────────────────
+            // Evaluate each image before committing to Firestore.
+            // Decision: allow / allowWithAsyncScan / hold / reject / freeze.
+            // Any reject/freeze aborts the send entirely.
+            // ─────────────────────────────────────────────────────────────────────
+            for image in images {
+                let mediaDecision = await MediaSafetyGateway.shared.evaluate(
+                    image: image,
+                    senderId: currentUserId,
+                    recipientId: recipientId,
+                    conversationId: conversationId,
+                    messageId: messageId
+                )
+                switch mediaDecision {
+                case .reject, .freeze:
+                    throw FirebaseMessagingError.invalidInput(
+                        "Media was rejected by safety review. Please review our community guidelines."
+                    )
+                case .hold:
+                    // Write to held_messages; do not deliver
+                    throw FirebaseMessagingError.invalidInput(
+                        "Media is under review and cannot be sent at this time."
+                    )
+                case .allow, .allowWithAsyncScan:
+                    // Proceed — async deep scan is scheduled inside MediaSafetyGateway
+                    break
+                }
+            }
+            // ─────────────────────────────────────────────────────────────────────
+
             let batch = db.batch()
             
             try batch.setData(from: message, forDocument: messageRef)
@@ -1077,12 +1171,12 @@ public class FirebaseMessagingService: ObservableObject {
             
             try await batch.commit()
             
-            print("✅ Photo message sent and unread counts updated for other participants")
+            dlog("✅ Photo message sent and unread counts updated for other participants")
         } catch let error as FirebaseMessagingError {
-            print("❌ FirebaseMessagingError: \(error.localizedDescription)")
+            dlog("❌ FirebaseMessagingError: \(error.localizedDescription)")
             throw error
         } catch {
-            print("❌ Error sending photo message: \(error)")
+            dlog("❌ Error sending photo message: \(error)")
             throw FirebaseMessagingError.networkError(error)
         }
     }
@@ -1093,7 +1187,7 @@ public class FirebaseMessagingService: ObservableObject {
         
         for (index, image) in images.enumerated() {
             guard let imageData = image.jpegData(compressionQuality: 0.8) else {
-                print("⚠️ Failed to convert image \(index) to JPEG data")
+                dlog("⚠️ Failed to convert image \(index) to JPEG data")
                 continue
             }
             
@@ -1105,14 +1199,14 @@ public class FirebaseMessagingService: ObservableObject {
                 // Upload
                 let metadata = StorageMetadata()
                 metadata.contentType = "image/jpeg"
-                _ = try await storageRef.putData(imageData, metadata: metadata)
+                _ = try await storageRef.putDataAsync(imageData, metadata: metadata)
                 
                 // Get download URL
                 let downloadURL = try await storageRef.downloadURL()
                 
                 // Create thumbnail
                 let thumbnail = image.resized(to: CGSize(width: 200, height: 200))
-                let thumbnailData = thumbnail?.jpegData(compressionQuality: 0.6)
+                _ = thumbnail?.jpegData(compressionQuality: 0.6)
                 
                 let attachment = FirebaseMessage.Attachment(
                     id: UUID().uuidString,
@@ -1126,10 +1220,10 @@ public class FirebaseMessagingService: ObservableObject {
                 )
                 
                 attachments.append(attachment)
-                print("✅ Uploaded image \(index + 1)/\(images.count)")
+                dlog("✅ Uploaded image \(index + 1)/\(images.count)")
                 
             } catch {
-                print("❌ Failed to upload image \(index): \(error)")
+                dlog("❌ Failed to upload image \(index): \(error)")
                 throw FirebaseMessagingError.uploadFailed("Image \(index + 1) failed: \(error.localizedDescription)")
             }
         }
@@ -1176,7 +1270,7 @@ public class FirebaseMessagingService: ObservableObject {
             "timestamp": Timestamp(date: Date())
         ])
 
-        print("✅ Reaction added to message and notification triggered")
+        dlog("✅ Reaction added to message and notification triggered")
     }
     
     /// Remove reaction from a message
@@ -1226,7 +1320,7 @@ public class FirebaseMessagingService: ObservableObject {
         
         try await batch.commit()
         
-        print("✅ Marked \(messageIds.count) messages as read and cleared unread count")
+        dlog("✅ Marked \(messageIds.count) messages as read and cleared unread count")
     }
     
     // P1-1 FIX: Clear unread badge immediately when opening thread
@@ -1242,9 +1336,22 @@ public class FirebaseMessagingService: ObservableObject {
         // P0 FIX: Update badge count immediately when clearing unread messages
         await BadgeCountManager.shared.immediateUpdate()
 
-        print("✅ [P1-1] Cleared unread count for conversation: \(conversationId)")
+        dlog("✅ [P1-1] Cleared unread count for conversation: \(conversationId)")
     }
     
+    /// Mark a conversation as unread by setting unreadCount to 1 for the current user.
+    func markAsUnread(conversationId: String) async throws {
+        guard isAuthenticated else { return }
+
+        let conversationRef = db.collection("conversations").document(conversationId)
+        try await conversationRef.updateData([
+            "unreadCounts.\(currentUserId)": 1
+        ])
+
+        await BadgeCountManager.shared.immediateUpdate()
+        dlog("✅ Marked conversation as unread: \(conversationId)")
+    }
+
     // MARK: - Typing Indicators
     
     /// Update typing status
@@ -1265,20 +1372,23 @@ public class FirebaseMessagingService: ObservableObject {
         }
     }
     
-    /// Listen to typing indicators
+    /// Listen to typing indicators. Replaces any existing listener for the same conversation.
     func startListeningToTyping(
         conversationId: String,
         onUpdate: @escaping ([String]) -> Void
     ) {
-        db.collection("conversations")
+        // Remove existing listener for this conversation before creating a new one
+        typingListeners[conversationId]?.remove()
+
+        let listener = db.collection("conversations")
             .document(conversationId)
             .collection("typing")
-            .addSnapshotListener { snapshot, error in
-                guard let documents = snapshot?.documents else {
+            .addSnapshotListener { [weak self] snapshot, error in
+                guard let self, let documents = snapshot?.documents else {
                     onUpdate([])
                     return
                 }
-                
+
                 // Filter out current user and expired typing indicators
                 let typingUsers = documents.compactMap { doc -> String? in
                     guard let userId = doc.data()["userId"] as? String,
@@ -1289,9 +1399,10 @@ public class FirebaseMessagingService: ObservableObject {
                     }
                     return doc.data()["userName"] as? String
                 }
-                
+
                 onUpdate(typingUsers)
             }
+        typingListeners[conversationId] = listener
     }
     
     // MARK: - Message Actions
@@ -1309,7 +1420,7 @@ public class FirebaseMessagingService: ObservableObject {
             "text": "This message was deleted"
         ])
         
-        print("✅ Message deleted: \(messageId)")
+        dlog("✅ Message deleted: \(messageId)")
     }
     
     /// Delete a message permanently (hard delete)
@@ -1321,7 +1432,7 @@ public class FirebaseMessagingService: ObservableObject {
         
         try await messageRef.delete()
         
-        print("✅ Message permanently deleted: \(messageId)")
+        dlog("✅ Message permanently deleted: \(messageId)")
     }
     
     /// Pin a message in a conversation
@@ -1337,7 +1448,7 @@ public class FirebaseMessagingService: ObservableObject {
             "pinnedAt": Timestamp(date: Date())
         ])
         
-        print("✅ Message pinned: \(messageId)")
+        dlog("✅ Message pinned: \(messageId)")
     }
     
     /// Unpin a message
@@ -1353,7 +1464,7 @@ public class FirebaseMessagingService: ObservableObject {
             "pinnedAt": FieldValue.delete()
         ])
         
-        print("✅ Message unpinned: \(messageId)")
+        dlog("✅ Message unpinned: \(messageId)")
     }
     
     /// Star a message for the current user
@@ -1367,7 +1478,7 @@ public class FirebaseMessagingService: ObservableObject {
             "isStarred": FieldValue.arrayUnion([currentUserId])
         ])
         
-        print("✅ Message starred: \(messageId)")
+        dlog("✅ Message starred: \(messageId)")
     }
     
     /// Unstar a message
@@ -1381,7 +1492,7 @@ public class FirebaseMessagingService: ObservableObject {
             "isStarred": FieldValue.arrayRemove([currentUserId])
         ])
         
-        print("✅ Message unstarred: \(messageId)")
+        dlog("✅ Message unstarred: \(messageId)")
     }
     
     /// Edit a message
@@ -1407,7 +1518,7 @@ public class FirebaseMessagingService: ObservableObject {
             ])
         }
         
-        print("✅ Message edited: \(messageId)")
+        dlog("✅ Message edited: \(messageId)")
     }
     
     /// Forward a message to another conversation
@@ -1455,7 +1566,7 @@ public class FirebaseMessagingService: ObservableObject {
         
         try await batch.commit()
         
-        print("✅ Message forwarded from \(fromConversation) to \(toConversation)")
+        dlog("✅ Message forwarded from \(fromConversation) to \(toConversation)")
     }
     
     /// Fetch pinned messages in a conversation
@@ -1479,7 +1590,7 @@ public class FirebaseMessagingService: ObservableObject {
     
     /// Search messages within a specific conversation
     func searchMessagesInConversation(conversationId: String, query: String) async throws -> [AppMessage] {
-        print("🔍 Searching messages in conversation: \(conversationId) for: '\(query)'")
+        dlog("🔍 Searching messages in conversation: \(conversationId) for: '\(query)'")
         
         let snapshot = try await db.collection("conversations")
             .document(conversationId)
@@ -1501,7 +1612,7 @@ public class FirebaseMessagingService: ObservableObject {
             message.text.lowercased().contains(lowercaseQuery)
         }
         
-        print("✅ Found \(matchingMessages.count) matching messages in conversation")
+        dlog("✅ Found \(matchingMessages.count) matching messages in conversation")
         return matchingMessages
     }
     
@@ -1606,7 +1717,7 @@ public class FirebaseMessagingService: ObservableObject {
             
             try await sendSystemMessage(conversationId: conversationId, text: systemMessage)
             
-            print("✅ Added \(participantIds.count) participants to group")
+            dlog("✅ Added \(participantIds.count) participants to group")
             
         } catch let error as FirebaseMessagingError {
             throw error
@@ -1660,7 +1771,7 @@ public class FirebaseMessagingService: ObservableObject {
             let systemMessage = "\(currentUserName) removed \(participantName) from the group"
             try await sendSystemMessage(conversationId: conversationId, text: systemMessage)
             
-            print("✅ Removed participant from group")
+            dlog("✅ Removed participant from group")
             
         } catch let error as FirebaseMessagingError {
             throw error
@@ -1704,7 +1815,7 @@ public class FirebaseMessagingService: ObservableObject {
             let systemMessage = "\(currentUserName) left the group"
             try await sendSystemMessage(conversationId: conversationId, text: systemMessage)
             
-            print("✅ Left group conversation")
+            dlog("✅ Left group conversation")
             
         } catch let error as FirebaseMessagingError {
             throw error
@@ -1750,7 +1861,7 @@ public class FirebaseMessagingService: ObservableObject {
             let systemMessage = "\(currentUserName) changed the group name from \"\(oldName)\" to \"\(newName)\""
             try await sendSystemMessage(conversationId: conversationId, text: systemMessage)
             
-            print("✅ Updated group name to: \(newName)")
+            dlog("✅ Updated group name to: \(newName)")
             
         } catch let error as FirebaseMessagingError {
             throw error
@@ -1777,7 +1888,7 @@ public class FirebaseMessagingService: ObservableObject {
             
             let metadata = StorageMetadata()
             metadata.contentType = "image/jpeg"
-            _ = try await storageRef.putData(imageData, metadata: metadata)
+            _ = try await storageRef.putDataAsync(imageData, metadata: metadata)
             let downloadURL = try await storageRef.downloadURL()
             
             // Update conversation
@@ -1791,7 +1902,7 @@ public class FirebaseMessagingService: ObservableObject {
             let systemMessage = "\(currentUserName) changed the group photo"
             try await sendSystemMessage(conversationId: conversationId, text: systemMessage)
             
-            print("✅ Updated group avatar")
+            dlog("✅ Updated group avatar")
             
         } catch let error as FirebaseMessagingError {
             throw error
@@ -1858,7 +1969,7 @@ public class FirebaseMessagingService: ObservableObject {
         guard !query.isEmpty else { return [] }
         
         let lowercaseQuery = query.lowercased()
-        print("🔍 Messaging: Searching users with query: '\(query)'")
+        dlog("🔍 Messaging: Searching users with query: '\(query)'")
         
         var users: [ContactUser] = []
         var seenUserIds = Set<String>()
@@ -1872,7 +1983,7 @@ public class FirebaseMessagingService: ObservableObject {
                 .limit(to: 20)
                 .getDocuments()
             
-            print("✅ Found \(displayNameSnapshot.documents.count) users by displayNameLowercase")
+            dlog("✅ Found \(displayNameSnapshot.documents.count) users by displayNameLowercase")
             
             for doc in displayNameSnapshot.documents {
                 if let user = try? doc.data(as: ContactUser.self), let userId = user.id {
@@ -1890,7 +2001,7 @@ public class FirebaseMessagingService: ObservableObject {
                 .limit(to: 20)
                 .getDocuments()
             
-            print("✅ Found \(usernameSnapshot.documents.count) users by usernameLowercase")
+            dlog("✅ Found \(usernameSnapshot.documents.count) users by usernameLowercase")
             
             for doc in usernameSnapshot.documents {
                 if let user = try? doc.data(as: ContactUser.self), let userId = user.id {
@@ -1902,15 +2013,15 @@ public class FirebaseMessagingService: ObservableObject {
             }
             
         } catch {
-            print("⚠️ Lowercase field search failed: \(error)")
-            print("📝 Falling back to client-side filtering for messaging...")
+            dlog("⚠️ Lowercase field search failed: \(error)")
+            dlog("📝 Falling back to client-side filtering for messaging...")
             
             // STRATEGY 2: Fallback - Get users and filter client-side
             let allUsersSnapshot = try await db.collection("users")
                 .limit(to: 100)
                 .getDocuments()
             
-            print("📥 Downloaded \(allUsersSnapshot.documents.count) users for messaging search")
+            dlog("📥 Downloaded \(allUsersSnapshot.documents.count) users for messaging search")
             
             for doc in allUsersSnapshot.documents {
                 let data = doc.data()
@@ -1929,7 +2040,7 @@ public class FirebaseMessagingService: ObservableObject {
                 }
             }
             
-            print("✅ Client-side filter found \(users.count) matching users for messaging")
+            dlog("✅ Client-side filter found \(users.count) matching users for messaging")
         }
         
         // Filter out current user
@@ -1937,7 +2048,7 @@ public class FirebaseMessagingService: ObservableObject {
             users = users.filter { $0.id != currentUserId }
         }
         
-        print("✅ Messaging search results for '\(query)': \(users.count) users found")
+        dlog("✅ Messaging search results for '\(query)': \(users.count) users found")
         
         return users
     }
@@ -1987,7 +2098,7 @@ public class FirebaseMessagingService: ObservableObject {
             }
         }
 
-        print("📌 Conversation \(conversationId) pinned")
+        dlog("📌 Conversation \(conversationId) pinned")
     }
 
     /// Unpin a conversation
@@ -2024,7 +2135,7 @@ public class FirebaseMessagingService: ObservableObject {
             }
         }
 
-        print("📌 Conversation \(conversationId) unpinned")
+        dlog("📌 Conversation \(conversationId) unpinned")
     }
 
     /// Mute a conversation
@@ -2060,7 +2171,7 @@ public class FirebaseMessagingService: ObservableObject {
             }
         }
 
-        print("🔕 Conversation \(conversationId) muted")
+        dlog("🔕 Conversation \(conversationId) muted")
     }
 
     /// Unmute a conversation
@@ -2096,7 +2207,7 @@ public class FirebaseMessagingService: ObservableObject {
             }
         }
 
-        print("🔕 Conversation \(conversationId) unmuted")
+        dlog("🔕 Conversation \(conversationId) unmuted")
     }
 
     /// Report a conversation as spam
@@ -2119,7 +2230,7 @@ public class FirebaseMessagingService: ObservableObject {
         // Automatically archive the conversation for the reporter
         try await archiveConversation(conversationId: conversationId)
 
-        print("⚠️ Conversation \(conversationId) reported as spam")
+        dlog("⚠️ Conversation \(conversationId) reported as spam")
     }
     
     /// Delete a conversation for current user (soft delete)
@@ -2135,7 +2246,7 @@ public class FirebaseMessagingService: ObservableObject {
                 "deletedAt.\(currentUserId)": Timestamp(date: Date())
             ])
         
-        print("🗑️ Conversation \(conversationId) deleted for user \(currentUserId)")
+        dlog("🗑️ Conversation \(conversationId) deleted for user \(currentUserId)")
     }
     
     /// Delete all conversations with a specific user
@@ -2160,7 +2271,7 @@ public class FirebaseMessagingService: ObservableObject {
         }
         
         try await batch.commit()
-        print("🗑️ Deleted \(count) conversations with user \(userId)")
+        dlog("🗑️ Deleted \(count) conversations with user \(userId)")
     }
     
     /// Archive a conversation
@@ -2185,7 +2296,7 @@ public class FirebaseMessagingService: ObservableObject {
             }
         }
         
-        print("📦 Conversation \(conversationId) archived")
+        dlog("📦 Conversation \(conversationId) archived")
     }
     
     /// Unarchive a conversation
@@ -2210,7 +2321,7 @@ public class FirebaseMessagingService: ObservableObject {
             }
         }
         
-        print("📬 Conversation \(conversationId) unarchived")
+        dlog("📬 Conversation \(conversationId) unarchived")
     }
     
     /// Get archived conversations (internal use)
@@ -2220,8 +2331,8 @@ public class FirebaseMessagingService: ObservableObject {
             .order(by: "updatedAt", descending: true)
             .getDocuments()
         
-        // Filter archived conversations in memory
-        return snapshot.documents.compactMap { doc -> ChatConversation? in
+        // Filter archived conversations in memory (excluding deleted)
+        let conversations = snapshot.documents.compactMap { doc -> ChatConversation? in
             guard let firebaseConv = try? doc.data(as: FirebaseConversation.self) else {
                 return nil
             }
@@ -2232,16 +2343,7 @@ public class FirebaseMessagingService: ObservableObject {
                 return nil
             }
             
-            return firebaseConv.toConversation()
-        }
-        
-        // Filter out deleted conversations from archived list
-        let conversations = snapshot.documents.compactMap { doc -> ChatConversation? in
-            guard let firebaseConv = try? doc.data(as: FirebaseConversation.self) else {
-                return nil
-            }
-            
-            // Don't include deleted conversations in archived list
+            // Don't include deleted conversations
             if let deletedBy = firebaseConv.deletedBy,
                deletedBy[self.currentUserId] == true {
                 return nil
@@ -2250,7 +2352,7 @@ public class FirebaseMessagingService: ObservableObject {
             return firebaseConv.toConversation()
         }
         
-        print("📦 Fetched \(conversations.count) archived conversations")
+        dlog("📦 Fetched \(conversations.count) archived conversations")
         return conversations
     }
     
@@ -2296,8 +2398,8 @@ public class FirebaseMessagingService: ObservableObject {
             let isRequester = conversation.requesterId == currentUserId
             
             if isRequester {
-                // Requester can only send 1 message until accepted
-                if messageCount >= 1 {
+                // Requester can send up to 2 messages before the recipient accepts (Instagram model)
+                if messageCount >= 2 {
                     return (false, "Please wait for \(conversation.participantNames.values.first(where: { _ in true }) ?? "them") to accept your message request")
                 } else {
                     return (true, nil)
@@ -2336,7 +2438,7 @@ public class FirebaseMessagingService: ObservableObject {
             "updatedAt": Timestamp(date: Date())
         ])
         
-        print("✅ Message request accepted for conversation: \(conversationId)")
+        dlog("✅ Message request accepted for conversation: \(conversationId)")
     }
     
     /// Decline a message request (Instagram/Threads style)
@@ -2352,7 +2454,7 @@ public class FirebaseMessagingService: ObservableObject {
             "updatedAt": Timestamp(date: Date())
         ])
         
-        print("✅ Message request declined for conversation: \(conversationId)")
+        dlog("✅ Message request declined for conversation: \(conversationId)")
     }
     
     /// Delete a message request
@@ -2391,7 +2493,7 @@ public class FirebaseMessagingService: ObservableObject {
             return firebaseConv.toConversation()
         }
         
-        print("📬 Fetched \(requests.count) pending message requests")
+        dlog("📬 Fetched \(requests.count) pending message requests")
         return requests
     }
     
@@ -2424,7 +2526,7 @@ public class FirebaseMessagingService: ObservableObject {
         
         if !updates.isEmpty {
             try await messageRef.updateData(updates)
-            print("📊 Updated delivery status for message: \(messageId)")
+            dlog("📊 Updated delivery status for message: \(messageId)")
         }
     }
     
@@ -2440,13 +2542,13 @@ public class FirebaseMessagingService: ObservableObject {
                 "disappearingMessageDuration": duration,
                 "updatedAt": Timestamp(date: Date())
             ])
-            print("⏰ Set disappearing messages to \(duration) seconds")
+            dlog("⏰ Set disappearing messages to \(duration) seconds")
         } else {
             try await conversationRef.updateData([
                 "disappearingMessageDuration": FieldValue.delete(),
                 "updatedAt": Timestamp(date: Date())
             ])
-            print("⏰ Disabled disappearing messages")
+            dlog("⏰ Disabled disappearing messages")
         }
     }
     
@@ -2468,7 +2570,7 @@ public class FirebaseMessagingService: ObservableObject {
             "disappearAt": Timestamp(date: disappearAt)
         ])
         
-        print("⏰ Message scheduled to disappear at: \(disappearAt)")
+        dlog("⏰ Message scheduled to disappear at: \(disappearAt)")
     }
     
     /// Delete disappeared messages (call from background task)
@@ -2498,7 +2600,7 @@ public class FirebaseMessagingService: ObservableObject {
             
             if !messagesSnapshot.documents.isEmpty {
                 try await batch.commit()
-                print("🗑️ Deleted \(messagesSnapshot.documents.count) disappeared messages in conversation \(conversationId)")
+                dlog("🗑️ Deleted \(messagesSnapshot.documents.count) disappeared messages in conversation \(conversationId)")
             }
         }
     }
@@ -2518,7 +2620,7 @@ public class FirebaseMessagingService: ObservableObject {
             "linkPreviewURLs": urls
         ])
         
-        print("🔗 Saved \(urls.count) link preview URLs")
+        dlog("🔗 Saved \(urls.count) link preview URLs")
     }
     
     /// Save mentioned user IDs to message
@@ -2536,7 +2638,7 @@ public class FirebaseMessagingService: ObservableObject {
             "mentionedUserIds": userIds
         ])
         
-        print("@️ Saved \(userIds.count) mentions")
+        dlog("@️ Saved \(userIds.count) mentions")
     }
     
     /// Send notification to mentioned users
@@ -2558,12 +2660,32 @@ public class FirebaseMessagingService: ObservableObject {
         }
         
         let conversationName = (conversationData["groupName"] as? String) ?? "Chat"
-        
-        // TODO: Send push notifications to mentioned users
-        // This would typically use Firebase Cloud Messaging
-        // For now, we'll just log it
+        let isGroup = (conversationData["isGroup"] as? Bool) ?? false
+        let body = isGroup
+            ? "@\(senderName) mentioned you in \(conversationName)"
+            : "@\(senderName) mentioned you in a message"
+
+        // Enqueue a push notification for each mentioned user via the fcmQueue
+        // collection. The Cloud Function (pushNotifications.js) picks up these
+        // documents and delivers them through FCM, then deletes the queue entry.
+        let senderId = Auth.auth().currentUser?.uid ?? ""
         for userId in mentionedUserIds {
-            print("📢 Would notify user \(userId): @\(senderName) mentioned you in \(conversationName)")
+            guard userId != senderId else { continue }
+            let queueDoc: [String: Any] = [
+                "userId": senderId,
+                "recipientId": userId,
+                "messageType": "mention",
+                "title": "You were mentioned",
+                "body": body,
+                "data": [
+                    "type": "mention",
+                    "conversationId": conversationId,
+                    "messageId": messageId
+                ],
+                "createdAt": FieldValue.serverTimestamp()
+            ]
+            try? await db.collection("fcmQueue").addDocument(data: queueDoc)
+            dlog("📢 Mention notification queued for user \(userId)")
         }
     }
     
@@ -2580,7 +2702,7 @@ public class FirebaseMessagingService: ObservableObject {
             .order(by: "updatedAt", descending: true)
             .addSnapshotListener { snapshot, error in
                 if let error = error {
-                    print("❌ Error listening to message requests: \(error)")
+                    dlog("❌ Error listening to message requests: \(error)")
                     completion([])
                     return
                 }
@@ -2621,7 +2743,7 @@ public class FirebaseMessagingService: ObservableObject {
                     requests.append(request)
                 }
                 
-                print("📬 Updated message requests: \(requests.count) pending")
+                dlog("📬 Updated message requests: \(requests.count) pending")
                 completion(requests)
             }
         
@@ -2788,14 +2910,6 @@ struct FirebaseConversation: Codable {
         }
 
         let unreadCount = unreadCounts[currentUserId] ?? 0
-        
-        // 🔍 Debug logging for unread count extraction
-        if !unreadCounts.isEmpty {
-            print("🔍 Unread counts for conversation \(id ?? "unknown"):")
-            print("   Full unreadCounts dict: \(unreadCounts)")
-            print("   CurrentUserId: \(currentUserId)")
-            print("   Extracted unreadCount: \(unreadCount)")
-        }
 
         let timestamp = lastMessageTimestamp?.dateValue() ?? Date()
 
@@ -2813,6 +2927,8 @@ struct FirebaseConversation: Codable {
         // Check if current user muted this conversation
         let isMuted = mutedBy?.contains(currentUserId) ?? false
 
+        let otherParticipantId = isGroup ? nil : otherParticipants.first
+
         let conversation = ChatConversation(
             id: id ?? UUID().uuidString,
             name: name,
@@ -2825,7 +2941,8 @@ struct FirebaseConversation: Codable {
             profilePhotoURL: profilePhotoURL,
             isPinned: isPinned,
             isMuted: isMuted,
-            requesterId: requesterId
+            requesterId: requesterId,
+            otherParticipantId: otherParticipantId
         )
         return conversation
     }

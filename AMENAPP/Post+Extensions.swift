@@ -20,7 +20,7 @@ extension Post {
     /// Without this, firebaseId is nil and this property returns the full UUID, causing
     /// a mismatch when checking lightbulb/amen state (cache stores short IDs like "DB103656"
     /// but PostCards check using full UUIDs like "DB103656-3089-4B1F-9591-8A1CD2C3EBE2").
-    var firestoreId: String {
+    nonisolated var firestoreId: String {
         firebaseId ?? id.uuidString
     }
     
@@ -34,16 +34,11 @@ extension Post {
         lightbulbUserIds.contains(userId)
     }
     
-    /// Get amenUserIds and lightbulbUserIds (these should be added to Post model)
-    var amenUserIds: [String] {
-        // TODO: This should be fetched from Firestore or stored in the Post model
-        []
-    }
-    
-    var lightbulbUserIds: [String] {
-        // TODO: This should be fetched from Firestore or stored in the Post model
-        []
-    }
+    /// NOTE: The Post struct does not carry per-user interaction state.
+    /// Use PostInteractionsService.shared.userAmenedPosts / userLightbulbedPosts for real state.
+    /// These stubs exist only to satisfy the hasAmened(by:)/hasLitLightbulb(by:) protocol API.
+    var amenUserIds: [String] { [] }
+    var lightbulbUserIds: [String] { [] }
     
     // MARK: - Mention Utilities
     

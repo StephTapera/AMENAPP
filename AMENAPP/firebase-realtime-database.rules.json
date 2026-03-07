@@ -175,6 +175,44 @@
           ".validate": "newData.isNumber() || newData.isBoolean()"
         }
       }
+    },
+
+    "post-reposts": {
+      "$postId": {
+        ".read": "auth != null",
+        "$userId": {
+          ".read": "auth != null",
+          ".write": "auth != null && auth.uid == $userId"
+        }
+      }
+    },
+
+    "prayerActivity": {
+      "$postId": {
+        ".read": "auth != null",
+        "prayingUsers": {
+          "$userId": {
+            ".read": "auth != null",
+            ".write": "auth != null && auth.uid == $userId"
+          }
+        },
+        "prayingNow": {
+          ".read": "auth != null",
+          ".write": "auth != null",
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+        "totalPrayerSessions": {
+          ".read": "auth != null",
+          ".write": "auth != null",
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+        "sessions": {
+          "$sessionId": {
+            ".read": "auth != null",
+            ".write": "auth != null"
+          }
+        }
+      }
     }
   }
 }

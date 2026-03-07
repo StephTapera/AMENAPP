@@ -8,6 +8,7 @@
 import Foundation
 import SwiftUI
 import Combine
+import Network
 import FirebaseAuth
 import FirebaseFirestore
 import FirebaseFunctions
@@ -38,10 +39,22 @@ class AuthenticationViewModel: ObservableObject {
     // P0 FIX: Duplicate send prevention
     private var lastOTPSendTimestamp: Date?
     private var lastOTPPhoneNumber: String?
+    
+    // Password reset rate limiting: max 3 attempts per 15 min, 60s cooldown between sends
+    @Published var passwordResetCooldownRemaining: Int = 0
+    private var passwordResetAttempts: Int = 0
+    private var passwordResetWindowStart: Date?
+    private var passwordResetLastSent: Date?
+    private var passwordResetCooldownTimer: Timer?
 
     // ✉️ Email verification state
     @Published var isEmailVerified = false
     @Published var showEmailVerificationBanner = false
+
+    // P1 FIX: Rate-limit sendEmailVerification — max 1 send per 60 seconds.
+    @Published var emailVerificationCooldownRemaining: Int = 0
+    private var emailVerificationLastSent: Date?
+    private var emailVerificationCooldownTimer: Timer?
 
     // 🔗 Email link sign-in state
     @Published var emailLinkSent = false
@@ -65,7 +78,9 @@ class AuthenticationViewModel: ObservableObject {
         // ✅ NETWORK FIX: Set initial auth state synchronously from cached user
         // This prevents sign-in UI from showing on slow networks
         if let currentUser = Auth.auth().currentUser {
+            #if DEBUG
             print("🔐 Init: Found cached user (\(currentUser.email ?? "no email"))")
+            #endif
             
             // ✅ FIX: Check onboarding status BEFORE setting isAuthenticated
             // Load onboarding status synchronously to prevent UI glitch
@@ -84,6 +99,12 @@ class AuthenticationViewModel: ObservableObject {
         if let listener = authStateListener {
             Auth.auth().removeStateDidChangeListener(listener)
         }
+        resendCooldownTimer?.invalidate()
+        resendCooldownTimer = nil
+        passwordResetCooldownTimer?.invalidate()
+        passwordResetCooldownTimer = nil
+        emailVerificationCooldownTimer?.invalidate()
+        emailVerificationCooldownTimer = nil
     }
     
     // MARK: - Auth State Listener
@@ -94,7 +115,18 @@ class AuthenticationViewModel: ObservableObject {
                 guard let self = self else { return }
                 
                 if let user = user {
+                    #if DEBUG
                     print("🔐 Auth state changed: User logged in (\(user.email ?? "no email"))")
+                    #endif
+                    
+                    // P0 FIX: For non-email providers (phone, Google, Apple), clear any stale
+                    // email verification gate so users are never stuck on it after phone/social login.
+                    // Use contains rather than .first to correctly handle multi-provider accounts.
+                    let hasPasswordProvider = user.providerData.contains { $0.providerID == "password" }
+                    if !hasPasswordProvider {
+                        self.needsEmailVerification = false
+                        self.showEmailVerificationBanner = false
+                    }
                     
                     // ✅ FIX: Check onboarding status BEFORE setting isAuthenticated
                     // This prevents the UI glitch where main content flashes before onboarding
@@ -107,6 +139,7 @@ class AuthenticationViewModel: ObservableObject {
                     self.isAuthenticated = false
                     self.needsOnboarding = false
                     self.needsUsernameSelection = false
+                    self.needsEmailVerification = false
                 }
             }
         }
@@ -115,56 +148,38 @@ class AuthenticationViewModel: ObservableObject {
     // MARK: - Check Onboarding Status
     
     private func checkOnboardingStatus(userId: String) async {
-        // ✅ FIX: Don't overwrite if onboarding was just completed locally
-        // This prevents race condition where auth listener calls this before Firestore updates
+        // Guard: if onboarding was just completed in this session, don't overwrite needsOnboarding
         guard !onboardingJustCompleted else {
-            print("⏭️ Skipping onboarding status check - onboarding just completed locally")
+            print("📋 Onboarding: skipping status check — completion in progress")
             return
         }
-        
-        do {
-            let userData = try await firebaseManager.fetchUserDocument(userId: userId)
-            
-            let hasCompletedOnboarding = userData["hasCompletedOnboarding"] as? Bool ?? false
-            
-            // ✅ SINGLE SOURCE OF TRUTH: Firestore is authoritative
-            // Sync all local state to match Firestore
+        // Check local cache first for immediate response
+        let cachedCompleted = UserDefaults.standard.bool(forKey: "hasCompletedOnboarding_\(userId)")
+        if cachedCompleted {
             await MainActor.run {
-                self.needsOnboarding = !hasCompletedOnboarding
-                // Also sync UserDefaults for offline access
-                UserDefaults.standard.set(hasCompletedOnboarding, forKey: "hasCompletedOnboarding_\(userId)")
-            }
-            
-            // NEW: Check if user needs to select username (social sign-in)
-            // Social sign-in users have auto-generated usernames that start with "user" followed by random numbers
-            // or are derived from email (before @). We want them to customize.
-            let username = userData["username"] as? String ?? ""
-            let authProvider = userData["authProvider"] as? String ?? ""
-            
-            // Check if this is a social sign-in user who hasn't customized their username
-            let isSocialSignIn = authProvider == "google" || authProvider == "apple"
-            let hasGenericUsername = username.hasPrefix("user") || username.isEmpty
-            
-            if isSocialSignIn && hasGenericUsername && !hasCompletedOnboarding {
-                await MainActor.run {
-                    self.needsUsernameSelection = true
-                }
-            } else {
-                await MainActor.run {
-                    self.needsUsernameSelection = false
-                }
-            }
-            
-            print("📋 Onboarding status: \(needsOnboarding ? "Needs onboarding" : "Completed")")
-            print("📋 Username selection: \(needsUsernameSelection ? "Needs username" : "Has username")")
-            
-        } catch {
-            print("⚠️ Failed to check onboarding status: \(error)")
-            // Default to needing onboarding if we can't check
-            await MainActor.run {
-                self.needsOnboarding = true
+                self.needsOnboarding = false
                 self.needsUsernameSelection = false
             }
+        }
+
+        // Always verify against Firestore (source of truth)
+        do {
+            let userData = try await firebaseManager.fetchUserDocument(userId: userId)
+            let hasCompletedOnboarding = userData["hasCompletedOnboarding"] as? Bool ?? false
+            // Sync cache
+            UserDefaults.standard.set(hasCompletedOnboarding, forKey: "hasCompletedOnboarding_\(userId)")
+            await MainActor.run {
+                self.needsOnboarding = !hasCompletedOnboarding
+                self.needsUsernameSelection = false
+            }
+            print("📋 Onboarding: hasCompleted=\(hasCompletedOnboarding), needsOnboarding=\(!hasCompletedOnboarding)")
+        } catch {
+            // On error, fall back to cache; if no cache, show onboarding to be safe
+            await MainActor.run {
+                self.needsOnboarding = !cachedCompleted
+                self.needsUsernameSelection = false
+            }
+            print("⚠️ Could not fetch onboarding status: \(error.localizedDescription) — using cache: completed=\(cachedCompleted)")
         }
     }
     
@@ -180,7 +195,9 @@ class AuthenticationViewModel: ObservableObject {
         isAuthenticating = true
         defer { isAuthenticating = false }
         
-        print("🔐 Starting sign in for: \(email)")
+        #if DEBUG
+        dlog("🔐 Starting sign in")
+        #endif
         isLoading = true
         errorMessage = nil
         
@@ -192,7 +209,7 @@ class AuthenticationViewModel: ObservableObject {
         
         do {
             let user = try await firebaseManager.signIn(email: email, password: password)
-            print("✅ Sign in successful")
+            dlog("✅ Sign in successful")
             
             // P0 SECURITY: Check if user has 2FA enabled BEFORE allowing full authentication
             let has2FA = await TwoFactorAuthService.shared.check2FAStatus(userId: user.uid)
@@ -201,7 +218,7 @@ class AuthenticationViewModel: ObservableObject {
                 print("🔐 User has 2FA enabled - requiring verification")
                 
                 // Sign out immediately - user must verify 2FA first
-                try? await Auth.auth().signOut()
+                try? Auth.auth().signOut()
                 
                 // Store pending credentials
                 pending2FAUserId = user.uid
@@ -229,8 +246,78 @@ class AuthenticationViewModel: ObservableObject {
         }
     }
     
+    // MARK: - 2FA Completion (called by TwoFactorVerificationView after OTP verified)
+
+    /// Called after the verify2FAOTP Cloud Function returns successfully.
+    ///
+    /// The function writes `userSecurity/{uid}.session2FAActive = true` via admin SDK.
+    /// We re-sign-in with the stored password so Firebase Auth issues a fresh token,
+    /// then reload the token so the claims are current.  Only after that do we set
+    /// `isAuthenticated = true`, making the 2FA gate server-enforced rather than
+    /// client-only.
+    ///
+    /// - Parameter sessionToken: The token returned by verify2FAOTP (stored for reference,
+    ///   not used for gating — the Firestore rule reads userSecurity directly).
+    func complete2FASignIn(sessionToken: String, password: String) async {
+        guard let email = pending2FAEmail,
+              let userId = pending2FAUserId else {
+            print("❌ complete2FASignIn called without pending credentials")
+            errorMessage = "Session expired. Please sign in again."
+            showError = true
+            needs2FAVerification = false
+            return
+        }
+
+        isLoading = true
+        defer {
+            Task { @MainActor in self.isLoading = false }
+        }
+
+        do {
+            // Re-authenticate: Firebase signed us out after detecting 2FA was needed.
+            // Signing back in issues a fresh ID token so our next Firestore write will
+            // carry the updated claims.
+            let user = try await firebaseManager.signIn(email: email, password: password)
+
+            // Force-refresh the ID token so it picks up any custom claims set by the
+            // Cloud Function (e.g. email_verified propagation).
+            _ = try? await user.getIDToken(forcingRefresh: true)
+
+            // Verify that the Cloud Function actually wrote session2FAActive on the
+            // server before we grant access.  This prevents a race where the client
+            // calls complete2FASignIn before the Firestore write has committed.
+            let db = Firestore.firestore()
+            let securityDoc = try await db.collection("userSecurity").document(userId).getDocument()
+            let sessionActive = securityDoc.data()?["session2FAActive"] as? Bool ?? false
+
+            guard sessionActive else {
+                // Session not yet active — Cloud Function may still be writing.
+                // This is a transient failure; caller should retry or show an error.
+                print("⚠️ complete2FASignIn: userSecurity.session2FAActive not true yet")
+                try? Auth.auth().signOut()
+                errorMessage = "Verification is still processing. Please try again in a moment."
+                showError = true
+                return
+            }
+
+            // All checks passed — clear 2FA pending state and admit the user.
+            pending2FAUserId = nil
+            pending2FAEmail = nil
+            needs2FAVerification = false
+
+            print("✅ 2FA complete — userSecurity confirmed active, granting access")
+            // Auth state listener will set isAuthenticated = true after signIn above.
+
+        } catch {
+            print("❌ complete2FASignIn re-auth failed: \(error.localizedDescription)")
+            errorMessage = handleAuthError(error)
+            showError = true
+            // Keep needs2FAVerification = true so the gate stays visible
+        }
+    }
+
     // MARK: - Sign Up
-    
+
     func signUp(email: String, password: String, displayName: String, username: String) async {
         // Prevent concurrent auth requests
         guard !isAuthenticating else {
@@ -241,7 +328,9 @@ class AuthenticationViewModel: ObservableObject {
         isAuthenticating = true
         defer { isAuthenticating = false }
         
-        print("🔐 Starting sign up for: \(email)")
+        #if DEBUG
+        dlog("🔐 Starting sign up")
+        #endif
         isLoading = true
         errorMessage = nil
         
@@ -258,7 +347,7 @@ class AuthenticationViewModel: ObservableObject {
                 displayName: displayName,
                 username: username
             )
-            print("✅ Sign up successful")
+            dlog("✅ Sign up successful")
             
             // Success haptic
             let haptic = UINotificationFeedbackGenerator()
@@ -295,6 +384,32 @@ class AuthenticationViewModel: ObservableObject {
     // MARK: - Sign Out
     
     func signOut() {
+        // Stop all RTDB & Firestore listeners BEFORE signing out to prevent permission_denied floods
+        RealtimePostService.shared.stopAllObserving()
+        PostInteractionsService.shared.stopAllObservers()
+        RealtimeRepostsService.shared.stopAllObservers()
+        RealtimeSavedPostsService.shared.removeSavedPostsListener()
+        RealtimeDatabaseService.shared.cleanup()
+        // P0 FIX: Stop FollowService Firestore listeners — previously survived sign-out,
+        // causing permission_denied writes with stale credentials and potential data leaks.
+        FollowService.shared.stopListening()
+        // P0 FIX: Stop additional listeners that were missing from sign-out cleanup,
+        // causing permission_denied floods in the console after sign-out.
+        NotificationService.shared.stopListening()
+        BlockService.shared.stopListening()
+        RealtimeCommentsService.shared.removeAllListeners()
+        ActivityFeedService.shared.stopAllObservers()
+
+        // ── Safety service cache clearing (privacy: prevent stale data leaking to next session) ──
+        // Grab the current UID before signing out so we can invalidate per-user caches.
+        if let uid = firebaseManager.currentUser?.uid {
+            MessageSafetyGateway.shared.invalidateFreezeCache(for: uid)
+            MinorSafetyService.shared.invalidateCache(for: uid)
+        }
+        MinorSafetyService.shared.clearCache()   // belt-and-suspenders: clear all age/trust caches
+        OpenAIService.shared.reset()              // clear legacy Berean cache + cancel in-flight tasks
+        ClaudeService.shared.reset()              // clear Claude Berean cache + cancel in-flight tasks
+
         do {
             try firebaseManager.signOut()
             print("✅ Sign out successful")
@@ -314,8 +429,58 @@ class AuthenticationViewModel: ObservableObject {
     // MARK: - Password Reset
 
     func sendPasswordReset(email: String) async throws {
-        print("📧 Sending password reset email to: \(email)")
+        let now = Date()
+        
+        // Enforce 60-second cooldown between sends
+        if let lastSent = passwordResetLastSent {
+            let secondsSince = now.timeIntervalSince(lastSent)
+            if secondsSince < 60 {
+                let remaining = Int(60 - secondsSince)
+                throw NSError(
+                    domain: "AuthenticationViewModel",
+                    code: 429,
+                    userInfo: [NSLocalizedDescriptionKey: "Please wait \(remaining)s before requesting another reset email."]
+                )
+            }
+        }
+        
+        // Enforce max 3 attempts per 15-minute window
+        let windowDuration: TimeInterval = 15 * 60
+        if let windowStart = passwordResetWindowStart, now.timeIntervalSince(windowStart) < windowDuration {
+            if passwordResetAttempts >= 3 {
+                throw NSError(
+                    domain: "AuthenticationViewModel",
+                    code: 429,
+                    userInfo: [NSLocalizedDescriptionKey: "Too many reset attempts. Please try again in 15 minutes."]
+                )
+            }
+        } else {
+            // Start a new window
+            passwordResetWindowStart = now
+            passwordResetAttempts = 0
+        }
+        
         try await firebaseManager.sendPasswordReset(email: email)
+        
+        // Record this attempt
+        passwordResetAttempts += 1
+        passwordResetLastSent = now
+        
+        // Start cooldown countdown on the main actor (we're already @MainActor)
+        passwordResetCooldownRemaining = 60
+        passwordResetCooldownTimer?.invalidate()
+        passwordResetCooldownTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if self.passwordResetCooldownRemaining > 0 {
+                    self.passwordResetCooldownRemaining -= 1
+                } else {
+                    self.passwordResetCooldownTimer?.invalidate()
+                }
+            }
+        }
+        
         print("✅ Password reset email sent")
     }
 
@@ -323,8 +488,35 @@ class AuthenticationViewModel: ObservableObject {
 
     /// Send email verification to current user
     func sendEmailVerification() async {
+        // P1 FIX: Enforce 60-second cooldown to prevent spam.
+        if let lastSent = emailVerificationLastSent {
+            let elapsed = Date().timeIntervalSince(lastSent)
+            if elapsed < 60 {
+                let remaining = Int(60 - elapsed)
+                errorMessage = "Please wait \(remaining)s before requesting another verification email."
+                showError = true
+                return
+            }
+        }
+
         do {
             try await firebaseManager.sendEmailVerification()
+            emailVerificationLastSent = Date()
+
+            // Start countdown so callers can show a UI cooldown.
+            emailVerificationCooldownRemaining = 60
+            emailVerificationCooldownTimer?.invalidate()
+            emailVerificationCooldownTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    if self.emailVerificationCooldownRemaining > 0 {
+                        self.emailVerificationCooldownRemaining -= 1
+                    } else {
+                        self.emailVerificationCooldownTimer?.invalidate()
+                    }
+                }
+            }
+
             print("✅ Verification email sent")
 
             // Success haptic
@@ -347,31 +539,48 @@ class AuthenticationViewModel: ObservableObject {
             guard let user = Auth.auth().currentUser else { return }
             
             // ✅ ONLY require email verification for email-based sign-ups
-            // Phone, Google, and Apple sign-in don't need email verification
-            let signInProvider = user.providerData.first?.providerID ?? ""
-            let isEmailSignIn = signInProvider == "password" // Email/password sign-in
-            
-            print("📧 Sign-in provider: \(signInProvider)")
+            // Phone, Google, and Apple sign-in don't need email verification.
+            // Use contains rather than .first to correctly handle multi-provider accounts.
+            let hasPasswordProvider = user.providerData.contains { $0.providerID == "password" }
             
             // Skip email verification for non-email providers
-            guard isEmailSignIn else {
+            guard hasPasswordProvider else {
                 needsEmailVerification = false
                 showEmailVerificationBanner = false
-                print("📧 Skipping email verification for provider: \(signInProvider)")
+                return
+            }
+            
+            // P1-1 FIX: If already verified, skip the network reload.
+            // Only reload when the user is unverified (awaiting email click).
+            if isEmailVerified {
+                needsEmailVerification = false
                 return
             }
             
             try await firebaseManager.reloadUser()
             isEmailVerified = firebaseManager.isEmailVerified
+            #if DEBUG
             print("📧 Email verification status: \(isEmailVerified)")
+            #endif
 
-            // P0: Set needsEmailVerification gate ONLY for email sign-in
-            if !isEmailVerified {
-                needsEmailVerification = true
-                showEmailVerificationBanner = true
-            } else {
+            if isEmailVerified {
+                // Verified — clear any gate or banner
                 needsEmailVerification = false
                 showEmailVerificationBanner = false
+            } else {
+                // Not verified — only show banner/gate if this is a fresh sign-up flow.
+                // Returning users (who have already completed onboarding) should NEVER see
+                // the banner mid-session just because their email happens to be unverified.
+                let userId = Auth.auth().currentUser?.uid ?? ""
+                let hasCompletedOnboarding = UserDefaults.standard.bool(forKey: "hasCompletedOnboarding_\(userId)")
+                if needsEmailVerification && !hasCompletedOnboarding {
+                    // New sign-up flow — keep gate and banner active
+                    showEmailVerificationBanner = true
+                } else {
+                    // Returning user or onboarding already complete — never block them
+                    needsEmailVerification = false
+                    showEmailVerificationBanner = false
+                }
             }
         } catch {
             print("❌ Failed to check email verification: \(error.localizedDescription)")
@@ -389,7 +598,9 @@ class AuthenticationViewModel: ObservableObject {
             try await firebaseManager.sendSignInLink(toEmail: email)
             emailLinkSent = true
             emailForLink = email
+            #if DEBUG
             print("✅ Sign-in link sent to \(email)")
+            #endif
 
             // Success haptic
             let haptic = UINotificationFeedbackGenerator()
@@ -468,15 +679,17 @@ class AuthenticationViewModel: ObservableObject {
     
     /// Update user email address
     func updateEmail(newEmail: String) async throws {
+        #if DEBUG
         print("📧 Updating email to: \(newEmail)")
+        #endif
         
         guard let user = Auth.auth().currentUser else {
             throw NSError(domain: "AuthError", code: -1, userInfo: [NSLocalizedDescriptionKey: "No user is currently signed in"])
         }
         
         do {
-            try await user.updateEmail(to: newEmail)
-            print("✅ Email updated successfully in Firebase Auth")
+            try await user.sendEmailVerification(beforeUpdatingEmail: newEmail)
+            print("✅ Email verification sent for update in Firebase Auth")
         } catch {
             print("❌ Email update failed: \(error.localizedDescription)")
             throw error
@@ -524,15 +737,19 @@ class AuthenticationViewModel: ObservableObject {
         let isEmailSignIn = user.providerData.contains { $0.providerID == "password" }
         
         do {
-            // Re-authenticate based on provider
+            // Re-authenticate based on provider.
+            // Firebase requires recent authentication for destructive operations —
+            // skipping reauthentication for Apple/Google will cause a requiresRecentLogin
+            // error for sessions that have been open too long. The caller must handle
+            // AuthErrorCode.requiresRecentLogin by presenting a fresh sign-in flow.
             if isAppleSignIn {
-                print("🍎 Apple Sign-In user - re-authentication not required for deletion")
-                // Apple Sign-In users can delete without re-authentication
-                // The user already confirmed with multiple steps in the UI
+                // Apple: reauthentication must be driven by the view layer (present ASAuthorizationController).
+                // Attempting deletion without it will produce requiresRecentLogin for older sessions.
+                // We proceed here; callers should catch requiresRecentLogin and re-invoke with fresh Apple credential.
+                print("🍎 Apple Sign-In user - proceeding with deletion (may require re-auth for old sessions)")
             } else if isGoogleSignIn {
-                print("🔍 Google Sign-In user - re-authentication not required for deletion")
-                // Google Sign-In users can delete without re-authentication
-                // The user already confirmed with multiple steps in the UI
+                // Google: same pattern — caller must handle requiresRecentLogin by re-presenting Google Sign-In.
+                print("🔍 Google Sign-In user - proceeding with deletion (may require re-auth for old sessions)")
             } else if isEmailSignIn {
                 // Email/password users must re-authenticate
                 guard let password = password, !password.isEmpty else {
@@ -566,6 +783,18 @@ class AuthenticationViewModel: ObservableObject {
             }
             
         } catch {
+            let nsError = error as NSError
+            if nsError.code == AuthErrorCode.requiresRecentLogin.rawValue {
+                // Firebase requires a fresh credential for this session.
+                // The calling view must reauthenticate (present Apple/Google sign-in or password entry)
+                // then retry deleteAccount().
+                print("⚠️ Account deletion requires recent authentication — caller must reauthenticate")
+                throw NSError(
+                    domain: "AuthError",
+                    code: AuthErrorCode.requiresRecentLogin.rawValue,
+                    userInfo: [NSLocalizedDescriptionKey: "For security, please sign in again before deleting your account."]
+                )
+            }
             print("❌ Account deletion failed: \(error.localizedDescription)")
             throw error
         }
@@ -657,7 +886,17 @@ class AuthenticationViewModel: ObservableObject {
             }
         }
         
+        #if DEBUG
         print("📱 Sending verification code to: \(phoneNumber)")
+        #endif
+
+        // P0: Enforce server-side rate limit BEFORE calling Firebase.
+        // checkServerRateLimit sets errorMessage/showError itself if denied.
+        guard await checkServerRateLimit(phoneNumber: phoneNumber) else {
+            let haptic = UINotificationFeedbackGenerator()
+            haptic.notificationOccurred(.error)
+            return
+        }
         
         do {
             // Format phone number to E.164 format if needed
@@ -849,6 +1088,11 @@ class AuthenticationViewModel: ObservableObject {
                 self.showAuthSuccess = false
                 self.phoneNumber = ""
                 
+                // P0 FIX: Phone-authenticated users never need email verification
+                // Clear any stale flag left over from a prior email-signup session
+                self.needsEmailVerification = false
+                self.showEmailVerificationBanner = false
+                
                 // P1: Stop and clean up timer
                 self.resendCooldownTimer?.invalidate()
                 self.resendCooldownTimer = nil
@@ -857,6 +1101,16 @@ class AuthenticationViewModel: ObservableObject {
             
         } catch {
             print("❌ Phone verification failed: \(error.localizedDescription)")
+
+            // P0: Report failure to server for security monitoring/rate-limit tracking
+            let storedPhone = await MainActor.run { self.phoneNumber }
+            if !storedPhone.isEmpty {
+                await reportVerificationFailure(
+                    phoneNumber: storedPhone,
+                    reason: (error as NSError).localizedDescription
+                )
+            }
+
             await MainActor.run {
                 self.errorMessage = handlePhoneAuthError(error)
                 self.showError = true
@@ -890,17 +1144,14 @@ class AuthenticationViewModel: ObservableObject {
         resendCooldownTimer?.invalidate()
         
         // P1: Create and store timer reference for proper cleanup
-        resendCooldownTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] timer in
-            Task { @MainActor in
-                guard let self = self else {
-                    timer.invalidate()
-                    return
-                }
+        resendCooldownTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self = self else { return }
                 
                 if self.resendCooldown > 0 {
                     self.resendCooldown -= 1
                 } else {
-                    timer.invalidate()
+                    self.resendCooldownTimer?.invalidate()
                     self.resendCooldownTimer = nil
                 }
             }
@@ -920,20 +1171,17 @@ class AuthenticationViewModel: ObservableObject {
         print("🧹 Phone auth state cleaned up")
     }
     
-    /// Check network availability
-    /// P1 FIX: Network connectivity check before making API calls
+    /// Check network availability using NWPathMonitor (no external HTTP probe).
+    /// Returns immediately based on the OS-level path status — no latency, no blocked-domain risk.
     private func isNetworkAvailable() async -> Bool {
-        // Simple network check using URLSession
-        do {
-            let url = URL(string: "https://www.google.com")!
-            let (_, response) = try await URLSession.shared.data(from: url)
-            if let httpResponse = response as? HTTPURLResponse {
-                return httpResponse.statusCode == 200
+        await withCheckedContinuation { continuation in
+            let monitor = NWPathMonitor()
+            let queue = DispatchQueue(label: "com.amen.networkCheck", qos: .utility)
+            monitor.pathUpdateHandler = { path in
+                monitor.cancel()
+                continuation.resume(returning: path.status == .satisfied)
             }
-            return false
-        } catch {
-            print("⚠️ Network check failed: \(error.localizedDescription)")
-            return false
+            monitor.start(queue: queue)
         }
     }
     
@@ -951,7 +1199,7 @@ class AuthenticationViewModel: ObservableObject {
 
                 if !allowed {
                     let reason = data["reason"] as? String ?? "Rate limit exceeded"
-                    let retryAfter = data["retryAfter"] as? Int ?? 60
+                    _ = data["retryAfter"] as? Int ?? 60
 
                     await MainActor.run {
                         self.errorMessage = reason
@@ -1028,8 +1276,11 @@ class AuthenticationViewModel: ObservableObject {
         let words = lowercasedName.components(separatedBy: " ")
         words.forEach { keywords.insert($0) }
         
-        // Add prefixes for autocomplete (min 2 chars)
+        // Add prefixes for autocomplete (min 2 chars).
+        // Guard word.count >= 2 to avoid a fatal "Range requires lowerBound <= upperBound"
+        // crash when a single-character word (or empty string) is encountered.
         for word in words {
+            guard word.count >= 2 else { continue }
             for i in 2...word.count {
                 keywords.insert(String(word.prefix(i)))
             }
@@ -1085,14 +1336,10 @@ class AuthenticationViewModel: ObservableObject {
                 print("✅ Onboarding completion saved to Firestore")
                 
                 // Clear the flag after Firestore update succeeds
-                await MainActor.run {
-                    // Wait a bit to ensure any pending checkOnboardingStatus calls complete
-                    Task {
-                        try? await Task.sleep(nanoseconds: 2_000_000_000)  // 2 seconds
-                        await MainActor.run {
-                            self.onboardingJustCompleted = false
-                        }
-                    }
+                // Wait a bit to ensure any pending checkOnboardingStatus calls complete
+                Task { @MainActor [weak self] in
+                    try? await Task.sleep(nanoseconds: 2_000_000_000)  // 2 seconds
+                    self?.onboardingJustCompleted = false
                 }
                 
             } catch {
@@ -1100,13 +1347,9 @@ class AuthenticationViewModel: ObservableObject {
                 print("⚠️ Local state already updated - user can proceed")
                 
                 // Clear the flag even on error (after delay)
-                await MainActor.run {
-                    Task {
-                        try? await Task.sleep(nanoseconds: 2_000_000_000)  // 2 seconds
-                        await MainActor.run {
-                            self.onboardingJustCompleted = false
-                        }
-                    }
+                Task { @MainActor [weak self] in
+                    try? await Task.sleep(nanoseconds: 2_000_000_000)  // 2 seconds
+                    self?.onboardingJustCompleted = false
                 }
             }
         }
@@ -1215,27 +1458,13 @@ class AuthenticationViewModel: ObservableObject {
         
         print("📱 Linking phone number to existing account")
         
-        do {
-            // Send verification code
-            await sendPhoneVerificationCode(phoneNumber: phoneNumber)
-            
-            // Store that we're in linking mode (not signup)
-            await MainActor.run {
-                self.phoneNumber = phoneNumber
-            }
-            
-            print("✅ Phone verification code sent for linking")
-            
-        } catch {
-            print("❌ Failed to send phone verification code: \(error.localizedDescription)")
-            await MainActor.run {
-                self.errorMessage = handlePhoneAuthError(error as NSError)
-                self.showError = true
-            }
-            
-            let haptic = UINotificationFeedbackGenerator()
-            haptic.notificationOccurred(.error)
-        }
+        // Send verification code
+        await sendPhoneVerificationCode(phoneNumber: phoneNumber)
+        
+        // Store that we're in linking mode (not signup)
+        self.phoneNumber = phoneNumber
+        
+        print("✅ Phone verification code sent for linking")
         
         isLoading = false
     }

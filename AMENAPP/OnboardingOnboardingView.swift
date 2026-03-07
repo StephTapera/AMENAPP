@@ -64,6 +64,7 @@ struct OnboardingView: View {
     // Privacy Settings
     @State private var isAccountPrivate = false
     @State private var whoCanMessage: PrivacySettingsOnboardingPage.MessagingPrivacy = .everyone
+    @State private var commentModeration: PrivacySettingsOnboardingPage.CommentModerationLevel = .standard
     
     // Error handling & retry
     @State private var isSaving = false
@@ -154,7 +155,7 @@ struct OnboardingView: View {
                             }
                         },
                         onSkip: {
-                            currentPage = totalPages - 1
+                            // Page 1 is required — must accept guidelines before continuing
                         }
                     )
                         .tag(1)
@@ -275,14 +276,13 @@ struct OnboardingView: View {
                         acceptedPrivacyPolicy: $acceptedPrivacyPolicy,
                         currentPage: currentPage,
                         totalPages: totalPages,
-                        canContinue: canContinue,
                         onBack: {
                             withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                                 currentPage -= 1
                             }
                         },
                         onSkip: {
-                            currentPage = totalPages - 1
+                            // Page 7 is required — must accept Privacy Promise before continuing
                         },
                         onNext: {
                             withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
@@ -292,10 +292,11 @@ struct OnboardingView: View {
                     )
                         .tag(7)
                     
-                    // Page 9: Privacy Settings (NEW - CONFIGURE PRIVACY)
+                    // Page 9: Privacy Settings (CONFIGURE PRIVACY — required, no skip)
                     PrivacySettingsOnboardingPage(
                         isAccountPrivate: $isAccountPrivate,
                         whoCanMessage: $whoCanMessage,
+                        commentModeration: $commentModeration,
                         currentPage: currentPage,
                         totalPages: totalPages,
                         canContinue: canContinue,
@@ -305,7 +306,7 @@ struct OnboardingView: View {
                             }
                         },
                         onSkip: {
-                            currentPage = totalPages - 1
+                            // Page 8 is required — skip is intentionally disabled via canContinue
                         },
                         onNext: {
                             withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
@@ -606,15 +607,22 @@ struct OnboardingView: View {
     /// Save Terms of Service and Privacy Policy acceptance
     private func saveTermsAcceptance() async throws {
         guard let userId = Auth.auth().currentUser?.uid else { return }
-        
+
+        let now = Timestamp(date: Date())
         let db = Firestore.firestore()
+        // ✅ P0-3: Store versioned, timestamped acceptance for COPPA/GDPR compliance.
+        // tosVersion and privacyPolicyVersion MUST be bumped whenever the documents change.
         try await db.collection("users").document(userId).updateData([
             "acceptedTermsOfService": acceptedGuidelines,
             "acceptedPrivacyPolicy": acceptedPrivacyPolicy,
-            "termsAcceptedAt": Timestamp(date: Date()),
-            "privacyPolicyAcceptedAt": Timestamp(date: Date())
+            // Canonical acceptance timestamps (used for compliance audits)
+            "tosAcceptedAt": now,
+            "privacyPolicyAcceptedAt": now,
+            // Version record: enables re-prompt if user signed up under an old version
+            "tosVersion": "1.0",
+            "privacyPolicyVersion": "1.0"
         ])
-        
+
         print("✅ Terms & Privacy Policy acceptance saved to Firestore")
     }
     
@@ -636,13 +644,25 @@ struct OnboardingView: View {
         let db = Firestore.firestore()
         
         if enable2FA {
-            // Save 2FA enabled status and backup codes
+            // Save 2FA enabled status to user doc (no backupCodes here - security rule blocks it)
             try await db.collection("users").document(userId).updateData([
                 "twoFactorEnabled": true,
-                "twoFactorEnabledAt": Timestamp(date: Date()),
-                "backupCodes": backupCodes,
-                "backupCodesGeneratedAt": Timestamp(date: Date())
+                "twoFactorEnabledAt": Timestamp(date: Date())
             ])
+            // Save backup codes to secured subcollection (rules: create only, no client read)
+            if !backupCodes.isEmpty {
+                let codesRef = db.collection("users").document(userId).collection("backupCodes")
+                let batch = db.batch()
+                for code in backupCodes {
+                    let docRef = codesRef.document()
+                    batch.setData(["code": code, "used": false, "createdAt": Timestamp(date: Date())], forDocument: docRef)
+                }
+                try await batch.commit()
+                // Write backup code count to user doc so app can show low-stock warning
+                try await db.collection("users").document(userId).updateData([
+                    "backupCodesRemaining": backupCodes.count
+                ])
+            }
             print("✅ 2FA settings saved with \(backupCodes.count) backup codes")
         } else {
             // Ensure 2FA is disabled
@@ -679,10 +699,11 @@ struct OnboardingView: View {
             "isPrivateAccount": isAccountPrivate,
             "allowMessagesFromEveryone": allowMessagesFromEveryone,
             "allowMessagesFromFollowersOnly": allowMessagesFromFollowersOnly,
+            "commentModerationLevel": commentModeration.rawValue,
             "privacySettingsConfiguredAt": Timestamp(date: Date())
         ])
-        
-        print("✅ Privacy settings saved: Private=\(isAccountPrivate), Messaging=\(whoCanMessage.rawValue)")
+
+        print("✅ Privacy settings saved: Private=\(isAccountPrivate), Messaging=\(whoCanMessage.rawValue), CommentModeration=\(commentModeration.rawValue)")
     }
     
     /// Save biometric authentication preference
@@ -860,24 +881,42 @@ struct WelcomePage: View {
             }
         }
         .task {
-            // Fetch user's display name
-            await fetchDisplayName()
-            
-            // Animate after user data loads
+            // Fetch user's display name with a 3-second timeout so the ProgressView
+            // never spins indefinitely if Firestore is slow.
+            await withTimeout(seconds: 3) {
+                await fetchDisplayName()
+            }
+            // Ensure the spinner is hidden even if fetchDisplayName was cancelled by timeout
+            isLoadingUser = false
+
+            // Animate title in
             withAnimation(.spring(response: 0.6, dampingFraction: 0.7)) {
                 animate = true
             }
-            
-            // Start typing animation for name
-            if !displayName.isEmpty {
-                await typeNameAnimation()
-            }
-            
-            // Show button after typing completes
-            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+
+            // Show the Continue button immediately — don't wait for the typewriter
+            // to finish. A slow name fetch should not block the user from proceeding.
             withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
                 showButton = true
             }
+
+            // Run typewriter animation concurrently (visual flourish only)
+            if !displayName.isEmpty {
+                await typeNameAnimation()
+            }
+        }
+    }
+
+    /// Run `work` and cancel it after `seconds` if it hasn't finished.
+    private func withTimeout(seconds: Double, work: @escaping () async -> Void) async {
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask { await work() }
+            group.addTask {
+                try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+            }
+            // Take the first to finish (either work completes or timeout fires)
+            await group.next()
+            group.cancelAll()
         }
     }
     
@@ -1037,8 +1076,6 @@ struct ProfilePhotoPage: View {
                                 .opacity(animate ? 1.0 : 0)
                         }
                         
-                        Spacer(minLength: 100)
-                        
                         // Navigation buttons inside scroll view
                         OnboardingNavigationButtons(
                             currentPage: currentPage,
@@ -1150,8 +1187,6 @@ struct FeaturesPage: View {
                     }
                 }
                 .padding(.horizontal, 40)
-                
-                Spacer(minLength: 100)
                 
                 // Navigation buttons inside ScrollView
                 OnboardingNavigationButtons(
@@ -1266,7 +1301,7 @@ struct InterestsPage: View {
         ("Devotionals", "heart.text.square.fill"),
         
         // Life & Relationships
-        ("Marriage & Family", "house.heart.fill"),
+        ("Marriage & Family", "house.fill"),
         ("Parenting", "figure.2.and.child.holdinghands"),
         ("Dating & Relationships", "heart.circle"),
         ("Friendship", "person.2.wave.2.fill"),
@@ -1363,8 +1398,6 @@ struct InterestsPage: View {
                 }
                 .padding(.horizontal, 40)
                 
-                Spacer(minLength: 100)
-                
                 // Navigation buttons inside ScrollView
                 OnboardingNavigationButtons(
                     currentPage: currentPage,
@@ -1445,27 +1478,29 @@ struct GoalsPage: View {
     @State private var animate = false
     
     let goals = [
-        ("Grow in Faith", "chart.line.uptrend.xyaxis", Color.green),
-        ("Daily Bible Reading", "book.fill", Color.purple),
-        ("Consistent Prayer", "hands.sparkles.fill", Color.cyan),
-        ("Build Community", "person.3.fill", Color.orange),
-        ("Share the Gospel", "megaphone.fill", Color.red),
-        ("Serve Others", "heart.fill", Color.pink)
+        ("Encouragement", "sun.max.fill", Color.yellow),
+        ("Growth & Learning", "book.fill", Color.purple),
+        ("Prayer & Reflection", "hands.sparkles.fill", Color.cyan),
+        ("Community", "person.3.fill", Color.orange),
+        ("Healing", "heart.fill", Color.pink),
+        ("Church Discovery", "building.columns.fill", Color.blue),
+        ("Quiet Mode", "moon.stars.fill", Color.indigo)
     ]
     
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 24) {
                 VStack(spacing: 12) {
-                    Text("What are your goals?")
+                    Text("What brings you here?")
                         .font(.custom("OpenSans-Bold", size: 28))
                         .foregroundStyle(.white)
                         .offset(y: animate ? 0 : -20)
                         .opacity(animate ? 1.0 : 0)
                     
-                    Text("We'll personalize your experience")
+                    Text("Choose what resonates — we'll shape your experience around it")
                         .font(.custom("OpenSans-Regular", size: 16))
                         .foregroundStyle(.white.opacity(0.7))
+                        .multilineTextAlignment(.center)
                         .offset(y: animate ? 0 : -20)
                         .opacity(animate ? 1.0 : 0)
                 }
@@ -1495,8 +1530,6 @@ struct GoalsPage: View {
                     }
                 }
                 .padding(.horizontal, 40)
-                
-                Spacer(minLength: 100)
                 
                 // Navigation buttons inside ScrollView
                 OnboardingNavigationButtons(
@@ -1716,8 +1749,6 @@ struct PrayerTimePage: View {
                     .offset(y: animate ? 0 : 20)
                     .opacity(animate ? 1.0 : 0)
                 
-                Spacer(minLength: 100)
-                
                 // Navigation buttons inside ScrollView
                 OnboardingNavigationButtons(
                     currentPage: currentPage,
@@ -1835,22 +1866,11 @@ struct WelcomeValuesPage: View {
                 
                 // Main content
                 VStack(spacing: 32) {
-                    // Icon
-                    ZStack {
-                        Circle()
-                            .fill(Color.blue.opacity(0.2))
-                            .frame(width: 100, height: 100)
-                        
-                        Image(systemName: "heart.text.square.fill")
-                            .font(.system(size: 50, weight: .semibold))
-                            .foregroundStyle(
-                                LinearGradient(
-                                    colors: [.blue, .purple],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                    }
+                    // Logo
+                    Image("amen-logo-new")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 100, height: 100)
                     .scaleEffect(animate ? 1.0 : 0.8)
                     .opacity(animate ? 1.0 : 0)
                     
@@ -1861,11 +1881,11 @@ struct WelcomeValuesPage: View {
                             .opacity(animate ? 1.0 : 0)
                         
                         VStack(alignment: .leading, spacing: 12) {
-                            CommitmentRow(text: "No endless scrolling")
-                            CommitmentRow(text: "No algorithmic manipulation")
-                            CommitmentRow(text: "Your data stays private")
-                            CommitmentRow(text: "Faith over engagement")
-                            CommitmentRow(text: "Community over competition")
+                            CommitmentRow(text: "Encouraging content curated for growth")
+                            CommitmentRow(text: "Safer messaging with built-in guardrails")
+                            CommitmentRow(text: "No public like counts — faith, not performance")
+                            CommitmentRow(text: "Finite sessions — no doom scrolling")
+                            CommitmentRow(text: "AI moderation to keep the community safe")
                         }
                         .offset(y: animate ? 0 : 20)
                         .opacity(animate ? 1.0 : 0)
@@ -2310,7 +2330,8 @@ struct PrivacyPromisePage: View {
     @Binding var acceptedPrivacyPolicy: Bool
     var currentPage: Int = 7
     var totalPages: Int = 12
-    var canContinue: Bool = true
+    // Continue is only enabled after user agrees — skip is not allowed on this page
+    var canContinue: Bool { acceptedPrivacyPolicy }
     var onBack: () -> Void = {}
     var onSkip: () -> Void = {}
     var onNext: () -> Void = {}
@@ -2327,24 +2348,8 @@ struct PrivacyPromisePage: View {
             VStack(spacing: 0) {
                 ScrollView {
                     VStack(spacing: 32) {
-                        // Skip button at top
-                        HStack {
-                            Spacer()
-                            Button {
-                                onSkip()
-                            } label: {
-                                Text("Skip")
-                                    .font(.custom("OpenSans-SemiBold", size: 14))
-                                    .foregroundStyle(.white.opacity(0.7))
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 8)
-                            }
-                        }
-                        .padding(.horizontal)
-                        .padding(.top, 8)
-                        
                         Spacer()
-                            .frame(height: 16)
+                            .frame(height: 24)
                         
                         // Header
                         VStack(spacing: 16) {
@@ -2367,9 +2372,11 @@ struct PrivacyPromisePage: View {
                                 .foregroundStyle(.white)
                             
                             VStack(alignment: .leading, spacing: 12) {
-                                PrivacyRow(icon: "person.circle", text: "Name, email, profile photo", color: .blue)
-                                PrivacyRow(icon: "text.bubble", text: "Posts, prayers, testimonies", color: .blue)
-                                PrivacyRow(icon: "chart.bar", text: "Anonymous analytics", color: .blue)
+                                PrivacyRow(icon: "person.circle", text: "Account info (email or phone)", color: .blue)
+                                PrivacyRow(icon: "text.bubble", text: "Content you post (posts, prayers, testimonies)", color: .blue)
+                                PrivacyRow(icon: "shield.lefthalf.filled", text: "Messages — reviewed by AI for safety only", color: .blue)
+                                PrivacyRow(icon: "chart.bar", text: "Basic interaction signals to personalize your feed", color: .blue)
+                                PrivacyRow(icon: "iphone", text: "Device info for security and abuse prevention", color: .blue)
                             }
                         }
                         .padding(.horizontal, 40)
@@ -2384,9 +2391,9 @@ struct PrivacyPromisePage: View {
                             
                             VStack(alignment: .leading, spacing: 12) {
                                 PrivacyRow(icon: "xmark.circle", text: "Sell your data", color: .red)
-                                PrivacyRow(icon: "xmark.circle", text: "Track across other apps", color: .red)
-                                PrivacyRow(icon: "xmark.circle", text: "Use data for ads", color: .red)
-                                PrivacyRow(icon: "xmark.circle", text: "Share with third parties", color: .red)
+                                PrivacyRow(icon: "xmark.circle", text: "Optimize for addiction or endless scrolling", color: .red)
+                                PrivacyRow(icon: "xmark.circle", text: "Publicly expose your follower or like counts", color: .red)
+                                PrivacyRow(icon: "xmark.circle", text: "Amplify outrage or divisive content", color: .red)
                             }
                         }
                         .padding(.horizontal, 40)
@@ -2400,9 +2407,11 @@ struct PrivacyPromisePage: View {
                                 .foregroundStyle(.white)
                             
                             VStack(alignment: .leading, spacing: 12) {
-                                PrivacyRow(icon: "arrow.down.doc", text: "Export your data (Settings)", color: .green)
-                                PrivacyRow(icon: "trash", text: "Delete your account", color: .green)
-                                PrivacyRow(icon: "eye.slash", text: "Control what's public", color: .green)
+                                PrivacyRow(icon: "arrow.counterclockwise", text: "Reset your feed anytime", color: .green)
+                                PrivacyRow(icon: "arrow.down.doc", text: "Download a copy of your data", color: .green)
+                                PrivacyRow(icon: "trash", text: "Delete your account permanently", color: .green)
+                                PrivacyRow(icon: "slider.horizontal.3", text: "Toggle personalization on or off", color: .green)
+                                PrivacyRow(icon: "message.badge.filled.fill", text: "Turn off DMs or control visibility", color: .green)
                             }
                         }
                         .padding(.horizontal, 40)
@@ -3001,8 +3010,6 @@ struct FindFriendsPage: View {
                     .offset(y: animate ? 0 : 20)
                     .opacity(animate ? 1.0 : 0)
                 
-                Spacer(minLength: 100)
-                
                 // Navigation buttons inside ScrollView
                 OnboardingNavigationButtons(
                     currentPage: currentPage,
@@ -3355,8 +3362,6 @@ struct FeedbackRecommendationsPage: View {
                 .offset(y: animate ? 0 : 20)
                 .opacity(animate ? 1.0 : 0)
                 
-                Spacer(minLength: 100)
-                
                 // Navigation buttons inside ScrollView
                 OnboardingNavigationButtons(
                     currentPage: currentPage,
@@ -3519,8 +3524,6 @@ struct CombinedSecurityOnboardingPage: View {
                         }
                         
                         footerText
-                        
-                        Spacer(minLength: 100)
                         
                         navigationButtons
                             .padding(.bottom, 40)

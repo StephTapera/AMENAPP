@@ -109,8 +109,6 @@ class PersonalizationService: ObservableObject {
             
             // Fetch potential matches from Firestore
             // Query users who have ANY of the same interests
-            var allMatches: [UserModel] = []
-            
             // Query by interests (Firestore supports array-contains-any for up to 10 items)
             let interestsToQuery = Array(userInterests.prefix(10))
             

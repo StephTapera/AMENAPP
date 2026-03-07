@@ -46,7 +46,48 @@ class ProfilePhotoService: ObservableObject {
         print("✅ User authenticated")
         print("   - User ID: \(currentUserId)")
         print("   - Image size: \(image.size.width) x \(image.size.height)")
-        
+
+        // 🛡️ IMAGE SAFETY PRE-CHECK — runs before any upload to Firebase Storage.
+        // Checks: validity, perceptual hash vs known-bad content, on-device heuristics.
+        // async/await wrapper so we can use the completion-handler API caller expects.
+        Task { @MainActor in
+            let safetyDecision = await ProfileImageSafetyGate.shared.evaluate(
+                image: image,
+                uploaderId: currentUserId,
+                context: .profilePhoto
+            )
+            if safetyDecision.blocksUpload {
+                self.isUploading = false
+                let reason: String
+                switch safetyDecision {
+                case .reject(let r):  reason = r
+                case .freeze(let r):  reason = "Your account is under review. \(r)"
+                default:              reason = "Photo could not be uploaded."
+                }
+                self.error = reason
+                print("⛔ [ProfileImageSafetyGate] Upload blocked: \(reason)")
+                completion(.failure(NSError(
+                    domain: "ProfilePhotoService",
+                    code: -20,
+                    userInfo: [NSLocalizedDescriptionKey: reason]
+                )))
+                return
+            }
+            // Safety check passed — proceed with upload on current task context
+            self.performUpload(image: image, userId: currentUserId, pHash: {
+                if case .allowWithAsyncScan(let h) = safetyDecision { return h }
+                return ""
+            }(), completion: completion)
+        }
+    }
+
+    /// Internal upload method — called after safety gate approves the image.
+    private func performUpload(
+        image: UIImage,
+        userId: String,
+        pHash: String,
+        completion: @escaping (Result<String, Error>) -> Void
+    ) {
         // Compress image
         guard let imageData = compressImage(image) else {
             print("❌ ERROR: Failed to compress image")
@@ -67,7 +108,7 @@ class ProfilePhotoService: ObservableObject {
         let fileName = "profile.jpg"
         let storageRef = storage.reference()
             .child("profile_images")
-            .child(currentUserId)
+            .child(userId)
             .child(fileName)
         
         print("📂 Storage path: \(storageRef.fullPath)")
@@ -107,15 +148,27 @@ class ProfilePhotoService: ObservableObject {
                 do {
                     print("📥 Getting download URL...")
                     
-                    // Get download URL
-                    let downloadURL = try await storageRef.downloadURL()
-                    let urlString = downloadURL.absoluteString
+                    // Get download URL — prefer the resized variant if the
+                    // firebase/storage-resize-images extension has processed it,
+                    // otherwise fall back to the original upload.
+                    let urlString = await self.resizedDownloadURL(
+                        userId: userId, originalRef: storageRef
+                    )
                     
                     print("✅ Download URL retrieved: \(urlString)")
                     
                     // Update user document
                     print("💾 Updating Firestore user document...")
-                    try await self.updateUserProfilePhoto(userId: currentUserId, photoURL: urlString)
+                    try await self.updateUserProfilePhoto(userId: userId, photoURL: urlString)
+
+                    // Schedule async deep scan post-upload
+                    ProfileImageSafetyGate.shared.scheduleDeepScan(
+                        imageURL: urlString,
+                        pHash: pHash,
+                        uploaderId: userId,
+                        context: .profilePhoto,
+                        contentId: userId
+                    )
                     
                     self.isUploading = false
                     self.uploadProgress = 1.0
@@ -174,8 +227,8 @@ class ProfilePhotoService: ObservableObject {
                             print("   - ERROR TYPE: Download size exceeded")
                         case -13016:
                             print("   - ERROR TYPE: Unauthorized - CHECK YOUR STORAGE RULES!")
-                            print("   - HINT: User \(currentUserId) doesn't have permission")
-                            print("   - Path: profile_images/\(currentUserId)/profile.jpg")
+                            print("   - HINT: User \(userId) doesn't have permission")
+                            print("   - Path: profile_images/\(userId)/profile.jpg")
                         default:
                             print("   - ERROR TYPE: Other Firebase Storage error (code: \(nsError.code))")
                         }
@@ -257,6 +310,40 @@ class ProfilePhotoService: ObservableObject {
         print("✅ Updated user profile photo URL")
     }
     
+    /// Attempt to fetch the resized download URL produced by the
+    /// firebase/storage-resize-images extension. Falls back to the
+    /// original file's URL if the extension hasn't run yet or isn't
+    /// installed. Checks the two most common output path conventions:
+    ///   • Same folder, size suffix: profile_images/{uid}/profile_200x200.jpg
+    ///   • Resized sub-folder:       profile_images/{uid}/resized/profile.jpg
+    private func resizedDownloadURL(userId: String, originalRef: StorageReference) async -> String {
+        let candidates = [
+            storage.reference()
+                .child("profile_images")
+                .child(userId)
+                .child("resized")
+                .child("profile.jpg"),
+            storage.reference()
+                .child("profile_images")
+                .child(userId)
+                .child("profile_200x200.jpg"),
+        ]
+
+        for candidate in candidates {
+            if let url = try? await candidate.downloadURL() {
+                print("✅ Using resized profile image: \(url.absoluteString)")
+                return url.absoluteString
+            }
+        }
+
+        // Fallback — extension not installed or hasn't processed yet
+        if let url = try? await originalRef.downloadURL() {
+            print("ℹ️ Using original profile image (no resized variant found)")
+            return url.absoluteString
+        }
+        return ""
+    }
+
     /// Compress image to reduce file size
     private func compressImage(_ image: UIImage) -> Data? {
         let maxWidth: CGFloat = 800

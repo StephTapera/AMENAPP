@@ -162,19 +162,16 @@ struct FollowRequestCard: View {
                             .frame(width: 60, height: 60)
                         
                         if let profileImageURL = user.profileImageURL, !profileImageURL.isEmpty {
-                            AsyncImage(url: URL(string: profileImageURL)) { phase in
-                                switch phase {
-                                case .success(let image):
-                                    image
-                                        .resizable()
-                                        .scaledToFill()
-                                        .frame(width: 60, height: 60)
-                                        .clipShape(Circle())
-                                default:
-                                    Text(user.initials)
-                                        .font(.custom("OpenSans-Bold", size: 22))
-                                        .foregroundStyle(.white)
-                                }
+                            CachedAsyncImage(url: URL(string: profileImageURL)) { image in
+                                image
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: 60, height: 60)
+                                    .clipShape(Circle())
+                            } placeholder: {
+                                Text(user.initials)
+                                    .font(.custom("OpenSans-Bold", size: 22))
+                                    .foregroundStyle(.white)
                             }
                         } else {
                             Text(user.initials)
@@ -265,10 +262,14 @@ struct FollowRequestCard: View {
         )
     }
     
+    private static let relativeDateFormatter: RelativeDateTimeFormatter = {
+        let f = RelativeDateTimeFormatter()
+        f.unitsStyle = .abbreviated
+        return f
+    }()
+
     private func timeAgo(from date: Date) -> String {
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .abbreviated
-        return formatter.localizedString(for: date, relativeTo: Date())
+        Self.relativeDateFormatter.localizedString(for: date, relativeTo: Date())
     }
 }
 
@@ -284,8 +285,10 @@ class FollowRequestsViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var error: String?
     
-    // ✅ P0-3: Track in-flight requests to prevent duplicates
-    private var processingRequestIds: Set<String> = []
+    // Track in-flight requests to prevent duplicates and drive spinner UI
+    private var processingRequestIds: Set<String> = [] {
+        willSet { objectWillChange.send() }
+    }
     
     private let db = Firestore.firestore()
     
@@ -309,12 +312,12 @@ class FollowRequestsViewModel: ObservableObject {
                 do {
                     return try doc.data(as: FollowRequest.self)
                 } catch {
-                    print("⚠️ Failed to parse follow request \(doc.documentID): \(error)")
+                    dlog("⚠️ Failed to parse follow request \(doc.documentID): \(error)")
                     return nil
                 }
             }
             
-            print("✅ Loaded \(requests.count) follow requests")
+            dlog("✅ Loaded \(requests.count) follow requests")
             
             // Fetch user data for each request with concurrency limiting
             await withTaskGroup(of: Void.self) { group in
@@ -329,7 +332,7 @@ class FollowRequestsViewModel: ObservableObject {
             
         } catch {
             self.error = error.localizedDescription
-            print("❌ Failed to load follow requests: \(error)")
+            dlog("❌ Failed to load follow requests: \(error)")
         }
         
         isLoading = false
@@ -340,41 +343,106 @@ class FollowRequestsViewModel: ObservableObject {
     }
     
     func acceptRequest(_ request: FollowRequest) async {
-        // ✅ P0-3: Guard against duplicate taps
+        // Guard against duplicate taps
         guard let requestId = request.id else {
-            print("⚠️ Cannot process request without ID")
+            dlog("⚠️ Cannot process request without ID")
             return
         }
         
         guard !processingRequestIds.contains(requestId) else {
-            print("⚠️ Request already processing: \(requestId)")
+            dlog("⚠️ Request already processing: \(requestId)")
             return
         }
         
         processingRequestIds.insert(requestId)
         defer { processingRequestIds.remove(requestId) }
         
+        guard let currentUserId = Auth.auth().currentUser?.uid else { return }
+        
         do {
-            // Create follow relationship
-            let followService = FollowService.shared
-            try await followService.followUser(userId: request.fromUserId)
+            // CORRECT ACCEPT LOGIC:
+            // The requester (fromUserId) wants to follow the current user (toUserId).
+            // Accepting means: create a follows doc where follower=fromUserId, following=currentUserId.
+            // We do NOT call followUser() because that would make the current user follow the requester.
             
-            // Update request status
-            try await db.collection("followRequests").document(requestId).updateData([
-                "status": FollowRequest.RequestStatus.accepted.rawValue
-            ])
+            let fromUserId = request.fromUserId
+
+            // Guard against duplicate follow if request was accepted elsewhere
+            let existingFollow = try await db.collection("follows")
+                .whereField("followerId", isEqualTo: fromUserId)
+                .whereField("followingId", isEqualTo: currentUserId)
+                .limit(to: 1)
+                .getDocuments()
+
+            let batch = db.batch()
+
+            if existingFollow.documents.isEmpty {
+                // 1. Create the follow relationship: requester → current user
+                let followRef = db.collection("follows").document()
+                batch.setData([
+                    "followerId": fromUserId,
+                    "followingId": currentUserId,
+                    "createdAt": FieldValue.serverTimestamp()
+                ], forDocument: followRef)
+
+                // 2. Increment follower count for current user
+                let currentUserRef = db.collection("users").document(currentUserId)
+                batch.updateData([
+                    "followersCount": FieldValue.increment(Int64(1)),
+                    "updatedAt": FieldValue.serverTimestamp()
+                ], forDocument: currentUserRef)
+
+                // 3. Increment following count for the requester
+                let requesterRef = db.collection("users").document(fromUserId)
+                batch.updateData([
+                    "followingCount": FieldValue.increment(Int64(1)),
+                    "updatedAt": FieldValue.serverTimestamp()
+                ], forDocument: requesterRef)
+            }
+
+            // 4. Update request status to accepted
+            let requestRef = db.collection("followRequests").document(requestId)
+            batch.updateData([
+                "status": FollowRequest.RequestStatus.accepted.rawValue,
+                "respondedAt": FieldValue.serverTimestamp()
+            ], forDocument: requestRef)
+
+            try await batch.commit()
             
-            // Remove from local array
+            // Remove from local array immediately
             requests.removeAll { $0.id == request.id }
             
-            print("✅ Accepted follow request from: \(request.fromUserId)")
+            dlog("✅ Accepted follow request from: \(fromUserId)")
+            
+            // Notify the requester that their follow request was accepted
+            let acceptorDoc = try? await db.collection("users").document(currentUserId).getDocument()
+            let acceptorName = acceptorDoc?.data()?["displayName"] as? String ?? "Someone"
+            let acceptedNotification: [String: Any] = [
+                "toUserId": fromUserId,
+                "type": "followRequestAccepted",
+                "fromUserId": currentUserId,
+                "fromUserName": acceptorName,
+                "message": "\(acceptorName) accepted your follow request",
+                "createdAt": FieldValue.serverTimestamp(),
+                "isRead": false
+            ]
+            _ = try? await db.collection("users").document(fromUserId)
+                .collection("notifications").addDocument(data: acceptedNotification)
+            
+            // Invalidate privacy cache so the requester's content access updates
+            await PrivacyAccessControl.shared.invalidate(userId: fromUserId)
+            NotificationCenter.default.post(
+                name: .followRelationshipChanged,
+                object: nil,
+                userInfo: ["userId": fromUserId]
+            )
             
             let haptic = UINotificationFeedbackGenerator()
             haptic.notificationOccurred(.success)
             
         } catch {
             self.error = error.localizedDescription
-            print("❌ Failed to accept request: \(error)")
+            dlog("❌ Failed to accept request: \(error)")
             
             let haptic = UINotificationFeedbackGenerator()
             haptic.notificationOccurred(.error)
@@ -384,12 +452,12 @@ class FollowRequestsViewModel: ObservableObject {
     func rejectRequest(_ request: FollowRequest) async {
         // ✅ P0-3: Guard against duplicate taps
         guard let requestId = request.id else {
-            print("⚠️ Cannot process request without ID")
+            dlog("⚠️ Cannot process request without ID")
             return
         }
         
         guard !processingRequestIds.contains(requestId) else {
-            print("⚠️ Request already processing: \(requestId)")
+            dlog("⚠️ Request already processing: \(requestId)")
             return
         }
         
@@ -397,22 +465,23 @@ class FollowRequestsViewModel: ObservableObject {
         defer { processingRequestIds.remove(requestId) }
         
         do {
-            // Update request status
-            try await db.collection("followRequests").document(requestId).updateData([
-                "status": FollowRequest.RequestStatus.rejected.rawValue
-            ])
+            // Delete the request document (cleaner than marking rejected — avoids accumulation)
+            try await db.collection("followRequests").document(requestId).delete()
             
             // Remove from local array
             requests.removeAll { $0.id == request.id }
             
-            print("✅ Rejected follow request from: \(request.fromUserId)")
+            dlog("✅ Rejected/deleted follow request from: \(request.fromUserId)")
+
+            // Invalidate privacy cache so the requester's pending state clears
+            await PrivacyAccessControl.shared.invalidate(userId: request.fromUserId)
             
             let haptic = UIImpactFeedbackGenerator(style: .light)
             haptic.impactOccurred()
             
         } catch {
             self.error = error.localizedDescription
-            print("❌ Failed to reject request: \(error)")
+            dlog("❌ Failed to reject request: \(error)")
         }
     }
     
@@ -423,7 +492,7 @@ class FollowRequestsViewModel: ObservableObject {
                 requestUsers[userId] = user
             }
         } catch {
-            print("❌ Failed to fetch user data for \(userId): \(error)")
+            dlog("❌ Failed to fetch user data for \(userId): \(error)")
         }
     }
 }
@@ -452,7 +521,7 @@ class FollowRequestService {
             .getDocuments()
         
         guard existingSnapshot.documents.isEmpty else {
-            print("⚠️ Follow request already sent")
+            dlog("⚠️ Follow request already sent")
             return
         }
         
@@ -466,7 +535,7 @@ class FollowRequestService {
         
         try db.collection("followRequests").document().setData(from: request)
         
-        print("✅ Follow request sent to: \(toUserId)")
+        dlog("✅ Follow request sent to: \(toUserId)")
         
         // Send notification
         try await createFollowRequestNotification(toUserId: toUserId)
@@ -488,7 +557,7 @@ class FollowRequestService {
             
             return !snapshot.documents.isEmpty
         } catch {
-            print("❌ Error checking pending request: \(error)")
+            dlog("❌ Error checking pending request: \(error)")
             return false
         }
     }
@@ -510,7 +579,7 @@ class FollowRequestService {
             try await document.reference.delete()
         }
         
-        print("✅ Cancelled follow request to: \(toUserId)")
+        dlog("✅ Cancelled follow request to: \(toUserId)")
     }
     
     private func createFollowRequestNotification(toUserId: String) async throws {
@@ -521,18 +590,19 @@ class FollowRequestService {
         let displayName = userDoc.data()?["displayName"] as? String ?? "Someone"
         
         let notification: [String: Any] = [
-            "userId": toUserId,
+            "toUserId": toUserId,
             "type": "followRequest",
             "fromUserId": currentUserId,
             "fromUserName": displayName,
             "message": "\(displayName) wants to follow you",
-            "createdAt": Date(),
+            "createdAt": FieldValue.serverTimestamp(),
             "isRead": false
         ]
         
-        try await db.collection("notifications").addDocument(data: notification)
+        try await db.collection("users").document(toUserId)
+            .collection("notifications").addDocument(data: notification)
         
-        print("✅ Follow request notification created for user: \(toUserId)")
+        dlog("✅ Follow request notification created for user: \(toUserId)")
     }
 }
 

@@ -11,10 +11,12 @@ import PhotosUI
 /// A view for selecting and uploading profile pictures
 struct ProfilePicturePicker: View {
     @Environment(\.dismiss) var dismiss
-    @StateObject private var socialService = SocialService.shared
+    @ObservedObject private var socialService = SocialService.shared
     
     @State private var selectedItem: PhotosPickerItem?
+    @State private var rawPickedImage: UIImage?
     @State private var selectedImage: UIImage?
+    @State private var showCropView = false
     @State private var isUploading = false
     @State private var showError = false
     @State private var errorMessage = ""
@@ -155,10 +157,37 @@ struct ProfilePicturePicker: View {
             }
             .onChange(of: selectedItem) { _, newItem in
                 Task {
-                    if let data = try? await newItem?.loadTransferable(type: Data.self),
+                    guard let item = newItem else { return }
+                    // loadTransferable can return nil data, and UIImage(data:) can fail
+                    // for unsupported formats or corrupted files. Show an error rather
+                    // than silently discarding the selection.
+                    if let data = try? await item.loadTransferable(type: Data.self),
                        let image = UIImage(data: data) {
-                        selectedImage = image
+                        await MainActor.run {
+                            rawPickedImage = image
+                            showCropView = true
+                        }
+                    } else {
+                        await MainActor.run {
+                            errorMessage = "Couldn't load the selected photo. Please try a different image."
+                            showError = true
+                        }
                     }
+                }
+            }
+            .fullScreenCover(isPresented: $showCropView) {
+                if let raw = rawPickedImage {
+                    ProfilePhotoCropView(
+                        image: raw,
+                        onCrop: { cropped in
+                            selectedImage = cropped
+                            showCropView = false
+                        },
+                        onCancel: {
+                            rawPickedImage = nil
+                            showCropView = false
+                        }
+                    )
                 }
             }
             .alert("Upload Error", isPresented: $showError) {

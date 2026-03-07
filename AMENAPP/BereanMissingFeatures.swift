@@ -10,6 +10,8 @@ import PhotosUI
 import Speech
 import AVFoundation
 import Combine
+import FirebaseAuth
+import FirebaseFirestore
 
 // MARK: - Image Picker
 
@@ -247,7 +249,16 @@ class SpeechRecognitionService: NSObject, ObservableObject, SFSpeechRecognizerDe
         // Cancel any ongoing task
         recognitionTask?.cancel()
         recognitionTask = nil
-        
+
+        // Stop the engine and remove any existing tap before re-configuring.
+        // installTap(onBus:) throws an NSException (not a Swift error) if a tap
+        // is already installed — this was the P0 crash on rapid double-taps or
+        // background/foreground transitions that called startRecording() twice.
+        if audioEngine.isRunning {
+            audioEngine.stop()
+        }
+        audioEngine.inputNode.removeTap(onBus: 0)
+
         // Configure audio session
         let audioSession = AVAudioSession.sharedInstance()
         try audioSession.setCategory(.record, mode: .measurement, options: .duckOthers)
@@ -311,7 +322,11 @@ class SpeechRecognitionService: NSObject, ObservableObject, SFSpeechRecognizerDe
     
     func stopRecording() {
         audioEngine.stop()
+        audioEngine.inputNode.removeTap(onBus: 0)
         recognitionRequest?.endAudio()
+        recognitionRequest = nil
+        recognitionTask?.cancel()
+        recognitionTask = nil
         isRecording = false
     }
 }
@@ -588,10 +603,24 @@ struct VerseDetailView: View {
     }
     
     private func loadVerseText() {
-        // Simulate API call - in production, fetch from Bible API
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            verseText = "For God so loved the world that he gave his one and only Son, that whoever believes in him shall not perish but have eternal life."
-            isLoading = false
+        Task {
+            do {
+                let passage = try await YouVersionBibleService.shared.fetchVerse(
+                    reference: verseReference,
+                    version: .esv
+                )
+                await MainActor.run {
+                    verseText = passage.text
+                    translations["ESV"] = passage.text
+                    isLoading = false
+                }
+            } catch {
+                // Fallback: show a polite "unavailable" message rather than crashing
+                await MainActor.run {
+                    verseText = "Verse text unavailable. Please check your connection and try again."
+                    isLoading = false
+                }
+            }
         }
     }
     
@@ -611,8 +640,18 @@ struct VerseDetailView: View {
     }
     
     private func saveVerse() {
-        // Save to favorites
-        print("Saved verse: \(verseReference)")
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+        Task {
+            _ = try? await Firestore.firestore()
+                .collection("users").document(userId)
+                .collection("savedVerses")
+                .addDocument(data: [
+                    "reference": verseReference,
+                    "text": verseText,
+                    "translation": selectedTranslation,
+                    "savedAt": FieldValue.serverTimestamp()
+                ])
+        }
         let haptic = UINotificationFeedbackGenerator()
         haptic.notificationOccurred(.success)
     }
@@ -740,15 +779,18 @@ struct BereanReportIssueView: View {
     
     private func submitReport() {
         isSubmitting = true
-        
-        // Simulate API call
         Task {
-            try? await Task.sleep(for: .seconds(1))
-            
+            let db = Firestore.firestore()
+            _ = try? await db.collection("bereanFeedback").addDocument(data: [
+                "userId": Auth.auth().currentUser?.uid ?? "anonymous",
+                "messageContent": message.content,
+                "issueType": issueType.rawValue,
+                "description": description,
+                "submittedAt": FieldValue.serverTimestamp()
+            ])
             await MainActor.run {
                 isSubmitting = false
                 isPresented = false
-                
                 let haptic = UINotificationFeedbackGenerator()
                 haptic.notificationOccurred(.success)
             }

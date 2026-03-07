@@ -11,7 +11,7 @@ struct ReportIssueView: View {
     let message: BereanMessage
     @Binding var isPresented: Bool
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var dataManager = BereanDataManager.shared
+    @ObservedObject private var dataManager = BereanDataManager.shared
     
     @State private var selectedIssueType: BereanIssueReport.IssueType = .inaccurate
     @State private var description = ""

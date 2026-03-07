@@ -10,8 +10,8 @@
 import SwiftUI
 
 struct SavedPostsView: View {
-    @StateObject private var savedPostsService = RealtimeSavedPostsService.shared
-    @StateObject private var postsService = RealtimePostService.shared
+    @ObservedObject private var savedPostsService = RealtimeSavedPostsService.shared
+    @ObservedObject private var postsService = RealtimePostService.shared
     
     @State private var savedPosts: [Post] = []
     @State private var isLoading = false
@@ -72,7 +72,10 @@ struct SavedPostsView: View {
                 setupRealtimeListener()
             }
             .onDisappear {
-                savedPostsService.removeSavedPostsListener()
+                // NOTE: Do NOT remove the saved posts listener here.
+                // RealtimeSavedPostsService.shared is a global singleton; removing its
+                // listener from this view breaks saved-post state and badges throughout
+                // the app. The listener is only cleaned up on sign-out.
             }
             .refreshable {
                 await refreshSavedPosts()
@@ -264,7 +267,7 @@ struct SavedPostsView: View {
         do {
             // Remove all saved posts one by one
             for post in postsToRemove {
-                try await savedPostsService.toggleSavePost(postId: post.id.uuidString)
+                _ = try await savedPostsService.toggleSavePost(postId: post.id.uuidString)
             }
             
             savedPosts = []
@@ -296,7 +299,7 @@ struct SavedPostsView: View {
 
 /// A compact version for embedding in ProfileView
 struct SavedPostsListCompact: View {
-    @StateObject private var savedPostsService = RealtimeSavedPostsService.shared
+    @ObservedObject private var savedPostsService = RealtimeSavedPostsService.shared
     @State private var savedCount = 0
     
     var body: some View {

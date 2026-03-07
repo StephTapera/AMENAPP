@@ -2,7 +2,15 @@
 //  PushNotificationHandler.swift
 //  AMENAPP
 //
-//  Handles incoming push notifications and deep linking
+//  Handles incoming push notifications and deep linking.
+//
+//  TOKEN STRATEGY
+//  - Each device token is stored at users/{uid}/deviceTokens/{sanitisedToken}
+//    with platform, updatedAt, enabled, locale, timezone fields.
+//  - On refresh the old entry is removed and the new one upserted.
+//  - On sign-out the current token is marked disabled (not deleted, so
+//    Cloud Functions can clean invalid tokens gracefully).
+//  - On APNs/FCM error the backend should call markTokenInvalid().
 //
 
 import Foundation
@@ -13,67 +21,89 @@ import FirebaseFirestore
 import FirebaseAuth
 import Combine
 
+@MainActor
 class PushNotificationHandler: NSObject, ObservableObject {
-    @MainActor static let shared = PushNotificationHandler()
-    
+    static let shared = PushNotificationHandler()
+
     @Published var pendingDeepLink: NotificationDeepLink?
-    
+
+    // Track the last saved token so we skip no-op updates
+    private var lastSavedToken: String?
+
     private override init() {
         super.init()
     }
-    
-    /// Handle notification when app is in foreground
+
+    // MARK: - Foreground Handling
+
     func handleForegroundNotification(_ notification: UNNotification) {
         let userInfo = notification.request.content.userInfo
-        
         print("📬 Received foreground notification")
         print("   Title:", notification.request.content.title)
         print("   Body:", notification.request.content.body)
         print("   UserInfo:", userInfo)
-        
-        // Update badge count
+
+        // Update badge from notification payload
         if let badge = notification.request.content.badge?.intValue {
-            UIApplication.shared.applicationIconBadgeNumber = badge
+            UNUserNotificationCenter.current().setBadgeCount(badge) { _ in }
         }
-        
-        // Refresh notifications
+
+        // Refresh notification listener (guarded internally)
         NotificationService.shared.startListening()
     }
-    
-    /// Handle notification tap (user tapped notification)
+
+    // MARK: - Notification Tap
+
     func handleNotificationTap(_ response: UNNotificationResponse) {
         let userInfo = response.notification.request.content.userInfo
-        
         print("👆 User tapped notification")
-        print("   UserInfo:", userInfo)
-        
-        // Extract notification data
+
         guard let type = userInfo["type"] as? String else {
             print("⚠️ No notification type found")
             return
         }
-        
-        // Create deep link based on notification type
+
+        // Resolve the intended deep link
+        var intendedLink: NotificationDeepLink?
         switch type {
         case "follow", "follow_request_accepted":
             if let actorId = userInfo["actorId"] as? String {
-                pendingDeepLink = .profile(userId: actorId)
+                intendedLink = .profile(userId: actorId)
             }
-            
-        case "amen", "comment", "reply", "mention":
+        case "amen", "comment", "reply", "mention", "tag", "repost":
             if let postId = userInfo["postId"] as? String {
-                pendingDeepLink = .post(postId: postId)
+                intendedLink = .post(postId: postId)
             }
-            
-        case "message_request_accepted":
+        case "message_request_accepted", "dm", "message":
             if let actorId = userInfo["actorId"] as? String {
-                pendingDeepLink = .conversation(userId: actorId)
+                intendedLink = .conversation(userId: actorId)
             }
-            
         default:
             print("⚠️ Unknown notification type:", type)
         }
-        
+
+        // ── Shabbat gate ──────────────────────────────────────────────────
+        // On Sunday with Shabbat active, redirect blocked notifications to
+        // the Resources tab instead of opening the blocked content.
+        if let link = intendedLink {
+            let feature = link.requiredFeature
+            if case .blocked = AppAccessController.shared.canAccess(feature) {
+                ShabbatModeService.shared.logBlocked(feature: feature, route: "push_notification/\(type)")
+                print("🚫 PushNotificationHandler: notification tap blocked by Shabbat Mode (type=\(type))")
+                // Navigate to Resources tab — gate view will be shown
+                NotificationCenter.default.post(name: .shabbatDeepLinkBlocked, object: nil,
+                                                userInfo: ["blockedRoute": "notification/\(type)"])
+                // Still mark as read
+                if let notificationId = userInfo["notificationId"] as? String {
+                    Task { try? await NotificationService.shared.markAsRead(notificationId) }
+                }
+                return
+            }
+        }
+        // ─────────────────────────────────────────────────────────────────
+
+        pendingDeepLink = intendedLink
+
         // Mark notification as read if we have the ID
         if let notificationId = userInfo["notificationId"] as? String {
             Task {
@@ -81,38 +111,72 @@ class PushNotificationHandler: NSObject, ObservableObject {
             }
         }
     }
-    
-    /// Save FCM token to Firestore
+
+    // MARK: - Token Management
+
+    /// Upsert the FCM token into `users/{uid}/deviceTokens/{sanitisedToken}`.
+    /// Using a subcollection means one user can have tokens on multiple devices
+    /// and the Cloud Function fan-outs to all enabled tokens automatically.
     func saveFCMToken(_ token: String, for userId: String) async throws {
-        print("💾 Saving FCM token to Firestore")
-        print("   User ID:", userId)
-        print("   Token:", token)
-        
+        guard token != lastSavedToken else { return } // Skip no-ops
+        lastSavedToken = token
+
         let db = FirebaseManager.shared.firestore
-        
+        let sanitised = sanitiseTokenKey(token)
+
+        // Keep the legacy top-level field for any existing server code that reads it
         try await db.collection("users").document(userId).updateData([
             "fcmToken": token,
             "fcmTokenUpdatedAt": FieldValue.serverTimestamp()
         ])
-        
-        print("✅ FCM token saved successfully")
+
+        // Write to per-device subcollection (supports multi-device)
+        try await db.collection("users").document(userId)
+            .collection("deviceTokens").document(sanitised)
+            .setData([
+                "token": token,
+                "platform": "ios",
+                "enabled": true,
+                "updatedAt": FieldValue.serverTimestamp(),
+                "locale": Locale.current.identifier,
+                "timezone": TimeZone.current.identifier
+            ])
+
+        print("✅ FCM token saved (deviceTokens subcollection)")
     }
-    
-    /// Remove FCM token on sign out
-    func removeFCMToken(for userId: String) async {
-        print("🗑️ Removing FCM token from Firestore")
-        print("   User ID:", userId)
-        
+
+    /// Mark the current token disabled on sign-out (does not delete so CF can clean up).
+    func disableFCMToken(for userId: String) async {
+        guard let token = lastSavedToken ?? Messaging.messaging().fcmToken else { return }
         let db = FirebaseManager.shared.firestore
-        
+        let sanitised = sanitiseTokenKey(token)
         do {
+            // Remove legacy field
             try await db.collection("users").document(userId).updateData([
                 "fcmToken": FieldValue.delete()
             ])
-            print("✅ FCM token removed successfully")
+            // Mark subcollection entry disabled (retains history for CF cleanup)
+            try await db.collection("users").document(userId)
+                .collection("deviceTokens").document(sanitised)
+                .setData(["enabled": false, "disabledAt": FieldValue.serverTimestamp()], merge: true)
+            lastSavedToken = nil
+            print("✅ FCM token disabled on sign-out")
         } catch {
-            print("❌ Failed to remove FCM token:", error)
+            print("❌ Failed to disable FCM token:", error)
         }
+    }
+
+    /// Legacy helper kept for call-sites that use the old name.
+    func removeFCMToken(for userId: String) async {
+        await disableFCMToken(for: userId)
+    }
+
+    // MARK: - Private Helpers
+
+    /// FCM tokens contain characters invalid as Firestore doc IDs. Replace them.
+    private func sanitiseTokenKey(_ token: String) -> String {
+        token.replacingOccurrences(of: "/", with: "_")
+             .replacingOccurrences(of: ".", with: "_")
     }
 }
 
@@ -123,17 +187,23 @@ enum NotificationDeepLink: Equatable {
     case post(postId: String)
     case conversation(userId: String)
     case notifications
-    
+
     var navigationPath: String {
         switch self {
-        case .profile(let userId):
-            return "profile_\(userId)"
-        case .post(let postId):
-            return "post_\(postId)"
-        case .conversation(let userId):
-            return "conversation_\(userId)"
-        case .notifications:
-            return "notifications"
+        case .profile(let userId): return "profile_\(userId)"
+        case .post(let postId):    return "post_\(postId)"
+        case .conversation(let userId): return "conversation_\(userId)"
+        case .notifications: return "notifications"
+        }
+    }
+
+    /// Maps to the AppFeature required to open this link — used by the Shabbat gate.
+    var requiredFeature: AppFeature {
+        switch self {
+        case .profile:       return .profileBrowse
+        case .post:          return .feed
+        case .conversation:  return .messages
+        case .notifications: return .notifications
         }
     }
 }
@@ -141,7 +211,6 @@ enum NotificationDeepLink: Equatable {
 // MARK: - UNUserNotificationCenterDelegate
 
 extension PushNotificationHandler: UNUserNotificationCenterDelegate {
-    /// Called when notification arrives while app is in foreground
     nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification,
@@ -150,12 +219,9 @@ extension PushNotificationHandler: UNUserNotificationCenterDelegate {
         Task { @MainActor in
             handleForegroundNotification(notification)
         }
-        
-        // Show banner, badge, and sound even when app is in foreground
         completionHandler([.banner, .badge, .sound])
     }
-    
-    /// Called when user taps notification
+
     nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse,
@@ -164,7 +230,6 @@ extension PushNotificationHandler: UNUserNotificationCenterDelegate {
         Task { @MainActor in
             handleNotificationTap(response)
         }
-        
         completionHandler()
     }
 }
@@ -172,24 +237,19 @@ extension PushNotificationHandler: UNUserNotificationCenterDelegate {
 // MARK: - MessagingDelegate
 
 extension PushNotificationHandler: MessagingDelegate {
-    /// Called when FCM token is refreshed
     nonisolated func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
         print("🔄 FCM Token refreshed")
-        
         guard let token = fcmToken else {
             print("⚠️ No FCM token received")
             return
         }
-        
         print("   New token:", token)
-        
-        // Save token to Firestore
+
         Task { @MainActor in
             guard let userId = FirebaseManager.shared.currentUser?.uid else {
                 print("⚠️ No authenticated user to save FCM token")
                 return
             }
-            
             try? await saveFCMToken(token, for: userId)
         }
     }

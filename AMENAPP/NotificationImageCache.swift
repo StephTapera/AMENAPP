@@ -223,7 +223,7 @@ final class NotificationImageCache: ObservableObject {
             }
             
             var totalSize: Int64 = 0
-            for case let fileURL as URL in enumerator {
+            for fileURL in enumerator.allObjects.compactMap({ $0 as? URL }) {
                 if let fileSize = try? fileURL.resourceValues(forKeys: [.fileSizeKey]).fileSize {
                     totalSize += Int64(fileSize)
                 }
@@ -293,7 +293,7 @@ struct CachedNotificationProfileImage: View {
         .task {
             await loadImage()
         }
-        .onChange(of: imageURL) { _ in
+        .onChange(of: imageURL) { _, _ in
             Task {
                 await loadImage()
             }

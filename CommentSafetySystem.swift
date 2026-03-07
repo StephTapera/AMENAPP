@@ -351,84 +351,97 @@ class CommentSafetySystem {
         commenterId: String,
         targetUserId: String
     ) async throws -> RepeatHarassmentResult {
-        
-        // Query user's comment history targeting this person (last 7 days)
+
+        // ⚡ FIX: Replaced N+1 query pattern (1 + N post queries) with 2 parallel queries
+        // + in-memory join. For an active user with 50 posts this cuts 51 round-trips to 3.
+        //
+        // Strategy:
+        //   1. Query all posts by targetUserId in the last 7 days (up to 50). → Set of postIds.
+        //   2. collectionGroup("comments") filtered by authorId == commenterId in last 7 days
+        //      (up to 200). → Extract postId from reference path.
+        //   3. Intersect in memory to count commenter interactions with target's posts.
+        //   4. Parallel: check whether target has reported commenter.
+
         let sevenDaysAgo = Date().addingTimeInterval(-7 * 24 * 3600)
-        
-        // Query posts by target user
-        let targetPosts = try await db
+        let sevenDaysAgoTimestamp = Timestamp(date: sevenDaysAgo)
+
+        // Query 1 — posts by the target user (last 7 days)
+        async let targetPostsQuery = db
             .collection("posts")
             .whereField("authorId", isEqualTo: targetUserId)
-            .whereField("createdAt", isGreaterThan: Timestamp(date: sevenDaysAgo))
+            .whereField("createdAt", isGreaterThan: sevenDaysAgoTimestamp)
             .limit(to: 50)
             .getDocuments()
-        
+
+        // Query 2 — all recent comments by the commenter across ALL posts (collectionGroup)
+        // Requires Firestore composite index on (authorId ASC, createdAt ASC) for "comments" group.
+        async let commenterCommentsQuery = db
+            .collectionGroup("comments")
+            .whereField("authorId", isEqualTo: commenterId)
+            .whereField("createdAt", isGreaterThan: sevenDaysAgoTimestamp)
+            .limit(to: 200)
+            .getDocuments()
+
+        // Query 3 — report check (parallel with the above)
+        async let reportQuery = db
+            .collection("userReports")
+            .whereField("reporterId", isEqualTo: targetUserId)
+            .whereField("reportedUserId", isEqualTo: commenterId)
+            .limit(to: 1)
+            .getDocuments()
+
+        let (targetPostsSnapshot, commenterCommentsSnapshot, reportSnapshot) =
+            try await (targetPostsQuery, commenterCommentsQuery, reportQuery)
+
+        // Build a set of the target's post IDs for O(1) lookup
+        let targetPostIds = Set(targetPostsSnapshot.documents.map { $0.documentID })
+
+        // Count how many of the commenter's comments are on the target's posts
         var interactionCount = 0
         var violations: [PolicyViolation] = []
-        
-        // Count comments by commenter on target's posts
-        for postDoc in targetPosts.documents {
-            let postId = postDoc.documentID
-            
-            let commenterComments = try await db
-                .collection("postInteractions")
-                .document(postId)
-                .collection("comments")
-                .whereField("authorId", isEqualTo: commenterId)
-                .getDocuments()
-            
-            interactionCount += commenterComments.documents.count
-            
-            // Check for past violations
-            for commentDoc in commenterComments.documents {
-                if let moderationFlags = commentDoc.data()["moderationFlags"] as? [String] {
-                    for flag in moderationFlags {
-                        if let violation = PolicyViolation(rawValue: flag) {
-                            violations.append(violation)
-                        }
+
+        for commentDoc in commenterCommentsSnapshot.documents {
+            // The document ref path is: postInteractions/{postId}/comments/{commentId}
+            // Extract postId from the parent's parent segment.
+            let pathComponents = commentDoc.reference.path.components(separatedBy: "/")
+            // pathComponents: ["postInteractions", "<postId>", "comments", "<commentId>"]
+            guard pathComponents.count >= 2 else { continue }
+            let postId = pathComponents[pathComponents.count - 3]  // segment before "comments"
+
+            guard targetPostIds.contains(postId) else { continue }
+            interactionCount += 1
+
+            if let moderationFlags = commentDoc.data()["moderationFlags"] as? [String] {
+                for flag in moderationFlags {
+                    if let violation = PolicyViolation(rawValue: flag) {
+                        violations.append(violation)
                     }
                 }
             }
         }
-        
-        // Check if target has reported commenter
-        let hasReport = try await checkUserReport(
-            reporterId: targetUserId,
-            reportedUserId: commenterId
-        )
-        
+
+        let hasReport = !reportSnapshot.documents.isEmpty
+
         // REPEAT OFFENDER THRESHOLDS
         // - 5+ interactions with same person in 7 days = potential pattern
         // - 3+ interactions + past violations = harassment
         // - Target reported user = escalate
-        
         let isRepeatOffender = (
             interactionCount >= 5 ||
             (interactionCount >= 3 && !violations.isEmpty) ||
             (hasReport && interactionCount >= 2)
         )
-        
+
         if isRepeatOffender {
             print("🚨 [REPEAT HARASSMENT] Commenter: \(commenterId), Target: \(targetUserId), Interactions: \(interactionCount)")
         }
-        
+
         return RepeatHarassmentResult(
             isRepeatOffender: isRepeatOffender,
             interactionCount: interactionCount,
             violationHistory: violations,
             hasBeenReportedByTarget: hasReport
         )
-    }
-    
-    private func checkUserReport(reporterId: String, reportedUserId: String) async throws -> Bool {
-        let reports = try await db
-            .collection("userReports")
-            .whereField("reporterId", isEqualTo: reporterId)
-            .whereField("reportedUserId", isEqualTo: reportedUserId)
-            .limit(to: 1)
-            .getDocuments()
-        
-        return !reports.documents.isEmpty
     }
     
     // MARK: - Spam Detection
@@ -489,10 +502,26 @@ class CommentSafetySystem {
     }
     
     private func getUserRecentCommentCount(userId: String, since: Date) async throws -> Int {
-        // This would need a better indexing strategy in production
-        // For now, return estimated count
-        // TODO: Implement efficient user activity tracking
-        return 0
+        // Query user_rate_limits/{userId} document which tracks comment counts atomically
+        let limitDoc = try? await db.collection("user_rate_limits")
+            .document(userId)
+            .getDocument()
+        
+        if let data = limitDoc?.data() {
+            // Use today's comment count if we have it
+            let todayKey = "comments_\(Calendar.current.component(.day, from: Date()))"
+            return (data[todayKey] as? Int) ?? 0
+        }
+        
+        // Fallback: count recent comments in postInteractions (capped query)
+        // This is a best-effort approximation — avoids an expensive full-collection scan
+        let snapshot = try? await db.collectionGroup("comments")
+            .whereField("authorId", isEqualTo: userId)
+            .whereField("createdAt", isGreaterThan: Timestamp(date: since))
+            .limit(to: 50)
+            .getDocuments()
+        
+        return snapshot?.documents.count ?? 0
     }
     
     // MARK: - Rate Limiting
@@ -593,13 +622,23 @@ class CommentSafetySystem {
         
         print("🛡️ [PILE-ON PROTECTION] Activated for post: \(postId)")
         
-        // TODO: Notify post author via NotificationService
-        // try await NotificationService.shared.sendSystemNotification(
-        //     to: authorId,
-        //     title: "We're here for you",
-        //     body: "We've noticed increased activity on your post and are monitoring for supportive conversation.",
-        //     data: ["type": "pile_on_protection", "postId": postId]
-        // )
+        // Notify post author with a supportive in-app notification
+        guard !authorId.isEmpty else { return }
+        let notificationId = UUID().uuidString
+        try await db.collection("users").document(authorId)
+            .collection("notifications").document(notificationId)
+            .setData([
+                "userId": authorId,
+                "type": "pile_on_protection",
+                "postId": postId,
+                "commentText": "We've noticed a lot of activity on your post and are here to support you.",
+                "read": false,
+                "priority": 70,
+                "createdAt": FieldValue.serverTimestamp(),
+                "idempotencyKey": "pile_on_\(postId)"
+            ])
+        
+        print("🔔 [PILE-ON PROTECTION] Author \(authorId) notified for post \(postId)")
     }
 }
 

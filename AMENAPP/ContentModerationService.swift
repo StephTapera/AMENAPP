@@ -23,9 +23,41 @@ class ContentModerationService {
         signals: AuthenticitySignals,
         parentContentId: String? = nil
     ) async throws -> ModerationDecision {
-        
+
+        // Ensure user is authenticated and has a fresh token before calling the Cloud Function.
+        // Without a valid auth token the function will return UNAUTHENTICATED.
+        // Force-refresh prevents stale token errors (seen as GTMSessionFetcher duplicate call warnings).
+        guard let currentUser = Auth.auth().currentUser else {
+            // Unauthenticated — cannot post. Hard block; do not allow content through.
+            print("❌ Moderation: user not authenticated — blocking content")
+            return ModerationDecision(
+                action: .holdForReview,
+                confidence: 1.0,
+                reasons: ["Not authenticated — content blocked"],
+                detectedBehaviors: [],
+                suggestedRevisions: nil,
+                reviewRequired: true,
+                appealable: false,
+                scores: ModerationScores(
+                    toxicity: 0,
+                    spam: 0,
+                    aiSuspicion: 0,
+                    duplicateMatch: 0,
+                    authenticity: 0,
+                    userRiskScore: 1.0
+                )
+            )
+        }
+
+        // Force-refresh the ID token so the Cloud Function receives a valid auth header
+        do {
+            _ = try await currentUser.getIDToken(forcingRefresh: true)
+        } catch {
+            print("⚠️ Could not refresh ID token: \(error.localizedDescription) — proceeding anyway")
+        }
+
         let functions = Functions.functions()
-        
+
         let data: [String: Any] = [
             "contentText": text,
             "contentType": category.rawValue,
@@ -64,12 +96,21 @@ class ContentModerationService {
             )
             
         } catch {
-            print("❌ Moderation error: \(error)")
-            // Fail open - allow content but log error
+            let msg = error.localizedDescription.lowercased()
+            let isExpectedDevError = msg.contains("unauthenticated") || msg.contains("permission")
+
+            #if DEBUG
+            // In simulator/DEBUG the Cloud Functions moderation endpoint is often unavailable
+            // (App Check 403, auth issues). Allow content through so developers can test posting.
+            if isExpectedDevError {
+                Logger.debug("Moderation unavailable (expected in dev/simulator): \(error.localizedDescription)")
+            } else {
+                print("❌ Moderation error: \(error)")
+            }
             return ModerationDecision(
                 action: .allow,
-                confidence: 0,
-                reasons: ["Moderation service unavailable"],
+                confidence: 0.5,
+                reasons: ["Moderation service unavailable in debug mode — content allowed for testing"],
                 detectedBehaviors: [],
                 suggestedRevisions: nil,
                 reviewRequired: false,
@@ -79,10 +120,32 @@ class ContentModerationService {
                     spam: 0,
                     aiSuspicion: 0,
                     duplicateMatch: 0,
-                    authenticity: 1.0,
+                    authenticity: 1,
                     userRiskScore: 0
                 )
             )
+            #else
+            print("❌ Moderation error: \(error)")
+            // FAIL CLOSED in production: hold for review rather than silently allowing
+            // content through. This prevents bypass via network errors.
+            return ModerationDecision(
+                action: .holdForReview,
+                confidence: 1.0,
+                reasons: ["Moderation service temporarily unavailable — holding for safety review"],
+                detectedBehaviors: [],
+                suggestedRevisions: nil,
+                reviewRequired: true,
+                appealable: true,
+                scores: ModerationScores(
+                    toxicity: 0,
+                    spam: 0,
+                    aiSuspicion: 0,
+                    duplicateMatch: 0,
+                    authenticity: 0,
+                    userRiskScore: 0
+                )
+            )
+            #endif
         }
     }
     
@@ -94,7 +157,7 @@ class ContentModerationService {
         reason: String,
         details: String
     ) async throws {
-        guard let userId = Auth.auth().currentUser?.uid else {
+        guard Auth.auth().currentUser?.uid != nil else {
             throw NSError(domain: "ContentModeration", code: 401, userInfo: [NSLocalizedDescriptionKey: "Not authenticated"])
         }
         
@@ -116,7 +179,7 @@ class ContentModerationService {
         contentId: String,
         appealReason: String
     ) async throws {
-        guard let userId = Auth.auth().currentUser?.uid else {
+        guard Auth.auth().currentUser?.uid != nil else {
             throw NSError(domain: "ContentModeration", code: 401, userInfo: [NSLocalizedDescriptionKey: "Not authenticated"])
         }
         

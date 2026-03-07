@@ -7,10 +7,11 @@
 //
 
 import SwiftUI
+import Combine
 import FirebaseAuth
 
 struct MessageRequestsView: View {
-    @StateObject private var trustService = TrustByDesignService.shared
+    @ObservedObject private var trustService = TrustByDesignService.shared
     @Environment(\.dismiss) var dismiss
     @State private var isLoading = true
     
@@ -140,7 +141,7 @@ struct ConversationRequestRow: View {
     let onAction: (MessageRequestAction) -> Void
     
     @State private var showActions = false
-    @StateObject private var trustService = TrustByDesignService.shared
+    @ObservedObject private var trustService = TrustByDesignService.shared
     @State private var settings: TrustPrivacySettings?
     @State private var currentUserId: String = Auth.auth().currentUser?.uid ?? ""
     

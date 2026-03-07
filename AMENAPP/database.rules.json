@@ -116,22 +116,22 @@
         
         "amenCount": {
           ".write": "auth != null",
-          ".validate": "newData.isNumber() && newData.val() >= 0"
+          ".validate": "newData.isNumber() && newData.val() >= 0 && (data.val() == null || Math.abs(newData.val() - data.val()) <= 1)"
         },
-        
+
         "commentCount": {
           ".write": "auth != null",
-          ".validate": "newData.isNumber() && newData.val() >= 0"
+          ".validate": "newData.isNumber() && newData.val() >= 0 && (data.val() == null || Math.abs(newData.val() - data.val()) <= 1)"
         },
-        
+
         "repostCount": {
           ".write": "auth != null",
-          ".validate": "newData.isNumber() && newData.val() >= 0"
+          ".validate": "newData.isNumber() && newData.val() >= 0 && (data.val() == null || Math.abs(newData.val() - data.val()) <= 1)"
         },
-        
+
         "lightbulbCount": {
           ".write": "auth != null",
-          ".validate": "newData.isNumber() && newData.val() >= 0"
+          ".validate": "newData.isNumber() && newData.val() >= 0 && (data.val() == null || Math.abs(newData.val() - data.val()) <= 1)"
         }
       }
     },
@@ -179,6 +179,41 @@
       "$userId": {
         ".read": "auth != null",
         ".write": "auth != null && auth.uid == $userId"
+      }
+    },
+
+    "post-reposts": {
+      "$postId": {
+        ".read": true,
+        "$userId": {
+          ".write": "auth != null && auth.uid == $userId"
+        }
+      }
+    },
+
+    "prayerActivity": {
+      "$postId": {
+        ".read": "auth != null",
+        "prayingNow": {
+          ".write": "auth != null",
+          ".validate": "newData.isNumber() && newData.val() >= 0 && (data.val() == null || Math.abs(newData.val() - data.val()) <= 1)"
+        },
+        "prayingUsers": {
+          "$userId": {
+            ".read": "auth != null",
+            ".write": "auth != null && auth.uid == $userId"
+          }
+        },
+        "totalPrayerSessions": {
+          ".write": "auth != null",
+          ".validate": "newData.isNumber() && newData.val() >= 0 && (data.val() == null || Math.abs(newData.val() - data.val()) <= 1)"
+        },
+        "sessions": {
+          "$sessionId": {
+            ".write": "auth != null",
+            ".validate": "newData.hasChildren(['userId', 'createdAt']) || !newData.exists()"
+          }
+        }
       }
     },
     

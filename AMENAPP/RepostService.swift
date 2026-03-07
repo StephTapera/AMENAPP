@@ -23,9 +23,13 @@ class RepostService: ObservableObject {
     
     private let firebaseManager = FirebaseManager.shared
     private let db = Firestore.firestore()
-    private var listeners: [ListenerRegistration] = []
+    nonisolated(unsafe) private var listeners: [ListenerRegistration] = []
     
     private init() {}
+
+    deinit {
+        listeners.forEach { $0.remove() }
+    }
     
     // MARK: - Create Repost
     
@@ -382,16 +386,20 @@ class RepostService: ObservableObject {
         guard let userId = firebaseManager.currentUser?.uid else { return }
         
         let notification: [String: Any] = [
-            "userId": originalAuthorId,
+            "toUserId": originalAuthorId,
             "type": "repost",
             "fromUserId": userId,
             "fromUserName": reposterName,
             "postId": originalPostId,
             "message": "\(reposterName) reposted your post",
-            "createdAt": Date(),
+            "createdAt": FieldValue.serverTimestamp(),
             "isRead": false
         ]
         
-        try await db.collection("notifications").addDocument(data: notification)
+        // Deterministic ID: repost_{postId}_{reposterUserId}
+        let deterministicId = "repost_\(originalPostId)_\(userId)"
+        try await db.collection("users").document(originalAuthorId)
+            .collection("notifications").document(deterministicId)
+            .setData(notification, merge: false)
     }
 }

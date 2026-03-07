@@ -10,7 +10,7 @@
 import SwiftUI
 
 struct SavedPostsQuickAccessButton: View {
-    @StateObject private var savedPostsService = RealtimeSavedPostsService.shared
+    @ObservedObject private var savedPostsService = RealtimeSavedPostsService.shared
     @State private var savedCount = 0
     @State private var showBadgePulse = false
     
@@ -95,7 +95,7 @@ struct SavedPostsQuickAccessButton: View {
 // MARK: - Compact Row Version (for lists)
 
 struct SavedPostsRow: View {
-    @StateObject private var savedPostsService = RealtimeSavedPostsService.shared
+    @ObservedObject private var savedPostsService = RealtimeSavedPostsService.shared
     @State private var savedCount = 0
     
     var body: some View {

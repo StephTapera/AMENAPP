@@ -124,7 +124,7 @@ struct ContentIntegrityGuard: ViewModifier {
     let category: ContentCategory
     @Binding var text: String
     @StateObject private var tracker = ComposerIntegrityTracker()
-    @StateObject private var rateLimiter = ComposerRateLimiter.shared
+    @ObservedObject private var rateLimiter = ComposerRateLimiter.shared
     
     @State private var previousText: String = ""
     @State private var showNudgeAlert: Bool = false
@@ -226,6 +226,13 @@ class ComposerRateLimiter: ObservableObject {
         let recentCount = postTimestamps[category]?.count ?? 0
         let limit = limits[category] ?? 10
         return max(0, limit - recentCount)
+    }
+    
+    /// Returns the Date when the oldest post in the window expires and posting is unlocked again.
+    func getUnlockTime(for category: ContentCategory) -> Date? {
+        guard let timestamps = postTimestamps[category], !timestamps.isEmpty else { return nil }
+        let oldest = timestamps.min() ?? Date()
+        return oldest.addingTimeInterval(windowDuration)
     }
     
     private func cleanupOldTimestamps(for category: ContentCategory) {

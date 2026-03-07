@@ -13,37 +13,46 @@ import FirebaseDatabase
 import FirebaseAuth
 import Combine
 
+// MARK: - Listener Token
+
+/// Pairs a DatabaseQuery with its handle so observers can be removed from the
+/// correct reference — not just the root database ref.
+/// `nonisolated(unsafe)` on `query` allows safe access from the lock-protected
+/// `removeAllListenerTokens()` which is `nonisolated` for deinit compatibility.
+private struct ListenerToken {
+    nonisolated(unsafe) let query: DatabaseQuery
+    let handle: DatabaseHandle
+}
+
 // MARK: - Realtime Database Post Service
 
 @MainActor
 class RealtimePostService: ObservableObject {
     static let shared = RealtimePostService()
     
-    private let database: DatabaseReference
-    private nonisolated(unsafe) var listeners: [DatabaseHandle] = []
+    private nonisolated(unsafe) let database: DatabaseReference
+    // listenerTokens is only accessed on MainActor except in deinit.
+    // Using nonisolated(unsafe) + NSLock ensures safe cross-thread access during deinit.
+    private nonisolated(unsafe) var listenerTokens: [ListenerToken] = []
+    private let listenersLock = NSLock()
+
+    // Per-observer cancellable tasks — keyed by an observer tag string.
+    // Cancelled before a new refresh task starts to prevent stampede.
+    private var observerTasks: [String: Task<Void, Never>] = [:]
     
-    @Published var posts: [Post] = []
     @Published var isLoading = false
     @Published var error: String?
     
     private init() {
         // Initialize Realtime Database with correct URL
-        print("🔥 Initializing RealtimePostService...")
-        
-        do {
-            self.database = Database.database(url: "https://amen-5e359-default-rtdb.firebaseio.com").reference()
-            print("✅ RealtimePostService initialized successfully")
-            print("   Database URL: https://amen-5e359-default-rtdb.firebaseio.com")
-        } catch {
-            print("❌ CRITICAL: Failed to initialize Realtime Database!")
-            print("   Error: \(error)")
-            // Fallback to default database (will likely fail but won't crash immediately)
-            self.database = Database.database().reference()
-        }
+        self.database = Database.database().reference()
     }
     
     deinit {
-        removeAllListeners()
+        // Only token removal is safe in deinit (nonisolated + lock-protected).
+        // observerTasks cancellation requires the actor and is handled by stopAllObserving()
+        // which is called explicitly on logout via AuthenticationViewModel.signOut().
+        removeAllListenerTokens()
     }
     
     // MARK: - Database Structure
@@ -179,42 +188,37 @@ class RealtimePostService: ObservableObject {
             postData["linkURL"] = linkURL
         }
         
-        print("📝 Creating post in Realtime Database...")
-        print("   Post ID: \(postId)")
-        print("   Category: \(category.rawValue)")
-        print("   Post data keys: \(postData.keys.sorted())")
+        dlog("📝 Creating post in Realtime Database...")
+        dlog("   Post ID: \(postId)")
+        dlog("   Category: \(category.rawValue)")
+        dlog("   Post data keys: \(postData.keys.sorted())")
         
-        // Write to each location separately for better Firebase compatibility
-        // This avoids validation issues with nested dictionaries in multi-path updates
+        // Atomic multi-path update — all four locations succeed or fail together.
+        // Flat key paths avoid nested-dictionary serialisation issues with the RTDB bridge.
+        var atomicUpdates: [String: Any] = [
+            "user_posts/\(userId)/\(postId)": timestamp,
+            "category_posts/\(category.rawValue)/\(postId)": timestamp,
+            "post_stats/\(postId)/amenCount": 0,
+            "post_stats/\(postId)/lightbulbCount": 0,
+            "post_stats/\(postId)/commentCount": 0,
+            "post_stats/\(postId)/repostCount": 0
+        ]
+        
+        // Flatten postData fields under "posts/{postId}/" so all keys remain at the
+        // top level of the multi-path dictionary, avoiding nested map issues.
+        for (key, value) in postData {
+            atomicUpdates["posts/\(postId)/\(key)"] = value
+        }
         
         do {
-            // 1. Write the post data
-            print("   Writing post data...")
-            try await database.child("posts").child(postId).setValue(postData)
-            
-            // 2. Add to user's posts index
-            print("   Writing user_posts index...")
-            try await database.child("user_posts").child(userId).child(postId).setValue(timestamp)
-            
-            // 3. Add to category index
-            print("   Writing category_posts index...")
-            try await database.child("category_posts").child(category.rawValue).child(postId).setValue(timestamp)
-            
-            // 4. Initialize post stats
-            print("   Writing post_stats...")
-            try await database.child("post_stats").child(postId).setValue([
-                "amenCount": 0,
-                "lightbulbCount": 0,
-                "commentCount": 0,
-                "repostCount": 0
-            ])
+            try await database.updateChildValues(atomicUpdates)
         } catch {
-            print("❌ Firebase write error: \(error)")
-            print("   Error details: \(error.localizedDescription)")
+            dlog("❌ Firebase atomic write error: \(error)")
+            dlog("   Error details: \(error.localizedDescription)")
             throw error
         }
         
-        print("✅ Post created successfully in Realtime Database")
+        dlog("✅ Post created successfully in Realtime Database")
         
         // Create Post object for return
         let post = Post(
@@ -244,13 +248,13 @@ class RealtimePostService: ObservableObject {
     // MARK: - Fetch User Posts
     
     func fetchUserPosts(userId: String) async throws -> [Post] {
-        print("📥 Fetching user posts from Realtime Database for user: \(userId)")
+        dlog("📥 Fetching user posts from Realtime Database for user: \(userId)")
         
         // Get list of post IDs for this user
         let snapshot = try await database.child("user_posts").child(userId).getData()
         
         guard snapshot.exists(), let postDict = snapshot.value as? [String: Any] else {
-            print("⚠️ No posts found for user")
+            dlog("⚠️ No posts found for user")
             return []
         }
         
@@ -266,7 +270,7 @@ class RealtimePostService: ObservableObject {
         // Sort by creation date (newest first)
         posts.sort { $0.createdAt > $1.createdAt }
         
-        print("✅ Fetched \(posts.count) posts for user")
+        dlog("✅ Fetched \(posts.count) posts for user")
         return posts
     }
     
@@ -283,7 +287,7 @@ class RealtimePostService: ObservableObject {
         // Parse post data
         let authorId = postData["authorId"] as? String ?? ""
         let authorName = postData["authorName"] as? String ?? "Unknown"
-        let authorUsername = postData["authorUsername"] as? String ?? ""
+        _ = postData["authorUsername"] as? String ?? ""
         let authorInitials = postData["authorInitials"] as? String ?? "?"
         let content = postData["content"] as? String ?? ""
         let categoryStr = postData["category"] as? String ?? "openTable"
@@ -341,7 +345,7 @@ class RealtimePostService: ObservableObject {
     // MARK: - Fetch Posts by Category
     
     func fetchCategoryPosts(category: Post.PostCategory, limit: Int = 50) async throws -> [Post] {
-        print("📥 Fetching \(category.rawValue) posts from Realtime Database (limit: \(limit))")
+        dlog("📥 Fetching \(category.rawValue) posts from Realtime Database (limit: \(limit))")
         
         // Get post IDs for category, ordered by timestamp
         let snapshot = try await database
@@ -352,7 +356,7 @@ class RealtimePostService: ObservableObject {
             .getData()
         
         guard snapshot.exists(), let postDict = snapshot.value as? [String: Any] else {
-            print("⚠️ No posts found for category")
+            dlog("⚠️ No posts found for category")
             return []
         }
         
@@ -368,7 +372,7 @@ class RealtimePostService: ObservableObject {
         // Sort by creation date (newest first)
         posts.sort { $0.createdAt > $1.createdAt }
         
-        print("✅ Fetched \(posts.count) posts for category: \(category.rawValue)")
+        dlog("✅ Fetched \(posts.count) posts for category: \(category.rawValue)")
         return posts
     }
     
@@ -379,7 +383,13 @@ class RealtimePostService: ObservableObject {
             throw NSError(domain: "RealtimePostService", code: 401, userInfo: [NSLocalizedDescriptionKey: "Not authenticated"])
         }
         
-        print("✏️ Updating post: \(postId)")
+        dlog("✏️ Updating post: \(postId)")
+        
+        // Ownership check — verify caller owns this post before writing
+        let post = try await fetchPost(postId: postId)
+        guard post.authorId == currentUser.uid else {
+            throw NSError(domain: "RealtimePostService", code: 403, userInfo: [NSLocalizedDescriptionKey: "You can only edit your own posts"])
+        }
         
         let updates: [String: Any] = [
             "posts/\(postId)/content": content,
@@ -387,7 +397,7 @@ class RealtimePostService: ObservableObject {
         ]
         
         try await database.updateChildValues(updates)
-        print("✅ Post updated successfully")
+        dlog("✅ Post updated successfully")
     }
     
     // MARK: - Delete Post
@@ -397,17 +407,20 @@ class RealtimePostService: ObservableObject {
             throw NSError(domain: "RealtimePostService", code: 401, userInfo: [NSLocalizedDescriptionKey: "Not authenticated"])
         }
         
-        let userId = currentUser.uid
+        dlog("🗑️ Deleting post: \(postId)")
         
-        print("🗑️ Deleting post: \(postId)")
-        
-        // Fetch post to get category
+        // Fetch post to get authorId and category before deleting
         let post = try await fetchPost(postId: postId)
         
-        // Multi-path delete
+        // Ownership check — only the post author may delete
+        guard post.authorId == currentUser.uid else {
+            throw NSError(domain: "RealtimePostService", code: 403, userInfo: [NSLocalizedDescriptionKey: "You can only delete your own posts"])
+        }
+        
+        // Use post.authorId (not currentUser.uid) to correctly target the user_posts index
         let updates: [String: Any?] = [
             "posts/\(postId)": nil,
-            "user_posts/\(userId)/\(postId)": nil,
+            "user_posts/\(post.authorId)/\(postId)": nil,
             "category_posts/\(post.category.rawValue)/\(postId)": nil,
             "post_stats/\(postId)": nil,
             "post_interactions/\(postId)": nil,
@@ -415,106 +428,124 @@ class RealtimePostService: ObservableObject {
         ]
         
         try await database.updateChildValues(updates as [AnyHashable: Any])
-        print("✅ Post deleted successfully")
+        dlog("✅ Post deleted successfully")
     }
     
     // MARK: - Real-time Listener for User Posts
     
     func observeUserPosts(userId: String, completion: @escaping ([Post]) -> Void) {
-        print("👂 Setting up real-time listener for user posts: \(userId)")
+        dlog("👂 Setting up real-time listener for user posts: \(userId)")
         
-        let handle = database.child("user_posts").child(userId).observe(.value) { [weak self] snapshot in
+        let taskKey = "userPosts:\(userId)"
+        let query = database.child("user_posts").child(userId)
+        
+        let handle = query.observe(.value) { [weak self] snapshot in
             guard let self = self else { return }
             
-            Task {
-                do {
-                    guard snapshot.exists(), let postDict = snapshot.value as? [String: Any] else {
-                        await MainActor.run {
-                            completion([])
-                        }
-                        return
-                    }
-                    
-                    // Fetch all posts
-                    var posts: [Post] = []
-                    
-                    for (postId, _) in postDict {
-                        if let post = try? await self.fetchPost(postId: postId) {
-                            posts.append(post)
-                        }
-                    }
-                    
-                    // Sort by creation date
-                    posts.sort { $0.createdAt > $1.createdAt }
-                    
-                    await MainActor.run {
-                        print("🔄 Real-time update: \(posts.count) user posts")
-                        completion(posts)
-                    }
-                } catch {
-                    print("❌ Error in real-time listener: \(error)")
+            // Cancel any in-flight refresh for this observer before starting a new one
+            self.observerTasks[taskKey]?.cancel()
+            self.observerTasks[taskKey] = Task {
+                guard snapshot.exists(), let postDict = snapshot.value as? [String: Any] else {
+                    completion([])
+                    return
                 }
+                
+                var posts: [Post] = []
+                for (postId, _) in postDict {
+                    guard !Task.isCancelled else { return }
+                    do {
+                        let post = try await self.fetchPost(postId: postId)
+                        posts.append(post)
+                    } catch {
+                        dlog("⚠️ Failed to fetch post \(postId): \(error)")
+                    }
+                }
+                
+                guard !Task.isCancelled else { return }
+                posts.sort { $0.createdAt > $1.createdAt }
+                dlog("🔄 Real-time update: \(posts.count) user posts")
+                completion(posts)
             }
         }
         
-        listeners.append(handle)
+        appendListenerToken(ListenerToken(query: query, handle: handle))
     }
-    
+
     // MARK: - Real-time Listener for Category Posts
     
     func observeCategoryPosts(category: Post.PostCategory, limit: Int = 50, completion: @escaping ([Post]) -> Void) {
-        print("👂 Setting up real-time listener for \(category.rawValue) posts")
+        dlog("👂 Setting up real-time listener for \(category.rawValue) posts")
         
-        let handle = database
+        let taskKey = "categoryPosts:\(category.rawValue)"
+        let query = database
             .child("category_posts")
             .child(category.rawValue)
             .queryOrderedByValue()
             .queryLimited(toLast: UInt(limit))
-            .observe(.value) { [weak self] snapshot in
-                guard let self = self else { return }
+        
+        let handle = query.observe(.value) { [weak self] snapshot in
+            guard let self = self else { return }
+            
+            // Cancel any in-flight refresh for this observer before starting a new one
+            self.observerTasks[taskKey]?.cancel()
+            self.observerTasks[taskKey] = Task {
+                guard snapshot.exists(), let postDict = snapshot.value as? [String: Any] else {
+                    completion([])
+                    return
+                }
                 
-                Task {
+                var posts: [Post] = []
+                for (postId, _) in postDict {
+                    guard !Task.isCancelled else { return }
                     do {
-                        guard snapshot.exists(), let postDict = snapshot.value as? [String: Any] else {
-                            await MainActor.run {
-                                completion([])
-                            }
-                            return
-                        }
-                        
-                        // Fetch all posts
-                        var posts: [Post] = []
-                        
-                        for (postId, _) in postDict {
-                            if let post = try? await self.fetchPost(postId: postId) {
-                                posts.append(post)
-                            }
-                        }
-                        
-                        // Sort by creation date
-                        posts.sort { $0.createdAt > $1.createdAt }
-                        
-                        await MainActor.run {
-                            print("🔄 Real-time update: \(posts.count) \(category.rawValue) posts")
-                            completion(posts)
-                        }
+                        let post = try await self.fetchPost(postId: postId)
+                        posts.append(post)
                     } catch {
-                        print("❌ Error in real-time listener: \(error)")
+                        dlog("⚠️ Failed to fetch post \(postId): \(error)")
                     }
                 }
+                
+                guard !Task.isCancelled else { return }
+                posts.sort { $0.createdAt > $1.createdAt }
+                dlog("🔄 Real-time update: \(posts.count) \(category.rawValue) posts")
+                completion(posts)
             }
-        
-        listeners.append(handle)
-    }
-    
-    // MARK: - Remove Listeners
-    
-    nonisolated func removeAllListeners() {
-        for handle in listeners {
-            database.removeObserver(withHandle: handle)
         }
-        listeners.removeAll()
-        print("🔇 All real-time listeners removed")
+
+        appendListenerToken(ListenerToken(query: query, handle: handle))
+    }
+
+
+    // MARK: - Remove Listeners
+
+    /// Cancels all in-flight refresh tasks and removes every RTDB observer.
+    /// Call this on logout or when the owning screen disappears.
+    func stopAllObserving() {
+        // Cancel all pending actor-isolated fetch tasks
+        for (_, task) in observerTasks { task.cancel() }
+        observerTasks.removeAll()
+        // Delegate token removal to the nonisolated helper (safe from any context)
+        removeAllListenerTokens()
+    }
+
+    /// Removes every RTDB observer from the exact query it was registered on.
+    /// `nonisolated` so it can be called from `deinit` without hopping to the actor.
+    nonisolated func removeAllListenerTokens() {
+        listenersLock.lock()
+        let snapshot = listenerTokens
+        listenerTokens.removeAll()
+        listenersLock.unlock()
+
+        for token in snapshot {
+            token.query.removeObserver(withHandle: token.handle)
+        }
+        dlog("🔇 All real-time listeners removed")
+    }
+
+    private func appendListenerToken(_ token: ListenerToken) {
+        listenersLock.lock()
+        listenerTokens.append(token)
+        listenersLock.unlock()
     }
 }
 

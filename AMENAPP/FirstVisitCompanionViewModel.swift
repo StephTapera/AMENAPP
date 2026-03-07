@@ -15,26 +15,31 @@ import Combine
 
 @MainActor
 class FirstVisitCompanionViewModel: ObservableObject {
-    // Services
+    // Services — lazy so CalendarIntegrationService.init() (which checks
+    // authorization status) doesn't run until the user actually needs them.
     private let visitPlanService = VisitPlanService()
-    private let calendarService = CalendarIntegrationService()
-    private let notificationScheduler = ChurchVisitNotificationScheduler()
-    
+    private lazy var calendarService = CalendarIntegrationService()
+    private lazy var notificationScheduler = ChurchVisitNotificationScheduler()
+
     // State
     @Published var selectedChurch: VisitCompanionChurch?
     @Published var selectedService: VisitCompanionChurchService?
     @Published var selectedDate: Date = Date()
     @Published var visitPlan: VisitPlan?
-    
+
     @Published var isLoading = false
     @Published var errorMessage: String?
     @Published var showSuccess = false
-    
+
     // Calendar and notifications
     @Published var addToCalendar = true
     @Published var enable24HourReminder = true
     @Published var enableDayOfReminder = true
     @Published var enablePostVisitReminder = true
+
+    // AI Visit Guide
+    @Published var aiVisitTips: String?
+    @Published var isLoadingAITips = false
     
     // MARK: - Create Visit Plan
     
@@ -197,19 +202,100 @@ class FirstVisitCompanionViewModel: ObservableObject {
     }
     
     // MARK: - Load Existing Visit Plan
-    
+
     func loadExistingVisitPlan(church: VisitCompanionChurch, serviceDate: Date) async {
         guard let userId = Auth.auth().currentUser?.uid,
               let churchId = church.id else { return }
-        
+
+        // Use a short timeout so a missing Firestore index (or slow network) never
+        // blocks the sheet from appearing. The sheet renders immediately; the plan
+        // state updates in the background if the query succeeds in time.
         do {
-            visitPlan = try await visitPlanService.getVisitPlan(
-                userId: userId,
-                churchId: churchId,
-                serviceDate: serviceDate
-            )
+            let plan = try await withThrowingTaskGroup(of: VisitPlan?.self) { group in
+                group.addTask {
+                    try await self.visitPlanService.getVisitPlan(
+                        userId: userId,
+                        churchId: churchId,
+                        serviceDate: serviceDate
+                    )
+                }
+                // 1.5 s deadline — resolves to nil on timeout so sheet is never blocked
+                group.addTask {
+                    try await Task.sleep(nanoseconds: 1_500_000_000)
+                    return nil
+                }
+                // Return whichever finishes first
+                let result = try await group.next()
+                group.cancelAll()
+                return result ?? nil
+            }
+
+            visitPlan = plan
+
+            // Restore UI state from the existing plan so the sheet shows
+            // the saved service and date rather than defaults
+            if let plan = plan {
+                selectedDate = plan.serviceDate.dateValue()
+                selectedService = church.services.first {
+                    $0.startTime == plan.serviceTime && $0.serviceType == plan.serviceType
+                }
+            }
         } catch {
+            // Don't surface this error — failing to find an existing plan
+            // (e.g. missing Firestore index until deployed) should never block
+            // creating a new one.
             Logger.error("Failed to load visit plan: \(error.localizedDescription)")
+        }
+    }
+
+    // MARK: - Calendar Pre-authorization
+
+    /// Requests calendar access proactively when the user enables "Add to Calendar".
+    /// Returns false if access was denied.
+    func requestCalendarAccess() async -> Bool {
+        do {
+            return try await calendarService.requestCalendarAccess()
+        } catch {
+            return false
+        }
+    }
+
+    // MARK: - AI Visit Guide
+
+    /// Generates a practical first-visit guide using OpenAI. Result is cached in
+    /// aiVisitTips for the lifetime of this ViewModel instance.
+    func generateVisitPreparation(for church: VisitCompanionChurch) async {
+        guard !isLoadingAITips, aiVisitTips == nil else { return }
+        isLoadingAITips = true
+        defer { isLoadingAITips = false }
+
+        let serviceNote: String
+        if let service = selectedService {
+            serviceNote = "The service is \(service.serviceType) on \(service.dayOfWeek) at \(service.startTime)."
+        } else {
+            serviceNote = ""
+        }
+
+        let denominationNote = church.denomination.map { ", a \($0) church" } ?? ""
+        let prompt = """
+            I'm planning my first visit to \(church.name)\(denominationNote) at \(church.address.fullAddress). \(serviceNote)
+
+            Give me a practical first-visit guide as 4-5 short bullet points covering:
+            - What to wear
+            - When to arrive relative to the service time
+            - What to expect during the service
+            - Parking or logistics tips
+            - A warm welcoming thought
+
+            Keep it concise, warm, and practical. No headings. No markdown. Plain text only.
+            """
+
+        do {
+            let response = try await OpenAIService.shared.sendMessageSync(prompt)
+            aiVisitTips = response
+        } catch {
+            Logger.error("AI visit tips failed: \(error.localizedDescription)")
+            aiVisitTips = nil
         }
     }
     

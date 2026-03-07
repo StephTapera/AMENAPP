@@ -141,7 +141,7 @@ class BreakTimeNotificationManager: ObservableObject {
         // Select a random verse based on time of day
         let isMorning = breakTime.hour < 12
         let verses = isMorning ? morningVerses : nightVerses
-        let randomVerse = verses.randomElement()!
+        guard let randomVerse = verses.randomElement() else { return }
         
         // Format notification
         if isMorning {

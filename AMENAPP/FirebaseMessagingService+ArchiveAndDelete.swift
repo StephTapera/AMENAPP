@@ -239,7 +239,7 @@ extension FirebaseMessagingService {
             try await conversationRef.updateData([
                 "lastMessage": lastMessageDoc.documentID,
                 "lastMessageText": lastMessage.text,
-                "lastMessageTimestamp": lastMessage.timestamp,
+                "lastMessageTimestamp": lastMessage.timestamp as Any,
                 "updatedAt": Timestamp(date: Date())
             ])
         } else {

@@ -135,50 +135,94 @@ struct MentionTextEditor: View {
 struct MentionSuggestionRow: View {
     let user: MentionUser
     let onTap: () -> Void
-    
+
+    @State private var isPressed = false
+
     var body: some View {
-        Button(action: onTap) {
+        Button(action: {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            onTap()
+        }) {
             HStack(spacing: 12) {
-                // Profile Image
-                if let profileImageUrl = user.profileImageUrl, let url = URL(string: profileImageUrl) {
-                    CachedAsyncImage(url: url) { image in
-                        image
-                            .resizable()
-                            .scaledToFill()
-                    } placeholder: {
-                        Circle()
-                            .fill(Color.gray.opacity(0.3))
-                    }
-                    .frame(width: 40, height: 40)
-                    .clipShape(Circle())
-                } else {
+                // ── Avatar ─────────────────────────────────────────────
+                ZStack {
                     Circle()
-                        .fill(Color.gray.opacity(0.3))
+                        .fill(Color(uiColor: .tertiarySystemFill))
                         .frame(width: 40, height: 40)
-                        .overlay(
-                            Text(user.displayName.prefix(1))
-                                .font(.system(size: 18, weight: .semibold))
-                                .foregroundStyle(.white)
-                        )
+
+                    if let urlStr = user.profileImageUrl,
+                       !urlStr.isEmpty,
+                       let url = URL(string: urlStr) {
+                        CachedAsyncImage(url: url) { img in
+                            img.resizable().scaledToFill()
+                                .frame(width: 40, height: 40)
+                                .clipShape(Circle())
+                        } placeholder: {
+                            Text(user.displayName.prefix(1).uppercased())
+                                .font(.custom("OpenSans-Bold", size: 16))
+                                .foregroundStyle(.primary)
+                        }
+                    } else {
+                        Text(user.displayName.prefix(1).uppercased())
+                            .font(.custom("OpenSans-Bold", size: 16))
+                            .foregroundStyle(.primary)
+                    }
                 }
-                
+
+                // ── Name + username ────────────────────────────────────
                 VStack(alignment: .leading, spacing: 2) {
                     Text(user.displayName)
-                        .font(.custom("OpenSans-SemiBold", size: 15))
+                        .font(.custom("OpenSans-Bold", size: 15))
                         .foregroundStyle(.primary)
-                    
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 1)
+                        .background(alignment: .center) {
+                            MentionBrushstrokeHighlight()
+                                .foregroundStyle(Color(red: 1.0, green: 0.88, blue: 0.15, opacity: 0.75))
+                        }
+
                     Text("@\(user.username)")
                         .font(.custom("OpenSans-Regular", size: 13))
-                        .foregroundStyle(.gray)
+                        .foregroundStyle(.secondary)
                 }
-                
+
                 Spacer()
+
+                Image(systemName: "arrow.up.left")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.tertiary)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .background(Color(.systemBackground))
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .contentShape(Rectangle())
+            .background(
+                isPressed ? Color(uiColor: .tertiarySystemFill) : Color.clear
+            )
+            .animation(.easeOut(duration: 0.1), value: isPressed)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PlainButtonStyle())
+        ._onButtonGesture { pressing in isPressed = pressing } perform: {}
+    }
+}
+
+// Brushstroke highlight shape shared by mention rows
+private struct MentionBrushstrokeHighlight: Shape {
+    func path(in rect: CGRect) -> Path {
+        var p = Path()
+        let w = rect.width, h = rect.height
+        p.move(to: CGPoint(x: w * 0.02, y: h * 0.55))
+        p.addCurve(
+            to: CGPoint(x: w * 0.98, y: h * 0.45),
+            control1: CGPoint(x: w * 0.25, y: h * 0.20),
+            control2: CGPoint(x: w * 0.75, y: h * 0.10)
+        )
+        p.addCurve(
+            to: CGPoint(x: w * 0.04, y: h * 0.95),
+            control1: CGPoint(x: w * 0.80, y: h * 1.10),
+            control2: CGPoint(x: w * 0.30, y: h * 1.05)
+        )
+        p.closeSubpath()
+        return p
     }
 }
 

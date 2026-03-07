@@ -10,7 +10,7 @@ import SwiftUI
 // MARK: - 50% Usage Banner
 
 struct ScrollBudget50Banner: View {
-    @StateObject private var budgetManager = ScrollBudgetManager.shared
+    @ObservedObject private var budgetManager = ScrollBudgetManager.shared
     @State private var showBanner = false
     
     var body: some View {
@@ -125,7 +125,7 @@ struct ScrollBudget80Suggestion: View {
 
 struct ScrollBudgetSoftStopView: View {
     @Environment(\.dismiss) var dismiss
-    @StateObject private var budgetManager = ScrollBudgetManager.shared
+    @ObservedObject private var budgetManager = ScrollBudgetManager.shared
     let extensionsRemaining: Int
     
     var body: some View {
@@ -225,7 +225,7 @@ struct ScrollBudgetSoftStopView: View {
 
 struct ScrollBudgetLockedView: View {
     @Environment(\.dismiss) var dismiss
-    @StateObject private var budgetManager = ScrollBudgetManager.shared
+    @ObservedObject private var budgetManager = ScrollBudgetManager.shared
     
     var body: some View {
         VStack(spacing: 24) {

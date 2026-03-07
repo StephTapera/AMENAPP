@@ -20,23 +20,48 @@ struct AMENAPPApp: App {
     // Register AppDelegate to handle Firebase Messaging and notifications
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     
-    @State private var showWelcomeScreen = true  // Enabled - Show black AMEN welcome screen on app launch
     @State private var currentUser: UserModel? = nil  // Store user for personalized welcome
+    
+    // Welcome screen
+    @StateObject private var welcomeManager = WelcomeScreenManager()
+    @State private var showWelcomeScreen = false
     
     // PERFORMANCE: Store auth listener handle for cleanup
     @State private var authStateHandle: AuthStateDidChangeListenerHandle?
+    // Track previous auth state to detect nil -> user sign-in transitions.
+    @State private var hadAuthUserOnLastEvent = false
+    // P1-3 FIX: Track whether FCM setup has already run this session
+    // to prevent redundant token writes on every foreground transition.
+    @State private var fcmSetupDone = false
+    // P0-C FIX: Track startup tasks so they can be cancelled on disappear,
+    // preventing retain cycles across background/foreground transitions.
+    @State private var startupTasks: [Task<Void, Never>] = []
     
     // Initialize Firebase when app launches
     init() {
-        print("🚀 Initializing AMENAPPApp...")
+        dlog("🚀 Initializing AMENAPPApp...")
+        let _launchToken = PerfBegin("app_init")
+        defer { PerfEnd(_launchToken) }
         // Note: Firebase.configure() is called in AppDelegate.didFinishLaunchingWithOptions
         // Database persistence is also configured in AppDelegate after Firebase.configure()
+
+        // Phase 3 fix: Configure URLCache for better image scroll performance.
+        // Default is only 512KB RAM + 10MB disk — too small for a social feed.
+        URLCache.shared = URLCache(
+            memoryCapacity: 64 * 1024 * 1024,   // 64 MB RAM
+            diskCapacity:  256 * 1024 * 1024,   // 256 MB disk
+            diskPath: "amen_url_cache"
+        )
         
         // ✅ Initialize Firebase Remote Config for AI API keys
         Task {
             Self.setupRemoteConfig()
         }
         
+        // Pre-warm taptic engine generators so first user interaction fires with zero latency.
+        // This is synchronous but extremely cheap (~0.1ms).
+        HapticManager.prepareAll()
+
         // PERFORMANCE: Defer singleton initialization to first use
         // Singletons will initialize lazily when first accessed
         // This prevents blocking the main thread during app startup
@@ -71,10 +96,10 @@ struct AMENAPPApp: App {
         remoteConfig.fetch { status, error in
             if status == .success {
                 remoteConfig.activate { _, _ in
-                    print("✅ Remote Config activated - AI features enabled")
+                    dlog("✅ Remote Config activated - AI features enabled")
                 }
             } else {
-                print("⚠️ Remote Config fetch failed: \(error?.localizedDescription ?? "unknown")")
+                dlog("⚠️ Remote Config fetch failed: \(error?.localizedDescription ?? "unknown")")
             }
         }
     }
@@ -85,7 +110,7 @@ struct AMENAPPApp: App {
         let hasRunMigration = UserDefaults.standard.bool(forKey: "hasRunUserKeywordsMigration")
         
         if hasRunMigration {
-            print("✅ User keywords migration already completed")
+            dlog("✅ User keywords migration already completed")
             return
         }
         
@@ -93,7 +118,7 @@ struct AMENAPPApp: App {
             let status = try await UserKeywordsMigration.checkMigrationStatus()
             
             if status.needsMigration > 0 {
-                print("🔄 Running automatic migration for \(status.needsMigration) users...")
+                dlog("🔄 Running automatic migration for \(status.needsMigration) users...")
                 try await UserKeywordsMigration.migrateAllUsers()
                 
                 // Mark migration as complete
@@ -101,16 +126,16 @@ struct AMENAPPApp: App {
                     UserDefaults.standard.set(true, forKey: "hasRunUserKeywordsMigration")
                 }
                 
-                print("✅ Automatic migration completed successfully!")
+                dlog("✅ Automatic migration completed successfully!")
             } else {
-                print("✅ No migration needed - all users already have keywords")
+                dlog("✅ No migration needed - all users already have keywords")
                 // Mark as complete anyway
                 await MainActor.run {
                     UserDefaults.standard.set(true, forKey: "hasRunUserKeywordsMigration")
                 }
             }
         } catch {
-            print("⚠️ Automatic migration failed (will retry next launch): \(error)")
+            dlog("⚠️ Automatic migration failed (will retry next launch): \(error)")
             // Don't mark as complete so it can retry next time
         }
     }
@@ -119,61 +144,95 @@ struct AMENAPPApp: App {
         WindowGroup {
             ZStack {
                 ContentView()
-                
+                    .handleChurchDeepLinks()  // ✅ Handle church deep links
+
                 if showWelcomeScreen {
                     WelcomeScreenView(isPresented: $showWelcomeScreen)
                         .transition(.opacity)
                         .zIndex(1)
+                        .onDisappear {
+                            welcomeManager.recordLaunch()
+                        }
+                }
+
+                // ✅ P0-1: Under-13 hard block — full-screen gate when ageTier is "blocked".
+                // Overlays all app content and prevents any interaction. The only available
+                // action is signing out. The gate disappears automatically when the user
+                // signs out (ageTier resets to tierB, isLoaded = false).
+                if AgeAssuranceService.shared.isLoaded && AgeAssuranceService.shared.tier == .blocked {
+                    AccountLockedView()
+                        .transition(.opacity)
+                        .zIndex(99)
                 }
             }
             .onAppear {
-                // PERFORMANCE FIX: Defer all non-critical startup work
-                // Only track app reopen immediately (lightweight, synchronous)
-                ScrollBudgetManager.shared.trackAppReopen()
-                
-                // Defer everything else to background with priority staging
-                Task(priority: .high) {
-                    // High priority: User-visible data for welcome screen
-                    await fetchCurrentUserForWelcome()
-                    
-                    // THREADS-STYLE: Preload posts during splash screen animation
-                    // This makes posts appear instantly when ContentView loads
+                    // ⚡️ PERFORMANCE OPTIMIZED: Parallel startup with instant UI
+                    showWelcomeScreen = welcomeManager.shouldShowWelcome()
+                    ScrollBudgetManager.shared.trackAppReopen()
+
+                    // Arm the cinematic loading screen for users already signed in at cold launch.
+                    // (For sign-in flows, ContentView.onChange fires signalSignIn() instead.)
                     if Auth.auth().currentUser != nil {
-                        print("⚡️ PRELOAD: Starting posts cache load during splash...")
-                        _ = PostsManager.shared  // Initialize immediately
-                        await FirebasePostService.shared.preloadCacheSync()
-                        
-                        // P0 FIX: Start real-time listener immediately (single source of truth)
-                        await MainActor.run {
-                            FirebasePostService.shared.startListening(category: .openTable)
-                            print("✅ PRELOAD: Real-time listener started for OpenTable")
-                        }
+                        AppReadyStateManager.shared.signalSignIn()
                     }
+                    
+                    // PARALLEL: All startup tasks run simultaneously.
+                    // P0-C FIX: Store task handles so they can be cancelled in onDisappear.
+                    let criticalTask = Task(priority: .userInitiated) {
+                        async let userTask = fetchCurrentUserForWelcome()
+                        async let postsTask: Void = { @MainActor in
+                            if Auth.auth().currentUser != nil {
+                                dlog("⚡️ PRELOAD: Starting posts cache load...")
+                                _ = PostsManager.shared
+                                await FirebasePostService.shared.preloadCacheSync()
+                                FirebasePostService.shared.startListening(category: .openTable)
+                                dlog("✅ PRELOAD: Real-time listener started")
+                            }
+                        }()
+                        async let followTask = startFollowServiceListeners()
+                        async let fcmTask: Void = {
+                    // P1-3 FIX: Only run FCM setup once per app session, not on every foreground
+                    let shouldSetup = await MainActor.run { () -> Bool in
+                        guard !fcmSetupDone else { return false }
+                        fcmSetupDone = true
+                        return true
+                    }
+                    if shouldSetup { await setupFCMForExistingUser() }
+                }()
+                        
+                        // Wait for all in parallel
+                        _ = await (userTask, postsTask, followTask, fcmTask)
+                        dlog("✅ All critical startup tasks complete")
+                    }
+                    startupTasks.append(criticalTask)
+
+                    // Low priority background tasks
+                    let utilityTask = Task(priority: .utility) {
+                        await cacheCurrentUserProfile()
+                        await Self.runAutomaticMigration()
+                    }
+                    startupTasks.append(utilityTask)
                 }
-                
-                Task(priority: .medium) {
-                    // Medium priority: Real-time listeners (needed soon but not immediately)
-                    await startFollowServiceListeners()
-                    await setupFCMForExistingUser()
-                }
-                
-                Task(priority: .low) {
-                    // Low priority: Background optimization tasks
-                    await cacheCurrentUserProfile()
-                    await Self.runAutomaticMigration()
-                }
-            }
             .onDisappear {
                 // ✅ TRACK APP CLOSE (scroll budget)
                 ScrollBudgetManager.shared.trackAppClose()
+                // ✅ Remove auth listener to prevent accumulating duplicate listeners
+                if let handle = authStateHandle {
+                    Auth.auth().removeStateDidChangeListener(handle)
+                    authStateHandle = nil
+                }
+                // P0-C FIX: Cancel all startup tasks to prevent retain cycles
+                // across background/foreground transitions.
+                startupTasks.forEach { $0.cancel() }
+                startupTasks.removeAll()
             }
             .onOpenURL { url in
-                print("🔗 Handling deep link: \(url)")
+                dlog("🔗 Handling deep link: \(url)")
                 
                 // ✅ P0 SECURITY: Handle Firebase Auth callbacks (phone verification, reCAPTCHA)
                 // This MUST be first to ensure 2FA works properly
                 if Auth.auth().canHandle(url) {
-                    print("✅ Forwarded URL to Firebase Auth for verification")
+                    dlog("✅ Forwarded URL to Firebase Auth for verification")
                     return
                 }
                 
@@ -188,30 +247,40 @@ struct AMENAPPApp: App {
                 
                 // P1-2: Handle church notes deep links
                 handleChurchNoteDeepLink(url)
+
+                // ✅ Live Activity / Dynamic Island deep link actions
+                handleLiveActivityDeepLink(url)
+
+                // ✅ Share Extension: user tapped "Post" in the extension
+                if url.scheme == "amen" && url.host == "share" {
+                    handleShareExtensionDraft()
+                }
+            }
+            .task {
+                // Restore any Live Activities that survived an app relaunch
+                LiveActivityManager.shared.restoreActiveActivities()
             }
         }
     }
     
     // MARK: - Fetch User for Welcome Screen
     
-    private func fetchCurrentUserForWelcome() {
+    private func fetchCurrentUserForWelcome() async {
         guard let userId = Auth.auth().currentUser?.uid else {
             return
         }
         
-        Task {
-            do {
-                let db = Firestore.firestore()
-                let document = try await db.collection("users").document(userId).getDocument()
-                
-                if let user = try? document.data(as: UserModel.self) {
-                    await MainActor.run {
-                        currentUser = user
-                    }
+        do {
+            let db = Firestore.firestore()
+            let document = try await db.collection("users").document(userId).getDocument()
+            
+            if let user = try? document.data(as: UserModel.self) {
+                await MainActor.run {
+                    currentUser = user
                 }
-            } catch {
-                print("⚠️ AMENAPPApp: Could not fetch user for welcome screen")
             }
+        } catch {
+            dlog("⚠️ AMENAPPApp: Could not fetch user for welcome screen")
         }
     }
     
@@ -220,20 +289,21 @@ struct AMENAPPApp: App {
     private func startFollowServiceListeners() async {
         // Only start if user is logged in
         guard Auth.auth().currentUser != nil else {
-            print("⚠️ No user logged in, skipping FollowService initialization")
+            dlog("⚠️ No user logged in, skipping FollowService initialization")
             return
         }
         
-        print("🚀 Starting FollowService listeners on app launch...")
+        dlog("🚀 Starting FollowService listeners on app launch...")
         
-        // Load current user's following and followers
-        await FollowService.shared.loadCurrentUserFollowing()
-        await FollowService.shared.loadCurrentUserFollowers()
+        // Load following and followers in parallel — both are independent Firestore reads
+        async let followingLoad: Void = FollowService.shared.loadCurrentUserFollowing()
+        async let followersLoad: Void = FollowService.shared.loadCurrentUserFollowers()
+        _ = await (followingLoad, followersLoad)
         
         // Start real-time listeners for updates
-        await FollowService.shared.startListening()
+        FollowService.shared.startListening()
         
-        print("✅ FollowService listeners started successfully!")
+        dlog("✅ FollowService listeners started successfully!")
     }
     
     // MARK: - Setup FCM Token for Existing Users
@@ -241,29 +311,28 @@ struct AMENAPPApp: App {
     private func setupFCMForExistingUser() async {
         // Only setup FCM if user is logged in
         guard Auth.auth().currentUser != nil else {
-            print("⚠️ No user logged in, skipping FCM setup")
+            dlog("⚠️ No user logged in, skipping FCM setup")
             return
         }
         
-        print("🔔 Checking notification permissions for existing user...")
+        dlog("🔔 Checking notification permissions for existing user...")
         
         let hasPermission = await PushNotificationManager.shared.checkNotificationPermissions()
         
         if hasPermission {
-            print("✅ User has notification permission, setting up FCM token...")
-            await MainActor.run {
-                PushNotificationManager.shared.setupFCMToken()
-            }
+            // AppDelegate.setupPushNotifications() already called setupFCMToken() at launch.
+            // Skip the duplicate call here to avoid the "already set up" warning.
+            dlog("✅ User has notification permission (FCM token set up by AppDelegate)")
             
-            // ✅ NEW: Register device token with DeviceTokenManager
+            // ✅ Register device token with DeviceTokenManager
             do {
                 try await DeviceTokenManager.shared.registerDeviceToken()
-                print("✅ Device token registered successfully")
+                dlog("✅ Device token registered successfully")
             } catch {
-                print("❌ Device token registration failed: \(error.localizedDescription)")
+                dlog("❌ Device token registration failed: \(error.localizedDescription)")
             }
         } else {
-            print("⚠️ User has not granted notification permission")
+            dlog("⚠️ User has not granted notification permission")
         }
         
         // ✅ NEW: Setup auth state listener for token lifecycle
@@ -275,21 +344,41 @@ struct AMENAPPApp: App {
     // MARK: - Auth State Listener
     
     private func setupAuthStateListener() {
+        // Seed the previous-state tracker before attaching the listener.
+        hadAuthUserOnLastEvent = Auth.auth().currentUser != nil
         // PERFORMANCE: Store handle for cleanup
         authStateHandle = Auth.auth().addStateDidChangeListener { auth, user in
             Task { @MainActor in
                 if let user = user {
+                    // Detect nil → user transition to show logo welcome screen on re-login.
+                    if !self.hadAuthUserOnLastEvent {
+                        self.welcomeManager.markSignIn()
+                    }
+                    self.hadAuthUserOnLastEvent = true
                     // User logged in - register token
-                    print("👤 User logged in: \(user.uid)")
+                    #if DEBUG
+                    dlog("👤 User logged in: \(user.uid)")
+                    #endif
                     do {
                         try await DeviceTokenManager.shared.registerDeviceToken()
                     } catch {
-                        print("❌ Token registration failed: \(error)")
+                        dlog("❌ Token registration failed: \(error)")
                     }
+                    // Unusual login detection — checks if this device is new
+                    await UnusualLoginDetector.shared.checkLoginDevice(userId: user.uid)
+                    // Age assurance — load tier so feature gates are ready
+                    await AgeAssuranceService.shared.loadTier(for: user.uid)
                 } else {
+                    self.hadAuthUserOnLastEvent = false
+                    // P0-D FIX: Reset fcmSetupDone so the next sign-in within the same
+                    // session re-registers the FCM token for the new user account.
+                    // Without this, a second sign-in skips FCM setup and push notifications
+                    // go unregistered (or worse, remain tied to the previous user).
+                    self.fcmSetupDone = false
                     // User logged out - unregister token
-                    print("👋 User logged out, unregistering device token")
+                    dlog("👋 User logged out, unregistering device token")
                     await DeviceTokenManager.shared.unregisterDeviceToken()
+                    AgeAssuranceService.shared.reset()
                 }
             }
         }
@@ -300,16 +389,16 @@ struct AMENAPPApp: App {
     private func cacheCurrentUserProfile() async {
         // Only cache if user is logged in
         guard Auth.auth().currentUser != nil else {
-            print("⚠️ No user logged in, skipping profile cache")
+            dlog("⚠️ No user logged in, skipping profile cache")
             return
         }
         
-        print("👤 Caching current user profile data...")
+        dlog("👤 Caching current user profile data...")
         
         // Cache current user's profile data for fast post creation
         await UserProfileImageCache.shared.cacheCurrentUserProfile()
         
-        print("✅ User profile cached!")
+        dlog("✅ User profile cached!")
     }
     
     // MARK: - Email Authentication Link Handler
@@ -319,33 +408,37 @@ struct AMENAPPApp: App {
         
         // Check if this is a Firebase email link
         if Auth.auth().isSignIn(withEmailLink: link) {
-            print("📧 Detected email authentication link")
+            dlog("📧 Detected email authentication link")
             
-            // Get the email from UserDefaults (saved when link was sent)
-            guard let email = UserDefaults.standard.string(forKey: "emailForSignIn") else {
-                print("⚠️ No email found in UserDefaults for sign-in link")
+            // P0-4 FIX: Read email from Keychain (no longer in UserDefaults)
+            guard let email = SecureStorage.load(account: "emailForSignIn") else {
+                dlog("⚠️ No email found in Keychain for sign-in link")
                 return
             }
             
-            print("📧 Attempting to sign in with email link for: \(email)")
+            #if DEBUG
+            dlog("📧 Attempting to sign in with email link for: \(email)")
+            #endif
             
             // Sign in with the email link
             Task { @MainActor in
                 do {
                     let authResult = try await Auth.auth().signIn(withEmail: email, link: link)
-                    print("✅ Successfully signed in with email link!")
-                    print("   User ID: \(authResult.user.uid)")
-                    print("   Email: \(authResult.user.email ?? "none")")
+                    dlog("✅ Successfully signed in with email link!")
+                    #if DEBUG
+                    dlog("   User ID: \(authResult.user.uid)")
+                    dlog("   Email: \(authResult.user.email ?? "none")")
+                    #endif
                     
-                    // Clear the email from UserDefaults
-                    UserDefaults.standard.removeObject(forKey: "emailForSignIn")
+                    // P0-4 FIX: Clear the email from Keychain after successful sign-in
+                    SecureStorage.delete(account: "emailForSignIn")
                     
                     // Success haptic
                     let haptic = UINotificationFeedbackGenerator()
                     haptic.notificationOccurred(.success)
                     
                 } catch {
-                    print("❌ Email link sign-in failed: \(error.localizedDescription)")
+                    dlog("❌ Email link sign-in failed: \(error.localizedDescription)")
                     
                     // Error haptic
                     let haptic = UINotificationFeedbackGenerator()
@@ -355,6 +448,40 @@ struct AMENAPPApp: App {
         }
     }
     
+    // MARK: - Live Activity Deep Link Handling
+
+    private func handleLiveActivityDeepLink(_ url: URL) {
+        guard url.scheme == "amen" else { return }
+        let host = url.host ?? ""
+        let queryItems = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        let action = queryItems.first(where: { $0.name == "action" })?.value
+
+        switch host {
+        case "prayer":
+            // Prayer Live Activity actions: prayed, snooze
+            PrayerLiveActivityService.shared.handleDeepLink(url: url)
+
+        case "church":
+            // Church service action: end
+            if action == "end" {
+                Task { await LiveActivityManager.shared.endChurchServiceActivity() }
+            }
+            // action=notes and action=navigate are handled by existing DeepLinkRouter below
+            if action == "notes" || action == "navigate" {
+                NotificationDeepLinkRouter.shared.handleURL(url)
+            }
+
+        case "music":
+            // Music action: playlist (future), stop
+            if action == "stop" {
+                Task { await LiveActivityManager.shared.endMusicActivity() }
+            }
+
+        default:
+            break
+        }
+    }
+
     // MARK: - P1-2: Deep Link Handling
     
     private func handleChurchNoteDeepLink(_ url: URL) {
@@ -368,7 +495,7 @@ struct AMENAPPApp: App {
         // Check if this is a church note link
         if pathComponents.count >= 2 && pathComponents[0] == "notes" {
             let shareLinkId = pathComponents[1]
-            print("📖 Opening church note with share link: \(shareLinkId)")
+            dlog("📖 Opening church note with share link: \(shareLinkId)")
             
             // Post notification to open the note
             NotificationCenter.default.post(
@@ -377,5 +504,27 @@ struct AMENAPPApp: App {
                 userInfo: ["shareLinkId": shareLinkId]
             )
         }
+    }
+
+    /// Reads a ShareDraft written by the AMENShareExtension via App Group UserDefaults
+    /// and opens CreatePostView pre-filled with the draft content.
+    private func handleShareExtensionDraft() {
+        let appGroupID = "group.com.amenapp.shared"
+        guard let defaults = UserDefaults(suiteName: appGroupID),
+              let data = defaults.data(forKey: "pendingShareDraft"),
+              let draft = try? JSONDecoder().decode(ShareDraft.self, from: data) else { return }
+        // Clear after reading so it is not replayed on next launch
+        defaults.removeObject(forKey: "pendingShareDraft")
+        defaults.synchronize()
+        dlog("📤 Received Share Extension draft: dest=\(draft.destination)")
+        NotificationCenter.default.post(
+            name: .openCreatePostFromShare,
+            object: nil,
+            userInfo: [
+                "text":        draft.text,
+                "linkURL":     draft.linkURLString ?? "",
+                "destination": draft.destination
+            ]
+        )
     }
 }

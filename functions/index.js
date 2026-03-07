@@ -7,6 +7,7 @@
 const admin = require("firebase-admin");
 const {onValueCreated} = require("firebase-functions/v2/database");
 const {onDocumentCreated} = require("firebase-functions/v2/firestore");
+const {onSchedule} = require("firebase-functions/v2/scheduler");
 
 // Initialize Firebase Admin
 // Storage bucket is auto-detected from Firebase project
@@ -68,6 +69,21 @@ const {
   cleanupExpiredOTPs,
 } = require("./twoFactorAuth");
 
+// Shabbat Mode: server-side enforcement middleware
+const {isSundayForUser} = require("./shabbatMiddleware");
+
+// Server-side rate limiter (Firestore-backed, rolling window)
+const {applyDefaultLimit} = require("./rateLimiter");
+
+// Post + Comment pipeline (publish finalization, atomic counters, reactions, media)
+const {
+  finalizePostPublish,
+  addComment,
+  toggleReaction,
+  onMediaFinalize,
+  onPostCreateValidate,
+} = require("./postAndCommentFunctions");
+
 // Export all functions
 exports.sendPushNotification = sendPushNotification;
 exports.onUserFollow = onUserFollow;
@@ -95,6 +111,10 @@ exports.exportEngagementData = exportEngagementData;
 // Content Moderation: Export organic content integrity system
 exports.moderateContent = moderateContent;
 
+// Server-side post moderation (Firestore onWrite trigger)
+const {serverSidePostModeration} = require("./contentModeration");
+exports.serverSidePostModeration = serverSidePostModeration;
+
 // Image Moderation: Export Cloud Vision SafeSearch moderation
 exports.moderateUploadedImage = moderateUploadedImage;
 
@@ -109,6 +129,13 @@ exports.verify2FAOTP = verify2FAOTP;
 exports.send2FAEmail = send2FAEmail;
 exports.send2FASMS = send2FASMS;
 exports.cleanupExpiredOTPs = cleanupExpiredOTPs;
+
+// Post + Comment pipeline
+exports.finalizePostPublish  = finalizePostPublish;
+exports.addComment           = addComment;
+exports.toggleReaction       = toggleReaction;
+exports.onMediaFinalize      = onMediaFinalize;
+exports.onPostCreateValidate = onPostCreateValidate;
 
 // ============================================================================
 // REALTIME DATABASE: COMMENT NOTIFICATIONS
@@ -131,6 +158,14 @@ exports.onRealtimeCommentCreate = onValueCreated(
       console.log(`📝 New comment on post ${postId}: ${commentId}`);
 
       try {
+        // ── Shabbat guard ────────────────────────────────────────────────
+        const commentAuthorId = commentData.userId;
+        if (await isSundayForUser(commentAuthorId)) {
+          console.log(`🕊️ Shabbat Mode active for ${commentAuthorId} — skipping comment notification`);
+          return null;
+        }
+        // ────────────────────────────────────────────────────────────────
+
         // Skip if this is a reply (has parentId)
         if (commentData.parentId) {
           console.log("⏭️ Skipping - this is a reply, not a top-level comment");
@@ -243,6 +278,14 @@ exports.onRealtimeReplyCreate = onValueCreated(
       console.log(`💬 New reply on post ${postId}: ${commentId}`);
 
       try {
+        // ── Shabbat guard ────────────────────────────────────────────────
+        const replyAuthorId = commentData.userId;
+        if (await isSundayForUser(replyAuthorId)) {
+          console.log(`🕊️ Shabbat Mode active for ${replyAuthorId} — skipping reply notification`);
+          return null;
+        }
+        // ────────────────────────────────────────────────────────────────
+
         // Only process if this is a reply (has parentId)
         if (!commentData.parentId) {
           console.log("⏭️ Skipping - this is a top-level comment, not a reply");
@@ -359,6 +402,13 @@ exports.onMessageSent = onDocumentCreated(
 
       try {
         const senderId = messageData.senderId;
+
+        // ── Shabbat guard ────────────────────────────────────────────────
+        if (await isSundayForUser(senderId)) {
+          console.log(`🕊️ Shabbat Mode active for ${senderId} — skipping message notification`);
+          return null;
+        }
+        // ────────────────────────────────────────────────────────────────
         const messageText = messageData.text || "";
 
         // Get conversation to find recipients
@@ -509,3 +559,190 @@ exports.checkUsernameAvailability = authenticationHelpers.checkUsernameAvailabil
 // P0-3: Account Deletion Cascade
 exports.onUserDeleted = authenticationHelpers.onUserDeleted;
 exports.manualCascadeDelete = authenticationHelpers.manualCascadeDelete;
+
+// P0-2: Server-set ageTier — fires on user document creation, computes tier from birthYear.
+exports.onUserDocCreated = authenticationHelpers.onUserDocCreated;
+
+// P0: Account deletion pipeline (processes deletionRequests/{userId} — cascades
+// Storage, RTDB, Firestore, and Auth deletion. Created when user taps Delete Account.)
+const { processAccountDeletion } = require("./accountDeletion");
+exports.processAccountDeletion = processAccountDeletion;
+
+// ============================================================================
+// BEREAN AI — All LLM calls go through these Cloud Functions.
+// Credentials (OPENAI_API_KEY, GOOGLE_VISION_API_KEY) are stored in
+// Firebase Secret Manager, never on device.
+// Run: firebase functions:secrets:set OPENAI_API_KEY
+//      firebase functions:secrets:set GOOGLE_VISION_API_KEY
+// ============================================================================
+const berean = require("./bereanFunctions");
+
+exports.bereanBibleQA = berean.bereanBibleQA;
+exports.bereanBibleQAFallback = berean.bereanBibleQAFallback;
+exports.bereanMoralCounsel = berean.bereanMoralCounsel;
+exports.bereanBusinessQA = berean.bereanBusinessQA;
+exports.bereanNoteSummary = berean.bereanNoteSummary;
+exports.bereanScriptureExtract = berean.bereanScriptureExtract;
+exports.bereanPostAssist = berean.bereanPostAssist;
+exports.bereanCommentAssist = berean.bereanCommentAssist;
+exports.bereanDMSafety = berean.bereanDMSafety;
+exports.bereanMediaSafety = berean.bereanMediaSafety;
+exports.bereanFeedExplainer = berean.bereanFeedExplainer;
+exports.bereanNotificationText = berean.bereanNotificationText;
+exports.bereanReportTriage = berean.bereanReportTriage;
+exports.bereanRankingLabels = berean.bereanRankingLabels;
+exports.bereanGenericProxy = berean.bereanGenericProxy;
+
+// ============================================================================
+// GENKIT-STYLE AI FLOWS — daily verse, notification text, digest
+// Replaces the external Genkit Cloud Run service (never deployed).
+// DailyVerseGenkitService and NotificationGenkitService call these instead.
+// ============================================================================
+const genkit = require("./genkitFunctions");
+
+exports.generateDailyVerse = genkit.generateDailyVerse;
+exports.generateVerseReflection = genkit.generateVerseReflection;
+exports.generateNotificationText = genkit.generateNotificationText;
+exports.summarizeNotifications = genkit.summarizeNotifications;
+
+// ============================================================================
+// SCHEDULED: DAILY NOTIFICATION DIGEST PUSH
+// Runs at 8:00 AM UTC daily.
+// Finds users who have digest delivery enabled and undelivered digest docs,
+// bundles their unread notifications, and sends a single FCM push.
+//
+// P1 FIX: Without this function the digest documents written by the iOS client
+// would sit in Firestore indefinitely with no push ever sent.
+// ============================================================================
+
+exports.sendDailyNotificationDigest = onSchedule(
+    {schedule: "0 8 * * *", timeZone: "UTC", region: "us-central1"},
+    async () => {
+      const db = admin.firestore();
+      const today = new Date();
+      today.setUTCHours(0, 0, 0, 0);
+
+      console.log("⏰ Running daily notification digest delivery...");
+
+      try {
+        // Find all users who have digest mode enabled
+        const usersSnap = await db.collection("users")
+            .where("notificationSettings.digestMode", "==", true)
+            .get();
+
+        if (usersSnap.empty) {
+          console.log("ℹ️ No users with digest mode enabled");
+          return;
+        }
+
+        let deliveredCount = 0;
+
+        for (const userDoc of usersSnap.docs) {
+          const userId = userDoc.id;
+          const userData = userDoc.data();
+
+          // Skip users without a valid FCM token
+          const deviceTokensSnap = await db.collection("users")
+              .doc(userId)
+              .collection("deviceTokens")
+              .where("enabled", "==", true)
+              .limit(1)
+              .get();
+
+          const hasToken = !deviceTokensSnap.empty || !!userData.fcmToken;
+          if (!hasToken) continue;
+
+          // Count unread notifications created since the start of today
+          const unreadSnap = await db.collection("users")
+              .doc(userId)
+              .collection("notifications")
+              .where("read", "==", false)
+              .where("createdAt", ">=", admin.firestore.Timestamp.fromDate(today))
+              .get();
+
+          if (unreadSnap.empty) continue;
+
+          // Group by type for a friendly summary
+          const typeCounts = {};
+          for (const doc of unreadSnap.docs) {
+            const t = doc.data().type || "activity";
+            typeCounts[t] = (typeCounts[t] || 0) + 1;
+          }
+
+          const summaryParts = Object.entries(typeCounts).map(([type, count]) => {
+            const label = {
+              follow: "new follower",
+              amen: "amen",
+              comment: "comment",
+              reply: "reply",
+              mention: "mention",
+              repost: "repost",
+            }[type] || "notification";
+            return `${count} ${label}${count === 1 ? "" : "s"}`;
+          });
+
+          const body = summaryParts.slice(0, 3).join(", ") +
+              (summaryParts.length > 3 ? ` +${summaryParts.length - 3} more` : "");
+
+          // Build the digest document ID for deep-linking
+          const digestId = `${userId}_${today.getTime()}`;
+
+          // Fan-out to all enabled device tokens
+          const tokens = deviceTokensSnap.empty ?
+              (userData.fcmToken ? [userData.fcmToken] : []) :
+              deviceTokensSnap.docs.map((d) => d.data().token).filter(Boolean);
+
+          const staleTokens = [];
+          await Promise.all(tokens.map(async (token) => {
+            try {
+              await admin.messaging().send({
+                notification: {
+                  title: "Your Daily Summary",
+                  body,
+                },
+                data: {
+                  type: "digest",
+                  digestId,
+                  deepLink: `amen://notifications/digest/${digestId}`,
+                  unreadCount: String(unreadSnap.size),
+                },
+                token,
+              });
+            } catch (err) {
+              if (err.code === "messaging/registration-token-not-registered" ||
+                  err.code === "messaging/invalid-registration-token") {
+                staleTokens.push(token);
+              }
+            }
+          }));
+
+          // Clean stale tokens
+          if (staleTokens.length > 0) {
+            const batch = db.batch();
+            deviceTokensSnap.docs.forEach((d) => {
+              if (staleTokens.includes(d.data().token)) batch.delete(d.ref);
+            });
+            await batch.commit();
+          }
+
+          // Write/update the digest document so the iOS client can display history
+          await db.collection("notificationDigests").doc(digestId).set({
+            userId,
+            period: "daily",
+            itemCount: unreadSnap.size,
+            typeCounts,
+            delivered: true,
+            deliveredAt: admin.firestore.FieldValue.serverTimestamp(),
+            opened: false,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          }, {merge: true});
+
+          deliveredCount++;
+        }
+
+        console.log(`✅ Digest delivery complete — sent to ${deliveredCount} user(s)`);
+      } catch (error) {
+        console.error("❌ Error in sendDailyNotificationDigest:", error);
+      }
+    },
+);

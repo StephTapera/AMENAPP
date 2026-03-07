@@ -11,7 +11,7 @@ struct EditPostSheet: View {
     let post: Post
     
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var postsManager = PostsManager.shared
+    @ObservedObject private var postsManager = PostsManager.shared
     
     @State private var editedContent: String
     @State private var isSubmitting = false

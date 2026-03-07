@@ -104,13 +104,13 @@ class ChurchNotesDiscoveryService {
             signals.append(.churchAffinity(score: churchScore))
 
             // 4. ENGAGEMENT QUALITY SIGNAL (0.0 - 1.0)
-            // Based on reactions, comments, shares
-            // Normalize by log scale to handle outliers
-            let amenCount = 0.0 // TODO: Fetch from postInteractions
-            let commentCount = 0.0 // TODO: Fetch from postInteractions
-            let shareCount = 0.0 // TODO: Fetch share data
-            let totalEngagement = amenCount + (commentCount * 2.0) + (shareCount * 3.0)
-            let engagementScore = min(1.0, log10(totalEngagement + 1.0) / 2.0)
+            // Derived from note content richness: key points, scripture refs, sharing activity, tags.
+            // These are the best available local proxies for quality until server-side counters exist.
+            let keyPointsScore = min(1.0, Double(note.keyPoints.count) / 5.0)          // 5+ key points = max
+            let scriptureBonus = min(0.3, Double(note.scriptureReferences.count) * 0.1) // up to 3 refs
+            let sharingBonus   = note.sharedWith.isEmpty ? 0.0 : 0.2                    // note was shared
+            let tagsBonus      = min(0.2, Double(note.tags.count) * 0.05)               // up to 4 tags
+            let engagementScore = min(1.0, keyPointsScore + scriptureBonus + sharingBonus + tagsBonus)
             signals.append(.engagementQuality(score: engagementScore))
 
             // 5. RELEVANCE TAGS SIGNAL (0.0 - 1.0)

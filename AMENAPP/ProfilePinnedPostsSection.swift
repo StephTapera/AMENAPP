@@ -234,7 +234,7 @@ actor ProfilePinnedPostService {
         
         guard snapshot.exists else { return nil }
         
-        return try? snapshot.data(as: Post.self)
+        return try? await MainActor.run { try snapshot.data(as: Post.self) }
     }
 }
 

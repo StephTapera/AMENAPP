@@ -7,6 +7,83 @@
 
 import Foundation
 import os.log
+import Security
+
+// MARK: - Minimal Keychain Helper (PII storage)
+//
+// Used for storing PII like emailForSignIn securely in the Keychain
+// rather than UserDefaults which is accessible in backups / on-device plain text.
+//
+enum SecureStorage {
+    private static let service = "com.amen.app"
+
+    static func save(_ value: String, account: String) {
+        guard let data = value.data(using: .utf8) else { return }
+        // Delete existing entry first (update pattern)
+        let deleteQuery: [CFString: Any] = [
+            kSecClass: kSecClassGenericPassword,
+            kSecAttrService: service,
+            kSecAttrAccount: account
+        ]
+        SecItemDelete(deleteQuery as CFDictionary)
+        // Add new entry
+        let addQuery: [CFString: Any] = [
+            kSecClass: kSecClassGenericPassword,
+            kSecAttrService: service,
+            kSecAttrAccount: account,
+            kSecValueData: data,
+            kSecAttrAccessible: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        ]
+        SecItemAdd(addQuery as CFDictionary, nil)
+    }
+
+    static func load(account: String) -> String? {
+        let query: [CFString: Any] = [
+            kSecClass: kSecClassGenericPassword,
+            kSecAttrService: service,
+            kSecAttrAccount: account,
+            kSecMatchLimit: kSecMatchLimitOne,
+            kSecReturnData: true
+        ]
+        var result: AnyObject?
+        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
+              let data = result as? Data else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+
+    static func delete(account: String) {
+        let query: [CFString: Any] = [
+            kSecClass: kSecClassGenericPassword,
+            kSecAttrService: service,
+            kSecAttrAccount: account
+        ]
+        SecItemDelete(query as CFDictionary)
+    }
+}
+
+// MARK: - Release Build Log Suppression
+//
+// In release builds ALL `print()` calls are completely stripped by the compiler.
+// This eliminates 4,000+ print statements from the release binary, preventing
+// PII/auth-token leaks through the device Console and removing measurable CPU cost.
+//
+// DEBUG builds behave exactly as before — print() works normally.
+//
+// Usage: no code changes needed anywhere else. The compiler substitutes this
+// overload in non-DEBUG configurations and optimises the empty body away entirely.
+#if !DEBUG
+@_transparent
+@inline(__always)
+func print(_ items: Any..., separator: String = " ", terminator: String = "\n") {
+    // intentionally empty — stripped in release
+}
+
+@_transparent
+@inline(__always)
+func print(_ items: Any...) {
+    // intentionally empty — stripped in release
+}
+#endif
 
 /// Custom logging utility that filters out system noise and highlights app logs
 struct AppLogger {

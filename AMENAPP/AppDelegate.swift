@@ -27,67 +27,73 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         // ✅ Suppress noisy system logging (network framework, CoreTelephony XPC, etc.)
         setenv("OS_ACTIVITY_MODE", "disable", 1)
         setenv("OS_ACTIVITY_DT_MODE", "NO", 1)
-        
-        // ✅ Suppress CoreTelephony XPC errors (simulator-only issue)
+
         #if targetEnvironment(simulator)
+        // ✅ Suppress simulator-only system noise:
+        //   - CoreTelephony XPC errors (no cellular radio in simulator)
+        //   - nw_connection "unconnected" warnings (network framework noise)
+        //   - IOSurface / quic / QUIC packet queue warnings
+        setenv("CFNETWORK_DIAGNOSTICS", "0", 1)
+        setenv("ACTIVITY_LOG_STDERR", "0", 1)
         UserDefaults.standard.set(false, forKey: "_UIConstraintBasedLayoutLogUnsatisfiable")
+        // Redirect stderr to /dev/null to silence kernel/framework noise that cannot
+        // be suppressed any other way. App print() calls go to stdout, so they are unaffected.
+        if let devNull = fopen("/dev/null", "w") {
+            dup2(fileno(devNull), STDERR_FILENO)
+            fclose(devNull)
+        }
         #endif
         
-        // Configure Firebase FIRST
+        // ✅ App Check MUST be configured BEFORE FirebaseApp.configure()
+        // Simulator uses the debug provider; real devices use App Attest.
+        #if targetEnvironment(simulator)
+        let providerFactory = AppCheckDebugProviderFactory()
+        AppCheck.setAppCheckProviderFactory(providerFactory)
+        print("✅ App Check configured with Debug Provider (simulator)")
+        #else
+        let providerFactory = AppCheckAppAttestProviderFactory()
+        AppCheck.setAppCheckProviderFactory(providerFactory)
+        print("✅ App Check configured with App Attest Provider (real device)")
+        #endif
+        
+        // Configure Firebase AFTER App Check provider is set
         FirebaseApp.configure()
         print("✅ Firebase configured successfully")
         
-        // Configure App Check AFTER Firebase.configure()
-        #if DEBUG
-        // ✅ For DEBUG builds: Use Debug provider (simulator-friendly)
-        let providerFactory = AppCheckDebugProviderFactory()
-        AppCheck.setAppCheckProviderFactory(providerFactory)
-        print("✅ App Check configured with Debug Provider (development mode)")
-        
-        // Get and display the debug token for Firebase Console registration
+        // Pre-warm App Check token at launch so it's ready by the time user taps sign up.
+        // This moves the attestation delay (can be several seconds) out of the auth flow.
         Task {
             do {
                 let token = try await AppCheck.appCheck().token(forcingRefresh: false)
-                print("🔑 App Check Debug Token: \(token.token)")
-                print("📝 Add this token to Firebase Console → App Check → Apps → Debug Tokens")
+                print("✅ App Check token pre-warmed: \(token.token.prefix(20))...")
             } catch {
-                print("⚠️ App Check token error (expected in simulator): \(error.localizedDescription)")
-                print("💡 This is normal - App Check will use placeholder tokens in debug mode")
+                // Non-fatal — SDK will fall back to placeholder token when unenforced
+                print("⚠️ App Check pre-warm failed (monitoring mode will handle): \(error.localizedDescription)")
             }
         }
-        #else
-        // ✅ For PRODUCTION builds: Use DeviceCheck provider
-        // NOTE: You must register your app in Firebase Console → App Check before releasing
-        let providerFactory = DeviceCheckProviderFactory()
-        AppCheck.setAppCheckProviderFactory(providerFactory)
-        print("✅ App Check configured with DeviceCheck Provider (production mode)")
-        print("⚠️ IMPORTANT: Ensure app is registered in Firebase Console → App Check")
-        #endif
         
         // Configure Firestore settings IMMEDIATELY after Firebase.configure()
         // This must happen before any Firestore access
         let firestoreSettings = FirestoreSettings()
-        firestoreSettings.isPersistenceEnabled = true
-        // Use the modern cacheSettings API (not the deprecated cacheSizeBytes)
+        // Use the modern cacheSettings API (replaces deprecated isPersistenceEnabled + cacheSizeBytes)
         firestoreSettings.cacheSettings = PersistentCacheSettings(sizeBytes: FirestoreCacheSizeUnlimited as NSNumber)
         Firestore.firestore().settings = firestoreSettings
         print("✅ Firestore settings configured (persistence enabled, unlimited cache)")
         
         // ✅ Enable Firebase Realtime Database offline persistence
-        // This must be called AFTER Firebase.configure() and BEFORE any database operations
-        // Get database URL dynamically from Firebase configuration (not hardcoded)
-        if let app = FirebaseApp.app(),
-           let databaseURL = app.options.databaseURL {
-            let database = Database.database(url: databaseURL)
-            database.isPersistenceEnabled = true
-            database.persistenceCacheSizeBytes = 50 * 1024 * 1024  // 50MB cache
+        // IMPORTANT: isPersistenceEnabled must be set on the SAME instance that singletons
+        // will use. All singletons call Database.database() (no URL), which returns the
+        // default instance. We always configure the default instance here.
+        // If a URL is specified in GoogleService-Info.plist, Database.database() will
+        // automatically use it — no need to call Database.database(url:) separately.
+        let defaultDatabase = Database.database()
+        defaultDatabase.isPersistenceEnabled = true
+        defaultDatabase.persistenceCacheSizeBytes = 50 * 1024 * 1024  // 50MB cache
+        if let databaseURL = FirebaseApp.app()?.options.databaseURL {
             print("✅ Firebase Realtime Database offline persistence enabled (50MB cache)")
-            print("✅ Realtime Database URL configured: \(databaseURL)")
+            print("✅ Realtime Database URL: \(databaseURL)")
         } else {
-            // Fallback to default database instance
-            Database.database().isPersistenceEnabled = true
-            Database.database().persistenceCacheSizeBytes = 50 * 1024 * 1024
-            print("⚠️ Using default Firebase Realtime Database (no URL specified in config)")
+            print("✅ Firebase Realtime Database offline persistence enabled (50MB cache, default URL)")
         }
         
         // Setup push notifications
@@ -137,19 +143,10 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         didReceiveRemoteNotification userInfo: [AnyHashable : Any],
         fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
     ) {
-        print("📬 AppDelegate: didReceiveRemoteNotification")
-        print("   User Info: \(userInfo)")
-        
-        // ✅ FIX: Forward phone auth notifications to FirebaseAuth
+        // ✅ Forward phone auth notifications to FirebaseAuth (must be first)
         if Auth.auth().canHandleNotification(userInfo) {
-            print("✅ Forwarded notification to Firebase Auth for phone verification")
             completionHandler(.noData)
             return
-        }
-        
-        // Handle notification data
-        if let messageID = userInfo["gcm.message_id"] as? String {
-            print("   Message ID: \(messageID)")
         }
         
         Task { @MainActor in

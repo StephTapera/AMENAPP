@@ -28,8 +28,7 @@ class RealtimeCommentsService: ObservableObject {
     @Published var isLoading = false
     
     private init() {
-        self.database = Database.database(url: "https://amen-5e359-default-rtdb.firebaseio.com").reference()
-        print("🔥 RealtimeCommentsService initialized")
+        self.database = Database.database().reference()
     }
     
     deinit {
@@ -66,7 +65,7 @@ class RealtimeCommentsService: ObservableObject {
      
      /user_comments
        /{userId}
-         /{commentId}: timestamp  // When commented
+         /{commentId}: { postId, timestamp }  // When commented
      */
     
     // MARK: - Create Comment
@@ -106,7 +105,7 @@ class RealtimeCommentsService: ObservableObject {
                 "amenCount": 0,
                 "replyCount": 0
             ],
-            "/user_comments/\(userId)/\(commentId)": timestamp
+            "/user_comments/\(userId)/\(commentId)": ["postId": postId, "timestamp": timestamp]
         ]
         
         try await database.updateChildValues(updates)
@@ -362,6 +361,16 @@ class RealtimeCommentsService: ObservableObject {
         
         print("🗑️ Deleting comment: \(commentId)")
         
+        // Verify caller is the comment author before deleting
+        let commentSnapshot = try await database.child("comments").child(postId).child(commentId).getData()
+        guard let commentData = commentSnapshot.value as? [String: Any] else {
+            throw NSError(domain: "RealtimeCommentsService", code: 404, userInfo: [NSLocalizedDescriptionKey: "Comment not found"])
+        }
+        let commentAuthorId = commentData["authorId"] as? String ?? commentData["userId"] as? String ?? ""
+        guard commentAuthorId == userId else {
+            throw NSError(domain: "RealtimeCommentsService", code: 403, userInfo: [NSLocalizedDescriptionKey: "Not authorized to delete this comment"])
+        }
+        
         // Multi-path delete
         let updates: [String: Any?] = [
             "/comments/\(postId)/\(commentId)": nil,
@@ -444,69 +453,70 @@ class RealtimeCommentsService: ObservableObject {
         
         let handle = database.child("comments").child(postId).observe(.value) { [weak self] snapshot in
             guard let self = self else { return }
-            
-            Task {
-                do {
-                    guard snapshot.exists(), let commentsDict = snapshot.value as? [String: Any] else {
-                        await MainActor.run {
-                            self.comments[postId] = []
-                            completion([])
-                        }
-                        return
-                    }
-                    
-                    var comments: [Comment] = []
-                    
-                    for (commentId, value) in commentsDict {
-                        guard let commentData = value as? [String: Any] else { continue }
-                        
-                        let authorId = commentData["authorId"] as? String ?? ""
-                        let authorName = commentData["authorName"] as? String ?? "Unknown"
-                        let authorInitials = commentData["authorInitials"] as? String ?? "?"
-                        let authorProfileImageURL = commentData["authorProfileImageURL"] as? String
-                        let content = commentData["content"] as? String ?? ""
-                        let createdAtTimestamp = commentData["createdAt"] as? TimeInterval ?? 0
-                        
-                        // Fetch stats
-                        let statsSnapshot = try? await self.database.child("comment_stats").child(commentId).getData()
-                        var amenCount = 0
-                        var replyCount = 0
-                        
-                        if let statsSnapshot = statsSnapshot, statsSnapshot.exists(),
-                           let statsData = statsSnapshot.value as? [String: Any] {
-                            amenCount = statsData["amenCount"] as? Int ?? 0
-                            replyCount = statsData["replyCount"] as? Int ?? 0
-                        }
-                        
-                        let comment = Comment(
-                            id: commentId,
-                            postId: postId,
-                            authorId: authorId,
-                            authorName: authorName,
-                            authorUsername: "@\(authorName.lowercased().replacingOccurrences(of: " ", with: ""))",
-                            authorInitials: authorInitials,
-                            authorProfileImageURL: authorProfileImageURL,
-                            content: content,
-                            createdAt: Date(timeIntervalSince1970: createdAtTimestamp),
-                            updatedAt: Date(timeIntervalSince1970: createdAtTimestamp),
-                            amenCount: amenCount,
-                            replyCount: replyCount
-                        )
-                        
-                        comments.append(comment)
-                    }
-                    
-                    // Sort by creation date
-                    comments.sort { $0.createdAt < $1.createdAt }
-                    
-                    await MainActor.run {
-                        self.comments[postId] = comments
-                        print("🔄 Real-time update: \(comments.count) comments")
-                        completion(comments)
-                    }
-                } catch {
-                    print("❌ Error in comments listener: \(error)")
+
+            // ⚠️ CRITICAL: Extract all data from DataSnapshot synchronously here,
+            // before dispatching to the main actor. DataSnapshot memory is only
+            // guaranteed valid within this callback — holding it across an async
+            // boundary causes heap corruption (SIGABRT).
+            let snapshotExists = snapshot.exists()
+            let commentsDict = snapshot.value as? [String: Any]
+
+            Task { @MainActor [weak self] in
+                guard let self = self else { return }
+
+                guard snapshotExists, let commentsDict = commentsDict else {
+                    self.comments[postId] = []
+                    completion([])
+                    return
                 }
+
+                var comments: [Comment] = []
+
+                for (commentId, value) in commentsDict {
+                    guard let commentData = value as? [String: Any] else { continue }
+
+                    let authorId = commentData["authorId"] as? String ?? ""
+                    let authorName = commentData["authorName"] as? String ?? "Unknown"
+                    let authorInitials = commentData["authorInitials"] as? String ?? "?"
+                    let authorProfileImageURL = commentData["authorProfileImageURL"] as? String
+                    let content = commentData["content"] as? String ?? ""
+                    let createdAtTimestamp = commentData["createdAt"] as? TimeInterval ?? 0
+
+                    // Fetch stats (await is safe here — @MainActor suspends rather than blocking)
+                    let statsSnapshot = try? await self.database.child("comment_stats").child(commentId).getData()
+                    var amenCount = 0
+                    var replyCount = 0
+
+                    if let statsSnapshot = statsSnapshot, statsSnapshot.exists(),
+                       let statsData = statsSnapshot.value as? [String: Any] {
+                        amenCount = statsData["amenCount"] as? Int ?? 0
+                        replyCount = statsData["replyCount"] as? Int ?? 0
+                    }
+
+                    let comment = Comment(
+                        id: commentId,
+                        postId: postId,
+                        authorId: authorId,
+                        authorName: authorName,
+                        authorUsername: "@\(authorName.lowercased().replacingOccurrences(of: " ", with: ""))",
+                        authorInitials: authorInitials,
+                        authorProfileImageURL: authorProfileImageURL,
+                        content: content,
+                        createdAt: Date(timeIntervalSince1970: createdAtTimestamp),
+                        updatedAt: Date(timeIntervalSince1970: createdAtTimestamp),
+                        amenCount: amenCount,
+                        replyCount: replyCount
+                    )
+
+                    comments.append(comment)
+                }
+
+                // Sort by creation date
+                comments.sort { $0.createdAt < $1.createdAt }
+
+                self.comments[postId] = comments
+                print("🔄 Real-time update: \(comments.count) comments")
+                completion(comments)
             }
         }
         

@@ -43,55 +43,53 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
     
     @MainActor
     private func loadImage() async {
-        guard let url = url else {
-            return
-        }
-        
+        guard let url = url else { return }
+        guard !isLoading else { return }
+
         let urlString = url.absoluteString
-        
-        // ✅ Check cache first - instant return for cached images
+
+        // Check cache first — instant return, no network needed
         if let cachedImage = ProfileImageCache.shared.image(for: urlString) {
             loadedImage = cachedImage
             return
         }
-        
+
         isLoading = true
-        
-        // ✅ Load from network with proper cancellation handling
+        defer { isLoading = false }
+
         do {
             let (data, _) = try await URLSession.shared.data(from: url)
+            guard !Task.isCancelled else { return }
 
-            
-            // ✅ Check if task was cancelled during download
-            guard !Task.isCancelled else {
-                isLoading = false
-                return
-            }
-            
-            #if os(iOS)
-            if let uiImage = UIImage(data: data) {
-                let image = Image(uiImage: uiImage)
-                await MainActor.run {
-                    loadedImage = image
+            // PERF: Decode UIImage off the main thread to avoid hitch during scroll.
+            // Task.detached escapes @MainActor; we hop back via MainActor.run to assign.
+            let image: Image? = await Task.detached(priority: .userInitiated) {
+                #if os(iOS)
+                guard let uiImage = UIImage(data: data) else { return nil }
+                // UIImage(data:) decompresses lazily — force decode now on background thread
+                // by drawing into a graphics context so the main thread never stalls.
+                let size = uiImage.size
+                guard size.width > 0, size.height > 0 else { return Image(uiImage: uiImage) }
+                let format = UIGraphicsImageRendererFormat()
+                format.scale = uiImage.scale
+                let decoded = UIGraphicsImageRenderer(size: size, format: format).image { _ in
+                    uiImage.draw(at: .zero)
                 }
-                
-                // Cache it for next time
-                ProfileImageCache.shared.setImage(image, for: urlString)
-            }
-            #elseif os(macOS)
-            if let nsImage = NSImage(data: data) {
-                let image = Image(nsImage: nsImage)
-                loadedImage = image
-                
-                // Cache it for next time
-                ProfileImageCache.shared.setImage(image, for: urlString)
-            }
-            #endif
+                return Image(uiImage: decoded)
+                #elseif os(macOS)
+                guard let nsImage = NSImage(data: data) else { return nil }
+                return Image(nsImage: nsImage)
+                #endif
+            }.value
+
+            guard !Task.isCancelled, let image else { return }
+
+            // Back on @MainActor — assign and cache
+            loadedImage = image
+            ProfileImageCache.shared.setImage(image, for: urlString)
         } catch {
-            // Silently fail - cancelled errors are normal during fast scrolling
+            // Cancelled or network error — silently ignore
         }
-        
-        isLoading = false
     }
 }
 

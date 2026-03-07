@@ -28,6 +28,13 @@ struct FirestorePost: Codable, Identifiable {
     var allowComments: Bool
     var imageURLs: [String]?
     var linkURL: String?
+    var linkPreviewTitle: String?
+    var linkPreviewDescription: String?
+    var linkPreviewImageURL: String?
+    var linkPreviewSiteName: String?
+    var linkPreviewType: String?
+    var verseReference: String?
+    var verseText: String?
     var createdAt: Date
     var updatedAt: Date?
     
@@ -50,6 +57,9 @@ struct FirestorePost: Codable, Identifiable {
     // Church note reference
     var churchNoteId: String?
     
+    // Content source label — set when user acknowledges pasted/AI content
+    var contentSource: String?
+    
     // Computed property for "time ago" display
     var timeAgo: String {
         FirestorePost.formatTimeAgo(from: createdAt)
@@ -69,6 +79,8 @@ struct FirestorePost: Codable, Identifiable {
         case allowComments
         case imageURLs
         case linkURL
+        case linkPreviewTitle, linkPreviewDescription, linkPreviewImageURL, linkPreviewSiteName
+        case linkPreviewType, verseReference, verseText
         case createdAt
         case updatedAt
         case amenCount
@@ -82,6 +94,7 @@ struct FirestorePost: Codable, Identifiable {
         case amenUserIds
         case lightbulbUserIds
         case churchNoteId
+        case contentSource
     }
     
     init(from decoder: Decoder) throws {
@@ -100,6 +113,13 @@ struct FirestorePost: Codable, Identifiable {
         allowComments = try container.decode(Bool.self, forKey: .allowComments)
         imageURLs = try container.decodeIfPresent([String].self, forKey: .imageURLs)
         linkURL = try container.decodeIfPresent(String.self, forKey: .linkURL)
+        linkPreviewTitle = try container.decodeIfPresent(String.self, forKey: .linkPreviewTitle)
+        linkPreviewDescription = try container.decodeIfPresent(String.self, forKey: .linkPreviewDescription)
+        linkPreviewImageURL = try container.decodeIfPresent(String.self, forKey: .linkPreviewImageURL)
+        linkPreviewSiteName = try container.decodeIfPresent(String.self, forKey: .linkPreviewSiteName)
+        linkPreviewType = try container.decodeIfPresent(String.self, forKey: .linkPreviewType)
+        verseReference = try container.decodeIfPresent(String.self, forKey: .verseReference)
+        verseText = try container.decodeIfPresent(String.self, forKey: .verseText)
         createdAt = try container.decode(Date.self, forKey: .createdAt)
         updatedAt = try container.decodeIfPresent(Date.self, forKey: .updatedAt)
         amenCount = try container.decodeIfPresent(Int.self, forKey: .amenCount) ?? 0
@@ -113,6 +133,7 @@ struct FirestorePost: Codable, Identifiable {
         amenUserIds = try container.decodeIfPresent([String].self, forKey: .amenUserIds) ?? []
         lightbulbUserIds = try container.decodeIfPresent([String].self, forKey: .lightbulbUserIds) ?? []
         churchNoteId = try container.decodeIfPresent(String.self, forKey: .churchNoteId)
+        contentSource = try container.decodeIfPresent(String.self, forKey: .contentSource)
     }
     
     init(
@@ -141,7 +162,8 @@ struct FirestorePost: Codable, Identifiable {
         originalAuthorName: String? = nil,
         amenUserIds: [String] = [],
         lightbulbUserIds: [String] = [],
-        churchNoteId: String? = nil
+        churchNoteId: String? = nil,
+        contentSource: String? = nil
     ) {
         self.id = id
         self.authorId = authorId
@@ -169,6 +191,7 @@ struct FirestorePost: Codable, Identifiable {
         self.amenUserIds = amenUserIds
         self.lightbulbUserIds = lightbulbUserIds
         self.churchNoteId = churchNoteId
+        self.contentSource = contentSource
     }
     
     // Convert to local Post model
@@ -186,7 +209,7 @@ struct FirestorePost: Codable, Identifiable {
             case "funfact":
                 return .funFact
             default:
-                print("⚠️ Unknown category '\(category)', defaulting to openTable")
+                dlog("⚠️ Unknown category '\(category)', defaulting to openTable")
                 return .openTable
             }
         }()
@@ -218,6 +241,13 @@ struct FirestorePost: Codable, Identifiable {
             allowComments: allowComments,
             imageURLs: imageURLs,
             linkURL: linkURL,
+            linkPreviewTitle: linkPreviewTitle,
+            linkPreviewDescription: linkPreviewDescription,
+            linkPreviewImageURL: linkPreviewImageURL,
+            linkPreviewSiteName: linkPreviewSiteName,
+            linkPreviewType: linkPreviewType,
+            verseReference: verseReference,
+            verseText: verseText,
             createdAt: createdAt,
             amenCount: amenCount,
             lightbulbCount: lightbulbCount,
@@ -226,7 +256,8 @@ struct FirestorePost: Codable, Identifiable {
             isRepost: isRepost,
             originalAuthorName: originalAuthorName,
             originalAuthorId: originalAuthorId,
-            churchNoteId: churchNoteId
+            churchNoteId: churchNoteId,
+            contentSource: contentSource
         )
     }
     
@@ -285,8 +316,10 @@ class FirebasePostService: ObservableObject {
     private var activeListenerCategories: Set<String> = [] // ✅ Track active listeners per category
     private var profileImageCache: [String: String] = [:] // ✅ Cache user profile images (userId: imageURL)
     
-    // P0 FIX: Track seen post IDs for deduplication
-    private var seenPostIds: Set<String> = []
+    // FIX: Track known post IDs so RTDB-triggered re-fetches merge rather than replace.
+    // Posts already in self.posts are updated in-place; confirmed Firebase posts are never
+    // overwritten by stale optimistic entries, and vice versa.
+    private var knownPostIds: Set<String> = []
     
     // P0 FIX: Map listeners to categories for proper cleanup
     private var categoryListeners: [String: ListenerRegistration] = [:]
@@ -306,7 +339,7 @@ class FirebasePostService: ObservableObject {
         categoryListeners.removeAll()
         
         #if DEBUG
-        print("✅ FirebasePostService deinitialized - all listeners cleaned up")
+        dlog("✅ FirebasePostService deinitialized - all listeners cleaned up")
         #endif
     }
     
@@ -328,10 +361,7 @@ class FirebasePostService: ObservableObject {
     private func fetchPostsByIds(_ postIds: [String]) async {
         // P0 FIX: Don't process empty post ID arrays from Realtime Database
         // This prevents overwriting cached Firestore posts with empty arrays
-        guard !postIds.isEmpty else {
-            print("⏭️ Skipping fetchPostsByIds - empty post IDs array (Realtime DB may be disconnected)")
-            return
-        }
+        guard !postIds.isEmpty else { return }
         
         // Skip fetching if user is not authenticated
         guard Auth.auth().currentUser != nil else {
@@ -350,13 +380,10 @@ class FirebasePostService: ObservableObject {
                     snapshot = try await db.collection(FirebaseManager.CollectionPath.posts)
                         .whereField(FieldPath.documentID(), in: batch)
                         .getDocuments(source: .server)
-                    print("🌐 Fetched \(snapshot.documents.count) posts from server")
                 } catch {
-                    print("⚠️ Server unavailable, loading from cache...")
                     snapshot = try await db.collection(FirebaseManager.CollectionPath.posts)
                         .whereField(FieldPath.documentID(), in: batch)
                         .getDocuments(source: .cache)
-                    print("📦 Loaded \(snapshot.documents.count) posts from cache")
                 }
                 
                 let batchPosts = try snapshot.documents.compactMap { doc in
@@ -368,26 +395,48 @@ class FirebasePostService: ObservableObject {
                 allPosts.append(contentsOf: batchPosts)
             }
             
-            // P0 FIX: Only update posts if we actually fetched some
-            // Don't overwrite existing posts with empty results
+            // FIX: Merge fetched posts into existing list instead of replacing.
+            // This prevents optimistic posts (firebaseId == nil) from being dropped
+            // when RTDB delivers a new snapshot before Firestore has confirmed the write.
             if !allPosts.isEmpty {
-                // Update posts maintaining order from realtime feed
-                self.posts = postIds.compactMap { postId in
-                    allPosts.first { $0.id.uuidString == postId }
+                // Build a lookup of confirmed posts by their Firestore document ID
+                var updatedById: [String: Post] = [:]
+                for post in allPosts {
+                    if let fbId = post.firebaseId {
+                        updatedById[fbId] = post
+                        knownPostIds.insert(fbId)
+                    }
                 }
-                
+
+                // Update existing entries in-place; append genuinely new confirmed posts
+                var merged = self.posts
+                var mergedIds = Set(merged.compactMap { $0.firebaseId })
+                for (fbId, newPost) in updatedById {
+                    if let idx = merged.firstIndex(where: { $0.firebaseId == fbId }) {
+                        merged[idx] = newPost  // update in-place (counts, etc.)
+                    } else if !mergedIds.contains(fbId) {
+                        merged.insert(newPost, at: 0)  // prepend new confirmed post
+                        mergedIds.insert(fbId)
+                    }
+                }
+
+                self.posts = merged
                 updateCategoryArrays()
-            } else {
-                print("⏭️ Skipping post update - no posts fetched from Realtime DB IDs")
             }
-            
+
         } catch {
-            print("❌ Failed to fetch posts by IDs: \(error)")
+            #if DEBUG
+            dlog("❌ Failed to fetch posts by IDs: \(error)")
+            #endif
         }
     }
     
     // MARK: - Create Post
     
+    // P0: Track in-flight post submissions to prevent double-tap duplicates.
+    // Keyed by idempotency key so rapid retries of the same post coalesce.
+    @MainActor private var inflightPostCreations: [String: Task<Void, Error>] = [:]
+
     /// Create a new post in Firestore with INSTANT optimistic updates (like Threads)
     func createPost(
         content: String,
@@ -399,46 +448,109 @@ class FirebasePostService: ObservableObject {
         linkURL: String? = nil,
         churchNoteId: String? = nil
     ) async throws {
-        print("📝 Creating new post with INSTANT optimistic update...")
-        
+        #if DEBUG
+        dlog("📝 Creating new post with INSTANT optimistic update...")
+        #endif
+
         guard let userId = firebaseManager.currentUser?.uid else {
-            print("❌ No authenticated user")
+            dlog("❌ No authenticated user")
             throw FirebaseError.unauthorized
         }
-        
+
+        // P0 IDEMPOTENCY: Derive a deterministic key from userId + content + truncated timestamp.
+        // If the user taps Post twice in the same second, or the app is killed and relaunched
+        // within 1 second, the second call coalesces onto the first Task and returns without
+        // creating a duplicate document.
+        let truncatedSecond = Int(Date().timeIntervalSince1970)
+        let contentPrefix = String(content.prefix(64))
+        let idempotencyKey = "\(userId)_\(category.rawValue)_\(contentPrefix)_\(truncatedSecond)".data(using: .utf8)
+            .map { Data($0).base64EncodedString().prefix(40) }
+            .map(String.init) ?? UUID().uuidString
+
+        if let existingTask = inflightPostCreations[idempotencyKey] {
+            dlog("⏭️ [Idempotency] Post creation already in progress for key: \(idempotencyKey.prefix(20))…, waiting")
+            try await existingTask.value
+            return
+        }
+
+        let creationTask = Task<Void, Error> { [weak self] in
+            guard let self else { return }
+            defer {
+                Task { @MainActor in
+                    self.inflightPostCreations.removeValue(forKey: idempotencyKey)
+                }
+            }
+            try await self._performCreatePost(
+                userId: userId,
+                idempotencyKey: idempotencyKey,
+                content: content,
+                category: category,
+                topicTag: topicTag,
+                visibility: visibility,
+                allowComments: allowComments,
+                imageURLs: imageURLs,
+                linkURL: linkURL,
+                churchNoteId: churchNoteId
+            )
+        }
+        inflightPostCreations[idempotencyKey] = creationTask
+        try await creationTask.value
+    }
+
+    /// Internal implementation — called only by createPost after idempotency gate.
+    private func _performCreatePost(
+        userId: String,
+        idempotencyKey: String,
+        content: String,
+        category: Post.PostCategory,
+        topicTag: String? = nil,
+        visibility: Post.PostVisibility = .everyone,
+        allowComments: Bool = true,
+        imageURLs: [String]? = nil,
+        linkURL: String? = nil,
+        churchNoteId: String? = nil
+    ) async throws {
+
+        // Rate-limit check for new accounts
+        let postRateLimit = await NewAccountRestrictionService.shared.canPost(userId: userId)
+        guard postRateLimit.allowed else {
+            throw NSError(
+                domain: "RateLimit",
+                code: 429,
+                userInfo: [NSLocalizedDescriptionKey: postRateLimit.reason ?? "Daily post limit reached. Try again tomorrow."]
+            )
+        }
+
         // 🚀 STEP 1: Get cached user data (INSTANT - no network call)
         let displayName = UserDefaults.standard.string(forKey: "currentUserDisplayName") ?? "You"
         let username = UserDefaults.standard.string(forKey: "currentUserUsername") ?? "you"
         let initials = UserDefaults.standard.string(forKey: "currentUserInitials") ?? "ME"
         let profileImageURL = UserDefaults.standard.string(forKey: "currentUserProfileImageURL")
         
-        print("✅ Using cached user data (INSTANT)")
-        
         // 🤖 STEP 1.5: Check for AI-generated content
-        print("🔍 Checking for AI-generated content...")
-        let aiDetectionResult = await AIContentDetectionService.shared.detectAIContent(content)
-        
-        if aiDetectionResult.isAIGenerated {
-            print("🚫 AI content detected - blocking post")
-            print("   Confidence: \(String(format: "%.1f%%", aiDetectionResult.confidence * 100))")
-            print("   Reason: \(aiDetectionResult.reason)")
-            
-            // Notify user immediately
-            await MainActor.run {
-                NotificationCenter.default.post(
-                    name: Notification.Name("aiContentDetected"),
-                    object: nil,
-                    userInfo: [
-                        "confidence": aiDetectionResult.confidence,
-                        "reason": aiDetectionResult.reason
-                    ]
-                )
+        // Church-note shares are the user's own sermon notes — skip AI detection.
+        if churchNoteId == nil {
+            let aiDetectionResult = await AIContentDetectionService.shared.detectAIContent(content)
+
+            if aiDetectionResult.isAIGenerated {
+
+                // Notify user immediately
+                await MainActor.run {
+                    NotificationCenter.default.post(
+                        name: Notification.Name("aiContentDetected"),
+                        object: nil,
+                        userInfo: [
+                            "confidence": aiDetectionResult.confidence,
+                            "reason": aiDetectionResult.reason
+                        ]
+                    )
+                }
+
+                throw FirebaseError.invalidData
             }
-            
-            throw FirebaseError.invalidData
         }
         
-        print("✅ Content appears genuine - proceeding with post creation")
+
         
         let categoryString: String = {
             switch category {
@@ -497,7 +609,7 @@ class FirebasePostService: ObservableObject {
                     "isOptimistic": true
                 ]
             )
-            print("⚡️ Post added to ProfileView INSTANTLY (optimistic)!")
+            dlog("⚡️ Post added to ProfileView INSTANTLY (optimistic)!")
         }
         
         // 🚀 STEP 4: Save to Firestore in background (non-blocking)
@@ -518,13 +630,52 @@ class FirebasePostService: ObservableObject {
         )
         
         // Background save - don't wait for it
-        Task.detached(priority: .userInitiated) {
+        let _db = db
+        let _idempotencyKey = idempotencyKey
+        Task(priority: .userInitiated) { @MainActor in
             do {
-                let docRef = try await self.db.collection(FirebaseManager.CollectionPath.posts)
-                    .addDocument(from: firestorePost)
+                var postData = try Firestore.Encoder().encode(firestorePost)
+                // P0 IDEMPOTENCY: Embed the key so Cloud Functions / security rules can
+                // detect and reject replayed writes server-side.
+                postData["idempotencyKey"] = _idempotencyKey
+                let _writeToken = PerfBegin("createPost_write")
+                let _traceToken = WriteOpTracer.begin("createPost", key: _idempotencyKey)
+                Breadcrumb.record("createPost_write_start")
+                let docRef = try await _db.collection(FirebaseManager.CollectionPath.posts)
+                    .addDocument(data: postData)
+                PerfEnd(_writeToken, threshold: 500)
+                WriteOpTracer.succeed(_traceToken, docId: docRef.documentID)
                 
-                print("✅ Post saved to Firestore with ID: \(docRef.documentID)")
-                
+                #if DEBUG
+                dlog("✅ Post saved to Firestore: \(docRef.documentID)")
+                #endif
+
+                // Write moderation audit log entry (non-blocking)
+                Task {
+                    let allowDecision = ModerationDecision(
+                        action: .allow,
+                        confidence: 1.0,
+                        reasons: [],
+                        detectedBehaviors: [],
+                        suggestedRevisions: nil,
+                        reviewRequired: false,
+                        appealable: false,
+                        scores: ModerationScores(
+                            toxicity: 0, spam: 0, aiSuspicion: 0,
+                            duplicateMatch: 0, authenticity: 1, userRiskScore: 0
+                        )
+                    )
+                    ModerationAuditLogService.shared.recordPostDecision(
+                        userId: userId,
+                        postId: docRef.documentID,
+                        content: content,
+                        decision: allowDecision
+                    )
+                }
+
+                // Record action for rate-limit counter
+                await NewAccountRestrictionService.shared.recordAction(.post, userId: userId)
+
                 // ✅ Notify ProfileView that post was created successfully
                 await MainActor.run {
                     // Create confirmed post with Firebase ID
@@ -563,7 +714,7 @@ class FirebasePostService: ObservableObject {
                             "isOptimistic": false
                         ]
                     )
-                    print("📬 Sent newPostCreated notification for post: \(docRef.documentID)")
+                    dlog("📬 Sent newPostCreated notification for post: \(docRef.documentID)")
                 }
                 
                 // Update user's post count (background)
@@ -586,8 +737,10 @@ class FirebasePostService: ObservableObject {
                 }
                 
             } catch {
-                print("❌ Failed to save post to Firestore: \(error)")
-                
+                dlog("❌ Failed to save post to Firestore: \(error)")
+                WriteOpTracer.fail(WriteOpTracer.begin("createPost", key: tempId.uuidString), error: error)
+                Breadcrumb.record("createPost_write_fail", meta: ["err": error.localizedDescription.prefix(60).description])
+
                 // Post failure notification - rollback optimistic update
                 await MainActor.run {
                     NotificationCenter.default.post(
@@ -602,41 +755,39 @@ class FirebasePostService: ObservableObject {
             }
         }
         
-        print("✅ Post creation complete - UI updated INSTANTLY, saving in background")
     }
-    
+
     // MARK: - Fetch Posts
     
     /// Fetch all posts (for main feed)
     func fetchAllPosts(limit: Int = 50) async throws {
         // Skip fetching if user is not authenticated
         guard Auth.auth().currentUser != nil else {
-            print("⏭️ Skipping fetchAllPosts - user not authenticated")
+            dlog("⏭️ Skipping fetchAllPosts - user not authenticated")
             return
         }
-        
-        print("📥 Fetching all posts from Firestore...")
+
+        let _perfToken = PerfBegin("feed_load")
         isLoading = true
-        defer { isLoading = false }
-        
+        defer {
+            isLoading = false
+            PerfEnd(_perfToken)
+        }
+
         do {
             // PERFORMANCE FIX: Load from cache first for instant display, then upgrade with server data
             var snapshot: QuerySnapshot
-            
-            // Try cache first for instant display
+
             do {
                 snapshot = try await db.collection(FirebaseManager.CollectionPath.posts)
                     .order(by: "createdAt", descending: true)
                     .limit(to: limit)
                     .getDocuments(source: .cache)
-                print("⚡️ INSTANT: Loaded \(snapshot.documents.count) posts from cache")
             } catch {
-                print("📱 No cache available, fetching from server...")
                 snapshot = try await db.collection(FirebaseManager.CollectionPath.posts)
                     .order(by: "createdAt", descending: true)
                     .limit(to: limit)
                     .getDocuments(source: .server)
-                print("🌐 Fetched \(snapshot.documents.count) posts from server")
             }
             
             let firestorePosts = try snapshot.documents.compactMap { doc in
@@ -651,13 +802,9 @@ class FirebasePostService: ObservableObject {
             await enrichPostsWithProfileImages(&posts)
             
             self.posts = posts
-            print("✅ Fetched \(self.posts.count) posts")
-            
-            // Also update category-specific arrays
             updateCategoryArrays()
-            
+
         } catch {
-            print("❌ Failed to fetch posts: \(error)")
             self.error = error.localizedDescription
             throw error
         }
@@ -691,10 +838,10 @@ class FirebasePostService: ObservableObject {
                 self.posts = cachedPosts
                 
                 let elapsed = (CFAbsoluteTimeGetCurrent() - startTime) * 1000
-                print("⚡️ PRELOAD: \(cachedPosts.count) posts loaded in \(String(format: "%.0f", elapsed))ms")
+                dlog("⚡️ PRELOAD: \(cachedPosts.count) posts loaded in \(String(format: "%.0f", elapsed))ms")
             }
         } catch {
-            print("📱 No cache available - will load from server")
+            dlog("📱 No cache available - will load from server")
         }
     }
     
@@ -705,7 +852,7 @@ class FirebasePostService: ObservableObject {
         topicTag: String? = nil,
         limit: Int = 50
     ) async throws -> [Post] {
-        print("📥 Fetching \(category.rawValue) posts from Firestore (filter: \(filter))...")
+        dlog("📥 Fetching \(category.rawValue) posts from Firestore (filter: \(filter))...")
         
         let categoryString: String = {
             switch category {
@@ -748,12 +895,12 @@ class FirebasePostService: ObservableObject {
                             .order(by: "createdAt", descending: true)
                     } else {
                         // No following, return empty
-                        print("✅ User not following anyone, returning empty array")
+                        dlog("✅ User not following anyone, returning empty array")
                         return []
                     }
                 } else {
                     // Not authenticated, return empty
-                    print("✅ User not authenticated, returning empty array")
+                    dlog("✅ User not authenticated, returning empty array")
                     return []
                 }
             default:
@@ -777,19 +924,19 @@ class FirebasePostService: ObservableObject {
                 posts.sort { ($0.amenCount + $0.commentCount) > ($1.amenCount + $1.commentCount) }
             }
             
-            print("✅ Fetched \(posts.count) \(category.rawValue) posts")
+            dlog("✅ Fetched \(posts.count) \(category.rawValue) posts")
             
             return posts
             
         } catch {
-            print("❌ Failed to fetch category posts: \(error)")
+            dlog("❌ Failed to fetch category posts: \(error)")
             throw error
         }
     }
     
     /// Fetch posts by specific user
     func fetchUserPosts(userId: String, limit: Int = 50) async throws -> [Post] {
-        print("📥 Fetching posts for user: \(userId)")
+        dlog("📥 Fetching posts for user: \(userId)")
         
         let snapshot = try await db.collection(FirebaseManager.CollectionPath.posts)
             .whereField("authorId", isEqualTo: userId)
@@ -804,21 +951,21 @@ class FirebasePostService: ObservableObject {
         }
         
         let posts = firestorePosts.map { $0.toPost() }
-        print("✅ Fetched \(posts.count) user posts")
+        dlog("✅ Fetched \(posts.count) user posts")
         
         return posts
     }
     
     /// Fetch a single post by its ID
     func fetchPostById(postId: String) async throws -> Post? {
-        print("📥 Fetching post by ID: \(postId)")
+        dlog("📥 Fetching post by ID: \(postId)")
         
         let document = try await db.collection(FirebaseManager.CollectionPath.posts)
             .document(postId)
             .getDocument()
         
         guard document.exists else {
-            print("⚠️ Post not found: \(postId)")
+            dlog("⚠️ Post not found: \(postId)")
             return nil
         }
         
@@ -826,7 +973,7 @@ class FirebasePostService: ObservableObject {
         firestorePost.id = document.documentID  // ✅ FIX: Explicitly set the document ID
         let post = firestorePost.toPost()
         
-        print("✅ Fetched post: \(postId)")
+        dlog("✅ Fetched post: \(postId)")
         return post
     }
     
@@ -839,24 +986,24 @@ class FirebasePostService: ObservableObject {
         // ✅ If listeners array is empty but categories are marked active, clear the categories
         // This handles app restarts or cases where listeners were removed but categories weren't cleared
         if listeners.isEmpty && !activeListenerCategories.isEmpty {
-            print("🔄 Clearing stale active categories (listeners were removed)")
+            dlog("🔄 Clearing stale active categories (listeners were removed)")
             activeListenerCategories.removeAll()
         }
         
         // ✅ Prevent duplicate listeners for the same category
         guard !activeListenerCategories.contains(categoryKey) else {
-            print("⏭️ Listener already active for category: \(categoryKey)")
+            dlog("⏭️ Listener already active for category: \(categoryKey)")
             return
         }
         
         // Check if user is authenticated
         guard firebaseManager.isAuthenticated else {
             self.error = "Please sign in to view posts"
-            print("❌ Cannot start listener - user not authenticated")
+            dlog("❌ Cannot start listener - user not authenticated")
             return
         }
         
-        print("🎧 Starting real-time listener for category: \(categoryKey)")
+        dlog("🎧 Starting real-time listener for category: \(categoryKey)")
         activeListenerCategories.insert(categoryKey) // ✅ Mark this category as active
         
         let query: Query
@@ -909,10 +1056,10 @@ class FirebasePostService: ObservableObject {
                         self.posts = cachedPosts
                         self.updateCategoryArrays()
                     }
-                    print("⚡️ INSTANT: Loaded \(cachedPosts.count) posts from cache")
+                    dlog("⚡️ INSTANT: Loaded \(cachedPosts.count) posts from cache")
                 }
             } catch {
-                print("📱 No cached posts available - will wait for server")
+                dlog("📱 No cached posts available - will wait for server")
             }
         }
         
@@ -922,13 +1069,13 @@ class FirebasePostService: ObservableObject {
             Task { @MainActor in
                 if let error = error {
                     let nsError = error as NSError
-                    print("❌ Firestore listener error: \(error.localizedDescription)")
-                    print("   Error code: \(nsError.code), domain: \(nsError.domain)")
+                    dlog("❌ Firestore listener error: \(error.localizedDescription)")
+                    dlog("   Error code: \(nsError.code), domain: \(nsError.domain)")
                     
                     // Check for specific error codes
                     if nsError.code == 7 { // Permission denied
                         self.error = "Missing or insufficient permissions. Please check Firestore security rules."
-                        print("⚠️ PERMISSION DENIED: Update your Firestore security rules to allow read access to the posts collection")
+                        dlog("⚠️ PERMISSION DENIED: Update your Firestore security rules to allow read access to the posts collection")
                     } else {
                         self.error = error.localizedDescription
                     }
@@ -936,7 +1083,7 @@ class FirebasePostService: ObservableObject {
                 }
                 
                 guard let snapshot = snapshot else {
-                    print("❌ No snapshot data")
+                    dlog("❌ No snapshot data")
                     return
                 }
                 
@@ -980,7 +1127,9 @@ class FirebasePostService: ObservableObject {
                         let combined = self.prayerPosts + self.testimoniesPosts + self.openTablePosts
                         self.posts = self.deduplicateAndSort(combined)
 
-                        print("✅ Updated \(category.displayName): \(newPosts.count) posts (deduplicated)")
+                        #if DEBUG
+                        dlog("✅ Updated \(category.displayName): \(newPosts.count) posts (deduplicated)")
+                        #endif
                     } else {
                         // No category filter - update all posts
                         self.posts = newPosts
@@ -988,36 +1137,38 @@ class FirebasePostService: ObservableObject {
                     }
                 }
                 
+                #if DEBUG
                 // Log metadata for debugging
                 if metadata.isFromCache {
-                    print("📦 Posts loaded from cache (offline mode)")
+                    dlog("📦 Posts loaded from cache (offline mode)")
                 } else {
-                    print("🌐 Posts loaded from server")
+                    dlog("🌐 Posts loaded from server")
                 }
-                
                 if metadata.hasPendingWrites {
-                    print("⏳ Snapshot has pending writes")
+                    dlog("⏳ Snapshot has pending writes")
                 }
+                #endif
                 
                 // ✅ Enrich with profile images AFTER posts are displayed (non-blocking)
+                let postsToEnrich = newPosts
                 Task.detached(priority: .background) { [weak self] in
                     guard let self = self else { return }
-                    var enrichedPosts = newPosts
+                    var enrichedPosts = postsToEnrich
                     await self.enrichPostsWithProfileImages(&enrichedPosts)
                     
                     // P0 FIX: Deduplicate enriched posts too
-                    enrichedPosts = await self.deduplicateAndSort(enrichedPosts)
+                    let sortedPosts = await self.deduplicateAndSort(enrichedPosts)
                     
                     // Update posts again with profile images
                     await MainActor.run {
                         if let category = category {
                             switch category {
                             case .prayer:
-                                self.prayerPosts = enrichedPosts
+                                self.prayerPosts = sortedPosts
                             case .testimonies:
-                                self.testimoniesPosts = enrichedPosts
+                                self.testimoniesPosts = sortedPosts
                             case .openTable:
-                                self.openTablePosts = enrichedPosts
+                                self.openTablePosts = sortedPosts
                             case .tip, .funFact:
                                 break  // Tip and funFact posts stay in main feed only
                             }
@@ -1025,7 +1176,7 @@ class FirebasePostService: ObservableObject {
                             let combined = self.prayerPosts + self.testimoniesPosts + self.openTablePosts
                             self.posts = self.deduplicateAndSort(combined)
                         } else {
-                            self.posts = enrichedPosts
+                            self.posts = sortedPosts
                             self.updateCategoryArrays()
                         }
                     }
@@ -1034,11 +1185,18 @@ class FirebasePostService: ObservableObject {
         }
         
         listeners.append(listener)
+        categoryListeners[categoryKey] = listener  // ✅ FIX P0-1: store by key so stopListening(category:) can remove it
+        #if DEBUG
+        ListenerCounter.shared.attach("posts-\(categoryKey)")
+        #endif
     }
     
     /// Stop all listeners
     func stopListening() {
-        print("🔇 Stopping all listeners...")
+        dlog("🔇 Stopping all listeners...")
+        #if DEBUG
+        activeListenerCategories.forEach { ListenerCounter.shared.detach("posts-\($0)") }
+        #endif
         listeners.forEach { $0.remove() }
         listeners.removeAll()
         categoryListeners.forEach { $0.value.remove() }
@@ -1051,9 +1209,14 @@ class FirebasePostService: ObservableObject {
         let categoryKey = category.rawValue
         
         if let listener = categoryListeners[categoryKey] {
-            print("🔇 Stopping listener for category: \(categoryKey)")
+            #if DEBUG
+            dlog("🔇 Stopping listener for category: \(categoryKey)")
+            ListenerCounter.shared.detach("posts-\(categoryKey)")
+            #endif
             listener.remove()
             categoryListeners.removeValue(forKey: categoryKey)
+            // Keep listeners array in sync so stopListening() (all) doesn't double-remove
+            listeners.removeAll { $0 === listener }
             activeListenerCategories.remove(categoryKey)
         }
     }
@@ -1065,12 +1228,12 @@ class FirebasePostService: ObservableObject {
         let categoryKey = category?.rawValue ?? "all"
         
         guard hasMorePosts, !isLoadingMore else {
-            print("⏭️ Skipping load more: hasMore=\(hasMorePosts), isLoading=\(isLoadingMore)")
+            dlog("⏭️ Skipping load more: hasMore=\(hasMorePosts), isLoading=\(isLoadingMore)")
             return
         }
         
         guard let lastDocument = lastDocuments[categoryKey] else {
-            print("⚠️ No last document for pagination - use initial fetch instead")
+            dlog("⚠️ No last document for pagination - use initial fetch instead")
             return
         }
         
@@ -1102,7 +1265,7 @@ class FirebasePostService: ObservableObject {
                     hasMorePosts = false
                     isLoadingMore = false
                 }
-                print("✅ No more posts to load")
+                dlog("✅ No more posts to load")
                 return
             }
             
@@ -1144,10 +1307,10 @@ class FirebasePostService: ObservableObject {
                 isLoadingMore = false
             }
             
-            print("✅ Loaded \(newPosts.count) more posts (hasMore: \(hasMorePosts))")
+            dlog("✅ Loaded \(newPosts.count) more posts (hasMore: \(hasMorePosts))")
             
         } catch {
-            print("❌ Error loading more posts: \(error)")
+            dlog("❌ Error loading more posts: \(error)")
             await MainActor.run {
                 isLoadingMore = false
             }
@@ -1158,7 +1321,7 @@ class FirebasePostService: ObservableObject {
     
     /// Edit post content
     func editPost(postId: String, newContent: String) async throws {
-        print("✏️ Editing post: \(postId)")
+        dlog("✏️ Editing post: \(postId)")
         
         guard let userId = firebaseManager.currentUser?.uid else {
             throw FirebaseError.unauthorized
@@ -1172,7 +1335,7 @@ class FirebasePostService: ObservableObject {
         guard let postData = postDoc.data(),
               let authorId = postData["authorId"] as? String,
               authorId == userId else {
-            print("❌ User does not own this post")
+            dlog("❌ User does not own this post")
             throw FirebaseError.unauthorized
         }
         
@@ -1183,7 +1346,7 @@ class FirebasePostService: ObservableObject {
                 "updatedAt": Date()
             ])
         
-        print("✅ Post updated successfully")
+        dlog("✅ Post updated successfully")
         
         // Update local cache
         if let index = posts.firstIndex(where: { $0.id.uuidString == postId }) {
@@ -1196,7 +1359,7 @@ class FirebasePostService: ObservableObject {
     
     /// Delete post
     func deletePost(postId: String) async throws {
-        print("🗑️ Deleting post: \(postId)")
+        dlog("🗑️ Deleting post: \(postId)")
         
         guard let userId = firebaseManager.currentUser?.uid else {
             throw FirebaseError.unauthorized
@@ -1210,7 +1373,7 @@ class FirebasePostService: ObservableObject {
         guard let postData = postDoc.data(),
               let authorId = postData["authorId"] as? String,
               authorId == userId else {
-            print("❌ User does not own this post")
+            dlog("❌ User does not own this post")
             throw FirebaseError.unauthorized
         }
         
@@ -1218,7 +1381,7 @@ class FirebasePostService: ObservableObject {
             .document(postId)
             .delete()
         
-        print("✅ Post deleted successfully")
+        dlog("✅ Post deleted successfully")
         
         // Update user's post count
         try await db.collection(FirebaseManager.CollectionPath.users)
@@ -1237,7 +1400,7 @@ class FirebasePostService: ObservableObject {
     
     /// Toggle "Amen" on a post with INSTANT optimistic update
     func toggleAmen(postId: String) async throws {
-        print("🙏 Toggling Amen on post (INSTANT): \(postId)")
+        dlog("🙏 Toggling Amen on post (INSTANT): \(postId)")
         
         guard let userId = firebaseManager.currentUser?.uid else {
             throw FirebaseError.unauthorized
@@ -1277,7 +1440,7 @@ class FirebasePostService: ObservableObject {
                         "amenUserIds": amenUserIds,
                         "updatedAt": Date()
                     ])
-                    print("✅ Amen added to Firestore")
+                    dlog("✅ Amen added to Firestore")
                     
                     // Create notification for post author (background)
                     try? await self.createAmenNotification(
@@ -1294,10 +1457,10 @@ class FirebasePostService: ObservableObject {
                         "amenUserIds": amenUserIds,
                         "updatedAt": Date()
                     ])
-                    print("✅ Amen removed from Firestore")
+                    dlog("✅ Amen removed from Firestore")
                 }
             } catch {
-                print("❌ Failed to update amen in Firestore: \(error)")
+                dlog("❌ Failed to update amen in Firestore: \(error)")
                 // Rollback optimistic update
                 // Note: Optimistic updates temporarily disabled
                 // await MainActor.run {
@@ -1320,7 +1483,7 @@ class FirebasePostService: ObservableObject {
         postId: String,
         commentText: String? = nil
     ) async throws {
-        print("💬 Incrementing comment count (INSTANT) for post: \(postId)")
+        dlog("💬 Incrementing comment count (INSTANT) for post: \(postId)")
         
         guard let userId = firebaseManager.currentUser?.uid else {
             throw FirebaseError.unauthorized
@@ -1352,7 +1515,7 @@ class FirebasePostService: ObservableObject {
                         "updatedAt": Date()
                     ])
                 
-                print("✅ Comment count updated in Firestore")
+                dlog("✅ Comment count updated in Firestore")
                 
                 // Create notification if we have comment text (background)
                 if let commentText = commentText {
@@ -1365,7 +1528,7 @@ class FirebasePostService: ObservableObject {
                     )
                 }
             } catch {
-                print("❌ Failed to update comment count: \(error)")
+                dlog("❌ Failed to update comment count: \(error)")
                 // Rollback optimistic update
                 // Note: Optimistic updates temporarily disabled
                 // await MainActor.run {
@@ -1377,7 +1540,7 @@ class FirebasePostService: ObservableObject {
     
     /// Repost to user's profile with INSTANT optimistic update
     func repostToProfile(originalPostId: String) async throws {
-        print("🔄 Reposting post (INSTANT): \(originalPostId)")
+        dlog("🔄 Reposting post (INSTANT): \(originalPostId)")
         
         guard let userId = firebaseManager.currentUser?.uid else {
             throw FirebaseError.unauthorized
@@ -1394,16 +1557,17 @@ class FirebasePostService: ObservableObject {
         // }
         
         // 🚀 STEP 2: Create repost in background
-        Task.detached(priority: .userInitiated) {
+        let _repostDb = db
+        Task(priority: .userInitiated) { @MainActor in
             do {
                 // Try to fetch original post from Firestore
-                let originalPostDoc = try await self.db.collection(FirebaseManager.CollectionPath.posts)
+                let originalPostDoc = try await _repostDb.collection(FirebaseManager.CollectionPath.posts)
                     .document(originalPostId)
                     .getDocument()
                 
                 guard originalPostDoc.exists,
                       let originalPost = try? originalPostDoc.data(as: FirestorePost.self) else {
-                    print("⚠️ Original post not found: \(originalPostId)")
+                    dlog("⚠️ Original post not found: \(originalPostId)")
                     throw FirebaseError.documentNotFound
                 }
                 
@@ -1431,10 +1595,10 @@ class FirebasePostService: ObservableObject {
                     originalAuthorName: originalPost.authorName
                 )
                 
-                _ = try self.db.collection(FirebaseManager.CollectionPath.posts).addDocument(from: repost)
+                _ = try _repostDb.collection(FirebaseManager.CollectionPath.posts).addDocument(from: repost)
                 
                 // Increment repost count on original
-                try? await self.db.collection(FirebaseManager.CollectionPath.posts)
+                try? await _repostDb.collection(FirebaseManager.CollectionPath.posts)
                     .document(originalPostId)
                     .updateData([
                         "repostCount": FieldValue.increment(Int64(1)),
@@ -1442,17 +1606,17 @@ class FirebasePostService: ObservableObject {
                     ])
                 
                 // Update user's post count
-                try await self.db.collection(FirebaseManager.CollectionPath.users)
+                try await _repostDb.collection(FirebaseManager.CollectionPath.users)
                     .document(userId)
                     .updateData([
                         "postsCount": FieldValue.increment(Int64(1)),
                         "updatedAt": Date()
                     ])
                 
-                print("✅ Post reposted successfully")
+                dlog("✅ Post reposted successfully")
                 
             } catch {
-                print("❌ Failed to repost: \(error)")
+                dlog("❌ Failed to repost: \(error)")
                 // Rollback optimistic update
                 // Note: Optimistic updates temporarily disabled
                 // await MainActor.run {
@@ -1488,7 +1652,7 @@ class FirebasePostService: ObservableObject {
             
             return amenUserIds.contains(userId)
         } catch {
-            print("❌ Error checking amen status: \(error)")
+            dlog("❌ Error checking amen status: \(error)")
             return false
         }
     }
@@ -1507,14 +1671,14 @@ class FirebasePostService: ObservableObject {
             
             return lightbulbUserIds.contains(userId)
         } catch {
-            print("❌ Error checking lightbulb status: \(error)")
+            dlog("❌ Error checking lightbulb status: \(error)")
             return false
         }
     }
     
     /// Toggle lightbulb (like) on a post - FULL FIREBASE IMPLEMENTATION
     func toggleLightbulb(postId: String) async throws {
-        print("💡 Toggling lightbulb on post: \(postId)")
+        dlog("💡 Toggling lightbulb on post: \(postId)")
         
         guard let userId = firebaseManager.currentUser?.uid else {
             throw FirebaseError.unauthorized
@@ -1538,7 +1702,7 @@ class FirebasePostService: ObservableObject {
                 "lightbulbUserIds": lightbulbUserIds,
                 "updatedAt": Date()
             ])
-            print("💡 Lightbulb removed")
+            dlog("💡 Lightbulb removed")
         } else {
             // Add lightbulb
             lightbulbUserIds.append(userId)
@@ -1547,7 +1711,7 @@ class FirebasePostService: ObservableObject {
                 "lightbulbUserIds": lightbulbUserIds,
                 "updatedAt": Date()
             ])
-            print("💡 Lightbulb lit!")
+            dlog("💡 Lightbulb lit!")
         }
         
         // Haptic feedback
@@ -1571,7 +1735,7 @@ class FirebasePostService: ObservableObject {
             let key = post.firebaseId ?? post.id.uuidString
             let isNew = seen.insert(key).inserted
             if !isNew {
-                print("⚠️ [DEDUP] Filtered duplicate post: \(key)")
+                dlog("⚠️ [DEDUP] Filtered duplicate post: \(key)")
             }
             return isNew
         }
@@ -1588,14 +1752,14 @@ class FirebasePostService: ObservableObject {
     /// Fetch original posts created by a specific user (excluding reposts)
     /// Supports fallback query if composite index is missing
     func fetchUserOriginalPosts(userId: String, useFallback: Bool = false) async throws -> [Post] {
-        print("📥 Fetching original posts for user: \(userId)")
+        dlog("📥 Fetching original posts for user: \(userId)")
         
         do {
             let snapshot: QuerySnapshot
             
             if useFallback {
                 // 🔄 FALLBACK: Simple query without isRepost filter (no composite index needed)
-                print("⚠️ Using fallback query (filtering isRepost in memory)")
+                dlog("⚠️ Using fallback query (filtering isRepost in memory)")
                 let query = db.collection(FirebaseManager.CollectionPath.posts)
                     .whereField("authorId", isEqualTo: userId)
                     .order(by: "createdAt", descending: true)
@@ -1614,27 +1778,27 @@ class FirebasePostService: ObservableObject {
             }
             
             // 🐛 DEBUG: Log raw Firestore data
-            print("📊 Firestore query returned \(snapshot.documents.count) documents")
+            dlog("📊 Firestore query returned \(snapshot.documents.count) documents")
             
             if snapshot.documents.isEmpty {
-                print("⚠️ No documents found. Possible reasons:")
-                print("   1. User hasn't created any posts")
-                print("   2. All posts by this user are reposts (isRepost=true)")
-                print("   3. Posts exist but authorId doesn't match '\(userId)'")
+                dlog("⚠️ No documents found. Possible reasons:")
+                dlog("   1. User hasn't created any posts")
+                dlog("   2. All posts by this user are reposts (isRepost=true)")
+                dlog("   3. Posts exist but authorId doesn't match '\(userId)'")
                 if !useFallback {
-                    print("   4. Firestore composite index not created (try useFallback=true)")
+                    dlog("   4. Firestore composite index not created (try useFallback=true)")
                 }
             }
             
             // Debug: Log first few documents
             for (index, doc) in snapshot.documents.prefix(3).enumerated() {
                 let data = doc.data()
-                print("   📄 Document \(index + 1):")
-                print("      - ID: \(doc.documentID)")
-                print("      - authorId: \(data["authorId"] as? String ?? "nil")")
-                print("      - category: \(data["category"] as? String ?? "nil")")
-                print("      - isRepost: \(data["isRepost"] as? Bool ?? false)")
-                print("      - content: \((data["content"] as? String ?? "").prefix(50))...")
+                dlog("   📄 Document \(index + 1):")
+                dlog("      - ID: \(doc.documentID)")
+                dlog("      - authorId: \(data["authorId"] as? String ?? "nil")")
+                dlog("      - category: \(data["category"] as? String ?? "nil")")
+                dlog("      - isRepost: \(data["isRepost"] as? Bool ?? false)")
+                dlog("      - content: \((data["content"] as? String ?? "").prefix(50))...")
             }
             
             var firestorePosts = try snapshot.documents.compactMap { try $0.data(as: FirestorePost.self) }
@@ -1643,7 +1807,7 @@ class FirebasePostService: ObservableObject {
             if useFallback {
                 let beforeFilter = firestorePosts.count
                 firestorePosts = firestorePosts.filter { !$0.isRepost }
-                print("🔄 Filtered \(beforeFilter - firestorePosts.count) reposts in memory")
+                dlog("🔄 Filtered \(beforeFilter - firestorePosts.count) reposts in memory")
             }
             
             let userPosts = firestorePosts.map { $0.toPost() }
@@ -1653,34 +1817,34 @@ class FirebasePostService: ObservableObject {
                 counts[post.category, default: 0] += 1
             }
             
-            print("✅ Fetched \(userPosts.count) original posts for user")
+            dlog("✅ Fetched \(userPosts.count) original posts for user")
             if !categoryBreakdown.isEmpty {
-                print("📊 Category breakdown:")
+                dlog("📊 Category breakdown:")
                 categoryBreakdown.forEach { category, count in
-                    print("   - \(category): \(count)")
+                    dlog("   - \(category): \(count)")
                 }
             }
             
             return userPosts
             
         } catch {
-            print("❌ Error fetching user posts: \(error)")
+            dlog("❌ Error fetching user posts: \(error)")
             
             // Check if it's an index error
             if let firestoreError = error as NSError?,
                firestoreError.domain == "FIRFirestoreErrorDomain",
                firestoreError.code == 9 { // FAILED_PRECONDITION
-                print("⚠️ FIRESTORE INDEX REQUIRED!")
-                print("   Create a composite index for:")
-                print("   Collection: posts")
-                print("   Fields: authorId (Ascending), isRepost (Ascending), createdAt (Descending)")
-                print("")
-                print("   OR you can use the fallback query:")
-                print("   try await fetchUserOriginalPosts(userId: userId, useFallback: true)")
+                dlog("⚠️ FIRESTORE INDEX REQUIRED!")
+                dlog("   Create a composite index for:")
+                dlog("   Collection: posts")
+                dlog("   Fields: authorId (Ascending), isRepost (Ascending), createdAt (Descending)")
+                dlog("")
+                dlog("   OR you can use the fallback query:")
+                dlog("   try await fetchUserOriginalPosts(userId: userId, useFallback: true)")
                 
                 // Automatically retry with fallback if not already using it
                 if !useFallback {
-                    print("🔄 Automatically retrying with fallback query...")
+                    dlog("🔄 Automatically retrying with fallback query...")
                     return try await fetchUserOriginalPosts(userId: userId, useFallback: true)
                 }
             }
@@ -1691,7 +1855,7 @@ class FirebasePostService: ObservableObject {
     
     /// Fetch reposts by a specific user
     func fetchUserReposts(userId: String) async throws -> [Post] {
-        print("📥 Fetching reposts for user: \(userId)")
+        dlog("📥 Fetching reposts for user: \(userId)")
         
         // ✅ Optimized query using composite index (authorId + isRepost + createdAt)
         let query = db.collection(FirebaseManager.CollectionPath.posts)
@@ -1704,13 +1868,13 @@ class FirebasePostService: ObservableObject {
         let firestorePosts = try snapshot.documents.compactMap { try $0.data(as: FirestorePost.self) }
         let reposts = firestorePosts.map { $0.toPost() }
         
-        print("✅ Fetched \(reposts.count) reposts for user")
+        dlog("✅ Fetched \(reposts.count) reposts for user")
         return reposts
     }
     
     /// Fetch saved posts for a specific user
     func fetchUserSavedPosts(userId: String) async throws -> [Post] {
-        print("📥 Fetching saved posts for user: \(userId)")
+        dlog("📥 Fetching saved posts for user: \(userId)")
         
         // First, get all saved post IDs
         let savedQuery = db.collection(FirebaseManager.CollectionPath.savedPosts)
@@ -1724,7 +1888,7 @@ class FirebasePostService: ObservableObject {
         }
         
         guard !savedPostIds.isEmpty else {
-            print("✅ No saved posts found")
+            dlog("✅ No saved posts found")
             return []
         }
         
@@ -1741,13 +1905,13 @@ class FirebasePostService: ObservableObject {
             allSavedPosts.append(contentsOf: batchPosts.map { $0.toPost() })
         }
         
-        print("✅ Fetched \(allSavedPosts.count) saved posts for user")
+        dlog("✅ Fetched \(allSavedPosts.count) saved posts for user")
         return allSavedPosts
     }
     
     /// Fetch comments/replies made by a specific user
     func fetchUserReplies(userId: String) async throws -> [Comment] {
-        print("📥 Fetching replies for user: \(userId)")
+        dlog("📥 Fetching replies for user: \(userId)")
         
         // ✅ Optimized query using composite index (authorId + createdAt)
         let query = db.collection(FirebaseManager.CollectionPath.comments)
@@ -1758,7 +1922,7 @@ class FirebasePostService: ObservableObject {
         let snapshot = try await query.getDocuments()
         let comments = try snapshot.documents.compactMap { try $0.data(as: Comment.self) }
         
-        print("✅ Fetched \(comments.count) replies for user")
+        dlog("✅ Fetched \(comments.count) replies for user")
         return comments
     }
     
@@ -1767,11 +1931,11 @@ class FirebasePostService: ObservableObject {
     /// ⚠️ DANGER: Delete ALL posts from Firestore (for development/testing only)
     /// This will permanently delete all posts in the database
     func deleteAllPosts() async throws {
-        print("🗑️ ⚠️ DELETING ALL POSTS FROM FIRESTORE...")
+        dlog("🗑️ ⚠️ DELETING ALL POSTS FROM FIRESTORE...")
         
         let snapshot = try await db.collection(FirebaseManager.CollectionPath.posts).getDocuments()
         
-        print("⚠️ Found \(snapshot.documents.count) posts to delete")
+        dlog("⚠️ Found \(snapshot.documents.count) posts to delete")
         
         // Delete in batches
         let batch = db.batch()
@@ -1785,17 +1949,17 @@ class FirebasePostService: ObservableObject {
             if count >= 500 {
                 try await batch.commit()
                 count = 0
-                print("✅ Deleted batch of 500 posts")
+                dlog("✅ Deleted batch of 500 posts")
             }
         }
         
         // Commit remaining deletes
         if count > 0 {
             try await batch.commit()
-            print("✅ Deleted final batch of \(count) posts")
+            dlog("✅ Deleted final batch of \(count) posts")
         }
         
-        print("✅ ALL POSTS DELETED")
+        dlog("✅ ALL POSTS DELETED")
         
         // Clear local cache
         await MainActor.run {
@@ -1808,13 +1972,13 @@ class FirebasePostService: ObservableObject {
     
     /// Delete posts by specific author name (useful for removing fake data)
     func deletePostsByAuthorName(_ authorName: String) async throws {
-        print("🗑️ Deleting posts by author: \(authorName)")
+        dlog("🗑️ Deleting posts by author: \(authorName)")
         
         let snapshot = try await db.collection(FirebaseManager.CollectionPath.posts)
             .whereField("authorName", isEqualTo: authorName)
             .getDocuments()
         
-        print("⚠️ Found \(snapshot.documents.count) posts to delete for \(authorName)")
+        dlog("⚠️ Found \(snapshot.documents.count) posts to delete for \(authorName)")
         
         let batch = db.batch()
         for document in snapshot.documents {
@@ -1822,12 +1986,12 @@ class FirebasePostService: ObservableObject {
         }
         
         try await batch.commit()
-        print("✅ Deleted all posts by \(authorName)")
+        dlog("✅ Deleted all posts by \(authorName)")
     }
     
     /// Delete multiple fake users' posts at once
     func deleteFakePosts() async throws {
-        print("🗑️ Deleting all fake sample data posts...")
+        dlog("🗑️ Deleting all fake sample data posts...")
         
         let fakeNames = [
             "Sarah Chen",
@@ -1875,15 +2039,15 @@ class FirebasePostService: ObservableObject {
                     }
                     try await batch.commit()
                     
-                    print("✅ Deleted \(snapshot.documents.count) posts by \(fakeName)")
+                    dlog("✅ Deleted \(snapshot.documents.count) posts by \(fakeName)")
                     totalDeleted += snapshot.documents.count
                 }
             } catch {
-                print("⚠️ Error deleting posts for \(fakeName): \(error)")
+                dlog("⚠️ Error deleting posts for \(fakeName): \(error)")
             }
         }
         
-        print("✅ TOTAL FAKE POSTS DELETED: \(totalDeleted)")
+        dlog("✅ TOTAL FAKE POSTS DELETED: \(totalDeleted)")
         
         // Clear local cache and refresh
         await MainActor.run {
@@ -1978,7 +2142,7 @@ class FirebasePostService: ObservableObject {
     
     /// One-time migration to add authorProfileImageURL to all existing posts
     func migrateAllPostsWithProfileImages() async throws {
-        print("🔄 Starting migration to add profile images to all posts...")
+        dlog("🔄 Starting migration to add profile images to all posts...")
         
         let db = Firestore.firestore()
         
@@ -1986,7 +2150,7 @@ class FirebasePostService: ObservableObject {
         let snapshot = try await db.collection(FirebaseManager.CollectionPath.posts)
             .getDocuments()
         
-        print("📊 Found \(snapshot.documents.count) posts to migrate")
+        dlog("📊 Found \(snapshot.documents.count) posts to migrate")
         
         var updated = 0
         var skipped = 0
@@ -2007,7 +2171,7 @@ class FirebasePostService: ObservableObject {
                 guard let userData = userDoc.data(),
                       let profileImageURL = userData["profileImageURL"] as? String,
                       !profileImageURL.isEmpty else {
-                    print("⚠️ No profile image for user \(authorId), skipping \(posts.count) posts")
+                    dlog("⚠️ No profile image for user \(authorId), skipping \(posts.count) posts")
                     skipped += posts.count
                     continue
                 }
@@ -2026,15 +2190,15 @@ class FirebasePostService: ObservableObject {
                     updated += 1
                 }
                 
-                print("✅ Updated \(posts.count) posts for user \(authorId)")
+                dlog("✅ Updated \(posts.count) posts for user \(authorId)")
                 
             } catch {
-                print("⚠️ Failed to update posts for user \(authorId): \(error)")
+                dlog("⚠️ Failed to update posts for user \(authorId): \(error)")
                 skipped += posts.count
             }
         }
         
-        print("✅ Migration complete! Updated: \(updated), Skipped: \(skipped)")
+        dlog("✅ Migration complete! Updated: \(updated), Skipped: \(skipped)")
     }
     
     // MARK: - Notification Helpers
@@ -2073,8 +2237,10 @@ class FirebasePostService: ObservableObject {
             "read": false
         ]
         
-        try await db.collection("notifications").addDocument(data: notification)
-        print("✅ Amen notification created")
+        // Deterministic ID: amen_{postId}_{fromUserId} — overwrites on re-trigger
+        let deterministicId = "amen_\(postId)_\(fromUserId)"
+        try await db.collection("notifications").document(deterministicId).setData(notification, merge: false)
+        dlog("✅ Amen notification created")
     }
     
     /// Create notification when someone comments on a post
@@ -2113,8 +2279,12 @@ class FirebasePostService: ObservableObject {
             "read": false
         ]
         
-        try await db.collection("notifications").addDocument(data: notification)
-        print("✅ Comment notification created")
+        // Deterministic ID: comment_{postId}_{fromUserId}
+        // One notification per user per post; if they comment again the notification is refreshed
+        // (keeping the feed clean) rather than adding duplicates.
+        let deterministicId = "comment_\(postId)_\(fromUserId)"
+        try await db.collection("notifications").document(deterministicId).setData(notification, merge: false)
+        dlog("✅ Comment notification created")
     }
     
     /// Create notifications for mentioned users
@@ -2167,8 +2337,10 @@ class FirebasePostService: ObservableObject {
                 "read": false
             ]
             
-            try await db.collection("notifications").addDocument(data: notification)
-            print("✅ Mention notification created for @\(mentionedUsername)")
+            // Deterministic ID: mention_{postId}_{fromUserId}_{mentionedUserId}
+            let deterministicId = "mention_\(postId)_\(fromUserId)_\(mentionedUserId)"
+            try await db.collection("notifications").document(deterministicId).setData(notification, merge: false)
+            dlog("✅ Mention notification created for @\(mentionedUsername)")
         }
     }
     

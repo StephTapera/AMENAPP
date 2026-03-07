@@ -268,7 +268,7 @@ struct CommunityCovenantView: View {
                     .collection("communityStandards").document("agreement").setData([
                         "agreedAt": FieldValue.serverTimestamp(),
                         "version": "1.0",
-                        "nextReaffirmation": Calendar.current.date(byAdding: .day, value: 90, to: Date())!
+                        "nextReaffirmation": Calendar.current.date(byAdding: .day, value: 90, to: Date()) ?? Date(timeIntervalSinceNow: 90 * 86400)
                     ])
                 
                 // Mark in user profile

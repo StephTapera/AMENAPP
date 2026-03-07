@@ -26,7 +26,7 @@ const {onCall} = require("firebase-functions/v2/https");
 exports.checkPhoneVerificationRateLimit = onCall(
     {
       region: "us-central1",
-      enforceAppCheck: false, // Enable in production with App Check
+      enforceAppCheck: true, // Enable in production with App Check
     },
     async (request) => {
       const {phoneNumber, action = "send"} = request.data;
@@ -192,7 +192,7 @@ exports.checkPhoneVerificationRateLimit = onCall(
 exports.reportPhoneVerificationFailure = onCall(
     {
       region: "us-central1",
-      enforceAppCheck: false,
+      enforceAppCheck: true,
     },
     async (request) => {
       const {phoneNumber, reason = "invalid_code"} = request.data;
@@ -270,7 +270,7 @@ exports.reportPhoneVerificationFailure = onCall(
 exports.unblockPhoneNumber = onCall(
     {
       region: "us-central1",
-      enforceAppCheck: false,
+      enforceAppCheck: true,
     },
     async (request) => {
       const {phoneNumber} = request.data;

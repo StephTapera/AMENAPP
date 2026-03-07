@@ -8,14 +8,23 @@
 //
 
 import SwiftUI
+import FirebaseAuth
+import FirebaseFirestore
 
 struct ActivityFeedView: View {
-    @StateObject private var activityService = ActivityFeedService.shared
+    @ObservedObject private var activityService = ActivityFeedService.shared
     @State private var selectedTab: FeedTab = .global
+    @State private var userChurchId: String?
+    @State private var isLoadingChurch = false
     
     enum FeedTab: String, CaseIterable {
         case global = "Global"
         case community = "Community"
+    }
+    
+    private var communityActivities: [Activity] {
+        guard let churchId = userChurchId else { return [] }
+        return activityService.communityActivities[churchId] ?? []
     }
     
     var body: some View {
@@ -42,10 +51,19 @@ struct ActivityFeedView: View {
                                 }
                             }
                         } else {
-                            Text("Community feed coming soon")
-                                .font(.custom("OpenSans-Regular", size: 14))
-                                .foregroundStyle(.secondary)
-                                .padding()
+                            if isLoadingChurch {
+                                ProgressView()
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.top, 60)
+                            } else if userChurchId == nil {
+                                communityNochurchState
+                            } else if communityActivities.isEmpty {
+                                communityEmptyState
+                            } else {
+                                ForEach(communityActivities) { activity in
+                                    ActivityRow(activity: activity)
+                                }
+                            }
                         }
                     }
                     .padding()
@@ -55,13 +73,81 @@ struct ActivityFeedView: View {
             .navigationBarTitleDisplayMode(.large)
             .onAppear {
                 activityService.startObservingGlobalFeed()
+                Task { await loadUserChurch() }
             }
             .onDisappear {
                 activityService.stopObservingGlobalFeed()
+                if let churchId = userChurchId {
+                    activityService.stopObservingCommunityFeed(communityId: churchId)
+                }
             }
         }
     }
     
+    private func loadUserChurch() async {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        isLoadingChurch = true
+        defer { isLoadingChurch = false }
+
+        do {
+            let db = Firestore.firestore()
+            let snapshot = try await db.collection("userChurchRelations")
+                .whereField("userId", isEqualTo: uid)
+                .order(by: "since", descending: true)
+                .limit(to: 1)
+                .getDocuments()
+
+            if let doc = snapshot.documents.first,
+               let churchId = doc.data()["churchId"] as? String {
+                // Only start the listener if we haven't already started one for this church
+                if userChurchId != churchId {
+                    userChurchId = churchId
+                    activityService.startObservingCommunityFeed(communityId: churchId)
+                }
+            }
+        } catch {
+            print("⚠️ Could not load user's church: \(error.localizedDescription)")
+        }
+    }
+
+    private var communityNochurchState: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "building.2")
+                .font(.system(size: 48))
+                .foregroundStyle(.secondary)
+
+            Text("No Church Connected")
+                .font(.custom("OpenSans-Bold", size: 18))
+                .foregroundStyle(.primary)
+
+            Text("Connect with your church in the Find Church tab\nto see your community's activity here.")
+                .font(.custom("OpenSans-Regular", size: 14))
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 60)
+    }
+
+    private var communityEmptyState: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "person.3")
+                .font(.system(size: 48))
+                .foregroundStyle(.secondary)
+
+            Text("No Community Activity Yet")
+                .font(.custom("OpenSans-Bold", size: 18))
+                .foregroundStyle(.primary)
+
+            Text("When members of your church interact with posts,\nyou'll see their activity here.")
+                .font(.custom("OpenSans-Regular", size: 14))
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 60)
+    }
+
     private var emptyState: some View {
         VStack(spacing: 16) {
             Image(systemName: "bell.slash")

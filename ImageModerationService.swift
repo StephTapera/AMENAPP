@@ -107,8 +107,7 @@ class ImageModerationService {
     private let apiKey: String
     
     private init() {
-        // Use Google Cloud Vision API key
-        self.apiKey = "AIzaSyBRg7axwpIAxoKjuSuCBSqCtMuxfkqfE-k"
+        self.apiKey = BundleConfig.string(forKey: "GOOGLE_VISION_API_KEY") ?? ""
     }
     
     // MARK: - Main Moderation Function
@@ -116,6 +115,13 @@ class ImageModerationService {
     /// Moderate an image before allowing upload
     func moderateImage(imageData: Data, userId: String, context: ImageContext) async throws -> ImageModerationDecision {
         print("🛡️ [IMAGE MOD] Moderating \(context.rawValue) image for user: \(userId)")
+
+        // If the Vision API key is not configured, we cannot verify image safety.
+        // Hold for human review rather than blindly approving unmoderated content.
+        guard !apiKey.isEmpty else {
+            print("⚠️ [IMAGE MOD] GOOGLE_VISION_API_KEY not set — holding image for human review")
+            return .review(reasons: ["Image safety check unavailable — held for review"])
+        }
         
         // Convert to base64
         let base64Image = imageData.base64EncodedString()
@@ -283,8 +289,7 @@ enum ImageModerationDecision {
         case .blocked(let reasons):
             let reason = reasons.first ?? "inappropriate content"
             return "This image cannot be uploaded: \(reason). Please choose a different image that aligns with our community guidelines."
-        case .review(let reasons):
-            let reason = reasons.first ?? "requires review"
+        case .review:
             return "Your image is being reviewed and will appear shortly if approved."
         }
     }

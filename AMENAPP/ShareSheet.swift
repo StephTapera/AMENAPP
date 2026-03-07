@@ -22,6 +22,26 @@ struct ShareSheet: UIViewControllerRepresentable {
             applicationActivities: nil
         )
         controller.excludedActivityTypes = excludedActivityTypes
+
+        // On iPad, UIActivityViewController must have a sourceView / sourceRect set on its
+        // popoverPresentationController, otherwise the app crashes with an NSInvalidArgumentException.
+        if UIDevice.current.userInterfaceIdiom == .pad,
+           let popover = controller.popoverPresentationController {
+            // Anchor to the root view of the key window; callers can override via context if needed.
+            let scene = UIApplication.shared.connectedScenes
+                .compactMap { $0 as? UIWindowScene }
+                .first(where: { $0.activationState == .foregroundActive })
+            let keyWindow = scene?.windows.first(where: { $0.isKeyWindow }) ?? scene?.windows.first
+            popover.sourceView = keyWindow?.rootViewController?.view
+            popover.sourceRect = CGRect(
+                x: (keyWindow?.bounds.midX ?? 0),
+                y: (keyWindow?.bounds.midY ?? 0),
+                width: 0,
+                height: 0
+            )
+            popover.permittedArrowDirections = []
+        }
+
         return controller
     }
     
@@ -133,19 +153,15 @@ struct AmenShareSheet: View {
         
         // Post to OpenTable with note content
         Task {
-            do {
-                // await OpenTableService.shared.createPost(
-                //     title: note.title,
-                //     content: generateShareText(),
-                //     tags: note.tags
-                // )
-                
-                await MainActor.run {
-                    dismiss()
-                    // Show success toast/alert
-                }
-            } catch {
-                print("❌ Error sharing to OpenTable: \(error)")
+            // await OpenTableService.shared.createPost(
+            //     title: note.title,
+            //     content: generateShareText(),
+            //     tags: note.tags
+            // )
+            
+            await MainActor.run {
+                dismiss()
+                // Show success toast/alert
             }
         }
     }
@@ -156,20 +172,16 @@ struct AmenShareSheet: View {
         print("💜 Sharing to Testimonies: \(note.title)")
         
         Task {
-            do {
-                // await TestimonyService.shared.createTestimony(
-                //     title: note.title,
-                //     content: note.content,
-                //     scripture: note.scripture,
-                //     tags: note.tags
-                // )
-                
-                await MainActor.run {
-                    dismiss()
-                    // Show success toast/alert
-                }
-            } catch {
-                print("❌ Error sharing to Testimonies: \(error)")
+            // await TestimonyService.shared.createTestimony(
+            //     title: note.title,
+            //     content: note.content,
+            //     scripture: note.scripture,
+            //     tags: note.tags
+            // )
+            
+            await MainActor.run {
+                dismiss()
+                // Show success toast/alert
             }
         }
     }
@@ -180,20 +192,16 @@ struct AmenShareSheet: View {
         print("🙏 Sharing to Prayer: \(note.title)")
         
         Task {
-            do {
-                // await PrayerService.shared.createPrayerRequest(
-                //     title: note.title,
-                //     description: note.content,
-                //     scripture: note.scripture,
-                //     tags: note.tags
-                // )
-                
-                await MainActor.run {
-                    dismiss()
-                    // Show success toast/alert
-                }
-            } catch {
-                print("❌ Error sharing to Prayer: \(error)")
+            // await PrayerService.shared.createPrayerRequest(
+            //     title: note.title,
+            //     description: note.content,
+            //     scripture: note.scripture,
+            //     tags: note.tags
+            // )
+            
+            await MainActor.run {
+                dismiss()
+                // Show success toast/alert
             }
         }
     }

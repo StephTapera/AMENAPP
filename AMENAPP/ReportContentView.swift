@@ -9,7 +9,7 @@ import SwiftUI
 
 struct ReportContentView: View {
     @Environment(\.dismiss) var dismiss
-    @StateObject private var functionsService = CloudFunctionsService.shared
+    @ObservedObject private var functionsService = CloudFunctionsService.shared
     
     let contentType: String
     let contentId: String

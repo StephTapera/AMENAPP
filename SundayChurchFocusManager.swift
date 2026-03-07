@@ -2,9 +2,12 @@
 //  SundayChurchFocusManager.swift
 //  AMENAPP
 //
-//  Shabbat Mode - Time-based feature gating (6am-4pm local time on Sundays)
-//  Restricts social features to encourage church focus
-//  Allows opt-out via Settings
+//  Thin bridge over ShabbatModeService.
+//  Keeps existing @Published properties so all existing views compile unchanged.
+//  All real logic lives in ShabbatModeService.
+//
+//  SCHEDULE: Active all day Sunday (00:00–23:59) in the user's LOCAL timezone.
+//  (The previous 6 AM–4 PM window is removed per the hard requirements.)
 //
 
 import Foundation
@@ -14,185 +17,135 @@ import Combine
 @MainActor
 class SundayChurchFocusManager: ObservableObject {
     static let shared = SundayChurchFocusManager()
-    
-    // MARK: - Published State
-    
+
+    // MARK: - Published State (kept for backwards-compat with existing views)
+
+    /// True when it is Sunday in the user's local timezone.
     @Published private(set) var isInChurchFocusWindow: Bool = false
+    /// Kept for SundayShabbatPromptView; not used for gating — use ShabbatModeService.
     @Published private(set) var hasOptedOut: Bool = false
+    /// Show the one-per-Sunday soft prompt sheet.
     @Published var showSundayPrompt: Bool = false
-    @Published var isEnabled: Bool = true  // Can be toggled in Settings
-    
-    // MARK: - Constants
-    
-    private let optOutKey = "shabbatMode_optedOut"
-    private let enabledKey = "shabbatMode_enabled"
+    /// Master enable toggle — proxied to ShabbatModeService.
+    @Published var isEnabled: Bool = true {
+        didSet {
+            guard oldValue != isEnabled else { return }
+            ShabbatModeService.shared.setEnabled(isEnabled)
+        }
+    }
+
+    // MARK: - Private
+
+    private let optOutKey         = "shabbatMode_optedOut"
+    private let optOutDateKey     = "shabbatMode_optOutDate"
     private let lastPromptDateKey = "shabbatMode_lastPromptDate"
-    private let windowStartHour = 6  // 6:00 AM
-    private let windowEndHour = 16   // 4:00 PM
-    
-    // MARK: - Timer
-    
-    private var timer: Timer?
-    
-    // MARK: - Initialization
-    
+    private var cancellables      = Set<AnyCancellable>()
+
+    // MARK: - Init
+
     private init() {
+        // Mirror ShabbatModeService state so existing views stay reactive
+        ShabbatModeService.shared.$isSunday
+            .receive(on: RunLoop.main)
+            .sink { [weak self] sunday in
+                self?.isInChurchFocusWindow = sunday
+            }
+            .store(in: &cancellables)
+
+        ShabbatModeService.shared.$isEnabled
+            .receive(on: RunLoop.main)
+            .sink { [weak self] enabled in
+                guard let self else { return }
+                if self.isEnabled != enabled { self.isEnabled = enabled }
+            }
+            .store(in: &cancellables)
+
+        isEnabled = ShabbatModeService.shared.isEnabled
+        isInChurchFocusWindow = ShabbatModeService.shared.isSunday
         loadOptOutPreference()
-        loadEnabledPreference()
-        updateChurchFocusState()
-        startMonitoring()
         checkShouldShowSundayPrompt()
     }
-    
-    deinit {
-        timer?.invalidate()
-    }
-    
+
     // MARK: - Public API
-    
-    /// Check if a feature should be gated right now
+
+    /// True when restrictions should be enforced right now.
     func shouldGateFeature() -> Bool {
-        return isEnabled && isInChurchFocusWindow && !hasOptedOut
+        ShabbatModeService.shared.isShabbatActiveNow() && !hasOptedOut
     }
-    
-    /// Toggle Shabbat Mode on/off in Settings
+
+    /// Toggle Shabbat Mode. Delegates to ShabbatModeService and persists to Firestore.
     func setEnabled(_ enabled: Bool) {
-        isEnabled = enabled
-        UserDefaults.standard.set(enabled, forKey: enabledKey)
-        print("🕊️ Shabbat Mode enabled: \(enabled)")
+        ShabbatModeService.shared.setEnabled(enabled)
+        // isEnabled @Published will be updated via the Combine sink above
     }
-    
-    /// Features that remain accessible during church focus window
-    enum AllowedFeature {
-        case churchNotes
-        case findChurch
-        case settings
-    }
-    
-    /// Check if feature is allowed during church focus
-    func isFeatureAllowed(_ feature: AllowedFeature) -> Bool {
-        return true // Church Notes, Find Church, Settings always allowed
-    }
-    
-    /// Update opt-out preference
+
+    // MARK: - Opt-out (today only)
+
     func setOptOut(_ optOut: Bool) {
         hasOptedOut = optOut
         UserDefaults.standard.set(optOut, forKey: optOutKey)
-        print("🕊️ Shabbat Mode opt-out: \(optOut)")
-    }
-    
-    // MARK: - Time Checking
-    
-    private func updateChurchFocusState() {
-        let calendar = Calendar.current
-        let now = Date()
-        
-        // Check if today is Sunday (1 = Sunday in Gregorian calendar)
-        let weekday = calendar.component(.weekday, from: now)
-        let isSunday = (weekday == 1)
-        
-        guard isSunday else {
-            isInChurchFocusWindow = false
-            return
-        }
-        
-        // Check if current time is within window (6am-4pm local time)
-        let hour = calendar.component(.hour, from: now)
-        let isWithinWindow = (hour >= windowStartHour && hour < windowEndHour)
-        
-        isInChurchFocusWindow = isWithinWindow
-        
-        #if DEBUG
-        print("🕊️ Shabbat Mode: Sunday=\(isSunday), Hour=\(hour), Window=\(isWithinWindow), Active=\(shouldGateFeature())")
-        #endif
-    }
-    
-    // MARK: - Monitoring
-    
-    private func startMonitoring() {
-        // Check every minute for transitions
-        timer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
-            Task { @MainActor [weak self] in
-                self?.updateChurchFocusState()
-            }
-        }
-    }
-    
-    // MARK: - Persistence
-    
-    private func loadOptOutPreference() {
-        hasOptedOut = UserDefaults.standard.bool(forKey: optOutKey)
-    }
-    
-    private func loadEnabledPreference() {
-        // Default to true if not set
-        if UserDefaults.standard.object(forKey: enabledKey) == nil {
-            isEnabled = true
-            UserDefaults.standard.set(true, forKey: enabledKey)
+        if optOut {
+            UserDefaults.standard.set(Date(), forKey: optOutDateKey)
         } else {
-            isEnabled = UserDefaults.standard.bool(forKey: enabledKey)
+            UserDefaults.standard.removeObject(forKey: optOutDateKey)
         }
+        print("🕊️ Shabbat Mode opt-out (today): \(optOut)")
     }
-    
-    /// Check if we should show Sunday prompt (once per Sunday)
-    private func checkShouldShowSundayPrompt() {
-        guard isEnabled else { return }
-        
-        let calendar = Calendar.current
-        let now = Date()
-        let weekday = calendar.component(.weekday, from: now)
-        
-        guard weekday == 1 else { // Only on Sundays
-            showSundayPrompt = false
-            return
-        }
-        
-        // Check if we've already shown prompt today
-        if let lastPromptDate = UserDefaults.standard.object(forKey: lastPromptDateKey) as? Date {
-            if calendar.isDateInToday(lastPromptDate) {
-                showSundayPrompt = false
-                return
-            }
-        }
-        
-        // Show prompt
-        showSundayPrompt = true
+
+    // MARK: - AllowedFeature (kept for backwards-compat)
+
+    enum AllowedFeature {
+        case churchNotes, findChurch, settings
     }
-    
-    /// Dismiss Sunday prompt and record it
+
+    func isFeatureAllowed(_ feature: AllowedFeature) -> Bool { true }
+
+    // MARK: - Sunday prompt
+
     func dismissSundayPrompt(enableMode: Bool) {
         showSundayPrompt = false
         UserDefaults.standard.set(Date(), forKey: lastPromptDateKey)
-        
-        if enableMode {
-            hasOptedOut = false
-            UserDefaults.standard.set(false, forKey: optOutKey)
-        } else {
-            hasOptedOut = true
-            UserDefaults.standard.set(true, forKey: optOutKey)
-        }
+        setOptOut(!enableMode)
     }
-    
-    // MARK: - Helper Functions
-    
-    /// Get user-friendly time window string
-    var windowDescription: String {
-        "Sunday, 6:00 AM – 4:00 PM"
-    }
-    
-    /// Get time remaining in window (for UI display)
+
+    // MARK: - UI helpers
+
+    var windowDescription: String { "Every Sunday" }
+
     func timeRemainingInWindow() -> String? {
         guard isInChurchFocusWindow else { return nil }
-        
+        // Until midnight
         let calendar = Calendar.current
         let now = Date()
-        let currentHour = calendar.component(.hour, from: now)
-        let hoursRemaining = windowEndHour - currentHour
-        
-        if hoursRemaining == 1 {
-            return "1 hour"
-        } else {
-            return "\(hoursRemaining) hours"
+        let endOfDay = calendar.startOfDay(for: calendar.date(byAdding: .day, value: 1, to: now) ?? Date(timeIntervalSinceNow: 86400))
+        let hours = Int(endOfDay.timeIntervalSince(now) / 3600)
+        return hours <= 1 ? "less than 1 hour" : "\(hours) hours"
+    }
+
+    // MARK: - Private helpers
+
+    private func loadOptOutPreference() {
+        let calendar = Calendar.current
+        if let date = UserDefaults.standard.object(forKey: optOutDateKey) as? Date,
+           !calendar.isDateInToday(date) {
+            UserDefaults.standard.removeObject(forKey: optOutKey)
+            UserDefaults.standard.removeObject(forKey: optOutDateKey)
+            hasOptedOut = false
+            return
         }
+        hasOptedOut = UserDefaults.standard.bool(forKey: optOutKey)
+    }
+
+    private func checkShouldShowSundayPrompt() {
+        guard isEnabled else { return }
+        let calendar = Calendar.current
+        guard calendar.component(.weekday, from: Date()) == 1 else {
+            showSundayPrompt = false; return
+        }
+        if let last = UserDefaults.standard.object(forKey: lastPromptDateKey) as? Date,
+           calendar.isDateInToday(last) {
+            showSundayPrompt = false; return
+        }
+        showSundayPrompt = true
     }
 }

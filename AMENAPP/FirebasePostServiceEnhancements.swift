@@ -21,44 +21,45 @@ extension FirebasePostService {
     /// Upload images to Firebase Storage and return download URLs
     func uploadPostImages(_ images: [UIImage], postId: String? = nil) async throws -> [String] {
         guard !images.isEmpty else { return [] }
-        
-        print("📸 Uploading \(images.count) images to Firebase Storage...")
-        
+        guard let userId = Auth.auth().currentUser?.uid else {
+            throw NSError(domain: "FirebasePostServiceEnhancements", code: 401,
+                          userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
+        }
+
         let storage = Storage.storage()
         var downloadURLs: [String] = []
-        
+
+        // Use the supplied postId or generate a stable group folder for this batch
         let postIdentifier = postId ?? UUID().uuidString
-        
+
         for (index, image) in images.enumerated() {
             // Compress image
             guard let imageData = image.jpegData(compressionQuality: 0.7) else {
-                print("⚠️ Failed to convert image \(index) to data")
                 continue
             }
-            
-            // Create unique filename
+
+            // Canonical path: post_media/{userId}/{postId}/{filename} — matches Storage rules
             let filename = "\(postIdentifier)_\(index)_\(Date().timeIntervalSince1970).jpg"
             let storageRef = storage.reference()
-                .child("posts")
-                .child("images")
+                .child("post_media")
+                .child(userId)
+                .child(postIdentifier)
                 .child(filename)
-            
-            print("⏳ Uploading image \(index + 1)/\(images.count)...")
-            
+
+            let metadata = StorageMetadata()
+            metadata.contentType = "image/jpeg"
+
             // Upload image
-            _ = try await storageRef.putDataAsync(imageData, metadata: nil)
-            
+            _ = try await storageRef.putDataAsync(imageData, metadata: metadata)
+
             // Get download URL
             let downloadURL = try await storageRef.downloadURL()
             downloadURLs.append(downloadURL.absoluteString)
-            
-            print("✅ Image \(index + 1) uploaded successfully")
         }
-        
-        print("✅ All images uploaded. URLs: \(downloadURLs.count)")
+
         return downloadURLs
     }
-    
+
     /// Create post with image upload
     func createPostWithImages(
         content: String,
@@ -69,11 +70,9 @@ extension FirebasePostService {
         allowComments: Bool = true,
         linkURL: String? = nil
     ) async throws {
-        print("📝 Creating post with \(images.count) images...")
-        
         // Upload images first
         let imageURLs = try await uploadPostImages(images)
-        
+
         // Create post with image URLs
         try await createPost(
             content: content,
@@ -84,8 +83,6 @@ extension FirebasePostService {
             imageURLs: imageURLs,
             linkURL: linkURL
         )
-        
-        print("✅ Post with images created successfully!")
     }
     
     // MARK: - Post Analytics
@@ -279,7 +276,7 @@ extension FirebasePostService {
     
     /// Unpin a post
     func unpinPost(postId: String) async throws {
-        guard let userId = firebaseManager.currentUser?.uid else {
+        guard firebaseManager.currentUser?.uid != nil else {
             throw FirebaseError.unauthorized
         }
         

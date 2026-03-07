@@ -11,6 +11,7 @@ import Foundation
 import SwiftUI
 import FirebaseAuth
 import FirebaseFirestore
+import FirebaseFunctions
 import Combine
 
 // MARK: - Daily Verse Genkit Service
@@ -23,28 +24,13 @@ class DailyVerseGenkitService: ObservableObject {
     @Published var lastError: (any Error)?
     @Published var todayVerse: PersonalizedDailyVerse?
     
-    nonisolated private let genkitEndpoint: String
     nonisolated private let db = Firestore.firestore()
+    nonisolated private let functions = Functions.functions(region: "us-central1")
     nonisolated private let cacheKey = "cachedDailyVerse"
     nonisolated private let cacheDate = "cachedVerseDate"
     
     init() {
-        // Configure endpoint: Info.plist > Cloud Run (default)
-        if let endpoint = Bundle.main.object(forInfoDictionaryKey: "GENKIT_ENDPOINT") as? String, !endpoint.isEmpty {
-            self.genkitEndpoint = endpoint
-            print("✅ DailyVerseGenkitService initialized with endpoint: \(endpoint)")
-        } else {
-            // Production & TestFlight: Use Cloud Run
-            self.genkitEndpoint = "https://genkit-amen-78278013543.us-central1.run.app"
-            print("✅ DailyVerseGenkitService initialized with Cloud Run endpoint")
-            
-            // 💡 For local development, you can override this in Info.plist:
-            // <key>GENKIT_ENDPOINT</key>
-            // <string>http://localhost:3400</string>
-        }
-        
-        // ✅ FIXED: Don't call async methods in init()
-        // The view's .task modifier will handle loading
+        print("✅ DailyVerseGenkitService initialized with Firebase Cloud Functions")
     }
     
     // MARK: - Generate Personalized Daily Verse
@@ -71,60 +57,62 @@ class DailyVerseGenkitService: ObservableObject {
             }
         }
         
-        print("🤖 Generating personalized daily verse...")
-        
-        // ⚠️ TEMPORARY: Use fallback verse instead of calling Genkit
-        // TODO: Set up Genkit server or configure proper endpoint
-        print("⚠️ Using fallback verse (Genkit server not available)")
-        let fallbackData = createFallbackVerse()
-        
-        // Safely unwrap all fallback data with guaranteed defaults
-        let verse = PersonalizedDailyVerse(
-            reference: fallbackData["reference"] as! String,
-            text: fallbackData["text"] as! String,
-            theme: fallbackData["theme"] as! String,
-            reflection: fallbackData["reflection"] as! String,
-            actionPrompt: fallbackData["actionPrompt"] as! String,
-            relatedVerses: fallbackData["relatedVerses"] as! [String],
-            prayerPrompt: fallbackData["prayerPrompt"] as! String,
-            personalizedFor: nil,
-            date: Date()
-        )
-        
-        // Cache it
-        await MainActor.run {
-            self.todayVerse = verse
-        }
-        cacheVerse(verse)
-        
-        print("✅ Fallback verse generated: \(verse.reference)")
-        print("   Theme: \(verse.theme)")
-        print("   Text: \(verse.text)")
-        
-        return verse
-        
-        /* ORIGINAL GENKIT CODE - Uncomment when Genkit server is ready
-        // Get user context if not provided
+        print("🤖 Generating personalized daily verse via Genkit...")
+
+        // Fetch user context for personalization
         var context = userContext
         if context == nil {
             context = try? await fetchUserContext()
         }
-        
-        // Call Genkit to generate personalized verse
-        let response = try await callGenkitFlow(
-            flowName: "generateDailyVerse",
-            input: [
-                "userInterests": context?.interests ?? [],
-                "userChallenges": context?.currentChallenges ?? [],
-                "userPrayerRequests": context?.recentPrayerTopics ?? [],
-                "userMood": context?.mood ?? "hopeful",
-                "date": ISO8601DateFormatter().string(from: Date()),
-                "previousVerses": context?.recentVerses ?? []
+
+        do {
+            // Call Cloud Function with user context
+            let callable = functions.httpsCallable("generateDailyVerse")
+            let input: [String: Any] = [
+                "goals": context?.interests ?? [],
+                "recentTopics": context?.currentChallenges ?? [],
+                "prayerThemes": context?.recentPrayerTopics ?? []
             ]
-        )
-        
-        return verse
-        */
+            let result = try await callable.call(input)
+            let data = result.data as? [String: Any] ?? [:]
+            let verseData = data["verse"] as? [String: Any] ?? [:]
+
+            let verse = PersonalizedDailyVerse(
+                reference: verseData["reference"] as? String ?? "Romans 8:28",
+                text: verseData["text"] as? String ?? "And we know that in all things God works for the good of those who love him.",
+                theme: verseData["theme"] as? String ?? "Trust",
+                reflection: verseData["reflection"] as? String ?? "God is working all things for your good.",
+                actionPrompt: verseData["prayer"] as? String ?? "Trust God with one area of your life today.",
+                relatedVerses: [],
+                prayerPrompt: verseData["prayer"] as? String ?? "Lord, I trust your plans for my life.",
+                personalizedFor: context,
+                date: Date()
+            )
+
+            await MainActor.run { self.todayVerse = verse }
+            cacheVerse(verse)
+            print("✅ Cloud Function verse: \(verse.reference) — \(verse.theme)")
+            return verse
+
+        } catch {
+            // Cloud Function unavailable — use curated fallback rotation
+            print("⚠️ Cloud Function unavailable (\(error.localizedDescription)) — using fallback verse")
+            let fallbackData = createFallbackVerse()
+            let verse = PersonalizedDailyVerse(
+                reference: fallbackData["reference"] as? String ?? "Romans 8:28",
+                text: fallbackData["text"] as? String ?? "And we know that in all things God works for the good of those who love him.",
+                theme: fallbackData["theme"] as? String ?? "Trust",
+                reflection: fallbackData["reflection"] as? String ?? "God is working all things for your good.",
+                actionPrompt: fallbackData["actionPrompt"] as? String ?? "Trust God with one area of your life today.",
+                relatedVerses: fallbackData["relatedVerses"] as? [String] ?? [],
+                prayerPrompt: fallbackData["prayerPrompt"] as? String ?? "Lord, I trust your plans for my life.",
+                personalizedFor: nil,
+                date: Date()
+            )
+            await MainActor.run { self.todayVerse = verse }
+            cacheVerse(verse)
+            return verse
+        }
     }
     
     // MARK: - Generate Themed Verse
@@ -178,93 +166,30 @@ class DailyVerseGenkitService: ObservableObject {
         
         print("🤖 Generating reflection for: \(reference)")
         
-        // If no endpoint, return a fallback reflection
-        guard !genkitEndpoint.isEmpty else {
-            print("⚠️ No Genkit endpoint - returning fallback reflection")
-            return VerseReflection(
-                verse: verse,
-                reference: reference,
-                reflection: "This verse reminds us of God's faithfulness and His promises to us. Take time to meditate on these words and let them speak to your heart.",
-                keyInsight: "God's Word is living and active, offering guidance and comfort for every season of life.",
-                practicalApplication: "Reflect on how this verse applies to your current situation. Write down one way you can live out this truth today.",
-                prayerPrompt: "Lord, help me understand and apply Your Word to my life. Open my heart to receive what You want to teach me through this verse.",
-                relatedVerses: []
-            )
-        }
-        
-        let response = try await callGenkitFlow(
-            flowName: "generateVerseReflection",
-            input: [
-                "verse": verse,
-                "reference": reference,
-                "userContext": userContext ?? ""
-            ]
-        )
-        
-        guard let reflection = response["reflection"] as? String,
-              let keyInsight = response["keyInsight"] as? String,
-              let application = response["application"] as? String,
-              let prayerPrompt = response["prayerPrompt"] as? String else {
-            throw VerseError.invalidResponse
-        }
-        
+        let callable = functions.httpsCallable("generateVerseReflection")
+        let result = try await callable.call(["reference": reference, "verseText": verse])
+        let data = result.data as? [String: Any] ?? [:]
+        let reflData = data["reflection"] as? [String: Any] ?? [:]
+
+        let reflectionText = reflData["reflection"] as? String
+            ?? "This verse reminds us of God's faithfulness. Take time to meditate on these words."
+        let journalPrompt = reflData["journalPrompt"] as? String
+            ?? "How does this verse speak to what you're experiencing right now?"
+        let prayerStarter = reflData["prayerStarter"] as? String
+            ?? "Lord, help me understand and apply Your Word to my life..."
+
         return VerseReflection(
             verse: verse,
             reference: reference,
-            reflection: reflection,
-            keyInsight: keyInsight,
-            practicalApplication: application,
-            prayerPrompt: prayerPrompt,
-            relatedVerses: response["relatedVerses"] as? [String] ?? []
+            reflection: reflectionText,
+            keyInsight: journalPrompt,
+            practicalApplication: "Reflect on how this verse applies to your current situation. Write down one way you can live out this truth today.",
+            prayerPrompt: prayerStarter,
+            relatedVerses: []
         )
     }
     
     // MARK: - Helper Methods
-    
-    private func callGenkitFlow(
-        flowName: String,
-        input: [String: Any]
-    ) async throws -> [String: Any] {
-        
-        // If no endpoint configured, immediately return fallback
-        guard !genkitEndpoint.isEmpty else {
-            print("⚠️ No Genkit endpoint - using fallback")
-            throw VerseError.invalidEndpoint
-        }
-        
-        guard let url = URL(string: "\(genkitEndpoint)/\(flowName)") else {
-            throw VerseError.invalidEndpoint
-        }
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.timeoutInterval = 30
-        
-        request.httpBody = try JSONSerialization.data(withJSONObject: ["data": input])
-        
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw VerseError.requestFailed
-        }
-        
-        guard (200...299).contains(httpResponse.statusCode) else {
-            print("❌ Genkit request failed with status: \(httpResponse.statusCode)")
-            // Return fallback verse
-            return createFallbackVerse()
-        }
-        
-        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            throw VerseError.invalidResponse
-        }
-        
-        if let result = json["result"] as? [String: Any] {
-            return result
-        }
-        
-        return json
-    }
     
     private func fetchUserContext() async throws -> UserVerseContext {
         guard let userId = Auth.auth().currentUser?.uid else {
@@ -604,20 +529,11 @@ enum VerseTheme: String, CaseIterable {
 }
 
 enum VerseError: LocalizedError {
-    case invalidEndpoint
-    case requestFailed
-    case invalidResponse
     case noUser
     case noUserData
     
     var errorDescription: String? {
         switch self {
-        case .invalidEndpoint:
-            return "Invalid Genkit endpoint"
-        case .requestFailed:
-            return "Request to Genkit failed"
-        case .invalidResponse:
-            return "Invalid response from Genkit"
         case .noUser:
             return "No authenticated user"
         case .noUserData:

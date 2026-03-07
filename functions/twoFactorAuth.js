@@ -7,6 +7,7 @@ const admin = require("firebase-admin");
 const {onCall, HttpsError} = require("firebase-functions/v2/https");
 const {onDocumentCreated} = require("firebase-functions/v2/firestore");
 const {logger} = require("firebase-functions");
+const crypto = require("crypto");
 
 // OTP Configuration
 const OTP_LENGTH = 6;
@@ -16,16 +17,17 @@ const RATE_LIMIT_WINDOW_MINUTES = 15;
 const MAX_OTP_REQUESTS_PER_WINDOW = 3;
 
 /**
- * Generate a secure random OTP code
- * @param {number} length - Length of the OTP
- * @return {string} Generated OTP code
+ * Generate a cryptographically secure random OTP code.
+ * Uses crypto.randomInt (Node.js built-in) which draws from the OS CSPRNG,
+ * unlike Math.random() which is NOT cryptographically secure.
+ * @param {number} length - Length of the OTP (default 6 digits)
+ * @return {string} Generated OTP code, zero-padded to `length` digits
  */
 function generateOTP(length = OTP_LENGTH) {
-  let otp = "";
-  for (let i = 0; i < length; i++) {
-    otp += Math.floor(Math.random() * 10).toString();
-  }
-  return otp;
+  // 10^length gives the exclusive upper bound (e.g. 1000000 for a 6-digit code).
+  // crypto.randomInt(min, max) returns a value in [min, max).
+  const max = Math.pow(10, length);
+  return crypto.randomInt(0, max).toString().padStart(length, "0");
 }
 
 /**
@@ -57,7 +59,7 @@ async function checkRateLimit(userId, db) {
  */
 exports.request2FAOTP = onCall({
   region: "us-central1",
-  enforceAppCheck: false, // Set to true in production
+  enforceAppCheck: true, // Set to true in production
 }, async (request) => {
   try {
     const {auth, data} = request;
@@ -171,7 +173,7 @@ exports.request2FAOTP = onCall({
  */
 exports.verify2FAOTP = onCall({
   region: "us-central1",
-  enforceAppCheck: false, // Set to true in production
+  enforceAppCheck: true, // Set to true in production
 }, async (request) => {
   try {
     const {auth, data} = request;
@@ -258,13 +260,27 @@ exports.verify2FAOTP = onCall({
         Date.now() + (30 * 60 * 1000), // 30 minutes
     );
 
-    await db.collection("twoFactorSessions").add({
-      userId: userId,
-      sessionToken: sessionToken,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      expiresAt: sessionExpiresAt,
-      active: true,
-    });
+    // Write userSecurity document — this is what Firestore rules read via
+    // caller2FASessionValid(). Must be written by admin SDK (client cannot forge it).
+    // session2FAActive=true allows the client to post, send messages, etc.
+    // session2FAExpiresAt is used by the expire2FASession scheduled function.
+    await db.collection("userSecurity").doc(userId).set({
+      session2FAActive: true,
+      session2FAExpiresAt: sessionExpiresAt,
+      session2FAToken: sessionToken, // stored for reference; rules don't read it
+      lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, {merge: true});
+
+    // Also write the legacy twoFactorSessions collection for backward compatibility
+    // with any existing client code that reads it.
+    await db.collection("twoFactorSessions").doc(userId)
+        .collection("sessions").add({
+          userId: userId,
+          sessionToken: sessionToken,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          expiresAt: sessionExpiresAt,
+          active: true,
+        });
 
     logger.info(`2FA verification successful for user ${userId}`);
 
@@ -431,19 +447,57 @@ exports.cleanupExpiredOTPs = onDocumentCreated(
     },
 );
 
+/**
+ * Expire 2FA sessions whose session2FAExpiresAt has passed.
+ * Runs on every new twoFactorOTP document (piggybacks on OTP creation traffic)
+ * to keep userSecurity state accurate without requiring a paid scheduler.
+ *
+ * Sets session2FAActive=false on any userSecurity document whose
+ * session2FAExpiresAt is in the past. The Firestore rule caller2FASessionValid()
+ * reads session2FAActive, so clearing it immediately revokes write access.
+ */
+exports.expire2FASessions = onDocumentCreated(
+    {
+      document: "twoFactorOTP/{otpId}",
+      region: "us-central1",
+    },
+    async (_event) => {
+      try {
+        const db = admin.firestore();
+        const now = admin.firestore.Timestamp.now();
+
+        // Find userSecurity docs with active but expired sessions
+        const expired = await db.collection("userSecurity")
+            .where("session2FAActive", "==", true)
+            .where("session2FAExpiresAt", "<", now)
+            .get();
+
+        if (expired.empty) return null;
+
+        const batch = db.batch();
+        expired.docs.forEach((doc) => {
+          batch.update(doc.ref, {session2FAActive: false});
+        });
+        await batch.commit();
+
+        logger.info(`Expired ${expired.size} 2FA sessions`);
+        return null;
+      } catch (error) {
+        logger.error("Error expiring 2FA sessions:", error);
+        return null;
+      }
+    },
+);
+
 // Helper functions
 
 /**
- * Generate a secure session token
- * @return {string} Session token
+ * Generate a cryptographically secure session token using crypto.randomBytes.
+ * Produces 32 bytes of CSPRNG output encoded as a 64-character hex string.
+ * @return {string} 64-char hex session token
  */
 function generateSessionToken() {
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  let token = "";
-  for (let i = 0; i < 32; i++) {
-    token += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return token;
+  return crypto.randomBytes(32).toString("hex");
 }
 
 /**

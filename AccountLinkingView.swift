@@ -18,6 +18,7 @@ struct AccountLinkingView: View {
     @State private var showUnlinkConfirmation = false
     @State private var providerToUnlink: String?
     @State private var appleNonce: String?
+    @State private var appleLinkingCoordinator: AppleLinkingCoordinator?
     @State private var showPhoneLinking = false
     @State private var phoneNumber = ""
     @State private var showPhoneVerification = false
@@ -337,14 +338,17 @@ struct AccountLinkingView: View {
         request.requestedScopes = [.fullName, .email]
         request.nonce = sha256(nonce)
         
-        let authorizationController = ASAuthorizationController(authorizationRequests: [request])
-        authorizationController.delegate = AppleLinkingCoordinator(
+        let coordinator = AppleLinkingCoordinator(
             nonce: nonce,
             viewModel: viewModel,
             onSuccess: {
                 refreshLinkedProviders()
             }
         )
+        // Store coordinator in @State so it isn't immediately deallocated (delegate is weak)
+        appleLinkingCoordinator = coordinator
+        let authorizationController = ASAuthorizationController(authorizationRequests: [request])
+        authorizationController.delegate = coordinator
         authorizationController.performRequests()
     }
     
@@ -353,7 +357,9 @@ struct AccountLinkingView: View {
         var randomBytes = [UInt8](repeating: 0, count: length)
         let errorCode = SecRandomCopyBytes(kSecRandomDefault, randomBytes.count, &randomBytes)
         if errorCode != errSecSuccess {
-            fatalError("Unable to generate nonce. SecRandomCopyBytes failed with OSStatus \(errorCode)")
+            // Fallback: use UUID-based entropy if SecRandomCopyBytes fails (should never happen on-device)
+            print("⚠️ SecRandomCopyBytes failed (\(errorCode)), using UUID fallback for nonce")
+            return UUID().uuidString.replacingOccurrences(of: "-", with: "") + UUID().uuidString.replacingOccurrences(of: "-", with: "")
         }
         
         let charset: [Character] = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._")

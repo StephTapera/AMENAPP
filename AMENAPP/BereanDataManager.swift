@@ -83,7 +83,8 @@ class BereanDataManager: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String?
     
-    private let database = Database.database()
+    // Lazy to avoid accessing Database.database() before AppDelegate sets isPersistenceEnabled.
+    private lazy var database: Database = Database.database()
     private var ref: DatabaseReference {
         database.reference()
     }
@@ -155,7 +156,11 @@ class BereanDataManager: ObservableObject {
             savedMessages = try JSONDecoder().decode([SavedBereanMessage].self, from: data)
             print("📖 Loaded \(savedMessages.count) saved messages")
         } catch {
-            print("❌ Failed to load saved messages: \(error)")
+            // The stored data is corrupt or the model schema changed.
+            // Remove the corrupt key so subsequent launches don't keep failing,
+            // and leave savedMessages as its current value (empty default).
+            print("❌ Failed to load saved messages — clearing corrupt cache: \(error)")
+            UserDefaults.standard.removeObject(forKey: "berean_saved_messages")
         }
     }
     

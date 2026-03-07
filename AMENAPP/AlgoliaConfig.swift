@@ -19,11 +19,11 @@ enum AlgoliaConfig {
     /// ✅ Safe to use in iOS app (read-only)
     static let searchAPIKey = "8727f5af5779e9795b12b565bba20dc3"
     
-    /// Your Write API Key (for syncing data to Algolia)
-    /// Found in: Algolia Dashboard → Settings → API Keys → Write API Key or Admin API Key
-    /// ⚠️ KEEP THIS SECURE - Should only be used server-side in production
-    /// For development/testing, it's okay to use in the app temporarily
-    static let writeAPIKey = "5343b0c07447ab2490b5a2283e1557e8"  // TODO: Replace with your Write/Admin API Key
+    /// Write API Key: NEVER include in the client binary.
+    /// Algolia sync must go through a Cloud Function (server-side).
+    /// This property is intentionally empty — the key lives in Firebase Remote Config / Cloud Functions only.
+    /// See: https://www.algolia.com/doc/guides/security/api-keys/#secured-api-keys
+    static let writeAPIKey = ""  // ⛔️ Removed from client. Use server-side Cloud Function for writes.
 }
 
 // MARK: - Usage Instructions
@@ -53,5 +53,6 @@ enum AlgoliaConfig {
  - Used via Firebase Extension for Algolia
  - Never exposed to client apps
  
- For now (development), it's okay to use it directly in the app.
+ ⛔️ The writeAPIKey has been removed from the client. All Algolia index writes
+ must go through a Firebase Cloud Function or the Firebase Extension for Algolia.
  */

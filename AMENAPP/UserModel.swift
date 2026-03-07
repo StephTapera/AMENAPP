@@ -72,6 +72,9 @@ struct UserModel: Codable, Identifiable {
     var goals: [String]?
     var preferredPrayerTime: String?
     var hasCompletedOnboarding: Bool
+
+    // Banner customization
+    var bannerColorId: String?  // One of: "red", "midnight", "forest", "ocean", "plum"
     
     enum CodingKeys: String, CodingKey {
         case id
@@ -118,6 +121,7 @@ struct UserModel: Codable, Identifiable {
         case goals
         case preferredPrayerTime
         case hasCompletedOnboarding
+        case bannerColorId
     }
     
     // ✅ Custom decoder for backward compatibility
@@ -183,6 +187,7 @@ struct UserModel: Codable, Identifiable {
         goals = try container.decodeIfPresent([String].self, forKey: .goals)
         preferredPrayerTime = try container.decodeIfPresent(String.self, forKey: .preferredPrayerTime)
         hasCompletedOnboarding = try container.decodeIfPresent(Bool.self, forKey: .hasCompletedOnboarding) ?? false
+        bannerColorId = try container.decodeIfPresent(String.self, forKey: .bannerColorId)
     }
     
     init(
@@ -229,7 +234,8 @@ struct UserModel: Codable, Identifiable {
         interests: [String]? = nil,
         goals: [String]? = nil,
         preferredPrayerTime: String? = nil,
-        hasCompletedOnboarding: Bool = false
+        hasCompletedOnboarding: Bool = false,
+        bannerColorId: String? = nil
     ) {
         self.id = id
         self.email = email
@@ -275,6 +281,7 @@ struct UserModel: Codable, Identifiable {
         self.goals = goals
         self.preferredPrayerTime = preferredPrayerTime
         self.hasCompletedOnboarding = hasCompletedOnboarding
+        self.bannerColorId = bannerColorId
     }
 }
 
@@ -398,6 +405,17 @@ class UserService: ObservableObject {
         return snapshot.documents.isEmpty
     }
     
+    /// Update the user's banner color (stored as a color ID string)
+    func updateBannerColor(_ colorId: String) async throws {
+        guard let userId = firebaseManager.currentUser?.uid else {
+            throw FirebaseError.unauthorized
+        }
+        let updates: [String: Any] = ["bannerColorId": colorId, "updatedAt": Date()]
+        let path = "\(FirebaseManager.CollectionPath.users)/\(userId)"
+        try await firebaseManager.updateDocument(updates, at: path)
+        await fetchCurrentUser()
+    }
+
     /// Update user profile
     func updateProfile(displayName: String? = nil, bio: String? = nil, profileImageURL: String? = nil) async throws {
         guard let userId = firebaseManager.currentUser?.uid else {

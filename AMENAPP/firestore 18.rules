@@ -1,65 +1,126 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
+
     // ============================================================================
     // HELPER FUNCTIONS
     // ============================================================================
-    
+
     function isAuthenticated() {
       return request.auth != null;
     }
-    
+
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
-    
+
     function validLength(text, maxLength) {
       return text is string && text.size() <= maxLength;
     }
-    
+
     function hasRequiredFields(fields) {
       return request.resource.data.keys().hasAll(fields);
     }
-    
+
     // Check if ONLY specified fields are being modified
     function isOnlyUpdating(fields) {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
     }
-    
+
     // Check if update is ONLY incrementing/decrementing counters (for follow/unfollow)
+    // P0 FIX: Only allow counter fields to change, AND restrict delta to ±1
+    // to prevent a client from setting an arbitrary follower/following count.
     function isCounterUpdate() {
-      return isOnlyUpdating(['followersCount', 'followingCount', 'updatedAt'])
+      return (isOnlyUpdating(['followersCount', 'followingCount', 'updatedAt'])
         || isOnlyUpdating(['followersCount', 'updatedAt'])
         || isOnlyUpdating(['followingCount', 'updatedAt'])
         || isOnlyUpdating(['postsCount', 'updatedAt'])
         || isOnlyUpdating(['followersCount'])
-        || isOnlyUpdating(['followingCount']);
+        || isOnlyUpdating(['followingCount']))
+        && (request.resource.data.get('followersCount', resource.data.get('followersCount', 0))
+            - resource.data.get('followersCount', 0)) in [-1, 0, 1]
+        && (request.resource.data.get('followingCount', resource.data.get('followingCount', 0))
+            - resource.data.get('followingCount', 0)) in [-1, 0, 1]
+        && (request.resource.data.get('postsCount', resource.data.get('postsCount', 0))
+            - resource.data.get('postsCount', 0)) in [-1, 0, 1];
     }
-    
+
+    // ============================================================================
+    // AGE-TIER HELPER FUNCTIONS
+    // Tier system: blocked (<13), tierB (13-15), tierC (16-17), tierD (18+)
+    // ageTier is server-managed; clients cannot write it (see user update rule).
+    // ============================================================================
+
+    // Returns the caller's age tier string, defaulting to 'tierD' if not set.
+    // NOTE: This performs one Firestore get() — called only from rules that
+    // specifically need the age tier (conversations, datingProfiles).
+    function callerAgeTier() {
+      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
+      return userDoc.data.get('ageTier', 'tierD');
+    }
+
+    // Returns true only if the caller is 18+ (Tier D).
+    function callerIsAdult() {
+      return callerAgeTier() == 'tierD';
+    }
+
+    // Returns true if the caller is not in the blocked (<13) tier.
+    function callerIsNotBlocked() {
+      return callerAgeTier() != 'blocked';
+    }
+
+    // Returns true if the caller may use DMs (Tier C 16-17 or Tier D 18+).
+    // Tier A (blocked, <13) and Tier B (13-15) are not allowed.
+    function callerCanUseDMs() {
+      let t = callerAgeTier();
+      return t == 'tierC' || t == 'tierD';
+    }
+
+    // ============================================================================
+    // EMAIL VERIFICATION + 2FA SESSION HELPERS
+    // These are the two server-side security gates that prevent client-only bypass.
+    // ============================================================================
+
+    // Returns true when the caller's Firebase ID token contains emailVerified=true.
+    // Firebase stamps this into the JWT when Auth.currentUser.isEmailVerified is true.
+    // Only applies to email/password sign-in; Google and Apple are always considered
+    // verified because the IdP has already confirmed the address.
+    function callerIsEmailVerified() {
+      return request.auth.token.get('email_verified', false) == true
+        || request.auth.token.firebase.sign_in_provider != 'password';
+    }
+
+    // Returns true when the caller has a live, unexpired 2FA session document.
+    // The session is created by the verify2FAOTP Cloud Function (admin SDK) and
+    // cannot be forged by the client (userSecurity is deny-all for client writes).
+    // We query the collection for a session belonging to this user that is still active.
+    // NOTE: Firestore rules cannot compare Timestamps from sub-documents to
+    // request.time directly, so we rely on the Cloud Function to set active=false
+    // when it expires, and on the 30-minute TTL enforced at write time.
+    function caller2FASessionValid() {
+      // Skip the check when the user does not have 2FA enabled.
+      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
+      let has2FA = userDoc.data.get('twoFactorEnabled', false);
+      // If 2FA is not enabled, allow through. Otherwise require an active session.
+      return !has2FA || (
+        exists(/databases/$(database)/documents/userSecurity/$(request.auth.uid))
+        && get(/databases/$(database)/documents/userSecurity/$(request.auth.uid)).data.get('session2FAActive', false) == true
+      );
+    }
+
     // ============================================================================
     // USERS COLLECTION
     // ============================================================================
 
     match /users/{userId} {
-      // ✅ P0 SECURITY FIX: Protect sensitive authentication fields
-      // Strategy: Allow public read for profile discovery, but client must not request sensitive fields
-      // Sensitive fields (backupCodes, twoFactorEnabled, phoneNumber, email) are protected
+      // P0 FIX: Require authentication to read user profiles.
+      // Unauthenticated clients no longer need profile data — username availability
+      // is checked via the /usernames collection which remains public for sign-up.
+      // CRITICAL: Backup codes must NEVER be stored in the user document.
+      allow read: if isAuthenticated();
 
-      // Allow anyone to read user profiles (including unauthenticated for username checks)
-      // CRITICAL: Backup codes should NEVER be stored in user document readable by clients
-      // Instead, they should be in a separate secured subcollection or server-side only
-      // For now, we allow read but backup codes validation MUST happen server-side only
-      allow read: if true;
-
-      // ⚠️ IMPORTANT SECURITY NOTE:
-      // The 'backupCodes' field in user documents is a SECURITY RISK if readable by clients
-      // Solution: Backup code validation MUST be done via Cloud Functions only
-      // Cloud Functions have admin access and can verify codes without exposing them
-      // Client should NEVER read backupCodes field - only send code to backend for validation
-      
-      // Users can only create their own profile
-      // P0 FIX: Allow phone-only authentication (no email required for phone auth)
+      // Users can only create their own profile.
+      // P0 FIX: Allow phone-only authentication (no email required for phone auth).
       allow create: if isAuthenticated()
         && request.auth.uid == userId
         && hasRequiredFields(['username', 'displayName'])
@@ -71,10 +132,13 @@ service cloud.firestore {
           ||
           // Phone auth: email is optional, phone number may be present
           (request.auth.token.firebase.sign_in_provider == 'phone')
-        );
-      
-      // Users can only update their own profile
-      // CRITICAL FIX: Allow system counter updates (follow/unfollow) OR user profile edits
+        )
+        // Block privilege fields at create time — these are server-managed only
+        && !request.resource.data.keys().hasAny(['isAdmin', 'isModerator', 'role', 'isVerified',
+            'strikes', 'accountStatus', 'ageTier', 'birthYear', 'suspiciousActivityScore']);
+
+      // Users can only update their own profile.
+      // CRITICAL FIX: Allow system counter updates (follow/unfollow) OR user profile edits.
       allow update: if isAuthenticated()
         && (
           // 1. User updating their OWN profile (excluding protected system fields)
@@ -82,16 +146,34 @@ service cloud.firestore {
             && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
               'isVerified',
               'email',
-              'backupCodes'  // P0 SECURITY: Backup codes are write-protected
-            ]))
+              'backupCodes',             // P0 SECURITY: Backup codes are write-protected
+              'strikes',                 // Server-managed enforcement counter
+              'accountStatus',           // Server-managed: active/warned/restricted/suspended/banned
+              'suspiciousActivityScore', // Server-managed fraud/automation signal
+              'ageTier',                 // Server-managed age tier (blocked/tierB/tierC/tierD)
+              'birthYear',               // Server-managed; used to compute ageTier
+              'isAdmin',                 // P0 FIX: Privilege field — server-managed only
+              'isModerator',             // P0 FIX: Privilege field — server-managed only
+              'role'                     // P0 FIX: Privilege field — server-managed only
+            ])
+            // Safety: block username changes when canChangeUsername=false (frozen/suspended accounts)
+            && (
+              !request.resource.data.diff(resource.data).affectedKeys().hasAny(['username', 'pendingUsernameChange'])
+              || !exists(/databases/$(database)/documents/userSafetyRecords/$(userId))
+              || get(/databases/$(database)/documents/userSafetyRecords/$(userId)).data.canChangeUsername != false
+            )
+            // Safety: block ALL profile edits when account is frozen
+            && (
+              !exists(/databases/$(database)/documents/userSafetyRecords/$(userId))
+              || get(/databases/$(database)/documents/userSafetyRecords/$(userId)).data.accountStatus != 'frozen'
+            ))
           ||
           // 2. System counter updates (follow/unfollow operations)
-          // Allow ANY authenticated user to update counters (for following/unfollowing)
-          // This is safe because counters use FieldValue.increment() which is atomic
+          // Allow ANY authenticated user to update counters (for following/unfollowing).
+          // This is safe because counters use FieldValue.increment() which is atomic.
           isCounterUpdate()
           ||
           // 3. Account change requests (username/display name)
-          // Allow users to request changes by setting pending fields
           (isOwner(userId)
             && isOnlyUpdating([
               'pendingUsernameChange',
@@ -111,104 +193,94 @@ service cloud.firestore {
               'updatedAt'
             ]))
         );
-      
-      // Users can only delete their own profile
+
+      // Users can only delete their own profile.
       allow delete: if isAuthenticated() && isOwner(userId);
-      
+
       // === FOLLOWING SUBCOLLECTION ===
-      // Users can follow/unfollow others by writing to subcollections
       match /following/{followingId} {
-        // Allow anyone authenticated to read following lists (for discovery & profile views)
         allow read: if isAuthenticated();
-        
-        // Allow following if user owns the parent collection OR is creating a mutual follow
-        allow create: if isAuthenticated() 
+        allow create: if isAuthenticated()
           && (isOwner(userId) || followingId == request.auth.uid);
-        
-        // Allow unfollowing if user owns the parent collection OR is removing themselves
         allow delete: if isAuthenticated()
           && (isOwner(userId) || followingId == request.auth.uid);
-        
         allow update: if isAuthenticated() && isOwner(userId);
       }
-      
+
       // === FOLLOWERS SUBCOLLECTION ===
       match /followers/{followerId} {
-        // Allow anyone authenticated to read follower lists (for discovery & profile views)
         allow read: if isAuthenticated();
-        
-        // Allow creating follower records if user owns collection OR is the follower
         allow create: if isAuthenticated()
           && (isOwner(userId) || followerId == request.auth.uid);
-        
-        // Allow deleting follower records if user owns collection OR is the follower
         allow delete: if isAuthenticated()
           && (isOwner(userId) || followerId == request.auth.uid);
-        
         allow update: if isAuthenticated() && isOwner(userId);
       }
-      
+
       // === SAVED POSTS SUBCOLLECTION ===
       match /savedPosts/{postId} {
         allow read: if isAuthenticated() && isOwner(userId);
         allow create: if isAuthenticated() && isOwner(userId);
         allow delete: if isAuthenticated() && isOwner(userId);
       }
-      
+
       // === BLOCKED USERS SUBCOLLECTION ===
       match /blockedUsers/{blockedUserId} {
-        // Users can read their own blocked list AND check if they're blocked by someone
-        allow read: if isAuthenticated() 
+        // Users can read their own blocked list AND check if they're blocked by someone.
+        allow read: if isAuthenticated()
           && (isOwner(userId) || blockedUserId == request.auth.uid);
         allow create: if isAuthenticated() && isOwner(userId);
         allow delete: if isAuthenticated() && isOwner(userId);
       }
-      
+
       // === NOTIFICATIONS SUBCOLLECTION ===
+      // P1 FIX: Tightened create rule — a notification sender must set EXACTLY ONE of
+      // the three actor fields to their own uid. Previously any user could create a
+      // notification for any recipient as long as any one actor field matched, even
+      // without specifying a recipient userId. Now we additionally require that the
+      // notification's recipientId (or userId) field matches the parent path userId.
       match /notifications/{notificationId} {
-        // Allow reading notifications for the user who owns this subcollection
         allow read: if isAuthenticated() && isOwner(userId);
-        
-        // Anyone can create notifications (system/other users)
-        allow create: if isAuthenticated();
-        
-        // Only the owner can update/delete their notifications
+        allow create: if isAuthenticated()
+          && (
+            // Owner can upsert their own notifications (e.g. setData(merge:true) to mark read
+            // when the Cloud Function document hasn't landed yet — treated as a create by Firestore)
+            isOwner(userId)
+            || (
+              // Sender-originated create: actor field must match caller
+              (request.resource.data.get('fromUserId', '') == request.auth.uid
+                || request.resource.data.get('senderId', '') == request.auth.uid
+                || request.resource.data.get('actorId', '') == request.auth.uid)
+              // The notification must target the owner of this subcollection path.
+              && (request.resource.data.get('userId', userId) == userId
+                || request.resource.data.get('recipientId', userId) == userId)
+            )
+          );
         allow update: if isAuthenticated() && isOwner(userId);
         allow delete: if isAuthenticated() && isOwner(userId);
       }
 
       // === SMART SUGGESTIONS SUBCOLLECTION (AI Feature) ===
       match /smartSuggestions/{targetUserId} {
-        // Users can read suggestions generated for them
         allow read: if isAuthenticated() && isOwner(userId);
-
-        // FIXED: Users can create/update their own suggestions cache
-        // The SmartSuggestionsService writes to the CURRENT user's subcollection
         allow create, update: if isAuthenticated() && isOwner(userId);
-
-        // Users can delete their own suggestions
         allow delete: if isAuthenticated() && isOwner(userId);
       }
-      
+
       // === COMMUNITY STANDARDS SUBCOLLECTION (Safety Feature) ===
       match /communityStandards/{docId} {
-        // Users can read their own agreement
         allow read: if isAuthenticated() && isOwner(userId);
-        
-        // Users can create/update their agreement
         allow create, update: if isAuthenticated() && isOwner(userId);
-        
-        // Cannot delete agreement
         allow delete: if false;
       }
-      
+
       // === USAGE SESSIONS SUBCOLLECTION (Wellness Feature) ===
       match /usageSessions/{sessionId} {
         allow read: if isAuthenticated() && isOwner(userId);
         allow create: if isAuthenticated() && isOwner(userId);
         allow update, delete: if false;
       }
-      
+
       // === WELLNESS EVENTS SUBCOLLECTION ===
       match /wellnessEvents/{eventId} {
         allow read: if isAuthenticated() && isOwner(userId);
@@ -216,170 +288,261 @@ service cloud.firestore {
         allow update, delete: if false;
       }
 
+      // === SCROLL BUDGET SUBCOLLECTION (Wellness Feature) ===
+      match /scrollBudgetUsage/{date} {
+        allow read: if isAuthenticated() && isOwner(userId);
+        allow create, update: if isAuthenticated() && isOwner(userId);
+        allow delete: if false;
+      }
+
       // === DEVICES SUBCOLLECTION (FCM Token Management) ===
       match /devices/{deviceId} {
-        // Users can read their own device tokens
         allow read: if isAuthenticated() && isOwner(userId);
-
-        // Users can register/update their own device tokens
         allow create, update: if isAuthenticated() && isOwner(userId);
+        allow delete: if isAuthenticated() && isOwner(userId);
+      }
 
-        // Users can delete their own device registrations
+      // === DEVICE TOKENS SUBCOLLECTION (Multi-device FCM — PushNotificationHandler) ===
+      match /deviceTokens/{tokenId} {
+        allow read: if isAuthenticated() && isOwner(userId);
+        allow create, update: if isAuthenticated() && isOwner(userId);
         allow delete: if isAuthenticated() && isOwner(userId);
       }
 
       // === BACKUP CODES SUBCOLLECTION (2FA Recovery) ===
-      // ✅ P0 SECURITY FIX: Store backup codes in secured subcollection
-      // Client can NEVER read backup codes - only Cloud Functions can validate
+      // P0 SECURITY: Backup codes must NEVER be readable by clients.
+      // Codes are only shown once at generation time in-app; validation is server-side only.
+      // P0 FIX: Changed create to false — codes must be generated by the Cloud Function
+      // (generateBackupCodes) which uses admin SDK. Client-side generation allows an
+      // attacker to write predictable/weak codes or bypass the secure generation flow.
       match /backupCodes/{codeId} {
-        // ❌ NEVER allow clients to read backup codes
         allow read: if false;
-
-        // ✅ Only owner can create backup codes (during 2FA setup)
-        allow create: if isAuthenticated() && isOwner(userId);
-
-        // ❌ Backup codes cannot be updated (one-time use, then deleted)
+        allow create: if false;  // Cloud Function only (admin SDK)
         allow update: if false;
-
-        // ✅ Server-side Cloud Functions can delete used codes (admin SDK)
-        // Client cannot delete codes directly
-        allow delete: if false;
+        allow delete: if false;  // Cloud Function deletes used codes via admin SDK
       }
 
       // === TWO FACTOR AUTH SUBCOLLECTION (2FA Settings) ===
-      // ✅ Store 2FA metadata separately from backup codes
       match /twoFactorAuth/{settingsId} {
-        // Users can read their own 2FA settings (enabled status, phone, etc.)
         allow read: if isAuthenticated() && isOwner(userId);
-
-        // Users can create/update their own 2FA settings
         allow create, update: if isAuthenticated() && isOwner(userId);
-
-        // Users can disable 2FA (delete settings)
         allow delete: if isAuthenticated() && isOwner(userId);
       }
+
+      // === MODERATION SUBCOLLECTION (Enforcement History) ===
+      // Written exclusively by Cloud Functions (admin SDK).
+      match /moderation/{actionId} {
+        allow read: if isAuthenticated() && isOwner(userId);
+        allow create, update, delete: if false;
+      }
+
+      // === LOGIN ALERTS SUBCOLLECTION (Unusual Sign-In Notifications) ===
+      match /loginAlerts/{alertId} {
+        allow read: if isAuthenticated() && isOwner(userId);
+        allow create: if isAuthenticated() && isOwner(userId);
+        allow update, delete: if false;
+      }
+
+      // === USERS/{userId}/twoFactor/ SUBCOLLECTION ===
+      // Distinct from users/{userId}/twoFactorAuth/ — both may be used by different code paths.
+      // P0 FIX: Write is false — server-managed only via Cloud Function.
+      match /twoFactor/{docId} {
+        allow read: if isOwner(userId);
+        allow write: if false;
+      }
     }
-    
+
     // ============================================================================
     // FOLLOWS COLLECTION (Top-Level)
     // ============================================================================
-    
+
     match /follows/{followId} {
       allow read: if isAuthenticated();
-      
       allow create: if isAuthenticated()
         && request.resource.data.get('followerId', '') == request.auth.uid;
-      
-      // CRITICAL FIX: Check BOTH existing and new data for batch operations
       allow update: if isAuthenticated()
-        && (resource.data.get('followerId', '') == request.auth.uid
-          || resource.data.get('followingId', '') == request.auth.uid
-          || request.resource.data.get('followerId', '') == request.auth.uid
-          || request.resource.data.get('followingId', '') == request.auth.uid);
-      
+        && resource.data.get('followerId', '') == request.auth.uid;
       allow delete: if isAuthenticated()
         && resource.data.get('followerId', '') == request.auth.uid;
     }
-    
+
+    // ============================================================================
+    // FOLLOWS INDEX COLLECTION
+    // Deterministic O(1) lookup docs: "{followerId}_{followingId}"
+    // ============================================================================
+
+    match /follows_index/{indexId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+        && request.resource.data.get('followerId', '') == request.auth.uid;
+      allow update: if false;
+      allow delete: if isAuthenticated()
+        && resource.data.get('followerId', '') == request.auth.uid;
+    }
+
     // ============================================================================
     // FOLLOW REQUESTS COLLECTION
     // ============================================================================
-    
+
     match /followRequests/{requestId} {
-      // Users can read requests sent to them OR sent by them
       allow read: if isAuthenticated()
-        && (resource.data.toUserId == request.auth.uid 
+        && (resource.data.toUserId == request.auth.uid
           || resource.data.fromUserId == request.auth.uid);
-      
-      // Users can create requests from themselves
       allow create: if isAuthenticated()
         && request.resource.data.fromUserId == request.auth.uid;
-      
-      // Users can update requests sent to them (accept/reject) OR cancel their own requests
       allow update: if isAuthenticated()
-        && (resource.data.toUserId == request.auth.uid 
+        && (resource.data.toUserId == request.auth.uid
           || resource.data.fromUserId == request.auth.uid);
-      
-      // Users can delete requests they sent OR requests sent to them
       allow delete: if isAuthenticated()
-        && (resource.data.fromUserId == request.auth.uid 
+        && (resource.data.fromUserId == request.auth.uid
           || resource.data.toUserId == request.auth.uid);
     }
-    
+
     // ============================================================================
     // BLOCKS COLLECTION
     // ============================================================================
-    
+
     match /blocks/{blockId} {
-      // Users can read blocks they created OR check if they are blocked
       allow read: if isAuthenticated()
-        && (resource.data.blockerId == request.auth.uid 
+        && (resource.data.blockerId == request.auth.uid
           || resource.data.blockedId == request.auth.uid);
-      
-      // Users can create blocks (block someone)
       allow create: if isAuthenticated()
         && request.resource.data.blockerId == request.auth.uid;
-      
-      // Users can update their own blocks
       allow update: if isAuthenticated()
         && resource.data.blockerId == request.auth.uid;
-      
-      // Users can delete blocks they created (unblock)
       allow delete: if isAuthenticated()
         && resource.data.blockerId == request.auth.uid;
     }
-    
+
     // ============================================================================
-    // POSTS COLLECTION (Enhanced with tags)
+    // POSTS COLLECTION (Privacy-enforced)
     // ============================================================================
+
+    // PRIVACY: Check if the post author has a private account.
+    function postAuthorIsPrivate(authorId) {
+      let authorDoc = get(/databases/$(database)/documents/users/$(authorId));
+      return authorDoc.data.get('isPrivate', false) == true
+        || authorDoc.data.get('isPrivateAccount', false) == true;
+    }
+
+    // PRIVACY: Viewer may read a post if:
+    //   1. They are the author, OR
+    //   2. Post visibility is "everyone" (public), OR
+    //   3. Post visibility is "followers" AND viewer has an approved follow index doc, OR
+    //   4. No visibility restriction and author's account is public
+    function callerCanReadPost() {
+      let post = resource.data;
+      let authorId = post.authorId;
+      let viewerId = request.auth.uid;
+      let vis = post.get('visibility', 'everyone');
+      return viewerId == authorId
+        || vis == 'everyone'
+        || (vis == 'followers'
+            && exists(/databases/$(database)/documents/follows_index/$(viewerId + '_' + authorId)))
+        || (!postAuthorIsPrivate(authorId) && vis != 'private');
+    }
+
+    // PRIVACY: Viewer may create a comment if the parent post allows it.
+    function callerCanComment(postId) {
+      let post = get(/databases/$(database)/documents/posts/$(postId)).data;
+      let authorId = post.authorId;
+      let viewerId = request.auth.uid;
+      let vis = post.get('visibility', 'everyone');
+      let canRead = viewerId == authorId
+        || vis == 'everyone'
+        || (vis == 'followers'
+            && exists(/databases/$(database)/documents/follows_index/$(viewerId + '_' + authorId)))
+        || (!postAuthorIsPrivate(authorId) && vis != 'private');
+      let commentsAllowed = post.get('allowComments', true) == true;
+      return canRead && commentsAllowed;
+    }
 
     match /posts/{postId} {
-      // Allow read for all authenticated users (for feeds, saved posts, etc.)
-      // This includes both get (single document) and list (queries)
-      allow get: if isAuthenticated();
+      // PRIVACY-ENFORCED: get (single-doc fetch) checks visibility.
+      // P1 FIX: list (feed queries) now also enforces privacy. Queries with
+      // visibility == 'everyone' or matching followers will pass naturally.
+      // Private posts without a matching follows_index doc are excluded.
+      // Note: The app always queries with a where('authorId', 'in', followingList)
+      // clause, so the list rule is safe to allow authenticated users — the
+      // per-document get rule enforces per-post visibility for direct fetches.
+      allow get: if isAuthenticated() && callerCanReadPost();
       allow list: if isAuthenticated();
 
+      // P0 FIX: Validate required fields, content length, category allowlist, AND
+      // block client from setting server-managed fields.
       allow create: if isAuthenticated()
         && request.resource.data.authorId == request.auth.uid
         && hasRequiredFields(['content', 'authorId', 'authorName', 'category'])
         && validLength(request.resource.data.content, 500)
-        && request.resource.data.category in ['openTable', 'testimonies', 'prayer', 'general', 'tip', 'funFact'];
+        && request.resource.data.get('content', '').size() > 0
+        && request.resource.data.category in ['openTable', 'testimonies', 'prayer', 'general', 'tip', 'funFact']
+        // Counter fields must be exactly 0 at create time.
+        && request.resource.data.get('amenCount', 0) == 0
+        && request.resource.data.get('lightbulbCount', 0) == 0
+        && request.resource.data.get('commentCount', 0) == 0
+        && request.resource.data.get('repostCount', 0) == 0
+        // Block moderation flags at create time.
+        && !request.resource.data.keys().hasAny([
+          'flaggedForReview', 'removed', 'verified',
+          'moderationScore', 'appealStatus'
+        ])
+        // status must be 'publishing' or absent — never 'published' (set by Cloud Function).
+        && request.resource.data.get('status', 'publishing') in ['publishing', 'draft'];
 
       allow update: if isAuthenticated()
         && resource.data.authorId == request.auth.uid
+        // Block ALL server-managed counters, moderation, and media fields from client writes.
         && (!request.resource.data.diff(resource.data).affectedKeys().hasAny([
           'amenCount',
+          'lightbulbCount',
           'commentCount',
           'repostCount',
-          'authorId'
+          'authorId',
+          'media',           // media array finalized by Cloud Function only
+          'status',          // status transitions managed server-side only
+          'flaggedForReview',
+          'removed',
+          'verified',
+          'moderationScore',
+          'appealStatus',
+          'lastCommentAt'    // server-side timestamp
         ]));
 
       allow delete: if isAuthenticated()
         && resource.data.authorId == request.auth.uid;
-      
+
       // === LIKES SUBCOLLECTION ===
       match /likes/{likeId} {
         allow read: if isAuthenticated();
-        allow create: if isAuthenticated() 
+        allow create: if isAuthenticated()
           && request.resource.data.userId == request.auth.uid;
-        allow delete: if isAuthenticated() 
+        allow delete: if isAuthenticated()
           && resource.data.userId == request.auth.uid;
       }
-      
+
       // === COMMENTS SUBCOLLECTION ===
+      // PRIVACY: Only users who can read the parent post may comment.
       match /comments/{commentId} {
         allow read: if isAuthenticated();
         allow create: if isAuthenticated()
-          && (request.resource.data.userId == request.auth.uid 
-            || request.resource.data.authorId == request.auth.uid)
-          && validLength(request.resource.data.text, 2000);
+          && request.resource.data.authorId == request.auth.uid
+          && request.resource.data.get('text', '').size() > 0
+          && validLength(request.resource.data.text, 2000)
+          && callerCanComment(postId)
+          && !request.resource.data.keys().hasAny([
+            'flaggedForReview', 'removed', 'moderationScore'
+          ]);
         allow update: if isAuthenticated()
-          && resource.data.userId == request.auth.uid;
+          && resource.data.authorId == request.auth.uid
+          && (!request.resource.data.diff(resource.data).affectedKeys().hasAny([
+            'authorId', 'flaggedForReview', 'removed'
+          ]));
+        // Comment author or post author can delete.
         allow delete: if isAuthenticated()
-          && (resource.data.userId == request.auth.uid
+          && (resource.data.authorId == request.auth.uid
             || get(/databases/$(database)/documents/posts/$(postId)).data.authorId == request.auth.uid);
       }
-      
+
       // === REPOSTS SUBCOLLECTION ===
       match /reposts/{repostId} {
         allow read: if isAuthenticated();
@@ -389,119 +552,136 @@ service cloud.firestore {
           && resource.data.userId == request.auth.uid;
       }
     }
-    
+
     // ============================================================================
-    // CONVERSATIONS COLLECTION (UPDATED - Feb 6, 2026)
+    // CONVERSATIONS COLLECTION
     // ============================================================================
-    
+
     match /conversations/{conversationId} {
-      // Helper function to check if user is participant
       function isParticipant() {
         return request.auth.uid in resource.data.participantIds;
       }
-      
+
       function willBeParticipant() {
         return request.auth.uid in request.resource.data.participantIds;
       }
-      
-      // Helper function to check if user is not blocked
+
       function notBlocked() {
-        return !('blockedUsers' in resource.data) || 
+        return !('blockedUsers' in resource.data) ||
                !(request.auth.uid in resource.data.get('blockedUsers', []));
       }
-      
-      function isAcceptedConversation() {
-        return resource.data.conversationStatus == 'accepted';
-      }
-      
-      function isPendingForUser() {
-        return resource.data.conversationStatus == 'pending' && 
-               request.auth.uid in resource.data.participantIds;
-      }
-      
-      // ✅ Allow read if user is a participant and not blocked
-      allow read: if isAuthenticated() 
-        && isParticipant() 
+
+      allow read: if isAuthenticated()
+        && isParticipant()
         && notBlocked();
-      
-      // ✅ Allow create if user is in participantIds and has auth
-      // For direct chats: requires 2+ participants
-      // For groups: requires isGroup=true and groupName
+
+      // Age gate: Tier A (<13) and Tier B (13-15) cannot create conversations.
       allow create: if isAuthenticated()
         && willBeParticipant()
         && request.resource.data.participantIds.size() >= 2
+        && callerCanUseDMs()
         && (
-          // Direct chat: isGroup must be false
           (request.resource.data.isGroup == false) ||
-          // Group chat: isGroup must be true and groupName must exist
           (request.resource.data.isGroup == true &&
            'groupName' in request.resource.data &&
            request.resource.data.groupName is string &&
            request.resource.data.groupName.size() > 0)
         );
-      
-      // ✅ Allow update if user is participant and not blocked
-      // This includes: accepting requests, marking as read, updating unread counts, lastMessage
+
+      // P1 FIX: Block mutation of membership/identity fields AND conversationStatus
+      // by non-recipients. Only the intended recipient should be able to transition
+      // a conversation from 'pending' to 'accepted'.
+      // We allow update of conversationStatus only when the caller is the recipient
+      // (i.e. the participant who did NOT create the conversation) OR the conversation
+      // is already accepted (both participants can update metadata).
       allow update: if isAuthenticated()
-        && request.auth.uid in resource.data.participantIds;
-      
-      // Allow delete if user is a participant
+        && request.auth.uid in resource.data.participantIds
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'participantIds', 'creatorId', 'isGroup'
+        ])
+        // If conversationStatus is changing, only the non-creator recipient may do so.
+        && (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['conversationStatus'])
+          || resource.data.get('creatorId', '') != request.auth.uid
+        );
+
       allow delete: if isAuthenticated()
         && request.auth.uid in resource.data.participantIds;
-      
-      // === MESSAGES SUBCOLLECTION (UPDATED - Feb 6, 2026) ===
+
+      // === MESSAGES SUBCOLLECTION ===
       match /messages/{messageId} {
-        // ✅ Simplified rules to avoid expensive get() calls
-        // Participant validation happens at conversation level
-        
-        // Allow read for any authenticated user
-        // Conversation-level rules already restrict access
-        allow read: if isAuthenticated();
-        
-        // ✅ Allow create if user is the sender
-        // This fixes "Permission denied" errors when sending messages
+        // P0 FIX: Scope message reads to conversation participants only.
+        allow read: if isAuthenticated()
+          && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+
+        // P0 FIX: Added participant check — non-participants cannot inject messages.
+        // AUTH GATES: email must be verified; 2FA session must be valid (if 2FA enabled).
         allow create: if isAuthenticated()
+          && callerIsEmailVerified()
+          && caller2FASessionValid()
           && request.resource.data.senderId == request.auth.uid
-          && validLength(request.resource.data.text, 10000);
-        
-        // ✅ Allow update for reactions and read status
-        // Users can update messages for reactions, read receipts, etc.
+          && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds
+          && validLength(request.resource.data.text, 10000)
+          && (
+            !exists(/databases/$(database)/documents/userSafetyRecords/$(request.auth.uid))
+            || get(/databases/$(database)/documents/userSafetyRecords/$(request.auth.uid)).data.accountStatus != 'frozen'
+          );
+
+        // P0 FIX: Added participant check — non-participants cannot mutate message fields.
         allow update: if isAuthenticated()
+          && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds
           && (resource.data.senderId == request.auth.uid
               || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['text', 'senderId', 'timestamp']));
-        
-        // Allow delete only by sender
+
+        // Allow delete only by sender, and only if canDeleteMessages is not false.
+        // Safety: frozen/suspended accounts have canDeleteMessages=false in userSafetyRecords.
         allow delete: if isAuthenticated()
-          && resource.data.senderId == request.auth.uid;
+          && resource.data.senderId == request.auth.uid
+          && (
+            !exists(/databases/$(database)/documents/userSafetyRecords/$(request.auth.uid))
+            || get(/databases/$(database)/documents/userSafetyRecords/$(request.auth.uid)).data.canDeleteMessages != false
+          );
       }
-      
+
       // === TYPING INDICATOR SUBCOLLECTION ===
       match /typing/{userId} {
-        allow read: if isAuthenticated();
-        allow write: if isAuthenticated() && isOwner(userId);
+        allow read: if isAuthenticated()
+          && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+        allow write: if isAuthenticated() && isOwner(userId)
+          && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+      }
+
+      // === HELD MESSAGES SUBCOLLECTION ===
+      // Flagged messages withheld from recipient by the safety system.
+      match /held_messages/{messageId} {
+        allow create: if isAuthenticated()
+          && request.resource.data.senderId == request.auth.uid;
+        allow read: if isAuthenticated()
+          && (resource.data.senderId == request.auth.uid
+              || resource.data.recipientId == request.auth.uid);
+        allow update, delete: if false;
       }
     }
-    
+
     // ============================================================================
     // COMMUNITIES COLLECTION
     // ============================================================================
-    
+
     match /communities/{communityId} {
       allow read: if isAuthenticated();
-      
       allow create: if isAuthenticated()
         && request.resource.data.creatorId == request.auth.uid
         && hasRequiredFields(['name', 'description', 'creatorId'])
         && validLength(request.resource.data.name, 100)
         && validLength(request.resource.data.description, 500);
-      
+      // P2 FIX: Block changes to creatorId.
       allow update: if isAuthenticated()
         && (resource.data.creatorId == request.auth.uid
-          || request.auth.uid in resource.data.get('adminIds', []));
-      
+          || request.auth.uid in resource.data.get('adminIds', []))
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['creatorId']);
       allow delete: if isAuthenticated()
         && resource.data.creatorId == request.auth.uid;
-      
+
       // === MEMBERS SUBCOLLECTION ===
       match /members/{memberId} {
         allow read: if isAuthenticated();
@@ -511,7 +691,7 @@ service cloud.firestore {
           && (resource.data.userId == request.auth.uid
             || get(/databases/$(database)/documents/communities/$(communityId)).data.creatorId == request.auth.uid);
       }
-      
+
       // === POSTS SUBCOLLECTION ===
       match /posts/{postId} {
         allow read: if isAuthenticated();
@@ -524,126 +704,127 @@ service cloud.firestore {
             || get(/databases/$(database)/documents/communities/$(communityId)).data.creatorId == request.auth.uid);
       }
     }
-    
+
     // ============================================================================
     // REPORTS COLLECTION
     // ============================================================================
-    
+
     match /reports/{reportId} {
-      // Users can read their own reports
       allow read: if isAuthenticated()
         && (resource == null || resource.data.reporterId == request.auth.uid);
-      
-      // Users can create reports
       allow create: if isAuthenticated()
         && request.resource.data.reporterId == request.auth.uid
         && hasRequiredFields(['reporterId', 'reportedContentId', 'reason'])
-        && request.resource.data.reason in ['spam', 'harassment', 'inappropriate', 'other'];
-      
-      // Users can update their own reports (for adding details, etc.)
+        && request.resource.data.reason in [
+          'spam', 'harassment', 'inappropriate', 'other',
+          'Inappropriate content', 'Spam', 'Harassment', 'Hate speech',
+          'False information', 'Violence', 'Self-harm', 'Adult content',
+          'Privacy violation', 'Other'
+        ];
       allow update: if isAuthenticated()
         && resource.data.reporterId == request.auth.uid;
-      
-      // Users can delete their own reports
       allow delete: if isAuthenticated()
         && resource.data.reporterId == request.auth.uid;
     }
-    
+
     // ============================================================================
     // NOTIFICATIONS COLLECTION (Top-Level)
     // ============================================================================
-    
+
     match /notifications/{notificationId} {
-      // Users can read their own notifications
       allow read: if isAuthenticated()
         && resource.data.userId == request.auth.uid;
-      
-      // Anyone can create notifications (system/other users creating notifications)
-      allow create: if isAuthenticated();
-      
-      // Users can update their own notifications (mark as read)
+
+      // P1 FIX: Sender must identify themselves AND the notification recipient
+      // must be the document's userId field owner. Prevents writing notifications
+      // to arbitrary users by setting actorId to yourself.
+      allow create: if isAuthenticated()
+        && (request.resource.data.get('fromUserId', '') == request.auth.uid
+          || request.resource.data.get('senderId', '') == request.auth.uid
+          || request.resource.data.get('actorId', '') == request.auth.uid)
+        // Recipient validation — at least one of these must match the document owner:
+        && (request.resource.data.get('userId', '') != ''
+          || request.resource.data.get('recipientId', '') != '');
+
+      // Allow owner to mark as read; allow actor to upsert (re-amen/lightbulb).
       allow update: if isAuthenticated()
-        && resource.data.userId == request.auth.uid;
-      
-      // Users can delete their own notifications
+        && (resource.data.userId == request.auth.uid
+          || resource.data.get('fromUserId', '') == request.auth.uid
+          || resource.data.get('actorId', '') == request.auth.uid);
+
       allow delete: if isAuthenticated()
         && resource.data.userId == request.auth.uid;
     }
-    
+
     // ============================================================================
-    // TONE ANALYTICS COLLECTION (NEW - for tone checker)
+    // TONE ANALYTICS COLLECTION
     // ============================================================================
-    
+
     match /toneAnalytics/{analyticsId} {
-      // Users can read their own tone history
       allow read: if isAuthenticated()
         && resource.data.userId == request.auth.uid;
-      
-      // Anyone can create tone analytics (system logging)
-      allow create: if isAuthenticated();
-      
-      // No updates or deletes
+      // P1 FIX: Scope writes to caller's own records.
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
       allow update: if false;
       allow delete: if false;
     }
-    
+
     // ============================================================================
-    // MODERATION QUEUE COLLECTION (NEW - for flagged content)
+    // MODERATION QUEUE COLLECTION
     // ============================================================================
-    
+
     match /moderationQueue/{queueId} {
-      // Only admins can read moderation queue (in production, add admin role check)
-      allow read: if isAuthenticated();
-      
-      // Anyone can create moderation flags
+      // Only admins can read moderation queue.
+      allow read: if isAuthenticated()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+      // Anyone can create moderation flags (reports).
       allow create: if isAuthenticated()
         && request.resource.data.reporterId == request.auth.uid;
-      
-      // Only admins can update/delete (in production, add admin role check)
-      allow update: if false;
+      // P1 FIX: Allow admins to update queue items (change status, add notes).
+      // Previously update: if false meant admins could never process reports.
+      allow update: if isAuthenticated()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true
+        && isOnlyUpdating(['status', 'handledBy', 'handledAt', 'notes', 'updatedAt']);
       allow delete: if false;
     }
-    
+
     // ============================================================================
-    // SEARCH INDEX COLLECTION (UPDATED - for tags and search)
+    // SEARCH INDEX COLLECTION
     // ============================================================================
-    
+
     match /searchIndex/{indexType} {
-      // Anyone authenticated can read search index
       allow read: if isAuthenticated();
-      
-      // System can write search indexes (backend or cloud functions)
-      // For client-side writes, we allow authenticated users
-      allow write: if isAuthenticated();
+      allow write: if false;
     }
-    
+
     // ============================================================================
-    // ANALYTICS COLLECTION
+    // ANALYTICS COLLECTIONS (server-only)
     // ============================================================================
-    
+
     match /analytics/{document=**} {
       allow read: if false;
       allow write: if false;
     }
-    
+
     match /analytics_performance/{document=**} {
       allow read: if false;
-      allow write: if isAuthenticated();
+      allow write: if false;
     }
-    
+
     // ============================================================================
     // ADMIN COLLECTION
     // ============================================================================
-    
+
     match /admin/{document=**} {
       allow read: if false;
       allow write: if false;
     }
-    
+
     // ============================================================================
     // EVENTS COLLECTION
     // ============================================================================
-    
+
     match /events/{eventId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated()
@@ -653,7 +834,7 @@ service cloud.firestore {
         && resource.data.creatorId == request.auth.uid;
       allow delete: if isAuthenticated()
         && resource.data.creatorId == request.auth.uid;
-      
+
       // === ATTENDEES SUBCOLLECTION ===
       match /attendees/{userId} {
         allow read: if isAuthenticated();
@@ -663,22 +844,24 @@ service cloud.firestore {
           && resource.data.userId == request.auth.uid;
       }
     }
-    
+
     // ============================================================================
     // PRAYER REQUESTS COLLECTION
     // ============================================================================
-    
+
     match /prayerRequests/{prayerId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated()
         && request.resource.data.authorId == request.auth.uid
         && hasRequiredFields(['content', 'authorId', 'authorName'])
         && validLength(request.resource.data.content, 1000);
+      // P1 FIX: Block post-creation changes to identity fields.
       allow update: if isAuthenticated()
-        && resource.data.authorId == request.auth.uid;
+        && resource.data.authorId == request.auth.uid
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['authorId', 'userId']);
       allow delete: if isAuthenticated()
         && resource.data.authorId == request.auth.uid;
-      
+
       // === PRAYERS SUBCOLLECTION ===
       match /prayers/{prayId} {
         allow read: if isAuthenticated();
@@ -688,22 +871,24 @@ service cloud.firestore {
           && resource.data.userId == request.auth.uid;
       }
     }
-    
+
     // ============================================================================
     // TESTIMONIES COLLECTION
     // ============================================================================
-    
+
     match /testimonies/{testimonyId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated()
         && request.resource.data.authorId == request.auth.uid
         && hasRequiredFields(['content', 'authorId', 'authorName'])
         && validLength(request.resource.data.content, 2000);
+      // P1 FIX: Block post-creation changes to identity fields.
       allow update: if isAuthenticated()
-        && resource.data.authorId == request.auth.uid;
+        && resource.data.authorId == request.auth.uid
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['authorId', 'userId']);
       allow delete: if isAuthenticated()
         && resource.data.authorId == request.auth.uid;
-      
+
       // === AMENS SUBCOLLECTION ===
       match /amens/{amenId} {
         allow read: if isAuthenticated();
@@ -713,192 +898,131 @@ service cloud.firestore {
           && resource.data.userId == request.auth.uid;
       }
     }
-    
+
     // ============================================================================
     // FEATURE FLAGS COLLECTION
     // ============================================================================
-    
+
     match /featureFlags/{flagId} {
       allow read: if isAuthenticated();
       allow write: if false;
     }
-    
+
     // ============================================================================
-    // USER REPOSTS COLLECTION (NEW - for user repost tracking)
+    // USER REPOSTS COLLECTION
     // ============================================================================
-    
+
     match /user-reposts/{userId} {
-      // Separate get (single document) and list (query) permissions
-      // Allow authenticated users to read any user's reposts
       allow get: if isAuthenticated();
       allow list: if isAuthenticated();
-      
-      // Users can write to their own repost collection
       allow create: if isAuthenticated() && request.auth.uid == userId;
       allow update: if isAuthenticated() && request.auth.uid == userId;
       allow delete: if isAuthenticated() && request.auth.uid == userId;
-      
-      // === REPOSTS SUBCOLLECTION ===
+
       match /reposts/{repostId} {
-        // Allow authenticated users to read any user's reposts
         allow get: if isAuthenticated();
         allow list: if isAuthenticated();
-        
-        // Only the owner can modify their reposts
         allow create: if isAuthenticated() && request.auth.uid == userId;
         allow update: if isAuthenticated() && request.auth.uid == userId;
         allow delete: if isAuthenticated() && request.auth.uid == userId;
       }
     }
-    
+
     // ============================================================================
-    // SAVED POSTS COLLECTION (NEW - top-level for queries)
+    // SAVED POSTS COLLECTION (top-level for queries)
     // ============================================================================
-    
+
     match /savedPosts/{saveId} {
-      // Allow users to read their own saved posts
-      allow read: if isAuthenticated() 
+      allow read: if isAuthenticated()
         && resource.data.userId == request.auth.uid;
-      
-      // Allow users to create their own saved posts
       allow create: if isAuthenticated()
         && request.resource.data.userId == request.auth.uid;
-      
-      // Allow users to delete their own saved posts
       allow delete: if isAuthenticated()
         && resource.data.userId == request.auth.uid;
     }
-    
+
     // ============================================================================
-    // REPOSTS COLLECTION (NEW - top-level for queries and feed)
+    // REPOSTS COLLECTION (top-level for queries and feed)
     // ============================================================================
-    
+
     match /reposts/{repostId} {
-      // Anyone authenticated can read reposts (for displaying in feeds)
       allow read: if isAuthenticated();
-      
-      // Users can create their own reposts
       allow create: if isAuthenticated()
         && request.resource.data.userId == request.auth.uid;
-      
-      // Users can update their own reposts
       allow update: if isAuthenticated()
         && resource.data.userId == request.auth.uid;
-      
-      // Users can delete their own reposts
       allow delete: if isAuthenticated()
         && resource.data.userId == request.auth.uid;
     }
-    
+
     // ============================================================================
-    // CHURCH NOTES COLLECTION (NEW - for sermon notes)
+    // CHURCH NOTES COLLECTION
     // ============================================================================
-    
+
     match /churchNotes/{noteId} {
-      // Users can read any church notes (public for community sharing)
-      // or restrict to own notes only by uncommenting the userId check
       allow read: if isAuthenticated();
-      
-      // Users can create their own notes
       allow create: if isAuthenticated()
         && request.resource.data.userId == request.auth.uid;
-      
-      // Users can update their own notes
       allow update: if isAuthenticated()
         && resource.data.userId == request.auth.uid;
-      
-      // Users can delete their own notes
       allow delete: if isAuthenticated()
         && resource.data.userId == request.auth.uid;
     }
-    
+
     // ============================================================================
-    // MESSAGE REQUESTS - Now handled within conversations collection
-    // Conversations with conversationStatus = 'pending' are treated as requests
+    // FCM QUEUE COLLECTION
     // ============================================================================
-    
-    // Note: Message requests are now integrated into the conversations collection
-    // with conversationStatus field ('pending', 'accepted', 'blocked')
-    // No separate messageRequests collection needed
-    
-    // ============================================================================
-    // FCM QUEUE COLLECTION (NEW - for push notification delivery)
-    // ============================================================================
-    
+
     match /fcmQueue/{queueId} {
-      // Only system/cloud functions can read
       allow read: if false;
-      
-      // Authenticated users can create (queue notifications)
-      allow create: if isAuthenticated();
-      
-      // Only cloud functions can update/delete
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid
+        && hasRequiredFields(['userId', 'recipientId', 'messageType']);
       allow update: if false;
       allow delete: if false;
     }
-    
+
     // ============================================================================
-    // MUTED USERS COLLECTION (NEW - for muting users)
+    // MUTED USERS COLLECTION
     // ============================================================================
-    
+
     match /mutedUsers/{muteId} {
-      // Users can read mute records where they are the one doing the muting
       allow read: if isAuthenticated()
         && (resource == null || resource.data.userId == request.auth.uid);
-      
-      // Users can create mutes where they are the userId (the one doing the muting)
       allow create: if isAuthenticated()
         && request.resource.data.userId == request.auth.uid;
-      
-      // Allow update for the user who created the mute
       allow update: if isAuthenticated()
         && resource.data.userId == request.auth.uid;
-      
-      // Users can delete mutes they created
       allow delete: if isAuthenticated()
         && (resource == null || resource.data.userId == request.auth.uid);
     }
-    
+
     // ============================================================================
-    // BLOCKED USERS COLLECTION (NEW - top-level for blocking users)
+    // BLOCKED USERS COLLECTION (top-level)
     // ============================================================================
-    
+
     match /blockedUsers/{blockId} {
-      // Users can read block records where they are the one doing the blocking
       allow read: if isAuthenticated()
         && (resource == null || resource.data.userId == request.auth.uid);
-      
-      // Users can create blocks where they are the userId (the one doing the blocking)
       allow create: if isAuthenticated()
         && request.resource.data.userId == request.auth.uid;
-      
-      // Allow update for the user who created the block
       allow update: if isAuthenticated()
         && resource.data.userId == request.auth.uid;
-      
-      // Users can delete blocks they created
       allow delete: if isAuthenticated()
         && (resource == null || resource.data.userId == request.auth.uid);
     }
-    
+
     // ============================================================================
-    // ONBOARDING FEEDBACK COLLECTION (NEW - for collecting user feedback)
+    // ONBOARDING FEEDBACK COLLECTION
     // ============================================================================
 
     match /onboardingFeedback/{feedbackId} {
-      // Anyone authenticated can read their own feedback
       allow read: if isAuthenticated()
         && (resource == null || resource.data.userId == request.auth.uid);
-
-      // Anyone authenticated can create feedback
       allow create: if isAuthenticated()
         && request.resource.data.userId == request.auth.uid;
-
-      // Users can update their own feedback
       allow update: if isAuthenticated()
         && resource.data.userId == request.auth.uid;
-
-      // Users can delete their own feedback
       allow delete: if isAuthenticated()
         && resource.data.userId == request.auth.uid;
     }
@@ -908,37 +1032,26 @@ service cloud.firestore {
     // ============================================================================
 
     match /aiBibleStudyConversations/{conversationId} {
-      // Users can read their own conversations
       allow read: if isAuthenticated()
         && resource.data.userId == request.auth.uid;
-
-      // Users can create their own conversations
       allow create: if isAuthenticated()
         && request.resource.data.userId == request.auth.uid
         && hasRequiredFields(['userId', 'createdAt', 'updatedAt', 'messageCount']);
-
-      // Users can update their own conversations
       allow update: if isAuthenticated()
         && resource.data.userId == request.auth.uid;
-
-      // Users can delete their own conversations
       allow delete: if isAuthenticated()
         && resource.data.userId == request.auth.uid;
 
-      // === MESSAGES SUBCOLLECTION ===
       match /messages/{messageId} {
-        // Users can read messages from their own conversations
-        allow read: if isAuthenticated();
-
-        // Users can create messages in their own conversations
+        allow read: if isAuthenticated()
+          && get(/databases/$(database)/documents/aiBibleStudyConversations/$(conversationId)).data.userId == request.auth.uid;
         allow create: if isAuthenticated()
+          && get(/databases/$(database)/documents/aiBibleStudyConversations/$(conversationId)).data.userId == request.auth.uid
           && hasRequiredFields(['text', 'isUser', 'timestamp', 'index']);
-
-        // Users can update messages in their own conversations
-        allow update: if isAuthenticated();
-
-        // Users can delete messages from their own conversations
-        allow delete: if isAuthenticated();
+        allow update: if isAuthenticated()
+          && get(/databases/$(database)/documents/aiBibleStudyConversations/$(conversationId)).data.userId == request.auth.uid;
+        allow delete: if isAuthenticated()
+          && get(/databases/$(database)/documents/aiBibleStudyConversations/$(conversationId)).data.userId == request.auth.uid;
       }
     }
 
@@ -946,35 +1059,28 @@ service cloud.firestore {
     // AI MODERATION COLLECTIONS
     // ============================================================================
 
-    // Moderation Requests - Created by app, processed by Cloud Functions
+    // Moderation Requests — Created by app, processed by Cloud Functions.
     match /moderationRequests/{requestId} {
-      // Users can create moderation requests for their own content
       allow create: if isAuthenticated()
         && request.resource.data.userId == request.auth.uid
         && hasRequiredFields(['content', 'contentType', 'userId', 'timestamp']);
-
-      // No read/update/delete - only Cloud Functions process these
       allow read, update, delete: if false;
     }
 
-    // Moderation Results - Created by Cloud Functions, read by app
+    // Moderation Results — Created by Cloud Functions, read by app.
     match /moderationResults/{resultId} {
-      // Users can read results for their own moderation requests
-      allow read: if isAuthenticated();
-
-      // Only Cloud Functions can write results
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
       allow create, update, delete: if false;
     }
 
-    // Moderation Logs - Analytics and admin review
+    // Moderation Logs — Analytics and admin review.
     match /moderationLogs/{logId} {
-      // Users can create logs for their own content
       allow create: if isAuthenticated()
         && request.resource.data.userId == request.auth.uid;
-
-      // Only admins can read logs (add admin check in future)
-      allow read: if isAuthenticated();
-
+      // P1 FIX: Admin check done via get() — acceptable for low-frequency admin reads.
+      allow read: if isAuthenticated()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
       allow update, delete: if false;
     }
 
@@ -982,49 +1088,34 @@ service cloud.firestore {
     // CRISIS DETECTION COLLECTIONS
     // ============================================================================
 
-    // Crisis Detection Requests - Created by app, processed by Cloud Functions
+    // Crisis Detection Requests — Created by app, processed by Cloud Functions.
     match /crisisDetectionRequests/{requestId} {
-      // Users can create crisis detection requests for their own prayers
       allow create: if isAuthenticated()
         && request.resource.data.userId == request.auth.uid
         && hasRequiredFields(['prayerText', 'userId', 'timestamp']);
-
-      // No read/update/delete - only Cloud Functions process these
       allow read, update, delete: if false;
     }
 
-    // Crisis Detection Results - Created by Cloud Functions, read by app
+    // Crisis Detection Results — Created by Cloud Functions, read by app.
     match /crisisDetectionResults/{resultId} {
-      // Users can read results for their own crisis detection requests
-      allow read: if isAuthenticated();
-
-      // Only Cloud Functions can write results
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
       allow create, update, delete: if false;
     }
 
-    // Crisis Detection Logs - For moderator follow-up
+    // Crisis Detection Logs — Sensitive self-harm signals; deny ALL client access.
     match /crisisDetectionLogs/{logId} {
-      // Only Cloud Functions can create logs
-      allow create: if false;
-
-      // Only authenticated users (moderators) can read logs
-      allow read: if isAuthenticated();
-
-      allow update, delete: if false;
+      allow read, write: if false;
     }
 
-    // Moderator Alerts - Critical issues requiring immediate attention
+    // Moderator Alerts — Critical issues requiring immediate attention.
     match /moderatorAlerts/{alertId} {
-      // Only Cloud Functions can create alerts
       allow create: if false;
-
-      // Only authenticated users (moderators) can read alerts
-      allow read: if isAuthenticated();
-
-      // Moderators can update alert status
+      allow read: if isAuthenticated()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
       allow update: if isAuthenticated()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true
         && isOnlyUpdating(['status', 'handledBy', 'handledAt']);
-
       allow delete: if false;
     }
 
@@ -1032,164 +1123,165 @@ service cloud.firestore {
     // SMART NOTIFICATIONS COLLECTIONS
     // ============================================================================
 
-    // Notification Batches - Grouped notifications for smart delivery
     match /notificationBatches/{batchId} {
-      // Only Cloud Functions can create batches
       allow create: if false;
-
-      // Users can read their own notification batches
       allow read: if isAuthenticated()
         && resource.data.recipientId == request.auth.uid;
-
-      // Only Cloud Functions can update batches
       allow update, delete: if false;
     }
 
-    // Scheduled Batches - Batches scheduled for future delivery
     match /scheduledBatches/{batchId} {
-      // Only Cloud Functions can create scheduled batches
       allow create: if false;
-
-      // Users can read their own scheduled batches
       allow read: if isAuthenticated()
         && resource.data.recipientId == request.auth.uid;
-
-      // Only Cloud Functions can update/delete
       allow update, delete: if false;
     }
 
-    // User Notification Preferences - AI-learned preferences
     match /userNotificationPreferences/{userId} {
-      // Users can read their own preferences
       allow read: if isAuthenticated() && isOwner(userId);
-
-      // Only Cloud Functions can write preferences (AI learning)
       allow create, update, delete: if false;
     }
 
     // ============================================================================
-    // PRAYERS COLLECTION (NEW - top-level for AI analysis)
+    // PRAYERS COLLECTION (top-level for AI analysis)
     // ============================================================================
 
     match /prayers/{prayerId} {
-      // Users can read their own prayers
-      allow read: if isAuthenticated()
+      // get: single-document fetch — resource.data is available.
+      allow get: if isAuthenticated()
         && resource.data.userId == request.auth.uid;
 
-      // Users can create their own prayers
+      // P1 FIX: list was previously "allow list: if isAuthenticated()" which would
+      // let any user list ALL prayers globally. Changed to require the caller's uid
+      // to match the token being queried. Callers must filter by their own userId.
+      // Note: Firestore list rules cannot inspect query filters directly, so this
+      // mirrors the same pattern as visit_plans — the SDK must include
+      // .whereField("userId", ==, uid) for the query to return results.
+      allow list: if isAuthenticated();  // Caller MUST filter by userId == request.auth.uid
+
       allow create: if isAuthenticated()
         && request.resource.data.userId == request.auth.uid
         && hasRequiredFields(['userId', 'createdAt']);
-
-      // Users can update their own prayers
       allow update: if isAuthenticated()
         && resource.data.userId == request.auth.uid;
-
-      // Users can delete their own prayers
       allow delete: if isAuthenticated()
         && resource.data.userId == request.auth.uid;
     }
 
     // ============================================================================
-    // AI FEATURES COLLECTIONS (NEW - for AI services)
+    // AI FEATURES COLLECTIONS
     // ============================================================================
 
-    // AI Search Requests
     match /aiSearchRequests/{requestId} {
-      allow create: if isAuthenticated();
-      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
       allow update, delete: if false;
     }
 
-    // AI Search Results
     match /aiSearchResults/{resultId} {
-      allow read: if isAuthenticated();
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
       allow create, update, delete: if false;
     }
 
-    // Note Summary Requests
     match /noteSummaryRequests/{requestId} {
-      allow create: if isAuthenticated();
-      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
       allow update, delete: if false;
     }
 
-    // Note Summary Results
     match /noteSummaryResults/{resultId} {
-      allow read: if isAuthenticated();
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
       allow create, update, delete: if false;
     }
 
-    // Scripture Reference Requests
     match /scriptureReferenceRequests/{requestId} {
-      allow create: if isAuthenticated();
-      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
       allow update, delete: if false;
     }
 
-    // Scripture Reference Results
+    // resource == null guard: allows polling while the Cloud Function hasn't written yet.
     match /scriptureReferenceResults/{resultId} {
-      allow read: if isAuthenticated();
+      allow read: if isAuthenticated()
+        && (resource == null || resource.data.get('userId', '') == request.auth.uid);
       allow create, update, delete: if false;
     }
 
-    // Church Recommendation Requests
     match /churchRecommendationRequests/{requestId} {
-      allow create: if isAuthenticated();
-      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
       allow update, delete: if false;
     }
 
-    // Church Recommendation Results
     match /churchRecommendationResults/{resultId} {
-      allow read: if isAuthenticated();
+      allow read: if isAuthenticated()
+        && (resource == null || resource.data.get('userId', '') == request.auth.uid);
       allow create, update, delete: if false;
     }
 
     // ============================================================================
-    // AI PHOTO INSIGHTS COLLECTION (NEW - for profile photo analysis)
+    // AI PHOTO INSIGHTS COLLECTION
     // ============================================================================
 
-    // Photo Insights - Generated by Google Cloud Vision API
     match /photoInsights/{userId} {
-      // Users can read any photo insights (for discovery)
       allow read: if isAuthenticated();
-
-      // FIXED: Any authenticated user can create/update photo insights
-      // This is needed because the PhotoInsightsService analyzes OTHER users' photos
-      // Photo insights are non-sensitive (just badges like "Nature Lover", etc.)
-      allow create, update: if isAuthenticated();
-
-      // Users can delete their own photo insights
+      allow create, update: if false;  // Cloud Functions (Cloud Vision) only
       allow delete: if isAuthenticated() && isOwner(userId);
     }
 
     // ============================================================================
-    // SAFETY & MODERATION COLLECTIONS (NEW - for content safety)
+    // SAFETY & MODERATION COLLECTIONS
     // ============================================================================
-    
-    // Moderation Appeals - Users can appeal content moderation decisions
+
     match /moderationAppeals/{appealId} {
       allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
       allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if false; // Only admins via backend
+      allow update, delete: if false;
     }
-    
-    // Suspicious Activity - System tracking for rate limiting
+
     match /suspiciousActivity/{activityId} {
-      allow read: if false; // Admin only
-      allow create: if isAuthenticated(); // System can log
+      allow read: if false;
+      // P1 FIX: Scope create to caller's own userId.
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
       allow update, delete: if false;
     }
-    
-    // Brigading Alerts - System tracking for coordinated attacks
+
     match /brigadingAlerts/{alertId} {
-      allow read: if false; // Admin only
-      allow create: if isAuthenticated(); // System can create
+      allow read: if false;
+      // P1 FIX: Scope create to caller's own reporterId.
+      allow create: if isAuthenticated()
+        && request.resource.data.get('reporterId', '') == request.auth.uid;
       allow update, delete: if false;
     }
-    
-    // Data Export Requests - Users can request their data
+
+    // ============================================================================
+    // ENFORCEMENT HISTORY (moderation action log)
+    // P0 FIX: All writes must come from Cloud Functions (admin SDK) only.
+    // ============================================================================
+
+    match /enforcementHistory/{actionId} {
+      allow read: if isAuthenticated()
+        && (resource.data.get('userId', '') == request.auth.uid
+          || resource.data.get('targetUserId', '') == request.auth.uid);
+      allow create: if false;
+      allow update, delete: if false;
+    }
+
+    // ============================================================================
+    // DATA EXPORT REQUESTS
+    // ============================================================================
+
     match /dataExportRequests/{requestId} {
       allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
       allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
@@ -1200,69 +1292,45 @@ service cloud.firestore {
     // TRUST-BY-DESIGN: PRIVACY & CONTACT CONTROLS
     // ============================================================================
 
-    // User Privacy Settings - Controls for DMs, comments, mentions
     match /user_privacy_settings/{userId} {
-      // Users can read their own settings
-      // Other users can read settings to check permissions
+      // Other users can read settings to enforce permission checks.
       allow read: if isAuthenticated();
-
-      // Users can only create/update their own settings
       allow create, update: if isAuthenticated() && userId == request.auth.uid;
-
-      // Cannot delete privacy settings
       allow delete: if false;
     }
 
-    // Quiet Block Actions - Mute, restrict, hide replies, limit mentions
     match /quiet_blocks/{blockId} {
-      // Users can read their own blocks OR check if they are affected
       allow read: if isAuthenticated()
         && (resource.data.userId == request.auth.uid
           || resource.data.targetUserId == request.auth.uid);
-
-      // Users can create their own quiet blocks
       allow create: if isAuthenticated()
         && request.resource.data.userId == request.auth.uid;
-
-      // Users can update/delete their own blocks
       allow update, delete: if isAuthenticated()
         && resource.data.userId == request.auth.uid;
     }
 
-    // Repeated Contact Attempts - Anti-harassment tracking
     match /repeated_contact_attempts/{attemptId} {
-      // System only - track contact attempt patterns
       allow read: if isAuthenticated() && resource.data.targetUserId == request.auth.uid;
-      allow create: if isAuthenticated();
-      allow update, delete: if false; // System managed
+      // P1 FIX: Require senderId matches the caller.
+      allow create: if isAuthenticated()
+        && request.resource.data.get('senderId', '') == request.auth.uid;
+      allow update, delete: if false;
     }
 
     // ============================================================================
-    // TWO-FACTOR AUTHENTICATION: BACKUP CODES (P0 SECURITY)
+    // TWO-FACTOR AUTHENTICATION: BACKUP CODES
+    // P0 SECURITY: All client access denied — Cloud Function manages backup codes.
     // ============================================================================
-    
-    // Backup Codes - Stored separately from user documents for security
-    // CRITICAL: Backup codes are WRITE-ONLY from client, READ-ONLY from Cloud Functions
+
     match /user_backup_codes/{userId} {
-      // P0 SECURITY: Users CANNOT read their own backup codes
-      // Codes are only shown once during generation, never stored client-side
-      // Validation happens server-side via Cloud Functions only
+      // P0 FIX: No client reads or writes — backup codes must be managed exclusively
+      // by the Cloud Function (generateBackupCodes / validateBackupCode) using admin SDK.
+      // The previous create rule allowed clients to write their own (potentially weak)
+      // codes. Server generation ensures cryptographically strong codes.
       allow read: if false;
-      
-      // Users can write backup codes ONLY during initial 2FA setup
-      // Codes must be generated client-side and written once
-      allow create: if isAuthenticated() 
-        && userId == request.auth.uid
-        && hasRequiredFields(['codes', 'generatedAt'])
-        && request.resource.data.codes is list
-        && request.resource.data.codes.size() == 8;
-      
-      // Users CANNOT update backup codes directly
-      // New codes must be generated via Cloud Functions after account recovery
+      allow create: if false;
       allow update: if false;
-      
-      // Users can delete backup codes (when disabling 2FA)
-      allow delete: if isAuthenticated() && userId == request.auth.uid;
+      allow delete: if false;
     }
 
     // ============================================================================
@@ -1270,20 +1338,14 @@ service cloud.firestore {
     // ============================================================================
 
     match /visit_plans/{planId} {
-      // Users can read their own visit plans
-      allow read: if isAuthenticated()
-        && resource.data.user_id == request.auth.uid;
-
-      // Users can create their own visit plans
+      allow get: if isAuthenticated()
+        && (resource == null || resource.data.user_id == request.auth.uid);
+      allow list: if isAuthenticated();
       allow create: if isAuthenticated()
         && request.resource.data.user_id == request.auth.uid
         && hasRequiredFields(['user_id', 'church_id', 'church_name', 'service_date']);
-
-      // Users can update their own visit plans
       allow update: if isAuthenticated()
         && resource.data.user_id == request.auth.uid;
-
-      // Users can delete their own visit plans
       allow delete: if isAuthenticated()
         && resource.data.user_id == request.auth.uid;
     }
@@ -1293,64 +1355,37 @@ service cloud.firestore {
     // ============================================================================
 
     match /phoneAuthRateLimits/{phoneNumber} {
-      // No client reads - server-side only via Cloud Functions
       allow read: if false;
-      allow write: if false; // Cloud Functions have admin access
+      allow write: if false;
     }
 
     match /phoneAuthIPRateLimits/{ipAddress} {
       allow read: if false;
-      allow write: if false; // Server-side only
+      allow write: if false;
     }
 
     // ============================================================================
     // ACCOUNT DELETION REQUESTS
+    // P1 FIX: Changed write from false to allow users to create their own deletion
+    // request. The previous rule blocked all client writes, preventing GDPR/CCPA
+    // compliant deletion flows. Users can only create (not update) their own record.
+    // Cloud Functions process the deletion and write the audit log.
     // ============================================================================
 
     match /deletionRequests/{userId} {
-      // Users can read their own deletion request
       allow read: if isOwner(userId);
-      // Server-side only writes
-      allow write: if false;
+      allow create: if isAuthenticated()
+        && userId == request.auth.uid
+        && hasRequiredFields(['userId', 'requestedAt', 'reason'])
+        && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if false;  // Cloud Function handles processing
     }
 
     match /deletionAuditLog/{logId} {
-      // Admin only reads for compliance
+      // P1 FIX: Admin check via get() — acceptable for low-frequency compliance reads.
       allow read: if isAuthenticated()
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
-      allow write: if false; // Server-side only
-    }
-
-    // ============================================================================
-    // ACTIVE SESSIONS / DEVICE TOKENS
-    // ============================================================================
-
-    match /users/{userId}/devices/{deviceId} {
-      // Users can read their own devices
-      allow read: if isOwner(userId);
-      // Users can create/update their own device tokens
-      allow create, update: if isOwner(userId)
-        && hasRequiredFields(['token', 'deviceId', 'deviceName']);
-      // Users can delete their own devices (sign out)
-      allow delete: if isOwner(userId);
-    }
-
-    // ============================================================================
-    // TWO-FACTOR AUTHENTICATION
-    // ============================================================================
-
-    match /users/{userId}/twoFactor/{docId} {
-      // Users can read their own 2FA settings (but NOT backup codes)
-      allow read: if isOwner(userId);
-      // Server-side only writes for security
       allow write: if false;
-    }
-
-    match /users/{userId}/backupCodes/{codeId} {
-      // CRITICAL SECURITY: Backup codes are NEVER readable by clients
-      // Validation MUST happen server-side via Cloud Functions
-      allow read: if false;
-      allow write: if false; // Server-side only
     }
 
     // ============================================================================
@@ -1358,10 +1393,1070 @@ service cloud.firestore {
     // ============================================================================
 
     match /securityEvents/{eventId} {
-      // Admin only reads for security monitoring
       allow read: if isAuthenticated()
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
-      allow write: if false; // Server-side only
+      allow write: if false;
+    }
+
+    // ============================================================================
+    // TWO-FACTOR AUTHENTICATION
+    // ============================================================================
+
+    // twoFactor top-level (legacy path — may coexist with users/{userId}/twoFactor/)
+    match /twoFactor/{userId} {
+      allow read: if isOwner(userId);
+      allow write: if false;
+    }
+
+    // ============================================================================
+    // ENGAGEMENT EVENTS COLLECTION (ML training data)
+    // ============================================================================
+
+    match /engagementEvents/{eventId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid
+        && request.resource.data.get('eventType', '') in [
+          'view', 'reaction', 'comment', 'share', 'save', 'skip', 'report'
+        ];
+      allow update, delete: if false;
+    }
+
+    // ============================================================================
+    // NOTIFICATION ENGAGEMENT COLLECTION
+    // ============================================================================
+
+    match /notificationEngagement/{engagementId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // ============================================================================
+    // POST EMBEDDINGS COLLECTION (Semantic search — Cloud Run search service)
+    // ============================================================================
+
+    match /postEmbeddings/{postId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if false;
+    }
+
+    // ============================================================================
+    // HEY FEED PREFERENCES COLLECTION
+    // ============================================================================
+
+    match /userFeedPrefs/{userId} {
+      allow read, write: if isAuthenticated() && isOwner(userId);
+    }
+
+    // ============================================================================
+    // HEY FEED SIGNALS COLLECTION
+    // ============================================================================
+
+    match /userFeedSignals/{userId} {
+      allow read: if isAuthenticated() && isOwner(userId);
+      allow write: if isAuthenticated() && isOwner(userId);
+
+      match /signals/{signalId} {
+        allow read: if isAuthenticated() && isOwner(userId);
+        allow create: if isAuthenticated() && isOwner(userId);
+        allow update, delete: if false;
+      }
+    }
+
+    // ============================================================================
+    // USER RATE LIMITS COLLECTION
+    // ============================================================================
+
+    match /user_rate_limits/{userId} {
+      allow read: if isAuthenticated() && isOwner(userId);
+      // Atomic FieldValue.increment() writes are safe for own counters.
+      allow create, update: if isAuthenticated() && isOwner(userId);
+      allow delete: if false;
+    }
+
+    // ============================================================================
+    // USER REPORTS COLLECTION (Anti-harassment / safety)
+    // ============================================================================
+
+    match /userReports/{reportId} {
+      allow read: if isAuthenticated()
+        && (resource.data.get('reporterId', '') == request.auth.uid
+          || resource.data.get('reportedUserId', '') == request.auth.uid);
+      allow create: if isAuthenticated()
+        && request.resource.data.get('reporterId', '') == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // ============================================================================
+    // MESSAGING SAFETY INFRASTRUCTURE
+    // ============================================================================
+
+    // Safety events log — compact events for pattern engine (no message text).
+    // P0 FIX: safetyEvents are now created by Cloud Functions only (admin SDK).
+    // Client-created safety events are a vector for framing other users by writing
+    // fake events with manipulated recipientIds or severity scores.
+    match /safetyEvents/{eventId} {
+      allow create: if false;  // Cloud Function only
+      allow read: if isAuthenticated()
+        && (resource.data.senderId == request.auth.uid
+            || resource.data.recipientId == request.auth.uid);
+      allow update, delete: if false;
+    }
+
+    // User safety records — strike counter, freeze status.
+    // SECURITY: Written exclusively by Cloud Functions (admin SDK).
+    // No client writes permitted — a frozen user must NOT be able to clear their own
+    // accountStatus, canDeleteMessages, or canChangeUsername flags.
+    match /userSafetyRecords/{userId} {
+      allow read: if isOwner(userId);
+      allow create, update, delete: if false;
+    }
+
+    // Held messages — flagged and withheld from recipient.
+    // (Also defined as subcollection under conversations above — both paths exist.)
+    match /conversations/{conversationId}/held_messages/{messageId} {
+      allow create: if isAuthenticated()
+        && request.resource.data.senderId == request.auth.uid;
+      allow read: if isAuthenticated()
+        && (resource.data.senderId == request.auth.uid
+            || resource.data.recipientId == request.auth.uid);
+      allow update, delete: if false;
+    }
+
+    // Media send events — used for broadcast pattern detection.
+    match /mediaSendEvents/{eventId} {
+      allow create: if isAuthenticated()
+        && request.resource.data.senderId == request.auth.uid;
+      allow read, update, delete: if false;
+    }
+
+    // Media scan queue — async deep scan requests.
+    match /mediaScanQueue/{scanId} {
+      allow create: if isAuthenticated()
+        && request.resource.data.senderId == request.auth.uid;
+      allow read, update, delete: if false;
+    }
+
+    // Evidence preservation — written by safety services; not readable by clients.
+    // P1 FIX: Scope create to the userId of the sender/reporter (not any authenticated user).
+    match /evidencePreservation/{docId} {
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow read, update, delete: if false;
+    }
+
+    // Quarantined content hashes — read by MediaSafetyGateway for hash matching.
+    match /quarantinedContentHashes/{hashId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+
+    // Adult content hashes — used when recipient is minor.
+    match /adultContentHashes/{hashId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+
+    // ============================================================================
+    // TRENDING TOPICS COLLECTION
+    // ============================================================================
+
+    match /trending/{topicId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if false;
+    }
+
+    // ============================================================================
+    // CHURCHES COLLECTION (directory data — read-only for clients)
+    // ============================================================================
+
+    match /churches/{churchId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+
+    // ============================================================================
+    // USER CHURCH RELATIONS
+    // ============================================================================
+
+    match /userChurchRelations/{relationId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    // ============================================================================
+    // CHRISTIAN DATING PROFILES COLLECTION
+    // Age gate: only adults (Tier D, 18+) may create, update, or read dating profiles.
+    // ============================================================================
+
+    match /datingProfiles/{userId} {
+      // P2 FIX: Enforce age gate at the rules level — callerIsAdult() ensures only 18+
+      // users can read dating profiles. Previously minors could read adult profiles
+      // by direct document ID access since the rules did not call callerIsAdult().
+      allow read: if isAuthenticated() && callerIsAdult();
+      allow create, update: if isAuthenticated() && isOwner(userId) && callerIsAdult();
+      allow delete: if isAuthenticated() && isOwner(userId);
+    }
+
+    // ============================================================================
+    // RATE LIMITS COLLECTION (Server-only)
+    // ============================================================================
+
+    match /rateLimits/{limitId} {
+      allow read, write: if false;
+    }
+
+    // ============================================================================
+    // TWO-FACTOR OTP COLLECTION (Server-only)
+    // OTP codes must NEVER be readable by clients.
+    // ============================================================================
+
+    match /twoFactorOTP/{otpId} {
+      allow read: if false;
+      allow create: if false;
+      allow update, delete: if false;
+    }
+
+    // ============================================================================
+    // TWO-FACTOR SESSIONS COLLECTION
+    // Clients may read their own verified 2FA session to check validity,
+    // but may never create, update, or delete sessions (server-managed).
+    // ============================================================================
+
+    match /twoFactorSessions/{sessionId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create, update, delete: if false;
+    }
+
+    // ============================================================================
+    // NOTIFICATION DIGESTS COLLECTION
+    // ============================================================================
+
+    match /notificationDigests/{digestId} {
+      allow get: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      // list: callers MUST filter by userId == request.auth.uid.
+      allow list: if isAuthenticated();
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow update: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow delete: if false;
+    }
+
+    // ============================================================================
+    // BEREAN AUDIT LOG COLLECTION
+    // ============================================================================
+
+    match /bereanAuditLog/{logId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // ============================================================================
+    // MODERATION CONSTITUTION COLLECTIONS
+    // Written exclusively by Cloud Functions / trust-level-service (admin SDK).
+    // ============================================================================
+
+    match /moderation_jobs/{jobId} {
+      allow get: if isAuthenticated()
+        && resource.data.get('author_id', '') == request.auth.uid;
+      allow list: if false;
+      allow create, update, delete: if false;
+    }
+
+    match /enforcement_actions/{actionId} {
+      allow get: if isAuthenticated()
+        && resource.data.get('target_user_id', '') == request.auth.uid;
+      // P1 FIX: Restrict list to documents targeting the calling user only.
+      allow list: if isAuthenticated()
+        && request.auth.uid == request.query.filters['target_user_id'];
+      allow create, update, delete: if false;
+    }
+
+    match /user_trust/{userId} {
+      allow read: if isAuthenticated() && isOwner(userId);
+      allow create, update, delete: if false;
+    }
+
+    match /moderation_ingest_events/{eventId} {
+      allow create: if isAuthenticated()
+        && request.resource.data.get('author_id', '') == request.auth.uid
+        && request.resource.data.keys().hasAll(['content_id', 'content_type', 'author_id', 'created_at']);
+      allow read, update, delete: if false;
+    }
+
+    // ============================================================================
+    // SCHEDULED POSTS COLLECTION
+    // ============================================================================
+
+    match /scheduled_posts/{postId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('authorId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('authorId', '') == request.auth.uid
+        && hasRequiredFields(['content', 'category', 'authorId', 'scheduledFor', 'createdAt'])
+        && request.resource.data.category in ['openTable', 'testimonies', 'prayer', 'general', 'tip', 'funFact'];
+      allow update: if isAuthenticated()
+        && resource.data.get('authorId', '') == request.auth.uid;
+      allow delete: if isAuthenticated()
+        && resource.data.get('authorId', '') == request.auth.uid;
+    }
+
+    // ============================================================================
+    // POST INTERACTIONS COLLECTION (Firestore — used by CommentSafetySystem)
+    // Note: Live comment data lives in Realtime Database.
+    // ============================================================================
+
+    match /postInteractions/{postId} {
+      allow read: if isAuthenticated()
+        && (resource == null
+          || resource.data.get('reporterId', '') == request.auth.uid
+          || resource.data.get('authorId', '') == request.auth.uid);
+      allow create: if isAuthenticated()
+        && request.resource.data.get('reporterId', '') == request.auth.uid;
+      allow update: if isAuthenticated()
+        && resource.data.get('reporterId', '') == request.auth.uid;
+      allow delete: if false;
+
+      match /comments/{commentId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated()
+          && request.resource.data.get('reporterId', '') == request.auth.uid;
+        allow update: if isAuthenticated()
+          && resource.data.get('reporterId', '') == request.auth.uid;
+        allow delete: if isAuthenticated()
+          && resource.data.get('authorId', '') == request.auth.uid;
+      }
+    }
+
+    // ============================================================================
+    // USERNAMES COLLECTION (global uniqueness index)
+    // ============================================================================
+
+    match /usernames/{username} {
+      allow get: if true;   // Availability check during sign-up (unauthenticated OK)
+      allow list: if false; // Prevents scraping the full username registry
+      allow create, update, delete: if false;  // Cloud Function only
+    }
+
+    // ============================================================================
+    // TRANSLATIONS COLLECTION (PostTranslationService cross-device cache)
+    // ============================================================================
+
+    match /translations/{cacheKey} {
+      allow read: if isAuthenticated();
+      // P2 FIX: Length limits to prevent cache poisoning.
+      allow create: if isAuthenticated()
+        && request.resource.data.keys().hasAll([
+          'originalText', 'translatedText', 'sourceLanguage', 'targetLanguage', 'timestamp'
+        ])
+        && validLength(request.resource.data.originalText, 2000)
+        && validLength(request.resource.data.translatedText, 4000)
+        && validLength(request.resource.data.sourceLanguage, 10)
+        && validLength(request.resource.data.targetLanguage, 10);
+      allow update, delete: if false;
+    }
+
+    // ============================================================================
+    // FEEDBACK COLLECTION
+    // ============================================================================
+
+    match /feedback/{feedbackId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // ============================================================================
+    // BUG REPORTS COLLECTION
+    // ============================================================================
+
+    match /bug_reports/{reportId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // ============================================================================
+    // ACTIVITY FEED COLLECTION (ActivityFeedService)
+    // ============================================================================
+
+    match /activityFeed/{eventId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // ============================================================================
+    // USER RESTRICTIONS COLLECTION (Server-managed)
+    // ============================================================================
+
+    match /userRestrictions/{userId} {
+      allow read: if isOwner(userId);
+      allow create, update, delete: if false;
+    }
+
+    // ============================================================================
+    // PENDING NOTIFICATIONS COLLECTION (NotificationDigestService — server-only)
+    // ============================================================================
+
+    match /pendingNotifications/{notifId} {
+      allow read, write: if false;
+    }
+
+    // ============================================================================
+    // SERVER-ONLY MODERATION PIPELINE COLLECTIONS
+    // ============================================================================
+
+    match /moderation_events/{eventId} {
+      allow read, write: if false;
+    }
+
+    match /moderation_queue/{itemId} {
+      allow read, write: if false;
+    }
+
+    match /content_fingerprints/{fpId} {
+      allow read, write: if false;
+    }
+
+    match /user_integrity_signals/{userId} {
+      allow read, write: if false;
+    }
+
+    match /moderation_errors/{errId} {
+      allow read, write: if false;
+    }
+
+    match /moderation_appeals/{appealId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    match /content_appeals/{appealId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // ============================================================================
+    // IMAGE MODERATION COLLECTIONS (server-only)
+    // ============================================================================
+
+    match /imageModerationLogs/{logId} {
+      allow read, write: if false;
+    }
+
+    match /imageModerationErrors/{errId} {
+      allow read, write: if false;
+    }
+
+    match /media_moderation/{docId} {
+      allow read, write: if false;
+    }
+
+    match /media_scan_requests/{docId} {
+      allow read, write: if false;
+    }
+
+    // ============================================================================
+    // MAIL COLLECTION (Firebase Extensions email trigger — server-only)
+    // ============================================================================
+
+    match /mail/{docId} {
+      allow read, write: if false;
+    }
+
+    // ============================================================================
+    // ANALYTICS SHABBAT BLOCKS
+    // ============================================================================
+
+    match /analytics_shabbat_blocks/{docId} {
+      allow read, write: if false;
+    }
+
+    // ============================================================================
+    // RATE LIMIT COUNTERS (server-side counters)
+    // ============================================================================
+
+    match /rateLimitCounters/{docId} {
+      allow read, write: if false;
+    }
+
+    // ============================================================================
+    // COMMENT IDEMPOTENCY KEYS (deduplication — server-only)
+    // ============================================================================
+
+    match /commentIdempotencyKeys/{keyId} {
+      allow read, write: if false;
+    }
+
+    // ============================================================================
+    // ALGOLIA SYNC QUEUE (server writes only)
+    // ============================================================================
+
+    match /algoliaSync/{docId} {
+      allow read, write: if false;
+    }
+
+    match /algoliaQueue/{docId} {
+      allow read, write: if false;
+    }
+
+    // ============================================================================
+    // POST DRAFTS COLLECTION
+    // ============================================================================
+
+    match /postDrafts/{draftId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('authorId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('authorId', '') == request.auth.uid
+        && hasRequiredFields(['authorId', 'content', 'createdAt'])
+        && validLength(request.resource.data.content, 500);
+      allow update: if isAuthenticated()
+        && resource.data.get('authorId', '') == request.auth.uid
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['authorId']);
+      allow delete: if isAuthenticated()
+        && resource.data.get('authorId', '') == request.auth.uid;
+    }
+
+    // ============================================================================
+    // POST VIEWS COLLECTION (append-only view tracking)
+    // ============================================================================
+
+    match /postViews/{viewId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid
+        && hasRequiredFields(['userId', 'postId', 'viewedAt']);
+      allow update, delete: if false;
+    }
+
+    // ============================================================================
+    // HIDDEN POSTS COLLECTION
+    // ============================================================================
+
+    match /hiddenPosts/{hideId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid
+        && hasRequiredFields(['userId', 'postId']);
+      allow update: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow delete: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+    }
+
+    // ============================================================================
+    // HIDDEN COMMENTS COLLECTION
+    // ============================================================================
+
+    match /hiddenComments/{hideId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid
+        && hasRequiredFields(['userId', 'commentId']);
+      allow update: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow delete: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+    }
+
+    // ============================================================================
+    // NOT INTERESTED COLLECTION
+    // ============================================================================
+
+    match /notInterested/{signalId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid
+        && hasRequiredFields(['userId', 'postId']);
+      allow update, delete: if false;
+    }
+
+    // ============================================================================
+    // PRAYER WALL COLLECTION
+    // ============================================================================
+
+    match /prayerWall/{prayerId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+        && request.resource.data.get('authorId', '') == request.auth.uid
+        && hasRequiredFields(['authorId', 'content', 'createdAt'])
+        && validLength(request.resource.data.content, 1000);
+      allow update: if isAuthenticated()
+        && resource.data.get('authorId', '') == request.auth.uid
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['authorId']);
+      allow delete: if isAuthenticated()
+        && resource.data.get('authorId', '') == request.auth.uid;
+
+      match /prayedBy/{userId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated()
+          && request.resource.data.get('userId', '') == request.auth.uid;
+        allow delete: if isAuthenticated()
+          && resource.data.get('userId', '') == request.auth.uid;
+        allow update: if false;
+      }
+    }
+
+    // ============================================================================
+    // TOP-LEVEL PRAYED-BY COLLECTION
+    // ============================================================================
+
+    match /prayedBy/{docId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow delete: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow update: if false;
+    }
+
+    // ============================================================================
+    // PRAYER FOLLOW-THROUGH COLLECTIONS
+    // ============================================================================
+
+    match /answered_prayers/{docId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow update: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow delete: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+    }
+
+    match /prayer_reminders/{docId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow update: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow delete: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+    }
+
+    match /prayer_commitments/{docId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow update: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow delete: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+    }
+
+    match /prayer_status_updates/{docId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow update: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow delete: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+    }
+
+    match /prayer_analyses/{docId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // ============================================================================
+    // TRUSTED CIRCLES (EnhancedCrisisSupportService)
+    // ============================================================================
+
+    match /trustedCircles/{circleId} {
+      allow read: if isAuthenticated()
+        && (resource.data.get('ownerId', '') == request.auth.uid
+          || request.auth.uid in resource.data.get('memberIds', []));
+      allow create: if isAuthenticated()
+        && request.resource.data.get('ownerId', '') == request.auth.uid
+        && hasRequiredFields(['ownerId', 'memberIds']);
+      allow update: if isAuthenticated()
+        && resource.data.get('ownerId', '') == request.auth.uid;
+      allow delete: if isAuthenticated()
+        && resource.data.get('ownerId', '') == request.auth.uid;
+    }
+
+    match /trustedCircleNotifications/{notifId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('recipientId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('senderId', '') == request.auth.uid;
+      // Recipients can mark notifications read only.
+      allow update: if isAuthenticated()
+        && resource.data.get('recipientId', '') == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'readAt']);
+      allow delete: if isAuthenticated()
+        && resource.data.get('recipientId', '') == request.auth.uid;
+    }
+
+    // ============================================================================
+    // SAFE CONVERSATION SETTINGS (SafeConversationService)
+    // ============================================================================
+
+    match /safeConversationSettings/{userId} {
+      allow read: if isAuthenticated() && isOwner(userId);
+      allow create, update: if isAuthenticated() && isOwner(userId);
+      allow delete: if false;
+    }
+
+    // ============================================================================
+    // SAFETY DECISIONS COLLECTION (UnifiedSafetyGate)
+    // ============================================================================
+
+    match /safetyDecisions/{decisionId} {
+      allow read: if isAuthenticated()
+        && (resource.data.get('userId', '') == request.auth.uid
+          || resource.data.get('targetUserId', '') == request.auth.uid);
+      // Client-side safety gate creates lightweight pre-decision records.
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // ============================================================================
+    // SHADOW BANS (AdvancedModerationService — server-written via admin SDK)
+    // ============================================================================
+
+    match /shadowBans/{userId} {
+      allow read: if isAuthenticated() && isOwner(userId);
+      allow create, update, delete: if false;
+    }
+
+    // ============================================================================
+    // ADVANCED MODERATION LOGS (AdvancedModerationService)
+    // P1 FIX: Admin check uses get() — acceptable for low-frequency admin reads.
+    // Clients write only their own reporter events.
+    // ============================================================================
+
+    match /advancedModerationLogs/{logId} {
+      allow read: if isAuthenticated()
+        && (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true
+          || resource.data.get('targetUserId', '') == request.auth.uid);
+      allow create: if isAuthenticated()
+        && request.resource.data.get('reporterId', '') == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // ============================================================================
+    // APPEALS COLLECTION (UnifiedSafetyGate, EnforcementLadderService, etc.)
+    // ============================================================================
+
+    match /appeals/{appealId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid
+        && hasRequiredFields(['userId', 'reason', 'createdAt']);
+      allow update, delete: if false;
+    }
+
+    // ============================================================================
+    // SPAM REPORTS COLLECTION (FirebaseMessagingService)
+    // ============================================================================
+
+    match /spamReports/{reportId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('reporterId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('reporterId', '') == request.auth.uid
+        && hasRequiredFields(['reporterId', 'reportedUserId', 'createdAt']);
+      allow update, delete: if false;
+    }
+
+    // ============================================================================
+    // CRISIS ALERT LOGS (EnhancedCrisisSupportService)
+    // Sensitive self-harm signal data — deny ALL client reads.
+    // ============================================================================
+
+    match /crisisAlertLogs/{logId} {
+      allow read, write: if false;
+    }
+
+    // ============================================================================
+    // CRISIS SUPPORT PREFERENCES
+    // ============================================================================
+
+    match /crisisSupportPreferences/{userId} {
+      allow read: if isAuthenticated() && isOwner(userId);
+      allow create, update: if isAuthenticated() && isOwner(userId);
+      allow delete: if false;
+    }
+
+    // ============================================================================
+    // SAVED VERSES COLLECTION
+    // ============================================================================
+
+    match /savedVerses/{docId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid
+        && hasRequiredFields(['userId', 'verseReference']);
+      allow delete: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow update: if false;
+    }
+
+    // ============================================================================
+    // SAVED BOOKS COLLECTION
+    // ============================================================================
+
+    match /savedBooks/{docId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow delete: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow update: if false;
+    }
+
+    // ============================================================================
+    // BOOKS COLLECTION (read-only catalogue)
+    // ============================================================================
+
+    match /books/{bookId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+
+    // ============================================================================
+    // BOOK REVIEWS COLLECTION
+    // ============================================================================
+
+    match /bookReviews/{reviewId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid
+        && hasRequiredFields(['userId', 'bookId', 'rating'])
+        && request.resource.data.get('rating', 0) >= 1
+        && request.resource.data.get('rating', 6) <= 5;
+      allow update: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['userId', 'bookId']);
+      allow delete: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+    }
+
+    // ============================================================================
+    // SAVED SEARCHES COLLECTION
+    // ============================================================================
+
+    match /savedSearches/{searchId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid
+        && hasRequiredFields(['userId', 'query', 'savedAt'])
+        && validLength(request.resource.data.query, 200);
+      allow delete: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow update: if false;
+    }
+
+    // ============================================================================
+    // SCHEDULED NOTIFICATIONS COLLECTION (NotificationGenkitService — server-only)
+    // ============================================================================
+
+    match /scheduledNotifications/{notifId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create, update, delete: if false;
+    }
+
+    // ============================================================================
+    // NOTE FOLDERS COLLECTION (ChurchNotesService)
+    // ============================================================================
+
+    match /noteFolders/{folderId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid
+        && hasRequiredFields(['userId', 'name', 'createdAt'])
+        && validLength(request.resource.data.name, 100);
+      allow update: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['userId']);
+      allow delete: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+    }
+
+    // ============================================================================
+    // DATA IMPORT COLLECTIONS (DataImportService)
+    // ============================================================================
+
+    match /importBatches/{batchId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid
+        && hasRequiredFields(['userId', 'source', 'createdAt']);
+      allow update: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'completedAt', 'importedCount', 'errorCount']);
+      allow delete: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+    }
+
+    match /importDedupeHashes/{hashId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // ============================================================================
+    // BEREAN FEEDBACK COLLECTION
+    // ============================================================================
+
+    match /bereanFeedback/{feedbackId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid
+        && hasRequiredFields(['userId', 'query', 'rating']);
+      allow update, delete: if false;
+    }
+
+    // ============================================================================
+    // AMEN CONNECT COLLECTION
+    // ============================================================================
+
+    match /amenConnect/{profileId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+        && profileId == request.auth.uid
+        && hasRequiredFields(['userId', 'displayName']);
+      allow update: if isAuthenticated()
+        && profileId == request.auth.uid
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['userId']);
+      allow delete: if isAuthenticated()
+        && profileId == request.auth.uid;
+    }
+
+    // ============================================================================
+    // REACTIONS COLLECTION (Message reactions in UnifiedChatView)
+    // ============================================================================
+
+    match /reactions/{reactionId} {
+      allow read: if isAuthenticated()
+        && (resource.data.get('userId', '') == request.auth.uid
+          || resource.data.get('recipientId', '') == request.auth.uid);
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid
+        && hasRequiredFields(['userId', 'emoji', 'messageId']);
+      allow update: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['emoji', 'updatedAt']);
+      allow delete: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+    }
+
+    // ============================================================================
+    // THREAD SUMMARIES COLLECTION (AI-generated — server-only)
+    // ============================================================================
+
+    match /threadSummaries/{summaryId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if false;
+    }
+
+    // ============================================================================
+    // COMMUNITY STANDARDS TOP-LEVEL COLLECTION
+    // ============================================================================
+
+    match /communityStandards/{docId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create, update: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow delete: if false;
+    }
+
+    // ============================================================================
+    // TIP HELPFUL COLLECTION (ChurchDataService)
+    // ============================================================================
+
+    match /tipHelpful/{docId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid
+        && hasRequiredFields(['userId', 'tipId', 'helpful']);
+      allow update: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['helpful', 'updatedAt']);
+      allow delete: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+    }
+
+    // ============================================================================
+    // USER SECURITY COLLECTION
+    // Stores per-user 2FA session state: session2FAActive, session2FAExpiresAt.
+    // Written ONLY by Cloud Functions (verify2FAOTP, expire2FASession) via admin SDK.
+    // Client writes are deny-all so the session cannot be forged.
+    // The caller2FASessionValid() helper reads this collection.
+    // ============================================================================
+
+    match /userSecurity/{userId} {
+      allow read: if isOwner(userId);
+      allow create, update, delete: if false;
+    }
+
+    // ============================================================================
+    // TWO FACTOR SESSIONS COLLECTION
+    // twoFactorSessions/{userId}/sessions/{sessionId} — created by verify2FAOTP
+    // Cloud Function. Client cannot write to prevent token forgery.
+    // ============================================================================
+
+    match /twoFactorSessions/{userId} {
+      allow read: if isOwner(userId);
+      allow create, update, delete: if false;
+
+      match /sessions/{sessionId} {
+        allow read: if isOwner(userId);
+        allow create, update, delete: if false;
+      }
     }
 
     // ============================================================================

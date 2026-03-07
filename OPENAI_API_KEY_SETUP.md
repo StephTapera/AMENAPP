@@ -56,7 +56,7 @@
 
 ### Still getting 401 errors?
 
-1. **Verify the key** in Config.xcconfig is correct (starts with `sk-proj-`)
+1. **Verify the key** in Config.xcconfig is correct (starts with `YOUR_OPENAI_API_KEY_HERE`)
 2. **Check Xcode configurations** are linked to Config.xcconfig
 3. **Clean and rebuild** the project
 4. **Check console logs** for OpenAIService initialization messages
@@ -70,7 +70,7 @@ xcodebuild -showBuildSettings | grep OPENAI_API_KEY
 
 You should see:
 ```
-OPENAI_API_KEY = sk-proj-aXAeNgPj...
+OPENAI_API_KEY = YOUR_OPENAI_API_KEY_HERE...
 ```
 
 ## 📝 Alternative: Quick Test (Not Recommended for Production)

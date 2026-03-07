@@ -73,13 +73,18 @@ class AdvancedModerationService {
     static let shared = AdvancedModerationService()
     private let db = Firestore.firestore()
     
-    // API Configuration from Firebase Remote Config
+    // API Configuration — Remote Config is preferred (can be rotated without app update);
+    // falls back to Info.plist values sourced from Config.xcconfig / CI secrets.
     private var googleNLAPIKey: String {
-        RemoteConfig.remoteConfig().configValue(forKey: "google_nl_api_key").stringValue ?? ""
+        let rcValue = RemoteConfig.remoteConfig().configValue(forKey: "google_nl_api_key").stringValue
+        if !rcValue.isEmpty { return rcValue }
+        return BundleConfig.string(forKey: "GOOGLE_VISION_API_KEY") ?? ""
     }
     
     private var openAIAPIKey: String {
-        RemoteConfig.remoteConfig().configValue(forKey: "openai_api_key").stringValue ?? ""
+        let rcValue = RemoteConfig.remoteConfig().configValue(forKey: "openai_api_key").stringValue
+        if !rcValue.isEmpty { return rcValue }
+        return BundleConfig.string(forKey: "OPENAI_API_KEY") ?? ""
     }
     
     // Shadow ban cache
@@ -102,11 +107,15 @@ class AdvancedModerationService {
         language: String? = nil
     ) async throws -> AdvancedModerationResult {
         
+        #if DEBUG
         print("🛡️ [ADVANCED MODERATION] Starting multi-provider check...")
+        #endif
         
         // Step 0: Check if user is shadow banned
         if await isUserShadowBanned(userId) {
+            #if DEBUG
             print("🚫 [SHADOW BAN] User \(userId) is shadow banned")
+            #endif
             return AdvancedModerationResult(
                 isApproved: false,
                 flaggedReasons: ["User is currently shadow banned"],
@@ -126,17 +135,23 @@ class AdvancedModerationService {
         } else {
             detectedLanguage = await detectLanguage(content)
         }
+        #if DEBUG
         print("🌍 [LANGUAGE] Detected: \(detectedLanguage)")
+        #endif
         
         // Step 2: Detect content context (Bible quote, prayer, etc.)
         let context = detectContentContext(content)
+        #if DEBUG
         print("📖 [CONTEXT] Type: \(context.rawValue)")
+        #endif
         
         // Step 3: Bible quote detection - allow religious content
         if context == .bibleQuote {
             let bibleResult = await analyzeBibleQuote(content)
             if bibleResult.isApproved {
+                #if DEBUG
                 print("✅ [BIBLE] Approved as scripture reference")
+                #endif
                 return bibleResult
             }
         }
@@ -174,7 +189,9 @@ class AdvancedModerationService {
             result: aggregatedResult
         )
         
+        #if DEBUG
         print("🛡️ [RESULT] \(aggregatedResult.severityLevel.rawValue) (confidence: \(aggregatedResult.confidence))")
+        #endif
         
         return aggregatedResult
     }
@@ -213,7 +230,9 @@ class AdvancedModerationService {
                 return language
             }
         } catch {
+            #if DEBUG
             print("⚠️ [LANGUAGE] Google NL API error: \(error)")
+            #endif
         }
         
         return detectLanguageLocal(content)
@@ -578,9 +597,13 @@ class AdvancedModerationService {
             shadowBannedUsers = Set(snapshot.documents.compactMap { $0.data()["userId"] as? String })
             lastShadowBanSync = Date()
             
+            #if DEBUG
             print("🚫 [SHADOW BAN] Loaded \(shadowBannedUsers.count) banned users")
+            #endif
         } catch {
+            #if DEBUG
             print("❌ [SHADOW BAN] Failed to load: \(error)")
+            #endif
         }
     }
     
@@ -607,7 +630,9 @@ class AdvancedModerationService {
                 )
             }
         } catch {
+            #if DEBUG
             print("❌ [SHADOW BAN] Failed to check history: \(error)")
+            #endif
         }
     }
     
@@ -629,9 +654,13 @@ class AdvancedModerationService {
             try db.collection("shadowBans").document(userId).setData(from: record)
             shadowBannedUsers.insert(userId)
             
+            #if DEBUG
             print("🚫 [SHADOW BAN] Applied to user \(userId) for \(durationDays) days")
+            #endif
         } catch {
+            #if DEBUG
             print("❌ [SHADOW BAN] Failed to apply: \(error)")
+            #endif
         }
     }
     
@@ -661,7 +690,9 @@ class AdvancedModerationService {
         do {
             try await db.collection("advancedModerationLogs").addDocument(data: logData)
         } catch {
+            #if DEBUG
             print("⚠️ [LOGGING] Failed to log result: \(error)")
+            #endif
         }
     }
 }

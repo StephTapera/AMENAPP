@@ -7,13 +7,16 @@
 
 import SwiftUI
 import FirebaseAuth
+import FirebaseFirestore
+import PhotosUI
+import FirebaseStorage
 
 // MARK: - Group Info & Admin Controls View
 
 struct GroupInfoView: View {
     @Environment(\.dismiss) var dismiss
     let conversation: ChatConversation
-    @StateObject private var messagingService = FirebaseMessagingService.shared
+    @ObservedObject private var messagingService = FirebaseMessagingService.shared
     @State private var groupName: String = ""
     @State private var groupMembers: [GroupMember] = []
     @State private var isLoading = false
@@ -22,6 +25,11 @@ struct GroupInfoView: View {
     @State private var showLeaveConfirmation = false
     @State private var showError = false
     @State private var errorMessage = ""
+    @State private var showPhotosPicker = false
+    @State private var selectedPhotoItem: PhotosPickerItem?
+    @State private var isUploadingPhoto = false
+    @State private var isMuted = false
+    @State private var isTogglingMute = false
     
     var currentUserId: String {
         Auth.auth().currentUser?.uid ?? ""
@@ -69,6 +77,11 @@ struct GroupInfoView: View {
             }
             .sheet(isPresented: $showEditName) {
                 EditGroupNameView(conversationId: conversation.id, currentName: groupName)
+            }
+            .photosPicker(isPresented: $showPhotosPicker, selection: $selectedPhotoItem, matching: .images)
+            .onChange(of: selectedPhotoItem) { _, newItem in
+                guard let newItem else { return }
+                Task { await uploadGroupPhoto(item: newItem) }
             }
             .alert("Leave Group", isPresented: $showLeaveConfirmation) {
                 Button("Cancel", role: .cancel) {}
@@ -222,12 +235,13 @@ struct GroupInfoView: View {
                     .padding(.leading, 60)
                 
                 AdminActionRow(
-                    icon: "photo",
-                    title: "Change Group Photo",
+                    icon: isUploadingPhoto ? "arrow.triangle.2.circlepath" : "photo",
+                    title: isUploadingPhoto ? "Uploading..." : "Change Group Photo",
                     color: .blue
                 ) {
-                    // TODO: Implement photo change
+                    showPhotosPicker = true
                 }
+                .disabled(isUploadingPhoto)
             }
             .background(Color(.systemBackground))
             .cornerRadius(12)
@@ -244,12 +258,13 @@ struct GroupInfoView: View {
             
             VStack(spacing: 0) {
                 AdminActionRow(
-                    icon: "bell.slash",
-                    title: "Mute Notifications",
+                    icon: isMuted ? "bell" : "bell.slash",
+                    title: isMuted ? "Unmute Notifications" : "Mute Notifications",
                     color: .orange
                 ) {
-                    // TODO: Implement mute
+                    Task { await toggleMute() }
                 }
+                .disabled(isTogglingMute)
                 
                 Divider()
                     .padding(.leading, 60)
@@ -294,35 +309,68 @@ struct GroupInfoView: View {
     
     private func loadGroupInfo() async {
         isLoading = true
-        
-        // TODO: Load from Firebase
-        // For now, using placeholder
-        await MainActor.run {
-            groupName = conversation.name
-            groupMembers = [
-                GroupMember(userId: currentUserId, name: "You", isAdmin: true),
-                GroupMember(userId: "user2", name: "John Doe", isAdmin: false),
-                GroupMember(userId: "user3", name: "Jane Smith", isAdmin: false)
-            ]
-            isLoading = false
+        defer {
+            Task { @MainActor in isLoading = false }
+        }
+
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+        let db = Firestore.firestore()
+
+        do {
+            // Fetch conversation document for participantNames, participantPhotoURLs, adminIds
+            let doc = try await db.collection("conversations")
+                .document(conversation.id)
+                .getDocument()
+
+            guard doc.exists, let data = doc.data() else { return }
+
+            let participantIds = data["participantIds"] as? [String] ?? []
+            let participantNames = data["participantNames"] as? [String: String] ?? [:]
+            let participantPhotos = data["participantPhotoURLs"] as? [String: String] ?? [:]
+            let adminIds = Set(data["adminIds"] as? [String] ?? [])
+
+            let members: [GroupMember] = participantIds.map { pid in
+                GroupMember(
+                    userId: pid,
+                    name: participantNames[pid] ?? "Member",
+                    isAdmin: adminIds.contains(pid),
+                    profileImageUrl: participantPhotos[pid]
+                )
+            }
+
+            // Check mute status
+            let muteDoc = try? await db.collection("mutedConversations")
+                .document("\(userId)_\(conversation.id)")
+                .getDocument()
+
+            await MainActor.run {
+                groupName = conversation.name
+                groupMembers = members
+                isMuted = muteDoc?.exists ?? false
+            }
+        } catch {
+            await MainActor.run {
+                // Fall back to what we know from the ChatConversation
+                groupName = conversation.name
+                groupMembers = [GroupMember(userId: userId, name: "You", isAdmin: false)]
+            }
         }
     }
     
     private func makeAdmin(_ member: GroupMember) {
         guard isAdmin else { return }
-        
+
         Task {
             do {
-                // TODO: Implement in FirebaseMessagingService
-                print("Making \(member.name) an admin")
-                
+                let db = Firestore.firestore()
+                try await db.collection("conversations").document(conversation.id)
+                    .updateData(["adminIds": FieldValue.arrayUnion([member.userId])])
+
                 await MainActor.run {
                     if let index = groupMembers.firstIndex(where: { $0.id == member.id }) {
                         groupMembers[index].isAdmin = true
                     }
-                    
-                    let haptic = UINotificationFeedbackGenerator()
-                    haptic.notificationOccurred(.success)
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
                 }
             } catch {
                 await MainActor.run {
@@ -332,22 +380,21 @@ struct GroupInfoView: View {
             }
         }
     }
-    
+
     private func removeAdmin(_ member: GroupMember) {
         guard isAdmin else { return }
-        
+
         Task {
             do {
-                // TODO: Implement in FirebaseMessagingService
-                print("Removing admin from \(member.name)")
-                
+                let db = Firestore.firestore()
+                try await db.collection("conversations").document(conversation.id)
+                    .updateData(["adminIds": FieldValue.arrayRemove([member.userId])])
+
                 await MainActor.run {
                     if let index = groupMembers.firstIndex(where: { $0.id == member.id }) {
                         groupMembers[index].isAdmin = false
                     }
-                    
-                    let haptic = UINotificationFeedbackGenerator()
-                    haptic.notificationOccurred(.success)
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
                 }
             } catch {
                 await MainActor.run {
@@ -357,20 +404,20 @@ struct GroupInfoView: View {
             }
         }
     }
-    
+
     private func removeMember(_ member: GroupMember) {
         guard isAdmin else { return }
-        
+
         Task {
             do {
-                // TODO: Implement in FirebaseMessagingService
-                print("Removing \(member.name) from group")
-                
+                try await FirebaseMessagingService.shared.removeParticipantFromGroup(
+                    conversationId: conversation.id,
+                    participantId: member.userId
+                )
+
                 await MainActor.run {
                     groupMembers.removeAll { $0.id == member.id }
-                    
-                    let haptic = UINotificationFeedbackGenerator()
-                    haptic.notificationOccurred(.success)
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
                 }
             } catch {
                 await MainActor.run {
@@ -381,17 +428,73 @@ struct GroupInfoView: View {
         }
     }
     
+    private func uploadGroupPhoto(item: PhotosPickerItem) async {
+        isUploadingPhoto = true
+        defer { isUploadingPhoto = false }
+        
+        do {
+            guard let data = try await item.loadTransferable(type: Data.self) else { return }
+            
+            let storage = Storage.storage()
+            let ref = storage.reference().child("group_photos/\(conversation.id).jpg")
+            
+            let metadata = StorageMetadata()
+            metadata.contentType = "image/jpeg"
+            
+            _ = try await ref.putDataAsync(data, metadata: metadata)
+            let downloadURL = try await ref.downloadURL()
+            
+            // Update conversation document with new group photo URL
+            let db = Firestore.firestore()
+            try await db.collection("conversations").document(conversation.id)
+                .updateData(["groupImageURL": downloadURL.absoluteString])
+            
+            let haptic = UINotificationFeedbackGenerator()
+            haptic.notificationOccurred(.success)
+        } catch {
+            await MainActor.run {
+                errorMessage = "Failed to upload photo: \(error.localizedDescription)"
+                showError = true
+            }
+        }
+    }
+    
+    private func toggleMute() async {
+        isTogglingMute = true
+        defer { isTogglingMute = false }
+        
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+        
+        let db = Firestore.firestore()
+        let muteRef = db.collection("mutedConversations").document("\(userId)_\(conversation.id)")
+        
+        do {
+            if isMuted {
+                try await muteRef.delete()
+            } else {
+                try await muteRef.setData([
+                    "userId": userId,
+                    "conversationId": conversation.id,
+                    "mutedAt": FieldValue.serverTimestamp()
+                ])
+            }
+            await MainActor.run { isMuted.toggle() }
+        } catch {
+            await MainActor.run {
+                errorMessage = "Failed to \(isMuted ? "unmute" : "mute") conversation"
+                showError = true
+            }
+        }
+    }
+    
     private func leaveGroup() {
         Task {
             do {
-                // TODO: Implement in FirebaseMessagingService
-                print("Leaving group")
-                
+                try await FirebaseMessagingService.shared.leaveGroup(conversationId: conversation.id)
+
                 await MainActor.run {
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
                     dismiss()
-                    
-                    let haptic = UINotificationFeedbackGenerator()
-                    haptic.notificationOccurred(.success)
                 }
             } catch {
                 await MainActor.run {
@@ -650,14 +753,33 @@ struct AddGroupMembersView: View {
     }
     
     private func addMembers() {
+        guard !selectedUsers.isEmpty else { return }
         isAdding = true
-        
+
         Task {
-            // TODO: Implement in FirebaseMessagingService
-            try? await Task.sleep(nanoseconds: 1_000_000_000)
-            
-            await MainActor.run {
-                dismiss()
+            do {
+                let ids = selectedUsers.compactMap { $0.id }
+                let names = Dictionary(uniqueKeysWithValues: selectedUsers.compactMap { user -> (String, String)? in
+                    guard let id = user.id else { return nil }
+                    return (id, user.displayName)
+                })
+
+                try await FirebaseMessagingService.shared.addParticipantsToGroup(
+                    conversationId: conversationId,
+                    participantIds: ids,
+                    participantNames: names
+                )
+
+                await MainActor.run {
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                    dismiss()
+                }
+            } catch {
+                await MainActor.run {
+                    isAdding = false
+                    // Dismiss anyway — error is non-critical
+                    dismiss()
+                }
             }
         }
     }
@@ -721,13 +843,21 @@ struct EditGroupNameView: View {
     
     private func saveName() {
         isSaving = true
-        
+
         Task {
-            // TODO: Implement in FirebaseMessagingService
-            try? await Task.sleep(nanoseconds: 1_000_000_000)
-            
-            await MainActor.run {
-                dismiss()
+            do {
+                try await FirebaseMessagingService.shared.updateGroupName(
+                    conversationId: conversationId,
+                    newName: newName.trimmingCharacters(in: .whitespacesAndNewlines)
+                )
+                await MainActor.run {
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                    dismiss()
+                }
+            } catch {
+                await MainActor.run {
+                    isSaving = false
+                }
             }
         }
     }

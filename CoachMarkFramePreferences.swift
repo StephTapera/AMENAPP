@@ -61,43 +61,59 @@ extension View {
 
 // MARK: - Frame Reporters (Debounced)
 
-/// Frame reporter for PostCard - reports frame only once on appear
+/// Frame reporter for PostCard - reports frame only once on appear.
+/// Uses a deferred preference update to avoid "multiple updates per frame" SwiftUI warning
+/// that occurs when multiple list cells report their frames in the same render pass.
 private struct PostCardFrameReporter: ViewModifier {
-    @State private var hasReported = false
-    
+    @State private var reportedFrame: EquatableCGRect? = nil
+
     func body(content: Content) -> some View {
         content.background(
             GeometryReader { geometry in
                 Color.clear
                     .preference(
                         key: PostCardFramePreferenceKey.self,
-                        value: hasReported ? nil : EquatableCGRect(geometry.frame(in: .global))
+                        value: reportedFrame
                     )
                     .onAppear {
-                        // Mark as reported to prevent further updates
-                        hasReported = true
+                        guard reportedFrame == nil else { return }
+                        // Defer to next run-loop tick so all cells in the same
+                        // render pass don't all fire the preference simultaneously.
+                        let frame = geometry.frame(in: .global)
+                        DispatchQueue.main.async {
+                            reportedFrame = EquatableCGRect(frame)
+                        }
                     }
             }
         )
     }
 }
 
-/// Frame reporter for Berean button - reports frame only once on appear
+/// Frame reporter for Berean button - reports frame only once on appear.
+/// Uses a deferred preference update to avoid "multiple updates per frame" SwiftUI warning
+/// that occurs when multiple list cells report their frames in the same render pass.
 private struct BereanButtonFrameReporter: ViewModifier {
-    @State private var hasReported = false
+    @State private var reportedFrame: EquatableCGRect? = nil
     
     func body(content: Content) -> some View {
-        content.background(
-            GeometryReader { geometry in
-                Color.clear
-                    .preference(
-                        key: BereanButtonFramePreferenceKey.self,
-                        value: hasReported ? nil : EquatableCGRect(geometry.frame(in: .global))
-                    )
-                    .onAppear {
-                        hasReported = true
-                    }
-            }
-        )
+        content
+            .background(
+                GeometryReader { geometry in
+                    Color.clear
+                        .preference(
+                            key: BereanButtonFramePreferenceKey.self,
+                            value: reportedFrame
+                        )
+                        .onAppear {
+                            guard reportedFrame == nil else { return }
+                            // Defer to next run-loop tick so all cells in the same
+                            // render pass don't all fire the preference simultaneously.
+                            let frame = geometry.frame(in: .global)
+                            DispatchQueue.main.async {
+                                reportedFrame = EquatableCGRect(frame)
+                            }
+                        }
+                }
+            )
     }
 }

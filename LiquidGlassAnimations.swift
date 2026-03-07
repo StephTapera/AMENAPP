@@ -103,27 +103,15 @@ extension ButtonStyle where Self == LiquidGlassButtonStyle {
 
 // MARK: - 4b. Touch-Down Instant Feedback Button Style (P0 FIX)
 
-/// Premium button style with INSTANT touch-down visual feedback
-/// Uses DragGesture to detect touch down immediately (not just tap)
+/// Premium button style with INSTANT touch-down visual feedback.
+/// Uses configuration.isPressed — no DragGesture, so it never competes
+/// with the ScrollView pan gesture recognizer.
 struct InstantFeedbackButtonStyle: ButtonStyle {
-    @State private var isTouching = false
-    
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(isTouching ? 0.92 : 1.0)
-            .brightness(isTouching ? 0.08 : 0)
-            .animation(.spring(response: 0.2, dampingFraction: 0.8), value: isTouching)
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { _ in
-                        if !isTouching {
-                            isTouching = true
-                        }
-                    }
-                    .onEnded { _ in
-                        isTouching = false
-                    }
-            )
+            .scaleEffect(configuration.isPressed ? 0.92 : 1.0)
+            .brightness(configuration.isPressed ? 0.08 : 0)
+            .animation(.spring(response: 0.18, dampingFraction: 0.75), value: configuration.isPressed)
     }
 }
 

@@ -12,7 +12,7 @@ import FirebaseAuth
 
 /// Subtle card that suggests potential collaborators based on smart matching
 struct SubtleCollaborationSuggestionsView: View {
-    @StateObject private var matchingService = CollaborationMatchingService.shared
+    @ObservedObject private var matchingService = CollaborationMatchingService.shared
     @State private var currentMatchIndex = 0
     @State private var showFullProfile = false
     @State private var isExpanded = false

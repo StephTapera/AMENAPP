@@ -28,8 +28,6 @@ class HomeViewModel: ObservableObject {
     
     // MARK: - Public Methods
     func loadInitialData() {
-        // For now, load mock data
-        // Later, replace with API calls
         posts = PostsManager.shared.allPosts
         trendingTopics = TrendingTopic.mockTopics
     }
@@ -44,52 +42,63 @@ class HomeViewModel: ObservableObject {
     func refreshPosts() async {
         isLoading = true
         errorMessage = nil
-        
-        do {
-            // Simulate network delay
-            try await Task.sleep(for: .seconds(1))
-            
-            // TODO: Replace with actual API call
-            // posts = try await PostService.shared.fetchPosts(category: selectedCategory)
-            
-            // Convert category string to PostCategory enum
-            let categoryEnum: Post.PostCategory
-            switch selectedCategory {
-            case "#OPENTABLE":
-                categoryEnum = .openTable
-            case "Testimonies":
-                categoryEnum = .testimonies
-            case "Prayer":
-                categoryEnum = .prayer
-            default:
-                categoryEnum = .openTable
-            }
-            
-            posts = PostsManager.shared.getPosts(for: categoryEnum)
-            
-        } catch {
-            errorMessage = "Failed to load posts: \(error.localizedDescription)"
+
+        let categoryEnum: Post.PostCategory
+        switch selectedCategory {
+        case "#OPENTABLE":
+            categoryEnum = .openTable
+        case "Testimonies":
+            categoryEnum = .testimonies
+        case "Prayer":
+            categoryEnum = .prayer
+        default:
+            categoryEnum = .openTable
         }
-    
+
+        posts = PostsManager.shared.getPosts(for: categoryEnum)
         isLoading = false
     }
     
+    /// Toggle amen/lightbulb reaction on a post via the real-time interactions service.
     func likePost(_ post: Post) {
-        // TODO: Implement API call
-        if let  vbnmnbvcindex = posts.firstIndex(where: { $0.id == post.id }) {
-            // Update locally (will be replaced with proper model update)
-            print("Liked post: \(post.id)")
+        guard let postId = post.firebaseId else { return }
+        Task {
+            do {
+                try await PostInteractionsService.shared.toggleAmen(postId: postId)
+            } catch {
+                errorMessage = error.localizedDescription
+            }
         }
     }
     
+    /// Share a post by presenting the native share sheet via PostShareOptionsSheet.
+    /// Callers are expected to present PostShareOptionsSheet(post:) — this method
+    /// records the share signal so the feed algorithm can learn from it.
     func sharePost(_ post: Post) {
-        // TODO: Implement sharing functionality
-        print("Share post: \(post.id)")
+        guard let postId = post.firebaseId else { return }
+        Task {
+            await HeyFeedPreferencesService.shared.recordMoreLikeThis(
+                postId: postId,
+                authorId: post.authorId
+            )
+        }
     }
     
+    /// File a report against a post using the existing ModerationService pipeline.
     func reportPost(_ post: Post) {
-        // TODO: Implement reporting functionality
-        print("Report post: \(post.id)")
+        guard let postId = post.firebaseId else { return }
+        Task {
+            do {
+                try await ModerationService.shared.reportPost(
+                    postId: postId,
+                    postAuthorId: post.authorId,
+                    reason: .inappropriateContent,
+                    additionalDetails: nil
+                )
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+        }
     }
     
     // MARK: - Private Methods

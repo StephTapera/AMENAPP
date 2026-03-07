@@ -31,8 +31,8 @@ enum CommentSortOption: String, CaseIterable {
 struct ThreadedCommentsView: View {
     let post: Post
     
-    @StateObject private var commentService = CommentService.shared
-    @StateObject private var userService = UserService.shared
+    @ObservedObject private var commentService = CommentService.shared
+    @ObservedObject private var userService = UserService.shared
     
     @State private var commentText = ""
     @State private var replyingTo: Comment?
@@ -326,7 +326,7 @@ struct ThreadedCommentCell: View {
             
             // Replies (if not collapsed)
             if !isCollapsed && !commentWithReplies.replies.isEmpty {
-                ForEach(commentWithReplies.replies, id: \.id) { reply in
+                ForEach(commentWithReplies.replies, id: \.stableId) { reply in
                     HStack(spacing: 0) {
                         // Thread line
                         VStack {

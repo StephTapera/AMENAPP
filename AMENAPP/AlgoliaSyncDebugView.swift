@@ -7,6 +7,7 @@
 //  Debug/Admin view for testing Algolia sync
 //
 
+#if DEBUG
 import SwiftUI
 
 /// Admin view for testing and managing Algolia sync
@@ -470,3 +471,4 @@ struct AlgoliaSyncDebugView: View {
  - Consider adding authentication check (admin only)
  - The "Sync All Data" button can be expensive if you have lots of data
  */
+#endif

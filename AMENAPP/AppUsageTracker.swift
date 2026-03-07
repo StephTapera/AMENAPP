@@ -41,6 +41,8 @@ class AppUsageTracker: ObservableObject {
     
     /// Start tracking session when app becomes active
     func startSession() {
+        // Guard against duplicate calls (e.g. scenePhase .active + ContentView .task)
+        guard sessionStartTime == nil else { return }
         sessionStartTime = Date()
         currentSessionStartTime = Date()  // Start continuous session tracking
         print("📊 AppUsageTracker: Session started")
@@ -280,7 +282,7 @@ struct DailyLimitReachedDialog: View {
                         // ✅ Close the app after brief delay for animation
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                             // Request scene suspension (graceful close that allows reopening)
-                            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
+                            if UIApplication.shared.connectedScenes.first is UIWindowScene {
                                 UIApplication.shared.perform(#selector(NSXPCConnection.suspend))
                             }
                         }

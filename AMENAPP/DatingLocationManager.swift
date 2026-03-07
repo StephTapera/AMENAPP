@@ -7,6 +7,7 @@
 
 import Foundation
 import CoreLocation
+import MapKit
 import Combine
 
 /// Manages location services for Christian Dating feature
@@ -20,7 +21,7 @@ class DatingLocationManager: NSObject, ObservableObject {
     @Published var errorMessage: String?
     
     private let locationManager = CLLocationManager()
-    private let geocoder = CLGeocoder()
+
     
     private override init() {
         super.init()
@@ -79,15 +80,11 @@ class DatingLocationManager: NSObject, ObservableObject {
         let location = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
         
         do {
-            let placemarks = try await geocoder.reverseGeocodeLocation(location)
-            
-            if let placemark = placemarks.first {
-                let city = placemark.locality ?? placemark.subLocality ?? ""
-                let state = placemark.administrativeArea ?? ""
-                
-                if !city.isEmpty {
-                    currentCity = state.isEmpty ? city : "\(city), \(state)"
-                }
+            guard let request = MKReverseGeocodingRequest(location: location) else { return }
+            let mapItems = try await request.mapItems
+            if let cityStr = mapItems.first?.addressRepresentations?.cityWithContext(.automatic),
+               !cityStr.isEmpty {
+                currentCity = cityStr
             }
         } catch {
             print("⚠️ Geocoding error: \(error.localizedDescription)")
@@ -233,19 +230,14 @@ struct LocationPrivacyHelper {
     
     /// Returns only city name, hiding exact location
     static func cityLevelLocationString(from coordinate: CLLocationCoordinate2D) async -> String? {
-        let geocoder = CLGeocoder()
         let location = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
         
         do {
-            let placemarks = try await geocoder.reverseGeocodeLocation(location)
-            
-            if let placemark = placemarks.first {
-                let city = placemark.locality ?? ""
-                let state = placemark.administrativeArea ?? ""
-                
-                if !city.isEmpty {
-                    return state.isEmpty ? city : "\(city), \(state)"
-                }
+            guard let request = MKReverseGeocodingRequest(location: location) else { return nil }
+            let mapItems = try await request.mapItems
+            if let cityStr = mapItems.first?.addressRepresentations?.cityWithContext(.automatic),
+               !cityStr.isEmpty {
+                return cityStr
             }
         } catch {
             print("⚠️ Geocoding error: \(error.localizedDescription)")

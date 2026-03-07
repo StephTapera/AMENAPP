@@ -7,6 +7,8 @@
 
 import SwiftUI
 
+#if DEBUG
+
 // MARK: - Example Search Test View
 
 /// This view demonstrates the AI Search components with sample data
@@ -249,3 +251,5 @@ struct ExampleSearchRow: View {
     )
     .padding()
 }
+
+#endif

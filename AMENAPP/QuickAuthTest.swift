@@ -5,6 +5,7 @@
 //  Quick test to diagnose sign in/up issues
 //
 
+#if DEBUG
 import SwiftUI
 import FirebaseAuth
 import FirebaseFirestore
@@ -429,3 +430,4 @@ struct QuickAuthTest: View {
 #Preview {
     QuickAuthTest()
 }
+#endif

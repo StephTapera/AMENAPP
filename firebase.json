@@ -9,7 +9,7 @@
     "indexes": "firestore.indexes.json"
   },
   "storage": {
-    "rules": "storage.rules",
+    "rules": "AMENAPP/storage.rules",
     "bucket": "amen-5e359.firebasestorage.app",
     "location": "us-west1"
   },

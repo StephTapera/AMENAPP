@@ -75,21 +75,30 @@ class VisitPlanService: ObservableObject {
     }
     
     // MARK: - Fetch Visit Plan
-    
-    /// Gets existing visit plan for a user, church, and service date
+
+    /// Gets the most recent active visit plan for a user+church pair.
+    /// Uses a query instead of a deterministic doc-ID lookup so that existing
+    /// plans are reliably found regardless of the exact timestamp used at
+    /// creation time (the old approach broke every time the sheet re-opened
+    /// because Date() never matched the saved timestamp).
     func getVisitPlan(
         userId: String,
         churchId: String,
-        serviceDate: Date
+        serviceDate: Date  // kept for API compatibility; no longer used for lookup
     ) async throws -> VisitPlan? {
-        let visitPlanId = "\(userId)_\(churchId)_\(Int(serviceDate.timeIntervalSince1970))"
-        
         let snapshot = try await db.collection("visit_plans")
-            .document(visitPlanId)
-            .getDocument()
-        
-        guard snapshot.exists else { return nil }
-        return try snapshot.data(as: VisitPlan.self)
+            .whereField("user_id", isEqualTo: userId)
+            .whereField("church_id", isEqualTo: churchId)
+            .whereField("status", in: [
+                VisitPlanStatus.planned.rawValue,
+                VisitPlanStatus.reminded.rawValue,
+                VisitPlanStatus.dayOf.rawValue
+            ])
+            .order(by: "service_date", descending: true)
+            .limit(to: 1)
+            .getDocuments()
+
+        return snapshot.documents.first.flatMap { try? $0.data(as: VisitPlan.self) }
     }
     
     /// Gets all visit plans for a user

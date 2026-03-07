@@ -59,7 +59,42 @@
 		EF3B232A2F4A7F43001DA241 /* PhotoInsightsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF3B23292F4A7F43001DA241 /* PhotoInsightsService.swift */; };
 		EF3B232C2F4A7F98001DA241 /* SmartSuggestionsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF3B232B2F4A7F98001DA241 /* SmartSuggestionsService.swift */; };
 		EF3B232E2F4A8386001DA241 /* TAB_BAR_AUTO_HIDE_FIX.md in Resources */ = {isa = PBXBuildFile; fileRef = EF3B232D2F4A8386001DA241 /* TAB_BAR_AUTO_HIDE_FIX.md */; };
-		EF3B23542F4AAC1B001DA241 /* Config.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = EF3B23532F4AAC1B001DA241 /* Config.xcconfig */; };
+		EF43AAC92F53C7E40075E1B5 /* ModerationAuditLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF43AAC82F53C7E40075E1B5 /* ModerationAuditLog.swift */; };
+		EF43AACB2F53C8480075E1B5 /* BereanOrchestrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF43AACA2F53C8480075E1B5 /* BereanOrchestrator.swift */; };
+		EF43AACD2F5410E20075E1B5 /* SmartReplySuggestionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF43AACC2F5410E20075E1B5 /* SmartReplySuggestionService.swift */; };
+		EF43AACF2F5411720075E1B5 /* ReplyActivityTriggers.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF43AACE2F5411720075E1B5 /* ReplyActivityTriggers.swift */; };
+		EF43AAD12F5412C40075E1B5 /* ActivityKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EF43AAD02F5412C40075E1B5 /* ActivityKit.framework */; };
+		EF43AAD52F54C9D10075E1B5 /* SearchExpandBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF43AAD42F54C9D10075E1B5 /* SearchExpandBar.swift */; };
+		EF43AAD72F54E0180075E1B5 /* ProfilePhotoCropView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF43AAD62F54E0180075E1B5 /* ProfilePhotoCropView.swift */; };
+		EF43AAD92F54E3DA0075E1B5 /* ExpandingBottomSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF43AAD82F54E3DA0075E1B5 /* ExpandingBottomSheet.swift */; };
+		EF475A962F56850900744F61 /* FruitOfSpiritBannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF475A952F56850900744F61 /* FruitOfSpiritBannerView.swift */; };
+		EF475A982F568E0000744F61 /* DebugLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF475A972F568E0000744F61 /* DebugLog.swift */; };
+		EF475A9A2F568E8300744F61 /* PerfTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF475A992F568E8300744F61 /* PerfTracker.swift */; };
+		EF475A9C2F569A3B00744F61 /* WriteOpTracer.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF475A9B2F569A3B00744F61 /* WriteOpTracer.swift */; };
+		EF475AA42F569FB800744F61 /* ShabbatModeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF475AA32F569FB800744F61 /* ShabbatModeService.swift */; };
+		EF475AC52F56FE0B00744F61 /* LinkPreviewCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF475AC42F56FE0B00744F61 /* LinkPreviewCards.swift */; };
+		EF475AC72F572C4200744F61 /* WorshipNowPlayingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF475AC62F572C4200744F61 /* WorshipNowPlayingView.swift */; };
+		EF475AC92F573E5D00744F61 /* WorshipSongPickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF475AC82F573E5D00744F61 /* WorshipSongPickerSheet.swift */; };
+		EF475ACB2F57456F00744F61 /* ImportModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF475ACA2F57456F00744F61 /* ImportModels.swift */; };
+		EF475ACD2F57459000744F61 /* GenericArchiveImporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF475ACC2F57459000744F61 /* GenericArchiveImporter.swift */; };
+		EF475ACF2F5745D700744F61 /* DataImportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF475ACE2F5745D700744F61 /* DataImportService.swift */; };
+		EF475AD12F57462800744F61 /* ImportReviewSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF475AD02F57462800744F61 /* ImportReviewSheet.swift */; };
+		EF475AD32F57466500744F61 /* LinkMetadataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF475AD22F57466500744F61 /* LinkMetadataService.swift */; };
+		EF475AD72F574AB200744F61 /* ShareDraft.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF475AD62F574AB200744F61 /* ShareDraft.swift */; };
+		EF475AD92F57556000744F61 /* AccountStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF475AD82F57556000744F61 /* AccountStatusView.swift */; };
+		EF475ADB2F575A2500744F61 /* RestrictService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF475ADA2F575A2500744F61 /* RestrictService.swift */; };
+		EF475ADD2F575B0100744F61 /* LinkSafetyService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF475ADC2F575B0100744F61 /* LinkSafetyService.swift */; };
+		EF475ADF2F575B6B00744F61 /* UnusualLoginDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF475ADE2F575B6B00744F61 /* UnusualLoginDetector.swift */; };
+		EF475AE12F575C3500744F61 /* CommunityGuidelinesPrompt.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF475AE02F575C3500744F61 /* CommunityGuidelinesPrompt.swift */; };
+		EF475AE32F575C5C00744F61 /* DeviceIntegrityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF475AE22F575C5C00744F61 /* DeviceIntegrityService.swift */; };
+		EF475AE52F575F2800744F61 /* AgeAssuranceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF475AE42F575F2800744F61 /* AgeAssuranceService.swift */; };
+		EF475AE72F57DA6700744F61 /* SelahView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF475AE62F57DA6700744F61 /* SelahView.swift */; };
+		EF475AE92F57E3E800744F61 /* ModerationConstitutionModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF475AE82F57E3E800744F61 /* ModerationConstitutionModels.swift */; };
+		EF475AEB2F57E47A00744F61 /* ModerationIngestService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF475AEA2F57E47A00744F61 /* ModerationIngestService.swift */; };
+		EF475AED2F57E52900744F61 /* EnforcementLadderService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF475AEC2F57E52900744F61 /* EnforcementLadderService.swift */; };
+		EF475AEF2F58573100744F61 /* SexualContentPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF475AEE2F58573100744F61 /* SexualContentPolicy.swift */; };
+		EF475AF12F58576F00744F61 /* MediaModerationPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF475AF02F58576F00744F61 /* MediaModerationPipeline.swift */; };
+		EF475AF32F58586600744F61 /* ProactiveFrictionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF475AF22F58586600744F61 /* ProactiveFrictionView.swift */; };
 		EF4BA9DA2F29FDD3000B930F /* Abtesting in Frameworks */ = {isa = PBXBuildFile; productRef = EF4BA9D92F29FDD3000B930F /* Abtesting */; };
 		EF4BA9DC2F29FDD3000B930F /* AbtestingV3 in Frameworks */ = {isa = PBXBuildFile; productRef = EF4BA9DB2F29FDD3000B930F /* AbtestingV3 */; };
 		EF4BA9DE2F29FDD3000B930F /* Analytics in Frameworks */ = {isa = PBXBuildFile; productRef = EF4BA9DD2F29FDD3000B930F /* Analytics */; };
@@ -114,15 +149,41 @@
 		EF55D23F2F4F7D7A0086707A /* TwoFactorOnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF55D23E2F4F7D7A0086707A /* TwoFactorOnboardingView.swift */; };
 		EF55D2412F4F81BF0086707A /* TwoFactorVerificationGateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF55D2402F4F81BF0086707A /* TwoFactorVerificationGateView.swift */; };
 		EF5D8DC62F3EDC80000BB6C9 /* GoogleGenerativeAI in Frameworks */ = {isa = PBXBuildFile; productRef = EF5D8DC52F3EDC80000BB6C9 /* GoogleGenerativeAI */; };
+		EF5FAFF72F50E6ED004D2993 /* SmartNotificationModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF5FAFF62F50E6ED004D2993 /* SmartNotificationModels.swift */; };
+		EF5FAFF92F50E735004D2993 /* SmartNotificationRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF5FAFF82F50E734004D2993 /* SmartNotificationRouter.swift */; };
+		EF5FAFFB2F50E77C004D2993 /* ActionableNotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF5FAFFA2F50E77C004D2993 /* ActionableNotificationService.swift */; };
+		EF5FAFFD2F50E798004D2993 /* NotificationDigestService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF5FAFFC2F50E798004D2993 /* NotificationDigestService.swift */; };
+		EF5FAFFF2F50E7B8004D2993 /* SmartMuteService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF5FAFFE2F50E7B8004D2993 /* SmartMuteService.swift */; };
+		EF5FB0012F50E7EA004D2993 /* SmartNotificationSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF5FB0002F50E7EA004D2993 /* SmartNotificationSettingsView.swift */; };
+		EF5FB0032F50E811004D2993 /* NotificationDigestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF5FB0022F50E811004D2993 /* NotificationDigestView.swift */; };
+		EF5FB0052F50ECA4004D2993 /* DeepLinkRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF5FB0042F50ECA4004D2993 /* DeepLinkRouter.swift */; };
+		EF5FB00D2F50EDC4004D2993 /* NATIVE_INTERACTIONS_IMPLEMENTATION_GUIDE.md in Resources */ = {isa = PBXBuildFile; fileRef = EF5FB00C2F50EDC4004D2993 /* NATIVE_INTERACTIONS_IMPLEMENTATION_GUIDE.md */; };
+		EF5FB00F2F50EE34004D2993 /* IMPLEMENTATION_SUMMARY.md in Resources */ = {isa = PBXBuildFile; fileRef = EF5FB00E2F50EE34004D2993 /* IMPLEMENTATION_SUMMARY.md */; };
+		EF5FB0112F50EE7E004D2993 /* ToastManagerExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF5FB0102F50EE7E004D2993 /* ToastManagerExtensions.swift */; };
+		EF5FB0132F50EEBB004D2993 /* INTERACTIONS_FINAL_DELIVERY.md in Resources */ = {isa = PBXBuildFile; fileRef = EF5FB0122F50EEBB004D2993 /* INTERACTIONS_FINAL_DELIVERY.md */; };
 		EF6873C52F40F194006DC25E /* CloudStorageService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF6873C42F40F194006DC25E /* CloudStorageService.swift */; };
 		EF6873D52F40F394006DC25E /* RichTextEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF6873D42F40F394006DC25E /* RichTextEditorView.swift */; };
 		EF6873E72F4170D7006DC25E /* CHURCH_NOTES_USER_FLOWS.md in Resources */ = {isa = PBXBuildFile; fileRef = EF6873E62F4170D7006DC25E /* CHURCH_NOTES_USER_FLOWS.md */; };
 		EF688D052F42CBF7006DC25E /* SmartPrayerReminderScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF688D042F42CBF7006DC25E /* SmartPrayerReminderScheduler.swift */; };
+		EF6E9F862F510D12003822C2 /* PostImagesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF6E9F852F510D12003822C2 /* PostImagesView.swift */; };
+		EF6E9F8C2F513E35003822C2 /* Motion.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF6E9F8B2F513E35003822C2 /* Motion.swift */; };
+		EF6E9F922F51B0BF003822C2 /* PerformanceHUD.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF6E9F912F51B0BF003822C2 /* PerformanceHUD.swift */; };
+		EF6E9F942F51BB4C003822C2 /* FeedAPIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF6E9F932F51BB4C003822C2 /* FeedAPIService.swift */; };
+		EF6E9F962F51C05F003822C2 /* AKAMAI_INTEGRATION_PLAN.md in Resources */ = {isa = PBXBuildFile; fileRef = EF6E9F952F51C05F003822C2 /* AKAMAI_INTEGRATION_PLAN.md */; };
+		EF6E9F9C2F524E2B003822C2 /* MessageSafetyGateway.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF6E9F9B2F524E2B003822C2 /* MessageSafetyGateway.swift */; };
+		EF6E9F9E2F524E75003822C2 /* ConversationRiskEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF6E9F9D2F524E75003822C2 /* ConversationRiskEngine.swift */; };
+		EF6E9FA02F524EAE003822C2 /* MessageSafetyUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF6E9F9F2F524EAE003822C2 /* MessageSafetyUI.swift */; };
+		EF6E9FA22F526227003822C2 /* MinorSafetyService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF6E9FA12F526227003822C2 /* MinorSafetyService.swift */; };
+		EF6E9FA42F52629D003822C2 /* MediaSafetyGateway.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF6E9FA32F52629D003822C2 /* MediaSafetyGateway.swift */; };
+		EF6E9FA62F52655B003822C2 /* SafetyReportingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF6E9FA52F52655B003822C2 /* SafetyReportingService.swift */; };
+		EF6E9FA82F5265D6003822C2 /* ModerationConsoleModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF6E9FA72F5265D6003822C2 /* ModerationConsoleModels.swift */; };
 		EF72D8F82F4FEBCE00F51E08 /* BiometricOnboardingPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF72D8F72F4FEBCE00F51E08 /* BiometricOnboardingPage.swift */; };
 		EF72D8FA2F4FEFB400F51E08 /* PrivacySettingsOnboardingPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF72D8F92F4FEFB400F51E08 /* PrivacySettingsOnboardingPage.swift */; };
 		EF7475D92F2C85CD00A4434F /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EF7475D82F2C85CD00A4434F /* XCTest.framework */; platformFilter = ios; };
 		EF92D0152F257C7300CC9601 /* FIREBASE_PERSISTENCE_FIX.md in Resources */ = {isa = PBXBuildFile; fileRef = EF92D0142F257C7300CC9601 /* FIREBASE_PERSISTENCE_FIX.md */; };
 		EF92D0172F257D7C00CC9601 /* FIREBASE_PERSISTENCE_TROUBLESHOOTING.md in Resources */ = {isa = PBXBuildFile; fileRef = EF92D0162F257D7C00CC9601 /* FIREBASE_PERSISTENCE_TROUBLESHOOTING.md */; };
+		EF94DD912F5925C6004D0767 /* BereanSafetyPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF94DD902F5925C6004D0767 /* BereanSafetyPolicy.swift */; };
+		EF94DD932F59D77E004D0767 /* AMENInbox.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF94DD922F59D77E004D0767 /* AMENInbox.swift */; };
 		EFAE09672F4AE793009D7209 /* PRODUCTION_READINESS_AUDIT_COMPLETE.md in Resources */ = {isa = PBXBuildFile; fileRef = EFAE09662F4AE793009D7209 /* PRODUCTION_READINESS_AUDIT_COMPLETE.md */; };
 		EFAE09692F4B4D11009D7209 /* FollowStateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFAE09682F4B4D11009D7209 /* FollowStateManager.swift */; };
 		EFAE096B2F4B4F16009D7209 /* LiquidGlassAnimations.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFAE096A2F4B4F16009D7209 /* LiquidGlassAnimations.swift */; };
@@ -168,6 +229,7 @@
 		EFAE0A7B2F4E6DA1009D7209 /* AntiHarassmentEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFAE0A7A2F4E6DA1009D7209 /* AntiHarassmentEngine.swift */; };
 		EFAE0A7F2F4E6E7E009D7209 /* SafetyUIComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFAE0A7E2F4E6E7E009D7209 /* SafetyUIComponents.swift */; };
 		EFAE0A812F4E87B0009D7209 /* NetworkTimeoutHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFAE0A802F4E87B0009D7209 /* NetworkTimeoutHandler.swift */; };
+		EFC1A00B2F700000001AMEN1 /* AMENWidgetExtension.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = EFC1A0062F700000001AMEN1 /* AMENWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -178,7 +240,38 @@
 			remoteGlobalIDString = EF81519A2F184E97008912E3;
 			remoteInfo = AMENAPP;
 		};
+		EFC1A00C2F700000001AMEN1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = EF8151932F184E97008912E3 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EFC1A0012F700000001AMEN1;
+			remoteInfo = AMENWidgetExtension;
+		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		EF475AC02F56FC4600744F61 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EFC1A00A2F700000001AMEN1 /* Embed App Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				EFC1A00B2F700000001AMEN1 /* AMENWidgetExtension.appex in Embed App Extensions */,
+			);
+			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		EF03BC942F2B31ED0026395A /* DEBUG_CHAT_NOT_OPENING.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = DEBUG_CHAT_NOT_OPENING.md; sourceTree = "<group>"; };
@@ -232,6 +325,42 @@
 		EF3B232B2F4A7F98001DA241 /* SmartSuggestionsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartSuggestionsService.swift; sourceTree = "<group>"; };
 		EF3B232D2F4A8386001DA241 /* TAB_BAR_AUTO_HIDE_FIX.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = TAB_BAR_AUTO_HIDE_FIX.md; sourceTree = "<group>"; };
 		EF3B23532F4AAC1B001DA241 /* Config.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config.xcconfig; sourceTree = "<group>"; };
+		EF43AAC82F53C7E40075E1B5 /* ModerationAuditLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModerationAuditLog.swift; sourceTree = "<group>"; };
+		EF43AACA2F53C8480075E1B5 /* BereanOrchestrator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BereanOrchestrator.swift; sourceTree = "<group>"; };
+		EF43AACC2F5410E20075E1B5 /* SmartReplySuggestionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartReplySuggestionService.swift; sourceTree = "<group>"; };
+		EF43AACE2F5411720075E1B5 /* ReplyActivityTriggers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReplyActivityTriggers.swift; sourceTree = "<group>"; };
+		EF43AAD02F5412C40075E1B5 /* ActivityKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ActivityKit.framework; path = System/Library/Frameworks/ActivityKit.framework; sourceTree = SDKROOT; };
+		EF43AAD42F54C9D10075E1B5 /* SearchExpandBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchExpandBar.swift; sourceTree = "<group>"; };
+		EF43AAD62F54E0180075E1B5 /* ProfilePhotoCropView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfilePhotoCropView.swift; sourceTree = "<group>"; };
+		EF43AAD82F54E3DA0075E1B5 /* ExpandingBottomSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExpandingBottomSheet.swift; sourceTree = "<group>"; };
+		EF475A952F56850900744F61 /* FruitOfSpiritBannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FruitOfSpiritBannerView.swift; sourceTree = "<group>"; };
+		EF475A972F568E0000744F61 /* DebugLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugLog.swift; sourceTree = "<group>"; };
+		EF475A992F568E8300744F61 /* PerfTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PerfTracker.swift; sourceTree = "<group>"; };
+		EF475A9B2F569A3B00744F61 /* WriteOpTracer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WriteOpTracer.swift; sourceTree = "<group>"; };
+		EF475AA32F569FB800744F61 /* ShabbatModeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShabbatModeService.swift; sourceTree = "<group>"; };
+		EF475AC42F56FE0B00744F61 /* LinkPreviewCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkPreviewCards.swift; sourceTree = "<group>"; };
+		EF475AC62F572C4200744F61 /* WorshipNowPlayingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorshipNowPlayingView.swift; sourceTree = "<group>"; };
+		EF475AC82F573E5D00744F61 /* WorshipSongPickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorshipSongPickerSheet.swift; sourceTree = "<group>"; };
+		EF475ACA2F57456F00744F61 /* ImportModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportModels.swift; sourceTree = "<group>"; };
+		EF475ACC2F57459000744F61 /* GenericArchiveImporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenericArchiveImporter.swift; sourceTree = "<group>"; };
+		EF475ACE2F5745D700744F61 /* DataImportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataImportService.swift; sourceTree = "<group>"; };
+		EF475AD02F57462800744F61 /* ImportReviewSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportReviewSheet.swift; sourceTree = "<group>"; };
+		EF475AD22F57466500744F61 /* LinkMetadataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkMetadataService.swift; sourceTree = "<group>"; };
+		EF475AD62F574AB200744F61 /* ShareDraft.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareDraft.swift; sourceTree = "<group>"; };
+		EF475AD82F57556000744F61 /* AccountStatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountStatusView.swift; sourceTree = "<group>"; };
+		EF475ADA2F575A2500744F61 /* RestrictService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestrictService.swift; sourceTree = "<group>"; };
+		EF475ADC2F575B0100744F61 /* LinkSafetyService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkSafetyService.swift; sourceTree = "<group>"; };
+		EF475ADE2F575B6B00744F61 /* UnusualLoginDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnusualLoginDetector.swift; sourceTree = "<group>"; };
+		EF475AE02F575C3500744F61 /* CommunityGuidelinesPrompt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommunityGuidelinesPrompt.swift; sourceTree = "<group>"; };
+		EF475AE22F575C5C00744F61 /* DeviceIntegrityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceIntegrityService.swift; sourceTree = "<group>"; };
+		EF475AE42F575F2800744F61 /* AgeAssuranceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgeAssuranceService.swift; sourceTree = "<group>"; };
+		EF475AE62F57DA6700744F61 /* SelahView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelahView.swift; sourceTree = "<group>"; };
+		EF475AE82F57E3E800744F61 /* ModerationConstitutionModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModerationConstitutionModels.swift; sourceTree = "<group>"; };
+		EF475AEA2F57E47A00744F61 /* ModerationIngestService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModerationIngestService.swift; sourceTree = "<group>"; };
+		EF475AEC2F57E52900744F61 /* EnforcementLadderService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnforcementLadderService.swift; sourceTree = "<group>"; };
+		EF475AEE2F58573100744F61 /* SexualContentPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SexualContentPolicy.swift; sourceTree = "<group>"; };
+		EF475AF02F58576F00744F61 /* MediaModerationPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaModerationPipeline.swift; sourceTree = "<group>"; };
+		EF475AF22F58586600744F61 /* ProactiveFrictionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProactiveFrictionView.swift; sourceTree = "<group>"; };
 		EF55D2072F4E9DF40086707A /* FTUEManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FTUEManager.swift; sourceTree = "<group>"; };
 		EF55D2092F4E9E1B0086707A /* CoachMarkOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoachMarkOverlay.swift; sourceTree = "<group>"; };
 		EF55D20B2F4E9E4D0086707A /* CoachMarkFramePreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoachMarkFramePreferences.swift; sourceTree = "<group>"; };
@@ -250,16 +379,42 @@
 		EF55D23E2F4F7D7A0086707A /* TwoFactorOnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TwoFactorOnboardingView.swift; sourceTree = "<group>"; };
 		EF55D2402F4F81BF0086707A /* TwoFactorVerificationGateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TwoFactorVerificationGateView.swift; sourceTree = "<group>"; };
 		EF56F7412F2881A30019B94A /* AMENAPPTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AMENAPPTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		EF5FAFF62F50E6ED004D2993 /* SmartNotificationModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartNotificationModels.swift; sourceTree = "<group>"; };
+		EF5FAFF82F50E734004D2993 /* SmartNotificationRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartNotificationRouter.swift; sourceTree = "<group>"; };
+		EF5FAFFA2F50E77C004D2993 /* ActionableNotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionableNotificationService.swift; sourceTree = "<group>"; };
+		EF5FAFFC2F50E798004D2993 /* NotificationDigestService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationDigestService.swift; sourceTree = "<group>"; };
+		EF5FAFFE2F50E7B8004D2993 /* SmartMuteService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartMuteService.swift; sourceTree = "<group>"; };
+		EF5FB0002F50E7EA004D2993 /* SmartNotificationSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartNotificationSettingsView.swift; sourceTree = "<group>"; };
+		EF5FB0022F50E811004D2993 /* NotificationDigestView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationDigestView.swift; sourceTree = "<group>"; };
+		EF5FB0042F50ECA4004D2993 /* DeepLinkRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepLinkRouter.swift; sourceTree = "<group>"; };
+		EF5FB00C2F50EDC4004D2993 /* NATIVE_INTERACTIONS_IMPLEMENTATION_GUIDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = NATIVE_INTERACTIONS_IMPLEMENTATION_GUIDE.md; sourceTree = "<group>"; };
+		EF5FB00E2F50EE34004D2993 /* IMPLEMENTATION_SUMMARY.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = IMPLEMENTATION_SUMMARY.md; sourceTree = "<group>"; };
+		EF5FB0102F50EE7E004D2993 /* ToastManagerExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToastManagerExtensions.swift; sourceTree = "<group>"; };
+		EF5FB0122F50EEBB004D2993 /* INTERACTIONS_FINAL_DELIVERY.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = INTERACTIONS_FINAL_DELIVERY.md; sourceTree = "<group>"; };
 		EF6873C42F40F194006DC25E /* CloudStorageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudStorageService.swift; sourceTree = "<group>"; };
 		EF6873D42F40F394006DC25E /* RichTextEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RichTextEditorView.swift; sourceTree = "<group>"; };
 		EF6873E62F4170D7006DC25E /* CHURCH_NOTES_USER_FLOWS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CHURCH_NOTES_USER_FLOWS.md; sourceTree = "<group>"; };
 		EF688D042F42CBF7006DC25E /* SmartPrayerReminderScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartPrayerReminderScheduler.swift; sourceTree = "<group>"; };
+		EF6E9F852F510D12003822C2 /* PostImagesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostImagesView.swift; sourceTree = "<group>"; };
+		EF6E9F8B2F513E35003822C2 /* Motion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Motion.swift; sourceTree = "<group>"; };
+		EF6E9F912F51B0BF003822C2 /* PerformanceHUD.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PerformanceHUD.swift; sourceTree = "<group>"; };
+		EF6E9F932F51BB4C003822C2 /* FeedAPIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedAPIService.swift; sourceTree = "<group>"; };
+		EF6E9F952F51C05F003822C2 /* AKAMAI_INTEGRATION_PLAN.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AKAMAI_INTEGRATION_PLAN.md; sourceTree = "<group>"; };
+		EF6E9F9B2F524E2B003822C2 /* MessageSafetyGateway.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageSafetyGateway.swift; sourceTree = "<group>"; };
+		EF6E9F9D2F524E75003822C2 /* ConversationRiskEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationRiskEngine.swift; sourceTree = "<group>"; };
+		EF6E9F9F2F524EAE003822C2 /* MessageSafetyUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageSafetyUI.swift; sourceTree = "<group>"; };
+		EF6E9FA12F526227003822C2 /* MinorSafetyService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MinorSafetyService.swift; sourceTree = "<group>"; };
+		EF6E9FA32F52629D003822C2 /* MediaSafetyGateway.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaSafetyGateway.swift; sourceTree = "<group>"; };
+		EF6E9FA52F52655B003822C2 /* SafetyReportingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafetyReportingService.swift; sourceTree = "<group>"; };
+		EF6E9FA72F5265D6003822C2 /* ModerationConsoleModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModerationConsoleModels.swift; sourceTree = "<group>"; };
 		EF72D8F72F4FEBCE00F51E08 /* BiometricOnboardingPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BiometricOnboardingPage.swift; sourceTree = "<group>"; };
 		EF72D8F92F4FEFB400F51E08 /* PrivacySettingsOnboardingPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacySettingsOnboardingPage.swift; sourceTree = "<group>"; };
 		EF7475D82F2C85CD00A4434F /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = Platforms/iPhoneOS.platform/Developer/Library/Frameworks/XCTest.framework; sourceTree = DEVELOPER_DIR; };
 		EF81519B2F184E97008912E3 /* AMENAPP.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AMENAPP.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		EF92D0142F257C7300CC9601 /* FIREBASE_PERSISTENCE_FIX.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = FIREBASE_PERSISTENCE_FIX.md; sourceTree = "<group>"; };
 		EF92D0162F257D7C00CC9601 /* FIREBASE_PERSISTENCE_TROUBLESHOOTING.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = FIREBASE_PERSISTENCE_TROUBLESHOOTING.md; sourceTree = "<group>"; };
+		EF94DD902F5925C6004D0767 /* BereanSafetyPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BereanSafetyPolicy.swift; sourceTree = "<group>"; };
+		EF94DD922F59D77E004D0767 /* AMENInbox.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AMENInbox.swift; sourceTree = "<group>"; };
 		EFAE09662F4AE793009D7209 /* PRODUCTION_READINESS_AUDIT_COMPLETE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = PRODUCTION_READINESS_AUDIT_COMPLETE.md; sourceTree = "<group>"; };
 		EFAE09682F4B4D11009D7209 /* FollowStateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FollowStateManager.swift; sourceTree = "<group>"; };
 		EFAE096A2F4B4F16009D7209 /* LiquidGlassAnimations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiquidGlassAnimations.swift; sourceTree = "<group>"; };
@@ -305,6 +460,7 @@
 		EFAE0A7A2F4E6DA1009D7209 /* AntiHarassmentEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AntiHarassmentEngine.swift; sourceTree = "<group>"; };
 		EFAE0A7E2F4E6E7E009D7209 /* SafetyUIComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafetyUIComponents.swift; sourceTree = "<group>"; };
 		EFAE0A802F4E87B0009D7209 /* NetworkTimeoutHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkTimeoutHandler.swift; sourceTree = "<group>"; };
+		EFC1A0062F700000001AMEN1 /* AMENWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = AMENWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -337,6 +493,18 @@
 /* End PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		EF475AAD2F56FC4600744F61 /* You are a senior iOS engineer (SwiftUI) specialized in ActivityKit, Dynamic Island, and chat UX. Your task is to implement a Dynamic Island + Live Activities integration for AMEN that makes “Smart Replies” and “Tone Assist” interactive from the Dynamic Island for posts/comments/messages — while staying Apple-native, subtle, and safe.  IMPORTANT CONSTRAINTS (NON-NEGOTIABLE) - Do NOT fake the Dynamic Island with a custom overlay. Use ActivityKit/Live Activities only. - Do NOT change AMEN’s existing UI design language; only add the minimum needed for these features. - This must be fast and battery-safe: no constant updates, no polling loops, no heavy background work. - Privacy and safety must be respected:   - Do not show sensitive message content on lock screen unless user enables “Show Previews”.   - Do not generate or display unsafe text before moderation gating.   - Respect blocks/private accounts/minor protections. - No addictive mechanics: no “trending”, no engagement bait.  GOAL Enable a premium Dynamic Island experience that: 1) Shows a “Reply” Live Activity when a user receives a comment/mention/DM OR when the user long-presses a notification row. 2) Offers 2–3 one-tap “Smart Reply” options generated by Berean AI (Encourage / Thoughtful Question / Prayer). 3) Provides “Tone Assist” if the user typed a reply in-app and it is flagged as harsh: surface a “Rewrite gentler” option in the Dynamic Island. 4) When user taps a smart reply option, it opens AMEN to the exact destination with the chosen reply pre-filled (or safely sent if you can do it without risky UX).  TOP 3 DYNAMIC ISLAND USE CASES TO IMPLEMENT A) Comment Reply Live Activity - Trigger: new comment on user’s post, mention, or reply notification - Dynamic Island compact: commenter avatar (or app icon) + “New comment” - Expanded: show 3 smart reply chips: Encourage / Ask / Pray + a “Open” button - Tap chip behavior:    - Deep link to comment thread with composer prefilled with the selected reply text.    - Do NOT auto-send from the island (avoid accidental sends); require user to confirm/send in-app.  B) DM Reply Live Activity (Privacy First) - Trigger: new DM from a mutual or allowed sender - Compact: “New message” (no preview by default) - Expanded: 3 smart reply chips (short, neutral), plus “Open chat” - If user has enabled message previews, you may show a VERY short snippet. - Tap chip deep links to the thread with prefilled text.  C) Tone Assist Prompt - Trigger: user typed a reply in-app and taps “Send”, but moderation/tone check returns WARN with a suggested rewrite - Dynamic Island shows: “Tone Assist” (compact) - Expanded: “Rewrite gentler” chip + “Edit” button - Tap “Rewrite gentler” deep links back to the composer with suggested rewrite inserted.  AI / MODERATION RULES (CRITICAL) - All smart replies MUST be generated through Berean Orchestrator (multi-provider), but ONLY after:   1) retrieving minimal context (post topic + comment snippet if allowed)   2) running a safety + tone moderation gate on the generated suggestions - If moderation blocks suggestions, show fallback chips:   - “I hear you.” / “Thanks for sharing.” / “I’m praying for you.” - Never display unsafe or private content on lock screen. - Add a user setting: Notifications → “Show Reply Suggestions” and “Show Previews”.  ARCHITECTURE REQUIREMENTS 1) LiveActivityManager (single source of truth) - Prevent multiple concurrent “reply” live activities:   - Only one Reply Activity active at a time, with ability to update it to the newest event. - Add debouncing: if multiple comments arrive quickly, update the existing activity instead of creating new. - End the activity automatically after:   - user opens the destination   - user dismisses   - 15 minutes timeout  2) Deep Linking - Implement deep links:   - amen://comment?postId=...&commentId=...&prefill=...   - amen://chat?threadId=...&prefill=... - Ensure routing works from cold start and background.  3) Data Contracts Define ActivityKit attributes: - ReplyActivityAttributes:   - type: enum {comment, dm, toneAssist}   - entityId (postId/threadId)   - subEntityId (commentId optional)   - displayName (actor name optional)   - avatarURL optional (or use cached image)   - suggestion1/2/3 (SHORT strings, <=60 chars)   - privacyLevel enum {noPreview, previewAllowed}   - createdAt, expiresAt  4) Provider Routing for Suggestions - Use OpenAI for structured short suggestion generation (JSON with 3 strings). - Use Claude for nuanced tone if needed for “gentler rewrite”. - Use Vertex for safety classification / moderation gating (or whichever moderation layer exists in AMEN). - Implement fallbacks if any provider fails.  IMPLEMENTATION STEPS (DO IN ORDER) 1) Add iOS capabilities: Live Activities, ActivityKit, push to start/update Live Activities (if using remote updates). 2) Build ReplyActivityAttributes + Live Activity UI:    - minimal/compact/expanded regions    - show 3 chips + Open button    - keep visuals consistent and minimal 3) Build LiveActivityManager with:    - startReplyActivity(event)    - updateReplyActivity(event)    - endReplyActivity(reason)    - dedupe and timeout logic 4) Build suggestion generation pipeline:    - gather minimal context    - call BereanOrchestrator(task: SMART_REPLY or TONE_REWRITE)    - run moderation gate on suggestions    - return safe suggestions or fallbacks 5) Hook triggers:    - When in-app notification arrives for comment/DM/mention → optionally start/update live activity    - When user long-presses a notification row → start live activity with that entity    - When tone check warns on send → start Tone Assist live activity 6) Add settings toggles:    - Show Reply Suggestions (on/off)    - Show Message Previews (on/off) 7) Verify behavior on devices without Dynamic Island:    - fallback to Lock Screen Live Activity display only  TEST CHECKLIST (MUST EXECUTE) - Comment arrives → island appears → expanded shows suggestions → tap suggestion deep links to correct thread with prefill - DM arrives → no preview unless enabled → suggestions show → tap works - Tone assist triggers on warn → rewrite suggestion available → tap returns to composer with rewrite - Ensure no sensitive content shown on lock screen by default - Ensure no duplicate live activities - Ensure battery safe: no frequent updates - Ensure no crashes when app is cold-started via deep link  DELIVERABLES - Swift code for:   - ReplyActivityAttributes   - Reply Live Activity UI (ActivityConfiguration)   - LiveActivityManager   - Deep link router updates   - Suggestion generation + moderation gating pipeline - Notes about any entitlements, Info.plist additions, and Xcode capabilities needed.  BEGIN NOW Implement this incrementally andActivityKit.Framework */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			name = "You are a senior iOS engineer (SwiftUI) specialized in ActivityKit, Dynamic Island, and chat UX. Your task is to implement a Dynamic Island + Live Activities integration for AMEN that makes “Smart Replies” and “Tone Assist” interactive from the Dynamic Island for posts/comments/messages — while staying Apple-native, subtle, and safe.  IMPORTANT CONSTRAINTS (NON-NEGOTIABLE) - Do NOT fake the Dynamic Island with a custom overlay. Use ActivityKit/Live Activities only. - Do NOT change AMEN’s existing UI design language; only add the minimum needed for these features. - This must be fast and battery-safe: no constant updates, no polling loops, no heavy background work. - Privacy and safety must be respected:   - Do not show sensitive message content on lock screen unless user enables “Show Previews”.   - Do not generate or display unsafe text before moderation gating.   - Respect blocks/private accounts/minor protections. - No addictive mechanics: no “trending”, no engagement bait.  GOAL Enable a premium Dynamic Island experience that: 1) Shows a “Reply” Live Activity when a user receives a comment/mention/DM OR when the user long-presses a notification row. 2) Offers 2–3 one-tap “Smart Reply” options generated by Berean AI (Encourage / Thoughtful Question / Prayer). 3) Provides “Tone Assist” if the user typed a reply in-app and it is flagged as harsh: surface a “Rewrite gentler” option in the Dynamic Island. 4) When user taps a smart reply option, it opens AMEN to the exact destination with the chosen reply pre-filled (or safely sent if you can do it without risky UX).  TOP 3 DYNAMIC ISLAND USE CASES TO IMPLEMENT A) Comment Reply Live Activity - Trigger: new comment on user’s post, mention, or reply notification - Dynamic Island compact: commenter avatar (or app icon) + “New comment” - Expanded: show 3 smart reply chips: Encourage / Ask / Pray + a “Open” button - Tap chip behavior:    - Deep link to comment thread with composer prefilled with the selected reply text.    - Do NOT auto-send from the island (avoid accidental sends); require user to confirm/send in-app.  B) DM Reply Live Activity (Privacy First) - Trigger: new DM from a mutual or allowed sender - Compact: “New message” (no preview by default) - Expanded: 3 smart reply chips (short, neutral), plus “Open chat” - If user has enabled message previews, you may show a VERY short snippet. - Tap chip deep links to the thread with prefilled text.  C) Tone Assist Prompt - Trigger: user typed a reply in-app and taps “Send”, but moderation/tone check returns WARN with a suggested rewrite - Dynamic Island shows: “Tone Assist” (compact) - Expanded: “Rewrite gentler” chip + “Edit” button - Tap “Rewrite gentler” deep links back to the composer with suggested rewrite inserted.  AI / MODERATION RULES (CRITICAL) - All smart replies MUST be generated through Berean Orchestrator (multi-provider), but ONLY after:   1) retrieving minimal context (post topic + comment snippet if allowed)   2) running a safety + tone moderation gate on the generated suggestions - If moderation blocks suggestions, show fallback chips:   - “I hear you.” / “Thanks for sharing.” / “I’m praying for you.” - Never display unsafe or private content on lock screen. - Add a user setting: Notifications → “Show Reply Suggestions” and “Show Previews”.  ARCHITECTURE REQUIREMENTS 1) LiveActivityManager (single source of truth) - Prevent multiple concurrent “reply” live activities:   - Only one Reply Activity active at a time, with ability to update it to the newest event. - Add debouncing: if multiple comments arrive quickly, update the existing activity instead of creating new. - End the activity automatically after:   - user opens the destination   - user dismisses   - 15 minutes timeout  2) Deep Linking - Implement deep links:   - amen://comment?postId=...&commentId=...&prefill=...   - amen://chat?threadId=...&prefill=... - Ensure routing works from cold start and background.  3) Data Contracts Define ActivityKit attributes: - ReplyActivityAttributes:   - type: enum {comment, dm, toneAssist}   - entityId (postId/threadId)   - subEntityId (commentId optional)   - displayName (actor name optional)   - avatarURL optional (or use cached image)   - suggestion1/2/3 (SHORT strings, <=60 chars)   - privacyLevel enum {noPreview, previewAllowed}   - createdAt, expiresAt  4) Provider Routing for Suggestions - Use OpenAI for structured short suggestion generation (JSON with 3 strings). - Use Claude for nuanced tone if needed for “gentler rewrite”. - Use Vertex for safety classification / moderation gating (or whichever moderation layer exists in AMEN). - Implement fallbacks if any provider fails.  IMPLEMENTATION STEPS (DO IN ORDER) 1) Add iOS capabilities: Live Activities, ActivityKit, push to start/update Live Activities (if using remote updates). 2) Build ReplyActivityAttributes + Live Activity UI:    - minimal/compact/expanded regions    - show 3 chips + Open button    - keep visuals consistent and minimal 3) Build LiveActivityManager with:    - startReplyActivity(event)    - updateReplyActivity(event)    - endReplyActivity(reason)    - dedupe and timeout logic 4) Build suggestion generation pipeline:    - gather minimal context    - call BereanOrchestrator(task: SMART_REPLY or TONE_REWRITE)    - run moderation gate on suggestions    - return safe suggestions or fallbacks 5) Hook triggers:    - When in-app notification arrives for comment/DM/mention → optionally start/update live activity    - When user long-presses a notification row → start live activity with that entity    - When tone check warns on send → start Tone Assist live activity 6) Add settings toggles:    - Show Reply Suggestions (on/off)    - Show Message Previews (on/off) 7) Verify behavior on devices without Dynamic Island:    - fallback to Lock Screen Live Activity display only  TEST CHECKLIST (MUST EXECUTE) - Comment arrives → island appears → expanded shows suggestions → tap suggestion deep links to correct thread with prefill - DM arrives → no preview unless enabled → suggestions show → tap works - Tone assist triggers on warn → rewrite suggestion available → tap returns to composer with rewrite - Ensure no sensitive content shown on lock screen by default - Ensure no duplicate live activities - Ensure battery safe: no frequent updates - Ensure no crashes when app is cold-started via deep link  DELIVERABLES - Swift code for:   - ReplyActivityAttributes   - Reply Live Activity UI (ActivityConfiguration)   - LiveActivityManager   - Deep link router updates   - Suggestion generation + moderation gating pipeline - Notes about any entitlements, Info.plist additions, and Xcode capabilities needed.  BEGIN NOW Implement this incrementally andActivityKit.Framework";
+			path = "You are a senior iOS engineer (SwiftUI) specialized in ActivityKit, Dynamic Island, and chat UX. Your task is to implement a Dynamic Island + Live Activities integration for AMEN that makes “Smart Replies” and “Tone Assist” interactive from the Dynamic Island for posts/comments/messages — while staying Apple-native, subtle, and safe.  IMPORTANT CONSTRAINTS (NON-NEGOTIABLE) - Do NOT fake the Dynamic Island with a custom overlay. Use ActivityKit/Live Activities only. - Do NOT change AMEN’s existing UI design language; only add the minimum needed for these features. - This must be fast and battery-safe: no constant updates, no polling loops, no heavy background work. - Privacy and safety must be respected:   - Do not show sensitive message content on lock screen unless user enables “Show Previews”.   - Do not generate or display unsafe text before moderation gating.   - Respect blocks/private accounts/minor protections. - No addictive mechanics: no “trending”, no engagement bait.  GOAL Enable a premium Dynamic Island experience that: 1) Shows a “Reply” Live Activity when a user receives a comment/mention/DM OR when the user long-presses a notification row. 2) Offers 2–3 one-tap “Smart Reply” options generated by Berean AI (Encourage / Thoughtful Question / Prayer). 3) Provides “Tone Assist” if the user typed a reply in-app and it is flagged as harsh: surface a “Rewrite gentler” option in the Dynamic Island. 4) When user taps a smart reply option, it opens AMEN to the exact destination with the chosen reply pre-filled (or safely sent if you can do it without risky UX).  TOP 3 DYNAMIC ISLAND USE CASES TO IMPLEMENT A) Comment Reply Live Activity - Trigger: new comment on user’s post, mention, or reply notification - Dynamic Island compact: commenter avatar (or app icon) + “New comment” - Expanded: show 3 smart reply chips: Encourage / Ask / Pray + a “Open” button - Tap chip behavior:    - Deep link to comment thread with composer prefilled with the selected reply text.    - Do NOT auto-send from the island (avoid accidental sends); require user to confirm/send in-app.  B) DM Reply Live Activity (Privacy First) - Trigger: new DM from a mutual or allowed sender - Compact: “New message” (no preview by default) - Expanded: 3 smart reply chips (short, neutral), plus “Open chat” - If user has enabled message previews, you may show a VERY short snippet. - Tap chip deep links to the thread with prefilled text.  C) Tone Assist Prompt - Trigger: user typed a reply in-app and taps “Send”, but moderation/tone check returns WARN with a suggested rewrite - Dynamic Island shows: “Tone Assist” (compact) - Expanded: “Rewrite gentler” chip + “Edit” button - Tap “Rewrite gentler” deep links back to the composer with suggested rewrite inserted.  AI / MODERATION RULES (CRITICAL) - All smart replies MUST be generated through Berean Orchestrator (multi-provider), but ONLY after:   1) retrieving minimal context (post topic + comment snippet if allowed)   2) running a safety + tone moderation gate on the generated suggestions - If moderation blocks suggestions, show fallback chips:   - “I hear you.” / “Thanks for sharing.” / “I’m praying for you.” - Never display unsafe or private content on lock screen. - Add a user setting: Notifications → “Show Reply Suggestions” and “Show Previews”.  ARCHITECTURE REQUIREMENTS 1) LiveActivityManager (single source of truth) - Prevent multiple concurrent “reply” live activities:   - Only one Reply Activity active at a time, with ability to update it to the newest event. - Add debouncing: if multiple comments arrive quickly, update the existing activity instead of creating new. - End the activity automatically after:   - user opens the destination   - user dismisses   - 15 minutes timeout  2) Deep Linking - Implement deep links:   - amen:/comment?postId=...&commentId=...&prefill=...   - amen:/chat?threadId=...&prefill=... - Ensure routing works from cold start and background.  3) Data Contracts Define ActivityKit attributes: - ReplyActivityAttributes:   - type: enum {comment, dm, toneAssist}   - entityId (postId/threadId)   - subEntityId (commentId optional)   - displayName (actor name optional)   - avatarURL optional (or use cached image)   - suggestion1/2/3 (SHORT strings, <=60 chars)   - privacyLevel enum {noPreview, previewAllowed}   - createdAt, expiresAt  4) Provider Routing for Suggestions - Use OpenAI for structured short suggestion generation (JSON with 3 strings). - Use Claude for nuanced tone if needed for “gentler rewrite”. - Use Vertex for safety classification / moderation gating (or whichever moderation layer exists in AMEN). - Implement fallbacks if any provider fails.  IMPLEMENTATION STEPS (DO IN ORDER) 1) Add iOS capabilities: Live Activities, ActivityKit, push to start/update Live Activities (if using remote updates). 2) Build ReplyActivityAttributes + Live Activity UI:    - minimal/compact/expanded regions    - show 3 chips + Open button    - keep visuals consistent and minimal 3) Build LiveActivityManager with:    - startReplyActivity(event)    - updateReplyActivity(event)    - endReplyActivity(reason)    - dedupe and timeout logic 4) Build suggestion generation pipeline:    - gather minimal context    - call BereanOrchestrator(task: SMART_REPLY or TONE_REWRITE)    - run moderation gate on suggestions    - return safe suggestions or fallbacks 5) Hook triggers:    - When in-app notification arrives for comment/DM/mention → optionally start/update live activity    - When user long-presses a notification row → start live activity with that entity    - When tone check warns on send → start Tone Assist live activity 6) Add settings toggles:    - Show Reply Suggestions (on/off)    - Show Message Previews (on/off) 7) Verify behavior on devices without Dynamic Island:    - fallback to Lock Screen Live Activity display only  TEST CHECKLIST (MUST EXECUTE) - Comment arrives → island appears → expanded shows suggestions → tap suggestion deep links to correct thread with prefill - DM arrives → no preview unless enabled → suggestions show → tap works - Tone assist triggers on warn → rewrite suggestion available → tap returns to composer with rewrite - Ensure no sensitive content shown on lock screen by default - Ensure no duplicate live activities - Ensure battery safe: no frequent updates - Ensure no crashes when app is cold-started via deep link  DELIVERABLES - Swift code for:   - ReplyActivityAttributes   - Reply Live Activity UI (ActivityConfiguration)   - LiveActivityManager   - Deep link router updates   - Suggestion generation + moderation gating pipeline - Notes about any entitlements, Info.plist additions, and Xcode capabilities needed.  BEGIN NOW Implement this incrementally andActivityKit.Framework";
+			sourceTree = "<group>";
+		};
+		EF475AB82F56FC4600744F61 /* You are a senior iOS engineer (SwiftUI) specialized in ActivityKit, Dynamic Island, and chat UX. Your task is to implement a Dynamic Island + Live Activities integration for AMEN that makes “Smart Replies” and “Tone Assist” interactive from the Dynamic Island for posts/comments/messages — while staying Apple-native, subtle, and safe.  IMPORTANT CONSTRAINTS (NON-NEGOTIABLE) - Do NOT fake the Dynamic Island with a custom overlay. Use ActivityKit/Live Activities only. - Do NOT change AMEN’s existing UI design language; only add the minimum needed for these features. - This must be fast and battery-safe: no constant updates, no polling loops, no heavy background work. - Privacy and safety must be respected:   - Do not show sensitive message content on lock screen unless user enables “Show Previews”.   - Do not generate or display unsafe text before moderation gating.   - Respect blocks/private accounts/minor protections. - No addictive mechanics: no “trending”, no engagement bait.  GOAL Enable a premium Dynamic Island experience that: 1) Shows a “Reply” Live Activity when a user receives a comment/mention/DM OR when the user long-presses a notification row. 2) Offers 2–3 one-tap “Smart Reply” options generated by Berean AI (Encourage / Thoughtful Question / Prayer). 3) Provides “Tone Assist” if the user typed a reply in-app and it is flagged as harsh: surface a “Rewrite gentler” option in the Dynamic Island. 4) When user taps a smart reply option, it opens AMEN to the exact destination with the chosen reply pre-filled (or safely sent if you can do it without risky UX).  TOP 3 DYNAMIC ISLAND USE CASES TO IMPLEMENT A) Comment Reply Live Activity - Trigger: new comment on user’s post, mention, or reply notification - Dynamic Island compact: commenter avatar (or app icon) + “New comment” - Expanded: show 3 smart reply chips: Encourage / Ask / Pray + a “Open” button - Tap chip behavior:    - Deep link to comment thread with composer prefilled with the selected reply text.    - Do NOT auto-send from the island (avoid accidental sends); require user to confirm/send in-app.  B) DM Reply Live Activity (Privacy First) - Trigger: new DM from a mutual or allowed sender - Compact: “New message” (no preview by default) - Expanded: 3 smart reply chips (short, neutral), plus “Open chat” - If user has enabled message previews, you may show a VERY short snippet. - Tap chip deep links to the thread with prefilled text.  C) Tone Assist Prompt - Trigger: user typed a reply in-app and taps “Send”, but moderation/tone check returns WARN with a suggested rewrite - Dynamic Island shows: “Tone Assist” (compact) - Expanded: “Rewrite gentler” chip + “Edit” button - Tap “Rewrite gentler” deep links back to the composer with suggested rewrite inserted.  AI / MODERATION RULES (CRITICAL) - All smart replies MUST be generated through Berean Orchestrator (multi-provider), but ONLY after:   1) retrieving minimal context (post topic + comment snippet if allowed)   2) running a safety + tone moderation gate on the generated suggestions - If moderation blocks suggestions, show fallback chips:   - “I hear you.” / “Thanks for sharing.” / “I’m praying for you.” - Never display unsafe or private content on lock screen. - Add a user setting: Notifications → “Show Reply Suggestions” and “Show Previews”.  ARCHITECTURE REQUIREMENTS 1) LiveActivityManager (single source of truth) - Prevent multiple concurrent “reply” live activities:   - Only one Reply Activity active at a time, with ability to update it to the newest event. - Add debouncing: if multiple comments arrive quickly, update the existing activity instead of creating new. - End the activity automatically after:   - user opens the destination   - user dismisses   - 15 minutes timeout  2) Deep Linking - Implement deep links:   - amen://comment?postId=...&commentId=...&prefill=...   - amen://chat?threadId=...&prefill=... - Ensure routing works from cold start and background.  3) Data Contracts Define ActivityKit attributes: - ReplyActivityAttributes:   - type: enum {comment, dm, toneAssist}   - entityId (postId/threadId)   - subEntityId (commentId optional)   - displayName (actor name optional)   - avatarURL optional (or use cached image)   - suggestion1/2/3 (SHORT strings, <=60 chars)   - privacyLevel enum {noPreview, previewAllowed}   - createdAt, expiresAt  4) Provider Routing for Suggestions - Use OpenAI for structured short suggestion generation (JSON with 3 strings). - Use Claude for nuanced tone if needed for “gentler rewrite”. - Use Vertex for safety classification / moderation gating (or whichever moderation layer exists in AMEN). - Implement fallbacks if any provider fails.  IMPLEMENTATION STEPS (DO IN ORDER) 1) Add iOS capabilities: Live Activities, ActivityKit, push to start/update Live Activities (if using remote updates). 2) Build ReplyActivityAttributes + Live Activity UI:    - minimal/compact/expanded regions    - show 3 chips + Open button    - keep visuals consistent and minimal 3) Build LiveActivityManager with:    - startReplyActivity(event)    - updateReplyActivity(event)    - endReplyActivity(reason)    - dedupe and timeout logic 4) Build suggestion generation pipeline:    - gather minimal context    - call BereanOrchestrator(task: SMART_REPLY or TONE_REWRITE)    - run moderation gate on suggestions    - return safe suggestions or fallbacks 5) Hook triggers:    - When in-app notification arrives for comment/DM/mention → optionally start/update live activity    - When user long-presses a notification row → start live activity with that entity    - When tone check warns on send → start Tone Assist live activity 6) Add settings toggles:    - Show Reply Suggestions (on/off)    - Show Message Previews (on/off) 7) Verify behavior on devices without Dynamic Island:    - fallback to Lock Screen Live Activity display only  TEST CHECKLIST (MUST EXECUTE) - Comment arrives → island appears → expanded shows suggestions → tap suggestion deep links to correct thread with prefill - DM arrives → no preview unless enabled → suggestions show → tap works - Tone assist triggers on warn → rewrite suggestion available → tap returns to composer with rewrite - Ensure no sensitive content shown on lock screen by default - Ensure no duplicate live activities - Ensure battery safe: no frequent updates - Ensure no crashes when app is cold-started via deep link  DELIVERABLES - Swift code for:   - ReplyActivityAttributes   - Reply Live Activity UI (ActivityConfiguration)   - LiveActivityManager   - Deep link router updates   - Suggestion generation + moderation gating pipeline - Notes about any entitlements, Info.plist additions, and Xcode capabilities needed.  BEGIN NOW Implement this incrementally andActivityKit.FrameworkTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			name = "You are a senior iOS engineer (SwiftUI) specialized in ActivityKit, Dynamic Island, and chat UX. Your task is to implement a Dynamic Island + Live Activities integration for AMEN that makes “Smart Replies” and “Tone Assist” interactive from the Dynamic Island for posts/comments/messages — while staying Apple-native, subtle, and safe.  IMPORTANT CONSTRAINTS (NON-NEGOTIABLE) - Do NOT fake the Dynamic Island with a custom overlay. Use ActivityKit/Live Activities only. - Do NOT change AMEN’s existing UI design language; only add the minimum needed for these features. - This must be fast and battery-safe: no constant updates, no polling loops, no heavy background work. - Privacy and safety must be respected:   - Do not show sensitive message content on lock screen unless user enables “Show Previews”.   - Do not generate or display unsafe text before moderation gating.   - Respect blocks/private accounts/minor protections. - No addictive mechanics: no “trending”, no engagement bait.  GOAL Enable a premium Dynamic Island experience that: 1) Shows a “Reply” Live Activity when a user receives a comment/mention/DM OR when the user long-presses a notification row. 2) Offers 2–3 one-tap “Smart Reply” options generated by Berean AI (Encourage / Thoughtful Question / Prayer). 3) Provides “Tone Assist” if the user typed a reply in-app and it is flagged as harsh: surface a “Rewrite gentler” option in the Dynamic Island. 4) When user taps a smart reply option, it opens AMEN to the exact destination with the chosen reply pre-filled (or safely sent if you can do it without risky UX).  TOP 3 DYNAMIC ISLAND USE CASES TO IMPLEMENT A) Comment Reply Live Activity - Trigger: new comment on user’s post, mention, or reply notification - Dynamic Island compact: commenter avatar (or app icon) + “New comment” - Expanded: show 3 smart reply chips: Encourage / Ask / Pray + a “Open” button - Tap chip behavior:    - Deep link to comment thread with composer prefilled with the selected reply text.    - Do NOT auto-send from the island (avoid accidental sends); require user to confirm/send in-app.  B) DM Reply Live Activity (Privacy First) - Trigger: new DM from a mutual or allowed sender - Compact: “New message” (no preview by default) - Expanded: 3 smart reply chips (short, neutral), plus “Open chat” - If user has enabled message previews, you may show a VERY short snippet. - Tap chip deep links to the thread with prefilled text.  C) Tone Assist Prompt - Trigger: user typed a reply in-app and taps “Send”, but moderation/tone check returns WARN with a suggested rewrite - Dynamic Island shows: “Tone Assist” (compact) - Expanded: “Rewrite gentler” chip + “Edit” button - Tap “Rewrite gentler” deep links back to the composer with suggested rewrite inserted.  AI / MODERATION RULES (CRITICAL) - All smart replies MUST be generated through Berean Orchestrator (multi-provider), but ONLY after:   1) retrieving minimal context (post topic + comment snippet if allowed)   2) running a safety + tone moderation gate on the generated suggestions - If moderation blocks suggestions, show fallback chips:   - “I hear you.” / “Thanks for sharing.” / “I’m praying for you.” - Never display unsafe or private content on lock screen. - Add a user setting: Notifications → “Show Reply Suggestions” and “Show Previews”.  ARCHITECTURE REQUIREMENTS 1) LiveActivityManager (single source of truth) - Prevent multiple concurrent “reply” live activities:   - Only one Reply Activity active at a time, with ability to update it to the newest event. - Add debouncing: if multiple comments arrive quickly, update the existing activity instead of creating new. - End the activity automatically after:   - user opens the destination   - user dismisses   - 15 minutes timeout  2) Deep Linking - Implement deep links:   - amen://comment?postId=...&commentId=...&prefill=...   - amen://chat?threadId=...&prefill=... - Ensure routing works from cold start and background.  3) Data Contracts Define ActivityKit attributes: - ReplyActivityAttributes:   - type: enum {comment, dm, toneAssist}   - entityId (postId/threadId)   - subEntityId (commentId optional)   - displayName (actor name optional)   - avatarURL optional (or use cached image)   - suggestion1/2/3 (SHORT strings, <=60 chars)   - privacyLevel enum {noPreview, previewAllowed}   - createdAt, expiresAt  4) Provider Routing for Suggestions - Use OpenAI for structured short suggestion generation (JSON with 3 strings). - Use Claude for nuanced tone if needed for “gentler rewrite”. - Use Vertex for safety classification / moderation gating (or whichever moderation layer exists in AMEN). - Implement fallbacks if any provider fails.  IMPLEMENTATION STEPS (DO IN ORDER) 1) Add iOS capabilities: Live Activities, ActivityKit, push to start/update Live Activities (if using remote updates). 2) Build ReplyActivityAttributes + Live Activity UI:    - minimal/compact/expanded regions    - show 3 chips + Open button    - keep visuals consistent and minimal 3) Build LiveActivityManager with:    - startReplyActivity(event)    - updateReplyActivity(event)    - endReplyActivity(reason)    - dedupe and timeout logic 4) Build suggestion generation pipeline:    - gather minimal context    - call BereanOrchestrator(task: SMART_REPLY or TONE_REWRITE)    - run moderation gate on suggestions    - return safe suggestions or fallbacks 5) Hook triggers:    - When in-app notification arrives for comment/DM/mention → optionally start/update live activity    - When user long-presses a notification row → start live activity with that entity    - When tone check warns on send → start Tone Assist live activity 6) Add settings toggles:    - Show Reply Suggestions (on/off)    - Show Message Previews (on/off) 7) Verify behavior on devices without Dynamic Island:    - fallback to Lock Screen Live Activity display only  TEST CHECKLIST (MUST EXECUTE) - Comment arrives → island appears → expanded shows suggestions → tap suggestion deep links to correct thread with prefill - DM arrives → no preview unless enabled → suggestions show → tap works - Tone assist triggers on warn → rewrite suggestion available → tap returns to composer with rewrite - Ensure no sensitive content shown on lock screen by default - Ensure no duplicate live activities - Ensure battery safe: no frequent updates - Ensure no crashes when app is cold-started via deep link  DELIVERABLES - Swift code for:   - ReplyActivityAttributes   - Reply Live Activity UI (ActivityConfiguration)   - LiveActivityManager   - Deep link router updates   - Suggestion generation + moderation gating pipeline - Notes about any entitlements, Info.plist additions, and Xcode capabilities needed.  BEGIN NOW Implement this incrementally andActivityKit.FrameworkTests";
+			path = "You are a senior iOS engineer (SwiftUI) specialized in ActivityKit, Dynamic Island, and chat UX. Your task is to implement a Dynamic Island + Live Activities integration for AMEN that makes “Smart Replies” and “Tone Assist” interactive from the Dynamic Island for posts/comments/messages — while staying Apple-native, subtle, and safe.  IMPORTANT CONSTRAINTS (NON-NEGOTIABLE) - Do NOT fake the Dynamic Island with a custom overlay. Use ActivityKit/Live Activities only. - Do NOT change AMEN’s existing UI design language; only add the minimum needed for these features. - This must be fast and battery-safe: no constant updates, no polling loops, no heavy background work. - Privacy and safety must be respected:   - Do not show sensitive message content on lock screen unless user enables “Show Previews”.   - Do not generate or display unsafe text before moderation gating.   - Respect blocks/private accounts/minor protections. - No addictive mechanics: no “trending”, no engagement bait.  GOAL Enable a premium Dynamic Island experience that: 1) Shows a “Reply” Live Activity when a user receives a comment/mention/DM OR when the user long-presses a notification row. 2) Offers 2–3 one-tap “Smart Reply” options generated by Berean AI (Encourage / Thoughtful Question / Prayer). 3) Provides “Tone Assist” if the user typed a reply in-app and it is flagged as harsh: surface a “Rewrite gentler” option in the Dynamic Island. 4) When user taps a smart reply option, it opens AMEN to the exact destination with the chosen reply pre-filled (or safely sent if you can do it without risky UX).  TOP 3 DYNAMIC ISLAND USE CASES TO IMPLEMENT A) Comment Reply Live Activity - Trigger: new comment on user’s post, mention, or reply notification - Dynamic Island compact: commenter avatar (or app icon) + “New comment” - Expanded: show 3 smart reply chips: Encourage / Ask / Pray + a “Open” button - Tap chip behavior:    - Deep link to comment thread with composer prefilled with the selected reply text.    - Do NOT auto-send from the island (avoid accidental sends); require user to confirm/send in-app.  B) DM Reply Live Activity (Privacy First) - Trigger: new DM from a mutual or allowed sender - Compact: “New message” (no preview by default) - Expanded: 3 smart reply chips (short, neutral), plus “Open chat” - If user has enabled message previews, you may show a VERY short snippet. - Tap chip deep links to the thread with prefilled text.  C) Tone Assist Prompt - Trigger: user typed a reply in-app and taps “Send”, but moderation/tone check returns WARN with a suggested rewrite - Dynamic Island shows: “Tone Assist” (compact) - Expanded: “Rewrite gentler” chip + “Edit” button - Tap “Rewrite gentler” deep links back to the composer with suggested rewrite inserted.  AI / MODERATION RULES (CRITICAL) - All smart replies MUST be generated through Berean Orchestrator (multi-provider), but ONLY after:   1) retrieving minimal context (post topic + comment snippet if allowed)   2) running a safety + tone moderation gate on the generated suggestions - If moderation blocks suggestions, show fallback chips:   - “I hear you.” / “Thanks for sharing.” / “I’m praying for you.” - Never display unsafe or private content on lock screen. - Add a user setting: Notifications → “Show Reply Suggestions” and “Show Previews”.  ARCHITECTURE REQUIREMENTS 1) LiveActivityManager (single source of truth) - Prevent multiple concurrent “reply” live activities:   - Only one Reply Activity active at a time, with ability to update it to the newest event. - Add debouncing: if multiple comments arrive quickly, update the existing activity instead of creating new. - End the activity automatically after:   - user opens the destination   - user dismisses   - 15 minutes timeout  2) Deep Linking - Implement deep links:   - amen:/comment?postId=...&commentId=...&prefill=...   - amen:/chat?threadId=...&prefill=... - Ensure routing works from cold start and background.  3) Data Contracts Define ActivityKit attributes: - ReplyActivityAttributes:   - type: enum {comment, dm, toneAssist}   - entityId (postId/threadId)   - subEntityId (commentId optional)   - displayName (actor name optional)   - avatarURL optional (or use cached image)   - suggestion1/2/3 (SHORT strings, <=60 chars)   - privacyLevel enum {noPreview, previewAllowed}   - createdAt, expiresAt  4) Provider Routing for Suggestions - Use OpenAI for structured short suggestion generation (JSON with 3 strings). - Use Claude for nuanced tone if needed for “gentler rewrite”. - Use Vertex for safety classification / moderation gating (or whichever moderation layer exists in AMEN). - Implement fallbacks if any provider fails.  IMPLEMENTATION STEPS (DO IN ORDER) 1) Add iOS capabilities: Live Activities, ActivityKit, push to start/update Live Activities (if using remote updates). 2) Build ReplyActivityAttributes + Live Activity UI:    - minimal/compact/expanded regions    - show 3 chips + Open button    - keep visuals consistent and minimal 3) Build LiveActivityManager with:    - startReplyActivity(event)    - updateReplyActivity(event)    - endReplyActivity(reason)    - dedupe and timeout logic 4) Build suggestion generation pipeline:    - gather minimal context    - call BereanOrchestrator(task: SMART_REPLY or TONE_REWRITE)    - run moderation gate on suggestions    - return safe suggestions or fallbacks 5) Hook triggers:    - When in-app notification arrives for comment/DM/mention → optionally start/update live activity    - When user long-presses a notification row → start live activity with that entity    - When tone check warns on send → start Tone Assist live activity 6) Add settings toggles:    - Show Reply Suggestions (on/off)    - Show Message Previews (on/off) 7) Verify behavior on devices without Dynamic Island:    - fallback to Lock Screen Live Activity display only  TEST CHECKLIST (MUST EXECUTE) - Comment arrives → island appears → expanded shows suggestions → tap suggestion deep links to correct thread with prefill - DM arrives → no preview unless enabled → suggestions show → tap works - Tone assist triggers on warn → rewrite suggestion available → tap returns to composer with rewrite - Ensure no sensitive content shown on lock screen by default - Ensure no duplicate live activities - Ensure battery safe: no frequent updates - Ensure no crashes when app is cold-started via deep link  DELIVERABLES - Swift code for:   - ReplyActivityAttributes   - Reply Live Activity UI (ActivityConfiguration)   - LiveActivityManager   - Deep link router updates   - Suggestion generation + moderation gating pipeline - Notes about any entitlements, Info.plist additions, and Xcode capabilities needed.  BEGIN NOW Implement this incrementally andActivityKit.FrameworkTests";
+			sourceTree = "<group>";
+		};
 		EF56F7422F2881A30019B94A /* AMENAPPTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = AMENAPPTests;
@@ -350,6 +518,11 @@
 				EF7475DB2F2C873700A4434F /* Exceptions for "AMENAPP" folder in "AMENAPPTests" target */,
 			);
 			path = AMENAPP;
+			sourceTree = "<group>";
+		};
+		EFC1A0022F700000001AMEN1 /* AMENWidgetExtension */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = AMENWidgetExtension;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -397,6 +570,7 @@
 				EF4E20802F1F421D0066C5C2 /* FirebasePerformance in Frameworks */,
 				EF38A1212F2D114F004E694A /* GoogleSignIn in Frameworks */,
 				EF4E206A2F1F421D0066C5C2 /* FirebaseCore in Frameworks */,
+				EF43AAD12F5412C40075E1B5 /* ActivityKit.framework in Frameworks */,
 				EF4E20622F1F421D0066C5C2 /* FirebaseAppCheck in Frameworks */,
 				EF4BA9EE2F29FDD3000B930F /* Recommend in Frameworks */,
 				EF4BA9EA2F29FDD3000B930F /* Personalization in Frameworks */,
@@ -409,6 +583,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		EFC1A0042F700000001AMEN1 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -418,6 +599,8 @@
 				EF3B23532F4AAC1B001DA241 /* Config.xcconfig */,
 				EF81519D2F184E97008912E3 /* AMENAPP */,
 				EF56F7422F2881A30019B94A /* AMENAPPTests */,
+				EF475AAD2F56FC4600744F61 /* You are a senior iOS engineer (SwiftUI) specialized in ActivityKit, Dynamic Island, and chat UX. Your task is to implement a Dynamic Island + Live Activities integration for AMEN that makes “Smart Replies” and “Tone Assist” interactive from the Dynamic Island for posts/comments/messages — while staying Apple-native, subtle, and safe.  IMPORTANT CONSTRAINTS (NON-NEGOTIABLE) - Do NOT fake the Dynamic Island with a custom overlay. Use ActivityKit/Live Activities only. - Do NOT change AMEN’s existing UI design language; only add the minimum needed for these features. - This must be fast and battery-safe: no constant updates, no polling loops, no heavy background work. - Privacy and safety must be respected:   - Do not show sensitive message content on lock screen unless user enables “Show Previews”.   - Do not generate or display unsafe text before moderation gating.   - Respect blocks/private accounts/minor protections. - No addictive mechanics: no “trending”, no engagement bait.  GOAL Enable a premium Dynamic Island experience that: 1) Shows a “Reply” Live Activity when a user receives a comment/mention/DM OR when the user long-presses a notification row. 2) Offers 2–3 one-tap “Smart Reply” options generated by Berean AI (Encourage / Thoughtful Question / Prayer). 3) Provides “Tone Assist” if the user typed a reply in-app and it is flagged as harsh: surface a “Rewrite gentler” option in the Dynamic Island. 4) When user taps a smart reply option, it opens AMEN to the exact destination with the chosen reply pre-filled (or safely sent if you can do it without risky UX).  TOP 3 DYNAMIC ISLAND USE CASES TO IMPLEMENT A) Comment Reply Live Activity - Trigger: new comment on user’s post, mention, or reply notification - Dynamic Island compact: commenter avatar (or app icon) + “New comment” - Expanded: show 3 smart reply chips: Encourage / Ask / Pray + a “Open” button - Tap chip behavior:    - Deep link to comment thread with composer prefilled with the selected reply text.    - Do NOT auto-send from the island (avoid accidental sends); require user to confirm/send in-app.  B) DM Reply Live Activity (Privacy First) - Trigger: new DM from a mutual or allowed sender - Compact: “New message” (no preview by default) - Expanded: 3 smart reply chips (short, neutral), plus “Open chat” - If user has enabled message previews, you may show a VERY short snippet. - Tap chip deep links to the thread with prefilled text.  C) Tone Assist Prompt - Trigger: user typed a reply in-app and taps “Send”, but moderation/tone check returns WARN with a suggested rewrite - Dynamic Island shows: “Tone Assist” (compact) - Expanded: “Rewrite gentler” chip + “Edit” button - Tap “Rewrite gentler” deep links back to the composer with suggested rewrite inserted.  AI / MODERATION RULES (CRITICAL) - All smart replies MUST be generated through Berean Orchestrator (multi-provider), but ONLY after:   1) retrieving minimal context (post topic + comment snippet if allowed)   2) running a safety + tone moderation gate on the generated suggestions - If moderation blocks suggestions, show fallback chips:   - “I hear you.” / “Thanks for sharing.” / “I’m praying for you.” - Never display unsafe or private content on lock screen. - Add a user setting: Notifications → “Show Reply Suggestions” and “Show Previews”.  ARCHITECTURE REQUIREMENTS 1) LiveActivityManager (single source of truth) - Prevent multiple concurrent “reply” live activities:   - Only one Reply Activity active at a time, with ability to update it to the newest event. - Add debouncing: if multiple comments arrive quickly, update the existing activity instead of creating new. - End the activity automatically after:   - user opens the destination   - user dismisses   - 15 minutes timeout  2) Deep Linking - Implement deep links:   - amen://comment?postId=...&commentId=...&prefill=...   - amen://chat?threadId=...&prefill=... - Ensure routing works from cold start and background.  3) Data Contracts Define ActivityKit attributes: - ReplyActivityAttributes:   - type: enum {comment, dm, toneAssist}   - entityId (postId/threadId)   - subEntityId (commentId optional)   - displayName (actor name optional)   - avatarURL optional (or use cached image)   - suggestion1/2/3 (SHORT strings, <=60 chars)   - privacyLevel enum {noPreview, previewAllowed}   - createdAt, expiresAt  4) Provider Routing for Suggestions - Use OpenAI for structured short suggestion generation (JSON with 3 strings). - Use Claude for nuanced tone if needed for “gentler rewrite”. - Use Vertex for safety classification / moderation gating (or whichever moderation layer exists in AMEN). - Implement fallbacks if any provider fails.  IMPLEMENTATION STEPS (DO IN ORDER) 1) Add iOS capabilities: Live Activities, ActivityKit, push to start/update Live Activities (if using remote updates). 2) Build ReplyActivityAttributes + Live Activity UI:    - minimal/compact/expanded regions    - show 3 chips + Open button    - keep visuals consistent and minimal 3) Build LiveActivityManager with:    - startReplyActivity(event)    - updateReplyActivity(event)    - endReplyActivity(reason)    - dedupe and timeout logic 4) Build suggestion generation pipeline:    - gather minimal context    - call BereanOrchestrator(task: SMART_REPLY or TONE_REWRITE)    - run moderation gate on suggestions    - return safe suggestions or fallbacks 5) Hook triggers:    - When in-app notification arrives for comment/DM/mention → optionally start/update live activity    - When user long-presses a notification row → start live activity with that entity    - When tone check warns on send → start Tone Assist live activity 6) Add settings toggles:    - Show Reply Suggestions (on/off)    - Show Message Previews (on/off) 7) Verify behavior on devices without Dynamic Island:    - fallback to Lock Screen Live Activity display only  TEST CHECKLIST (MUST EXECUTE) - Comment arrives → island appears → expanded shows suggestions → tap suggestion deep links to correct thread with prefill - DM arrives → no preview unless enabled → suggestions show → tap works - Tone assist triggers on warn → rewrite suggestion available → tap returns to composer with rewrite - Ensure no sensitive content shown on lock screen by default - Ensure no duplicate live activities - Ensure battery safe: no frequent updates - Ensure no crashes when app is cold-started via deep link  DELIVERABLES - Swift code for:   - ReplyActivityAttributes   - Reply Live Activity UI (ActivityConfiguration)   - LiveActivityManager   - Deep link router updates   - Suggestion generation + moderation gating pipeline - Notes about any entitlements, Info.plist additions, and Xcode capabilities needed.  BEGIN NOW Implement this incrementally andActivityKit.Framework */,
+				EF475AB82F56FC4600744F61 /* You are a senior iOS engineer (SwiftUI) specialized in ActivityKit, Dynamic Island, and chat UX. Your task is to implement a Dynamic Island + Live Activities integration for AMEN that makes “Smart Replies” and “Tone Assist” interactive from the Dynamic Island for posts/comments/messages — while staying Apple-native, subtle, and safe.  IMPORTANT CONSTRAINTS (NON-NEGOTIABLE) - Do NOT fake the Dynamic Island with a custom overlay. Use ActivityKit/Live Activities only. - Do NOT change AMEN’s existing UI design language; only add the minimum needed for these features. - This must be fast and battery-safe: no constant updates, no polling loops, no heavy background work. - Privacy and safety must be respected:   - Do not show sensitive message content on lock screen unless user enables “Show Previews”.   - Do not generate or display unsafe text before moderation gating.   - Respect blocks/private accounts/minor protections. - No addictive mechanics: no “trending”, no engagement bait.  GOAL Enable a premium Dynamic Island experience that: 1) Shows a “Reply” Live Activity when a user receives a comment/mention/DM OR when the user long-presses a notification row. 2) Offers 2–3 one-tap “Smart Reply” options generated by Berean AI (Encourage / Thoughtful Question / Prayer). 3) Provides “Tone Assist” if the user typed a reply in-app and it is flagged as harsh: surface a “Rewrite gentler” option in the Dynamic Island. 4) When user taps a smart reply option, it opens AMEN to the exact destination with the chosen reply pre-filled (or safely sent if you can do it without risky UX).  TOP 3 DYNAMIC ISLAND USE CASES TO IMPLEMENT A) Comment Reply Live Activity - Trigger: new comment on user’s post, mention, or reply notification - Dynamic Island compact: commenter avatar (or app icon) + “New comment” - Expanded: show 3 smart reply chips: Encourage / Ask / Pray + a “Open” button - Tap chip behavior:    - Deep link to comment thread with composer prefilled with the selected reply text.    - Do NOT auto-send from the island (avoid accidental sends); require user to confirm/send in-app.  B) DM Reply Live Activity (Privacy First) - Trigger: new DM from a mutual or allowed sender - Compact: “New message” (no preview by default) - Expanded: 3 smart reply chips (short, neutral), plus “Open chat” - If user has enabled message previews, you may show a VERY short snippet. - Tap chip deep links to the thread with prefilled text.  C) Tone Assist Prompt - Trigger: user typed a reply in-app and taps “Send”, but moderation/tone check returns WARN with a suggested rewrite - Dynamic Island shows: “Tone Assist” (compact) - Expanded: “Rewrite gentler” chip + “Edit” button - Tap “Rewrite gentler” deep links back to the composer with suggested rewrite inserted.  AI / MODERATION RULES (CRITICAL) - All smart replies MUST be generated through Berean Orchestrator (multi-provider), but ONLY after:   1) retrieving minimal context (post topic + comment snippet if allowed)   2) running a safety + tone moderation gate on the generated suggestions - If moderation blocks suggestions, show fallback chips:   - “I hear you.” / “Thanks for sharing.” / “I’m praying for you.” - Never display unsafe or private content on lock screen. - Add a user setting: Notifications → “Show Reply Suggestions” and “Show Previews”.  ARCHITECTURE REQUIREMENTS 1) LiveActivityManager (single source of truth) - Prevent multiple concurrent “reply” live activities:   - Only one Reply Activity active at a time, with ability to update it to the newest event. - Add debouncing: if multiple comments arrive quickly, update the existing activity instead of creating new. - End the activity automatically after:   - user opens the destination   - user dismisses   - 15 minutes timeout  2) Deep Linking - Implement deep links:   - amen://comment?postId=...&commentId=...&prefill=...   - amen://chat?threadId=...&prefill=... - Ensure routing works from cold start and background.  3) Data Contracts Define ActivityKit attributes: - ReplyActivityAttributes:   - type: enum {comment, dm, toneAssist}   - entityId (postId/threadId)   - subEntityId (commentId optional)   - displayName (actor name optional)   - avatarURL optional (or use cached image)   - suggestion1/2/3 (SHORT strings, <=60 chars)   - privacyLevel enum {noPreview, previewAllowed}   - createdAt, expiresAt  4) Provider Routing for Suggestions - Use OpenAI for structured short suggestion generation (JSON with 3 strings). - Use Claude for nuanced tone if needed for “gentler rewrite”. - Use Vertex for safety classification / moderation gating (or whichever moderation layer exists in AMEN). - Implement fallbacks if any provider fails.  IMPLEMENTATION STEPS (DO IN ORDER) 1) Add iOS capabilities: Live Activities, ActivityKit, push to start/update Live Activities (if using remote updates). 2) Build ReplyActivityAttributes + Live Activity UI:    - minimal/compact/expanded regions    - show 3 chips + Open button    - keep visuals consistent and minimal 3) Build LiveActivityManager with:    - startReplyActivity(event)    - updateReplyActivity(event)    - endReplyActivity(reason)    - dedupe and timeout logic 4) Build suggestion generation pipeline:    - gather minimal context    - call BereanOrchestrator(task: SMART_REPLY or TONE_REWRITE)    - run moderation gate on suggestions    - return safe suggestions or fallbacks 5) Hook triggers:    - When in-app notification arrives for comment/DM/mention → optionally start/update live activity    - When user long-presses a notification row → start live activity with that entity    - When tone check warns on send → start Tone Assist live activity 6) Add settings toggles:    - Show Reply Suggestions (on/off)    - Show Message Previews (on/off) 7) Verify behavior on devices without Dynamic Island:    - fallback to Lock Screen Live Activity display only  TEST CHECKLIST (MUST EXECUTE) - Comment arrives → island appears → expanded shows suggestions → tap suggestion deep links to correct thread with prefill - DM arrives → no preview unless enabled → suggestions show → tap works - Tone assist triggers on warn → rewrite suggestion available → tap returns to composer with rewrite - Ensure no sensitive content shown on lock screen by default - Ensure no duplicate live activities - Ensure battery safe: no frequent updates - Ensure no crashes when app is cold-started via deep link  DELIVERABLES - Swift code for:   - ReplyActivityAttributes   - Reply Live Activity UI (ActivityConfiguration)   - LiveActivityManager   - Deep link router updates   - Suggestion generation + moderation gating pipeline - Notes about any entitlements, Info.plist additions, and Xcode capabilities needed.  BEGIN NOW Implement this incrementally andActivityKit.FrameworkTests */,
 				EF81519C2F184E97008912E3 /* Products */,
 				EFBDED3F2F251CD1001E650E /* Frameworks */,
 				EF92D0142F257C7300CC9601 /* FIREBASE_PERSISTENCE_FIX.md */,
@@ -540,12 +723,74 @@
 				EF55D2402F4F81BF0086707A /* TwoFactorVerificationGateView.swift */,
 				EF72D8F72F4FEBCE00F51E08 /* BiometricOnboardingPage.swift */,
 				EF72D8F92F4FEFB400F51E08 /* PrivacySettingsOnboardingPage.swift */,
+				EF5FAFF62F50E6ED004D2993 /* SmartNotificationModels.swift */,
+				EF5FAFF82F50E734004D2993 /* SmartNotificationRouter.swift */,
+				EF5FAFFA2F50E77C004D2993 /* ActionableNotificationService.swift */,
+				EF5FAFFC2F50E798004D2993 /* NotificationDigestService.swift */,
+				EF5FAFFE2F50E7B8004D2993 /* SmartMuteService.swift */,
+				EF5FB0002F50E7EA004D2993 /* SmartNotificationSettingsView.swift */,
+				EF5FB0022F50E811004D2993 /* NotificationDigestView.swift */,
+				EF5FB0042F50ECA4004D2993 /* DeepLinkRouter.swift */,
+				EF5FB00C2F50EDC4004D2993 /* NATIVE_INTERACTIONS_IMPLEMENTATION_GUIDE.md */,
+				EF5FB00E2F50EE34004D2993 /* IMPLEMENTATION_SUMMARY.md */,
+				EF5FB0102F50EE7E004D2993 /* ToastManagerExtensions.swift */,
+				EF5FB0122F50EEBB004D2993 /* INTERACTIONS_FINAL_DELIVERY.md */,
+				EF6E9F852F510D12003822C2 /* PostImagesView.swift */,
+				EF6E9F8B2F513E35003822C2 /* Motion.swift */,
+				EF6E9F912F51B0BF003822C2 /* PerformanceHUD.swift */,
+				EF6E9F932F51BB4C003822C2 /* FeedAPIService.swift */,
+				EF6E9F952F51C05F003822C2 /* AKAMAI_INTEGRATION_PLAN.md */,
+				EF6E9FA52F52655B003822C2 /* SafetyReportingService.swift */,
+				EF43AAC82F53C7E40075E1B5 /* ModerationAuditLog.swift */,
+				EF43AACA2F53C8480075E1B5 /* BereanOrchestrator.swift */,
+				EF6E9F9D2F524E75003822C2 /* ConversationRiskEngine.swift */,
+				EF6E9FA32F52629D003822C2 /* MediaSafetyGateway.swift */,
+				EF6E9F9B2F524E2B003822C2 /* MessageSafetyGateway.swift */,
+				EF6E9FA12F526227003822C2 /* MinorSafetyService.swift */,
+				EF6E9F9F2F524EAE003822C2 /* MessageSafetyUI.swift */,
+				EF6E9FA72F5265D6003822C2 /* ModerationConsoleModels.swift */,
+				EF43AACC2F5410E20075E1B5 /* SmartReplySuggestionService.swift */,
+				EF43AACE2F5411720075E1B5 /* ReplyActivityTriggers.swift */,
+				EF43AAD42F54C9D10075E1B5 /* SearchExpandBar.swift */,
+				EF43AAD62F54E0180075E1B5 /* ProfilePhotoCropView.swift */,
+				EF43AAD82F54E3DA0075E1B5 /* ExpandingBottomSheet.swift */,
+				EF475A952F56850900744F61 /* FruitOfSpiritBannerView.swift */,
+				EF475A972F568E0000744F61 /* DebugLog.swift */,
+				EF475A992F568E8300744F61 /* PerfTracker.swift */,
+				EF475A9B2F569A3B00744F61 /* WriteOpTracer.swift */,
+				EF475AA32F569FB800744F61 /* ShabbatModeService.swift */,
+				EF475AC42F56FE0B00744F61 /* LinkPreviewCards.swift */,
+				EF475AC62F572C4200744F61 /* WorshipNowPlayingView.swift */,
+				EF475AC82F573E5D00744F61 /* WorshipSongPickerSheet.swift */,
+				EF475ACA2F57456F00744F61 /* ImportModels.swift */,
+				EF475ACC2F57459000744F61 /* GenericArchiveImporter.swift */,
+				EF475ACE2F5745D700744F61 /* DataImportService.swift */,
+				EF475AD02F57462800744F61 /* ImportReviewSheet.swift */,
+				EF475AD22F57466500744F61 /* LinkMetadataService.swift */,
+				EF475AD62F574AB200744F61 /* ShareDraft.swift */,
+				EF475AD82F57556000744F61 /* AccountStatusView.swift */,
+				EF475ADA2F575A2500744F61 /* RestrictService.swift */,
+				EF475ADC2F575B0100744F61 /* LinkSafetyService.swift */,
+				EF475ADE2F575B6B00744F61 /* UnusualLoginDetector.swift */,
+				EF475AE02F575C3500744F61 /* CommunityGuidelinesPrompt.swift */,
+				EF475AE22F575C5C00744F61 /* DeviceIntegrityService.swift */,
+				EF475AE42F575F2800744F61 /* AgeAssuranceService.swift */,
+				EF475AE62F57DA6700744F61 /* SelahView.swift */,
+				EF475AE82F57E3E800744F61 /* ModerationConstitutionModels.swift */,
+				EF475AEA2F57E47A00744F61 /* ModerationIngestService.swift */,
+				EF475AEC2F57E52900744F61 /* EnforcementLadderService.swift */,
+				EF475AEE2F58573100744F61 /* SexualContentPolicy.swift */,
+				EF475AF02F58576F00744F61 /* MediaModerationPipeline.swift */,
+				EF475AF22F58586600744F61 /* ProactiveFrictionView.swift */,
+				EF94DD902F5925C6004D0767 /* BereanSafetyPolicy.swift */,
+				EF94DD922F59D77E004D0767 /* AMENInbox.swift */,
 			);
 			sourceTree = "<group>";
 		};
 		EF81519C2F184E97008912E3 /* Products */ = {
 			isa = PBXGroup;
 			children = (
+				EFC1A0062F700000001AMEN1 /* AMENWidgetExtension.appex */,
 				EF81519B2F184E97008912E3 /* AMENAPP.app */,
 				EF56F7412F2881A30019B94A /* AMENAPPTests.xctest */,
 			);
@@ -555,6 +800,7 @@
 		EFBDED3F2F251CD1001E650E /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				EF43AAD02F5412C40075E1B5 /* ActivityKit.framework */,
 				EF7475D82F2C85CD00A4434F /* XCTest.framework */,
 			);
 			name = Frameworks;
@@ -593,10 +839,13 @@
 				EF8151972F184E97008912E3 /* Sources */,
 				EF8151982F184E97008912E3 /* Frameworks */,
 				EF8151992F184E97008912E3 /* Resources */,
+				EF0135352F557C93009DB044 /* ShellScript */,
+				EF475AC02F56FC4600744F61 /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
-			dependencies = (
+				dependencies = (
+				EFC1A00D2F700000001AMEN1 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				EF81519D2F184E97008912E3 /* AMENAPP */,
@@ -647,6 +896,28 @@
 			productReference = EF81519B2F184E97008912E3 /* AMENAPP.app */;
 			productType = "com.apple.product-type.application";
 		};
+		EFC1A0012F700000001AMEN1 /* AMENWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = EFC1A0072F700000001AMEN1 /* Build configuration list for PBXNativeTarget "AMENWidgetExtension" */;
+			buildPhases = (
+				EFC1A0032F700000001AMEN1 /* Sources */,
+				EFC1A0042F700000001AMEN1 /* Frameworks */,
+				EFC1A0052F700000001AMEN1 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				EFC1A0022F700000001AMEN1 /* AMENWidgetExtension */,
+			);
+			name = AMENWidgetExtension;
+			packageProductDependencies = (
+			);
+			productName = AMENWidgetExtension;
+			productReference = EFC1A0062F700000001AMEN1 /* AMENWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -688,6 +959,7 @@
 			targets = (
 				EF81519A2F184E97008912E3 /* AMENAPP */,
 				EF56F7402F2881A30019B94A /* AMENAPPTests */,
+				EFC1A0012F700000001AMEN1 /* AMENWidgetExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -706,7 +978,6 @@
 			files = (
 				EF03BCA52F2B37000026395A /* QUICK_FIX.md in Resources */,
 				EF3B22FC2F495615001DA241 /* NOTIFICATIONS_PRODUCTION_FIXES_COMPLETE.md in Resources */,
-				EF3B23542F4AAC1B001DA241 /* Config.xcconfig in Resources */,
 				EF3ACF9E2F30603500596905 /* UNIFIED_CHAT_ENHANCEMENTS.md in Resources */,
 				EF3B230E2F49E21E001DA241 /* ADVANCED_AI_FEATURES_COMPLETE.md in Resources */,
 				EF3AD0702F32F5B500596905 /* genkit-Dockerfile in Resources */,
@@ -749,6 +1020,10 @@
 				EFAE0A732F4DDCFF009D7209 /* P0_FIXES_STATUS.md in Resources */,
 				EF03BCDB2F2BEF440026395A /* CHAT_IMPLEMENTATION_STATUS.md in Resources */,
 				EF3B22F82F4954CE001DA241 /* NOTIFICATIONS_FIRESTORE_INDEXES_REQUIRED.md in Resources */,
+				EF5FB00F2F50EE34004D2993 /* IMPLEMENTATION_SUMMARY.md in Resources */,
+				EF5FB0132F50EEBB004D2993 /* INTERACTIONS_FINAL_DELIVERY.md in Resources */,
+				EF6E9F962F51C05F003822C2 /* AKAMAI_INTEGRATION_PLAN.md in Resources */,
+				EF5FB00D2F50EDC4004D2993 /* NATIVE_INTERACTIONS_IMPLEMENTATION_GUIDE.md in Resources */,
 				EF03BC952F2B31ED0026395A /* DEBUG_CHAT_NOT_OPENING.md in Resources */,
 				EF55D20E2F4E9F980086707A /* FTUE_IMPLEMENTATION_COMPLETE.md in Resources */,
 				EF03BCA32F2B36EC0026395A /* FIX_TYPING_INDICATORS.md in Resources */,
@@ -759,7 +1034,34 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		EFC1A0052F700000001AMEN1 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		EF0135352F557C93009DB044 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		EF56F73D2F2881A30019B94A /* Sources */ = {
@@ -786,10 +1088,25 @@
 				EF3B232C2F4A7F98001DA241 /* SmartSuggestionsService.swift in Sources */,
 				EF3B22F62F492DF5001DA241 /* ChurchNotesShareService.swift in Sources */,
 				EFAE097F2F4BACF9009D7209 /* ScrollBudgetNudgesView.swift in Sources */,
+				EF6E9F8C2F513E35003822C2 /* Motion.swift in Sources */,
 				EF3B22EE2F49182A001DA241 /* ChurchNotesEditor.swift in Sources */,
 				EFAE09712F4B7D5D009D7209 /* NotificationDeepLinkRouter.swift in Sources */,
 				EF55D2412F4F81BF0086707A /* TwoFactorVerificationGateView.swift in Sources */,
 				EF3B228B2F4851D8001DA241 /* ThreadSummaryView.swift in Sources */,
+				EF6E9FA22F526227003822C2 /* MinorSafetyService.swift in Sources */,
+				EF6E9FA42F52629D003822C2 /* MediaSafetyGateway.swift in Sources */,
+				EF6E9F922F51B0BF003822C2 /* PerformanceHUD.swift in Sources */,
+				EF6E9FA62F52655B003822C2 /* SafetyReportingService.swift in Sources */,
+				EF6E9F942F51BB4C003822C2 /* FeedAPIService.swift in Sources */,
+				EF6E9F9C2F524E2B003822C2 /* MessageSafetyGateway.swift in Sources */,
+				EF6E9FA02F524EAE003822C2 /* MessageSafetyUI.swift in Sources */,
+				EF6E9FA82F5265D6003822C2 /* ModerationConsoleModels.swift in Sources */,
+				EF43AACB2F53C8480075E1B5 /* BereanOrchestrator.swift in Sources */,
+				EF43AACD2F5410E20075E1B5 /* SmartReplySuggestionService.swift in Sources */,
+				EF43AAC92F53C7E40075E1B5 /* ModerationAuditLog.swift in Sources */,
+				EF43AAD92F54E3DA0075E1B5 /* ExpandingBottomSheet.swift in Sources */,
+				EF43AACF2F5411720075E1B5 /* ReplyActivityTriggers.swift in Sources */,
+				EF43AAD52F54C9D10075E1B5 /* SearchExpandBar.swift in Sources */,
 				EF3B231E2F4A6167001DA241 /* AIContentDetectionService.swift in Sources */,
 				EF3B22F42F491920001DA241 /* ChurchNotesStressTests.swift in Sources */,
 				EF3B230C2F49E158001DA241 /* VertexAIPersonalizationService.swift in Sources */,
@@ -800,6 +1117,7 @@
 				EF55D2312F4F71DE0086707A /* AccountLinkingView.swift in Sources */,
 				EF55D2162F4EBDF90086707A /* Logger.swift in Sources */,
 				EF55D22D2F4F45970086707A /* ImageModerationService.swift in Sources */,
+				EF475ADF2F575B6B00744F61 /* UnusualLoginDetector.swift in Sources */,
 				EF55D20A2F4E9E1B0086707A /* CoachMarkOverlay.swift in Sources */,
 				EF55D2352F4F72580086707A /* ActiveSessionsView.swift in Sources */,
 				EF55D23B2F4F7CD70086707A /* AuthSuccessCheckmarkView.swift in Sources */,
@@ -820,6 +1138,17 @@
 				EF55D22F2F4F6C130086707A /* EmailVerificationBanner.swift in Sources */,
 				EFAE0A7B2F4E6DA1009D7209 /* AntiHarassmentEngine.swift in Sources */,
 				EFAE098F2F4BB4BB009D7209 /* PostCommentControlsSheet.swift in Sources */,
+				EF5FAFF92F50E735004D2993 /* SmartNotificationRouter.swift in Sources */,
+				EF5FAFFD2F50E798004D2993 /* NotificationDigestService.swift in Sources */,
+				EF5FAFFF2F50E7B8004D2993 /* SmartMuteService.swift in Sources */,
+				EF5FAFF72F50E6ED004D2993 /* SmartNotificationModels.swift in Sources */,
+				EF5FAFFB2F50E77C004D2993 /* ActionableNotificationService.swift in Sources */,
+				EF5FB0052F50ECA4004D2993 /* DeepLinkRouter.swift in Sources */,
+				EF5FB0032F50E811004D2993 /* NotificationDigestView.swift in Sources */,
+				EF94DD912F5925C6004D0767 /* BereanSafetyPolicy.swift in Sources */,
+				EF94DD932F59D77E004D0767 /* AMENInbox.swift in Sources */,
+				EF5FB0112F50EE7E004D2993 /* ToastManagerExtensions.swift in Sources */,
+				EF5FB0012F50E7EA004D2993 /* SmartNotificationSettingsView.swift in Sources */,
 				EFAE0A792F4E6D55009D7209 /* CommentSafetySystem.swift in Sources */,
 				EFAE096B2F4B4F16009D7209 /* LiquidGlassAnimations.swift in Sources */,
 				EFAE09812F4BAE84009D7209 /* ContentIntegrityPolicy.swift in Sources */,
@@ -828,20 +1157,57 @@
 				EFAE0A812F4E87B0009D7209 /* NetworkTimeoutHandler.swift in Sources */,
 				EFAE097D2F4BACC1009D7209 /* ScrollBudgetSettingsView.swift in Sources */,
 				EFAE09772F4B8A5B009D7209 /* SundayChurchFocusManager.swift in Sources */,
+				EF475AEF2F58573100744F61 /* SexualContentPolicy.swift in Sources */,
+				EF475AA42F569FB800744F61 /* ShabbatModeService.swift in Sources */,
+				EF475AF12F58576F00744F61 /* MediaModerationPipeline.swift in Sources */,
+				EF475A9A2F568E8300744F61 /* PerfTracker.swift in Sources */,
+				EF475AF32F58586600744F61 /* ProactiveFrictionView.swift in Sources */,
+				EF475AED2F57E52900744F61 /* EnforcementLadderService.swift in Sources */,
+				EF475AD12F57462800744F61 /* ImportReviewSheet.swift in Sources */,
+				EF475AC52F56FE0B00744F61 /* LinkPreviewCards.swift in Sources */,
+				EF475AD32F57466500744F61 /* LinkMetadataService.swift in Sources */,
+				EF475ACD2F57459000744F61 /* GenericArchiveImporter.swift in Sources */,
+				EF475AD92F57556000744F61 /* AccountStatusView.swift in Sources */,
+				EF475ADD2F575B0100744F61 /* LinkSafetyService.swift in Sources */,
+				EF475AE92F57E3E800744F61 /* ModerationConstitutionModels.swift in Sources */,
+				EF475AD72F574AB200744F61 /* ShareDraft.swift in Sources */,
+				EF475A982F568E0000744F61 /* DebugLog.swift in Sources */,
+				EF475AC72F572C4200744F61 /* WorshipNowPlayingView.swift in Sources */,
+				EF475AE12F575C3500744F61 /* CommunityGuidelinesPrompt.swift in Sources */,
+				EF475AC92F573E5D00744F61 /* WorshipSongPickerSheet.swift in Sources */,
+				EF475ADB2F575A2500744F61 /* RestrictService.swift in Sources */,
+				EF475AE32F575C5C00744F61 /* DeviceIntegrityService.swift in Sources */,
+				EF475A9C2F569A3B00744F61 /* WriteOpTracer.swift in Sources */,
+				EF475AE72F57DA6700744F61 /* SelahView.swift in Sources */,
+				EF475A962F56850900744F61 /* FruitOfSpiritBannerView.swift in Sources */,
+				EF475AE52F575F2800744F61 /* AgeAssuranceService.swift in Sources */,
+				EF475AEB2F57E47A00744F61 /* ModerationIngestService.swift in Sources */,
+				EF475ACB2F57456F00744F61 /* ImportModels.swift in Sources */,
 				EFAE096D2F4B7CFD009D7209 /* NotificationAggregationService.swift in Sources */,
 				EFAE09F72F4D45C2009D7209 /* SpotlightCard.swift in Sources */,
 				EF55D2332F4F71FE0086707A /* BiometricAuthService.swift in Sources */,
 				EFAE09912F4BB4D1009D7209 /* QuietBlockActionsMenu.swift in Sources */,
 				EFAE09832F4BAEB5009D7209 /* ContentIntegrityComposer.swift in Sources */,
+				EF43AAD72F54E0180075E1B5 /* ProfilePhotoCropView.swift in Sources */,
 				EFAE09792F4B8A6F009D7209 /* SundayChurchFocusGateView.swift in Sources */,
 				EFAE098B2F4BB48F009D7209 /* PrivacyControlsSettingsView.swift in Sources */,
+				EF6E9F9E2F524E75003822C2 /* ConversationRiskEngine.swift in Sources */,
 				EFAE09F92F4D4601009D7209 /* SpotlightViewModel.swift in Sources */,
+				EF475ACF2F5745D700744F61 /* DataImportService.swift in Sources */,
+				EF6E9F862F510D12003822C2 /* PostImagesView.swift in Sources */,
 				EFAE09692F4B4D11009D7209 /* FollowStateManager.swift in Sources */,
 				EF3B22F02F4918B8001DA241 /* ChurchNotesAIService.swift in Sources */,
 				EF3B22992F490E57001DA241 /* FollowOperationActor.swift in Sources */,
 				EF3B23162F4A16C9001DA241 /* PinnedPostService.swift in Sources */,
 				EF688D052F42CBF7006DC25E /* SmartPrayerReminderScheduler.swift in Sources */,
 				EF6873D52F40F394006DC25E /* RichTextEditorView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EFC1A0032F700000001AMEN1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -852,6 +1218,11 @@
 			isa = PBXTargetDependency;
 			target = EF81519A2F184E97008912E3 /* AMENAPP */;
 			targetProxy = EF56F7452F2881A40019B94A /* PBXContainerItemProxy */;
+		};
+		EFC1A00D2F700000001AMEN1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EFC1A0012F700000001AMEN1 /* AMENWidgetExtension */;
+			targetProxy = EFC1A00C2F700000001AMEN1 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -1021,6 +1392,7 @@
 		};
 		EF8151A72F184E97008912E3 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = EF3B23532F4AAC1B001DA241 /* Config.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -1032,15 +1404,17 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = AMENAPP/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = AMEN;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.social-networking";
 				INFOPLIST_KEY_NSAppleMusicUsageDescription = "AMENAPP uses Apple Music to provide worship songs and hymns for your spiritual journey.";
-				INFOPLIST_KEY_NSCameraUsageDescription = "AMENAPP needs access to your camera to take profile pictures.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Take a photo to personalize your AMEN profile";
 				INFOPLIST_KEY_NSContactsUsageDescription = "Find and connect with your friends who are already on AMEN";
-				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "AMENAPP uses your location to help you find churches near you.";
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "Use Face ID to quickly and securely sign in to your AMEN account";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "We need your location to send you reminders when you're near your saved churches";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "We need your location to find churches near you and provide smart service reminders";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "We need access to your microphone to record audio messages.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "AMENAPP needs access to your photos to set your profile picture.";
-				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "AMENAPP needs access to your photos to set your profile picture.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Choose a photo to personalize your AMEN profile";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -1065,6 +1439,7 @@
 		};
 		EF8151A82F184E97008912E3 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = EF3B23532F4AAC1B001DA241 /* Config.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -1076,15 +1451,17 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = AMENAPP/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = AMEN;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.social-networking";
 				INFOPLIST_KEY_NSAppleMusicUsageDescription = "AMENAPP uses Apple Music to provide worship songs and hymns for your spiritual journey.";
-				INFOPLIST_KEY_NSCameraUsageDescription = "AMENAPP needs access to your camera to take profile pictures.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Take a photo to personalize your AMEN profile";
 				INFOPLIST_KEY_NSContactsUsageDescription = "Find and connect with your friends who are already on AMEN";
-				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "AMENAPP uses your location to help you find churches near you.";
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "Use Face ID to quickly and securely sign in to your AMEN account";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "We need your location to send you reminders when you're near your saved churches";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "We need your location to find churches near you and provide smart service reminders";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "We need access to your microphone to record audio messages.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "AMENAPP needs access to your photos to set your profile picture.";
-				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "AMENAPP needs access to your photos to set your profile picture.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Choose a photo to personalize your AMEN profile";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -1102,6 +1479,56 @@
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		EFC1A0082F700000001AMEN1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = FGLL559H83;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = AMENWidgetExtension/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "tapera.AMENAPP.AMENWidgetExtension";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		EFC1A0092F700000001AMEN1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = FGLL559H83;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = AMENWidgetExtension/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "tapera.AMENAPP.AMENWidgetExtension";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -1133,6 +1560,15 @@
 			buildConfigurations = (
 				EF8151A72F184E97008912E3 /* Debug */,
 				EF8151A82F184E97008912E3 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		EFC1A0072F700000001AMEN1 /* Build configuration list for PBXNativeTarget "AMENWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EFC1A0082F700000001AMEN1 /* Debug */,
+				EFC1A0092F700000001AMEN1 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

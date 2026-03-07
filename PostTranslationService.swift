@@ -2,24 +2,34 @@
 //  PostTranslationService.swift
 //  AMENAPP
 //
-//  Translation service for posts using Firebase Cloud Functions + OpenAI
+//  On-device language detection (NaturalLanguage) + on-device translation
+//  (Apple Translation framework, iOS 17.4+).
+//
+//  Pipeline:
+//    1. detectLanguage() — NaturalLanguage.NLLanguageRecognizer (instant, free, private)
+//    2. translateText()  — Apple Translation session (on-device model, no API cost)
+//    3. In-memory cache (1 hour TTL) + Firestore cache (7 days TTL) for cross-device reuse
+//
+//  No OpenAI calls for language detection or translation.
 //
 
 import Foundation
+import Combine
+import NaturalLanguage
+import Translation
 import FirebaseAuth
 import FirebaseFirestore
-import Combine
 
 @MainActor
 class PostTranslationService: ObservableObject {
     static let shared = PostTranslationService()
-    
+
     @Published var isTranslating = false
     @Published var translationCache: [String: CachedTranslation] = [:]
-    
+
     private let db = Firestore.firestore()
-    private let deviceLanguage = Locale.current.language.languageCode?.identifier ?? "en"
-    
+    let deviceLanguage: String = Locale.current.language.languageCode?.identifier ?? "en"
+
     struct CachedTranslation: Codable {
         let originalText: String
         let translatedText: String
@@ -27,96 +37,92 @@ class PostTranslationService: ObservableObject {
         let targetLanguage: String
         let timestamp: Date
     }
-    
+
     private init() {
         print("✅ PostTranslationService initialized (device language: \(deviceLanguage))")
     }
-    
-    /// Detect the language of a text using OpenAI
+
+    // MARK: - Language Detection (on-device, NaturalLanguage)
+
+    /// Returns the ISO 639-1 language code for the given text using NLLanguageRecognizer.
+    /// Falls back to "en" if confidence is below threshold or recognition fails.
     func detectLanguage(_ text: String) async throws -> String {
-        // Use OpenAI to detect language
-        let openAI = OpenAIService.shared
-        
-        let prompt = """
-        Detect the language of this text and respond with ONLY the two-letter ISO 639-1 language code (e.g., 'en', 'es', 'fr', 'de', 'pt', 'zh', 'ar', 'hi', 'ko', 'ja').
-        
-        Text: "\(text)"
-        
-        Language code:
-        """
-        
-        let response = try await openAI.sendMessageSync(prompt)
-        let languageCode = response.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        
-        // Validate it's a 2-letter code
-        if languageCode.count == 2 {
-            return languageCode
-        }
-        
-        // Fallback to English if detection fails
-        return "en"
+        // NLLanguageRecognizer is synchronous and fast — run off main thread to avoid any
+        // momentary jank on long posts.
+        return await Task.detached(priority: .userInitiated) {
+            let recognizer = NLLanguageRecognizer()
+            recognizer.processString(text)
+
+            // Require at least 0.5 confidence to avoid misidentifying very short strings.
+            guard let dominant = recognizer.dominantLanguage,
+                  dominant != .undetermined else {
+                return "en"
+            }
+
+            let hypotheses = recognizer.languageHypotheses(withMaximum: 1)
+            let confidence = hypotheses[dominant] ?? 0
+            guard confidence >= 0.5 else { return "en" }
+
+            // NLLanguage.rawValue is a BCP 47 tag like "en", "es", "zh-Hans".
+            // Strip any region/script subtag to get the bare two-letter code.
+            let raw = dominant.rawValue
+            let base = raw.components(separatedBy: "-").first ?? raw
+            return base.lowercased()
+        }.value
     }
-    
-    /// Translate text using OpenAI
+
+    // MARK: - Translation (on-device, Apple Translation framework)
+
+    /// Translates text using Apple's on-device Translation framework.
+    /// Falls back to the original text if the language pair is unsupported or the
+    /// model download fails.
     func translateText(_ text: String, from sourceLanguage: String, to targetLanguage: String) async throws -> String {
-        // Check cache first
+        // 1. In-memory cache hit
         let cacheKey = "\(sourceLanguage)_\(targetLanguage)_\(text.hashValue)"
         if let cached = translationCache[cacheKey],
-           Date().timeIntervalSince(cached.timestamp) < 3600 { // 1 hour cache
-            print("✅ Using cached translation")
+           Date().timeIntervalSince(cached.timestamp) < 3600 {
             return cached.translatedText
         }
-        
-        // Use OpenAI to translate
-        let openAI = OpenAIService.shared
-        
-        let languageNames = [
-            "en": "English",
-            "es": "Spanish",
-            "fr": "French",
-            "de": "German",
-            "pt": "Portuguese",
-            "zh": "Chinese",
-            "ar": "Arabic",
-            "hi": "Hindi",
-            "ko": "Korean",
-            "ja": "Japanese",
-            "it": "Italian",
-            "ru": "Russian"
-        ]
-        
-        let sourceLangName = languageNames[sourceLanguage] ?? sourceLanguage.uppercased()
-        let targetLangName = languageNames[targetLanguage] ?? targetLanguage.uppercased()
-        
-        let prompt = """
-        Translate this text from \(sourceLangName) to \(targetLangName). Preserve the original tone, meaning, and formatting. Only respond with the translation, nothing else.
-        
-        Text to translate:
-        \(text)
-        
-        Translation:
-        """
-        
-        let translation = try await openAI.sendMessageSync(prompt)
-        let cleanedTranslation = translation.trimmingCharacters(in: .whitespacesAndNewlines)
-        
-        // Cache the translation
-        let cachedTranslation = CachedTranslation(
+
+        // 2. Apple Translation session — headless (no SwiftUI view needed).
+        // init(installedSource:target:) requires on-device language models; throws if not installed.
+        let sourceLang = Locale.Language(identifier: sourceLanguage)
+        let targetLang = Locale.Language(identifier: targetLanguage)
+
+        let translated: String = try await withCheckedThrowingContinuation { continuation in
+            Task { @MainActor in
+                do {
+                    let session = TranslationSession(installedSource: sourceLang, target: targetLang)
+                    let response = try await session.translate(text)
+                    continuation.resume(returning: response.targetText)
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
+
+        let result = translated.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // 3. Store in memory cache
+        let cached = CachedTranslation(
             originalText: text,
-            translatedText: cleanedTranslation,
+            translatedText: result,
             sourceLanguage: sourceLanguage,
             targetLanguage: targetLanguage,
             timestamp: Date()
         )
-        translationCache[cacheKey] = cachedTranslation
-        
-        // Store in Firestore for reuse across sessions
-        try await storeTranslationInFirestore(cacheKey: cacheKey, translation: cachedTranslation)
-        
-        return cleanedTranslation
+        translationCache[cacheKey] = cached
+
+        // 4. Store in Firestore for cross-device reuse (fire-and-forget)
+        Task.detached(priority: .background) {
+            try? await self.storeTranslationInFirestore(cacheKey: cacheKey, translation: cached)
+        }
+
+        return result
     }
-    
-    /// Store translation in Firestore for cross-device caching
+
+    // MARK: - Firestore cache
+
     private func storeTranslationInFirestore(cacheKey: String, translation: CachedTranslation) async throws {
         try await db.collection("translations").document(cacheKey).setData([
             "originalText": translation.originalText,
@@ -126,94 +132,54 @@ class PostTranslationService: ObservableObject {
             "timestamp": Timestamp(date: translation.timestamp)
         ])
     }
-    
-    /// Fetch translation from Firestore if available
+
     func fetchTranslationFromFirestore(text: String, sourceLanguage: String, targetLanguage: String) async throws -> String? {
         let cacheKey = "\(sourceLanguage)_\(targetLanguage)_\(text.hashValue)"
-        
         let doc = try await db.collection("translations").document(cacheKey).getDocument()
-        
-        if doc.exists,
-           let data = doc.data(),
-           let translatedText = data["translatedText"] as? String,
-           let timestamp = data["timestamp"] as? Timestamp {
-            
-            // Check if cache is still valid (within 1 week)
-            let age = Date().timeIntervalSince(timestamp.dateValue())
-            if age < 604800 { // 7 days
-                // Update local cache
-                let cachedTranslation = CachedTranslation(
-                    originalText: text,
-                    translatedText: translatedText,
-                    sourceLanguage: sourceLanguage,
-                    targetLanguage: targetLanguage,
-                    timestamp: timestamp.dateValue()
-                )
-                translationCache[cacheKey] = cachedTranslation
-                
-                return translatedText
-            }
-        }
-        
-        return nil
+
+        guard doc.exists,
+              let data = doc.data(),
+              let translatedText = data["translatedText"] as? String,
+              let timestamp = data["timestamp"] as? Timestamp else { return nil }
+
+        let age = Date().timeIntervalSince(timestamp.dateValue())
+        guard age < 604_800 else { return nil } // 7-day TTL
+
+        translationCache[cacheKey] = CachedTranslation(
+            originalText: text,
+            translatedText: translatedText,
+            sourceLanguage: sourceLanguage,
+            targetLanguage: targetLanguage,
+            timestamp: timestamp.dateValue()
+        )
+        return translatedText
     }
-    
-    /// Translate a post asynchronously (non-blocking)
+
+    // MARK: - Convenience
+
+    /// Translate a full post, returning the original unchanged if the post is already
+    /// in the device language or if translation fails.
     func translatePost(_ post: Post) async -> Post {
         do {
-            // Detect source language
-            let sourceLanguage = try await detectLanguage(post.content)
-            
-            // If post is already in device language, no need to translate
-            if sourceLanguage == deviceLanguage {
-                print("✅ Post already in device language (\(deviceLanguage))")
-                return post
+            let sourceLang = try await detectLanguage(post.content)
+            guard sourceLang != deviceLanguage else { return post }
+
+            // Firestore cache first
+            if let cached = try await fetchTranslationFromFirestore(
+                text: post.content, sourceLanguage: sourceLang, targetLanguage: deviceLanguage) {
+                var p = post; p.content = cached; return p
             }
-            
-            // Check Firestore cache first
-            if let cachedTranslation = try await fetchTranslationFromFirestore(
-                text: post.content,
-                sourceLanguage: sourceLanguage,
-                targetLanguage: deviceLanguage
-            ) {
-                print("✅ Using Firestore cached translation")
-                var translatedPost = post
-                translatedPost.content = cachedTranslation
-                return translatedPost
-            }
-            
-            // Translate the content
-            await MainActor.run {
-                isTranslating = true
-            }
-            
-            let translatedContent = try await translateText(
-                post.content,
-                from: sourceLanguage,
-                to: deviceLanguage
-            )
-            
-            await MainActor.run {
-                isTranslating = false
-            }
-            
-            var translatedPost = post
-            translatedPost.content = translatedContent
-            
-            print("✅ Post translated from \(sourceLanguage) to \(deviceLanguage)")
-            return translatedPost
-            
+
+            isTranslating = true
+            defer { isTranslating = false }
+
+            let translated = try await translateText(post.content, from: sourceLang, to: deviceLanguage)
+            var p = post; p.content = translated; return p
         } catch {
-            print("❌ Translation failed: \(error.localizedDescription)")
-            await MainActor.run {
-                isTranslating = false
-            }
-            return post // Return original on error
+            isTranslating = false
+            return post
         }
     }
-    
-    /// Get device language code
-    func getDeviceLanguage() -> String {
-        return deviceLanguage
-    }
+
+    func getDeviceLanguage() -> String { deviceLanguage }
 }

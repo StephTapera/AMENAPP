@@ -11,7 +11,7 @@ import FirebaseAuth
 
 struct TwoFactorVerificationGateView: View {
     @EnvironmentObject var authViewModel: AuthenticationViewModel
-    @StateObject private var twoFactorService = TwoFactorAuthService.shared
+    @ObservedObject private var twoFactorService = TwoFactorAuthService.shared
     
     @State private var verificationCode = ""
     @State private var isVerifying = false
@@ -21,6 +21,12 @@ struct TwoFactorVerificationGateView: View {
     @State private var backupCode = ""
     @State private var resendCooldown = 0
     @State private var canResend = true
+    
+    // Retry limiting: lock out after 5 failed attempts for 15 minutes
+    @State private var failedAttempts = 0
+    @State private var lockedUntil: Date?
+    private let maxAttempts = 5
+    private let lockoutDuration: TimeInterval = 15 * 60  // 15 minutes
     
     var body: some View {
         ZStack {
@@ -40,7 +46,7 @@ struct TwoFactorVerificationGateView: View {
                             .font(.custom("OpenSans-Bold", size: 28))
                             .foregroundStyle(.white)
                         
-                        if let phone = twoFactorService.phoneNumber {
+                        if let phone = twoFactorService.maskedPhone {
                             Text("Enter the code sent to \(formatPhoneForDisplay(phone))")
                                 .font(.custom("OpenSans-Regular", size: 14))
                                 .foregroundStyle(.white.opacity(0.7))
@@ -107,6 +113,25 @@ struct TwoFactorVerificationGateView: View {
                                 .foregroundStyle(.white.opacity(0.5))
                         }
                         .padding(.horizontal)
+                    }
+                    
+                    // Lockout warning
+                    if isLockedOut {
+                        HStack(spacing: 10) {
+                            Image(systemName: "lock.fill")
+                                .foregroundStyle(.red)
+                            Text("Too many failed attempts. Try again in \(lockoutRemainingSeconds / 60)m \(lockoutRemainingSeconds % 60)s.")
+                                .font(.custom("OpenSans-Regular", size: 13))
+                                .foregroundStyle(.red)
+                                .multilineTextAlignment(.leading)
+                        }
+                        .padding(12)
+                        .background(RoundedRectangle(cornerRadius: 10).fill(.red.opacity(0.12)))
+                        .padding(.horizontal, 40)
+                    } else if failedAttempts > 0 {
+                        Text("\(maxAttempts - failedAttempts) attempt\(maxAttempts - failedAttempts == 1 ? "" : "s") remaining")
+                            .font(.custom("OpenSans-Regular", size: 12))
+                            .foregroundStyle(.orange.opacity(0.9))
                     }
                     
                     // Verify button
@@ -220,7 +245,18 @@ struct TwoFactorVerificationGateView: View {
         }
     }
     
+    private var isLockedOut: Bool {
+        guard let until = lockedUntil else { return false }
+        return Date() < until
+    }
+    
+    private var lockoutRemainingSeconds: Int {
+        guard let until = lockedUntil else { return 0 }
+        return max(0, Int(until.timeIntervalSinceNow))
+    }
+    
     private var canSubmit: Bool {
+        guard !isLockedOut else { return false }
         if showBackupCodeInput {
             return backupCode.count >= 9 // Format: 1234-5678
         } else {
@@ -244,7 +280,7 @@ struct TwoFactorVerificationGateView: View {
     // MARK: - Actions
     
     private func sendInitial2FACode() async {
-        guard let phone = twoFactorService.phoneNumber else {
+        guard let phone = twoFactorService.maskedPhone else {
             errorMessage = "No phone number found for 2FA"
             showError = true
             return
@@ -261,7 +297,7 @@ struct TwoFactorVerificationGateView: View {
     }
     
     private func verify2FACode() async {
-        guard !isVerifying else { return }
+        guard !isVerifying, !isLockedOut else { return }
         isVerifying = true
         
         do {
@@ -270,6 +306,7 @@ struct TwoFactorVerificationGateView: View {
             if success {
                 // Success - allow authentication to proceed
                 await MainActor.run {
+                    failedAttempts = 0
                     authViewModel.needs2FAVerification = false
                     authViewModel.showAuthSuccess = true
                     
@@ -282,7 +319,13 @@ struct TwoFactorVerificationGateView: View {
             }
         } catch {
             await MainActor.run {
-                errorMessage = error.localizedDescription
+                failedAttempts += 1
+                if failedAttempts >= maxAttempts {
+                    lockedUntil = Date().addingTimeInterval(lockoutDuration)
+                    errorMessage = "Too many failed attempts. Please wait 15 minutes before trying again."
+                } else {
+                    errorMessage = error.localizedDescription
+                }
                 showError = true
                 verificationCode = ""
                 
@@ -296,7 +339,7 @@ struct TwoFactorVerificationGateView: View {
     }
     
     private func verifyBackupCode() async {
-        guard !isVerifying else { return }
+        guard !isVerifying, !isLockedOut else { return }
         guard let userId = authViewModel.pending2FAUserId else {
             errorMessage = "Session expired. Please sign in again."
             showError = true
@@ -311,6 +354,7 @@ struct TwoFactorVerificationGateView: View {
             if success {
                 // Success - allow authentication to proceed
                 await MainActor.run {
+                    failedAttempts = 0
                     authViewModel.needs2FAVerification = false
                     authViewModel.showAuthSuccess = true
                     
@@ -323,7 +367,13 @@ struct TwoFactorVerificationGateView: View {
             }
         } catch {
             await MainActor.run {
-                errorMessage = error.localizedDescription
+                failedAttempts += 1
+                if failedAttempts >= maxAttempts {
+                    lockedUntil = Date().addingTimeInterval(lockoutDuration)
+                    errorMessage = "Too many failed attempts. Please wait 15 minutes before trying again."
+                } else {
+                    errorMessage = error.localizedDescription
+                }
                 showError = true
                 backupCode = ""
                 
@@ -338,7 +388,7 @@ struct TwoFactorVerificationGateView: View {
     
     private func resendCode() async {
         guard canResend else { return }
-        guard let phone = twoFactorService.phoneNumber else { return }
+        guard let phone = twoFactorService.maskedPhone else { return }
         
         canResend = false
         resendCooldown = 60

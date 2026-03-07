@@ -19,6 +19,15 @@ struct PostsSearchView: View {
     @State private var selectedCategory: PostCategory = .trending
     @Environment(\.dismiss) var dismiss
     
+    // ✅ HEY FEED: Keyword trigger
+    @State private var showHeyFeedControls = false
+    
+    // Search history
+    @State private var recentSearches: [String] = []
+    @State private var isSearchFocused = false
+    private let recentSearchesKey = "postsSearchHistory"
+    private let maxRecentSearches = 10
+    
     enum PostCategory: String, CaseIterable {
         case trending = "Trending"
         case recent = "Recent"
@@ -86,6 +95,7 @@ struct PostsSearchView: View {
             }
         }
         .task {
+            recentSearches = loadRecentSearches()
             await viewModel.loadPosts(category: selectedCategory, searchQuery: searchText)
         }
         .onChange(of: selectedCategory) { oldValue, newValue in
@@ -94,10 +104,25 @@ struct PostsSearchView: View {
             }
         }
         .onChange(of: searchText) { oldValue, newValue in
-            Task {
-                try? await Task.sleep(nanoseconds: 500_000_000) // 500ms debounce
-                await viewModel.searchPosts(query: newValue, category: selectedCategory)
+            // ✅ HEY FEED: Detect "heyfeed" keyword
+            if newValue.lowercased().contains("heyfeed") {
+                showHeyFeedControls = true
+                searchText = "" // Clear the search
+            } else {
+                Task {
+                    try? await Task.sleep(nanoseconds: 500_000_000) // 500ms debounce
+                    if searchText == newValue {
+                        await viewModel.searchPosts(query: newValue, category: selectedCategory)
+                        // Save non-empty completed searches
+                        if !newValue.trimmingCharacters(in: .whitespaces).isEmpty {
+                            saveSearchQuery(newValue.trimmingCharacters(in: .whitespaces))
+                        }
+                    }
+                }
             }
+        }
+        .sheet(isPresented: $showHeyFeedControls) {
+            HeyFeedControlsSheet()
         }
     }
     
@@ -188,50 +213,155 @@ struct PostsSearchView: View {
     // MARK: - Search Bar
     
     private var searchBarSection: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 16, weight: .medium))
-                .foregroundColor(.white.opacity(0.5))
-            
-            TextField("Search posts...", text: $searchText)
-                .font(.custom("OpenSans-Regular", size: 16))
-                .foregroundColor(.white)
-                .autocorrectionDisabled()
-            
-            if !searchText.isEmpty {
-                Button {
-                    searchText = ""
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 16))
-                        .foregroundColor(.white.opacity(0.5))
+        VStack(spacing: 0) {
+            HStack(spacing: 12) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(.white.opacity(0.5))
+                
+                TextField("Search posts...", text: $searchText)
+                    .font(.custom("OpenSans-Regular", size: 16))
+                    .foregroundColor(searchText.lowercased().contains("heyfeed") ? .blue : .white)
+                    .autocorrectionDisabled()
+                    .onTapGesture {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            isSearchFocused = true
+                        }
+                    }
+                
+                if !searchText.isEmpty {
+                    Button {
+                        searchText = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 16))
+                            .foregroundColor(.white.opacity(0.5))
+                    }
+                    .transition(.scale.combined(with: .opacity))
+                } else if isSearchFocused {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            isSearchFocused = false
+                        }
+                    } label: {
+                        Text("Cancel")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.white.opacity(0.6))
+                    }
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
                 }
-                .transition(.scale.combined(with: .opacity))
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .background(
+                ZStack {
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(.ultraThinMaterial.opacity(0.3))
+                    
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(
+                            LinearGradient(
+                                colors: [
+                                    Color.white.opacity(0.3),
+                                    Color.white.opacity(0.1)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1
+                        )
+                }
+            )
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
+            
+            // Recent searches (shown when focused and empty)
+            if isSearchFocused && searchText.isEmpty && !recentSearches.isEmpty {
+                recentSearchesView
+                    .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
-        .background(
-            ZStack {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(.ultraThinMaterial.opacity(0.3))
-                
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(
-                        LinearGradient(
-                            colors: [
-                                Color.white.opacity(0.3),
-                                Color.white.opacity(0.1)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 1
-                    )
+        .animation(.easeInOut(duration: 0.2), value: isSearchFocused)
+        .animation(.easeInOut(duration: 0.2), value: searchText.isEmpty)
+    }
+    
+    // MARK: - Recent Searches
+    
+    private var recentSearchesView: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Text("Recent")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.5))
+                Spacer()
+                Button {
+                    recentSearches = []
+                    UserDefaults.standard.removeObject(forKey: recentSearchesKey)
+                } label: {
+                    Text("Clear")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.white.opacity(0.4))
+                }
             }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 8)
+            
+            ForEach(recentSearches, id: \.self) { query in
+                Button {
+                    searchText = query
+                    isSearchFocused = false
+                    Task {
+                        await viewModel.searchPosts(query: query, category: selectedCategory)
+                    }
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: "clock")
+                            .font(.system(size: 14))
+                            .foregroundColor(.white.opacity(0.4))
+                        Text(query)
+                            .font(.system(size: 15))
+                            .foregroundColor(.white.opacity(0.85))
+                        Spacer()
+                        Image(systemName: "arrow.up.left")
+                            .font(.system(size: 12))
+                            .foregroundColor(.white.opacity(0.3))
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 10)
+                }
+                .buttonStyle(PlainButtonStyle())
+                
+                if query != recentSearches.last {
+                    Divider()
+                        .background(Color.white.opacity(0.08))
+                        .padding(.leading, 52)
+                }
+            }
+        }
+        .padding(.top, 4)
+        .padding(.bottom, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(.ultraThinMaterial.opacity(0.2))
+                .padding(.horizontal, 20)
         )
-        .padding(.horizontal, 20)
-        .padding(.vertical, 16)
+    }
+    
+    // MARK: - Search History Helpers
+    
+    private func loadRecentSearches() -> [String] {
+        UserDefaults.standard.stringArray(forKey: recentSearchesKey) ?? []
+    }
+    
+    private func saveSearchQuery(_ query: String) {
+        var searches = loadRecentSearches()
+        searches.removeAll { $0.lowercased() == query.lowercased() }
+        searches.insert(query, at: 0)
+        if searches.count > maxRecentSearches {
+            searches = Array(searches.prefix(maxRecentSearches))
+        }
+        UserDefaults.standard.set(searches, forKey: recentSearchesKey)
+        recentSearches = searches
     }
     
     // MARK: - Category Chips
@@ -672,11 +802,47 @@ class PostsSearchViewModel: ObservableObject {
     }
     
     func searchPosts(query: String, category: PostsSearchView.PostCategory) async {
+        guard !isLoading else { return }
         if query.isEmpty {
             await loadPosts(category: category, searchQuery: query)
-        } else {
-            await searchWithFirestore(query: query, category: category)
+            return
         }
+
+        isLoading = true
+        defer { isLoading = false }
+
+        // 1. Try Cloud Run semantic search (5s timeout, falls back to nil)
+        if let semanticResults = await SemanticSearchService.shared.searchViaCloudRun(
+            query: query, limit: pageSize
+        ) {
+            // semanticResults contains postIds; fetch the actual Post objects
+            let ids = semanticResults.map { $0.postId }
+            if !ids.isEmpty {
+                do {
+                    // Batch fetch — Firestore 'in' query max 30 at a time
+                    let chunks = stride(from: 0, to: min(ids.count, 30), by: 30).map {
+                        Array(ids[$0 ..< min($0 + 30, ids.count)])
+                    }
+                    var fetchedPosts: [Post] = []
+                    for chunk in chunks {
+                        let snap = try await db.collection("posts")
+                            .whereField(FieldPath.documentID(), in: chunk)
+                            .getDocuments()
+                        fetchedPosts += snap.documents.compactMap { try? $0.data(as: Post.self) }
+                    }
+                    // Restore semantic ranking order
+                    let idOrder = Dictionary(uniqueKeysWithValues: ids.enumerated().map { ($1, $0) })
+                    posts = fetchedPosts.sorted {
+                        (idOrder[$0.firebaseId ?? ""] ?? Int.max) < (idOrder[$1.firebaseId ?? ""] ?? Int.max)
+                    }
+                    hasMore = false
+                    return
+                } catch { /* fall through to keyword search */ }
+            }
+        }
+
+        // 2. Fallback: keyword search in Firestore
+        await searchWithFirestore(query: query, category: category)
     }
     
     func refresh(category: PostsSearchView.PostCategory, searchQuery: String) async {
