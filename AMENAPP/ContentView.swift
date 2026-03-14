@@ -23,11 +23,11 @@ struct ContentView: View {
     @State private var showTimeoutWarning: Bool = false
     @State private var showFTUE: Bool = false
     
-    // Keep these for state that ContentView directly manages
-    @ObservedObject private var sessionTimeoutManager = SessionTimeoutManager.shared
-    @ObservedObject private var churchFocusManager = SundayChurchFocusManager.shared
-    @ObservedObject private var appReadyManager = AppReadyStateManager.shared
-    @ObservedObject private var appUsageTracker = AppUsageTracker.shared
+    // ⚡️ P1-3 FIX: Extracted specific state from singletons to avoid ContentView
+    // redrawing on every @Published change in SessionTimeoutManager, AppReadyStateManager,
+    // AppUsageTracker, and SundayChurchFocusManager. Action calls go direct to .shared.
+    @State private var isShowingLoadingScreen = false
+    @State private var showLimitReachedDialog = false
     @State private var showCreatePost: Bool
     @State private var showCreateQuickActions = false
     @Namespace private var createPostNamespace
@@ -50,7 +50,12 @@ struct ContentView: View {
     @State private var needsCovenantAgreement = false
     @State private var showCompulsiveReopenRedirect = false
     @State private var compulsiveReopenCount = 0
-    @State private var isResolvingAuthState = true  // ✅ Prevent flash during state resolution
+    // Start resolving only if Firebase has a cached user — if no user is cached,
+    // we're definitely logged out and can show SignInView immediately without waiting.
+    @State private var isResolvingAuthState = Auth.auth().currentUser != nil
+    // Idempotency gate: prevents core service startup from running more than once
+    // per session even if mainContent.onAppear fires multiple times.
+    @State private var hasStartedCoreServices = false
     @Environment(\.scenePhase) private var scenePhase
     
     init() {
@@ -87,21 +92,30 @@ struct ContentView: View {
     var body: some View {
         Group {
             if isResolvingAuthState {
-                // ✅ Show 3-dot loading screen during initial state resolution to prevent flash
+                // Show dots only when a cached Firebase user exists and we're waiting for the
+                // auth listener to confirm their session is still valid.
                 AppLoadingScreen()
+                .onChange(of: authViewModel.isAuthenticated) { _, _ in
+                    // Auth state resolved (either true or false) — stop waiting.
+                    isResolvingAuthState = false
+                }
+                .onChange(of: authViewModel.needsOnboarding) { _, _ in
+                    isResolvingAuthState = false
+                }
+                .onChange(of: authViewModel.needs2FAVerification) { _, _ in
+                    isResolvingAuthState = false
+                }
                 .task {
-                    // Poll until isAuthenticated resolves from AuthenticationViewModel.init()'s
-                    // async Task (checkOnboardingStatus). Without polling, a one-shot check here
-                    // races against that Task and sees isAuthenticated=false even for cached users,
-                    // causing the 3-dot screen to show for the full 1.3 s sleep.
-                    // Poll every 50 ms, bail out after 2 s maximum.
-                    let deadline = Date().addingTimeInterval(2.0)
-                    while !authViewModel.isAuthenticated && Date() < deadline {
-                        try? await Task.sleep(nanoseconds: 50_000_000) // 50 ms
-                    }
-                    await MainActor.run {
+                    // Yield once so the auth listener has a chance to fire synchronously.
+                    await Task.yield()
+                    // If auth state is already determined, dismiss immediately.
+                    if authViewModel.isAuthenticated || Auth.auth().currentUser == nil {
                         isResolvingAuthState = false
+                        return
                     }
+                    // Hard cap: 1.5 s max — enough for any network auth check.
+                    try? await Task.sleep(nanoseconds: 1_500_000_000)
+                    isResolvingAuthState = false
                 }
                 .transition(.opacity)
             } else if authViewModel.needs2FAVerification {
@@ -110,7 +124,7 @@ struct ContentView: View {
                     .environmentObject(authViewModel)
                     .transition(.opacity.combined(with: .move(edge: .trailing)))
                     .onAppear {
-                        appReadyManager.signalReady()
+                        AppReadyStateManager.shared.signalReady()
                     }
             } else if !authViewModel.isAuthenticated {
                 // Show sign-in view - pass the authViewModel so it's shared!
@@ -118,7 +132,7 @@ struct ContentView: View {
                     .environmentObject(authViewModel)
                     .transition(.opacity)
                     .onAppear {
-                        appReadyManager.signalReady()
+                        AppReadyStateManager.shared.signalReady()
                     }
             } else if authViewModel.needsUsernameSelection {
                 // Show username selection for social sign-in users (before onboarding)
@@ -126,7 +140,7 @@ struct ContentView: View {
                     .environmentObject(authViewModel)
                     .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .opacity))
                     .onAppear {
-                        appReadyManager.signalReady()
+                        AppReadyStateManager.shared.signalReady()
                     }
                     .onDisappear {
                         // Mark username selection as complete when dismissed
@@ -138,7 +152,7 @@ struct ContentView: View {
                     .environmentObject(authViewModel)
                     .transition(.opacity.combined(with: .move(edge: .trailing)))
                     .onAppear {
-                        appReadyManager.signalReady()
+                        AppReadyStateManager.shared.signalReady()
                     }
             } else if authViewModel.needsOnboarding {
                 // Show onboarding flow for new users
@@ -149,7 +163,7 @@ struct ContentView: View {
                         // Onboarding users never reach mainContent, so signalReady() would
                         // never be called there. Clear the loading screen overlay immediately
                         // so it doesn't cover the entire onboarding flow.
-                        appReadyManager.signalReady()
+                        AppReadyStateManager.shared.signalReady()
                     }
             } else {
                 // Main app content
@@ -162,26 +176,35 @@ struct ContentView: View {
                     }
                     .onAppear {
                         // Show cinematic loading screen if this is a fresh sign-in
-                        appReadyManager.startIfNeeded()
+                        AppReadyStateManager.shared.startIfNeeded()
 
-                        // P0 FIX: Don't start listener here - already started in AMENAPPApp preload
-                        // Just ensure PostsManager is initialized (idempotent)
+                        // Idempotency gate: only run core service startup once per session.
+                        // mainContent.onAppear can fire on every foreground transition and
+                        // navigation event — without this gate each re-appear would spawn
+                        // duplicate tasks and listeners.
+                        guard !hasStartedCoreServices else { return }
+                        hasStartedCoreServices = true
+
+                        // Phase 1 — CRITICAL: feed ready signal (blocks cinematic overlay)
                         Task(priority: .high) {
                             _ = PostsManager.shared
-
-                            // Wait for the feed listener to deliver first posts (max 4 s)
                             await waitForFeedReady()
-                            appReadyManager.signalReady()
+                            AppReadyStateManager.shared.signalReady()
                         }
-                        
-                        // Warm up other singletons with lower priority
+
+                        // Phase 2 — NEAR-IMMEDIATE: warm up secondary singletons
                         Task(priority: .medium) {
                             _ = PostInteractionsService.shared
                             await PremiumManager.shared.loadProducts()
                         }
-                        
-                        // Check email verification status
-                        Task {
+
+                        // Phase 2b — Start notification listener immediately on auth.
+                        // Previously this was in HomeView.onAppear, so it never fired
+                        // when the app launched directly into any other tab via push tap.
+                        NotificationService.shared.startListening()
+
+                        // Phase 3 — DEFERRED: non-blocking checks
+                        Task(priority: .utility) {
                             await authViewModel.checkEmailVerification()
                         }
                     }
@@ -229,42 +252,60 @@ struct ContentView: View {
                 // Start session timeout monitoring (respects Remember Me setting)
                 let rememberMe = SessionTimeoutManager.shared.isRememberMeEnabled()
                 SessionTimeoutManager.shared.startMonitoring(rememberMe: rememberMe)
+
+                // Install quick actions now that a user is authenticated
+                AMENQuickActionManager.shared.installShortcuts(
+                    hasDraft: !DraftsManager.shared.drafts.isEmpty,
+                    unreadMessageCount: BadgeCountManager.shared.unreadMessages
+                )
             } else if !newValue && oldValue {
-                // User logged out - stop monitoring
+                // User logged out - stop monitoring and reset startup gate so the
+                // next sign-in runs the full core services startup block again.
                 SessionTimeoutManager.shared.stopMonitoring()
+                hasStartedCoreServices = false
+
+                // Clear quick actions — shortcuts would fail auth gate if user is signed out
+                AMENQuickActionManager.shared.clearShortcuts()
             }
         }
-        .onChange(of: authViewModel.needsOnboarding) { _, _ in
-        }
-        .onChange(of: authViewModel.needsUsernameSelection) { _, _ in
-        }
+        // P3-2 FIX: Removed empty onChange handlers for needsOnboarding and
+        // needsUsernameSelection. These were no-ops that still caused body re-evaluations
+        // on every change. The animated group above already reacts to these via the
+        // .animation() modifiers on the Group, so these handlers were dead code.
         .onChange(of: messagingCoordinator.shouldOpenMessagesTab) { oldValue, newValue in
             if newValue {
                 viewModel.selectedTab = 2  // Switch to Messages tab (now at index 2)
             }
         }
+        // ── QUICK ACTIONS: Route consumer ────────────────────────────────────────
+        // Watches AMENQuickActionManager.pendingRoute and navigates once mainContent
+        // is displayed and the user is authenticated. Works for both cold launches
+        // (where the route was stored before auth resolved) and warm launches
+        // (where performActionFor fires while the app is already running).
+        .onReceive(AMENQuickActionManager.shared.$pendingRoute) { route in
+            guard let route else { return }
+            handleQuickActionRoute(route)
+        }
         .onChange(of: scenePhase) { oldPhase, newPhase in
             handleScenePhaseChange(from: oldPhase, to: newPhase)
-            
-            // TODO: Re-enable wellness tracking when files are added to Xcode project
-            // if newPhase == .active {
-            //     wellnessGuardian.trackSessionStart()
-            // } else if newPhase == .background || newPhase == .inactive {
-            //     wellnessGuardian.trackSessionEnd()
-            // }
+
+            if newPhase == .active {
+                WellnessGuardianService.shared.trackSessionStart()
+            } else if newPhase == .background || newPhase == .inactive {
+                WellnessGuardianService.shared.trackSessionEnd()
+            }
         }
-        // TODO: Re-enable wellness break reminder when files are added to Xcode project
-        // .overlay {
-        //     WellnessBreakReminderView(wellness: wellnessGuardian)
-        // }
+        .overlay {
+            WellnessBreakReminderView(wellness: WellnessGuardianService.shared)
+        }
         .overlay {
             // Session Timeout Warning
-            if sessionTimeoutManager.showTimeoutWarning {
+            if showTimeoutWarning {
                 Color.black.opacity(0.4)
                     .ignoresSafeArea()
                     .onTapGesture {
                         // Dismiss warning on background tap
-                        sessionTimeoutManager.extendSession()
+                        SessionTimeoutManager.shared.extendSession()
                     }
 
                 SessionTimeoutWarningView()
@@ -273,14 +314,14 @@ struct ContentView: View {
         }
         // Post-sign-in cinematic loading screen — shown until feed data is ready
         .overlay {
-            if appReadyManager.isShowingLoadingScreen {
+            if isShowingLoadingScreen {
                 AppLoadingScreen()
                     .ignoresSafeArea()
                     .transition(.opacity)
                     .zIndex(10)
             }
         }
-        .animation(.easeInOut(duration: 0.5), value: appReadyManager.isShowingLoadingScreen)
+        .animation(.easeInOut(duration: 0.5), value: isShowingLoadingScreen)
     }
     
     @ViewBuilder
@@ -303,8 +344,8 @@ struct ContentView: View {
                             NotificationAggregationService.shared.updateCurrentScreen(.home)
                         }
                 case 1:
-                    PeopleDiscoveryView()
-                        .id("people")
+                    AMENDiscoveryView()
+                        .id("discovery")
                         .task {
                             NotificationAggregationService.shared.updateCurrentScreen(.none)
                         }
@@ -314,6 +355,10 @@ struct ContentView: View {
                         .environmentObject(messagingCoordinator)
                         .task {
                             NotificationAggregationService.shared.updateCurrentScreen(.messages)
+                            // P1 FIX: Clear the messages badge when the tab is opened.
+                            // Previously the badge count got stuck at its peak value
+                            // because clearMessages() was never called on tab entry.
+                            BadgeCountManager.shared.clearMessages()
                         }
                         .ageGated(feature: .dms)
                 case 3:
@@ -379,7 +424,7 @@ struct ContentView: View {
             }
             
             // Daily limit reached dialog
-            if appUsageTracker.showLimitReachedDialog {
+            if showLimitReachedDialog {
                 Color.black.opacity(0.4)
                     .ignoresSafeArea()
                     .transition(.opacity.animation(.easeInOut(duration: 0.2)))
@@ -422,6 +467,10 @@ struct ContentView: View {
         }
         .moderationToast() // ✅ Add moderation toast overlay
         .inAppNotificationBanner() // ✅ Instagram-style heads-up banner for foreground notifications
+        // P0 FIX: Wire push notification deep links to tab navigation.
+        // NotificationDeepLinkRouter.shared publishes activeDestination whenever
+        // a push is tapped. This modifier observes it and switches selectedTab.
+        .handleNotificationNavigation(selectedTab: $viewModel.selectedTab)
         .overlay(alignment: .bottom) {
             // Custom compact tab bar (fixed at bottom) with smooth hide/show animation
             CompactTabBar(selectedTab: $viewModel.selectedTab, showCreatePost: $showCreatePost, showCreateQuickActions: $showCreateQuickActions)
@@ -479,6 +528,16 @@ struct ContentView: View {
         ) {
             CreatePostView(initialCategory: selectedPostCategory)
         }
+        // Berean Dynamic Island — sits above all content, dismisses on outside tap
+        .overlay(alignment: .top) {
+            BereanDynamicIsland(
+                vm: BereanIslandViewModel.shared,
+                onOpenFull: {
+                    BereanIslandViewModel.shared.onOpenFullSheet?()
+                }
+            )
+            .zIndex(999)
+        }
         .environmentObject(AppUsageTracker.shared)
         .environmentObject(NotificationManager.shared)
         .environmentObject(BadgeCountManager.shared)  // ✅ P0-10, P0-11, P0-12: Provide for all child views
@@ -497,16 +556,30 @@ struct ContentView: View {
         .onReceive(FTUEManager.shared.$shouldShowCoachMarks) { show in
             showFTUE = show
         }
+        // P1-3: Targeted subscriptions replace @ObservedObject singletons
+        .onReceive(SessionTimeoutManager.shared.$showTimeoutWarning) { show in
+            showTimeoutWarning = show
+        }
+        .onReceive(AppReadyStateManager.shared.$isShowingLoadingScreen) { show in
+            isShowingLoadingScreen = show
+        }
+        .onReceive(AppUsageTracker.shared.$showLimitReachedDialog) { show in
+            showLimitReachedDialog = show
+        }
         .onChange(of: SundayChurchFocusManager.shared.isInChurchFocusWindow) { oldValue, newValue in
             // ✅ Real-time transition: Force re-render when Shabbat state changes
             // Use ShabbatModeService.isShabbatActive (combines isSunday + isEnabled)
             let shabbatActive = ShabbatModeService.shared.isShabbatActiveNow()
             if shabbatActive && !isAllowedDuringChurchFocus(viewModel.selectedTab) {
+                #if DEBUG
                 ShabbatAnalytics.logStateTransition(enabled: true, isSunday: true)
+                #endif
                 viewModel.selectedTab = 3  // Resources (Church Notes/Find Church)
             } else if !shabbatActive && oldValue {
                 // Shabbat ended (midnight Sunday→Monday) — allow normal navigation
+                #if DEBUG
                 ShabbatAnalytics.logStateTransition(enabled: ShabbatModeService.shared.isEnabled, isSunday: false)
+                #endif
             }
         }
         // Handle blocked deep links — show gate banner and route to Resources
@@ -516,12 +589,12 @@ struct ContentView: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .navigateToChurchNotes)) { _ in
-            // Navigate to Resources tab (which contains Church Notes)
-            viewModel.selectedTab = 4
+            // Navigate to Resources tab (index 3), which contains Church Notes
+            viewModel.selectedTab = 3
         }
         .onReceive(NotificationCenter.default.publisher(for: .navigateToFindChurch)) { _ in
-            // Navigate to Resources tab (which contains Find Church)
-            viewModel.selectedTab = 4
+            // Navigate to Resources tab (index 3), which contains Find Church
+            viewModel.selectedTab = 3
         }
         .onReceive(NotificationCenter.default.publisher(for: .navigateToSettings)) { _ in
             // Navigate to Profile tab (which contains Settings) — tab index 5
@@ -763,7 +836,9 @@ struct ContentView: View {
     /// Minimum: 2.5 s (lets the orbital discs complete ~1 full rotation visible).
     /// Maximum: 5 s (graceful timeout on very slow connections).
     private func waitForFeedReady() async {
-        let minimumDisplay: TimeInterval = 2.5
+        // Short minimum so the logo doesn't flash — long enough for the animation to feel
+        // intentional. Posts are usually pre-warmed from cache so we exit at minimumDisplay.
+        let minimumDisplay: TimeInterval = 0.8
         let maxWait: TimeInterval = 5.0
         let pollInterval: TimeInterval = 0.15
         let start = Date()
@@ -824,8 +899,64 @@ struct ContentView: View {
         }
     }
     
+    // MARK: - Quick Action Route Handler
+
+    /// Navigate to the destination requested by a Home Screen quick action.
+    ///
+    /// Called by `.onReceive(AMENQuickActionManager.shared.$pendingRoute)` which fires:
+    ///   • On cold launch — as soon as mainContent appears (user is authenticated)
+    ///   • On warm launch — immediately when the user selects a shortcut
+    ///
+    /// The function is only reachable when mainContent is displayed, which means
+    /// the user is already past all auth gates and onboarding. If any required
+    /// modal is already open we still switch the underlying tab so it's ready
+    /// after the modal is dismissed.
+    private func handleQuickActionRoute(_ route: AMENAppRoute) {
+        // Always consume the route first — prevents re-firing on view re-appear
+        AMENQuickActionManager.shared.consumePendingRoute()
+
+        // Small delay so any in-progress navigation animations can settle
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                switch route {
+
+                case .newPost:
+                    // Tab 0 first so the composer opens against the feed background
+                    viewModel.selectedTab = 0
+                    // Slight additional delay so tab switch completes before sheet opens
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        showCreatePost = true
+                    }
+
+                case .messages:
+                    viewModel.selectedTab = 2
+
+                case .search:
+                    viewModel.selectedTab = 1
+
+                case .activity:
+                    viewModel.selectedTab = 4
+
+                case .bereanAI:
+                    // Berean can open from any tab — switch home first for context
+                    viewModel.selectedTab = 0
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        showBereanAssistantFromMenu = true
+                    }
+
+                case .prayer:
+                    // Prayer lives on the Home feed (tab 0) — switch there
+                    viewModel.selectedTab = 0
+
+                case .myProfile:
+                    viewModel.selectedTab = 5
+                }
+            }
+        }
+    }
+
     // MARK: - Scene Phase Handler
-    
+
     /// Handle app lifecycle changes for usage tracking
     private func handleScenePhaseChange(from oldPhase: ScenePhase, to newPhase: ScenePhase) {
         switch newPhase {
@@ -838,10 +969,14 @@ struct ContentView: View {
             //   • DST spring-forward / fall-back overnight
             //   • Return from Control Center after disabling the toggle remotely
             let shabbatNow = ShabbatModeService.shared.isShabbatActiveNow()
+            // P2 FIX: Only log the diagnostic event in DEBUG builds to avoid
+            // duplicate console noise on every foreground entry in production.
+            #if DEBUG
             ShabbatAnalytics.logStateTransition(
                 enabled: ShabbatModeService.shared.isEnabled,
                 isSunday: ShabbatModeService.shared.isSunday
             )
+            #endif
             if shabbatNow && !isAllowedDuringChurchFocus(viewModel.selectedTab) {
                 withAnimation(.easeInOut(duration: 0.25)) {
                     viewModel.selectedTab = 3
@@ -1369,6 +1504,15 @@ struct CompactTabBar: View {
     @ViewBuilder
     private func tabButton(for tab: (icon: String, tag: Int), isSelected: Bool) -> some View {
         Button {
+            // If already on this tab, handle same-tab re-tap (scroll to top + refresh)
+            if selectedTab == tab.tag {
+                if tab.tag == 0 {
+                    NotificationCenter.default.post(name: .homeTabTapped, object: nil)
+                    HapticManager.impact(style: .light)
+                }
+                return
+            }
+
             // PERFORMANCE FIX: Debounce rapid taps (300ms window)
             let now = Date()
             guard now.timeIntervalSince(lastTapTime) > 0.3 else {
@@ -1387,7 +1531,7 @@ struct CompactTabBar: View {
                 selectedTab = tab.tag
             }
             
-            // Auto-refresh Home feed when tapping Home button
+            // Auto-refresh Home feed when switching to Home tab from another tab
             if tab.tag == 0 {
                 Task {
                     await postsManager.refreshPosts()
@@ -1404,8 +1548,6 @@ struct CompactTabBar: View {
             if tab.tag == 4 {
                 badgeCountManager.clearNotifications()
             }
-            
-            HapticManager.impact(style: .medium)
             
             // Reset navigation guard after animation completes
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
@@ -1450,7 +1592,7 @@ struct CompactTabBar: View {
                     } else {
                         // Regular icon for other tabs
                         Image(systemName: tab.icon)
-                            .font(.system(size: 20, weight: isSelected ? .semibold : .medium))  // Smaller icons for compact tab bar
+                            .font(.system(size: 18, weight: isSelected ? .semibold : .medium))
                             .foregroundStyle(isSelected ? .primary : .secondary)
                             .symbolEffect(.bounce, value: isSelected)
                     }
@@ -1513,7 +1655,7 @@ struct CompactTabBar: View {
                     case .failure(_):
                         // Fallback to icon if image fails to load
                         Image(systemName: "person.fill")
-                            .font(.system(size: 20, weight: isSelected ? .semibold : .medium))  // Smaller icon
+                            .font(.system(size: 18, weight: isSelected ? .semibold : .medium))
                             .foregroundStyle(isSelected ? .primary : .secondary)
                             .symbolEffect(.bounce, value: isSelected)
                     case .empty:
@@ -1555,40 +1697,12 @@ struct CompactTabBar: View {
     @State private var isLongPressing = false
     
     private var createButton: some View {
-        ZStack {
-            // Neumorphic base — light gray convex surface
-            Circle()
-                .fill(Color(red: 0.93, green: 0.93, blue: 0.95))
-                .frame(width: 42, height: 42)
-                // Dark shadow (bottom-right — recedes)
-                .shadow(color: Color(red: 0.68, green: 0.68, blue: 0.72).opacity(0.9), radius: 5, x: 4, y: 4)
-                // Light highlight (top-left — pops forward)
-                .shadow(color: Color.white.opacity(0.95), radius: 5, x: -4, y: -4)
-            
-            // Convex surface sheen — subtle radial brightening at centre-top
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [
-                            Color.white.opacity(0.55),
-                            Color.clear
-                        ],
-                        center: UnitPoint(x: 0.38, y: 0.28),
-                        startRadius: 0,
-                        endRadius: 18
-                    )
-                )
-                .frame(width: 42, height: 42)
-            
-            // Feather/compose icon
-            Image(systemName: "square.and.pencil")
-                .font(.system(size: 19, weight: .medium))
-                .foregroundStyle(Color(red: 0.08, green: 0.08, blue: 0.10))
-        }
-        .frame(width: 42, height: 42)
-        .scaleEffect(createButtonScale)
-        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: createButtonScale)
-        .contentShape(Circle())
+        // Bare pen icon — no circle background, intentionally larger than other tab icons
+        BallpointPenIcon(size: 36, color: Color.primary)
+            .frame(width: 44, height: 44)
+            .scaleEffect(createButtonScale)
+            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: createButtonScale)
+            .contentShape(Rectangle())
         .onTapGesture {
             // Regular tap - open create post immediately
             
@@ -1773,7 +1887,7 @@ struct HomeView: View {
     @Environment(\.tabBarVisible) private var tabBarVisible  // ✅ Access tab bar visibility
     
     // P0 FIX: Hysteresis thresholds to prevent tab bar flicker
-    private let scrollUpThreshold: CGFloat = 50  // Must scroll 50pts up to show
+    private let scrollUpThreshold: CGFloat = 10  // Restore header after small upward scroll
     private let scrollDownThreshold: CGFloat = 80  // Must scroll 80pts down to hide
     
     // Helper function for adaptive spacing
@@ -1794,6 +1908,8 @@ struct HomeView: View {
         _ = scrollOffset
         scrollOffset = offset
         let delta = offset - lastScrollOffset
+        // Always update lastScrollOffset for correct next-delta calculation
+        lastScrollOffset = offset
         
         // At top (within 20pts of zero) - always show UI, no animation fighting
         if offset > -20 {
@@ -1803,12 +1919,10 @@ struct HomeView: View {
                     showToolbar = true
                     tabBarVisible.wrappedValue = true
                 }
-                lastScrollOffset = offset
             }
             return
         }
         
-        // Only update UI when scrolling has momentum (not during bounce)
         // Scrolling up significantly - show UI
         if delta > scrollUpThreshold {
             if !showToolbar || !tabBarVisible.wrappedValue {
@@ -1816,7 +1930,6 @@ struct HomeView: View {
                     showToolbar = true
                     tabBarVisible.wrappedValue = true
                 }
-                lastScrollOffset = offset
             }
         }
         // Scrolling down significantly AND past threshold - hide UI
@@ -1826,7 +1939,6 @@ struct HomeView: View {
                     showToolbar = false
                     tabBarVisible.wrappedValue = false
                 }
-                lastScrollOffset = offset
             }
         }
         
@@ -1910,11 +2022,8 @@ struct HomeView: View {
             .sheet(isPresented: $showMigrationPanel) {
                 UserSearchMigrationView()
             }
-            // Notification badge now handled in bottom tab bar
-            .onAppear {
-                // Start listening to notifications
-                notificationService.startListening()
-            }
+            // Notification listener started in mainContent.onAppear (not here,
+            // so it fires regardless of which tab opens first)
         }
     }
     
@@ -1963,6 +2072,17 @@ struct HomeView: View {
             }
             .refreshable {
                 await refreshCurrentCategory()
+            }
+            // Tab bar home button re-tap: scroll to top and refresh feed
+            .onReceive(NotificationCenter.default.publisher(for: .homeTabTapped)) { _ in
+                withAnimation(.easeOut(duration: 0.3)) {
+                    proxy.scrollTo("top", anchor: .top)
+                    showToolbar = true
+                    tabBarVisible.wrappedValue = true
+                }
+                Task {
+                    await refreshCurrentCategory()
+                }
             }
         }
     }
@@ -2019,26 +2139,23 @@ struct HomeView: View {
     }
     
     private var selectedCategoryView: some View {
-        // Removing .id() modifiers — they forced full view destruction and recreation
-        // on every category switch, causing the observed 200-400ms tab switching lag.
-        // SwiftUI tracks view identity by type within a switch, so removing .id() lets
-        // the engine preserve and reuse the existing view instances.
-        Group {
-            switch viewModel.selectedCategory {
-            case "#OPENTABLE":
-                OpenTableView()
-                    .transition(.opacity.animation(.easeInOut(duration: 0.15)))
-            case "Testimonies":
-                TestimoniesView()
-                    .transition(.opacity.animation(.easeInOut(duration: 0.15)))
-            case "Prayer":
-                PrayerView()
-                    .transition(.opacity.animation(.easeInOut(duration: 0.15)))
-            default:
-                OpenTableView()
-                    .transition(.opacity.animation(.easeInOut(duration: 0.15)))
-            }
+        // All three views stay mounted simultaneously — only opacity changes on switch.
+        // This prevents the destroy/recreate cycle that caused Firebase listeners to
+        // stop and restart on every category tap (the "🎧 Starting / 🔇 Stopping" loop).
+        // alignment: .top ensures Prayer/Testimonies views align to the top of the ZStack
+        // and don't get vertically centered when they're shorter than OpenTableView.
+        ZStack(alignment: .top) {
+            OpenTableView()
+                .opacity(viewModel.selectedCategory == "#OPENTABLE" || viewModel.selectedCategory == "" ? 1 : 0)
+                .allowsHitTesting(viewModel.selectedCategory == "#OPENTABLE" || viewModel.selectedCategory == "")
+            TestimoniesView()
+                .opacity(viewModel.selectedCategory == "Testimonies" ? 1 : 0)
+                .allowsHitTesting(viewModel.selectedCategory == "Testimonies")
+            PrayerView()
+                .opacity(viewModel.selectedCategory == "Prayer" ? 1 : 0)
+                .allowsHitTesting(viewModel.selectedCategory == "Prayer")
         }
+        .animation(.easeInOut(duration: 0.15), value: viewModel.selectedCategory)
     }
 }
 
@@ -4108,6 +4225,8 @@ struct OpenTableView: View {
     @ObservedObject private var feedAlgorithm = HomeFeedAlgorithm.shared
     @ObservedObject private var scrollBudget = ScrollBudgetManager.shared
     @ObservedObject private var feedSession = FeedSessionManager.shared
+    @ObservedObject private var caughtUpService = CaughtUpService.shared
+    @State private var showingOlderPosts = false   // true after user taps "View older posts"
     @State private var isRefreshing = false
     @State private var personalizedPosts: [Post] = []
     @State private var hasPersonalized = false // Track if personalization has run
@@ -4122,7 +4241,8 @@ struct OpenTableView: View {
     @State private var initiallyVisiblePostIds = Set<UUID>()  // Posts visible before first scroll — not counted
     @State private var userHasScrolled = false  // True after user scrolls past initial batch
     @State private var initialScrollY: CGFloat? = nil  // Y position captured at session start for scroll detection
-    
+    @State private var isInitialLoad = true  // shows skeleton until first posts arrive
+
     // MARK: - Pagination State
     @State private var visiblePostCount = 20 // Start with 20 posts
     @State private var isLoadingMore = false
@@ -4134,6 +4254,17 @@ struct OpenTableView: View {
     
     var body: some View {
         ZStack(alignment: .top) {
+            // Nudge banners pinned to the top of the feed (above all content)
+            VStack(spacing: 8) {
+                RapidRefreshNudgeBanner(isVisible: $caughtUpService.showRapidRefreshNudge)
+                DeepScrollNudgeBanner(
+                    isVisible: $caughtUpService.showDeepScrollNudge,
+                    onDismiss: { caughtUpService.dismissDeepScrollNudge() }
+                )
+            }
+            .padding(.top, 56)
+            .zIndex(10)
+
             VStack(alignment: .leading, spacing: 20) {
             // Header Section (cleaned up - removed grey icon and divider)
                 if showHeader {
@@ -4148,8 +4279,7 @@ struct OpenTableView: View {
                             
                             // Refresh indicator
                             if isRefreshing {
-                                ProgressView()
-                                    .scaleEffect(0.8)
+                                AMENLoadingIndicator(dotSize: 7, spacing: 6, bounceHeight: 8)
                             }
                         }
                         
@@ -4171,6 +4301,10 @@ struct OpenTableView: View {
                     let allPosts = hasPersonalized && !personalizedPosts.isEmpty ? personalizedPosts : postsManager.openTablePosts
                     let displayPosts = Array(allPosts.prefix(visiblePostCount))
 
+                    // Skeleton loader during initial data fetch (before first posts arrive)
+                    if isInitialLoad && allPosts.isEmpty {
+                        PostListSkeletonView(count: 3)
+                    } else {
                     // P0 FIX: Use .id (UUID) instead of .firestoreId for stable ForEach identity
                     // firestoreId can change from UUID fallback to real Firebase ID, causing cell rebuilds
                     ForEach(Array(displayPosts.enumerated()), id: \.element.id) { index, post in
@@ -4187,7 +4321,7 @@ struct OpenTableView: View {
                         .onAppear {
                             // Track view interaction (benefit model — not optimizing watch time)
                             feedAlgorithm.recordInteraction(with: post, type: .view)
-                            
+
                             // Finite session: count cards seen, show Stop Screen at cap
                             // Guard: only count cards the user scrolled to, not the initial render batch
                             if sessionCountingEnabled {
@@ -4202,36 +4336,47 @@ struct OpenTableView: View {
                                     }
                                 }
                             }
-                            
+
                             // PAGINATION: Load more when approaching the end
                             if index >= displayPosts.count - 3 && !isLoadingMore && visiblePostCount < allPosts.count {
                                 loadMorePosts()
                             }
                         }
+                        // Seen-post tracking: fires once after 1.5s of continuous visibility
+                        .trackPostVisibility(postId: post.firestoreId ?? post.id.uuidString) { seenId in
+                            caughtUpService.markSeen(postId: seenId)
+                        }
                     }
-                    
+
                     // Loading indicator for pagination
                     if isLoadingMore && visiblePostCount < allPosts.count {
                         HStack {
                             Spacer()
-                            ProgressView()
-                                .scaleEffect(0.8)
+                            AMENLoadingIndicator(dotSize: 7, spacing: 6, bounceHeight: 8)
                                 .padding(.vertical, 20)
                             Spacer()
                         }
                     }
-                    
-                    // Show empty state if no posts
-                    if postsManager.openTablePosts.isEmpty && !isRefreshing {
+
+                    // Caught-up card: shown when all 72-hour posts have been seen
+                    if !isInitialLoad && caughtUpService.isCaughtUp && !showingOlderPosts {
+                        CaughtUpCard {
+                            showingOlderPosts = true
+                            caughtUpService.dismissCaughtUp()
+                        }
+                    }
+
+                    // Show empty state only after initial load completes
+                    if !isInitialLoad && allPosts.isEmpty && !isRefreshing {
                         VStack(spacing: 16) {
                             Image(systemName: "tray")
                                 .font(.system(size: 48))
                                 .foregroundStyle(.secondary)
-                            
+
                             Text("No posts yet")
                                 .font(.custom("OpenSans-Bold", size: 18))
                                 .foregroundStyle(.primary)
-                            
+
                             Text("Be the first to share an idea!")
                                 .font(.custom("OpenSans-Regular", size: 14))
                                 .foregroundStyle(.secondary)
@@ -4239,6 +4384,7 @@ struct OpenTableView: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 60)
                     }
+                    } // end else (skeleton)
                 }
                 .padding(.horizontal)
                 // Detect scroll: track LazyVStack Y position in global space.
@@ -4264,12 +4410,17 @@ struct OpenTableView: View {
         .task {
             // Start real-time listener for openTable posts
             FirebasePostService.shared.startListening(category: .openTable)
-            
+
             // Load user interests once
             if !hasPersonalized {
                 feedAlgorithm.loadInterests()
                 personalizeFeeds()
                 hasPersonalized = true
+            }
+
+            // If posts already cached (re-appear), dismiss skeleton immediately
+            if !postsManager.openTablePosts.isEmpty {
+                isInitialLoad = false
             }
         }
         .onAppear {
@@ -4281,11 +4432,14 @@ struct OpenTableView: View {
             userHasScrolled = false
             initiallyVisiblePostIds = []
             initialScrollY = nil
+            showingOlderPosts = false
             // Allow initial render to complete, then enable counting
             // Cards only count once userHasScrolled is also true
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                 sessionCountingEnabled = true
             }
+            // Reset seen-post session and reload Firestore seed
+            caughtUpService.resetSession()
         }
         .onDisappear {
             // Don't stop the listener - keep it active for real-time updates
@@ -4319,9 +4473,19 @@ struct OpenTableView: View {
             )
         }
         .onChange(of: postsManager.openTablePosts) { oldValue, newValue in
+            if !newValue.isEmpty { isInitialLoad = false }
             // Only re-personalize if there are new posts
             if oldValue.count != newValue.count {
                 personalizeFeeds()
+            }
+            // Update the 72-hour window for caught-up detection
+            let cutoff = Date().addingTimeInterval(-72 * 3600)
+            let windowIds = Set(newValue.compactMap { post -> String? in
+                guard post.createdAt > cutoff else { return nil }
+                return post.firestoreId ?? post.id.uuidString
+            })
+            if !windowIds.isEmpty {
+                caughtUpService.setCurrentWindow(postIds: windowIds)
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name.newPostCreated)) { notification in
@@ -4469,6 +4633,7 @@ struct OpenTableView: View {
     
     /// Refresh OpenTable posts with pull-to-refresh
     private func refreshOpenTable() async {
+        caughtUpService.recordRefresh()
         isRefreshing = true
         
         await postsManager.fetchFilteredPosts(
@@ -4596,6 +4761,110 @@ struct CollapsibleTrendingSection: View {
 
 // MARK: - Daily Verse Banner (replaces Top Ideas / Spotlight cards)
 
+// MARK: - Pencil Scribble Compose Icon
+
+/// Ballpoint pen silhouette matching the reference icon.
+/// Solid filled shape — angled ~40° (tip points lower-left, cap upper-right).
+/// Includes: rounded cap, pen barrel, tapered tip, and clip detail on the right side.
+/// No underline / scribble. Drawn entirely with SwiftUI Canvas — crisp at any size.
+struct BallpointPenIcon: View {
+    var size: CGFloat = 24
+    var color: Color = .primary
+
+    var body: some View {
+        Canvas { ctx, canvasSize in
+            let w = canvasSize.width
+            let h = canvasSize.height
+
+            // ─── MAIN PEN BODY (solid filled silhouette) ──────────────────
+            // The pen is angled ~40° from vertical, tip at lower-left,
+            // rounded cap at upper-right — matching the reference closely.
+            //
+            // Layout (normalised, y=0 top):
+            //   Cap top-right  ≈ (0.78, 0.08)
+            //   Cap top-left   ≈ (0.54, 0.08)
+            //   Barrel widens slightly then narrows to tip
+            //   Tip point      ≈ (0.18, 0.90)
+
+            let bodyPath = Path { p in
+                // === Cap (rounded rectangle top) ===
+                // Top-right of cap (rounded corner)
+                p.move(to: CGPoint(x: w * 0.72, y: h * 0.06))
+                // Top edge of cap — with rounded right corner
+                p.addQuadCurve(
+                    to:      CGPoint(x: w * 0.82, y: h * 0.14),
+                    control: CGPoint(x: w * 0.84, y: h * 0.06)
+                )
+                // Right side of cap, curving down into barrel
+                p.addLine(to: CGPoint(x: w * 0.76, y: h * 0.28))
+                // Barrel right side — narrows toward tip
+                p.addLine(to: CGPoint(x: w * 0.70, y: h * 0.36))
+                // Taper zone — barrel narrows for the lower half
+                p.addLine(to: CGPoint(x: w * 0.60, y: h * 0.54))
+                // Tip section — right edge converges to point
+                p.addLine(to: CGPoint(x: w * 0.44, y: h * 0.76))
+                // Sharp tip at the bottom-left
+                p.addLine(to: CGPoint(x: w * 0.18, y: h * 0.93))
+                // Tip — left edge (tip is a narrow sharp point)
+                p.addLine(to: CGPoint(x: w * 0.26, y: h * 0.72))
+                // Left barrel side — runs back up, parallel to right side
+                p.addLine(to: CGPoint(x: w * 0.40, y: h * 0.50))
+                p.addLine(to: CGPoint(x: w * 0.50, y: h * 0.32))
+                p.addLine(to: CGPoint(x: w * 0.56, y: h * 0.24))
+                // Left cap side
+                p.addLine(to: CGPoint(x: w * 0.62, y: h * 0.14))
+                // Top-left of cap (rounded left corner)
+                p.addQuadCurve(
+                    to:      CGPoint(x: w * 0.72, y: h * 0.06),
+                    control: CGPoint(x: w * 0.60, y: h * 0.06)
+                )
+                p.closeSubpath()
+            }
+
+            // Solid fill — entire silhouette
+            ctx.fill(bodyPath, with: .color(color))
+
+            // ─── CAP GROOVE (band between cap and barrel) ─────────────────
+            // A thin light line separates the cap from the barrel, giving the
+            // "click-top ballpoint" profile visible in the reference.
+            let groovePath = Path { p in
+                p.move(to: CGPoint(x: w * 0.56, y: h * 0.24))
+                p.addLine(to: CGPoint(x: w * 0.76, y: h * 0.28))
+            }
+            ctx.stroke(
+                groovePath,
+                with: .color(Color(white: 1.0, opacity: 0.55)),
+                style: StrokeStyle(lineWidth: w * 0.055, lineCap: .round)
+            )
+
+            // ─── CLIP (spring clip on right side of barrel) ───────────────
+            // Thin curved strip that runs alongside the right edge of the barrel.
+            // In the reference this is visible as a raised strip with a small loop at the bottom.
+            let clipPath = Path { p in
+                // Clip top — joins at barrel below cap groove
+                p.move(to: CGPoint(x: w * 0.72, y: h * 0.30))
+                // Runs parallel to the right barrel edge, slightly outside
+                p.addCurve(
+                    to:      CGPoint(x: w * 0.58, y: h * 0.58),
+                    control1: CGPoint(x: w * 0.80, y: h * 0.36),
+                    control2: CGPoint(x: w * 0.72, y: h * 0.50)
+                )
+                // Small loop/curl at the bottom of the clip
+                p.addQuadCurve(
+                    to:      CGPoint(x: w * 0.64, y: h * 0.54),
+                    control: CGPoint(x: w * 0.54, y: h * 0.62)
+                )
+            }
+            ctx.stroke(
+                clipPath,
+                with: .color(Color(white: 1.0, opacity: 0.50)),
+                style: StrokeStyle(lineWidth: w * 0.07, lineCap: .round, lineJoin: .round)
+            )
+        }
+        .frame(width: size, height: size)
+    }
+}
+
 // MARK: - Banner Color Palette
 
 struct BannerColorOption: Identifiable {
@@ -4672,6 +4941,27 @@ struct BannerColorOption: Identifiable {
             bottom: Color(red: 0.910, green: 0.898, blue: 0.863),
             shadow: Color(red: 0.700, green: 0.680, blue: 0.640),
             isLight: true
+        ),
+        BannerColorOption(
+            id: "tomato",
+            label: "Tomato",
+            top:    Color(red: 0.961, green: 0.196, blue: 0.000),  // #F53200
+            bottom: Color(red: 0.902, green: 0.157, blue: 0.000),
+            shadow: Color(red: 0.961, green: 0.196, blue: 0.000)
+        ),
+        BannerColorOption(
+            id: "amber",
+            label: "Amber",
+            top:    Color(red: 0.961, green: 0.529, blue: 0.039),  // #F5870A
+            bottom: Color(red: 0.910, green: 0.478, blue: 0.020),
+            shadow: Color(red: 0.961, green: 0.529, blue: 0.039)
+        ),
+        BannerColorOption(
+            id: "obsidian",
+            label: "Obsidian",
+            top:    Color(red: 0.039, green: 0.039, blue: 0.039),  // #0A0A0A
+            bottom: Color(red: 0.020, green: 0.020, blue: 0.020),
+            shadow: Color(red: 0.000, green: 0.000, blue: 0.000)
         ),
     ]
 
@@ -4822,7 +5112,7 @@ struct DailyVerseBanner: View {
                             .foregroundStyle(.white.opacity(0.80))
                     } else if verseService.isGenerating {
                         HStack(spacing: 8) {
-                            ProgressView().tint(.white).scaleEffect(0.8)
+                            AMENLoadingIndicator(color: .white, dotSize: 7, spacing: 6, bounceHeight: 8)
                             Text("Loading verse...")
                                 .font(.custom("OpenSans-Regular", size: 12))
                                 .foregroundStyle(.white.opacity(0.80))
@@ -5417,8 +5707,7 @@ struct TopIdeasView: View {
                     // Ideas List
                     if trendingService.isLoading {
                         VStack(spacing: 12) {
-                            ProgressView()
-                                .scaleEffect(1.2)
+                            AMENLoadingIndicator()
                             Text("Finding the brightest ideas...")
                                 .font(.custom("OpenSans-Regular", size: 14))
                                 .foregroundStyle(.secondary)

@@ -369,19 +369,20 @@ struct NotificationNavigationHandler: ViewModifier {
             .onChange(of: router.activeDestination) { _, newDestination in
                 guard let destination = newDestination else { return }
                 
-                // Handle navigation based on destination
+                // Handle navigation based on destination.
+                // Tab layout: 0=Home, 1=Discovery, 2=Messages, 3=Resources, 4=Notifications, 5=Profile
                 switch destination {
                 case .post:
                     selectedTab = 0  // Home tab
                 case .profile:
-                    selectedTab = 4  // Profile tab
+                    selectedTab = 5  // Profile tab
                 case .conversation, .messages:
-                    selectedTab = 3  // Messages tab
+                    selectedTab = 2  // Messages tab
                 case .notifications:
-                    selectedTab = 2  // Notifications tab
+                    selectedTab = 4  // Notifications tab
                 case .prayer, .churchNote:
-                    // These would need custom navigation logic
-                    break
+                    // Routed to Resources tab which contains Prayer and Church Notes
+                    selectedTab = 3
                 }
                 
                 // Clear destination after handling

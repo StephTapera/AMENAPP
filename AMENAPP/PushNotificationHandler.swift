@@ -110,6 +110,12 @@ class PushNotificationHandler: NSObject, ObservableObject {
 
         pendingDeepLink = intendedLink
 
+        // P0 FIX: Route to the correct tab via NotificationDeepLinkRouter.
+        // pendingDeepLink was set above but ContentView never observed it.
+        // Calling routeFromPushPayload publishes activeDestination which
+        // NotificationNavigationHandler (applied in ContentView) observes.
+        NotificationDeepLinkRouter.shared.routeFromPushPayload(userInfo)
+
         // Mark notification as read if we have the ID
         if let notificationId = userInfo["notificationId"] as? String {
             Task {
