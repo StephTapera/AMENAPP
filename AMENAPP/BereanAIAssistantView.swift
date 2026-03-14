@@ -332,6 +332,14 @@ struct BereanAIAssistantView: View {
                             }
                         }
                     }
+                    // During streaming the count stays constant but the last message
+                    // grows — scroll to bottom on every content length change so the
+                    // text cascades smoothly downward as it arrives.
+                    .onChange(of: viewModel.messages.last?.content.count) { _, _ in
+                        guard isGenerating, !userHasScrolledUp,
+                              let lastMessage = viewModel.messages.last else { return }
+                        proxy.scrollTo(lastMessage.id, anchor: .bottom)
+                    }
                     .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
                         // value is minY of content — negative when scrolled down
                         let scrolledDown = value < -10
@@ -2038,10 +2046,14 @@ struct BereanAIAssistantView: View {
             responseMode: responseMode,  // ✅ Pass response mode for cost control
             personalityPrefix: personalityMode.systemPromptPrefix,  // ✅ Pass personality voice
             onChunk: { chunk in
-                // ✅ P1-1: Update UI efficiently (SwiftUI will batch updates automatically)
+                // Preserve the existing message ID so SwiftUI treats this as an in-place
+                // update rather than a remove+insert cycle. Without preserving the ID,
+                // MessageBubbleView is destroyed and recreated on every chunk, which
+                // triggers the .onAppear entrance animation and causes the blink.
                 if let lastIndex = viewModel.messages.lastIndex(where: { $0.role == .assistant }) {
                     let existingMessage = viewModel.messages[lastIndex]
                     let updatedMessage = BereanMessage(
+                        id: existingMessage.id,  // preserve ID — prevents view recreation
                         content: existingMessage.content + chunk,
                         role: .assistant,
                         timestamp: existingMessage.timestamp,
