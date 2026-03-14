@@ -13,9 +13,15 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const crypto = require('crypto');
 
-// Initialize Vertex AI (Google Cloud AI Platform)
+// Lazy-initialize Language client to avoid blocking module load (causes deploy timeout)
 const {LanguageServiceClient} = require('@google-cloud/language');
-const languageClient = new LanguageServiceClient();
+let _languageClient = null;
+function getLanguageClient() {
+    if (!_languageClient) {
+        _languageClient = new LanguageServiceClient();
+    }
+    return _languageClient;
+}
 
 // MARK: - Main Moderation Endpoint
 
@@ -145,7 +151,7 @@ async function checkToxicity(text) {
     };
 
     // Use Google Cloud Natural Language API for toxicity
-    const [result] = await languageClient.moderateText({document});
+    const [result] = await getLanguageClient().moderateText({document});
     
     const toxicityCategories = result.moderationCategories || [];
     const maxConfidence = Math.max(

@@ -11,15 +11,20 @@ const {getFirestore} = require("firebase-admin/firestore");
 const {getStorage} = require("firebase-admin/storage");
 const vision = require("@google-cloud/vision");
 
-// Initialize Firebase Admin
+// Note: admin.initializeApp() is called once in index.js — no re-init here.
 const admin = require("firebase-admin");
-if (!admin.apps.length) {
-    initializeApp();
-}
 
 const db = getFirestore();
 const storage = getStorage();
-const visionClient = new vision.ImageAnnotatorClient();
+
+// Lazy-initialize Vision client to avoid blocking module load (causes deploy timeout)
+let _visionClient = null;
+function getVisionClient() {
+    if (!_visionClient) {
+        _visionClient = new vision.ImageAnnotatorClient();
+    }
+    return _visionClient;
+}
 
 /**
  * Triggered when an image is uploaded to Storage
@@ -56,7 +61,7 @@ exports.moderateUploadedImage = onObjectFinalized({
 
         // Perform SafeSearch detection
         const imageUri = `gs://${event.data.bucket}/${filePath}`;
-        const [result] = await visionClient.safeSearchDetection(imageUri);
+        const [result] = await getVisionClient().safeSearchDetection(imageUri);
         const safeSearch = result.safeSearchAnnotation;
 
         console.log(`🔍 SafeSearch results:`, {

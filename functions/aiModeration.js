@@ -12,18 +12,21 @@ const {onSchedule} = require("firebase-functions/v2/scheduler");
 const admin = require("firebase-admin");
 const {VertexAI} = require("@google-cloud/vertexai");
 
-// Initialize Firebase Admin if not already initialized
-if (!admin.apps.length) {
-    admin.initializeApp();
-}
+// Note: admin.initializeApp() is called once in index.js — no re-init here.
 
 const db = admin.firestore();
 
-// Initialize Vertex AI
-const vertexAI = new VertexAI({
-    project: "amen-5e359",
-    location: "us-central1",
-});
+// Lazy-initialize Vertex AI to avoid blocking module load (causes deploy timeout)
+let _vertexAI = null;
+function getVertexAI() {
+    if (!_vertexAI) {
+        _vertexAI = new VertexAI({
+            project: "amen-5e359",
+            location: "us-central1",
+        });
+    }
+    return _vertexAI;
+}
 
 // ============================================================================
 // CONTENT MODERATION
@@ -93,7 +96,7 @@ async function analyzeContentWithAI(content, contentType, userId) {
         }
 
         // Use Vertex AI for deeper analysis
-        const model = vertexAI.preview.getGenerativeModel({
+        const model = getVertexAI().preview.getGenerativeModel({
             model: "gemini-1.5-flash",
             generationConfig: {
                 temperature: 0.1, // Low temperature for consistent moderation
@@ -894,7 +897,7 @@ exports.analyzeSearchIntent = onDocumentCreated("aiSearchRequests/{requestId}", 
  * Analyze search query using Vertex AI
  */
 async function analyzeQueryWithAI(query) {
-    const model = vertexAI.preview.getGenerativeModel({
+    const model = getVertexAI().preview.getGenerativeModel({
         model: "gemini-1.5-flash",
         generationConfig: {
             temperature: 0.3,
@@ -1011,7 +1014,7 @@ exports.summarizeChurchNote = onDocumentCreated("noteSummaryRequests/{requestId}
  * Generate note summary using Vertex AI
  */
 async function generateNoteSummary(content) {
-    const model = vertexAI.preview.getGenerativeModel({
+    const model = getVertexAI().preview.getGenerativeModel({
         model: "gemini-1.5-flash",
         generationConfig: {
             temperature: 0.4,
@@ -1103,7 +1106,7 @@ exports.findRelatedScripture = onDocumentCreated("scriptureReferenceRequests/{re
  * Find related scripture verses using Vertex AI
  */
 async function findRelatedVerses(verse) {
-    const model = vertexAI.preview.getGenerativeModel({
+    const model = getVertexAI().preview.getGenerativeModel({
         model: "gemini-1.5-flash",
         generationConfig: {
             temperature: 0.3,
@@ -1192,7 +1195,7 @@ exports.recommendChurches = onDocumentCreated("churchRecommendationRequests/{req
  * Generate church recommendations using Vertex AI
  */
 async function generateChurchRecommendations(userProfile, churches, userLocation) {
-    const model = vertexAI.preview.getGenerativeModel({
+    const model = getVertexAI().preview.getGenerativeModel({
         model: "gemini-1.5-flash",
         generationConfig: {
             temperature: 0.4,
