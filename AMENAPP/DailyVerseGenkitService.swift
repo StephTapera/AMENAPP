@@ -47,15 +47,8 @@ class DailyVerseGenkitService: ObservableObject {
             return cached
         }
         
-        await MainActor.run {
-            isGenerating = true
-        }
-        
-        defer {
-            Task { @MainActor in
-                isGenerating = false
-            }
-        }
+        isGenerating = true
+        defer { isGenerating = false }
         
         print("🤖 Generating personalized daily verse via Genkit...")
 
@@ -120,15 +113,8 @@ class DailyVerseGenkitService: ObservableObject {
     /// Generate verse for a specific theme or need
     func generateThemedVerse(theme: VerseTheme) async -> PersonalizedDailyVerse {
         
-        await MainActor.run {
-            isGenerating = true
-        }
-        
-        defer {
-            Task { @MainActor in
-                isGenerating = false
-            }
-        }
+        isGenerating = true
+        defer { isGenerating = false }
         
         print("🤖 Generating verse for theme: \(theme.rawValue)")
         
