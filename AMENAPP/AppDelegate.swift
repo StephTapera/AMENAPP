@@ -14,6 +14,7 @@ import FirebaseMessaging
 import FirebaseDatabase
 import FirebaseFirestore
 import FirebaseAppCheck
+import FirebaseCrashlytics
 import UserNotifications
 
 class AppDelegate: NSObject, UIApplicationDelegate {
@@ -22,7 +23,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil
     ) -> Bool {
-        print("🚀 AppDelegate: didFinishLaunchingWithOptions")
+        dlog("🚀 AppDelegate: didFinishLaunchingWithOptions")
         
         // ✅ Suppress noisy system logging (network framework, CoreTelephony XPC, etc.)
         setenv("OS_ACTIVITY_MODE", "disable", 1)
@@ -37,7 +38,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         setenv("ACTIVITY_LOG_STDERR", "0", 1)
         UserDefaults.standard.set(false, forKey: "_UIConstraintBasedLayoutLogUnsatisfiable")
         // Redirect stderr to /dev/null to silence kernel/framework noise that cannot
-        // be suppressed any other way. App print() calls go to stdout, so they are unaffected.
+        // be suppressed any other way. App dlog() calls go to stdout, so they are unaffected.
         if let devNull = fopen("/dev/null", "w") {
             dup2(fileno(devNull), STDERR_FILENO)
             fclose(devNull)
@@ -49,36 +50,46 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         #if targetEnvironment(simulator)
         let providerFactory = AppCheckDebugProviderFactory()
         AppCheck.setAppCheckProviderFactory(providerFactory)
-        print("✅ App Check configured with Debug Provider (simulator)")
+        dlog("✅ App Check configured with Debug Provider (simulator)")
         #else
         let providerFactory = AppCheckAppAttestProviderFactory()
         AppCheck.setAppCheckProviderFactory(providerFactory)
-        print("✅ App Check configured with App Attest Provider (real device)")
+        dlog("✅ App Check configured with App Attest Provider (real device)")
         #endif
         
         // Configure Firebase AFTER App Check provider is set
         FirebaseApp.configure()
-        print("✅ Firebase configured successfully")
+        dlog("✅ Firebase configured successfully")
+
+        // ✅ Initialize Crashlytics for production crash monitoring
+        // Must be called after FirebaseApp.configure()
+        // Crashlytics automatically collects crashes; this enables it and sets
+        // collection to true explicitly so we have a clear record in code.
+        Crashlytics.crashlytics().setCrashlyticsCollectionEnabled(true)
+        dlog("✅ Crashlytics initialized (crash reporting active)")
         
         // Pre-warm App Check token at launch so it's ready by the time user taps sign up.
         // This moves the attestation delay (can be several seconds) out of the auth flow.
         Task {
             do {
                 let token = try await AppCheck.appCheck().token(forcingRefresh: false)
-                print("✅ App Check token pre-warmed: \(token.token.prefix(20))...")
+                dlog("✅ App Check token pre-warmed: \(token.token.prefix(20))...")
             } catch {
                 // Non-fatal — SDK will fall back to placeholder token when unenforced
-                print("⚠️ App Check pre-warm failed (monitoring mode will handle): \(error.localizedDescription)")
+                dlog("⚠️ App Check pre-warm failed (monitoring mode will handle): \(error.localizedDescription)")
             }
         }
         
         // Configure Firestore settings IMMEDIATELY after Firebase.configure()
         // This must happen before any Firestore access
         let firestoreSettings = FirestoreSettings()
-        // Use the modern cacheSettings API (replaces deprecated isPersistenceEnabled + cacheSizeBytes)
-        firestoreSettings.cacheSettings = PersistentCacheSettings(sizeBytes: FirestoreCacheSizeUnlimited as NSNumber)
+        // Cap Firestore disk cache at 150 MB. Unlimited cache grows unboundedly and
+        // creates privacy risk (cached data survives sign-out). 150 MB is generous
+        // for normal usage while protecting storage and privacy.
+        let cacheSizeBytes: Int64 = 150 * 1024 * 1024  // 150 MB
+        firestoreSettings.cacheSettings = PersistentCacheSettings(sizeBytes: NSNumber(value: cacheSizeBytes))
         Firestore.firestore().settings = firestoreSettings
-        print("✅ Firestore settings configured (persistence enabled, unlimited cache)")
+        dlog("✅ Firestore settings configured (persistence enabled, 150 MB cache cap)")
         
         // ✅ Enable Firebase Realtime Database offline persistence
         // IMPORTANT: isPersistenceEnabled must be set on the SAME instance that singletons
@@ -90,16 +101,52 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         defaultDatabase.isPersistenceEnabled = true
         defaultDatabase.persistenceCacheSizeBytes = 50 * 1024 * 1024  // 50MB cache
         if let databaseURL = FirebaseApp.app()?.options.databaseURL {
-            print("✅ Firebase Realtime Database offline persistence enabled (50MB cache)")
-            print("✅ Realtime Database URL: \(databaseURL)")
+            dlog("✅ Firebase Realtime Database offline persistence enabled (50MB cache)")
+            dlog("✅ Realtime Database URL: \(databaseURL)")
         } else {
-            print("✅ Firebase Realtime Database offline persistence enabled (50MB cache, default URL)")
+            dlog("✅ Firebase Realtime Database offline persistence enabled (50MB cache, default URL)")
         }
         
         // Setup push notifications
         setupPushNotifications()
-        
+
+        // ── QUICK ACTIONS: Cold launch ───────────────────────────────────────────
+        // When the user long-presses the app icon and taps a shortcut while the app
+        // is NOT running, iOS passes the shortcut item in launchOptions.
+        // We store it via AMENQuickActionManager so ContentView can act on it once
+        // the auth state is resolved. Returning true (not false) is required — if
+        // this delegate returns false the system considers the launch "rejected".
+        // UIApplicationLaunchOptionsKey.shortcutItem is deprecated on iOS 26+.
+        // This app uses UIApplicationDelegate (not UIScene), so this remains correct.
+        if let shortcutItem = launchOptions?[UIApplication.LaunchOptionsKey.shortcutItem]
+            as? UIApplicationShortcutItem {
+            dlog("🚀 [QuickAction] Cold launch with shortcut: \(shortcutItem.type)")
+            Task { @MainActor in
+                AMENQuickActionManager.shared.handle(shortcutItem)
+            }
+            // Return true — the quick action was handled; do NOT return false here
+            // because that would prevent the standard SwiftUI lifecycle from starting.
+        }
+
         return true
+    }
+
+    // MARK: - Quick Actions: Warm / Foreground launch
+
+    /// Called when the user selects a quick action while the app IS already running
+    /// (either in the foreground or suspended in background).
+    /// This method MUST call completionHandler(true) — the system kills the app
+    /// if completionHandler is not called within the expected time window.
+    func application(
+        _ application: UIApplication,
+        performActionFor shortcutItem: UIApplicationShortcutItem,
+        completionHandler: @escaping (Bool) -> Void
+    ) {
+        dlog("⚡️ [QuickAction] Foreground shortcut: \(shortcutItem.type)")
+        Task { @MainActor in
+            AMENQuickActionManager.shared.handle(shortcutItem)
+            completionHandler(true)
+        }
     }
     
     // MARK: - Push Notification Setup
@@ -116,22 +163,22 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         // Setup FCM token
         PushNotificationManager.shared.setupFCMToken()
         
-        print("✅ Push notification delegates configured")
+        dlog("✅ Push notification delegates configured")
         
         // Initialize notification categories
         Task { @MainActor in
             // Church notifications (Find Church feature)
             ChurchNotificationManager.shared.setupNotificationCategories()
-            print("✅ Church notification categories initialized")
+            dlog("✅ Church notification categories initialized")
             
             // Visit Plan notifications (First Visit Companion feature)
             ChurchVisitNotificationScheduler.setupVisitPlanNotificationCategories()
-            print("✅ Visit Plan notification categories initialized")
+            dlog("✅ Visit Plan notification categories initialized")
         }
         
         // ✅ PHASE 1: Register for remote notifications
         UIApplication.shared.registerForRemoteNotifications()
-        print("✅ Registered for remote notifications")
+        dlog("✅ Registered for remote notifications")
     }
     
     // MARK: - Handle Remote Notifications

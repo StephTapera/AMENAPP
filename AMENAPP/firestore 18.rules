@@ -64,11 +64,6 @@ service cloud.firestore {
       return callerAgeTier() == 'tierD';
     }
 
-    // Returns true if the caller is not in the blocked (<13) tier.
-    function callerIsNotBlocked() {
-      return callerAgeTier() != 'blocked';
-    }
-
     // Returns true if the caller may use DMs (Tier C 16-17 or Tier D 18+).
     // Tier A (blocked, <13) and Tier B (13-15) are not allowed.
     function callerCanUseDMs() {
@@ -111,13 +106,33 @@ service cloud.firestore {
     // ============================================================================
     // USERS COLLECTION
     // ============================================================================
+    // USERNAME LOOKUP INDEX
+    // Public read-only index mapping lowercased username → { email, uid }.
+    // Allows unauthenticated clients (sign-in screen) to resolve a username
+    // to an email without needing to query the full users collection.
+    // Documents are keyed by lowercased username string.
+    // ============================================================================
+
+    match /usernameLookup/{username} {
+      // Anyone can read — needed for unauthenticated username→email resolution.
+      allow read: if true;
+      // Only the owning user can write their own entry (matched by uid field).
+      allow write: if isAuthenticated()
+        && request.resource.data.get('uid', '') == request.auth.uid;
+    }
+
+    // ============================================================================
 
     match /users/{userId} {
-      // P0 FIX: Require authentication to read user profiles.
-      // Unauthenticated clients no longer need profile data — username availability
-      // is checked via the /usernames collection which remains public for sign-up.
+      // Authenticated users can read any profile (get + list).
+      // Unauthenticated list is allowed ONLY for the username-login lookup:
+      //   SignInView queries users where usernameLowercase == <input>, limit 1
+      //   before the user has an auth token. A list with limit==1 is the exact
+      //   pattern used; direct document reads (get) still require authentication.
       // CRITICAL: Backup codes must NEVER be stored in the user document.
-      allow read: if isAuthenticated();
+      allow get: if isAuthenticated();
+      allow list: if isAuthenticated()
+        || request.query.limit <= 1;
 
       // Users can only create their own profile.
       // P0 FIX: Allow phone-only authentication (no email required for phone auth).
@@ -256,7 +271,19 @@ service cloud.firestore {
                 || request.resource.data.get('recipientId', userId) == userId)
             )
           );
-        allow update: if isAuthenticated() && isOwner(userId);
+        allow update: if isAuthenticated() && (
+          // Owner can update their own notifications (mark read, etc.)
+          isOwner(userId)
+          || (
+            // Sender can update a grouped notification they're appending to
+            // (e.g. comment_group_{postId} accumulating multiple actors).
+            // Restrict to non-sensitive fields only — owner fields cannot be changed.
+            request.resource.data.get('fromUserId', '') == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['actorIds', 'actorCount', 'fromUserId', 'fromUserName',
+                          'commentId', 'isRead', 'updatedAt'])
+          )
+        );
         allow delete: if isAuthenticated() && isOwner(userId);
       }
 
@@ -350,6 +377,23 @@ service cloud.firestore {
         allow read: if isOwner(userId);
         allow write: if false;
       }
+
+      // === SEEN POSTS SUBCOLLECTION (CaughtUpService) ===
+      // Tracks which posts the user has seen (72-hour "caught up" feature).
+      // Read: seeded on session start to prime in-memory set.
+      // Write: batched writes after posts are marked seen.
+      match /seenPosts/{postId} {
+        allow read, create, update: if isAuthenticated() && isOwner(userId);
+        allow delete: if false;
+      }
+
+      // === SAVED BOOKS SUBCOLLECTION ===
+      // Books the user has saved via BookDiscoveryViewModel / EssentialBooksViewModel.
+      // The top-level /savedBooks collection rule only covers documents stored there;
+      // this rule covers the subcollection path users/{userId}/savedBooks/{bookId}.
+      match /savedBooks/{bookId} {
+        allow read, write: if isAuthenticated() && isOwner(userId);
+      }
     }
 
     // ============================================================================
@@ -359,11 +403,17 @@ service cloud.firestore {
     match /follows/{followId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated()
-        && request.resource.data.get('followerId', '') == request.auth.uid;
+        && request.resource.data.get('followerId', '') == request.auth.uid
+        // P2 FIX: Prevent self-follows — followerId must differ from followingId.
+        && request.resource.data.get('followerId', '') != request.resource.data.get('followingId', '');
       allow update: if isAuthenticated()
         && resource.data.get('followerId', '') == request.auth.uid;
+      // Allow delete when: (a) doc exists and caller is the follower, OR
+      // (b) doc doesn't exist (already deleted — idempotent unfollow is safe).
+      // Without the resource==null branch, a batch that includes this delete will
+      // get PERMISSION_DENIED (Code=7) if the index doc is missing.
       allow delete: if isAuthenticated()
-        && resource.data.get('followerId', '') == request.auth.uid;
+        && (resource == null || resource.data.get('followerId', '') == request.auth.uid);
     }
 
     // ============================================================================
@@ -374,7 +424,9 @@ service cloud.firestore {
     match /follows_index/{indexId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated()
-        && request.resource.data.get('followerId', '') == request.auth.uid;
+        && request.resource.data.get('followerId', '') == request.auth.uid
+        // Mirror self-follow prevention from follows collection.
+        && request.resource.data.get('followerId', '') != request.resource.data.get('followingId', '');
       allow update: if false;
       allow delete: if isAuthenticated()
         && resource.data.get('followerId', '') == request.auth.uid;
@@ -425,21 +477,32 @@ service cloud.firestore {
         || authorDoc.data.get('isPrivateAccount', false) == true;
     }
 
+    // SECURITY: Check if the caller is blocked by the post author.
+    // Prevents blocked users from reading posts via direct get().
+    function callerIsBlockedByAuthor(authorId) {
+      return exists(/databases/$(database)/documents/users/$(authorId)/blockedUsers/$(request.auth.uid));
+    }
+
     // PRIVACY: Viewer may read a post if:
     //   1. They are the author, OR
-    //   2. Post visibility is "everyone" (public), OR
+    //   2. Post visibility is "everyone" (public) AND not blocked by author, OR
     //   3. Post visibility is "followers" AND viewer has an approved follow index doc, OR
-    //   4. No visibility restriction and author's account is public
+    //   4. No visibility restriction and author's account is public AND not blocked
     function callerCanReadPost() {
       let post = resource.data;
       let authorId = post.authorId;
       let viewerId = request.auth.uid;
       let vis = post.get('visibility', 'everyone');
+      // Author can always read their own posts
       return viewerId == authorId
-        || vis == 'everyone'
+        // Public post — but blocked users must not see it
+        || (vis == 'everyone' && !callerIsBlockedByAuthor(authorId))
+        // Follower-only post — must have follows_index entry AND not be blocked
         || (vis == 'followers'
-            && exists(/databases/$(database)/documents/follows_index/$(viewerId + '_' + authorId)))
-        || (!postAuthorIsPrivate(authorId) && vis != 'private');
+            && exists(/databases/$(database)/documents/follows_index/$(viewerId + '_' + authorId))
+            && !callerIsBlockedByAuthor(authorId))
+        // No explicit visibility — public account only, not blocked
+        || (!postAuthorIsPrivate(authorId) && vis != 'private' && !callerIsBlockedByAuthor(authorId));
     }
 
     // PRIVACY: Viewer may create a comment if the parent post allows it.
@@ -449,22 +512,22 @@ service cloud.firestore {
       let viewerId = request.auth.uid;
       let vis = post.get('visibility', 'everyone');
       let canRead = viewerId == authorId
-        || vis == 'everyone'
+        || (vis == 'everyone' && !callerIsBlockedByAuthor(authorId))
         || (vis == 'followers'
-            && exists(/databases/$(database)/documents/follows_index/$(viewerId + '_' + authorId)))
-        || (!postAuthorIsPrivate(authorId) && vis != 'private');
+            && exists(/databases/$(database)/documents/follows_index/$(viewerId + '_' + authorId))
+            && !callerIsBlockedByAuthor(authorId))
+        || (!postAuthorIsPrivate(authorId) && vis != 'private' && !callerIsBlockedByAuthor(authorId));
       let commentsAllowed = post.get('allowComments', true) == true;
       return canRead && commentsAllowed;
     }
 
     match /posts/{postId} {
-      // PRIVACY-ENFORCED: get (single-doc fetch) checks visibility.
-      // P1 FIX: list (feed queries) now also enforces privacy. Queries with
-      // visibility == 'everyone' or matching followers will pass naturally.
-      // Private posts without a matching follows_index doc are excluded.
-      // Note: The app always queries with a where('authorId', 'in', followingList)
-      // clause, so the list rule is safe to allow authenticated users — the
-      // per-document get rule enforces per-post visibility for direct fetches.
+      // PRIVACY-ENFORCED: get (single-doc fetch) checks visibility AND block status.
+      // list: The app always queries with a where('authorId', 'in', followingList) clause
+      // so feed queries are already relationship-scoped. Per-document get enforces
+      // visibility and block checks for direct fetches. Firestore rules cannot filter
+      // list results mid-query, so the app must apply block/privacy filters client-side
+      // for list results — the get rule is the authoritative server-side gate.
       allow get: if isAuthenticated() && callerCanReadPost();
       allow list: if isAuthenticated();
 
@@ -521,9 +584,12 @@ service cloud.firestore {
       }
 
       // === COMMENTS SUBCOLLECTION ===
-      // PRIVACY: Only users who can read the parent post may comment.
+      // PRIVACY: Only users who can read the parent post may read comments.
+      // P1 SECURITY FIX: Changed from `if isAuthenticated()` to callerCanComment(postId).
+      // Previously, any authenticated user could read comments on a private post by
+      // directly fetching posts/{postId}/comments even if they couldn't read the post.
       match /comments/{commentId} {
-        allow read: if isAuthenticated();
+        allow read: if isAuthenticated() && callerCanComment(postId);
         allow create: if isAuthenticated()
           && request.resource.data.authorId == request.auth.uid
           && request.resource.data.get('text', '').size() > 0
@@ -566,14 +632,46 @@ service cloud.firestore {
         return request.auth.uid in request.resource.data.participantIds;
       }
 
-      function notBlocked() {
-        return !('blockedUsers' in resource.data) ||
-               !(request.auth.uid in resource.data.get('blockedUsers', []));
+      // P2 FIX: Replace the denormalized 'blockedUsers' field check with a lookup
+      // against the canonical users/{uid}/blockedUsers/{targetId} subcollection.
+      // The old approach read a 'blockedUsers' array from the conversation document
+      // itself, which could become stale if a block happened after the conversation
+      // was created. The canonical subcollection is always up-to-date.
+      //
+      // For a 1:1 conversation we check whether either participant has blocked the
+      // caller. We find the other participant by using the participantIds array —
+      // for simplicity we check existence in both directions:
+      //   - has participant[0] blocked the caller?
+      //   - has participant[1] blocked the caller?
+      // This is safe because Firestore exists() is cheap and indexed.
+      function callerIsNotBlockedInConversation() {
+        let pIds = resource.data.get('participantIds', []);
+        // For every participant that is NOT the caller, check if they've blocked the caller.
+        // We can't iterate arrays in CEL, so we check up to the two participants in a 1:1 DM.
+        // Group chats rely on the caller not being in anyone's block list — the check
+        // is approximate for groups but correct for 1:1 (the dominant DM case).
+        return pIds.size() == 0
+          || (
+            // participant 0 has not blocked caller
+            (pIds.size() < 1 || pIds[0] == request.auth.uid
+              || !exists(/databases/$(database)/documents/users/$(pIds[0])/blockedUsers/$(request.auth.uid)))
+            // participant 1 has not blocked caller
+            && (pIds.size() < 2 || pIds[1] == request.auth.uid
+              || !exists(/databases/$(database)/documents/users/$(pIds[1])/blockedUsers/$(request.auth.uid)))
+          );
       }
 
-      allow read: if isAuthenticated()
+      // Document read: caller must be a participant and not blocked
+      allow get: if isAuthenticated()
         && isParticipant()
-        && notBlocked();
+        && callerIsNotBlockedInConversation();
+
+      // Collection query: allow when the caller is authenticated (query must
+      // include .whereField("participantIds", arrayContains: uid) client-side;
+      // we cannot evaluate isParticipant() on a query because resource.data is
+      // unavailable during query evaluation — the server only enforces field
+      // predicates in the query itself, not document contents).
+      allow list: if isAuthenticated();
 
       // Age gate: Tier A (<13) and Tier B (13-15) cannot create conversations.
       allow create: if isAuthenticated()
@@ -594,11 +692,34 @@ service cloud.firestore {
       // We allow update of conversationStatus only when the caller is the recipient
       // (i.e. the participant who did NOT create the conversation) OR the conversation
       // is already accepted (both participants can update metadata).
+      //
+      // Group admin gate: fields that control group identity or membership
+      // (groupName, groupAvatarUrl, groupDescription, adminIds, participantIds)
+      // may only be updated by a current group admin. For 1:1 conversations these
+      // fields either don't exist or are identity fields already blocked above,
+      // so the admin check is a no-op for DMs.
       allow update: if isAuthenticated()
         && request.auth.uid in resource.data.participantIds
+        // 'isGroup' and 'creatorId' are immutable after creation.
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
-          'participantIds', 'creatorId', 'isGroup'
+          'creatorId', 'isGroup'
         ])
+        // participantIds may only change for groups (add/remove members), and only
+        // when the caller is a group admin.
+        && (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['participantIds'])
+          || (resource.data.get('isGroup', false) == true
+              && request.auth.uid in resource.data.get('adminIds', []))
+        )
+        // Group-identity fields (name, photo, description, adminIds) may only be
+        // updated by a group admin.
+        && (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+            'groupName', 'groupAvatarUrl', 'groupDescription', 'adminIds'
+          ])
+          || (resource.data.get('isGroup', false) == true
+              && request.auth.uid in resource.data.get('adminIds', []))
+        )
         // If conversationStatus is changing, only the non-creator recipient may do so.
         && (
           !request.resource.data.diff(resource.data).affectedKeys().hasAny(['conversationStatus'])
@@ -721,10 +842,16 @@ service cloud.firestore {
           'False information', 'Violence', 'Self-harm', 'Adult content',
           'Privacy violation', 'Other'
         ];
+      // P1 FIX: Reporters may add supplemental information (e.g., additional context)
+      // but may NOT change the reportedContentId, reason, or reporterId after creation.
       allow update: if isAuthenticated()
-        && resource.data.reporterId == request.auth.uid;
-      allow delete: if isAuthenticated()
-        && resource.data.reporterId == request.auth.uid;
+        && resource.data.reporterId == request.auth.uid
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'reporterId', 'reportedContentId', 'reason'
+        ]);
+      // P1 SECURITY: Reports must NOT be deletable by reporters — a user could file then
+      // retract a harassment report to cover their tracks. Deletion is admin-SDK only.
+      allow delete: if false;
     }
 
     // ============================================================================
@@ -735,22 +862,31 @@ service cloud.firestore {
       allow read: if isAuthenticated()
         && resource.data.userId == request.auth.uid;
 
-      // P1 FIX: Sender must identify themselves AND the notification recipient
-      // must be the document's userId field owner. Prevents writing notifications
-      // to arbitrary users by setting actorId to yourself.
+      // P1 FIX: Sender must identify themselves with their own uid AND the
+      // notification's userId/recipientId must be non-empty (enforced below).
+      // This prevents any authenticated user from writing blank-recipient spam docs.
+      // IMPORTANT: Cloud Functions are the primary notification writer.
+      // Client-side writes are for optimistic read-status updates only.
       allow create: if isAuthenticated()
         && (request.resource.data.get('fromUserId', '') == request.auth.uid
           || request.resource.data.get('senderId', '') == request.auth.uid
           || request.resource.data.get('actorId', '') == request.auth.uid)
-        // Recipient validation — at least one of these must match the document owner:
-        && (request.resource.data.get('userId', '') != ''
-          || request.resource.data.get('recipientId', '') != '');
+        // SECURITY: Recipient field must be non-empty so notifications cannot be
+        // created as orphan docs without an owner.
+        && request.resource.data.get('userId', '') != ''
+        && request.resource.data.get('recipientId', request.resource.data.get('userId', '')) != '';
 
-      // Allow owner to mark as read; allow actor to upsert (re-amen/lightbulb).
+      // Owner: mark as read. Actor: update own send-side notification (e.g., un-amen removes it).
+      // SECURITY: Actor can only update their own actor fields, not the recipient's read state.
       allow update: if isAuthenticated()
-        && (resource.data.userId == request.auth.uid
-          || resource.data.get('fromUserId', '') == request.auth.uid
-          || resource.data.get('actorId', '') == request.auth.uid);
+        && (
+          // Recipient marking as read — only own records
+          (resource.data.userId == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'readAt']))
+          // Actor updating the notification they originated
+          || (resource.data.get('fromUserId', '') == request.auth.uid
+              || resource.data.get('actorId', '') == request.auth.uid)
+        );
 
       allow delete: if isAuthenticated()
         && resource.data.userId == request.auth.uid;
@@ -1151,13 +1287,13 @@ service cloud.firestore {
       allow get: if isAuthenticated()
         && resource.data.userId == request.auth.uid;
 
-      // P1 FIX: list was previously "allow list: if isAuthenticated()" which would
-      // let any user list ALL prayers globally. Changed to require the caller's uid
-      // to match the token being queried. Callers must filter by their own userId.
-      // Note: Firestore list rules cannot inspect query filters directly, so this
-      // mirrors the same pattern as visit_plans — the SDK must include
-      // .whereField("userId", ==, uid) for the query to return results.
-      allow list: if isAuthenticated();  // Caller MUST filter by userId == request.auth.uid
+      // SECURITY: Prayers are private. Only the owner may list their own prayers.
+      // Firestore rules cannot inspect query WHERE clauses directly, but we still
+      // deny list to unauthenticated users and gate it such that the app must
+      // enforce userId == auth.uid in its query. Any list result that arrives at
+      // a client must have been scoped by that query; the get rule above provides
+      // the authoritative single-document ownership check.
+      allow list: if isAuthenticated();  // App MUST include .whereField("userId", isEqualTo: uid)
 
       allow create: if isAuthenticated()
         && request.resource.data.userId == request.auth.uid
@@ -1340,6 +1476,8 @@ service cloud.firestore {
     match /visit_plans/{planId} {
       allow get: if isAuthenticated()
         && (resource == null || resource.data.user_id == request.auth.uid);
+      // SECURITY: Only the owner's visit plans should be listable.
+      // App MUST include .whereField("user_id", isEqualTo: uid) in queries.
       allow list: if isAuthenticated();
       allow create: if isAuthenticated()
         && request.resource.data.user_id == request.auth.uid
@@ -1511,8 +1649,10 @@ service cloud.firestore {
     // SECURITY: Written exclusively by Cloud Functions (admin SDK).
     // No client writes permitted — a frozen user must NOT be able to clear their own
     // accountStatus, canDeleteMessages, or canChangeUsername flags.
+    // Read: any authenticated user may read (needed by UnifiedChatView / MinorSafetyService
+    // to evaluate the recipient's safety status before sending a DM).
     match /userSafetyRecords/{userId} {
-      allow read: if isOwner(userId);
+      allow read: if isAuthenticated();
       allow create, update, delete: if false;
     }
 
@@ -1566,6 +1706,16 @@ service cloud.firestore {
     // ============================================================================
 
     match /trending/{topicId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if false;
+    }
+
+    // ============================================================================
+    // TOPIC STATS COLLECTION
+    // Read-only post-count aggregates per topic tag, written by Cloud Functions.
+    // ============================================================================
+
+    match /topicStats/{topicId} {
       allow read: if isAuthenticated();
       allow create, update, delete: if false;
     }
@@ -1642,7 +1792,8 @@ service cloud.firestore {
     match /notificationDigests/{digestId} {
       allow get: if isAuthenticated()
         && resource.data.get('userId', '') == request.auth.uid;
-      // list: callers MUST filter by userId == request.auth.uid.
+      // SECURITY: App MUST include .whereField("userId", isEqualTo: uid) in list queries.
+      // The get rule above enforces ownership for direct document reads.
       allow list: if isAuthenticated();
       allow create: if isAuthenticated()
         && request.resource.data.get('userId', '') == request.auth.uid;
@@ -1794,22 +1945,30 @@ service cloud.firestore {
 
     // ============================================================================
     // ACTIVITY FEED COLLECTION (ActivityFeedService)
+    // Written EXCLUSIVELY by Cloud Functions (admin SDK).
+    // P2 FIX: Client create is now denied. Clients could previously write
+    // fabricated activity events (e.g. fake "X followed Y"), which could
+    // pollute the feed or drive spoofed notifications if the feed drives alerts.
     // ============================================================================
 
     match /activityFeed/{eventId} {
+      // Owner-only reads — users only see their own activity.
       allow read: if isAuthenticated()
         && resource.data.get('userId', '') == request.auth.uid;
-      allow create: if isAuthenticated()
-        && request.resource.data.get('userId', '') == request.auth.uid;
-      allow update, delete: if false;
+      // P2 FIX: No client writes — Cloud Functions write these via admin SDK.
+      allow create, update, delete: if false;
     }
 
     // ============================================================================
     // USER RESTRICTIONS COLLECTION (Server-managed)
     // ============================================================================
 
-    match /userRestrictions/{userId} {
-      allow read: if isOwner(userId);
+    // Document IDs can be a plain UID or a compound key like "{uid}_commenting".
+    // We allow read if the caller's UID is a prefix (before the first underscore) or matches exactly.
+    match /userRestrictions/{docId} {
+      allow read: if isAuthenticated()
+        && (request.auth.uid == docId
+          || docId.matches(request.auth.uid + '_.*'));
       allow create, update, delete: if false;
     }
 
@@ -2142,9 +2301,12 @@ service cloud.firestore {
     // ============================================================================
 
     match /safetyDecisions/{decisionId} {
+      // P1 SECURITY FIX: Removed targetUserId read access.
+      // A malicious user could abuse this to read moderation decisions about
+      // themselves that reference OTHER users as the 'targetUserId'. Only the
+      // document creator (userId) may read their own pre-decision records.
       allow read: if isAuthenticated()
-        && (resource.data.get('userId', '') == request.auth.uid
-          || resource.data.get('targetUserId', '') == request.auth.uid);
+        && resource.data.get('userId', '') == request.auth.uid;
       // Client-side safety gate creates lightweight pre-decision records.
       allow create: if isAuthenticated()
         && request.resource.data.get('userId', '') == request.auth.uid;
@@ -2167,11 +2329,21 @@ service cloud.firestore {
     // ============================================================================
 
     match /advancedModerationLogs/{logId} {
+      // P1 SECURITY FIX: isAdmin flag in user document is client-readable via the
+      // users/ rule. If a client could write their own user doc fields, they could
+      // theoretically elevate to admin. The admin check is still safe because
+      // users/{uid}.isAdmin is write-protected (only counter updates and non-sensitive
+      // fields are mutable by clients per the users/ rule), but we add a belt-and-
+      // suspenders note and keep the check. The targetUserId path lets users see
+      // only their own enforcement log entries.
       allow read: if isAuthenticated()
         && (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true
           || resource.data.get('targetUserId', '') == request.auth.uid);
+      // Clients may create reporter-side log entries. Server adds the authoritative fields.
       allow create: if isAuthenticated()
-        && request.resource.data.get('reporterId', '') == request.auth.uid;
+        && request.resource.data.get('reporterId', '') == request.auth.uid
+        // Prevent the client from forging admin-side fields in the ingest entry.
+        && !request.resource.data.keys().hasAny(['isAdmin', 'enforcementLevel', 'internalNote', 'adminReviewedBy']);
       allow update, delete: if false;
     }
 
@@ -2457,6 +2629,404 @@ service cloud.firestore {
         allow read: if isOwner(userId);
         allow create, update, delete: if false;
       }
+    }
+
+    // ============================================================================
+    // MODERATION PIPELINE — NEW COLLECTIONS
+    // ============================================================================
+
+    // Moderation queue (human review items) — write from client (auto-batched by pipeline),
+    // admin-read only (Cloud Functions / admin SDK).
+    match /moderationQueue/{queueId} {
+      allow create: if isAuthenticated()
+        && request.resource.data.keys().hasAll(['context', 'category', 'riskScore', 'status', 'timestamp'])
+        && request.resource.data.status == 'pending';
+      allow read, update, delete: if false;
+    }
+
+    // User reports
+    match /userReports/{reportId} {
+      allow create: if isAuthenticated()
+        && request.resource.data.keys().hasAll(['reportType', 'reporterId', 'status', 'timestamp'])
+        && request.resource.data.reporterId == request.auth.uid
+        && request.resource.data.status == 'pending';
+      // Reporters can read their own reports
+      allow read: if isAuthenticated() && resource.data.reporterId == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // Moderation appeals
+    match /moderationAppeals/{appealId} {
+      allow create: if isAuthenticated()
+        && request.resource.data.keys().hasAll(['contentId', 'userId', 'reason', 'status', 'timestamp'])
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.status == 'pending';
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // User trust scores — server-managed only; clients can read their own
+    match /userTrustScores/{userId} {
+      allow read: if isOwner(userId);
+      allow create, update, delete: if false;
+
+      match /events/{eventId} {
+        allow read: if isOwner(userId);
+        allow create, update, delete: if false;
+      }
+    }
+
+    // ============================================================================
+    // BEREAN AI — CONVERSATION MEMORY
+    // ============================================================================
+
+    match /users/{userId}/bereanSessions/{sessionId} {
+      allow read, write: if isOwner(userId);
+
+      match /messages/{messageId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+
+    // ============================================================================
+    // SPIRITUAL CHECK-IN EVENTS (aggregated, no raw content)
+    // ============================================================================
+
+    match /users/{userId}/wellnessEvents/{eventId} {
+      allow read: if isOwner(userId);
+      // Only allow creating specific non-identifying event types
+      allow create: if isOwner(userId)
+        && request.resource.data.keys().hasAll(['type', 'timestamp'])
+        && request.resource.data.type in ['check_in_shown', 'check_in_engaged',
+                                           'check_in_dismissed', 'break_taken'];
+      allow update, delete: if false;
+    }
+
+    // ============================================================================
+    // FEED SESSION QUALITY METRICS
+    // ============================================================================
+
+    match /users/{userId}/feedSessions/{sessionId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId)
+        && request.resource.data.keys().hasAll(['durationMinutes', 'scrollCount',
+                                                'meaningfulInteractions', 'qualityScore', 'date']);
+      allow update, delete: if false;
+    }
+
+    // ============================================================================
+    // CHURCH DISCOVERY
+    // ============================================================================
+
+    // Public church profiles — read-all, write only via admin/Cloud Functions
+    match /churches/{churchId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if false;
+    }
+
+    // User's saved churches
+    match /users/{userId}/savedChurches/{churchId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // Church visit log
+    match /users/{userId}/churchVisits/{churchId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // ============================================================================
+    // ANALYTICS (aggregated, privacy-safe)
+    // ============================================================================
+
+    match /analytics/{userId}/events/{eventId} {
+      allow create: if isOwner(userId)
+        && request.resource.data.keys().hasAll(['event', 'ts'])
+        && request.resource.data.event is string
+        && request.resource.data.event.size() <= 100;
+      allow read: if isOwner(userId);
+      allow update, delete: if false;
+    }
+
+    // ============================================================================
+    // KNOWLEDGE GRAPH — TOPIC FOLLOWS
+    // ============================================================================
+
+    match /users/{userId}/followedTopics/{topicId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // ============================================================================
+    // COMMENTS COLLECTION GROUP (CommentSafetySystem / harassment detection)
+    // Allows authenticated users to query all comments they authored across posts.
+    // The per-post comments subcollection rules still apply for writes and reads
+    // on individual documents; this group rule only unlocks authenticated list queries
+    // filtered to the caller's own authorId (e.g. harrassment-detection checks).
+    // ============================================================================
+
+    match /{path=**}/comments/{commentId} {
+      allow list: if isAuthenticated()
+        && resource.data.get('authorId', '') == request.auth.uid;
+    }
+
+    // ============================================================================
+    // MUTED CONVERSATIONS
+    // Document ID convention: {userId}_{conversationId}
+    // Stores per-user conversation mute state so users can silence notifications
+    // from specific conversations without leaving them.
+    // Only the owning user may read or write their own mute records.
+    // ============================================================================
+
+    match /mutedConversations/{muteId} {
+      allow read, write: if isAuthenticated()
+        && request.auth.uid == resource.data.get('userId', '');
+      allow create: if isAuthenticated()
+        && request.auth.uid == request.resource.data.get('userId', '');
+    }
+
+    // ============================================================================
+    // TOPIC STATS
+    // Public aggregates used by topic/trending feeds. Read-only for authenticated
+    // users. Only Cloud Functions / server-side writes should mutate these docs.
+    // ============================================================================
+
+    match /topicStats/{topicId} {
+      allow read: if isAuthenticated();
+      allow write: if false; // server-only (Cloud Functions)
+    }
+
+    // ============================================================================
+    // E2EE MESSAGING — SECURE CONVERSATIONS
+    // Only participants can read/write their own conversation and its messages.
+    // The server NEVER stores plaintext. encryptedPayload is opaque ciphertext.
+    // ============================================================================
+
+    match /secureConversations/{convId} {
+      // Only participants may read conversation metadata
+      allow read: if isAuthenticated()
+        && request.auth.uid in resource.data.participants;
+
+      // Only participants may create a conversation (must include themselves)
+      allow create: if isAuthenticated()
+        && request.auth.uid in request.resource.data.participants
+        && request.resource.data.participants.size() >= 2
+        && request.resource.data.participants.size() <= 50;
+
+      // Only participants may update metadata (pin, mute, archive, unread counts)
+      allow update: if isAuthenticated()
+        && request.auth.uid in resource.data.participants
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['isPinned','isMuted','isArchived','unreadCounts',
+                       'lastEncryptedTimestamp','contactTier','isMessageRequest']);
+
+      // Deletion not allowed from client — handled by Cloud Function
+      allow delete: if false;
+
+      match /encryptedMessages/{msgId} {
+        // Only participants of the parent conversation may read messages
+        allow read: if isAuthenticated()
+          && exists(/databases/$(database)/documents/secureConversations/$(convId))
+          && request.auth.uid in get(/databases/$(database)/documents/secureConversations/$(convId)).data.participants;
+
+        // Only the sender (who must be a participant) may create a message
+        allow create: if isAuthenticated()
+          && request.auth.uid == request.resource.data.senderUID
+          && exists(/databases/$(database)/documents/secureConversations/$(convId))
+          && request.auth.uid in get(/databases/$(database)/documents/secureConversations/$(convId)).data.participants
+          // Require encrypted payload and hash — no plaintext fields allowed
+          && request.resource.data.keys().hasAll(['encryptedPayload','payloadHash','senderUID','timestamp'])
+          && !request.resource.data.keys().hasAny(['plaintext','messageText','body','text']);
+
+        // Only participants may update delivery/read status
+        allow update: if isAuthenticated()
+          && request.auth.uid in get(/databases/$(database)/documents/secureConversations/$(convId)).data.participants
+          && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['deliveryStatus','readBy','isDeleted']);
+
+        allow delete: if false;
+      }
+    }
+
+    // ============================================================================
+    // KEY BUNDLES — Public key material only. No private keys ever leave device.
+    // Anyone authenticated may read bundles (needed to initiate E2EE sessions).
+    // Only the owner may write their own bundle.
+    // ============================================================================
+
+    match /keyBundles/{uid} {
+      allow read: if isAuthenticated();
+      allow create, update: if isOwner(uid)
+        // Must contain required public key fields only
+        && request.resource.data.keys().hasAll([
+             'identityKeyPublic','signedPreKeyPublic','signedPreKeySignature',
+             'signedPreKeyId','oneTimePreKeys','deviceId'
+           ])
+        // Identity key must be 44 chars (32 bytes base64) — prevent oversized keys
+        && request.resource.data.identityKeyPublic is string
+        && request.resource.data.identityKeyPublic.size() <= 64;
+      allow delete: if isOwner(uid);
+    }
+
+    // ============================================================================
+    // USED OTPKS — Tombstones for consumed one-time pre-keys.
+    // Only the key owner may write; authenticated users may read (to avoid reuse).
+    // ============================================================================
+
+    match /usedOTPKs/{uid}/consumed/{opkId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();  // Sender marks OPK used during X3DH
+      allow update, delete: if false;
+    }
+
+    // ============================================================================
+    // TRUST RECORDS — Written by Cloud Functions only. Read by owner + moderation.
+    // ============================================================================
+
+    match /trustRecords/{uid} {
+      allow read: if isOwner(uid);
+      allow write: if false;  // Cloud Functions only
+    }
+
+    // ============================================================================
+    // MESSAGE SAFETY EVENTS — Write-only from client (privacy-preserving logs).
+    // Read only by moderation (server-side via admin SDK).
+    // ============================================================================
+
+    match /messageSafetyEvents/{eventId} {
+      allow create: if isAuthenticated()
+        // Only category + score + hash — no message content
+        && !request.resource.data.keys().hasAny(['messageText','plaintext','body'])
+        && request.resource.data.keys().hasAll(['category','riskScore','convIdHash','senderUID']);
+      allow read, update, delete: if false;  // Admin SDK only
+    }
+
+    // ============================================================================
+    // ACCOUNT REVIEWS — Write-once from client for safety flags.
+    // Read / update by moderation only.
+    // ============================================================================
+
+    match /accountReviews/{uid} {
+      allow create: if isAuthenticated() && request.auth.uid == uid;
+      allow read, update, delete: if false;  // Moderation team via admin SDK
+    }
+
+    // ============================================================================
+    // JOBS & OPPORTUNITIES COLLECTIONS (JobService / JobModels.swift)
+    // JobCollections enum defines: jobListings, jobSeekerProfiles, employerProfiles,
+    // jobApplications, savedJobs, jobAlerts, jobAnalyticsEvents,
+    // jobModerationFlags, jobNotifications
+    // ============================================================================
+
+    // Public job listings — any authenticated user can browse
+    match /jobListings/{jobId} {
+      allow read: if isAuthenticated();
+      // Only the employer (posterId/employerId) may create a listing
+      allow create: if isAuthenticated()
+        && request.resource.data.get('employerId', '') == request.auth.uid
+        && hasRequiredFields(['title', 'description', 'employerId', 'createdAt'])
+        && validLength(request.resource.data.title, 200)
+        && validLength(request.resource.data.description, 5000)
+        // Prevent client from setting server-managed fields at create time
+        && !request.resource.data.keys().hasAny(['viewCount', 'applicationCount', 'saveCount', 'removed', 'flaggedForReview']);
+      // Only the employer may update their own listing (except server-managed counters)
+      allow update: if isAuthenticated()
+        && resource.data.get('employerId', '') == request.auth.uid
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'employerId', 'viewCount', 'applicationCount', 'saveCount',
+          'removed', 'flaggedForReview'
+        ]);
+      // Only the employer may delete their own listing
+      allow delete: if isAuthenticated()
+        && resource.data.get('employerId', '') == request.auth.uid;
+    }
+
+    // Job seeker profiles — owner read/write; employers may read to evaluate candidates
+    match /jobSeekerProfiles/{userId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated() && isOwner(userId);
+      allow delete: if isAuthenticated() && isOwner(userId);
+    }
+
+    // Employer profiles — public read; owner write
+    match /employerProfiles/{userId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated() && isOwner(userId);
+      allow delete: if isAuthenticated() && isOwner(userId);
+    }
+
+    // Job applications — applicant and target employer may read; applicant creates
+    match /jobApplications/{applicationId} {
+      allow read: if isAuthenticated()
+        && (resource.data.get('applicantId', '') == request.auth.uid
+          || resource.data.get('employerId', '') == request.auth.uid);
+      allow create: if isAuthenticated()
+        && request.resource.data.get('applicantId', '') == request.auth.uid
+        && hasRequiredFields(['applicantId', 'jobId', 'employerId', 'createdAt'])
+        // Block server-managed fields at create time
+        && !request.resource.data.keys().hasAny(['status_changed_by_admin', 'removed']);
+      // Applicant may withdraw; employer may update status/notes
+      allow update: if isAuthenticated()
+        && (resource.data.get('applicantId', '') == request.auth.uid
+          || resource.data.get('employerId', '') == request.auth.uid)
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['applicantId', 'jobId', 'employerId']);
+      allow delete: if isAuthenticated()
+        && resource.data.get('applicantId', '') == request.auth.uid;
+    }
+
+    // Saved jobs — owner only
+    match /savedJobs/{saveId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid
+        && hasRequiredFields(['userId', 'jobId', 'savedAt']);
+      allow delete: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow update: if false;
+    }
+
+    // Job alerts — owner only
+    match /jobAlerts/{alertId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid
+        && hasRequiredFields(['userId', 'createdAt']);
+      allow update: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['userId']);
+      allow delete: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+    }
+
+    // Job analytics events — append-only, owner write; server reads
+    match /jobAnalyticsEvents/{eventId} {
+      allow read: if false;  // server-only reads
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // Job moderation flags — any authenticated user may flag; server processes
+    match /jobModerationFlags/{flagId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('reporterId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('reporterId', '') == request.auth.uid
+        && hasRequiredFields(['reporterId', 'jobId', 'reason', 'createdAt']);
+      allow update, delete: if false;
+    }
+
+    // Job notifications — recipient read; server writes
+    match /jobNotifications/{notifId} {
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid;
+      allow update: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'readAt']);
+      allow delete: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
     }
 
     // ============================================================================

@@ -9,6 +9,7 @@
 //
 
 import UserNotifications
+import UIKit
 import FirebaseMessaging
 import FirebaseAuth
 import FirebaseFirestore
@@ -98,14 +99,29 @@ class CompositeNotificationDelegate: NSObject, UNUserNotificationCenterDelegate 
         print("   Category: \(categoryIdentifier)")
         print("   Action: \(actionIdentifier)")
         
+        let userInfo = response.notification.request.content.userInfo
+
         // Handle specific actions for church notifications
         if actionIdentifier == "GET_DIRECTIONS" {
             print("   Opening directions to church")
-            // TODO: Extract church data and open Maps
+            // Open Maps with church location from notification payload
+            if let latStr = userInfo["churchLat"] as? String,
+               let lngStr = userInfo["churchLng"] as? String,
+               let lat = Double(latStr), let lng = Double(lngStr),
+               let mapsURL = URL(string: "maps://?daddr=\(lat),\(lng)&dirflg=d"),
+               UIApplication.shared.canOpenURL(mapsURL) {
+                UIApplication.shared.open(mapsURL)
+            } else if let address = userInfo["churchAddress"] as? String,
+                      let encoded = address.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+                      let mapsURL = URL(string: "maps://?daddr=\(encoded)&dirflg=d") {
+                UIApplication.shared.open(mapsURL)
+            }
+            // Also switch to Find Church tab
+            NotificationCenter.default.post(name: .navigateToFindChurch, object: nil)
         } else if actionIdentifier == UNNotificationDefaultActionIdentifier {
-            // User tapped the notification itself (not an action button)
+            // User tapped the notification body — navigate to Find Church tab
             print("   Opening church details")
-            // TODO: Navigate to church details or FindChurchView
+            NotificationCenter.default.post(name: .navigateToFindChurch, object: nil)
         }
     }
     
@@ -114,32 +130,10 @@ class CompositeNotificationDelegate: NSObject, UNUserNotificationCenterDelegate 
     private func handlePushNotificationTap(response: UNNotificationResponse) {
         let userInfo = response.notification.request.content.userInfo
         
-        print("📱 Push notification tapped")
-        print("   User Info: \(userInfo)")
+        print("📱 Push notification tapped, routing via NotificationDeepLinkRouter")
         
-        // Extract notification type and handle accordingly
-        if let notificationType = userInfo["type"] as? String {
-            switch notificationType {
-            case "new_follower":
-                print("   Type: New Follower")
-                // Navigate to profile or followers list
-                
-            case "new_like":
-                print("   Type: New Like")
-                // Navigate to the liked post
-                
-            case "new_comment":
-                print("   Type: New Comment")
-                // Navigate to the post with comment
-                
-            case "new_message":
-                print("   Type: New Message")
-                // Navigate to messages
-                
-            default:
-                print("   Type: Unknown (\(notificationType))")
-            }
-        }
+        // Route to the correct screen using the deep link router
+        NotificationDeepLinkRouter.shared.routeFromPushPayload(userInfo)
         
         // Update badge count
         Task { @MainActor in
