@@ -37,6 +37,10 @@ struct AMENAPPApp: App {
     // preventing retain cycles across background/foreground transitions.
     @State private var startupTasks: [Task<Void, Never>] = []
     
+    // P1 FIX: Observe scene phase to drive BehavioralAwarenessEngine session lifecycle.
+    // Without this, beginSession/endSession are never called on foreground/background transitions.
+    @Environment(\.scenePhase) private var scenePhase
+
     // Initialize Firebase when app launches
     init() {
         dlog("🚀 Initializing AMENAPPApp...")
@@ -166,42 +170,60 @@ struct AMENAPPApp: App {
                 }
             }
             .onAppear {
+                    // Attach passive touch observer for session-timeout activity tracking.
+                    // Uses a gesture recognizer that immediately fails (never consumes touches),
+                    // so this is safe on all iOS versions and does not affect hit testing.
+                    if let window = UIApplication.shared.connectedScenes
+                        .compactMap({ $0 as? UIWindowScene })
+                        .flatMap({ $0.windows })
+                        .first(where: { $0.isKeyWindow }) {
+                        ActivityTouchObserver.attach(to: window)
+                    }
+
                     // ⚡️ PERFORMANCE OPTIMIZED: Parallel startup with instant UI
                     showWelcomeScreen = welcomeManager.shouldShowWelcome()
                     ScrollBudgetManager.shared.trackAppReopen()
 
-                    // Arm the cinematic loading screen for users already signed in at cold launch.
-                    // (For sign-in flows, ContentView.onChange fires signalSignIn() instead.)
+                    // Only arm the cinematic loading screen when a user is already signed in.
+                    // For logged-out users skip it entirely — SignInView appears immediately
+                    // and there is nothing to "load", so the overlay would just get stuck.
                     if Auth.auth().currentUser != nil {
                         AppReadyStateManager.shared.signalSignIn()
                     }
                     
                     // PARALLEL: All startup tasks run simultaneously.
-                    // P0-C FIX: Store task handles so they can be cancelled in onDisappear.
+                    // P0-C FIX: Use withTaskGroup so child tasks are properly cancelled
+                    // when the parent task is cancelled in onDisappear. Using async let
+                    // tuples causes a Swift Concurrency fatal error (swift_task_dealloc)
+                    // when the parent task is cancelled before all children complete.
                     let criticalTask = Task(priority: .userInitiated) {
-                        async let userTask = fetchCurrentUserForWelcome()
-                        async let postsTask: Void = { @MainActor in
-                            if Auth.auth().currentUser != nil {
-                                dlog("⚡️ PRELOAD: Starting posts cache load...")
-                                _ = PostsManager.shared
-                                await FirebasePostService.shared.preloadCacheSync()
-                                FirebasePostService.shared.startListening(category: .openTable)
-                                dlog("✅ PRELOAD: Real-time listener started")
+                        await withTaskGroup(of: Void.self) { group in
+                            group.addTask { await fetchCurrentUserForWelcome() }
+                            group.addTask {
+                                await MainActor.run {
+                                    guard Auth.auth().currentUser != nil else { return }
+                                    dlog("⚡️ PRELOAD: Starting posts cache load...")
+                                    _ = PostsManager.shared
+                                }
+                                if Auth.auth().currentUser != nil {
+                                    await FirebasePostService.shared.preloadCacheSync()
+                                    await MainActor.run {
+                                        FirebasePostService.shared.startListening(category: .openTable)
+                                        dlog("✅ PRELOAD: Real-time listener started")
+                                    }
+                                }
                             }
-                        }()
-                        async let followTask = startFollowServiceListeners()
-                        async let fcmTask: Void = {
-                    // P1-3 FIX: Only run FCM setup once per app session, not on every foreground
-                    let shouldSetup = await MainActor.run { () -> Bool in
-                        guard !fcmSetupDone else { return false }
-                        fcmSetupDone = true
-                        return true
-                    }
-                    if shouldSetup { await setupFCMForExistingUser() }
-                }()
-                        
-                        // Wait for all in parallel
-                        _ = await (userTask, postsTask, followTask, fcmTask)
+                            group.addTask { await startFollowServiceListeners() }
+                            group.addTask {
+                                // P1-3 FIX: Only run FCM setup once per app session
+                                let shouldSetup = await MainActor.run { () -> Bool in
+                                    guard !fcmSetupDone else { return false }
+                                    fcmSetupDone = true
+                                    return true
+                                }
+                                if shouldSetup { await setupFCMForExistingUser() }
+                            }
+                        }
                         dlog("✅ All critical startup tasks complete")
                     }
                     startupTasks.append(criticalTask)
@@ -260,7 +282,35 @@ struct AMENAPPApp: App {
                 // Restore any Live Activities that survived an app relaunch
                 LiveActivityManager.shared.restoreActiveActivities()
             }
+            .onChange(of: scenePhase) { _, newPhase in
+                // P1 FIX: Drive behavioral awareness engine session lifecycle from scene phase
+                // so scroll/dwell signals are attributed to the correct active session.
+                switch newPhase {
+                case .active:
+                    BehavioralAwarenessEngine.shared.beginSession()
+                    // Refresh dynamic shortcuts whenever the app comes to the foreground
+                    // so the menu reflects current state (drafts, unread count, etc.)
+                    refreshQuickActions()
+                case .background:
+                    BehavioralAwarenessEngine.shared.endSession()
+                default:
+                    break
+                }
+            }
         }
+    }
+
+    // MARK: - Quick Action Shortcuts
+
+    /// Install / refresh the dynamic Home Screen quick actions.
+    /// Called at app foreground and after sign-in so shortcuts stay current.
+    private func refreshQuickActions() {
+        let hasDraft = !(DraftsManager.shared.drafts.isEmpty)
+        let unread = BadgeCountManager.shared.unreadMessages
+        AMENQuickActionManager.shared.installShortcuts(
+            hasDraft: hasDraft,
+            unreadMessageCount: unread
+        )
     }
     
     // MARK: - Fetch User for Welcome Screen
@@ -368,6 +418,12 @@ struct AMENAPPApp: App {
                     await UnusualLoginDetector.shared.checkLoginDevice(userId: user.uid)
                     // Age assurance — load tier so feature gates are ready
                     await AgeAssuranceService.shared.loadTier(for: user.uid)
+                    // E2EE — publish device key bundle so others can initiate encrypted sessions.
+                    // Safe to call on every login: overwrites with fresh SPK, replenishes OPKs.
+                    Task.detached(priority: .background) {
+                        try? await AMENSecureMessagingService.shared.publishKeyBundle()
+                        try? await AMENSecureMessagingService.shared.replenishOneTimePreKeys()
+                    }
                 } else {
                     self.hadAuthUserOnLastEvent = false
                     // P0-D FIX: Reset fcmSetupDone so the next sign-in within the same
@@ -466,10 +522,10 @@ struct AMENAPPApp: App {
             if action == "end" {
                 Task { await LiveActivityManager.shared.endChurchServiceActivity() }
             }
-            // action=notes and action=navigate are handled by existing DeepLinkRouter below
-            if action == "notes" || action == "navigate" {
-                NotificationDeepLinkRouter.shared.handleURL(url)
-            }
+            // P2-8 FIX: action=notes and action=navigate are already handled by the
+            // unconditional NotificationDeepLinkRouter.shared.handleURL(url) call in
+            // onOpenURL. Calling it again here caused every church deep link to be
+            // processed twice — potentially navigating twice or showing duplicate alerts.
 
         case "music":
             // Music action: playlist (future), stop
@@ -515,7 +571,8 @@ struct AMENAPPApp: App {
               let draft = try? JSONDecoder().decode(ShareDraft.self, from: data) else { return }
         // Clear after reading so it is not replayed on next launch
         defaults.removeObject(forKey: "pendingShareDraft")
-        defaults.synchronize()
+        // Note: synchronize() is deprecated since iOS 12 — UserDefaults writes are
+        // persisted automatically by the OS. Calling it is a no-op and should be removed.
         dlog("📤 Received Share Extension draft: dest=\(draft.destination)")
         NotificationCenter.default.post(
             name: .openCreatePostFromShare,

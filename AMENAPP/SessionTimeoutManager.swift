@@ -409,29 +409,42 @@ extension Notification.Name {
 // scroll views, buttons — so that a user actively typing or scrolling is never
 // incorrectly timed out.
 //
-// Usage: set as the window class in SceneDelegate or via UIWindowScene.
-// In SwiftUI apps using AMENAPPApp, wire via AppDelegate.application(_:configurationForConnecting:).
+// Usage: attach via ActivityTouchObserver.attach(to:) in AMENAPPApp.onAppear.
+// Uses a cancelInHierarchy=false gesture recognizer so it never blocks delivery.
 
 import UIKit
 
-final class ActivityTrackingWindow: UIWindow {
-    // Throttle: record at most once per second to avoid hammering @MainActor.
+/// Passively observes touches on the existing key window without owning it.
+/// Attach once at app startup — does NOT replace or create a new UIWindow.
+final class ActivityTouchObserver: UIGestureRecognizer, UIGestureRecognizerDelegate {
+
     private var lastRecordedActivity: Date = .distantPast
 
-    override func sendEvent(_ event: UIEvent) {
-        // Only track touch-began events so we don't call recordActivity on every
-        // touch-moved callback (which fires 60×/s during scrolling).
-        if event.type == .touches,
-           let touches = event.allTouches,
-           touches.contains(where: { $0.phase == .began }) {
-            let now = Date()
-            if now.timeIntervalSince(lastRecordedActivity) > 1.0 {
-                lastRecordedActivity = now
-                SessionTimeoutManager.shared.recordActivity()
-            }
-        }
-        super.sendEvent(event)
+    static func attach(to window: UIWindow) {
+        let observer = ActivityTouchObserver(target: nil, action: nil)
+        observer.cancelsTouchesInView = false
+        observer.delaysTouchesEnded = false
+        observer.delegate = observer
+        window.addGestureRecognizer(observer)
     }
+
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent) {
+        let now = Date()
+        if now.timeIntervalSince(lastRecordedActivity) > 1.0 {
+            lastRecordedActivity = now
+            SessionTimeoutManager.shared.recordActivity()
+        }
+        super.touchesBegan(touches, with: event)
+        state = .failed  // immediately fail so we never consume the touch
+    }
+
+    // Allow simultaneous recognition with everything — we are purely observing
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
+                           shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool { true }
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
+                           shouldRequireFailureOf other: UIGestureRecognizer) -> Bool { false }
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
+                           shouldBeRequiredToFailBy other: UIGestureRecognizer) -> Bool { false }
 }
 
 // MARK: - Session Timeout Warning View
