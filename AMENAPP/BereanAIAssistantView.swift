@@ -84,6 +84,9 @@ struct BereanAIAssistantView: View {
     @State private var showSelahView = false
     @State private var selahQuery = ""
 
+    // Folder nav drawer
+    @State private var showConversationDrawer = false
+
     // ✅ Plus button menu
     @State private var showPlusMenu = false
     @State private var showImagePicker = false
@@ -123,6 +126,7 @@ struct BereanAIAssistantView: View {
     @State private var bibleIconOpacity: Double = 0
     @State private var currentWelcomeTextIndex = 0
     @State private var scrollViewOffset: CGFloat = 0
+    @State private var shouldCollapseBibleIcon = false
     private let welcomeTexts = [
         "Your intelligent Bible study companion",
         "Ask me anything about Scripture",
@@ -130,14 +134,20 @@ struct BereanAIAssistantView: View {
         "Explore the Bible with AI assistance"
     ]
     
+    // Atmospheric background orb animations
+    @State private var orbAnimation = false
+    @State private var orb2Animation = false
+    
     // ✅ Smart contextual suggestions
     @State private var showContextualSuggestions = false
     @State private var contextualSuggestions: [String] = []
     @State private var isTyping = false
-    
-    private var shouldCollapseBibleIcon: Bool {
-        scrollViewOffset > 100
-    }
+
+    // ── Morphing input bar state ───────────────────────────────────────────
+    // Drives the idle pill → expanded text area → searching shimmer capsule
+    // → results transition, matching the reference prompt state machine.
+    @State private var inputBarExpanded = false    // true when user has typed text
+    @State private var shimmerOffset: CGFloat = -1 // animates 0→1 for the searching shimmer
     
     private func startWelcomeTextRotation() {
         // ✅ Change welcome text only on view appear (not continuously)
@@ -240,49 +250,17 @@ struct BereanAIAssistantView: View {
     
     var body: some View {
         ZStack {
-            // Clean gray background (Next.js style)
-            Color(red: 0.96, green: 0.96, blue: 0.96)
+            // Clean white background — matches reference image design language
+            Color(white: 0.97)
                 .ignoresSafeArea()
             
             VStack(spacing: 0) {
-                // Offline banner
-                OfflineModeBanner(isOnline: $networkMonitor.isConnected)
-                
-                // Error banner
-                if showErrorBanner, let error = showError {
-                    BereanErrorBanner(
-                        error: error,
-                        onRetry: {
-                            retryLastMessage()
-                        },
-                        onDismiss: {
-                            withAnimation(.easeOut(duration: 0.2)) {
-                                showErrorBanner = false
-                            }
-                        }
-                    )
-                    .zIndex(100)
-                }
-                
                 // Header
                 headerView
                 
                 // Chat Content
                 ScrollViewReader { proxy in
                     ScrollView {
-                        GeometryReader { geometry in
-                            // Track scroll position for smart scrolling
-                            let offset = geometry.frame(in: .named("scroll")).minY
-                            Color.clear.preference(key: ScrollOffsetPreferenceKey.self, value: offset)
-                                .onAppear {
-                                    scrollViewOffset = offset
-                                }
-                                .onChange(of: offset) { _, newValue in
-                                    scrollViewOffset = abs(newValue)
-                                }
-                        }
-                        .frame(height: 0)
-                        
                         VStack(spacing: 20) {
                             // Welcome Section
                             if viewModel.messages.isEmpty {
@@ -298,6 +276,9 @@ struct BereanAIAssistantView: View {
                             } else {
                                 // Messages
                                 ForEach(viewModel.messages) { message in
+                                    let isLastBerean = !message.isFromUser &&
+                                        viewModel.messages.last(where: { !$0.isFromUser })?.id == message.id &&
+                                        !isGenerating
                                     MessageBubbleView(
                                         message: message,
                                         onOpenSelah: { msg in
@@ -305,7 +286,10 @@ struct BereanAIAssistantView: View {
                                                 .last(where: { $0.isFromUser })?.content ?? ""
                                             selahMessage = msg
                                             showSelahView = true
-                                        }
+                                        },
+                                        onFollowUp: isLastBerean ? { prompt in
+                                            sendMessage(prompt)
+                                        } : nil
                                     )
                                         .id(message.id)
                                         .transition(.asymmetric(
@@ -331,8 +315,18 @@ struct BereanAIAssistantView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.top, 20)
-                        .padding(.bottom, 120) // ✅ Increased space for input bar + contextual suggestions
+                        .padding(.bottom, 120)
+                        // Track scroll position via background GeometryReader — avoids layout jitter
+                        .background(
+                            GeometryReader { geo in
+                                Color.clear.preference(
+                                    key: ScrollOffsetPreferenceKey.self,
+                                    value: geo.frame(in: .named("bereanScroll")).minY
+                                )
+                            }
+                        )
                     }
+                    .coordinateSpace(name: "bereanScroll")
                     .refreshable {
                         await refreshConversation()
                     }
@@ -340,7 +334,6 @@ struct BereanAIAssistantView: View {
                         isInputFocused = false
                     }
                     .onChange(of: viewModel.messages.count) { _, _ in
-                        // ✅ P1-1: Smart scroll - only auto-scroll if user hasn't scrolled up
                         if !userHasScrolledUp, let lastMessage = viewModel.messages.last {
                             withAnimation(.easeOut(duration: 0.25)) {
                                 proxy.scrollTo(lastMessage.id, anchor: .bottom)
@@ -348,14 +341,22 @@ struct BereanAIAssistantView: View {
                         }
                     }
                     .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
-                        // Detect if user has scrolled up manually
-                        if value < -50 {  // User scrolled up more than 50 points
-                            userHasScrolledUp = true
-                        } else if value > -10 {  // User is near bottom
-                            userHasScrolledUp = false
+                        // value is minY of content — negative when scrolled down
+                        let scrolledDown = value < -10
+                        let backAtTop = value > -50
+
+                        // Hysteresis: collapse at -110, expand at -50 — prevents flicker at boundary
+                        let collapse = value < -110
+                        let expand = value > -50
+                        if collapse && !shouldCollapseBibleIcon {
+                            withAnimation(.easeInOut(duration: 0.25)) { shouldCollapseBibleIcon = true }
+                        } else if expand && shouldCollapseBibleIcon {
+                            withAnimation(.easeInOut(duration: 0.25)) { shouldCollapseBibleIcon = false }
                         }
+
+                        if scrolledDown { userHasScrolledUp = true }
+                        else if backAtTop { userHasScrolledUp = false }
                     }
-                    .coordinateSpace(name: "scroll")
                     .onChange(of: isInputFocused) { _, newValue in
                         // Scroll to bottom when keyboard appears
                         if newValue, let lastMessage = viewModel.messages.last {
@@ -418,6 +419,54 @@ struct BereanAIAssistantView: View {
             }
             
             // Premium Upgrade Modal handled by .sheet modifier below
+            
+            // Conversation Drawer Overlay
+            if showConversationDrawer {
+                BereanConversationDrawer(
+                    isShowing: $showConversationDrawer,
+                    conversations: $viewModel.savedConversations,
+                    onNewChat: {
+                        startNewConversation()
+                        showConversationDrawer = false
+                    },
+                    onSelectConversation: { conversation in
+                        viewModel.loadConversation(conversation)
+                        showConversationDrawer = false
+                    },
+                    onDeleteConversation: { conversation in
+                        viewModel.deleteConversation(conversation)
+                    },
+                    onShowSaved: {
+                        showConversationDrawer = false
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            showSavedMessages = true
+                        }
+                    },
+                    onShowTranslation: {
+                        showConversationDrawer = false
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            showTranslationPicker = true
+                        }
+                    },
+                    onShowOnboarding: {
+                        showConversationDrawer = false
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            showOnboarding = true
+                        }
+                    },
+                    onClearAll: {
+                        showConversationDrawer = false
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            showClearAllAlert = true
+                        }
+                    }
+                )
+                .transition(.asymmetric(
+                    insertion: .move(edge: .trailing).combined(with: .opacity),
+                    removal: .move(edge: .trailing).combined(with: .opacity)
+                ))
+                .zIndex(20)
+            }
         }
         .navigationBarHidden(true)
         // ✅ Translation Picker Sheet
@@ -531,6 +580,32 @@ struct BereanAIAssistantView: View {
                 .zIndex(1000)
             }
         }
+        // ✅ Voice Listening Overlay
+        .overlay {
+            if isVoiceListening, let recognizer = speechRecognizer {
+                BereanVoiceListeningOverlay(
+                    recognizer: recognizer,
+                    onStop: {
+                        recognizer.stopRecording()
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+                            isVoiceListening = false
+                        }
+                        if !recognizer.transcribedText.isEmpty {
+                            messageText = recognizer.transcribedText
+                        }
+                    },
+                    onCancel: {
+                        recognizer.stopRecording()
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+                            isVoiceListening = false
+                        }
+                    }
+                )
+                .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .bottom)))
+                .zIndex(2000)
+            }
+        }
+        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: isVoiceListening)
         // ✅ Image Picker
         .sheet(isPresented: $showImagePicker) {
             BereanImagePicker(selectedImage: $selectedImage)
@@ -718,29 +793,74 @@ struct BereanAIAssistantView: View {
     
     private var headerView: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 12) {
-                // Close button - hides when scrolled
-                if !shouldCollapseBibleIcon || !viewModel.messages.isEmpty {
-                    closeButton
-                        .transition(.opacity.combined(with: .scale))
+            HStack(spacing: 0) {
+                // Left: chevron dismiss — ghost button, low-key
+                Button {
+                    let haptic = UIImpactFeedbackGenerator(style: .light)
+                    haptic.impactOccurred()
+                    withAnimation(.easeOut(duration: 0.2)) { dismiss() }
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(Color(white: 0.35))
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
-                
+                .frame(minWidth: 52, alignment: .leading)
+
                 Spacer()
-                
-                // ✅ Next.js-style "By AMEN" badge
-                if !shouldCollapseBibleIcon || !viewModel.messages.isEmpty {
-                    Text("By AMEN")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(.black.opacity(0.6))
-                        .transition(.opacity)
+
+                // Center: minimal wordmark or thinking state
+                VStack(spacing: 2) {
+                    if isGenerating || isThinking {
+                        HStack(spacing: 5) {
+                            HStack(spacing: 3) {
+                                ForEach(0..<3, id: \.self) { i in
+                                    HeaderThinkingDot(index: i, isActive: isGenerating || isThinking)
+                                }
+                            }
+                            Text("Thinking")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(BereanDesign.coral)
+                        }
+                        .transition(.opacity.combined(with: .scale(scale: 0.90)))
+                    } else {
+                        // Dia-style: just the name, clean serif, no orb dot when in conversation
+                        Text("Berean")
+                            .font(.system(size: 16, weight: .light, design: .serif))
+                            .foregroundStyle(Color(white: 0.18))
+                            .tracking(0.2)
+                            // Show brand name in header only when scrolled (conversation active)
+                            // In welcome state the hero headline already shows the name
+                            .opacity(shouldCollapseBibleIcon ? 1 : 0)
+                            .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                    }
                 }
-                
+                .animation(.spring(response: 0.32, dampingFraction: 0.80), value: isGenerating || isThinking)
+                .animation(.easeInOut(duration: 0.22), value: shouldCollapseBibleIcon)
+
+                Spacer()
+
+                // Right: folder / conversations
                 settingsMenuButton
+                    .frame(minWidth: 52, alignment: .trailing)
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 16)
-            .background(Color(red: 0.96, green: 0.96, blue: 0.96))
-            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: shouldCollapseBibleIcon)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            // Header backdrop appears only when scrolled — matches Dia's transparent-to-glass transition
+            .background(
+                Rectangle()
+                    .fill(.ultraThinMaterial)
+                    .opacity(shouldCollapseBibleIcon ? 0.88 : 0.0)
+                    .animation(.easeInOut(duration: 0.28), value: shouldCollapseBibleIcon)
+                    .ignoresSafeArea(edges: .top)
+            )
+            .overlay(alignment: .bottom) {
+                Rectangle()
+                    .fill(Color.black.opacity(shouldCollapseBibleIcon ? 0.05 : 0.0))
+                    .frame(height: 0.5)
+                    .animation(.easeInOut(duration: 0.28), value: shouldCollapseBibleIcon)
+            }
         }
     }
     
@@ -897,201 +1017,42 @@ struct BereanAIAssistantView: View {
         }
     }
     
+    // MARK: - Folder Nav Button (replaces 3-dot menu)
+
     private var settingsMenuButton: some View {
-        Menu {
-            // ✅ Bible Translation Picker
-            Button {
-                let haptic = UIImpactFeedbackGenerator(style: .light)
-                haptic.impactOccurred()
-                showTranslationPicker = true
-            } label: {
-                Label("Bible Translation: \(viewModel.selectedTranslation)", systemImage: "book.fill")
-            }
-            
-            // ✅ Saved Messages
-            Button {
-                let haptic = UIImpactFeedbackGenerator(style: .light)
-                haptic.impactOccurred()
-                showSavedMessages = true
-            } label: {
-                Label("Saved Messages (\(dataManager.savedMessages.count))", systemImage: "bookmark.fill")
-            }
-            
-            // ✅ Conversation History
-            Button {
-                let haptic = UIImpactFeedbackGenerator(style: .light)
-                haptic.impactOccurred()
-                showHistoryView = true
-            } label: {
-                Label("Conversation History", systemImage: "clock.fill")
-            }
-            
-            Divider()
-            
-            // ✅ New Conversation
-            Button {
-                showNewConversationAlert = true
-            } label: {
-                Label("New Conversation", systemImage: "plus.circle")
-            }
-            
-            Divider()
-            
-            // ✅ Advanced AI Features (Premium)
-            Button {
-                if premiumManager.hasProAccess {
-                    showDevotionalGenerator = true
-                } else {
-                    showPremiumUpgrade = true
-                }
-            } label: {
-                HStack {
-                    Label("Daily Devotional", systemImage: "book.pages.fill")
-                    if !premiumManager.hasProAccess {
-                        Image(systemName: "crown.fill")
-                            .font(.system(size: 9))
-                            .foregroundStyle(.orange)
-                    }
-                }
-            }
-            
-            Button {
-                if premiumManager.hasProAccess {
-                    showStudyPlanner = true
-                } else {
-                    showPremiumUpgrade = true
-                }
-            } label: {
-                HStack {
-                    Label("Study Plan Generator", systemImage: "calendar.badge.plus")
-                    if !premiumManager.hasProAccess {
-                        Image(systemName: "crown.fill")
-                            .font(.system(size: 9))
-                            .foregroundStyle(.orange)
-                    }
-                }
-            }
-            
-            Button {
-                if premiumManager.hasProAccess {
-                    showScriptureAnalyzer = true
-                } else {
-                    showPremiumUpgrade = true
-                }
-            } label: {
-                HStack {
-                    Label("Scripture Analyzer", systemImage: "text.magnifyingglass")
-                    if !premiumManager.hasProAccess {
-                        Image(systemName: "crown.fill")
-                            .font(.system(size: 9))
-                            .foregroundStyle(.orange)
-                    }
-                }
-            }
-            
-            Divider()
-            
-            // ✅ Show Onboarding
-            Button {
-                showOnboarding = true
-            } label: {
-                Label("View Tutorial", systemImage: "questionmark.circle")
-            }
-            
-            // ✅ Clear All Data (Destructive)
-            Button(role: .destructive) {
-                showClearAllAlert = true
-            } label: {
-                Label("Clear All Data", systemImage: "trash")
+        folderNavButton
+    }
+
+    private var folderNavButton: some View {
+        Button {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
+                showConversationDrawer = true
             }
         } label: {
             ZStack(alignment: .topTrailing) {
-                Image(systemName: "ellipsis")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(.black.opacity(0.6))
+                Image(systemName: "folder")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(Color(white: 0.26))
                     .frame(width: 36, height: 36)
                     .background(
                         Circle()
-                            .fill(.white)
-                            .shadow(color: .black.opacity(0.08), radius: 4, y: 2)
+                            .fill(Color.white)
+                            .shadow(color: .black.opacity(0.07), radius: 5, y: 2)
                     )
-                    .scaleEffect(quickActionButtonScale)
-                    .animation(.spring(response: 0.3, dampingFraction: 0.6), value: quickActionButtonScale)
-                
-                // First-time hint badge
-                if showFirstTimeLongPressHint {
+
+                // Unread badge — shows when there are saved conversations
+                if !viewModel.savedConversations.isEmpty {
                     Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: [Color(red: 1.0, green: 0.6, blue: 0.4), Color(red: 0.6, green: 0.5, blue: 0.9)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(width: 8, height: 8)
-                        .offset(x: -4, y: 4)
+                        .fill(BereanDesign.coral)
+                        .frame(width: 7, height: 7)
+                        .offset(x: 1, y: -1)
                         .transition(.scale.combined(with: .opacity))
                 }
             }
         }
-        .simultaneousGesture(
-            LongPressGesture(minimumDuration: 0.3)
-                .onChanged { _ in
-                    // Immediate haptic feedback
-                    let haptic = UIImpactFeedbackGenerator(style: .medium)
-                    haptic.impactOccurred()
-                    
-                    withAnimation(.spring(response: 0.2, dampingFraction: 0.7)) {
-                        quickActionButtonScale = 0.85
-                    }
-                }
-                .onEnded { _ in
-                    // Success haptic
-                    let haptic = UINotificationFeedbackGenerator()
-                    haptic.notificationOccurred(.success)
-                    
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
-                        quickActionButtonScale = 1.0
-                        showQuickActions = true
-                        showFirstTimeLongPressHint = false
-                    }
-                    
-                    // Mark hint as seen
-                    if !hasSeenLongPressHint {
-                        hasSeenLongPressHint = true
-                    }
-                }
-        )
-        .overlay(alignment: .topTrailing) {
-            if showQuickActions {
-                BereanQuickActionsMenu(
-                    isShowing: $showQuickActions,
-                    onNewConversation: {
-                        showQuickActions = false
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                            showNewConversationAlert = true
-                        }
-                    },
-                    onSavedMessages: {
-                        showQuickActions = false
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                            showSavedMessages = true
-                        }
-                    },
-                    onHistory: {
-                        showQuickActions = false
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                            showHistoryView = true
-                        }
-                    }
-                )
-                .transition(.asymmetric(
-                    insertion: .scale(scale: 0.8, anchor: .topTrailing).combined(with: .opacity),
-                    removal: .scale(scale: 0.8, anchor: .topTrailing).combined(with: .opacity)
-                ))
-                .zIndex(1000)
-            }
-        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Open conversation organizer")
     }
     
     private var headerBackground: some View {
@@ -1110,202 +1071,52 @@ struct BereanAIAssistantView: View {
     }
     
     // MARK: - Welcome Section
-    
+
     private var welcomeSection: some View {
-        VStack(spacing: 24) {
-            Spacer().frame(height: shouldCollapseBibleIcon ? 20 : 60)
-            
-            // Animated Bible icon - collapses on scroll
-            if !shouldCollapseBibleIcon {
-                ZStack {
-                    // Pulsing glow
-                    Circle()
-                        .fill(
-                            RadialGradient(
-                                colors: [
-                                    Color.black.opacity(0.08),
-                                    Color.black.opacity(0.02),
-                                    Color.clear
-                                ],
-                                center: .center,
-                                startRadius: 20,
-                                endRadius: 50
-                            )
-                        )
-                        .frame(width: 100, height: 100)
-                        .scaleEffect(bibleIconScale)
-                    
-                    Image(systemName: "book.closed.fill")
-                        .font(.system(size: 48, weight: .bold))
-                        .foregroundStyle(.black)
-                        .rotationEffect(.degrees(bibleIconRotation))
-                }
-                .opacity(bibleIconOpacity)
-                .scaleEffect(bibleIconScale)
-                .onAppear {
-                    // Subtle entrance animation
-                    withAnimation(.spring(response: 0.8, dampingFraction: 0.6)) {
-                        bibleIconOpacity = 1.0
-                        bibleIconScale = 1.0
-                    }
-                    
-                    // Continuous breathing animation
-                    withAnimation(
-                        .easeInOut(duration: 3.0)
-                        .repeatForever(autoreverses: true)
-                    ) {
-                        bibleIconRotation = 2
-                    }
-                }
-                .transition(.scale.combined(with: .opacity))
-            }
-            
-            // Title
-            VStack(spacing: 12) {
-                HStack(spacing: 0) {
-                    Text("BEREAN")
-                        .font(.system(size: shouldCollapseBibleIcon ? 32 : 52, weight: .bold, design: .default))
-                        .foregroundStyle(.black)
-                    
-                    Text("AI")
-                        .font(.system(size: shouldCollapseBibleIcon ? 18 : 28, weight: .light, design: .rounded))
-                        .foregroundStyle(.black.opacity(0.6))
-                        .padding(.leading, 4)
-                }
-                .tracking(-1.5)
-                
-                if !shouldCollapseBibleIcon {
-                    // "How can I help you today?" - ChatGPT style
-                    VStack(spacing: 8) {
-                        Text("How can I help you today?")
-                            .font(.system(size: 17, weight: .medium))
-                            .foregroundStyle(.black.opacity(0.8))
-                            .multilineTextAlignment(.center)
-                        
-                        // Rotating welcome texts (secondary)
-                        Text(welcomeTexts[currentWelcomeTextIndex])
-                            .font(.system(size: 14, weight: .regular))
-                            .foregroundStyle(.black.opacity(0.45))
-                            .multilineTextAlignment(.center)
-                            .transition(.opacity)
-                            .id(currentWelcomeTextIndex)
-                    }
-                }
-            }
-            .animation(.spring(response: 0.4, dampingFraction: 0.8), value: shouldCollapseBibleIcon)
-        }
+        BereanHeroWelcomeSection(
+            shouldCollapse: shouldCollapseBibleIcon,
+            bibleIconScale: bibleIconScale,
+            bibleIconOpacity: bibleIconOpacity,
+            welcomeText: welcomeTexts[currentWelcomeTextIndex],
+            welcomeTextIndex: currentWelcomeTextIndex,
+            personalityMode: $personalityMode,
+            onAskTapped: { isInputFocused = true }
+        )
+        .padding(.horizontal, BereanDesign.pagePad)
+        .padding(.top, 24)
         .onAppear {
             startWelcomeTextRotation()
+            withAnimation(.spring(response: 0.75, dampingFraction: 0.68)) {
+                bibleIconOpacity = 1.0
+                bibleIconScale = 1.0
+            }
         }
     }
-    
+
     // MARK: - Quick Actions
-    
+
     private var quickActionsSection: some View {
-        LazyVGrid(
-            columns: [
-                GridItem(.flexible(), spacing: 8),
-                GridItem(.flexible(), spacing: 8)
-            ],
-            spacing: 8
-        ) {
-            // Top left - Soft blue grainy gradient (inspired by modern design)
-            SquareActionCard(
-                icon: "book.closed.fill",
-                title: "Study Passage",
-                gradient: LinearGradient(
-                    colors: [
-                        Color(red: 0.68, green: 0.85, blue: 0.90),  // Soft blue
-                        Color(red: 0.80, green: 0.90, blue: 0.92),  // Light blue
-                        Color(red: 0.88, green: 0.93, blue: 0.95)   // Very light blue
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                ),
-                textColor: Color.white
-            ) {
-                messageText = "Help me study "
-                isInputFocused = true
-            }
-            
-            // Top right - Orange gradient
-            SquareActionCard(
-                icon: "lightbulb.fill",
-                title: "Explain Verse",
-                gradient: LinearGradient(
-                    colors: [
-                        Color(red: 1.0, green: 0.5, blue: 0.4).opacity(0.15),
-                        Color(red: 1.0, green: 0.6, blue: 0.5).opacity(0.05)
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                ),
-                textColor: Color(red: 1.0, green: 0.5, blue: 0.4)
-            ) {
-                messageText = "Explain "
-                isInputFocused = true
-            }
-            
-            // Bottom left - Peach gradient
-            SquareActionCard(
-                icon: "doc.text.fill",
-                title: "Compare Translations",
-                gradient: LinearGradient(
-                    colors: [
-                        Color(red: 0.95, green: 0.7, blue: 0.6).opacity(0.15),
-                        Color(red: 1.0, green: 0.8, blue: 0.7).opacity(0.05)
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                ),
-                textColor: Color(red: 0.95, green: 0.6, blue: 0.5)
-            ) {
-                sendMessage("Compare Bible translations for a verse")
-            }
-            
-            // Bottom right - Purple gradient
-            SquareActionCard(
-                icon: "map.fill",
-                title: "Historical Context",
-                gradient: LinearGradient(
-                    colors: [
-                        Color(red: 0.6, green: 0.5, blue: 0.8).opacity(0.15),
-                        Color(red: 0.7, green: 0.6, blue: 0.9).opacity(0.05)
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                ),
-                textColor: Color(red: 0.6, green: 0.5, blue: 0.8)
-            ) {
-                sendMessage("Tell me about Biblical context")
-            }
-        }
-        .padding(.horizontal, 40)
-        .padding(.top, 20)
+        BereanGroundedQuickSection(
+            onStudyPassage: { messageText = "Help me study "; isInputFocused = true },
+            onExplainVerse: { messageText = "Explain "; isInputFocused = true },
+            onCompareTranslations: { sendMessage("Compare Bible translations for a verse") },
+            onHistoricalContext: { sendMessage("Tell me about Biblical context") },
+            onDailyDevotion: { sendMessage("Give me a short devotional for today") },
+            onNewPrompt: { isInputFocused = true }
+        )
+        .padding(.top, 12)
     }
-    
+
     // MARK: - Suggested Prompts
-    
+
     private var suggestedPromptsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Suggested")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(Color(white: 0.45))
-                .textCase(.uppercase)
-                .tracking(2)
-                .padding(.horizontal, 20)
-            
-            VStack(spacing: 8) {
-                ForEach(viewModel.suggestedPrompts, id: \.self) { prompt in
-                    SuggestedPromptCard(prompt: prompt) {
-                        sendMessage(prompt)
-                    }
-                }
-            }
-            .padding(.horizontal, 20)
-        }
-        .padding(.top, 24)
-        .padding(.bottom, 32)
+        BereanGroundedPromptsSection(
+            prompts: viewModel.suggestedPrompts,
+            onSelectPrompt: { sendMessage($0) },
+            onNewPrompt: { isInputFocused = true }
+        )
+        .padding(.top, 2)
+        .padding(.bottom, 28)
     }
     
     // MARK: - Input Bar (Glassmorphic - Bottom Fixed)
@@ -1376,6 +1187,7 @@ struct BereanAIAssistantView: View {
 
     /// Horizontally scrollable chip row to switch Berean's persona/voice.
     /// Visible only when the input is empty (no clutter mid-conversation).
+
     private var personalityModeSelectorView: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
@@ -1393,14 +1205,32 @@ struct BereanAIAssistantView: View {
                             Text(mode.rawValue)
                                 .font(.system(size: 11, weight: .semibold))
                         }
-                        .foregroundStyle(personalityMode == mode ? .white : Color(white: 0.35))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
+                        .foregroundStyle(personalityMode == mode ? .white : Color(white: 0.38))
+                        .padding(.horizontal, 11)
+                        .padding(.vertical, 7)
                         .background(
                             Capsule()
                                 .fill(personalityMode == mode
-                                    ? Color(red: 0.2, green: 0.5, blue: 0.9)
-                                    : Color.white.opacity(0.6))
+                                    ? LinearGradient(
+                                        colors: [
+                                            Color(red: 0.88, green: 0.38, blue: 0.28),
+                                            Color(red: 0.72, green: 0.28, blue: 0.45)
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                      )
+                                    : LinearGradient(
+                                        colors: [Color.white.opacity(0.75)],
+                                        startPoint: .top,
+                                        endPoint: .bottom
+                                      )
+                                )
+                                .shadow(
+                                    color: personalityMode == mode
+                                        ? Color(red: 0.88, green: 0.38, blue: 0.28).opacity(0.25)
+                                        : .clear,
+                                    radius: 6, y: 2
+                                )
                         )
                     }
                     .accessibilityLabel("\(mode.rawValue) mode: \(mode.description)")
@@ -1422,56 +1252,102 @@ struct BereanAIAssistantView: View {
                 memoryStatusBanner
             }
 
-            // Personality mode selector — shown when input is empty (welcome state or mid-session)
-            if messageText.isEmpty && !isGenerating {
-                personalityModeSelectorView
-            }
-
-            // ✅ Smart Contextual Suggestions (ChatGPT-style)
+            // Smart Contextual Suggestions — rises from input when typing
             if showContextualSuggestions && !contextualSuggestions.isEmpty && viewModel.messages.isEmpty {
                 contextualSuggestionsView
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
-            
-            // ✅ Response Mode Picker (collapsed by default)
-            if viewModel.messages.isEmpty || isGenerating {
-                responseModePickerView
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
-            
-            // Compact glassmorphic pill - smaller and closer to bottom
-            HStack(alignment: .center, spacing: 12) {
-                // Plus button (left side) - BLACK - Smaller
-                Button {
-                    let haptic = UIImpactFeedbackGenerator(style: .light)
-                    haptic.impactOccurred()
-                    handlePlusButtonTap()
-                } label: {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 22, weight: .regular))
-                        .foregroundStyle(.black)
-                        .frame(width: 36, height: 36)
-                        .contentShape(Circle())
-                }
-                .disabled(isGenerating)
-                .opacity(isGenerating ? 0.4 : 1.0)
-                .accessibilityLabel("Add attachment")
 
-                // Text input field - WHITE TEXT
-                textInputFieldGlassmorphic
-
-                // Voice/Send button (right side) - DARK PILL - Smaller
-                actionButtonGlassmorphic
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(largeGlassmorphicBackground)
-            .padding(.horizontal, 12)
+            // ── Composer card — matches reference image design ─────────────
+            premiumComposerCard
+                .padding(.horizontal, 10)
         }
         .padding(.bottom, 8)
         .animation(.easeOut(duration: 0.25), value: keyboardHeight)
+        .animation(.spring(response: 0.40, dampingFraction: 0.80), value: messageText.isEmpty)
     }
-    
+
+    // Composer card — exact match to reference images:
+    // white card, text area top, hairline divider, icon tray + Liquid Glass send button bottom
+    @ViewBuilder
+    private var premiumComposerCard: some View {
+        VStack(spacing: 0) {
+            // Upper zone — text input, expands vertically
+            textInputFieldGlassmorphic
+                .padding(.horizontal, 16)
+                .padding(.top, 14)
+                .padding(.bottom, 10)
+
+            // Hairline divider
+            composerDivider
+
+            // Lower zone — icon tray + send/voice/stop button
+            composerIconRow
+        }
+        .background(composerBackground)
+    }
+
+    private var composerDivider: some View {
+        Rectangle()
+            .fill(Color.black.opacity(0.06))
+            .frame(height: 0.5)
+            .padding(.horizontal, 0)
+    }
+
+    private var composerIconRow: some View {
+        HStack(spacing: 0) {
+            // Paperclip / attachment — matches reference image left icon
+            Button {
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                handlePlusButtonTap()
+            } label: {
+                Image(systemName: "paperclip")
+                    .font(.system(size: 17, weight: .regular))
+                    .foregroundStyle(Color(white: 0.45))
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .disabled(isGenerating)
+            .opacity(isGenerating ? 0.3 : 1.0)
+            .accessibilityLabel("Add attachment")
+
+            // Globe / search — matches reference image second icon
+            Button {
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                showSmartFeatures = true
+            } label: {
+                Image(systemName: "globe")
+                    .font(.system(size: 17, weight: .regular))
+                    .foregroundStyle(Color(white: 0.45))
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .disabled(isGenerating)
+            .opacity(isGenerating ? 0.3 : 1.0)
+            .accessibilityLabel("Search scripture")
+
+            Spacer()
+
+            // Send / Voice / Stop — Liquid Glass blue pill (right-anchored)
+            actionButtonGlassmorphic
+                .padding(.trailing, 8)
+        }
+        .padding(.horizontal, 4)
+        .frame(height: 52)
+    }
+
+    private var composerBackground: some View {
+        // Clean white card matching reference images — subtle border + soft shadow
+        RoundedRectangle(cornerRadius: 22, style: .continuous)
+            .fill(Color.white)
+            .overlay(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .stroke(Color.black.opacity(0.07), lineWidth: 0.5)
+            )
+            .shadow(color: Color.black.opacity(0.09), radius: 18, y: 5)
+            .shadow(color: Color.black.opacity(0.03), radius: 3, y: 1)
+    }
+
     private func getSafeAreaBottom() -> CGFloat {
         guard let window = UIApplication.shared.connectedScenes
             .compactMap({ $0 as? UIWindowScene })
@@ -1499,12 +1375,20 @@ struct BereanAIAssistantView: View {
                         Text(mode.rawValue)
                             .font(.system(size: 11, weight: .medium))
                     }
-                    .foregroundStyle(responseMode == mode ? .white : .black.opacity(0.6))
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
+                    .foregroundStyle(responseMode == mode ? .white : .black.opacity(0.55))
+                    .padding(.horizontal, 11)
+                    .padding(.vertical, 7)
                     .background(
                         Capsule()
-                            .fill(responseMode == mode ? mode.color : Color.white.opacity(0.5))
+                            .fill(
+                                responseMode == mode
+                                    ? AnyShapeStyle(mode.color)
+                                    : AnyShapeStyle(Color.white.opacity(0.6))
+                            )
+                            .shadow(
+                                color: responseMode == mode ? mode.color.opacity(0.3) : .clear,
+                                radius: 5, y: 2
+                            )
                     )
                 }
             }
@@ -1514,14 +1398,15 @@ struct BereanAIAssistantView: View {
     }
     
     private var textInputFieldGlassmorphic: some View {
-        HStack(spacing: 8) {
-            TextField("Ask me anything about the Bible...", text: $messageText, axis: .vertical)
-                .font(.system(size: 13, weight: .regular))
-                .foregroundStyle(.black)
-                .lineLimit(1...1)
+        HStack(alignment: .bottom, spacing: 8) {
+            TextField("Ask Berean...", text: $messageText, axis: .vertical)
+                .font(.system(size: 15, weight: .regular))
+                .foregroundStyle(Color(white: 0.10))
+                // Grows up to 6 lines — elastic spring handles the container expansion
+                .lineLimit(1...6)
                 .focused($isInputFocused)
                 .disabled(isGenerating)
-                .tint(.black)
+                .tint(Color(red: 0.35, green: 0.62, blue: 0.98))
                 .onSubmit {
                     if !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                         sendMessage(messageText)
@@ -1530,18 +1415,21 @@ struct BereanAIAssistantView: View {
                 .submitLabel(.send)
                 .accessibilityLabel("Message input field")
                 .onChange(of: messageText) { _, newValue in
-                    // ✅ Update typing indicator immediately
+                    // Update expanded state — drives the elastic container growth
+                    withAnimation(.spring(response: 0.50, dampingFraction: 0.80)) {
+                        inputBarExpanded = !newValue.isEmpty
+                    }
                     isTyping = !newValue.isEmpty
-                    // ✅ Debounce suggestions — don't fire on every keystroke
+                    // Debounce suggestions — 400ms
                     suggestionDebounceTask?.cancel()
                     suggestionDebounceTask = Task { @MainActor in
-                        try? await Task.sleep(nanoseconds: 400_000_000) // 400ms
+                        try? await Task.sleep(nanoseconds: 400_000_000)
                         guard !Task.isCancelled else { return }
                         generateContextualSuggestions(for: newValue)
                     }
                 }
-            
-            // ✅ Smart typing indicator (subtle)
+
+            // Sparkle indicator — appears when AI has suggestions ready
             if isTyping && showContextualSuggestions {
                 Image(systemName: "sparkles")
                     .font(.system(size: 11, weight: .medium))
@@ -1557,6 +1445,8 @@ struct BereanAIAssistantView: View {
             }
         }
         .frame(maxWidth: .infinity)
+        // Elastic vertical growth — the container animates its height as lineLimit expands
+        .animation(.spring(response: 0.50, dampingFraction: 0.80), value: messageText)
     }
     
     // ✅ Contextual Suggestions View (ChatGPT-style smart questions)
@@ -1621,28 +1511,23 @@ struct BereanAIAssistantView: View {
             handleVoiceButtonTap()
         } label: {
             ZStack {
-                // Dark pill background - Smaller
-                Capsule()
-                    .fill(Color.black.opacity(isVoiceListening ? 0.8 : 0.7))
-                    .frame(width: 80, height: 40)
-                    .overlay(
-                        Capsule()
-                            .stroke(.white.opacity(0.1), lineWidth: 1)
-                    )
+                // Dark circle — clean, matches the card's minimal style
+                Circle()
+                    .fill(Color(white: isVoiceListening ? 0.08 : 0.14))
+                    .frame(width: 36, height: 36)
 
-                // Pulsing animation when listening
+                // Listening pulse ring
                 if isVoiceListening {
-                    Capsule()
-                        .fill(.white.opacity(0.15))
-                        .frame(width: 80, height: 40)
-                        .scaleEffect(isVoiceListening ? 1.15 : 1.0)
-                        .opacity(isVoiceListening ? 0 : 1)
-                        .animation(.easeOut(duration: 1.2).repeatForever(autoreverses: false), value: isVoiceListening)
+                    Circle()
+                        .stroke(Color(red: 0.35, green: 0.62, blue: 0.98).opacity(0.55), lineWidth: 2)
+                        .frame(width: 36, height: 36)
+                        .scaleEffect(1.25)
+                        .opacity(0)
+                        .animation(.easeOut(duration: 1.0).repeatForever(autoreverses: false), value: isVoiceListening)
                 }
 
-                // Waveform icon - Smaller
-                Image(systemName: "waveform")
-                    .font(.system(size: 18, weight: .medium))
+                Image(systemName: isVoiceListening ? "waveform" : "mic")
+                    .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(.white)
                     .symbolEffect(.variableColor, options: .repeating, isActive: isVoiceListening)
             }
@@ -1650,62 +1535,84 @@ struct BereanAIAssistantView: View {
         .buttonStyle(ScaleButtonStyle())
         .accessibilityLabel(isVoiceListening ? "Stop voice input" : "Start voice input")
     }
-    
+
     private var sendButtonGlassmorphic: some View {
         Button {
             guard !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-
             let haptic = UIImpactFeedbackGenerator(style: .medium)
             haptic.impactOccurred()
-
             sendMessage(messageText)
         } label: {
+            // Liquid Glass blue pill — matches reference images (IMG_1207, IMG_1326)
             ZStack {
-                // Dark pill background - Smaller
-                Capsule()
-                    .fill(Color.black.opacity(0.8))
-                    .frame(width: 40, height: 40)
-                    .overlay(
-                        Capsule()
-                            .stroke(.white.opacity(0.1), lineWidth: 1)
+                // Glass base: radial gradient from light blue center to deeper blue edge
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color(red: 0.55, green: 0.82, blue: 1.00),
+                                Color(red: 0.35, green: 0.62, blue: 0.98)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
                     )
+                    .overlay(
+                        // Inner highlight — top specular reflection (glassy sheen)
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        Color.white.opacity(0.35),
+                                        Color.white.opacity(0.0)
+                                    ],
+                                    startPoint: .top,
+                                    endPoint: .center
+                                )
+                            )
+                    )
+                    .overlay(
+                        // Outer ring — subtle blue border
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .stroke(Color(red: 0.30, green: 0.58, blue: 0.95).opacity(0.5), lineWidth: 1.0)
+                    )
+                    .shadow(color: Color(red: 0.30, green: 0.55, blue: 0.95).opacity(0.35), radius: 8, y: 3)
+                    .frame(width: 72, height: 36)
 
                 Image(systemName: "arrow.up")
-                    .font(.system(size: 16, weight: .bold))
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(.white)
             }
         }
         .buttonStyle(ScaleButtonStyle())
         .transition(.scale.combined(with: .opacity))
-        .animation(.easeOut(duration: 0.15), value: !messageText.isEmpty)
+        .animation(.spring(response: 0.28, dampingFraction: 0.72), value: !messageText.isEmpty)
         .accessibilityLabel("Send message")
     }
-    
+
     private var stopButtonGlassmorphic: some View {
         Button {
             let haptic = UINotificationFeedbackGenerator()
             haptic.notificationOccurred(.warning)
-
             stopGeneration()
         } label: {
             ZStack {
-                // Dark red pill background - Smaller
-                Capsule()
-                    .fill(.red.opacity(0.25))
-                    .frame(width: 40, height: 40)
-                    .overlay(
-                        Capsule()
-                            .stroke(.red.opacity(0.4), lineWidth: 1.5)
-                    )
+                // Outlined circle — white fill, thin border, matches the card's clean style
+                Circle()
+                    .fill(Color.white)
+                    .overlay(Circle().stroke(Color.black.opacity(0.20), lineWidth: 1.5))
+                    .shadow(color: .black.opacity(0.08), radius: 4, y: 2)
+                    .frame(width: 36, height: 36)
 
-                Image(systemName: "stop.fill")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(.red)
+                // Square stop icon
+                RoundedRectangle(cornerRadius: 3, style: .continuous)
+                    .fill(Color(white: 0.15))
+                    .frame(width: 13, height: 13)
             }
         }
         .buttonStyle(ScaleButtonStyle())
         .transition(.scale.combined(with: .opacity))
-        .animation(.easeOut(duration: 0.15), value: isGenerating)
+        .animation(.spring(response: 0.28, dampingFraction: 0.72), value: isGenerating)
         .accessibilityLabel("Stop generating")
     }
     
@@ -2320,6 +2227,102 @@ struct BereanAIAssistantView: View {
     }
 }
 
+// MARK: - Berean Light Action Card (editorial, minimal)
+
+// MARK: - Berean Quick Chip (horizontal scroll action)
+
+struct BereanQuickChip: View {
+    let icon: String
+    let label: String
+    let action: () -> Void
+
+    @State private var isPressed = false
+
+    var body: some View {
+        Button {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            action()
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundStyle(Color(white: 0.30))
+                Text(label)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(Color(white: 0.22))
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 9)
+            .background(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(Color.white.opacity(0.80))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 22, style: .continuous)
+                            .stroke(Color.black.opacity(0.07), lineWidth: 0.75)
+                    )
+                    .shadow(color: Color.black.opacity(0.05), radius: 6, y: 2)
+            )
+            .scaleEffect(isPressed ? 0.96 : 1.0)
+        }
+        .buttonStyle(.plain)
+        .onLongPressGesture(minimumDuration: .infinity, pressing: { pressing in
+            withAnimation(.spring(response: 0.22, dampingFraction: 0.72)) { isPressed = pressing }
+        }, perform: {})
+    }
+}
+
+struct BereanLightActionCard: View {
+    let icon: String
+    let title: String
+    let accentColor: Color
+    let action: () -> Void
+    
+    @State private var isPressed = false
+    
+    var body: some View {
+        Button(action: {
+            let haptic = UIImpactFeedbackGenerator(style: .light)
+            haptic.impactOccurred()
+            action()
+        }) {
+            VStack(alignment: .leading, spacing: 10) {
+                Image(systemName: icon)
+                    .font(.system(size: 18, weight: .light))
+                    .foregroundStyle(accentColor.opacity(0.85))
+                
+                Spacer()
+                
+                Text(title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color(white: 0.22))
+                    .multilineTextAlignment(.leading)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(height: 96)
+            .padding(.horizontal, 15)
+            .padding(.vertical, 14)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Color.white.opacity(0.82))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .stroke(Color.black.opacity(0.055), lineWidth: 0.75)
+                    )
+                    .shadow(color: Color.black.opacity(0.04), radius: 8, y: 3)
+            )
+            .scaleEffect(isPressed ? 0.97 : 1.0)
+        }
+        .buttonStyle(.plain)
+        .onLongPressGesture(minimumDuration: .infinity, pressing: { pressing in
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+                isPressed = pressing
+            }
+        }, perform: {})
+    }
+}
+
 // MARK: - Berean Quick Action Card
 
 struct BereanQuickActionCard: View {
@@ -2477,54 +2480,45 @@ struct SquareActionCard: View {
 struct SuggestedPromptCard: View {
     let prompt: String
     let action: () -> Void
-    
+
     @State private var isPressed = false
-    
+
     var body: some View {
-        Button(action: {
-            let haptic = UIImpactFeedbackGenerator(style: .light)
-            haptic.impactOccurred()
-            
-            withAnimation(.easeOut(duration: 0.2)) {
-                action()
-            }
-        }) {
+        Button {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            withAnimation(.easeOut(duration: 0.18)) { action() }
+        } label: {
             HStack(spacing: 12) {
-                Image(systemName: "sparkle")
-                    .font(.system(size: 12, weight: .light))
-                    .foregroundStyle(Color(white: 0.5))
-                
                 Text(prompt)
                     .font(.system(size: 14, weight: .regular))
-                    .foregroundStyle(Color(white: 0.3))
+                    .foregroundStyle(Color(white: 0.25))
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
-                
-                Spacer()
-                
-                Image(systemName: "arrow.right")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(Color(white: 0.5))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                Image(systemName: "arrow.up.right")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(Color(white: 0.45))
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 14)
+            .padding(.vertical, 13)
             .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.white.opacity(0.5))
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Color.white.opacity(0.78))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 16)
-                            .stroke(Color.black.opacity(0.04), lineWidth: 0.5)
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .strokeBorder(
+                                style: StrokeStyle(lineWidth: 0.75, dash: [4, 3])
+                            )
+                            .foregroundStyle(Color.black.opacity(0.10))
                     )
-                    .shadow(color: Color.black.opacity(0.03), radius: 8, y: 2)
             )
             .scaleEffect(isPressed ? 0.98 : 1.0)
-            .opacity(isPressed ? 0.8 : 1.0)
+            .opacity(isPressed ? 0.82 : 1.0)
         }
         .buttonStyle(PlainButtonStyle())
         .onLongPressGesture(minimumDuration: .infinity, maximumDistance: .infinity, pressing: { pressing in
-            withAnimation(.smooth(duration: 0.2)) {
-                isPressed = pressing
-            }
+            withAnimation(.smooth(duration: 0.18)) { isPressed = pressing }
         }, perform: {})
     }
 }
@@ -2534,214 +2528,259 @@ struct SuggestedPromptCard: View {
 struct MessageBubbleView: View {
     let message: BereanMessage
     var onOpenSelah: ((BereanMessage) -> Void)? = nil
+    /// Called when user taps a follow-up action chip. Receives the pre-composed prompt text.
+    var onFollowUp: ((String) -> Void)? = nil
     @State private var showActions = false
     @State private var lightbulbPressed = false
     @State private var praisePressed = false
     @State private var messageToReport: BereanMessage?
     @State private var showReportIssue = false
+    @State private var appeared = false
+    @State private var showFollowUpRow = false
     @Environment(\.messageShareHandler) private var shareHandler
     @EnvironmentObject private var dataManager: BereanDataManager
-    
+
     var body: some View {
-        HStack {
-            if message.isFromUser {
-                Spacer(minLength: 20)
-            }
-            
-            VStack(alignment: message.isFromUser ? .trailing : .leading, spacing: 10) {
-                // Header
-                HStack(spacing: 8) {
-                    if !message.isFromUser {
-                        Image(systemName: "sparkles")
-                            .font(.system(size: 12, weight: .light))
-                            .foregroundStyle(Color(white: 0.5))
-                    }
-                    
-                    Text(message.isFromUser ? "You" : "Berean")
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(Color(white: 0.5))
-                        .textCase(.uppercase)
-                        .tracking(1.5)
-                }
-                
-                // Message content
+        // User messages: right-aligned bubble. Berean messages: full-width editorial layout.
+        if message.isFromUser {
+            userMessageBubble
+        } else {
+            bereanMessageBlock
+        }
+    }
+
+    // MARK: User bubble — compact, right-aligned
+    private var userMessageBubble: some View {
+        HStack(alignment: .bottom) {
+            Spacer(minLength: 56)
+
+            VStack(alignment: .trailing, spacing: 4) {
+                // Label
+                Text("You")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(Color(white: 0.55))
+                    .textCase(.uppercase)
+                    .tracking(1.2)
+                    .padding(.trailing, 2)
+
+                // Bubble
                 Text(message.content)
                     .font(.system(size: 15, weight: .regular))
-                    .foregroundStyle(Color(white: 0.2))
-                    .lineSpacing(8)
-                    .padding(.horizontal, 18)
-                    .padding(.vertical, 14)
+                    .foregroundStyle(Color(white: 0.14))
+                    .lineSpacing(6)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
                     .background(
-                        RoundedRectangle(cornerRadius: 20)
-                            .fill(
-                                message.isFromUser ?
-                                    AnyShapeStyle(Color.white.opacity(0.6)) :
-                                    AnyShapeStyle(LinearGradient(
-                                        colors: [
-                                            Color.white.opacity(0.7),
-                                            Color.white.opacity(0.6)
-                                        ],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    ))
-                            )
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .fill(Color.white.opacity(0.78))
                             .overlay(
-                                RoundedRectangle(cornerRadius: 20)
-                                    .stroke(Color.black.opacity(0.04), lineWidth: 0.5)
+                                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                    .stroke(Color.black.opacity(0.045), lineWidth: 0.6)
                             )
-                            .shadow(color: Color.black.opacity(0.04), radius: 12, y: 4)
+                            .shadow(color: Color.black.opacity(0.055), radius: 10, y: 3)
                     )
-                
-                // Smart reaction buttons (only for AI responses)
-                if !message.isFromUser {
-                    HStack(spacing: 10) {
-                        // Lightbulb - "Helpful" reaction
-                        SmartReactionButton(
-                            icon: "lightbulb.fill",
-                            activeColor: Color(red: 1.0, green: 0.7, blue: 0.5),
-                            isActive: lightbulbPressed
-                        ) {
-                            withAnimation(.easeOut(duration: 0.2)) {
-                                lightbulbPressed.toggle()
-                            }
-                        }
-                        
-                        // Praise hands - "Amen" reaction
-                        SmartReactionButton(
-                            icon: "hands.clap.fill",
-                            activeColor: Color(red: 0.5, green: 0.6, blue: 0.9),
-                            isActive: praisePressed
-                        ) {
-                            withAnimation(.easeOut(duration: 0.2)) {
-                                praisePressed.toggle()
-                            }
-                        }
 
-                        // Selah button — shown for long responses
-                        if message.content.count > 400 {
-                            Button {
-                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                                onOpenSelah?(message)
-                            } label: {
-                                HStack(spacing: 3) {
-                                    Image("amen-logo")
-                                        .resizable()
-                                        .scaledToFit()
-                                        .frame(width: 13, height: 13)
-                                        .blendMode(.multiply)
-                                    Text("Selah")
-                                        .font(.system(size: 11, weight: .semibold))
-                                }
-                                .foregroundStyle(Color.accentColor)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(Color.accentColor.opacity(0.10), in: Capsule())
-                            }
-                            .buttonStyle(.plain)
-                            .transition(.scale.combined(with: .opacity))
-                        }
-                        
-                        Spacer()
-                        
-                        // Share to Feed button
-                        Button {
-                            let haptic = UIImpactFeedbackGenerator(style: .light)
-                            haptic.impactOccurred()
-                            shareHandler?(message)
-                        } label: {
-                            Image(systemName: "square.and.arrow.up")
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundStyle(Color(white: 0.5))
-                                .frame(width: 28, height: 28)
-                        }
-                        
-                        // More options
-                        Menu {
-                            Button {
-                                // ✅ P1-4: Offload clipboard operations to background thread
-                                let content = message.content
-                                Task.detached(priority: .userInitiated) {
-                                    await MainActor.run {
-                                        UIPasteboard.general.string = content
-                                        
-                                        let haptic = UINotificationFeedbackGenerator()
-                                        haptic.notificationOccurred(.success)
-                                        
-                                        print("✅ Message copied to clipboard")
-                                    }
-                                }
-                            } label: {
-                                Label("Copy Text", systemImage: "doc.on.doc")
-                            }
-                            
-                            Button {
-                                // Save for later
-                                dataManager.saveMessage(message)
-                                
-                                let haptic = UINotificationFeedbackGenerator()
-                                haptic.notificationOccurred(.success)
-                                
-                                print("✅ Message saved for later")
-                            } label: {
-                                Label("Save for Later", systemImage: "bookmark")
-                            }
-                            
-                            Divider()
-                            
-                            Button(role: .destructive) {
-                                // Report issue
-                                messageToReport = message
-                                showReportIssue = true
-                            } label: {
-                                Label("Report Issue", systemImage: "exclamationmark.triangle")
-                            }
-                        } label: {
-                            Image(systemName: "ellipsis")
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundStyle(Color(white: 0.5))
-                                .frame(width: 28, height: 28)
-                        }
-                    }
-                    .transition(.scale.combined(with: .opacity))
-                }
-                
-                // Verse references if any
-                if !message.verseReferences.isEmpty {
-                    VStack(spacing: 6) {
-                        ForEach(message.verseReferences, id: \.self) { reference in
-                            VerseReferenceChip(reference: reference)
-                        }
-                    }
-                }
-                
+                // Timestamp
                 Text(message.timestamp, style: .time)
                     .font(.system(size: 10, weight: .regular))
-                    .foregroundStyle(Color(white: 0.5))
-            }
-            
-            if !message.isFromUser {
-                Spacer(minLength: 20)
+                    .foregroundStyle(Color(white: 0.52))
+                    .padding(.trailing, 2)
             }
         }
-        .padding(.horizontal, 16)
-    }
-    
-    private func openVerse() {
-        // ✅ Navigate to Bible view with verse reference
-        guard let reference = message.verseReferences.first, !reference.isEmpty else {
-            print("⚠️ No verse reference available")
-            return
+        .padding(.horizontal, 18)
+        .opacity(appeared ? 1 : 0)
+        .offset(y: appeared ? 0 : 6)
+        .onAppear {
+            withAnimation(.easeOut(duration: 0.22).delay(0.04)) {
+                appeared = true
+            }
         }
-        
-        // Use the navigation helper to open the verse
-        BereanNavigationHelper.openBibleVerse(reference: reference)
-        
-        // Haptic feedback
-        let haptic = UIImpactFeedbackGenerator(style: .medium)
-        haptic.impactOccurred()
-        
-        print("📖 Navigating to verse: \(reference)")
     }
+
+    // MARK: Berean message — full-width, editorial layout
+    private var bereanMessageBlock: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Berean label + scripture chip
+            HStack(spacing: 8) {
+                HStack(spacing: 5) {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 11, weight: .light))
+                        .foregroundStyle(BereanDesign.coralSoft.opacity(0.80))
+                    Text("Berean")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(Color(white: 0.42))
+                        .textCase(.uppercase)
+                        .tracking(1.4)
+                }
+                // Scripture-based chip — shown for every Berean response
+                BereanStatusChip(style: .scripture)
+            }
+            .padding(.bottom, 10)
+
+            // Main content — no bubble, full-width editorial text
+            VStack(alignment: .leading, spacing: 0) {
+                // Message text — clean, readable
+                Text(message.content)
+                    .font(.system(size: 16, weight: .regular))
+                    .foregroundStyle(Color(white: 0.14))
+                    .lineSpacing(9)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                // Verse references — shown below content as tappable chips
+                if !message.verseReferences.isEmpty {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 6) {
+                            ForEach(message.verseReferences, id: \.self) { reference in
+                                VerseReferenceChip(reference: reference)
+                            }
+                        }
+                        .padding(.vertical, 2)
+                    }
+                    .padding(.top, 14)
+                }
+
+                // Action row — reactions, share, more
+                HStack(spacing: 8) {
+                    // Lightbulb
+                    SmartReactionButton(
+                        icon: "lightbulb.fill",
+                        activeColor: Color(red: 1.0, green: 0.7, blue: 0.4),
+                        isActive: lightbulbPressed
+                    ) {
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            lightbulbPressed.toggle()
+                        }
+                    }
+
+                    // Amen / praise
+                    SmartReactionButton(
+                        icon: "hands.clap.fill",
+                        activeColor: Color(red: 0.5, green: 0.6, blue: 0.9),
+                        isActive: praisePressed
+                    ) {
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            praisePressed.toggle()
+                        }
+                    }
+
+                    // Selah — for longer responses
+                    if message.content.count > 400 {
+                        Button {
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            onOpenSelah?(message)
+                        } label: {
+                            HStack(spacing: 3) {
+                                Image("amen-logo")
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: 12, height: 12)
+                                    .blendMode(.multiply)
+                                Text("Selah")
+                                    .font(.system(size: 11, weight: .semibold))
+                            }
+                            .foregroundStyle(Color.accentColor)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.accentColor.opacity(0.10), in: Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .transition(.scale.combined(with: .opacity))
+                    }
+
+                    Spacer()
+
+                    // Share to feed
+                    Button {
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        shareHandler?(message)
+                    } label: {
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(Color(white: 0.5))
+                            .frame(width: 28, height: 28)
+                    }
+
+                    // More options
+                    Menu {
+                        Button {
+                            let content = message.content
+                            Task.detached(priority: .userInitiated) {
+                                await MainActor.run {
+                                    UIPasteboard.general.string = content
+                                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                                }
+                            }
+                        } label: {
+                            Label("Copy Text", systemImage: "doc.on.doc")
+                        }
+
+                        Button {
+                            dataManager.saveMessage(message)
+                            UINotificationFeedbackGenerator().notificationOccurred(.success)
+                        } label: {
+                            Label("Save for Later", systemImage: "bookmark")
+                        }
+
+                        Divider()
+
+                        Button(role: .destructive) {
+                            messageToReport = message
+                            showReportIssue = true
+                        } label: {
+                            Label("Report Issue", systemImage: "exclamationmark.triangle")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(Color(white: 0.5))
+                            .frame(width: 28, height: 28)
+                    }
+                }
+                .padding(.top, 14)
+            }
+
+            // Timestamp
+            Text(message.timestamp, style: .time)
+                .font(.system(size: 10, weight: .regular))
+                .foregroundStyle(Color(white: 0.52))
+                .padding(.top, 6)
+
+            // Follow-up action row — appears after a brief settle delay
+            if showFollowUpRow, let followUp = onFollowUp {
+                BereanFollowUpActionsRow(
+                    onExplainMore: { followUp("Can you explain that in more depth?") },
+                    onShowVerses:  { followUp("Show me related Bible verses for this.") },
+                    onSummarize:   { followUp("Can you give me a brief summary?") },
+                    onReflect:     { followUp("Help me reflect personally on what you just shared.") }
+                )
+                .padding(.horizontal, -22) // bleed to edge so pills don't feel inset
+            }
+        }
+        .padding(.horizontal, 22)
+        .padding(.vertical, 6)
+        .opacity(appeared ? 1 : 0)
+        .offset(y: appeared ? 0 : 8)
+        .onAppear {
+            withAnimation(.easeOut(duration: 0.28).delay(0.03)) {
+                appeared = true
+            }
+            // Delay follow-up row so it doesn't compete visually with the entrance
+            if onFollowUp != nil {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
+                    withAnimation(.easeOut(duration: 0.22)) {
+                        showFollowUpRow = true
+                    }
+                }
+            }
+        }
+        // Report issue sheet
+        .sheet(isPresented: $showReportIssue) {
+            if let msg = messageToReport {
+                BereanReportIssueView(message: msg, isPresented: $showReportIssue)
+            }
+        }
+    }
+
 }
 
 // MARK: - Message Share Handler Environment Key
@@ -2857,51 +2896,450 @@ struct VerseReferenceChip: View {
 
 // MARK: - Thinking Indicator
 
-struct ThinkingIndicatorView: View {
-    @State private var dotCount = 0
-    @State private var animationPhase = 0.0
-    
+// MARK: - Header thinking dot (tiny, for header status bar)
+
+struct HeaderThinkingDot: View {
+    let index: Int
+    let isActive: Bool
+    @State private var phase = false
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 12, weight: .light))
-                    .foregroundStyle(Color(white: 0.5))
-                    .symbolEffect(.pulse)
-                
-                Text("Berean")
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(Color(white: 0.5))
-                    .textCase(.uppercase)
-                    .tracking(1.5)
-            }
-            
-            HStack(spacing: 6) {
-                ForEach(0..<3) { index in
-                    Circle()
-                        .fill(Color(white: 0.4))
-                        .frame(width: 6, height: 6)
-                        .scaleEffect(dotCount == index ? 1.3 : 0.8)
-                        .opacity(dotCount == index ? 1.0 : 0.4)
+        Circle()
+            .fill(Color(red: 0.88, green: 0.38, blue: 0.28))
+            .frame(width: 4, height: 4)
+            .scaleEffect(phase ? 1.4 : 0.7)
+            .opacity(phase ? 1.0 : 0.35)
+            .onAppear {
+                guard isActive else { return }
+                let delay = Double(index) * 0.18
+                DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                    withAnimation(
+                        .easeInOut(duration: 0.55)
+                        .repeatForever(autoreverses: true)
+                    ) { phase = true }
                 }
             }
-            .padding(.horizontal, 18)
-            .padding(.vertical, 14)
-            .background(
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(Color.white.opacity(0.6))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 20)
-                            .stroke(Color.black.opacity(0.04), lineWidth: 0.5)
-                    )
-                    .shadow(color: Color.black.opacity(0.04), radius: 12, y: 4)
+            .onChange(of: isActive) { _, active in
+                if !active { withAnimation { phase = false } }
+            }
+    }
+}
+
+// MARK: - Thinking Indicator (in-chat — task-pill reorder version)
+//
+// Shows Berean's active reasoning as three task pills.
+// Each pill slides to the top with matchedGeometryEffect when it becomes
+// active (checked). The checkmark pops with a spring overshoot (0.8→1.1→1.0).
+// A "searching" shimmer capsule appears above the pills while isGenerating.
+
+struct ThinkingIndicatorView: View {
+
+    // MARK: Internal task model
+    struct BereanThinkStep: Identifiable, Equatable {
+        let id: UUID
+        let label: String
+        let detail: String
+        let icon: String
+        var isActive: Bool      // currently processing
+        var isDone: Bool        // completed — shows checkmark
+        var checkScale: CGFloat // drives the pop animation
+    }
+
+    @State private var steps: [BereanThinkStep] = [
+        .init(id: UUID(), label: "Searching Scripture",
+              detail: "Cross-referencing relevant passages",
+              icon: "text.book.closed.fill",
+              isActive: false, isDone: false, checkScale: 0),
+        .init(id: UUID(), label: "Theological context",
+              detail: "Examining historical and doctrinal layers",
+              icon: "scroll.fill",
+              isActive: false, isDone: false, checkScale: 0),
+        .init(id: UUID(), label: "Composing your answer",
+              detail: "Crafting a grounded response",
+              icon: "sparkles",
+              isActive: false, isDone: false, checkScale: 0)
+    ]
+
+    @Namespace private var pillNamespace
+    @State private var shimmerPhase: CGFloat = -1   // drives the scanning shimmer
+    @State private var currentStepIdx = 0
+    @State private var tickTimer: Timer?
+    private let coral = BereanDesign.coral
+
+    // MARK: - Body
+
+    var body: some View {
+        VStack(spacing: 0) {
+
+            // ── Searching shimmer capsule ──────────────────────────────────
+            searchingCapsule
+                .padding(.horizontal, 22)
+                .padding(.bottom, 10)
+
+            // ── Task pill list ─────────────────────────────────────────────
+            VStack(spacing: 8) {
+                ForEach(steps) { step in
+                    taskPill(step)
+                }
+            }
+            .padding(.horizontal, 16)
+            .animation(
+                .spring(response: 0.60, dampingFraction: 0.72),
+                value: steps.map(\.id)
             )
+            .padding(.bottom, 6)
+        }
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(Color.white.opacity(0.82))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .stroke(Color.black.opacity(0.05), lineWidth: 0.75)
+                )
+                .shadow(color: .black.opacity(0.06), radius: 16, y: 5)
+        )
+        .padding(.horizontal, 4)
+        .onAppear { startSequence() }
+        .onDisappear { tickTimer?.invalidate() }
+    }
+
+    // MARK: - Searching shimmer capsule
+
+    private var searchingCapsule: some View {
+        ZStack {
+            // Base pill
+            Capsule()
+                .fill(Color(red: 0.94, green: 0.93, blue: 0.92))
+                .overlay(Capsule().stroke(Color.black.opacity(0.06), lineWidth: 0.75))
+                .frame(height: 32)
+
+            // Shimmer sweep overlay
+            Capsule()
+                .fill(
+                    LinearGradient(
+                        stops: [
+                            .init(color: .clear, location: 0),
+                            .init(color: .white.opacity(0.55), location: 0.4),
+                            .init(color: .white.opacity(0.55), location: 0.6),
+                            .init(color: .clear, location: 1)
+                        ],
+                        startPoint: .init(x: shimmerPhase - 0.3, y: 0),
+                        endPoint:   .init(x: shimmerPhase + 0.3, y: 0)
+                    )
+                )
+                .frame(height: 32)
+
+            // Label
+            HStack(spacing: 6) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(coral.opacity(0.80))
+                    .symbolEffect(.pulse, options: .repeating)
+                Text("Searching the scriptures…")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Color(white: 0.38))
+            }
         }
         .onAppear {
-            Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { _ in
-                withAnimation(.easeOut(duration: 0.2)) {
-                    dotCount = (dotCount + 1) % 3
+            withAnimation(
+                .linear(duration: 1.4).repeatForever(autoreverses: false)
+            ) {
+                shimmerPhase = 1.3
+            }
+        }
+    }
+
+    // MARK: - Task pill
+
+    private func taskPill(_ step: BereanThinkStep) -> some View {
+        HStack(spacing: 12) {
+
+            // Check circle with pop animation
+            ZStack {
+                Circle()
+                    .fill(step.isDone ? coral : Color.clear)
+                    .frame(width: 26, height: 26)
+
+                Circle()
+                    .stroke(
+                        step.isDone ? coral : (step.isActive ? coral.opacity(0.55) : Color(white: 0.80)),
+                        lineWidth: 1.5
+                    )
+                    .frame(width: 26, height: 26)
+
+                if step.isDone {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(.white)
+                        .scaleEffect(step.checkScale)
+                        .transition(.scale(scale: 0.4).combined(with: .opacity))
+                } else if step.isActive {
+                    // Active: pulsing coral ring
+                    Circle()
+                        .fill(coral.opacity(0.22))
+                        .frame(width: 14, height: 14)
+                        .symbolEffect(.pulse, options: .repeating)
                 }
+            }
+            .animation(.spring(response: 0.30, dampingFraction: 0.60), value: step.isDone)
+
+            // Text labels
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 5) {
+                    Image(systemName: step.icon)
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(step.isDone ? coral : (step.isActive ? coral.opacity(0.70) : Color(white: 0.58)))
+                    Text(step.label)
+                        .font(.system(size: 13, weight: step.isActive || step.isDone ? .semibold : .regular))
+                        .foregroundStyle(step.isDone ? coral : (step.isActive ? Color(white: 0.10) : Color(white: 0.42)))
+                }
+                if step.isActive || step.isDone {
+                    Text(step.detail)
+                        .font(.system(size: 11, weight: .regular))
+                        .foregroundStyle(Color(white: 0.58))
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
+            }
+            .animation(.spring(response: 0.40, dampingFraction: 0.78), value: step.isActive)
+
+            Spacer()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, step.isActive || step.isDone ? 11 : 9)
+        .background(
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
+                .fill(
+                    step.isDone
+                    ? coral.opacity(0.07)
+                    : (step.isActive ? Color(white: 0.97) : Color(white: 0.975))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 13, style: .continuous)
+                        .stroke(
+                            step.isDone
+                            ? coral.opacity(0.22)
+                            : (step.isActive ? Color(white: 0.88) : Color(white: 0.91)),
+                            lineWidth: 0.75
+                        )
+                )
+                .shadow(
+                    color: step.isActive ? .black.opacity(0.05) : .clear,
+                    radius: 6, y: 2
+                )
+        )
+        // matchedGeometryEffect — pill slides into its new list position
+        // rather than teleporting when the order changes.
+        .matchedGeometryEffect(id: step.id, in: pillNamespace)
+    }
+
+    // MARK: - Sequence logic
+    //
+    // Ticks through steps one by one with a 900ms interval.
+    // When a step completes it jumps to the top of the list
+    // using a spring-animated array reorder.
+
+    private func startSequence() {
+        currentStepIdx = 0
+        // Mark first step active immediately
+        if !steps.isEmpty {
+            withAnimation(.spring(response: 0.40, dampingFraction: 0.78)) {
+                steps[0].isActive = true
+            }
+        }
+        tickTimer = Timer.scheduledTimer(withTimeInterval: 0.9, repeats: true) { _ in
+            Task { @MainActor in tickNextStep() }
+        }
+    }
+
+    private func tickNextStep() {
+        guard currentStepIdx < steps.count else {
+            tickTimer?.invalidate()
+            return
+        }
+        let idx = currentStepIdx
+
+        // 1. Mark current step done, trigger checkmark pop
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.62)) {
+            steps[idx].isDone   = true
+            steps[idx].isActive = false
+            steps[idx].checkScale = 0
+        }
+        // Phase 1: overshoot
+        withAnimation(.spring(response: 0.28, dampingFraction: 0.52)) {
+            steps[idx].checkScale = 1.12
+        }
+        // Phase 2: settle
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
+            withAnimation(.spring(response: 0.22, dampingFraction: 0.80)) {
+                steps[idx].checkScale = 1.0
+            }
+        }
+
+        // 2. Slide completed step to top of list (with stagger for later steps)
+        let doneStep = steps[idx]
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.10 * Double(idx)) {
+            withAnimation(.spring(response: 0.60, dampingFraction: 0.72)) {
+                steps.removeAll { $0.id == doneStep.id }
+                steps.insert(doneStep, at: 0)
+            }
+        }
+
+        // 3. Activate next step
+        currentStepIdx += 1
+        let next = currentStepIdx
+        if next < steps.count {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                withAnimation(.spring(response: 0.40, dampingFraction: 0.78)) {
+                    if let realIdx = steps.firstIndex(where: { !$0.isDone }) {
+                        steps[realIdx].isActive = true
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Voice Listening Overlay
+
+struct BereanVoiceListeningOverlay: View {
+    @ObservedObject var recognizer: SpeechRecognitionService
+    let onStop: () -> Void
+    let onCancel: () -> Void
+
+    @State private var pulseScale: CGFloat = 1.0
+    @State private var appeared = false
+
+    private let coral = Color(red: 0.88, green: 0.38, blue: 0.28)
+
+    var body: some View {
+        ZStack {
+            // Background blur + tint
+            Rectangle()
+                .fill(.ultraThinMaterial)
+                .ignoresSafeArea()
+                .overlay(
+                    Rectangle()
+                        .fill(Color.white.opacity(0.55))
+                        .ignoresSafeArea()
+                )
+
+            VStack(spacing: 0) {
+                Spacer()
+
+                // Atmospheric pulse rings
+                ZStack {
+                    // Outermost soft ring
+                    Circle()
+                        .stroke(coral.opacity(0.06), lineWidth: 1)
+                        .frame(width: 220, height: 220)
+                        .scaleEffect(appeared ? pulseScale * 1.12 : 0.7)
+                        .opacity(appeared ? 1 : 0)
+
+                    // Middle ring
+                    Circle()
+                        .stroke(coral.opacity(0.12), lineWidth: 1.2)
+                        .frame(width: 160, height: 160)
+                        .scaleEffect(appeared ? pulseScale * 1.06 : 0.7)
+                        .opacity(appeared ? 1 : 0)
+
+                    // Inner filled ring
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [coral.opacity(0.18), coral.opacity(0.06)],
+                                center: .center, startRadius: 0, endRadius: 55
+                            )
+                        )
+                        .frame(width: 110, height: 110)
+                        .scaleEffect(appeared ? 1.0 : 0.6)
+                        .opacity(appeared ? 1 : 0)
+
+                    // Mic icon
+                    Image(systemName: recognizer.isRecording ? "waveform" : "mic")
+                        .font(.system(size: 34, weight: .light))
+                        .foregroundStyle(coral)
+                        .symbolEffect(
+                            .variableColor.iterative,
+                            options: .repeating,
+                            isActive: recognizer.isRecording
+                        )
+                        .scaleEffect(appeared ? 1.0 : 0.5)
+                        .opacity(appeared ? 1 : 0)
+                }
+                .padding(.bottom, 36)
+
+                // Live transcription or prompt
+                VStack(spacing: 8) {
+                    if recognizer.transcribedText.isEmpty {
+                        Text("Listening…")
+                            .font(.system(size: 22, weight: .light, design: .serif))
+                            .foregroundStyle(Color(white: 0.18))
+                    } else {
+                        Text(recognizer.transcribedText)
+                            .font(.system(size: 18, weight: .regular))
+                            .foregroundStyle(Color(white: 0.15))
+                            .multilineTextAlignment(.center)
+                            .lineLimit(4)
+                            .padding(.horizontal, 40)
+                            .transition(.opacity)
+                    }
+
+                    Text("Speak your question")
+                        .font(.system(size: 13, weight: .regular))
+                        .foregroundStyle(Color(white: 0.55))
+                        .opacity(recognizer.transcribedText.isEmpty ? 1 : 0)
+                }
+                .animation(.easeInOut(duration: 0.25), value: recognizer.transcribedText)
+                .padding(.bottom, 52)
+
+                // Action buttons
+                HStack(spacing: 20) {
+                    // Cancel
+                    Button(action: onCancel) {
+                        Text("Cancel")
+                            .font(.system(size: 15, weight: .regular))
+                            .foregroundStyle(Color(white: 0.45))
+                            .padding(.horizontal, 28)
+                            .padding(.vertical, 13)
+                            .background(
+                                Capsule()
+                                    .fill(Color(white: 0.92))
+                            )
+                    }
+
+                    // Stop / use result
+                    Button(action: onStop) {
+                        HStack(spacing: 6) {
+                            Image(systemName: recognizer.transcribedText.isEmpty ? "stop.circle" : "checkmark")
+                                .font(.system(size: 14, weight: .medium))
+                            Text(recognizer.transcribedText.isEmpty ? "Stop" : "Use")
+                                .font(.system(size: 15, weight: .semibold))
+                        }
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 28)
+                        .padding(.vertical, 13)
+                        .background(
+                            Capsule()
+                                .fill(coral)
+                                .shadow(color: coral.opacity(0.35), radius: 10, y: 4)
+                        )
+                    }
+                }
+                .padding(.bottom, 60)
+
+                Spacer()
+            }
+        }
+        .onAppear {
+            withAnimation(.spring(response: 0.55, dampingFraction: 0.7)) {
+                appeared = true
+            }
+            withAnimation(
+                .easeInOut(duration: 1.6)
+                .repeatForever(autoreverses: true)
+            ) {
+                pulseScale = 1.08
             }
         }
     }
@@ -4885,6 +5323,1221 @@ enum BereanPersonalityMode: String, CaseIterable, Identifiable {
         }
     }
 }
+
+// MARK: - Design Tokens
+
+private enum BereanDesign {
+    // Palette
+    static let coral       = Color(red: 0.88, green: 0.38, blue: 0.28)
+    static let coralSoft   = Color(red: 0.95, green: 0.45, blue: 0.32)
+    static let surface     = Color(red: 0.949, green: 0.949, blue: 0.969)
+    static let cardWhite   = Color.white.opacity(0.85)
+    static let cardStroke  = Color.black.opacity(0.055)
+    static let textPrimary = Color(white: 0.12)
+    static let textSecond  = Color(white: 0.46)
+    static let textTertiary = Color(white: 0.62)
+
+    // Radii
+    static let outerRadius: CGFloat = 24
+    static let cardRadius: CGFloat  = 16
+    static let chipRadius: CGFloat  = 100   // capsule
+
+    // Spacing
+    static let pagePad: CGFloat     = 18
+    static let sectionGap: CGFloat  = 14
+}
+
+// MARK: - BereanWorkspacePanel
+/// Large-radius white card — the primary module container.
+/// Wraps hero area, prompt sections, or response modules.
+
+struct BereanWorkspacePanel<Content: View>: View {
+    var padding: EdgeInsets = .init(top: 22, leading: 20, bottom: 22, trailing: 20)
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        content()
+            .padding(padding)
+            .background(
+                RoundedRectangle(cornerRadius: BereanDesign.outerRadius, style: .continuous)
+                    .fill(BereanDesign.cardWhite)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: BereanDesign.outerRadius, style: .continuous)
+                            .stroke(BereanDesign.cardStroke, lineWidth: 0.75)
+                    )
+                    .shadow(color: .black.opacity(0.04), radius: 14, y: 4)
+            )
+    }
+}
+
+// MARK: - BereanDashedModuleCard
+/// Inner dashed-border card — used selectively for prompts, study modules,
+/// follow-up sections. Lower visual weight than the workspace panel.
+
+struct BereanDashedModuleCard<Content: View>: View {
+    var cornerRadius: CGFloat = BereanDesign.cardRadius
+    var dashPattern: [CGFloat] = [5, 3.5]
+    var strokeOpacity: Double = 0.13
+    var fillOpacity: Double = 0.0
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        content()
+            .background(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(Color.white.opacity(fillOpacity))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                            .strokeBorder(
+                                style: StrokeStyle(lineWidth: 1.0, dash: dashPattern)
+                            )
+                            .foregroundStyle(Color.black.opacity(strokeOpacity))
+                    )
+            )
+    }
+}
+
+// MARK: - BereanStatusChip
+/// Inline status pill. Used sparingly — generating state, saved, scripture-based, etc.
+
+struct BereanStatusChip: View {
+    enum ChipStyle {
+        case generating, saved, scripture, followUp, reflection, neutral(String)
+
+        var label: String {
+            switch self {
+            case .generating:          return "Reflecting"
+            case .saved:               return "Saved"
+            case .scripture:           return "Scripture-Based"
+            case .followUp:            return "Follow-Up Ready"
+            case .reflection:          return "Reflection"
+            case .neutral(let l):      return l
+            }
+        }
+        var icon: String {
+            switch self {
+            case .generating:    return "ellipsis"
+            case .saved:         return "bookmark.fill"
+            case .scripture:     return "book.closed.fill"
+            case .followUp:      return "arrow.turn.down.right"
+            case .reflection:    return "heart.text.square"
+            case .neutral:       return "circle.fill"
+            }
+        }
+        var color: Color {
+            switch self {
+            case .generating:    return BereanDesign.coral
+            case .saved:         return Color(red: 0.35, green: 0.62, blue: 0.90)
+            case .scripture:     return Color(red: 0.42, green: 0.68, blue: 0.48)
+            case .followUp:      return Color(red: 0.58, green: 0.42, blue: 0.82)
+            case .reflection:    return Color(red: 0.88, green: 0.55, blue: 0.28)
+            case .neutral:       return Color(white: 0.55)
+            }
+        }
+    }
+
+    let style: ChipStyle
+    var animated: Bool = false
+    @State private var pulse = false
+
+    var body: some View {
+        HStack(spacing: 4) {
+            if style.label == ChipStyle.generating.label && animated {
+                // Pulsing dot for live generating state
+                Circle()
+                    .fill(style.color)
+                    .frame(width: 5, height: 5)
+                    .scaleEffect(pulse ? 1.35 : 0.85)
+                    .animation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true), value: pulse)
+                    .onAppear { pulse = true }
+            } else {
+                Image(systemName: style.icon)
+                    .font(.system(size: 8, weight: .semibold))
+                    .foregroundStyle(style.color)
+            }
+            Text(style.label)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(style.color)
+                .tracking(0.2)
+        }
+        .padding(.horizontal, 9)
+        .padding(.vertical, 5)
+        .background(
+            Capsule()
+                .fill(style.color.opacity(0.10))
+                .overlay(
+                    Capsule()
+                        .stroke(style.color.opacity(0.18), lineWidth: 0.75)
+                )
+        )
+    }
+}
+
+// MARK: - BereanSectionHeader
+/// Compact section header used above workspace modules in the scroll view.
+
+struct BereanSectionHeader: View {
+    let title: String
+    var subtitle: String? = nil
+    var accentBar: Bool = true
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 8) {
+            if accentBar {
+                Capsule()
+                    .fill(BereanDesign.coral.opacity(0.40))
+                    .frame(width: 2.5, height: 13)
+            }
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(BereanDesign.textPrimary)
+                    .tracking(0.1)
+                if let sub = subtitle {
+                    Text(sub)
+                        .font(.system(size: 10, weight: .regular))
+                        .foregroundStyle(BereanDesign.textTertiary)
+                }
+            }
+            Spacer()
+        }
+    }
+}
+
+// MARK: - BereanPillButton
+/// Soft pill-shaped action button — "Ask Berean," "Add follow-up," "Save insight," etc.
+
+struct BereanPillButton: View {
+    let label: String
+    var icon: String? = nil
+    var style: ButtonStyle = .primary
+    let action: () -> Void
+
+    @State private var isPressed = false
+
+    enum ButtonStyle {
+        case primary, secondary, ghost
+        var foreground: Color {
+            switch self {
+            case .primary:   return .white
+            case .secondary: return BereanDesign.textPrimary
+            case .ghost:     return BereanDesign.textSecond
+            }
+        }
+        var fill: AnyShapeStyle {
+            switch self {
+            case .primary:
+                return AnyShapeStyle(LinearGradient(
+                    colors: [BereanDesign.coral, Color(red: 0.78, green: 0.30, blue: 0.44)],
+                    startPoint: .topLeading, endPoint: .bottomTrailing
+                ))
+            case .secondary:
+                return AnyShapeStyle(Color.white.opacity(0.90))
+            case .ghost:
+                return AnyShapeStyle(Color.clear)
+            }
+        }
+        var strokeColor: Color {
+            switch self {
+            case .primary:   return .clear
+            case .secondary: return Color.black.opacity(0.08)
+            case .ghost:     return Color.black.opacity(0.10)
+            }
+        }
+    }
+
+    var body: some View {
+        Button(action: {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            action()
+        }) {
+            HStack(spacing: icon != nil ? 5 : 0) {
+                if let icon {
+                    Image(systemName: icon)
+                        .font(.system(size: 12, weight: .medium))
+                }
+                Text(label)
+                    .font(.system(size: 13, weight: .semibold))
+            }
+            .foregroundStyle(style.foreground)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(
+                Capsule()
+                    .fill(style.fill)
+                    .overlay(
+                        Capsule()
+                            .stroke(style.strokeColor, lineWidth: 0.75)
+                    )
+                    .shadow(
+                        color: style == .primary ? BereanDesign.coral.opacity(0.22) : .clear,
+                        radius: 8, y: 3
+                    )
+            )
+            .scaleEffect(isPressed ? 0.96 : 1.0)
+        }
+        .buttonStyle(.plain)
+        .onLongPressGesture(minimumDuration: .infinity, pressing: { pressing in
+            withAnimation(.spring(response: 0.22, dampingFraction: 0.72)) { isPressed = pressing }
+        }, perform: {})
+    }
+}
+
+// MARK: - BereanFollowUpActionsRow
+/// Horizontal pill-button row shown below a Berean message response.
+/// Gives the user one-tap follow-up actions relevant to the current response.
+
+struct BereanFollowUpActionsRow: View {
+    let onExplainMore: () -> Void
+    let onShowVerses: () -> Void
+    let onSummarize: () -> Void
+    let onReflect: () -> Void
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                BereanPillButton(label: "Explain more", icon: "arrow.down.doc", style: .secondary, action: onExplainMore)
+                BereanPillButton(label: "Show verses", icon: "book.closed", style: .secondary, action: onShowVerses)
+                BereanPillButton(label: "Summarize", icon: "text.alignleft", style: .secondary, action: onSummarize)
+                BereanPillButton(label: "Reflect", icon: "heart.text.square", style: .ghost, action: onReflect)
+            }
+            .padding(.horizontal, 22)
+            .padding(.vertical, 4)
+        }
+        .padding(.top, 10)
+        .transition(.asymmetric(
+            insertion: .move(edge: .bottom).combined(with: .opacity),
+            removal: .opacity
+        ))
+    }
+}
+
+// MARK: - BereanConversationDrawer
+/// Slide-in panel from trailing edge — ChatGPT/Claude-style conversation organizer.
+/// Houses New Chat, search, recent conversations, saved messages, and utility controls.
+
+struct BereanConversationDrawer: View {
+    @Binding var isShowing: Bool
+    @Binding var conversations: [SavedConversation]
+
+    let onNewChat: () -> Void
+    let onSelectConversation: (SavedConversation) -> Void
+    let onDeleteConversation: (SavedConversation) -> Void
+    let onShowSaved: () -> Void
+    let onShowTranslation: () -> Void
+    let onShowOnboarding: () -> Void
+    let onClearAll: () -> Void
+
+    @State private var searchText = ""
+    @State private var showDeleteConfirm: SavedConversation? = nil
+
+    private var filteredConversations: [SavedConversation] {
+        guard !searchText.isEmpty else { return conversations }
+        return conversations.filter {
+            $0.title.localizedCaseInsensitiveContains(searchText) ||
+            $0.messages.contains { $0.content.localizedCaseInsensitiveContains(searchText) }
+        }
+    }
+
+    private let drawerWidth: CGFloat = min(UIScreen.main.bounds.width * 0.82, 340)
+
+    var body: some View {
+        ZStack(alignment: .trailing) {
+            // Scrim
+            Color.black.opacity(0.32)
+                .ignoresSafeArea()
+                .onTapGesture {
+                    withAnimation(.spring(response: 0.34, dampingFraction: 0.84)) {
+                        isShowing = false
+                    }
+                }
+
+            // Drawer panel
+            drawerPanel
+                .frame(width: drawerWidth)
+        }
+    }
+
+    private var drawerPanel: some View {
+        VStack(spacing: 0) {
+            drawerHeader
+            Divider().opacity(0.08)
+            searchBar
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 0) {
+                    newChatButton
+                    if !filteredConversations.isEmpty {
+                        conversationsSection
+                    } else if !searchText.isEmpty {
+                        emptySearchState
+                    } else {
+                        emptyConversationsState
+                    }
+                    Divider()
+                        .opacity(0.07)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 8)
+                    utilitySection
+                }
+                .padding(.bottom, 32)
+            }
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(Color(red: 0.98, green: 0.97, blue: 0.96))
+                .shadow(color: Color.black.opacity(0.14), radius: 32, x: -8, y: 0)
+                .ignoresSafeArea(edges: .vertical)
+        )
+        .alert("Delete Conversation?", isPresented: Binding(
+            get: { showDeleteConfirm != nil },
+            set: { if !$0 { showDeleteConfirm = nil } }
+        )) {
+            Button("Delete", role: .destructive) {
+                if let c = showDeleteConfirm { onDeleteConversation(c) }
+                showDeleteConfirm = nil
+            }
+            Button("Cancel", role: .cancel) { showDeleteConfirm = nil }
+        } message: {
+            Text("This conversation will be permanently removed.")
+        }
+    }
+
+    // MARK: Header
+
+    private var drawerHeader: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(BereanDesign.coral.opacity(0.12))
+                    .frame(width: 36, height: 36)
+                Image(systemName: "folder.fill")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(BereanDesign.coral)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Conversations")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Color(white: 0.14))
+                Text("\(conversations.count) saved")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color(white: 0.5))
+            }
+            Spacer()
+            Button {
+                withAnimation(.spring(response: 0.34, dampingFraction: 0.84)) {
+                    isShowing = false
+                }
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(Color(white: 0.4))
+                    .frame(width: 30, height: 30)
+                    .background(Circle().fill(Color.black.opacity(0.06)))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 20)
+        .padding(.bottom, 14)
+    }
+
+    // MARK: Search
+
+    private var searchBar: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(Color(white: 0.5))
+            TextField("Search conversations...", text: $searchText)
+                .font(.system(size: 14))
+                .foregroundStyle(Color(white: 0.2))
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+            if !searchText.isEmpty {
+                Button { searchText = "" } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 14))
+                        .foregroundStyle(Color(white: 0.5))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color.white.opacity(0.7))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(Color.black.opacity(0.07), lineWidth: 0.75)
+                )
+        )
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+    }
+
+    // MARK: New Chat Button
+
+    private var newChatButton: some View {
+        Button(action: {
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            onNewChat()
+        }) {
+            HStack(spacing: 10) {
+                ZStack {
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [BereanDesign.coral, BereanDesign.coral.opacity(0.75)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 32, height: 32)
+                    Image(systemName: "plus")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(.white)
+                }
+                Text("New Conversation")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Color(white: 0.14))
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Color(white: 0.55))
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 13)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Color.white)
+                    .shadow(color: BereanDesign.coral.opacity(0.12), radius: 8, y: 2)
+            )
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 16)
+        .padding(.top, 12)
+        .padding(.bottom, 4)
+    }
+
+    // MARK: Conversations Section
+
+    private var conversationsSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Recent")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Color(white: 0.5))
+                .textCase(.uppercase)
+                .tracking(0.8)
+                .padding(.horizontal, 20)
+                .padding(.top, 18)
+                .padding(.bottom, 8)
+
+            VStack(spacing: 4) {
+                ForEach(filteredConversations) { conversation in
+                    conversationRow(conversation)
+                }
+            }
+            .padding(.horizontal, 16)
+        }
+    }
+
+    private func conversationRow(_ conversation: SavedConversation) -> some View {
+        Button(action: {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            onSelectConversation(conversation)
+        }) {
+            HStack(spacing: 10) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(Color(white: 0.94))
+                        .frame(width: 32, height: 32)
+                    Image(systemName: "bubble.left.and.bubble.right")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(Color(white: 0.45))
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(conversation.title)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(Color(white: 0.18))
+                        .lineLimit(1)
+                    HStack(spacing: 4) {
+                        Text(conversation.translation)
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(BereanDesign.coral.opacity(0.8))
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1.5)
+                            .background(
+                                Capsule().fill(BereanDesign.coral.opacity(0.10))
+                            )
+                        Text(relativeDate(conversation.date))
+                            .font(.system(size: 10))
+                            .foregroundStyle(Color(white: 0.55))
+                    }
+                }
+                Spacer()
+                Button {
+                    showDeleteConfirm = conversation
+                } label: {
+                    Image(systemName: "trash")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(Color(white: 0.65))
+                        .frame(width: 28, height: 28)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color.white.opacity(0.6))
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: Empty States
+
+    private var emptySearchState: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 28))
+                .foregroundStyle(Color(white: 0.7))
+            Text("No results for \"\(searchText)\"")
+                .font(.system(size: 13))
+                .foregroundStyle(Color(white: 0.5))
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 40)
+    }
+
+    private var emptyConversationsState: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "bubble.left.and.bubble.right")
+                .font(.system(size: 30))
+                .foregroundStyle(Color(white: 0.72))
+            Text("No saved conversations yet")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(Color(white: 0.45))
+            Text("Start a chat to begin exploring Scripture")
+                .font(.system(size: 12))
+                .foregroundStyle(Color(white: 0.6))
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 24)
+        .padding(.vertical, 36)
+    }
+
+    // MARK: Utility Section
+
+    private var utilitySection: some View {
+        VStack(spacing: 4) {
+            Text("Tools")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Color(white: 0.5))
+                .textCase(.uppercase)
+                .tracking(0.8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 6)
+
+            VStack(spacing: 2) {
+                utilityRow(icon: "bookmark.fill", label: "Saved Messages", color: Color(red: 0.4, green: 0.6, blue: 1.0), action: onShowSaved)
+                utilityRow(icon: "text.book.closed.fill", label: "Bible Translation", color: BereanDesign.coral, action: onShowTranslation)
+                utilityRow(icon: "questionmark.circle", label: "Berean Tutorial", color: Color(red: 0.4, green: 0.75, blue: 0.55), action: onShowOnboarding)
+            }
+            .padding(.horizontal, 16)
+
+            if !conversations.isEmpty {
+                Button(action: onClearAll) {
+                    HStack(spacing: 10) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .fill(Color.red.opacity(0.08))
+                                .frame(width: 32, height: 32)
+                            Image(systemName: "trash")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(Color.red.opacity(0.7))
+                        }
+                        Text("Clear All Conversations")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(Color.red.opacity(0.75))
+                        Spacer()
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 16)
+                .padding(.top, 4)
+            }
+        }
+        .padding(.top, 6)
+    }
+
+    private func utilityRow(icon: String, label: String, color: Color, action: @escaping () -> Void) -> some View {
+        Button(action: {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            action()
+        }) {
+            HStack(spacing: 10) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(color.opacity(0.12))
+                        .frame(width: 32, height: 32)
+                    Image(systemName: icon)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(color)
+                }
+                Text(label)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(Color(white: 0.22))
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Color(white: 0.6))
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color.white.opacity(0.55))
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: Helpers
+
+    private func relativeDate(_ date: Date) -> String {
+        let cal = Calendar.current
+        if cal.isDateInToday(date) { return "Today" }
+        if cal.isDateInYesterday(date) { return "Yesterday" }
+        let days = cal.dateComponents([.day], from: date, to: Date()).day ?? 0
+        if days < 7 { return "\(days)d ago" }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d"
+        return formatter.string(from: date)
+    }
+}
+
+// MARK: - BereanHeroWelcomeSection
+/// Reference-inspired hero card: large white rounded container, "Ask Berean" coral
+/// title, gradient mode-capsule with floating chrome badge, large pill actions below.
+/// All logic preserved — only the visual hierarchy has been elevated.
+
+struct BereanHeroWelcomeSection: View {
+    let shouldCollapse: Bool
+    let bibleIconScale: CGFloat
+    let bibleIconOpacity: Double
+    let welcomeText: String
+    let welcomeTextIndex: Int
+    @Binding var personalityMode: BereanPersonalityMode
+    let onAskTapped: () -> Void
+
+    @State private var heroVisible = false
+    @State private var badgePressed = false
+    @State private var orbPulse: CGFloat = 1.0
+
+    var body: some View {
+        VStack(spacing: 0) {
+            if !shouldCollapse {
+                // ── Large white rounded hero card (reference: white card, big radius) ──
+                VStack(alignment: .leading, spacing: 0) {
+
+                    // ── Title row: "Ask Berean" + gradient mode capsule ──────
+                    HStack(alignment: .center, spacing: 12) {
+
+                        // Large coral title — mirrors "Auto-Do" treatment
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Ask Berean")
+                                .font(.system(size: 30, weight: .semibold, design: .serif))
+                                .foregroundStyle(
+                                    LinearGradient(
+                                        colors: [
+                                            BereanDesign.coral,
+                                            Color(red: 0.92, green: 0.42, blue: 0.32)
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                                .tracking(-0.5)
+
+                            Text("Scripture, wisdom & guidance")
+                                .font(.system(size: 12, weight: .regular))
+                                .foregroundStyle(BereanDesign.textSecond)
+                        }
+
+                        Spacer()
+
+                        // ── Gradient mode capsule + floating chrome badge ──────
+                        // Inspired by reference: pink→orange gradient toggle pill
+                        // with an oversized chrome circle badge that bleeds out.
+                        // Bound to real `personalityMode` state.
+                        BereanModeCapsule(personalityMode: $personalityMode)
+                    }
+                    .padding(.top, 22)
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 20)
+                    .opacity(heroVisible ? 1 : 0)
+                    .offset(y: heroVisible ? 0 : 10)
+                    .animation(.spring(response: 0.68, dampingFraction: 0.78).delay(0.06), value: heroVisible)
+
+                    // ── Hairline divider ─────────────────────────────────────
+                    Rectangle()
+                        .fill(Color.black.opacity(0.055))
+                        .frame(height: 0.5)
+                        .padding(.horizontal, 20)
+
+                    // ── Rotating subtitle ────────────────────────────────────
+                    Text(welcomeText)
+                        .font(.system(size: 13, weight: .regular))
+                        .foregroundStyle(BereanDesign.textSecond)
+                        .multilineTextAlignment(.leading)
+                        .transition(.opacity.animation(.easeInOut(duration: 0.40)))
+                        .id(welcomeTextIndex)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 14)
+                        .opacity(heroVisible ? 1 : 0)
+                        .animation(.easeInOut(duration: 0.46).delay(0.18), value: heroVisible)
+
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(
+                    // Reference: pure white surface, very large corner radius
+                    RoundedRectangle(cornerRadius: 28, style: .continuous)
+                        .fill(Color.white.opacity(0.97))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                                .stroke(Color.black.opacity(0.05), lineWidth: 0.75)
+                        )
+                        .shadow(color: Color.black.opacity(0.07), radius: 22, y: 6)
+                        .shadow(color: BereanDesign.coral.opacity(0.04), radius: 28, y: 10)
+                )
+                .transition(.opacity.combined(with: .offset(y: -6)))
+
+            } else {
+                // ── Collapsed: compact pill showing active mode
+                HStack(spacing: 8) {
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [Color(red: 1.0, green: 0.50, blue: 0.32), BereanDesign.coral],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 8, height: 8)
+                    Text("Berean · \(personalityMode.rawValue)")
+                        .font(.system(size: 13, weight: .medium, design: .serif))
+                        .foregroundStyle(BereanDesign.textPrimary)
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background(
+                    Capsule()
+                        .fill(Color.white.opacity(0.85))
+                        .shadow(color: .black.opacity(0.06), radius: 8, y: 2)
+                )
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .onAppear {
+            heroVisible = true
+            orbPulse = 1.06
+        }
+        .animation(.spring(response: 0.40, dampingFraction: 0.78), value: shouldCollapse)
+    }
+}
+
+// MARK: - BereanModeCapsule
+/// Reference-inspired gradient toggle pill + floating chrome badge.
+/// The gradient pill (pink→coral) selects the next personality mode on tap.
+/// The chrome badge overlapping the right edge shows the active mode icon,
+/// mimicking the silver-ringed circle badge in the reference image.
+
+struct BereanModeCapsule: View {
+    @Binding var personalityMode: BereanPersonalityMode
+    @State private var badgeScale: CGFloat = 1.0
+    @State private var shimmerPhase: CGFloat = 0
+
+    // Warm pink → coral gradient — mirrors reference's pink→orange toggle
+    private let capsuleGradient = LinearGradient(
+        colors: [
+            Color(red: 0.96, green: 0.40, blue: 0.60),
+            Color(red: 0.98, green: 0.52, blue: 0.28),
+            BereanDesign.coral
+        ],
+        startPoint: .leading,
+        endPoint: .trailing
+    )
+
+    var body: some View {
+        // The ZStack lets the chrome badge bleed outside the pill track,
+        // exactly matching the reference's overlapping chrome circle.
+        ZStack(alignment: .trailing) {
+
+            // ── Gradient pill track ────────────────────────────────────────
+            Button {
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                // Advance to next personality mode (cycles through all cases)
+                let allCases = BereanPersonalityMode.allCases
+                if let idx = allCases.firstIndex(of: personalityMode) {
+                    let next = allCases[(idx + 1) % allCases.count]
+                    withAnimation(.spring(response: 0.38, dampingFraction: 0.72)) {
+                        personalityMode = next
+                        badgeScale = 0.80
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                        withAnimation(.spring(response: 0.30, dampingFraction: 0.58)) {
+                            badgeScale = 1.06
+                        }
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.30) {
+                        withAnimation(.spring(response: 0.22, dampingFraction: 0.80)) {
+                            badgeScale = 1.0
+                        }
+                    }
+                }
+            } label: {
+                // Pill track with inner shimmer sweep
+                ZStack {
+                    Capsule()
+                        .fill(capsuleGradient)
+                        .frame(width: 68, height: 34)
+
+                    // Subtle inner shimmer — sweeps left-to-right on appear
+                    Capsule()
+                        .fill(
+                            LinearGradient(
+                                stops: [
+                                    .init(color: .clear, location: 0),
+                                    .init(color: .white.opacity(0.30), location: 0.4),
+                                    .init(color: .white.opacity(0.30), location: 0.6),
+                                    .init(color: .clear, location: 1)
+                                ],
+                                startPoint: .init(x: shimmerPhase - 0.3, y: 0),
+                                endPoint: .init(x: shimmerPhase + 0.3, y: 0)
+                            )
+                        )
+                        .frame(width: 68, height: 34)
+                        .allowsHitTesting(false)
+                }
+            }
+            .buttonStyle(.plain)
+            // Extend touch target rightward into badge area
+            .frame(width: 68 + 14)
+
+            // ── Floating chrome badge ─────────────────────────────────────
+            // Mimics the reference's silver/chrome circle that bleeds out of the pill
+            ZStack {
+                // Outer chrome ring — two-stop silver gradient, like a UI button cap
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color(white: 0.92),
+                                Color(white: 0.72)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 42, height: 42)
+                    .overlay(
+                        Circle()
+                            .stroke(
+                                LinearGradient(
+                                    colors: [Color(white: 1.0), Color(white: 0.82)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 1.5
+                            )
+                    )
+                    .shadow(color: .black.opacity(0.22), radius: 8, y: 4)
+                    .shadow(color: .black.opacity(0.10), radius: 2, y: 1)
+
+                // Inner inset — slightly darker, gives the "beveled" depth
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [Color(white: 0.84), Color(white: 0.96)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 34, height: 34)
+
+                // Mode icon — warm coral/gold, matches reference's gold person icon
+                Image(systemName: personalityMode.icon)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [
+                                Color(red: 1.0, green: 0.78, blue: 0.42),
+                                BereanDesign.coral
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .symbolEffect(.bounce, value: personalityMode)
+            }
+            .scaleEffect(badgeScale)
+            // Bleed 10pt outside the pill (matches reference)
+            .offset(x: 10)
+            .allowsHitTesting(false)
+        }
+        // Total frame: pill width (68) + badge bleed (10) + slight margin (4)
+        .frame(width: 68 + 24, height: 46, alignment: .trailing)
+        .onAppear {
+            withAnimation(.linear(duration: 1.8).repeatForever(autoreverses: false)) {
+                shimmerPhase = 1.3
+            }
+        }
+    }
+}
+
+// MARK: - BereanHeroScriptureChip
+/// Small pill showing "Scripture-grounded · Theologically aware"
+/// Conveys Berean's guiding principle at a glance.
+
+struct BereanHeroScriptureChip: View {
+    @State private var shimmerPhase: CGFloat = -1
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Image(systemName: "book.closed.fill")
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(BereanDesign.coral)
+
+            Text("Scripture-grounded · Theologically aware")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(Color(white: 0.30))
+                .tracking(0.1)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 7)
+        .background(
+            Capsule()
+                .fill(Color.white.opacity(0.80))
+                .overlay(
+                    Capsule()
+                        .stroke(Color.black.opacity(0.07), lineWidth: 0.75)
+                )
+                .shadow(color: Color.black.opacity(0.05), radius: 6, y: 2)
+        )
+    }
+}
+
+// MARK: - BereanGroundedQuickSection
+/// Large pill action buttons below the hero card — inspired by the reference "Assign" pill style.
+/// Two-column grid so each pill feels prominent and tappable.
+
+struct BereanGroundedQuickSection: View {
+    let onStudyPassage: () -> Void
+    let onExplainVerse: () -> Void
+    let onCompareTranslations: () -> Void
+    let onHistoricalContext: () -> Void
+    let onDailyDevotion: () -> Void
+    let onNewPrompt: () -> Void
+
+    @State private var visible = false
+
+    private let columns = [
+        GridItem(.flexible(), spacing: 10),
+        GridItem(.flexible(), spacing: 10)
+    ]
+
+    var body: some View {
+        LazyVGrid(columns: columns, spacing: 10) {
+            BereanQuickPill(icon: "book.closed",       label: "Study Scripture",  tint: BereanDesign.coral,                         action: onStudyPassage)
+            BereanQuickPill(icon: "lightbulb",         label: "Explain a Verse",  tint: Color(red: 0.28, green: 0.56, blue: 0.90),  action: onExplainVerse)
+            BereanQuickPill(icon: "doc.text",          label: "Compare Versions", tint: Color(red: 0.30, green: 0.72, blue: 0.58),  action: onCompareTranslations)
+            BereanQuickPill(icon: "map",               label: "History & Context",tint: Color(red: 0.72, green: 0.48, blue: 0.28),  action: onHistoricalContext)
+            BereanQuickPill(icon: "heart.text.square", label: "Daily Devotion",   tint: Color(red: 0.68, green: 0.32, blue: 0.72),  action: onDailyDevotion)
+            BereanQuickPill(icon: "sparkles",          label: "Ask Anything",     tint: BereanDesign.coral,                         action: onNewPrompt)
+        }
+        .padding(.horizontal, BereanDesign.pagePad)
+        .padding(.top, 12)
+        .opacity(visible ? 1 : 0)
+        .offset(y: visible ? 0 : 12)
+        .animation(.spring(response: 0.52, dampingFraction: 0.80).delay(0.18), value: visible)
+        .onAppear { visible = true }
+    }
+}
+
+// MARK: - BereanQuickPill
+/// Large rounded pill button — reference "Assign" style: prominent icon badge + bold label.
+/// Full-width within its grid cell so it fills the available space.
+
+struct BereanQuickPill: View {
+    let icon: String
+    let label: String
+    let tint: Color
+    let action: () -> Void
+
+    @State private var pressed = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                // Tinted icon badge — larger and more prominent
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(tint.opacity(0.14))
+                        .frame(width: 36, height: 36)
+                    Image(systemName: icon)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(tint)
+                }
+                Text(label)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color(white: 0.13))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 14)
+            .frame(maxWidth: .infinity)
+            .background(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(Color.white.opacity(pressed ? 0.78 : 0.97))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .stroke(Color.black.opacity(0.07), lineWidth: 0.75)
+                    )
+                    .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 3)
+            )
+            .scaleEffect(pressed ? 0.96 : 1.0)
+        }
+        .buttonStyle(.plain)
+        ._onButtonGesture { pressing in
+            withAnimation(.spring(response: 0.26, dampingFraction: 0.68)) {
+                pressed = pressing
+            }
+        } perform: {}
+    }
+}
+
+// MARK: - BereanGroundedPromptsSection
+/// Clean editorial card housing suggested prompts — white surface, divider rows,
+/// subtle accent dots. Premium, spacious, minimal.
+
+struct BereanGroundedPromptsSection: View {
+    let prompts: [String]
+    let onSelectPrompt: (String) -> Void
+    let onNewPrompt: () -> Void
+
+    @State private var visible = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Section header
+            HStack {
+                Text("Try asking")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Color(white: 0.50))
+                    .tracking(1.0)
+                    .textCase(.uppercase)
+                Spacer()
+                Button(action: onNewPrompt) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 10, weight: .semibold))
+                        Text("Refresh")
+                            .font(.system(size: 12, weight: .medium))
+                    }
+                    .foregroundStyle(BereanDesign.coral)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, BereanDesign.pagePad)
+            .padding(.bottom, 10)
+
+            // Prompt rows — frosted glass card, Dia premium
+            VStack(spacing: 0) {
+                ForEach(Array(prompts.enumerated()), id: \.offset) { idx, prompt in
+                    BereanGroundedPromptRow(
+                        prompt: prompt,
+                        isLast: idx == prompts.count - 1,
+                        onTap: { onSelectPrompt(prompt) }
+                    )
+                }
+            }
+            .background(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(Color.white.opacity(0.96))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .stroke(Color.black.opacity(0.05), lineWidth: 0.75)
+                    )
+                    .shadow(color: Color.black.opacity(0.05), radius: 14, y: 4)
+            )
+            .padding(.horizontal, BereanDesign.pagePad)
+        }
+        .padding(.vertical, 16)
+        .opacity(visible ? 1 : 0)
+        .offset(y: visible ? 0 : 12)
+        .animation(.spring(response: 0.60, dampingFraction: 0.80).delay(0.18), value: visible)
+        .onAppear { visible = true }
+    }
+}
+
+// MARK: - BereanGroundedPromptRow
+/// Single tappable prompt row inside the grounded prompts panel.
+
+struct BereanGroundedPromptRow: View {
+    let prompt: String
+    let isLast: Bool
+    let onTap: () -> Void
+
+    @State private var highlighted = false
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 12) {
+                // Leading scripture-tone accent dot
+                Circle()
+                    .fill(BereanDesign.coral.opacity(0.55))
+                    .frame(width: 5, height: 5)
+
+                Text(prompt)
+                    .font(.system(size: 14, weight: .regular))
+                    .foregroundStyle(Color(white: 0.16))
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .lineLimit(2)
+
+                Image(systemName: "arrow.up.right")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(Color(white: 0.50))
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 13)
+            .background(highlighted ? Color.black.opacity(0.03) : Color.clear)
+        }
+        .buttonStyle(.plain)
+        ._onButtonGesture { pressing in
+            withAnimation(.easeOut(duration: 0.15)) {
+                highlighted = pressing
+            }
+        } perform: {}
+        .overlay(alignment: .bottom) {
+            if !isLast {
+                Rectangle()
+                    .fill(Color.black.opacity(0.055))
+                    .frame(height: 0.5)
+                    .padding(.leading, 32)
+            }
+        }
+    }
+}
+
 
 
 
