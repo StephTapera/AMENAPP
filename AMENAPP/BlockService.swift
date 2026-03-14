@@ -181,13 +181,18 @@ class BlockService: ObservableObject {
         try await batch.commit()
         
         dlog("✅ Blocked user successfully")
-        
+
         // Update local state
         blockedUsers.insert(userId)
-        
+
+        // Archive any conversations with the blocked user so they vanish from
+        // the inbox immediately. Uses archivedBy[] — conversations are preserved
+        // for moderation but hidden for the blocker. Errors here are non-fatal.
+        try? await FirebaseMessagingService.shared.archiveConversationsWithUser(userId)
+
         // Reload blocked users list
         await loadBlockedUsers()
-        
+
         // Haptic feedback
         let haptic = UINotificationFeedbackGenerator()
         haptic.notificationOccurred(.warning)

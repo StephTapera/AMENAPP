@@ -424,6 +424,15 @@ struct AMENAPPApp: App {
                         try? await AMENSecureMessagingService.shared.publishKeyBundle()
                         try? await AMENSecureMessagingService.shared.replenishOneTimePreKeys()
                     }
+                    // Follow state — reload on every sign-in so follow buttons are correct
+                    // even after sign-out → sign-in within the same app session.
+                    // initializeFollowService() only runs once at first launch, so a
+                    // re-login would leave FollowService.shared.following empty.
+                    Task(priority: .medium) {
+                        await FollowService.shared.loadCurrentUserFollowing()
+                        await FollowService.shared.loadCurrentUserFollowers()
+                        FollowService.shared.startListening()
+                    }
                 } else {
                     self.hadAuthUserOnLastEvent = false
                     // P0-D FIX: Reset fcmSetupDone so the next sign-in within the same
@@ -435,6 +444,9 @@ struct AMENAPPApp: App {
                     dlog("👋 User logged out, unregistering device token")
                     await DeviceTokenManager.shared.unregisterDeviceToken()
                     AgeAssuranceService.shared.reset()
+                    // Stop FollowService listeners so stale following data from the
+                    // previous user doesn't leak into the next sign-in session.
+                    FollowService.shared.stopListening()
                 }
             }
         }
