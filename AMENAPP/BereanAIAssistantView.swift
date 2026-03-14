@@ -262,17 +262,9 @@ struct BereanAIAssistantView: View {
                 ScrollViewReader { proxy in
                     ScrollView {
                         VStack(spacing: 20) {
-                            // Welcome Section
+                            // Empty state — centered animation shown before first message
                             if viewModel.messages.isEmpty {
-                                welcomeSection
-                                
-                                // Quick Actions
-                                quickActionsSection
-                                
-                                // Suggested Prompts
-                                if showSuggestions {
-                                    suggestedPromptsSection
-                                }
+                                bereanEmptyStateView
                             } else {
                                 // Messages
                                 ForEach(viewModel.messages) { message in
@@ -1070,53 +1062,10 @@ struct BereanAIAssistantView: View {
         }
     }
     
-    // MARK: - Welcome Section
+    // MARK: - Empty State (centered animation shown before first message)
 
-    private var welcomeSection: some View {
-        BereanHeroWelcomeSection(
-            shouldCollapse: shouldCollapseBibleIcon,
-            bibleIconScale: bibleIconScale,
-            bibleIconOpacity: bibleIconOpacity,
-            welcomeText: welcomeTexts[currentWelcomeTextIndex],
-            welcomeTextIndex: currentWelcomeTextIndex,
-            personalityMode: $personalityMode,
-            onAskTapped: { isInputFocused = true }
-        )
-        .padding(.horizontal, BereanDesign.pagePad)
-        .padding(.top, 24)
-        .onAppear {
-            startWelcomeTextRotation()
-            withAnimation(.spring(response: 0.75, dampingFraction: 0.68)) {
-                bibleIconOpacity = 1.0
-                bibleIconScale = 1.0
-            }
-        }
-    }
-
-    // MARK: - Quick Actions
-
-    private var quickActionsSection: some View {
-        BereanGroundedQuickSection(
-            onStudyPassage: { messageText = "Help me study "; isInputFocused = true },
-            onExplainVerse: { messageText = "Explain "; isInputFocused = true },
-            onCompareTranslations: { sendMessage("Compare Bible translations for a verse") },
-            onHistoricalContext: { sendMessage("Tell me about Biblical context") },
-            onDailyDevotion: { sendMessage("Give me a short devotional for today") },
-            onNewPrompt: { isInputFocused = true }
-        )
-        .padding(.top, 12)
-    }
-
-    // MARK: - Suggested Prompts
-
-    private var suggestedPromptsSection: some View {
-        BereanGroundedPromptsSection(
-            prompts: viewModel.suggestedPrompts,
-            onSelectPrompt: { sendMessage($0) },
-            onNewPrompt: { isInputFocused = true }
-        )
-        .padding(.top, 2)
-        .padding(.bottom, 28)
+    private var bereanEmptyStateView: some View {
+        BereanCenteredEmptyState()
     }
     
     // MARK: - Input Bar (Glassmorphic - Bottom Fixed)
@@ -2925,278 +2874,50 @@ struct HeaderThinkingDot: View {
     }
 }
 
-// MARK: - Thinking Indicator (in-chat — task-pill reorder version)
+// MARK: - Thinking Indicator (3-dot typing animation)
 //
-// Shows Berean's active reasoning as three task pills.
-// Each pill slides to the top with matchedGeometryEffect when it becomes
-// active (checked). The checkmark pops with a spring overshoot (0.8→1.1→1.0).
-// A "searching" shimmer capsule appears above the pills while isGenerating.
+// Simple ChatGPT-style three-dot bouncing indicator.
+// Each dot fades and shifts up in sequence with a staggered delay.
 
 struct ThinkingIndicatorView: View {
 
-    // MARK: Internal task model
-    struct BereanThinkStep: Identifiable, Equatable {
-        let id: UUID
-        let label: String
-        let detail: String
-        let icon: String
-        var isActive: Bool      // currently processing
-        var isDone: Bool        // completed — shows checkmark
-        var checkScale: CGFloat // drives the pop animation
-    }
+    @State private var animating = false
 
-    @State private var steps: [BereanThinkStep] = [
-        .init(id: UUID(), label: "Searching Scripture",
-              detail: "Cross-referencing relevant passages",
-              icon: "text.book.closed.fill",
-              isActive: false, isDone: false, checkScale: 0),
-        .init(id: UUID(), label: "Theological context",
-              detail: "Examining historical and doctrinal layers",
-              icon: "scroll.fill",
-              isActive: false, isDone: false, checkScale: 0),
-        .init(id: UUID(), label: "Composing your answer",
-              detail: "Crafting a grounded response",
-              icon: "sparkles",
-              isActive: false, isDone: false, checkScale: 0)
-    ]
-
-    @Namespace private var pillNamespace
-    @State private var shimmerPhase: CGFloat = -1   // drives the scanning shimmer
-    @State private var currentStepIdx = 0
-    @State private var tickTimer: Timer?
-    private let coral = BereanDesign.coral
-
-    // MARK: - Body
+    private let dotSize: CGFloat = 8
+    private let dotSpacing: CGFloat = 5
+    private let bounceHeight: CGFloat = 5
+    private let dotColor = Color(white: 0.55)
 
     var body: some View {
-        VStack(spacing: 0) {
-
-            // ── Searching shimmer capsule ──────────────────────────────────
-            searchingCapsule
-                .padding(.horizontal, 22)
-                .padding(.bottom, 10)
-
-            // ── Task pill list ─────────────────────────────────────────────
-            VStack(spacing: 8) {
-                ForEach(steps) { step in
-                    taskPill(step)
-                }
-            }
-            .padding(.horizontal, 16)
-            .animation(
-                .spring(response: 0.60, dampingFraction: 0.72),
-                value: steps.map(\.id)
-            )
-            .padding(.bottom, 6)
-        }
-        .padding(.vertical, 10)
-        .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(Color.white.opacity(0.82))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .stroke(Color.black.opacity(0.05), lineWidth: 0.75)
-                )
-                .shadow(color: .black.opacity(0.06), radius: 16, y: 5)
-        )
-        .padding(.horizontal, 4)
-        .onAppear { startSequence() }
-        .onDisappear { tickTimer?.invalidate() }
-    }
-
-    // MARK: - Searching shimmer capsule
-
-    private var searchingCapsule: some View {
-        ZStack {
-            // Base pill
-            Capsule()
-                .fill(Color(red: 0.94, green: 0.93, blue: 0.92))
-                .overlay(Capsule().stroke(Color.black.opacity(0.06), lineWidth: 0.75))
-                .frame(height: 32)
-
-            // Shimmer sweep overlay
-            Capsule()
-                .fill(
-                    LinearGradient(
-                        stops: [
-                            .init(color: .clear, location: 0),
-                            .init(color: .white.opacity(0.55), location: 0.4),
-                            .init(color: .white.opacity(0.55), location: 0.6),
-                            .init(color: .clear, location: 1)
-                        ],
-                        startPoint: .init(x: shimmerPhase - 0.3, y: 0),
-                        endPoint:   .init(x: shimmerPhase + 0.3, y: 0)
-                    )
-                )
-                .frame(height: 32)
-
-            // Label
-            HStack(spacing: 6) {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(coral.opacity(0.80))
-                    .symbolEffect(.pulse, options: .repeating)
-                Text("Searching the scriptures…")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(Color(white: 0.38))
-            }
-        }
-        .onAppear {
-            withAnimation(
-                .linear(duration: 1.4).repeatForever(autoreverses: false)
-            ) {
-                shimmerPhase = 1.3
-            }
-        }
-    }
-
-    // MARK: - Task pill
-
-    private func taskPill(_ step: BereanThinkStep) -> some View {
-        HStack(spacing: 12) {
-
-            // Check circle with pop animation
-            ZStack {
-                Circle()
-                    .fill(step.isDone ? coral : Color.clear)
-                    .frame(width: 26, height: 26)
-
-                Circle()
-                    .stroke(
-                        step.isDone ? coral : (step.isActive ? coral.opacity(0.55) : Color(white: 0.80)),
-                        lineWidth: 1.5
-                    )
-                    .frame(width: 26, height: 26)
-
-                if step.isDone {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(.white)
-                        .scaleEffect(step.checkScale)
-                        .transition(.scale(scale: 0.4).combined(with: .opacity))
-                } else if step.isActive {
-                    // Active: pulsing coral ring
+        HStack(alignment: .bottom, spacing: 0) {
+            // Left-aligned like a received message
+            HStack(spacing: dotSpacing) {
+                ForEach(0..<3, id: \.self) { i in
                     Circle()
-                        .fill(coral.opacity(0.22))
-                        .frame(width: 14, height: 14)
-                        .symbolEffect(.pulse, options: .repeating)
+                        .fill(dotColor)
+                        .frame(width: dotSize, height: dotSize)
+                        .offset(y: animating ? -bounceHeight : 0)
+                        .opacity(animating ? 1.0 : 0.45)
+                        .animation(
+                            .easeInOut(duration: 0.5)
+                                .repeatForever(autoreverses: true)
+                                .delay(Double(i) * 0.16),
+                            value: animating
+                        )
                 }
             }
-            .animation(.spring(response: 0.30, dampingFraction: 0.60), value: step.isDone)
-
-            // Text labels
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 5) {
-                    Image(systemName: step.icon)
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(step.isDone ? coral : (step.isActive ? coral.opacity(0.70) : Color(white: 0.58)))
-                    Text(step.label)
-                        .font(.system(size: 13, weight: step.isActive || step.isDone ? .semibold : .regular))
-                        .foregroundStyle(step.isDone ? coral : (step.isActive ? Color(white: 0.10) : Color(white: 0.42)))
-                }
-                if step.isActive || step.isDone {
-                    Text(step.detail)
-                        .font(.system(size: 11, weight: .regular))
-                        .foregroundStyle(Color(white: 0.58))
-                        .transition(.move(edge: .top).combined(with: .opacity))
-                }
-            }
-            .animation(.spring(response: 0.40, dampingFraction: 0.78), value: step.isActive)
-
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(Color(UIColor.secondarySystemBackground))
+            )
             Spacer()
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, step.isActive || step.isDone ? 11 : 9)
-        .background(
-            RoundedRectangle(cornerRadius: 13, style: .continuous)
-                .fill(
-                    step.isDone
-                    ? coral.opacity(0.07)
-                    : (step.isActive ? Color(white: 0.97) : Color(white: 0.975))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 13, style: .continuous)
-                        .stroke(
-                            step.isDone
-                            ? coral.opacity(0.22)
-                            : (step.isActive ? Color(white: 0.88) : Color(white: 0.91)),
-                            lineWidth: 0.75
-                        )
-                )
-                .shadow(
-                    color: step.isActive ? .black.opacity(0.05) : .clear,
-                    radius: 6, y: 2
-                )
-        )
-        // matchedGeometryEffect — pill slides into its new list position
-        // rather than teleporting when the order changes.
-        .matchedGeometryEffect(id: step.id, in: pillNamespace)
-    }
-
-    // MARK: - Sequence logic
-    //
-    // Ticks through steps one by one with a 900ms interval.
-    // When a step completes it jumps to the top of the list
-    // using a spring-animated array reorder.
-
-    private func startSequence() {
-        currentStepIdx = 0
-        // Mark first step active immediately
-        if !steps.isEmpty {
-            withAnimation(.spring(response: 0.40, dampingFraction: 0.78)) {
-                steps[0].isActive = true
-            }
-        }
-        tickTimer = Timer.scheduledTimer(withTimeInterval: 0.9, repeats: true) { _ in
-            Task { @MainActor in tickNextStep() }
-        }
-    }
-
-    private func tickNextStep() {
-        guard currentStepIdx < steps.count else {
-            tickTimer?.invalidate()
-            return
-        }
-        let idx = currentStepIdx
-
-        // 1. Mark current step done, trigger checkmark pop
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.62)) {
-            steps[idx].isDone   = true
-            steps[idx].isActive = false
-            steps[idx].checkScale = 0
-        }
-        // Phase 1: overshoot
-        withAnimation(.spring(response: 0.28, dampingFraction: 0.52)) {
-            steps[idx].checkScale = 1.12
-        }
-        // Phase 2: settle
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
-            withAnimation(.spring(response: 0.22, dampingFraction: 0.80)) {
-                steps[idx].checkScale = 1.0
-            }
-        }
-
-        // 2. Slide completed step to top of list (with stagger for later steps)
-        let doneStep = steps[idx]
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.10 * Double(idx)) {
-            withAnimation(.spring(response: 0.60, dampingFraction: 0.72)) {
-                steps.removeAll { $0.id == doneStep.id }
-                steps.insert(doneStep, at: 0)
-            }
-        }
-
-        // 3. Activate next step
-        currentStepIdx += 1
-        let next = currentStepIdx
-        if next < steps.count {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-                withAnimation(.spring(response: 0.40, dampingFraction: 0.78)) {
-                    if let realIdx = steps.firstIndex(where: { !$0.isDone }) {
-                        steps[realIdx].isActive = true
-                    }
-                }
-            }
-        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 4)
+        .onAppear { animating = true }
+        .onDisappear { animating = false }
     }
 }
 
@@ -6019,6 +5740,81 @@ struct BereanConversationDrawer: View {
         let formatter = DateFormatter()
         formatter.dateFormat = "MMM d"
         return formatter.string(from: date)
+    }
+}
+
+// MARK: - BereanCenteredEmptyState
+//
+// Minimal centered animation for Berean's empty chat state.
+// A soft pulsing cross symbol with a subtitle — no cards, no banners.
+
+struct BereanCenteredEmptyState: View {
+
+    @State private var pulse = false
+    @State private var appeared = false
+
+    private let coral = BereanDesign.coral
+
+    var body: some View {
+        VStack(spacing: 20) {
+            Spacer()
+
+            ZStack {
+                // Outer soft glow ring
+                Circle()
+                    .fill(coral.opacity(0.08))
+                    .frame(width: 96, height: 96)
+                    .scaleEffect(pulse ? 1.18 : 1.0)
+                    .animation(
+                        .easeInOut(duration: 2.2).repeatForever(autoreverses: true),
+                        value: pulse
+                    )
+
+                // Inner ring
+                Circle()
+                    .fill(coral.opacity(0.13))
+                    .frame(width: 68, height: 68)
+                    .scaleEffect(pulse ? 1.10 : 1.0)
+                    .animation(
+                        .easeInOut(duration: 2.2).repeatForever(autoreverses: true).delay(0.15),
+                        value: pulse
+                    )
+
+                // Cross icon
+                Image(systemName: "cross.fill")
+                    .font(.system(size: 26, weight: .regular))
+                    .foregroundStyle(coral)
+                    .scaleEffect(appeared ? 1.0 : 0.7)
+                    .opacity(appeared ? 1.0 : 0.0)
+                    .animation(.spring(response: 0.55, dampingFraction: 0.70).delay(0.1), value: appeared)
+            }
+
+            VStack(spacing: 6) {
+                Text("Ask Berean anything")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(Color(white: 0.12))
+
+                Text("Scripture-grounded answers, any time")
+                    .font(.system(size: 14))
+                    .foregroundStyle(Color(white: 0.50))
+                    .multilineTextAlignment(.center)
+            }
+            .opacity(appeared ? 1.0 : 0.0)
+            .offset(y: appeared ? 0 : 8)
+            .animation(.easeOut(duration: 0.4).delay(0.25), value: appeared)
+
+            Spacer()
+        }
+        .frame(maxWidth: .infinity)
+        .frame(minHeight: 360)
+        .onAppear {
+            appeared = true
+            pulse = true
+        }
+        .onDisappear {
+            appeared = false
+            pulse = false
+        }
     }
 }
 

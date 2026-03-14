@@ -322,6 +322,7 @@ struct ContentView: View {
             }
         }
         .animation(.easeInOut(duration: 0.5), value: isShowingLoadingScreen)
+        .animation(.easeInOut(duration: 0.35), value: isResolvingAuthState)
     }
     
     @ViewBuilder
