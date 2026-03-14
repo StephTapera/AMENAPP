@@ -2,9 +2,13 @@
 //  SavedPostsService.swift
 //  AMENAPP
 //
-//  Created by Steph on 1/20/26.
+//  DEPRECATED: Orphaned Firestore-backed saves service. Not used by any active
+//  view or call site. The live saves implementation is RealtimeSavedPostsService
+//  (Firebase Realtime Database), which PostCard and SavedPostsView both use.
 //
-//  Service for saving posts and managing saved collections
+//  DO NOT call this service from new code. Use RealtimeSavedPostsService.
+//  This file is retained temporarily to avoid a breaking diff; remove once
+//  SavedPostsService and PostInteractionsViewModel are confirmed dead.
 //
 
 import Foundation

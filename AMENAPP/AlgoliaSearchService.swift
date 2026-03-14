@@ -132,6 +132,12 @@ class AlgoliaSearchService: ObservableObject {
             
             return suggestions
             
+        } catch is CancellationError {
+            // Task was cancelled by a newer keystroke — suppress noisy noReachableHosts logs.
+            throw CancellationError()
+        } catch let nsError as NSError where nsError.code == NSURLErrorCancelled {
+            // URLSession -999 cancel — same cause, suppress.
+            throw CancellationError()
         } catch {
             print("❌ Algolia suggestions error: \(error)")
             throw error
@@ -237,17 +243,20 @@ class AlgoliaSearchService: ObservableObject {
         defer { isSearching = false }
         
         do {
-            // ✅ P0-8 FIX: Build privacy filter
-            // Exclude posts from private accounts unless user follows them
-            // Note: This requires authorIsPrivate field in Algolia index
-            let privacyFilter = "authorIsPrivate:false"
+            // Build safety + privacy filter.
+            // - authorIsPrivate:false — never expose private-account posts
+            // - isRemoved:false      — hide posts deleted/removed by moderation
+            // - isFlagged:false      — hide posts currently under review
+            // These fields must be present and kept in-sync in the Algolia index
+            // (set by the AlgoliaSyncService when posts are created/moderated).
+            let safetyFilters = "authorIsPrivate:false AND isRemoved:false AND isFlagged:false"
             
-            // Combine category filter with privacy filter
+            // Combine category filter with safety filters
             var combinedFilters: String?
             if let categoryFilter = category.map({ "category:\($0)" }) {
-                combinedFilters = "\(categoryFilter) AND \(privacyFilter)"
+                combinedFilters = "\(categoryFilter) AND \(safetyFilters)"
             } else {
-                combinedFilters = privacyFilter
+                combinedFilters = safetyFilters
             }
             
             // Build search request using SearchForHits

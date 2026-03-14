@@ -315,6 +315,8 @@ class FirebasePostService: ObservableObject {
     private var realtimePostsHandle: UInt?
     private var activeListenerCategories: Set<String> = [] // ✅ Track active listeners per category
     private var profileImageCache: [String: String] = [:] // ✅ Cache user profile images (userId: imageURL)
+    // P1-2: Per-category debounce tasks — coalesce rapid snapshot callbacks into a single update
+    private var listenerDebounceTasks: [String: Task<Void, Never>] = [:]
     
     // FIX: Track known post IDs so RTDB-triggered re-fetches merge rather than replace.
     // Posts already in self.posts are updated in-place; confirmed Firebase posts are never
@@ -337,7 +339,9 @@ class FirebasePostService: ObservableObject {
         listeners.removeAll()
         categoryListeners.values.forEach { $0.remove() }
         categoryListeners.removeAll()
-        
+        listenerDebounceTasks.values.forEach { $0.cancel() }
+        listenerDebounceTasks.removeAll()
+
         #if DEBUG
         dlog("✅ FirebasePostService deinitialized - all listeners cleaned up")
         #endif
@@ -935,14 +939,16 @@ class FirebasePostService: ObservableObject {
     }
     
     /// Fetch posts by specific user
-    func fetchUserPosts(userId: String, limit: Int = 50) async throws -> [Post] {
+    func fetchUserPosts(userId: String, limit: Int = 50, forceServerFetch: Bool = false) async throws -> [Post] {
         dlog("📥 Fetching posts for user: \(userId)")
         
-        let snapshot = try await db.collection(FirebaseManager.CollectionPath.posts)
+        let query = db.collection(FirebaseManager.CollectionPath.posts)
             .whereField("authorId", isEqualTo: userId)
             .order(by: "createdAt", descending: true)
             .limit(to: limit)
-            .getDocuments()
+        let snapshot = try await (forceServerFetch
+            ? query.getDocuments(source: .server)
+            : query.getDocuments())
         
         let firestorePosts = try snapshot.documents.compactMap { doc in
             var firestorePost = try doc.data(as: FirestorePost.self)
@@ -1065,52 +1071,61 @@ class FirebasePostService: ObservableObject {
         
         let listener = query.addSnapshotListener { [weak self] snapshot, error in
             guard let self = self else { return }
-            
-            Task { @MainActor in
-                if let error = error {
+
+            // P1-2: Handle errors immediately (no debounce needed for error path)
+            if let error = error {
+                Task { @MainActor [weak self] in
+                    guard let self = self else { return }
                     let nsError = error as NSError
                     dlog("❌ Firestore listener error: \(error.localizedDescription)")
                     dlog("   Error code: \(nsError.code), domain: \(nsError.domain)")
-                    
-                    // Check for specific error codes
                     if nsError.code == 7 { // Permission denied
                         self.error = "Missing or insufficient permissions. Please check Firestore security rules."
                         dlog("⚠️ PERMISSION DENIED: Update your Firestore security rules to allow read access to the posts collection")
                     } else {
                         self.error = error.localizedDescription
                     }
-                    return
                 }
-                
-                guard let snapshot = snapshot else {
-                    dlog("❌ No snapshot data")
-                    return
-                }
-                
-                // ✅ CRITICAL FIX: Skip empty cache snapshots (we already loaded from cache manually)
-                let metadata = snapshot.metadata
-                if snapshot.documents.isEmpty && metadata.isFromCache {
-                    return
-                }
-                
-                let firestorePosts = snapshot.documents.compactMap { doc -> FirestorePost? in
-                    var firestorePost = try? doc.data(as: FirestorePost.self)
-                    firestorePost?.id = doc.documentID  // ✅ FIX: Explicitly set the document ID
-                    return firestorePost
-                }
-                
-                // P1-1: Store last document for pagination
-                if let lastDoc = snapshot.documents.last {
-                    self.lastDocuments[categoryKey] = lastDoc
-                }
-                
-                var newPosts = firestorePosts.map { $0.toPost() }
-                
-                // P0 FIX: Deduplicate and sort posts
-                newPosts = self.deduplicateAndSort(newPosts)
+                return
+            }
 
-                // ✅ Update category-specific arrays IMMEDIATELY (non-blocking)
-                await MainActor.run {
+            guard let snapshot = snapshot else {
+                dlog("❌ No snapshot data")
+                return
+            }
+
+            // ✅ CRITICAL FIX: Skip empty cache snapshots (we already loaded from cache manually)
+            let metadata = snapshot.metadata
+            if snapshot.documents.isEmpty && metadata.isFromCache { return }
+
+            // P1-2: Debounce rapid consecutive snapshot callbacks — coalesce into a single update
+            // Cancel any pending debounce task for this category before scheduling a new one
+            Task { @MainActor [weak self] in
+                guard let self = self else { return }
+                self.listenerDebounceTasks[categoryKey]?.cancel()
+                let debounceTask = Task { @MainActor [weak self] in
+                    guard let self = self else { return }
+                    // 300ms debounce window — absorbs burst writes (e.g. multiple users posting simultaneously)
+                    try? await Task.sleep(nanoseconds: 300_000_000)
+                    guard !Task.isCancelled else { return }
+
+                    let firestorePosts = snapshot.documents.compactMap { doc -> FirestorePost? in
+                        var firestorePost = try? doc.data(as: FirestorePost.self)
+                        firestorePost?.id = doc.documentID  // ✅ FIX: Explicitly set the document ID
+                        return firestorePost
+                    }
+
+                    // P1-1: Store last document for pagination
+                    if let lastDoc = snapshot.documents.last {
+                        self.lastDocuments[categoryKey] = lastDoc
+                    }
+
+                    var newPosts = firestorePosts.map { $0.toPost() }
+
+                    // P0 FIX: Deduplicate and sort posts
+                    newPosts = self.deduplicateAndSort(newPosts)
+
+                    // ✅ Update category-specific arrays IMMEDIATELY (non-blocking)
                     if let category = category {
                         switch category {
                         case .prayer:
@@ -1128,59 +1143,59 @@ class FirebasePostService: ObservableObject {
                         self.posts = self.deduplicateAndSort(combined)
 
                         #if DEBUG
-                        dlog("✅ Updated \(category.displayName): \(newPosts.count) posts (deduplicated)")
+                        dlog("✅ Updated \(category.displayName): \(newPosts.count) posts (debounced+deduplicated)")
                         #endif
                     } else {
                         // No category filter - update all posts
                         self.posts = newPosts
                         self.updateCategoryArrays()
                     }
-                }
-                
-                #if DEBUG
-                // Log metadata for debugging
-                if metadata.isFromCache {
-                    dlog("📦 Posts loaded from cache (offline mode)")
-                } else {
-                    dlog("🌐 Posts loaded from server")
-                }
-                if metadata.hasPendingWrites {
-                    dlog("⏳ Snapshot has pending writes")
-                }
-                #endif
-                
-                // ✅ Enrich with profile images AFTER posts are displayed (non-blocking)
-                let postsToEnrich = newPosts
-                Task.detached(priority: .background) { [weak self] in
-                    guard let self = self else { return }
-                    var enrichedPosts = postsToEnrich
-                    await self.enrichPostsWithProfileImages(&enrichedPosts)
-                    
-                    // P0 FIX: Deduplicate enriched posts too
-                    let sortedPosts = await self.deduplicateAndSort(enrichedPosts)
-                    
-                    // Update posts again with profile images
-                    await MainActor.run {
-                        if let category = category {
-                            switch category {
-                            case .prayer:
-                                self.prayerPosts = sortedPosts
-                            case .testimonies:
-                                self.testimoniesPosts = sortedPosts
-                            case .openTable:
-                                self.openTablePosts = sortedPosts
-                            case .tip, .funFact:
-                                break  // Tip and funFact posts stay in main feed only
+
+                    #if DEBUG
+                    if metadata.isFromCache {
+                        dlog("📦 Posts loaded from cache (offline mode)")
+                    } else {
+                        dlog("🌐 Posts loaded from server")
+                    }
+                    if metadata.hasPendingWrites {
+                        dlog("⏳ Snapshot has pending writes")
+                    }
+                    #endif
+
+                    // ✅ Enrich with profile images AFTER posts are displayed (non-blocking)
+                    let postsToEnrich = newPosts
+                    Task.detached(priority: .background) { [weak self] in
+                        guard let self = self else { return }
+                        var enrichedPosts = postsToEnrich
+                        await self.enrichPostsWithProfileImages(&enrichedPosts)
+
+                        // P0 FIX: Deduplicate enriched posts too
+                        let sortedPosts = await self.deduplicateAndSort(enrichedPosts)
+
+                        // Update posts again with profile images
+                        await MainActor.run {
+                            if let category = category {
+                                switch category {
+                                case .prayer:
+                                    self.prayerPosts = sortedPosts
+                                case .testimonies:
+                                    self.testimoniesPosts = sortedPosts
+                                case .openTable:
+                                    self.openTablePosts = sortedPosts
+                                case .tip, .funFact:
+                                    break  // Tip and funFact posts stay in main feed only
+                                }
+                                // P0 FIX: Deduplicate combined posts
+                                let combined = self.prayerPosts + self.testimoniesPosts + self.openTablePosts
+                                self.posts = self.deduplicateAndSort(combined)
+                            } else {
+                                self.posts = sortedPosts
+                                self.updateCategoryArrays()
                             }
-                            // P0 FIX: Deduplicate combined posts
-                            let combined = self.prayerPosts + self.testimoniesPosts + self.openTablePosts
-                            self.posts = self.deduplicateAndSort(combined)
-                        } else {
-                            self.posts = sortedPosts
-                            self.updateCategoryArrays()
                         }
                     }
                 }
+                self.listenerDebounceTasks[categoryKey] = debounceTask
             }
         }
         
@@ -1348,8 +1363,8 @@ class FirebasePostService: ObservableObject {
         
         dlog("✅ Post updated successfully")
         
-        // Update local cache
-        if let index = posts.firstIndex(where: { $0.id.uuidString == postId }) {
+        // Update local cache — match on firebaseId (Firestore doc ID), not the local UUID
+        if let index = posts.firstIndex(where: { $0.firebaseId == postId }) {
             var updatedPost = posts[index]
             updatedPost.content = newContent
             posts[index] = updatedPost
@@ -1391,8 +1406,8 @@ class FirebasePostService: ObservableObject {
                 "updatedAt": Date()
             ])
         
-        // Update local cache
-        posts.removeAll { $0.id.uuidString == postId }
+        // Update local cache — match on firebaseId (Firestore doc ID), not the local UUID
+        posts.removeAll { $0.firebaseId == postId }
         updateCategoryArrays()
     }
     

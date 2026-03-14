@@ -65,6 +65,10 @@ struct Post: Identifiable, Codable, Equatable {
     // e.g. "ChatGPT", "External" — nil means organic/original
     var contentSource: String? = nil
 
+    // Church tag — optional church the post is associated with
+    var taggedChurchId: String? = nil
+    var taggedChurchName: String? = nil
+
     // Moderation metadata (set by server-side onPostCreate trigger)
     var flaggedForReview: Bool = false // Post is under review by moderators
     var removed: Bool = false // Post was removed by automated moderation
@@ -112,6 +116,30 @@ struct Post: Identifiable, Codable, Equatable {
         case everyone = "Everyone"
         case followers = "Followers"
         case community = "Community Only"
+
+        var displayName: String {
+            switch self {
+            case .everyone: return "Everyone"
+            case .followers: return "Followers Only"
+            case .community: return "Community Only"
+            }
+        }
+
+        var icon: String {
+            switch self {
+            case .everyone: return "globe"
+            case .followers: return "person.2.fill"
+            case .community: return "building.columns.fill"
+            }
+        }
+
+        var tintColor: Color {
+            switch self {
+            case .everyone: return .blue
+            case .followers: return .green
+            case .community: return .purple
+            }
+        }
     }
     
     enum CommentPermissions: String, Codable, CaseIterable {
@@ -356,11 +384,20 @@ class PostsManager: ObservableObject {
         
         // Listen to prayer posts changes
         firebasePostService.$prayerPosts
-            .removeDuplicates { $0.count == $1.count && $0.first?.id == $1.first?.id }
+            .removeDuplicates { $0.map { $0.firestoreId } == $1.map { $0.firestoreId } }
             .receive(on: DispatchQueue.main)
             .sink { [weak self] newPosts in
                 guard let self = self else { return }
-                self.prayerPosts = newPosts
+                // Keep only optimistic posts (firebaseId == nil) that have NOT been confirmed
+                // by the server yet. Use nil-check directly — never use "" as a sentinel.
+                let serverIds = Set(newPosts.compactMap { $0.firebaseId })
+                let uniqueOptimistic = self.prayerPosts.filter { $0.firebaseId == nil }
+                    .filter { post in
+                        // Belt-and-suspenders: also skip any optimistic post whose UUID
+                        // somehow matches a server ID string (should never happen).
+                        !serverIds.contains(post.id.uuidString)
+                    }
+                self.prayerPosts = uniqueOptimistic + newPosts
                 #if DEBUG
                 dlog("🔄 Prayer posts updated: \(newPosts.count) posts")
                 #endif
@@ -369,27 +406,35 @@ class PostsManager: ObservableObject {
 
         // Listen to testimonies posts changes
         firebasePostService.$testimoniesPosts
-            .removeDuplicates { $0.count == $1.count && $0.first?.id == $1.first?.id }
+            .removeDuplicates { $0.map { $0.firestoreId } == $1.map { $0.firestoreId } }
             .receive(on: DispatchQueue.main)
             .sink { [weak self] newPosts in
                 guard let self = self else { return }
-                self.testimoniesPosts = newPosts
+                let serverIds = Set(newPosts.compactMap { $0.firebaseId })
+                let uniqueOptimistic = self.testimoniesPosts.filter { $0.firebaseId == nil }
+                    .filter { !serverIds.contains($0.id.uuidString) }
+                self.testimoniesPosts = uniqueOptimistic + newPosts
             }
             .store(in: &cancellables)
 
         // Listen to open table posts changes
         firebasePostService.$openTablePosts
-            .removeDuplicates { $0.count == $1.count && $0.first?.id == $1.first?.id }
+            .removeDuplicates { $0.map { $0.firestoreId } == $1.map { $0.firestoreId } }
             .receive(on: DispatchQueue.main)
             .sink { [weak self] newPosts in
                 guard let self = self else { return }
-                self.openTablePosts = newPosts
+                // Preserve any optimistic (not-yet-confirmed) posts at the top that
+                // are not yet in the server snapshot (firebaseId == nil means temp UUID post)
+                let serverIds = Set(newPosts.compactMap { $0.firebaseId })
+                let uniqueOptimistic = self.openTablePosts.filter { $0.firebaseId == nil }
+                    .filter { !serverIds.contains($0.id.uuidString) }
+                self.openTablePosts = uniqueOptimistic + newPosts
             }
             .store(in: &cancellables)
 
         // Listen to all posts changes
         firebasePostService.$posts
-            .removeDuplicates { $0.count == $1.count && $0.first?.id == $1.first?.id }
+            .removeDuplicates { $0.map { $0.firestoreId } == $1.map { $0.firestoreId } }
             .receive(on: DispatchQueue.main)
             .sink { [weak self] newPosts in
                 guard let self = self else { return }
@@ -539,7 +584,13 @@ class PostsManager: ObservableObject {
     func editPost(postId: UUID, newContent: String) {
         Task { @MainActor in
             do {
-                try await firebasePostService.editPost(postId: postId.uuidString, newContent: newContent)
+                // Use firestoreId (Firestore document ID) — not the local UUID
+                guard let post = allPosts.first(where: { $0.id == postId }) ?? openTablePosts.first(where: { $0.id == postId }) ?? testimoniesPosts.first(where: { $0.id == postId }) ?? prayerPosts.first(where: { $0.id == postId }),
+                      let firestoreId = post.firebaseId else {
+                    dlog("❌ editPost: post not found or missing firestoreId for \(postId)")
+                    return
+                }
+                try await firebasePostService.editPost(postId: firestoreId, newContent: newContent)
                 
                 dlog("✅ Post edited successfully")
                 
@@ -573,7 +624,13 @@ class PostsManager: ObservableObject {
     func deletePost(postId: UUID) {
         Task {
             do {
-                try await firebasePostService.deletePost(postId: postId.uuidString)
+                // Use firestoreId (Firestore document ID) — not the local UUID
+                guard let post = allPosts.first(where: { $0.id == postId }) ?? openTablePosts.first(where: { $0.id == postId }) ?? testimoniesPosts.first(where: { $0.id == postId }) ?? prayerPosts.first(where: { $0.id == postId }),
+                      let firestoreId = post.firebaseId else {
+                    dlog("❌ deletePost: post not found or missing firestoreId for \(postId)")
+                    return
+                }
+                try await firebasePostService.deletePost(postId: firestoreId)
                 
                 dlog("✅ Post deleted successfully")
                 
