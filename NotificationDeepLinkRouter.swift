@@ -205,19 +205,37 @@ final class NotificationDeepLinkRouter: ObservableObject {
     }
     
     // MARK: - Navigation
-    
+
+    /// Minimum interval between navigation events. Rapid notifications arriving
+    /// within this window are queued rather than overwriting the active destination.
+    private var lastNavigationTime: Date = .distantPast
+    private let navigationDebounceInterval: TimeInterval = 0.6
+
     private func performNavigation(to destination: NavigationDestination) {
-        // Check if app is ready for navigation
+        let now = Date()
+
+        // P1 FIX: Debounce rapid navigation requests. If two notifications arrive
+        // within 0.6s and the first destination hasn't been consumed yet, queue the
+        // second. It will be processed by clearDestination() after the UI settles.
+        if now.timeIntervalSince(lastNavigationTime) < navigationDebounceInterval,
+           activeDestination != nil {
+            pendingNavigation = destination
+            print("⏸️ Debounced navigation (rapid arrival): \(destination)")
+            return
+        }
+
+        lastNavigationTime = now
+
         if isAppReady() {
             activeDestination = destination
             print("✅ Navigating to: \(destination)")
         } else {
             // Queue navigation for when app is ready
             pendingNavigation = destination
-            print("⏸️ Queued navigation: \(destination)")
+            print("⏸️ Queued navigation (app not ready): \(destination)")
         }
     }
-    
+
     /// Call this when app is ready to handle navigation
     func appDidBecomeReady() {
         if let pending = pendingNavigation {
@@ -226,10 +244,21 @@ final class NotificationDeepLinkRouter: ObservableObject {
             pendingNavigation = nil
         }
     }
-    
-    /// Clear active destination (call after navigation completes)
+
+    /// Clear active destination (call after navigation completes).
+    /// Also processes any queued (debounced) navigation.
     func clearDestination() {
         activeDestination = nil
+        // Process any queued navigation after a short settle delay
+        if let queued = pendingNavigation {
+            pendingNavigation = nil
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 300_000_000) // 0.3s settle
+                self.activeDestination = queued
+                self.lastNavigationTime = Date()
+                print("▶️ Processing queued navigation: \(queued)")
+            }
+        }
     }
 
     /// Public entry point for direct navigation (e.g., from NotificationsView deep link handling)

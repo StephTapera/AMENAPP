@@ -202,4 +202,41 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         
         completionHandler(.newData)
     }
+
+    // P1 FIX: Return a scene configuration that uses ActivityTrackingSceneDelegate,
+    // which overrides the UIWindow class to ActivityTrackingWindow. This ensures all
+    // touches call SessionTimeoutManager.recordActivity() so active users are never
+    // incorrectly timed out while typing or scrolling.
+    func application(
+        _ application: UIApplication,
+        configurationForConnecting connectingSceneSession: UISceneSession,
+        options: UIScene.ConnectionOptions
+    ) -> UISceneConfiguration {
+        let config = UISceneConfiguration(
+            name: connectingSceneSession.configuration.name,
+            sessionRole: connectingSceneSession.role
+        )
+        config.delegateClass = ActivityTrackingSceneDelegate.self
+        return config
+    }
 }
+// MARK: - Activity Tracking Scene Delegate
+//
+// Replaces the default UIWindow with ActivityTrackingWindow so touches always
+// reset the inactivity timer regardless of which view receives them.
+
+final class ActivityTrackingSceneDelegate: NSObject, UIWindowSceneDelegate {
+    var window: UIWindow?
+
+    func scene(
+        _ scene: UIScene,
+        willConnectTo session: UISceneSession,
+        options connectionOptions: UIScene.ConnectionOptions
+    ) {
+        guard let windowScene = scene as? UIWindowScene else { return }
+        let trackingWindow = ActivityTrackingWindow(windowScene: windowScene)
+        trackingWindow.makeKeyAndVisible()
+        self.window = trackingWindow
+    }
+}
+

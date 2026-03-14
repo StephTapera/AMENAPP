@@ -64,6 +64,10 @@ class AuthenticationViewModel: ObservableObject {
     @Published var needs2FAVerification = false
     @Published var pending2FAUserId: String?
     @Published var pending2FAEmail: String?
+    // P1-10 FIX: Store AuthCredential instead of raw password string.
+    // This avoids retaining a plaintext password in memory across the 2FA wait period.
+    // Set when 2FA is detected; cleared after complete2FASignIn (success or failure).
+    private var pending2FACredential: AuthCredential?
 
     // MARK: - Private Properties
     
@@ -71,6 +75,13 @@ class AuthenticationViewModel: ObservableObject {
     private var authStateListener: AuthStateDidChangeListenerHandle?
     private var isAuthenticating = false  // Prevent concurrent auth requests
     private var onboardingJustCompleted = false  // Prevent race condition from checkOnboardingStatus
+    private var isCheckingOnboarding = false  // Prevent duplicate concurrent checkOnboardingStatus calls
+    // P0-5 FIX: Suppress auth state listener reactions during the 2FA flow.
+    // When signOut() is called after initial sign-in to enforce 2FA, the listener fires
+    // with user=nil. When complete2FASignIn re-signs-in, it fires with user≠nil.
+    // Without this gate, the listener grants isAuthenticated=true before session2FAActive
+    // is verified on the server — bypassing the 2FA gate.
+    private var is2FAInProgress = false
     
     // MARK: - Initialization
     
@@ -79,7 +90,7 @@ class AuthenticationViewModel: ObservableObject {
         // This prevents sign-in UI from showing on slow networks
         if let currentUser = Auth.auth().currentUser {
             #if DEBUG
-            print("🔐 Init: Found cached user (\(currentUser.email ?? "no email"))")
+            dlog("🔐 Init: Found cached user (\(currentUser.email ?? "no email"))")
             #endif
             
             // ✅ FIX: Check onboarding status BEFORE setting isAuthenticated
@@ -93,6 +104,28 @@ class AuthenticationViewModel: ObservableObject {
         }
         
         setupAuthStateListener()
+
+        // P1 FIX: Observe .sessionTimeout so that forceLogout() (fired by SessionTimeoutManager)
+        // and other non-AuthenticationViewModel sign-out paths also clean up 2FA/phone auth state.
+        // The auth listener only resets isAuthenticated/needsOnboarding — it does NOT clear
+        // pending2FACredential, phoneVerificationId, is2FAInProgress, etc.
+        NotificationCenter.default.addObserver(
+            forName: .sessionTimeout,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.cleanupPhoneAuthState()
+                self.pending2FAUserId = nil
+                self.pending2FAEmail = nil
+                self.pending2FACredential = nil
+                self.needs2FAVerification = false
+                self.is2FAInProgress = false
+                self.onboardingJustCompleted = false
+                dlog("🔐 AuthViewModel: cleaned up on sessionTimeout notification")
+            }
+        }
     }
     
     deinit {
@@ -113,10 +146,19 @@ class AuthenticationViewModel: ObservableObject {
         authStateListener = Auth.auth().addStateDidChangeListener { [weak self] _, user in
             Task { @MainActor in
                 guard let self = self else { return }
+
+                // P0-5 FIX: During the 2FA flow we deliberately call signOut() then signIn()
+                // as part of the verification sequence. Ignore auth state changes while this
+                // flag is set — complete2FASignIn will update isAuthenticated directly after
+                // the server-side session2FAActive check passes.
+                guard !self.is2FAInProgress else {
+                    dlog("🔐 Auth state change suppressed — 2FA in progress")
+                    return
+                }
                 
                 if let user = user {
                     #if DEBUG
-                    print("🔐 Auth state changed: User logged in (\(user.email ?? "no email"))")
+                    dlog("🔐 Auth state changed: User logged in (\(user.email ?? "no email"))")
                     #endif
                     
                     // P0 FIX: For non-email providers (phone, Google, Apple), clear any stale
@@ -135,7 +177,7 @@ class AuthenticationViewModel: ObservableObject {
                     // Now set isAuthenticated after we know the onboarding status
                     self.isAuthenticated = true
                 } else {
-                    print("🔐 Auth state changed: User logged out")
+                    dlog("🔐 Auth state changed: User logged out")
                     self.isAuthenticated = false
                     self.needsOnboarding = false
                     self.needsUsernameSelection = false
@@ -150,9 +192,18 @@ class AuthenticationViewModel: ObservableObject {
     private func checkOnboardingStatus(userId: String) async {
         // Guard: if onboarding was just completed in this session, don't overwrite needsOnboarding
         guard !onboardingJustCompleted else {
-            print("📋 Onboarding: skipping status check — completion in progress")
+            dlog("📋 Onboarding: skipping status check — completion in progress")
             return
         }
+        // Serialize: if a check is already in flight (e.g., concurrent calls from init() and
+        // the auth state listener on cold launch), skip the duplicate to avoid two Firestore reads
+        // and a potential UI flash from conflicting state assignments.
+        guard !isCheckingOnboarding else {
+            dlog("📋 Onboarding: skipping duplicate in-flight check for user \(userId)")
+            return
+        }
+        isCheckingOnboarding = true
+        defer { isCheckingOnboarding = false }
         // Check local cache first for immediate response
         let cachedCompleted = UserDefaults.standard.bool(forKey: "hasCompletedOnboarding_\(userId)")
         if cachedCompleted {
@@ -172,14 +223,14 @@ class AuthenticationViewModel: ObservableObject {
                 self.needsOnboarding = !hasCompletedOnboarding
                 self.needsUsernameSelection = false
             }
-            print("📋 Onboarding: hasCompleted=\(hasCompletedOnboarding), needsOnboarding=\(!hasCompletedOnboarding)")
+            dlog("📋 Onboarding: hasCompleted=\(hasCompletedOnboarding), needsOnboarding=\(!hasCompletedOnboarding)")
         } catch {
             // On error, fall back to cache; if no cache, show onboarding to be safe
             await MainActor.run {
                 self.needsOnboarding = !cachedCompleted
                 self.needsUsernameSelection = false
             }
-            print("⚠️ Could not fetch onboarding status: \(error.localizedDescription) — using cache: completed=\(cachedCompleted)")
+            dlog("⚠️ Could not fetch onboarding status: \(error.localizedDescription) — using cache: completed=\(cachedCompleted)")
         }
     }
     
@@ -188,8 +239,22 @@ class AuthenticationViewModel: ObservableObject {
     func signIn(email: String, password: String) async {
         // Prevent concurrent auth requests
         guard !isAuthenticating else {
-            print("⚠️ Sign-in already in progress, ignoring duplicate request")
+            dlog("⚠️ Sign-in already in progress, ignoring duplicate request")
             return
+        }
+
+        // BUG-12 FIX: Wait for any in-flight Firestore cache clear from the previous
+        // sign-out to complete before authenticating a new user. This prevents the
+        // next user from loading stale cached data belonging to the previous user.
+        if AppLifecycleManager.shared.isClearingCache {
+            dlog("⏳ Waiting for Firestore cache clear before sign-in...")
+            // Poll with a short delay — clearPersistence() typically takes <200ms
+            var waited = 0
+            while AppLifecycleManager.shared.isClearingCache && waited < 10 {
+                try? await Task.sleep(nanoseconds: 100_000_000) // 0.1s
+                waited += 1
+            }
+            dlog("✅ Cache clear complete (or timed out after 1s), proceeding with sign-in")
         }
         
         isAuthenticating = true
@@ -201,11 +266,8 @@ class AuthenticationViewModel: ObservableObject {
         isLoading = true
         errorMessage = nil
         
-        defer {
-            Task { @MainActor in
-                self.isLoading = false
-            }
-        }
+        // Already on @MainActor — no Task hop needed
+        defer { isLoading = false }
         
         do {
             let user = try await firebaseManager.signIn(email: email, password: password)
@@ -215,7 +277,17 @@ class AuthenticationViewModel: ObservableObject {
             let has2FA = await TwoFactorAuthService.shared.check2FAStatus(userId: user.uid)
             
             if has2FA {
-                print("🔐 User has 2FA enabled - requiring verification")
+                dlog("🔐 User has 2FA enabled - requiring verification")
+
+                // P0-5 FIX: Raise the gate BEFORE signing out so the listener's user=nil
+                // event is suppressed. Without this, the sign-out fires the listener which
+                // sets isAuthenticated=false (harmless) but the subsequent re-sign-in in
+                // complete2FASignIn would set isAuthenticated=true before the server check.
+                is2FAInProgress = true
+                
+                // P1-10 FIX: Store an AuthCredential rather than the raw password string
+                // so the plaintext password is not retained in memory during the 2FA wait.
+                pending2FACredential = EmailAuthProvider.credential(withEmail: email, password: password)
                 
                 // Sign out immediately - user must verify 2FA first
                 try? Auth.auth().signOut()
@@ -236,7 +308,7 @@ class AuthenticationViewModel: ObservableObject {
             // isAuthenticated and needsOnboarding are handled by auth state listener
             
         } catch {
-            print("❌ Sign in failed: \(error.localizedDescription)")
+            dlog("❌ Sign in failed: \(error.localizedDescription)")
             errorMessage = handleAuthError(error)
             showError = true
             
@@ -258,10 +330,10 @@ class AuthenticationViewModel: ObservableObject {
     ///
     /// - Parameter sessionToken: The token returned by verify2FAOTP (stored for reference,
     ///   not used for gating — the Firestore rule reads userSecurity directly).
-    func complete2FASignIn(sessionToken: String, password: String) async {
-        guard let email = pending2FAEmail,
-              let userId = pending2FAUserId else {
-            print("❌ complete2FASignIn called without pending credentials")
+    func complete2FASignIn(sessionToken: String) async {
+        guard let userId = pending2FAUserId,
+              let credential = pending2FACredential else {
+            dlog("❌ complete2FASignIn called without pending credentials")
             errorMessage = "Session expired. Please sign in again."
             showError = true
             needs2FAVerification = false
@@ -269,15 +341,19 @@ class AuthenticationViewModel: ObservableObject {
         }
 
         isLoading = true
-        defer {
-            Task { @MainActor in self.isLoading = false }
-        }
+        // Already on @MainActor — no Task hop needed
+        defer { isLoading = false }
+
+        // P1 FIX: Use defer to guarantee is2FAInProgress is always cleared on ALL exit
+        // paths — success, guard failures, and thrown errors. Previously cleared manually
+        // at each site, which is fragile if new early returns are added in future.
+        defer { is2FAInProgress = false }
 
         do {
-            // Re-authenticate: Firebase signed us out after detecting 2FA was needed.
-            // Signing back in issues a fresh ID token so our next Firestore write will
-            // carry the updated claims.
-            let user = try await firebaseManager.signIn(email: email, password: password)
+            // P1-10 FIX: Re-authenticate using stored AuthCredential (no raw password in scope).
+            // Firebase signed us out after detecting 2FA; re-sign-in issues a fresh token.
+            let authResult = try await Auth.auth().signIn(with: credential)
+            let user = authResult.user
 
             // Force-refresh the ID token so it picks up any custom claims set by the
             // Cloud Function (e.g. email_verified propagation).
@@ -293,26 +369,31 @@ class AuthenticationViewModel: ObservableObject {
             guard sessionActive else {
                 // Session not yet active — Cloud Function may still be writing.
                 // This is a transient failure; caller should retry or show an error.
-                print("⚠️ complete2FASignIn: userSecurity.session2FAActive not true yet")
+                dlog("⚠️ complete2FASignIn: userSecurity.session2FAActive not true yet")
                 try? Auth.auth().signOut()
                 errorMessage = "Verification is still processing. Please try again in a moment."
                 showError = true
-                return
+                return  // defer clears is2FAInProgress
             }
 
             // All checks passed — clear 2FA pending state and admit the user.
             pending2FAUserId = nil
             pending2FAEmail = nil
+            pending2FACredential = nil  // P1-10: Wipe stored credential immediately
             needs2FAVerification = false
 
-            print("✅ 2FA complete — userSecurity confirmed active, granting access")
-            // Auth state listener will set isAuthenticated = true after signIn above.
+            dlog("✅ 2FA complete — userSecurity confirmed active, granting access")
+            // Set isAuthenticated directly — listener was suppressed during the flow.
+            // defer will clear is2FAInProgress after this returns.
+            await checkOnboardingStatus(userId: userId)
+            isAuthenticated = true
 
         } catch {
-            print("❌ complete2FASignIn re-auth failed: \(error.localizedDescription)")
+            dlog("❌ complete2FASignIn re-auth failed: \(error.localizedDescription)")
             errorMessage = handleAuthError(error)
             showError = true
-            // Keep needs2FAVerification = true so the gate stays visible
+            // Keep needs2FAVerification = true so the gate stays visible.
+            // defer clears is2FAInProgress so future auth state changes are processed normally.
         }
     }
 
@@ -321,7 +402,7 @@ class AuthenticationViewModel: ObservableObject {
     func signUp(email: String, password: String, displayName: String, username: String) async {
         // Prevent concurrent auth requests
         guard !isAuthenticating else {
-            print("⚠️ Sign-up already in progress, ignoring duplicate request")
+            dlog("⚠️ Sign-up already in progress, ignoring duplicate request")
             return
         }
         
@@ -334,11 +415,8 @@ class AuthenticationViewModel: ObservableObject {
         isLoading = true
         errorMessage = nil
         
-        defer {
-            Task { @MainActor in
-                self.isLoading = false
-            }
-        }
+        // Already on @MainActor — no Task hop needed
+        defer { isLoading = false }
         
         do {
             _ = try await firebaseManager.signUp(
@@ -371,7 +449,7 @@ class AuthenticationViewModel: ObservableObject {
             // but needsOnboarding is already true, preventing the glitch
             
         } catch {
-            print("❌ Sign up failed: \(error.localizedDescription)")
+            dlog("❌ Sign up failed: \(error.localizedDescription)")
             errorMessage = handleAuthError(error)
             showError = true
             
@@ -384,43 +462,44 @@ class AuthenticationViewModel: ObservableObject {
     // MARK: - Sign Out
     
     func signOut() {
-        // Stop all RTDB & Firestore listeners BEFORE signing out to prevent permission_denied floods
-        RealtimePostService.shared.stopAllObserving()
-        PostInteractionsService.shared.stopAllObservers()
-        RealtimeRepostsService.shared.stopAllObservers()
-        RealtimeSavedPostsService.shared.removeSavedPostsListener()
-        RealtimeDatabaseService.shared.cleanup()
-        // P0 FIX: Stop FollowService Firestore listeners — previously survived sign-out,
-        // causing permission_denied writes with stale credentials and potential data leaks.
-        FollowService.shared.stopListening()
-        // P0 FIX: Stop additional listeners that were missing from sign-out cleanup,
-        // causing permission_denied floods in the console after sign-out.
-        NotificationService.shared.stopListening()
-        BlockService.shared.stopListening()
-        RealtimeCommentsService.shared.removeAllListeners()
-        ActivityFeedService.shared.stopAllObservers()
+        // ── Centralized service teardown ─────────────────────────────────────
+        // AppLifecycleManager stops all Firebase listeners, clears safety caches,
+        // resets behavioral signals, and stops session timers in one guaranteed call.
+        // Must run BEFORE Auth.signOut() so listeners detach while credentials are valid.
+        AppLifecycleManager.shared.performFullSignOutCleanup()
 
-        // ── Safety service cache clearing (privacy: prevent stale data leaking to next session) ──
-        // Grab the current UID before signing out so we can invalidate per-user caches.
+        // ── FCM token deactivation ───────────────────────────────────────────
+        // Mark this device's push token inactive so the signed-out device stops
+        // receiving notifications for the now-signed-out user.
         if let uid = firebaseManager.currentUser?.uid {
-            MessageSafetyGateway.shared.invalidateFreezeCache(for: uid)
-            MinorSafetyService.shared.invalidateCache(for: uid)
+            Task {
+                await PushNotificationHandler.shared.disableFCMToken(for: uid)
+            }
         }
-        MinorSafetyService.shared.clearCache()   // belt-and-suspenders: clear all age/trust caches
-        OpenAIService.shared.reset()              // clear legacy Berean cache + cancel in-flight tasks
-        ClaudeService.shared.reset()              // clear Claude Berean cache + cancel in-flight tasks
 
+        // ── Auth-ViewModel-owned state ───────────────────────────────────────
+        // Clear state that only this ViewModel owns (not covered by AppLifecycleManager).
+        cleanupPhoneAuthState()           // phoneVerificationId, phoneNumber, resendCooldown
+        pending2FAUserId = nil
+        pending2FAEmail = nil
+        pending2FACredential = nil        // P1-10: Wipe stored credential on sign-out
+        needs2FAVerification = false
+        onboardingJustCompleted = false
+        showEmailVerificationBanner = false
+        needsUsernameSelection = false
+
+        // ── Firebase sign-out ────────────────────────────────────────────────
         do {
             try firebaseManager.signOut()
-            print("✅ Sign out successful")
-            
-            // Reset state
+            dlog("✅ Sign out successful")
+
+            // Reset published state so the UI routes to the auth screen.
             isAuthenticated = false
             needsOnboarding = false
             errorMessage = nil
-            
+
         } catch {
-            print("❌ Sign out failed: \(error.localizedDescription)")
+            dlog("❌ Sign out failed: \(error.localizedDescription)")
             errorMessage = "Failed to sign out: \(error.localizedDescription)"
             showError = true
         }
@@ -481,7 +560,7 @@ class AuthenticationViewModel: ObservableObject {
             }
         }
         
-        print("✅ Password reset email sent")
+        dlog("✅ Password reset email sent")
     }
 
     // MARK: - Email Verification
@@ -517,13 +596,13 @@ class AuthenticationViewModel: ObservableObject {
                 }
             }
 
-            print("✅ Verification email sent")
+            dlog("✅ Verification email sent")
 
             // Success haptic
             let haptic = UINotificationFeedbackGenerator()
             haptic.notificationOccurred(.success)
         } catch {
-            print("❌ Failed to send verification email: \(error.localizedDescription)")
+            dlog("❌ Failed to send verification email: \(error.localizedDescription)")
             errorMessage = "Failed to send verification email: \(error.localizedDescription)"
             showError = true
 
@@ -560,7 +639,7 @@ class AuthenticationViewModel: ObservableObject {
             try await firebaseManager.reloadUser()
             isEmailVerified = firebaseManager.isEmailVerified
             #if DEBUG
-            print("📧 Email verification status: \(isEmailVerified)")
+            dlog("📧 Email verification status: \(isEmailVerified)")
             #endif
 
             if isEmailVerified {
@@ -583,7 +662,7 @@ class AuthenticationViewModel: ObservableObject {
                 }
             }
         } catch {
-            print("❌ Failed to check email verification: \(error.localizedDescription)")
+            dlog("❌ Failed to check email verification: \(error.localizedDescription)")
         }
     }
 
@@ -599,14 +678,14 @@ class AuthenticationViewModel: ObservableObject {
             emailLinkSent = true
             emailForLink = email
             #if DEBUG
-            print("✅ Sign-in link sent to \(email)")
+            dlog("✅ Sign-in link sent to \(email)")
             #endif
 
             // Success haptic
             let haptic = UINotificationFeedbackGenerator()
             haptic.notificationOccurred(.success)
         } catch {
-            print("❌ Failed to send sign-in link: \(error.localizedDescription)")
+            dlog("❌ Failed to send sign-in link: \(error.localizedDescription)")
             errorMessage = handleAuthError(error)
             showError = true
 
@@ -625,7 +704,7 @@ class AuthenticationViewModel: ObservableObject {
 
         do {
             _ = try await firebaseManager.signInWithEmailLink(email: email, link: link)
-            print("✅ Signed in with email link")
+            dlog("✅ Signed in with email link")
 
             // Success haptic
             let haptic = UINotificationFeedbackGenerator()
@@ -633,7 +712,7 @@ class AuthenticationViewModel: ObservableObject {
 
             // isAuthenticated will be set by auth state listener
         } catch {
-            print("❌ Email link sign-in failed: \(error.localizedDescription)")
+            dlog("❌ Email link sign-in failed: \(error.localizedDescription)")
             errorMessage = handleAuthError(error)
             showError = true
 
@@ -648,7 +727,7 @@ class AuthenticationViewModel: ObservableObject {
     // MARK: - Change Password
     
     func changePassword(currentPassword: String, newPassword: String) async throws {
-        print("🔐 Changing password")
+        dlog("🔐 Changing password")
         
         guard let user = Auth.auth().currentUser else {
             throw NSError(domain: "AuthError", code: -1, userInfo: [NSLocalizedDescriptionKey: "No user is currently signed in"])
@@ -663,14 +742,14 @@ class AuthenticationViewModel: ObservableObject {
         
         do {
             try await user.reauthenticate(with: credential)
-            print("✅ Re-authentication successful")
+            dlog("✅ Re-authentication successful")
             
             // Update password
             try await user.updatePassword(to: newPassword)
-            print("✅ Password changed successfully")
+            dlog("✅ Password changed successfully")
             
         } catch {
-            print("❌ Password change failed: \(error.localizedDescription)")
+            dlog("❌ Password change failed: \(error.localizedDescription)")
             throw error
         }
     }
@@ -680,7 +759,7 @@ class AuthenticationViewModel: ObservableObject {
     /// Update user email address
     func updateEmail(newEmail: String) async throws {
         #if DEBUG
-        print("📧 Updating email to: \(newEmail)")
+        dlog("📧 Updating email to: \(newEmail)")
         #endif
         
         guard let user = Auth.auth().currentUser else {
@@ -689,16 +768,16 @@ class AuthenticationViewModel: ObservableObject {
         
         do {
             try await user.sendEmailVerification(beforeUpdatingEmail: newEmail)
-            print("✅ Email verification sent for update in Firebase Auth")
+            dlog("✅ Email verification sent for update in Firebase Auth")
         } catch {
-            print("❌ Email update failed: \(error.localizedDescription)")
+            dlog("❌ Email update failed: \(error.localizedDescription)")
             throw error
         }
     }
     
     /// Re-authenticate user with current password
     func reauthenticate(password: String) async throws {
-        print("🔐 Re-authenticating user")
+        dlog("🔐 Re-authenticating user")
         
         guard let user = Auth.auth().currentUser else {
             throw NSError(domain: "AuthError", code: -1, userInfo: [NSLocalizedDescriptionKey: "No user is currently signed in"])
@@ -712,9 +791,9 @@ class AuthenticationViewModel: ObservableObject {
         
         do {
             try await user.reauthenticate(with: credential)
-            print("✅ Re-authentication successful")
+            dlog("✅ Re-authentication successful")
         } catch {
-            print("❌ Re-authentication failed: \(error.localizedDescription)")
+            dlog("❌ Re-authentication failed: \(error.localizedDescription)")
             throw error
         }
     }
@@ -723,7 +802,7 @@ class AuthenticationViewModel: ObservableObject {
     
     /// Delete account - works for both password-based and Apple/Google Sign-In users
     func deleteAccount(password: String?) async throws {
-        print("🗑️ Deleting account")
+        dlog("🗑️ Deleting account")
         
         guard let user = Auth.auth().currentUser else {
             throw NSError(domain: "AuthError", code: -1, userInfo: [NSLocalizedDescriptionKey: "No user is currently signed in"])
@@ -746,10 +825,10 @@ class AuthenticationViewModel: ObservableObject {
                 // Apple: reauthentication must be driven by the view layer (present ASAuthorizationController).
                 // Attempting deletion without it will produce requiresRecentLogin for older sessions.
                 // We proceed here; callers should catch requiresRecentLogin and re-invoke with fresh Apple credential.
-                print("🍎 Apple Sign-In user - proceeding with deletion (may require re-auth for old sessions)")
+                dlog("🍎 Apple Sign-In user - proceeding with deletion (may require re-auth for old sessions)")
             } else if isGoogleSignIn {
                 // Google: same pattern — caller must handle requiresRecentLogin by re-presenting Google Sign-In.
-                print("🔍 Google Sign-In user - proceeding with deletion (may require re-auth for old sessions)")
+                dlog("🔍 Google Sign-In user - proceeding with deletion (may require re-auth for old sessions)")
             } else if isEmailSignIn {
                 // Email/password users must re-authenticate
                 guard let password = password, !password.isEmpty else {
@@ -760,21 +839,21 @@ class AuthenticationViewModel: ObservableObject {
                     throw NSError(domain: "AuthError", code: -1, userInfo: [NSLocalizedDescriptionKey: "User email not found"])
                 }
                 
-                print("📧 Email user - re-authenticating with password")
+                dlog("📧 Email user - re-authenticating with password")
                 let credential = EmailAuthProvider.credential(withEmail: email, password: password)
                 try await user.reauthenticate(with: credential)
-                print("✅ Re-authentication successful")
+                dlog("✅ Re-authentication successful")
             } else {
                 throw NSError(domain: "AuthError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Unknown authentication provider"])
             }
             
             // Delete user data from Firestore
             try await firebaseManager.deleteUserData(userId: userId)
-            print("✅ User data deleted from Firestore")
+            dlog("✅ User data deleted from Firestore")
             
             // Delete user account from Firebase Auth
             try await user.delete()
-            print("✅ User account deleted")
+            dlog("✅ User account deleted")
             
             // Reset state
             await MainActor.run {
@@ -788,14 +867,14 @@ class AuthenticationViewModel: ObservableObject {
                 // Firebase requires a fresh credential for this session.
                 // The calling view must reauthenticate (present Apple/Google sign-in or password entry)
                 // then retry deleteAccount().
-                print("⚠️ Account deletion requires recent authentication — caller must reauthenticate")
+                dlog("⚠️ Account deletion requires recent authentication — caller must reauthenticate")
                 throw NSError(
                     domain: "AuthError",
                     code: AuthErrorCode.requiresRecentLogin.rawValue,
                     userInfo: [NSLocalizedDescriptionKey: "For security, please sign in again before deleting your account."]
                 )
             }
-            print("❌ Account deletion failed: \(error.localizedDescription)")
+            dlog("❌ Account deletion failed: \(error.localizedDescription)")
             throw error
         }
     }
@@ -834,12 +913,12 @@ class AuthenticationViewModel: ObservableObject {
     func sendPhoneVerificationCode(phoneNumber: String) async {
         // P0: Prevent duplicate sends
         guard !isSendingPhoneCode else {
-            print("⚠️ Phone code send already in progress")
+            dlog("⚠️ Phone code send already in progress")
             return
         }
         
         guard !isAuthenticating else {
-            print("⚠️ Authentication already in progress")
+            dlog("⚠️ Authentication already in progress")
             return
         }
         
@@ -848,7 +927,7 @@ class AuthenticationViewModel: ObservableObject {
            let lastPhone = lastOTPPhoneNumber,
            lastPhone == phoneNumber,
            Date().timeIntervalSince(lastTimestamp) < 3.0 {
-            print("⚠️ Please wait before resending OTP (3-second cooldown)")
+            dlog("⚠️ Please wait before resending OTP (3-second cooldown)")
             await MainActor.run {
                 self.errorMessage = "Please wait a moment before trying again."
                 self.showError = true
@@ -887,7 +966,7 @@ class AuthenticationViewModel: ObservableObject {
         }
         
         #if DEBUG
-        print("📱 Sending verification code to: \(phoneNumber)")
+        dlog("📱 Sending verification code to: \(phoneNumber)")
         #endif
 
         // P0: Enforce server-side rate limit BEFORE calling Firebase.
@@ -908,7 +987,7 @@ class AuthenticationViewModel: ObservableObject {
             
             await MainActor.run {
                 self.phoneVerificationId = verificationID
-                print("✅ Verification code sent successfully")
+                dlog("✅ Verification code sent successfully")
                 
                 // P0-2: Update timestamp to prevent rapid retries
                 self.lastOTPSendTimestamp = Date()
@@ -928,7 +1007,7 @@ class AuthenticationViewModel: ObservableObject {
             haptic.notificationOccurred(.success)
             
         } catch {
-            print("❌ Failed to send verification code: \(error.localizedDescription)")
+            dlog("❌ Failed to send verification code: \(error.localizedDescription)")
             
             // P1: Enhanced network error handling
             let errorMessage = handlePhoneAuthError(error)
@@ -956,7 +1035,7 @@ class AuthenticationViewModel: ObservableObject {
         }
         
         guard !isAuthenticating else {
-            print("⚠️ Verification already in progress")
+            dlog("⚠️ Verification already in progress")
             return
         }
         
@@ -979,14 +1058,13 @@ class AuthenticationViewModel: ObservableObject {
             self.showError = false
         }
         
+        // Already on @MainActor — no Task hop needed
         defer {
-            Task { @MainActor in
-                self.isAuthenticating = false
-                self.isLoading = false
-            }
+            isAuthenticating = false
+            isLoading = false
         }
         
-        print("🔐 Verifying phone code... (isSignUp: \(isSignUp))")
+        dlog("🔐 Verifying phone code... (isSignUp: \(isSignUp))")
         
         do {
             // Create credential
@@ -997,14 +1075,14 @@ class AuthenticationViewModel: ObservableObject {
             
             // Sign in with credential
             let authResult = try await Auth.auth().signIn(with: credential)
-            print("✅ Phone verification successful")
+            dlog("✅ Phone verification successful")
             
             let userId = authResult.user.uid
             let phoneNumber = authResult.user.phoneNumber ?? ""
             
             // P0 FIX: Only create new user profile for sign-ups, not logins
             if isSignUp {
-                print("📝 Creating new user profile for phone sign-up")
+                dlog("📝 Creating new user profile for phone sign-up")
                 
                 // Create name keywords for search
                 let nameKeywords = createNameKeywords(from: displayName)
@@ -1053,9 +1131,9 @@ class AuthenticationViewModel: ObservableObject {
                     .document(userId)
                     .setData(userData, merge: true)
                 
-                print("✅ User profile created for phone sign-up")
+                dlog("✅ User profile created for phone sign-up")
             } else {
-                print("🔐 Phone login - updating existing user")
+                dlog("🔐 Phone login - updating existing user")
                 
                 // For login, just update phone verification status
                 try await firebaseManager.firestore.collection("users")
@@ -1067,7 +1145,7 @@ class AuthenticationViewModel: ObservableObject {
                         "updatedAt": Timestamp(date: Date())
                     ], merge: true)
                 
-                print("✅ Phone number verified for existing user")
+                dlog("✅ Phone number verified for existing user")
             }
             
             // Success haptic
@@ -1100,7 +1178,7 @@ class AuthenticationViewModel: ObservableObject {
             }
             
         } catch {
-            print("❌ Phone verification failed: \(error.localizedDescription)")
+            dlog("❌ Phone verification failed: \(error.localizedDescription)")
 
             // P0: Report failure to server for security monitoring/rate-limit tracking
             let storedPhone = await MainActor.run { self.phoneNumber }
@@ -1126,7 +1204,7 @@ class AuthenticationViewModel: ObservableObject {
     /// P1 FIX: Added cooldown check and proper error handling
     func resendVerificationCode(phoneNumber: String) async {
         guard resendCooldown == 0 else {
-            print("⚠️ Please wait \(resendCooldown)s before resending")
+            dlog("⚠️ Please wait \(resendCooldown)s before resending")
             await MainActor.run {
                 self.errorMessage = "Please wait \(resendCooldown) seconds before requesting a new code."
                 self.showError = true
@@ -1168,7 +1246,7 @@ class AuthenticationViewModel: ObservableObject {
         resendCooldown = 0
         isSendingPhoneCode = false
         isVerifyingPhone = false
-        print("🧹 Phone auth state cleaned up")
+        dlog("🧹 Phone auth state cleaned up")
     }
     
     /// Check network availability using NWPathMonitor (no external HTTP probe).
@@ -1206,21 +1284,26 @@ class AuthenticationViewModel: ObservableObject {
                         self.showError = true
                     }
 
-                    print("🚫 Server rate limit check failed: \(reason)")
+                    dlog("🚫 Server rate limit check failed: \(reason)")
                     return false
                 }
 
-                print("✅ Server rate limit check passed")
+                dlog("✅ Server rate limit check passed")
                 return true
             }
         } catch {
-            print("⚠️ Server rate limit check error: \(error.localizedDescription)")
-            // Fail open: allow request if server check fails (better UX)
-            // In production, consider failing closed for security
+            dlog("⚠️ Server rate limit check error: \(error.localizedDescription)")
+            // P0 FIX: Fail closed on network error — do not allow OTP send if
+            // server rate limit cannot be verified. Client-side cooldowns are
+            // not sufficient alone; a network error could mask an attack.
+            await MainActor.run {
+                self.errorMessage = "Unable to verify rate limit. Please check your connection and try again."
+                self.showError = true
+            }
         }
 
-        // Fallback to true if server check fails (client-side protection still active)
-        return true
+        // Fail closed: deny if server check fails or returns unexpected data
+        return false
     }
     
     /// Report failed verification attempt to server
@@ -1234,9 +1317,9 @@ class AuthenticationViewModel: ObservableObject {
                 "phoneNumber": phoneNumber,
                 "reason": reason
             ])
-            print("📊 Reported verification failure to server")
+            dlog("📊 Reported verification failure to server")
         } catch {
-            print("⚠️ Failed to report verification failure: \(error.localizedDescription)")
+            dlog("⚠️ Failed to report verification failure: \(error.localizedDescription)")
         }
     }
     
@@ -1313,7 +1396,7 @@ class AuthenticationViewModel: ObservableObject {
     
     func completeOnboarding() {
         guard let userId = Auth.auth().currentUser?.uid else {
-            print("⚠️ Cannot complete onboarding: No user logged in")
+            dlog("⚠️ Cannot complete onboarding: No user logged in")
             return
         }
         
@@ -1322,7 +1405,7 @@ class AuthenticationViewModel: ObservableObject {
         needsOnboarding = false
         onboardingJustCompleted = true  // Prevent checkOnboardingStatus from overwriting
         UserDefaults.standard.set(true, forKey: "hasCompletedOnboarding_\(userId)")
-        print("✅ Onboarding state set to complete locally")
+        dlog("✅ Onboarding state set to complete locally")
         
         // Update Firestore (single source of truth) asynchronously
         Task {
@@ -1333,7 +1416,7 @@ class AuthenticationViewModel: ObservableObject {
                     "onboardingCompletedAt": Timestamp(date: Date())
                 ])
                 
-                print("✅ Onboarding completion saved to Firestore")
+                dlog("✅ Onboarding completion saved to Firestore")
                 
                 // Clear the flag after Firestore update succeeds
                 // Wait a bit to ensure any pending checkOnboardingStatus calls complete
@@ -1343,8 +1426,8 @@ class AuthenticationViewModel: ObservableObject {
                 }
                 
             } catch {
-                print("❌ Failed to save onboarding completion to Firestore: \(error.localizedDescription)")
-                print("⚠️ Local state already updated - user can proceed")
+                dlog("❌ Failed to save onboarding completion to Firestore: \(error.localizedDescription)")
+                dlog("⚠️ Local state already updated - user can proceed")
                 
                 // Clear the flag even on error (after delay)
                 Task { @MainActor [weak self] in
@@ -1359,7 +1442,7 @@ class AuthenticationViewModel: ObservableObject {
     
     func completeUsernameSelection() {
         needsUsernameSelection = false
-        print("✅ Username selection completed")
+        dlog("✅ Username selection completed")
     }
     
     // MARK: - Welcome to AMEN
@@ -1405,14 +1488,14 @@ class AuthenticationViewModel: ObservableObject {
         
         do {
             try await firebaseManager.linkGoogleAccount()
-            print("✅ Google account linked")
+            dlog("✅ Google account linked")
             
             // Success haptic
             let haptic = UINotificationFeedbackGenerator()
             haptic.notificationOccurred(.success)
             
         } catch {
-            print("❌ Failed to link Google account: \(error.localizedDescription)")
+            dlog("❌ Failed to link Google account: \(error.localizedDescription)")
             errorMessage = handleAuthError(error)
             showError = true
             
@@ -1431,14 +1514,14 @@ class AuthenticationViewModel: ObservableObject {
         
         do {
             try await firebaseManager.linkAppleAccount(idToken: idToken, nonce: nonce, fullName: fullName)
-            print("✅ Apple account linked")
+            dlog("✅ Apple account linked")
             
             // Success haptic
             let haptic = UINotificationFeedbackGenerator()
             haptic.notificationOccurred(.success)
             
         } catch {
-            print("❌ Failed to link Apple account: \(error.localizedDescription)")
+            dlog("❌ Failed to link Apple account: \(error.localizedDescription)")
             errorMessage = handleAuthError(error)
             showError = true
             
@@ -1456,7 +1539,7 @@ class AuthenticationViewModel: ObservableObject {
         isLoading = true
         errorMessage = nil
         
-        print("📱 Linking phone number to existing account")
+        dlog("📱 Linking phone number to existing account")
         
         // Send verification code
         await sendPhoneVerificationCode(phoneNumber: phoneNumber)
@@ -1464,7 +1547,7 @@ class AuthenticationViewModel: ObservableObject {
         // Store that we're in linking mode (not signup)
         self.phoneNumber = phoneNumber
         
-        print("✅ Phone verification code sent for linking")
+        dlog("✅ Phone verification code sent for linking")
         
         isLoading = false
     }
@@ -1499,7 +1582,7 @@ class AuthenticationViewModel: ObservableObject {
             
             // Link credential to current user
             _ = try await currentUser.link(with: credential)
-            print("✅ Phone number successfully linked to account")
+            dlog("✅ Phone number successfully linked to account")
             
             // Update Firestore with phone verification
             if let phoneNum = currentUser.phoneNumber {
@@ -1527,7 +1610,7 @@ class AuthenticationViewModel: ObservableObject {
             return true
             
         } catch let error as NSError {
-            print("❌ Failed to link phone number: \(error.localizedDescription)")
+            dlog("❌ Failed to link phone number: \(error.localizedDescription)")
             
             // P0: Enhanced error handling for provider conflicts
             let errorMsg: String
@@ -1580,7 +1663,7 @@ class AuthenticationViewModel: ObservableObject {
         
         do {
             _ = try await currentUser.unlink(fromProvider: "phone")
-            print("✅ Phone number unlinked from account")
+            dlog("✅ Phone number unlinked from account")
             
             // Update Firestore
             try await firebaseManager.firestore.collection("users")
@@ -1602,7 +1685,7 @@ class AuthenticationViewModel: ObservableObject {
             return true
             
         } catch {
-            print("❌ Failed to unlink phone number: \(error.localizedDescription)")
+            dlog("❌ Failed to unlink phone number: \(error.localizedDescription)")
             await MainActor.run {
                 self.errorMessage = "Failed to remove phone number: \(error.localizedDescription)"
                 self.showError = true
@@ -1623,14 +1706,14 @@ class AuthenticationViewModel: ObservableObject {
         
         do {
             try await firebaseManager.unlinkProvider(providerID)
-            print("✅ Provider unlinked: \(providerID)")
+            dlog("✅ Provider unlinked: \(providerID)")
             
             // Success haptic
             let haptic = UINotificationFeedbackGenerator()
             haptic.notificationOccurred(.success)
             
         } catch {
-            print("❌ Failed to unlink provider: \(error.localizedDescription)")
+            dlog("❌ Failed to unlink provider: \(error.localizedDescription)")
             errorMessage = handleAuthError(error)
             showError = true
             

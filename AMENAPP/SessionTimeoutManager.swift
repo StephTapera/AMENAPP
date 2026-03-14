@@ -62,16 +62,20 @@ class SessionTimeoutManager: ObservableObject {
 
     // MARK: - Public Methods
 
-    /// Returns the persisted Remember Me preference, defaulting to `true` (stay signed in).
+    /// Returns the persisted Remember Me preference.
+    /// P2-6 FIX: Defaults to `false` (require re-auth after inactivity) rather than `true`.
+    /// Defaulting to `true` meant every new install silently opted into indefinite sessions,
+    /// which is unexpected for a faith app handling personal/spiritual content.
+    /// Users who want to stay signed in can explicitly enable Remember Me in settings.
     /// Nonisolated so it can be used as a default parameter value.
     nonisolated static func _storedRememberMe() -> Bool {
-        guard UserDefaults.standard.object(forKey: "rememberMe") != nil else { return true }
+        guard UserDefaults.standard.object(forKey: "rememberMe") != nil else { return false }
         return UserDefaults.standard.bool(forKey: "rememberMe")
     }
 
     /// Start session timeout monitoring.
     /// - Parameter rememberMe: When true, inactivity timeout is disabled but the 30-day hard cap still applies.
-    ///   Defaults to the stored Remember Me preference (which itself defaults to `true` when never set).
+    ///   Defaults to the stored Remember Me preference (which itself defaults to `false` when never set).
     func startMonitoring(rememberMe: Bool = SessionTimeoutManager._storedRememberMe()) {
         guard Auth.auth().currentUser != nil else { return }
 
@@ -92,10 +96,10 @@ class SessionTimeoutManager: ObservableObject {
         if rememberMe {
             // No inactivity timers, but schedule the hard max-age cap.
             scheduleMaxAgeTimer()
-            print("⏱️ Session timeout disabled (Remember Me). Hard cap: \(maxSessionAgeDays) days.")
+            dlog("⏱️ Session timeout disabled (Remember Me). Hard cap: \(maxSessionAgeDays) days.")
         } else {
             resetTimers()
-            print("⏱️ Session timeout monitoring started (30 min inactivity timeout).")
+            dlog("⏱️ Session timeout monitoring started (30 min inactivity timeout).")
         }
     }
 
@@ -104,13 +108,16 @@ class SessionTimeoutManager: ObservableObject {
         timeoutTimer?.invalidate()
         warningTimer?.invalidate()
         maxAgeTimer?.invalidate()
+        countdownTimer?.invalidate()   // P1 FIX: Also invalidate countdown timer to stop
+                                       // secondsUntilLogout from decrementing on a stopped session
         timeoutTimer = nil
         warningTimer = nil
         maxAgeTimer = nil
+        countdownTimer = nil
         isSessionActive = false
         showTimeoutWarning = false
 
-        print("⏱️ Session timeout monitoring stopped.")
+        dlog("⏱️ Session timeout monitoring stopped.")
     }
 
     /// Record user activity to reset inactivity timeout.
@@ -151,7 +158,7 @@ class SessionTimeoutManager: ObservableObject {
         lastActivityTime = Date()
         resetTimers()
 
-        print("⏱️ Session extended by user.")
+        dlog("⏱️ Session extended by user.")
     }
 
     /// Force logout — called by inactivity timeout, max-age cap, or manual sign-out.
@@ -160,6 +167,12 @@ class SessionTimeoutManager: ObservableObject {
         Task {
             showTimeoutWarning = false
             stopMonitoring()
+
+            // P0 FIX: Use centralized cleanup so session-expiry has identical teardown
+            // as a manual sign-out. Previously called Auth.auth().signOut() directly,
+            // bypassing all listener cleanup and causing permission_denied floods after
+            // the session timed out.
+            AppLifecycleManager.shared.performFullSignOutCleanup()
 
             // Disable FCM token so the device stops receiving push notifications.
             if let uid = Auth.auth().currentUser?.uid {
@@ -171,10 +184,10 @@ class SessionTimeoutManager: ObservableObject {
 
             do {
                 try Auth.auth().signOut()
-                print("🔐 User signed out (session expired or forced).")
+                dlog("🔐 User signed out (session expired or forced).")
                 NotificationCenter.default.post(name: .sessionTimeout, object: nil)
             } catch {
-                print("❌ Error during force logout: \(error.localizedDescription)")
+                dlog("❌ Error during force logout: \(error.localizedDescription)")
             }
         }
     }
@@ -198,12 +211,13 @@ class SessionTimeoutManager: ObservableObject {
     }
 
     /// Returns whether "Remember Me" is currently enabled.
-    /// Defaults to TRUE so that returning users are never auto-logged out by inactivity.
-    /// Only returns false when the user has explicitly toggled "Remember Me" off.
+    /// P1 FIX: Defaults to FALSE (require re-auth after inactivity) to match
+    /// `_storedRememberMe()` and the security-conscious policy set at line 67.
+    /// Previously defaulted to true, silently opting all new installs into
+    /// indefinite sessions and defeating the inactivity timeout entirely.
     func isRememberMeEnabled() -> Bool {
-        // If the key has never been set, default to true (stay signed in).
         guard UserDefaults.standard.object(forKey: "rememberMe") != nil else {
-            return true
+            return false
         }
         return UserDefaults.standard.bool(forKey: "rememberMe")
     }
@@ -240,7 +254,7 @@ class SessionTimeoutManager: ObservableObject {
             Task { @MainActor [weak self] in self?.forceLogout() }
         }
 
-        print("⏱️ Max-age cap scheduled: logout in \(Int(interval / 86400)) days.")
+        dlog("⏱️ Max-age cap scheduled: logout in \(Int(interval / 86400)) days.")
     }
 
     private func setupActivityMonitoring() {
@@ -284,7 +298,7 @@ class SessionTimeoutManager: ObservableObject {
         if let start = sessionStartDate() {
             let ageInDays = Calendar.current.dateComponents([.day], from: start, to: Date()).day ?? 0
             if ageInDays >= maxSessionAgeDays {
-                print("⏱️ Session exceeded \(maxSessionAgeDays)-day cap — forcing logout.")
+                dlog("⏱️ Session exceeded \(maxSessionAgeDays)-day cap — forcing logout.")
                 forceLogout()
                 return
             }
@@ -354,7 +368,7 @@ class SessionTimeoutManager: ObservableObject {
             }
         }
 
-        print("⚠️ Session timeout warning shown (5 minutes remaining)")
+        dlog("⚠️ Session timeout warning shown (5 minutes remaining)")
     }
 
     private func handleTimeout() {
@@ -386,6 +400,38 @@ class SessionTimeoutManager: ObservableObject {
 
 extension Notification.Name {
     static let sessionTimeout = Notification.Name("sessionTimeout")
+}
+
+// MARK: - Activity Tracking Window
+//
+// Subclass UIWindow to intercept all touch events and reset the session inactivity
+// timer. This catches touches on any view in the hierarchy — including text fields,
+// scroll views, buttons — so that a user actively typing or scrolling is never
+// incorrectly timed out.
+//
+// Usage: set as the window class in SceneDelegate or via UIWindowScene.
+// In SwiftUI apps using AMENAPPApp, wire via AppDelegate.application(_:configurationForConnecting:).
+
+import UIKit
+
+final class ActivityTrackingWindow: UIWindow {
+    // Throttle: record at most once per second to avoid hammering @MainActor.
+    private var lastRecordedActivity: Date = .distantPast
+
+    override func sendEvent(_ event: UIEvent) {
+        // Only track touch-began events so we don't call recordActivity on every
+        // touch-moved callback (which fires 60×/s during scrolling).
+        if event.type == .touches,
+           let touches = event.allTouches,
+           touches.contains(where: { $0.phase == .began }) {
+            let now = Date()
+            if now.timeIntervalSince(lastRecordedActivity) > 1.0 {
+                lastRecordedActivity = now
+                SessionTimeoutManager.shared.recordActivity()
+            }
+        }
+        super.sendEvent(event)
+    }
 }
 
 // MARK: - Session Timeout Warning View
@@ -783,62 +829,16 @@ private func makeDiscs(in size: CGSize) -> [DiscConfig] {
 
 // MARK: - App Loading Screen
 
-/// Three-dot bouncing loader shown during sign-in, fresh install, and app update.
-/// Dark background with white dots — matches the dark loading state users see on first install.
+/// Full-screen launch screen: AMEN logo fades in first, then the loading dots appear below.
+/// Shown during auth resolution, sign-in, fresh install, and app update.
 struct AppLoadingScreen: View {
-    // Each dot animates independently with a staggered delay.
-    @State private var dot1Up = false
-    @State private var dot2Up = false
-    @State private var dot3Up = false
-
-    private let dotSize: CGFloat = 11
-    private let dotSpacing: CGFloat = 10
-    private let bounceHeight: CGFloat = 14
-    private let animDuration: Double = 0.46
-
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
 
-            HStack(spacing: dotSpacing) {
-                bouncingDot(isUp: dot1Up)
-                bouncingDot(isUp: dot2Up)
-                bouncingDot(isUp: dot3Up)
-            }
+            AMENLoadingIndicator(color: .white, dotSize: 10, spacing: 9, bounceHeight: 13)
         }
         .ignoresSafeArea()
-        .onAppear { startBouncing() }
-    }
-
-    private func bouncingDot(isUp: Bool) -> some View {
-        Circle()
-            .fill(Color.white)
-            .frame(width: dotSize, height: dotSize)
-            .offset(y: isUp ? -bounceHeight : 0)
-            .animation(
-                .easeInOut(duration: animDuration)
-                    .repeatForever(autoreverses: true),
-                value: isUp
-            )
-    }
-
-    private func startBouncing() {
-        // Stagger each dot by 1/3 of the cycle so they form a wave.
-        let stagger = animDuration * 0.55
-
-        withAnimation(.easeInOut(duration: animDuration).repeatForever(autoreverses: true)) {
-            dot1Up = true
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + stagger) {
-            withAnimation(.easeInOut(duration: animDuration).repeatForever(autoreverses: true)) {
-                dot2Up = true
-            }
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + stagger * 2) {
-            withAnimation(.easeInOut(duration: animDuration).repeatForever(autoreverses: true)) {
-                dot3Up = true
-            }
-        }
     }
 }
 

@@ -2,7 +2,12 @@
 //  NotificationDeepLinkHandler.swift
 //  AMENAPP
 //
-//  Handles deep linking from push notifications
+//  DEPRECATED: This class is no longer active. Deep link routing is handled by
+//  NotificationDeepLinkRouter (via CompositeNotificationDelegate). The
+//  NSNotification "didReceiveNotificationResponse" it listens for is never posted
+//  by any active code path, so this class never receives notification taps.
+//
+//  DO NOT add new routing logic here. Use NotificationDeepLinkRouter instead.
 //
 
 import Foundation
@@ -10,7 +15,12 @@ import SwiftUI
 import UserNotifications
 import Combine
 
-/// Handles deep linking from system push notifications
+/// - Warning: Deprecated. Use `NotificationDeepLinkRouter` for all deep link routing.
+///   This class's `setupNotificationHandlers()` observer fires on
+///   `NSNotification.Name("didReceiveNotificationResponse")` which is never posted
+///   by the active `CompositeNotificationDelegate`. It is retained only for the
+///   `DeepLink` enum and `handleForegroundNotification` call sites.
+@available(*, deprecated, renamed: "NotificationDeepLinkRouter")
 @MainActor
 class NotificationDeepLinkHandler: ObservableObject {
     static let shared = NotificationDeepLinkHandler()

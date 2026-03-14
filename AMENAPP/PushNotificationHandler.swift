@@ -27,6 +27,12 @@ class PushNotificationHandler: NSObject, ObservableObject {
 
     @Published var pendingDeepLink: NotificationDeepLink?
 
+    /// Clear the pending deep link. Call this after navigation has completed to
+    /// prevent repeated navigation on view re-renders.
+    func clearPendingDeepLink() {
+        pendingDeepLink = nil
+    }
+
     // Track the last saved token so we skip no-op updates
     private var lastSavedToken: String?
 

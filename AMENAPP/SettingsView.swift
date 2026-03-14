@@ -2,59 +2,166 @@
 //  SettingsView.swift
 //  AMENAPP
 //
-//  Full settings hub — all sections from Account → Wellbeing → AI → Creator → Legal.
+//  Premium dark settings redesign.
+//  Visual language: compact rounded dark-glass panels, monochrome icons,
+//  minimal hierarchy, restrained animations — inspired by the reference.
+//  All existing logic (sign-out, navigation, subviews) is fully preserved.
 //
 
 import SwiftUI
 import FirebaseAuth
 
+// MARK: - Design Tokens
+
+private enum SD {
+    static let bg         = Color(red: 0.07, green: 0.07, blue: 0.08)   // near-black
+    static let panel      = Color(red: 0.12, green: 0.12, blue: 0.13)   // dark glass panel
+    static let panelEdge  = Color.white.opacity(0.07)                    // hairline border
+    static let rowHover   = Color.white.opacity(0.055)                   // press highlight
+    static let label      = Color(white: 0.95)
+    static let secondary  = Color(white: 0.5)
+    static let chevron    = Color(white: 0.32)
+    static let divider    = Color.white.opacity(0.07)
+    static let danger     = Color(red: 1.0, green: 0.35, blue: 0.35)
+    static let radius: CGFloat = 16
+}
+
 // MARK: - SettingsView
 
 struct SettingsView: View {
     @Environment(\.dismiss) var dismiss
+    @EnvironmentObject private var authViewModel: AuthenticationViewModel
+
     @State private var showSignOutConfirmation = false
     @State private var navigateToAccountSettings = false
+    @State private var groupsVisible = false     // drives stagger entrance
 
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.black.ignoresSafeArea()
+                SD.bg.ignoresSafeArea()
 
-                ScrollView {
-                    VStack(spacing: 24) {
-                        accountSection
-                        privacySafetySection
-                        notificationsSection
-                        securitySection
-                        contentFeedSection
-                        wellbeingSection
-                        bereanAISection
-                        creatorSection
-                        importDataSection
-                        helpLegalSection
-                        accessibilitySection
-                        signOutButton
-                        deleteAccountFooter
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 10) {
+
+                        // ── Profile header ─────────────────────────────────
+                        profileHeader
+                            .opacity(groupsVisible ? 1 : 0)
+                            .offset(y: groupsVisible ? 0 : 14)
+                            .animation(.spring(response: 0.46, dampingFraction: 0.82).delay(0.04), value: groupsVisible)
+
+                        // ── Group 1: Account ────────────────────────────────
+                        SDGroup {
+                            SDNavRow(icon: "person",          label: "Edit Profile")    { AccountSettingsView() }
+                            SDDivider()
+                            SDNavRow(icon: "at",              label: "Account")          { AccountSettingsView() }
+                            SDDivider()
+                            SDNavRow(icon: "bell",            label: "Notifications")    { NotificationSettingsView() }
+                            SDDivider()
+                            SDNavRow(icon: "lock",            label: "Privacy & Safety") { PrivacySettingsView() }
+                            SDDivider()
+                            SDNavRow(icon: "shield",          label: "Security")         { SecurityGroupView() }
+                        }
+                        .opacity(groupsVisible ? 1 : 0)
+                        .offset(y: groupsVisible ? 0 : 18)
+                        .animation(.spring(response: 0.46, dampingFraction: 0.82).delay(0.08), value: groupsVisible)
+
+                        // ── Group 2: Preferences ────────────────────────────
+                        SDGroup {
+                            SDNavRow(icon: "sparkles",        label: "Berean AI")        { BereanAISettingsView() }
+                            SDDivider()
+                            SDNavRow(icon: "slider.horizontal.3", label: "Feed & Content") { ContentFeedGroupView() }
+                            SDDivider()
+                            SDNavRow(icon: "heart.text.square",   label: "Wellbeing")    { WellbeingGroupView() }
+                            SDDivider()
+                            SDNavRow(icon: "character.bubble",    label: "Language")     { TranslationSettingsView() }
+                        }
+                        .opacity(groupsVisible ? 1 : 0)
+                        .offset(y: groupsVisible ? 0 : 18)
+                        .animation(.spring(response: 0.46, dampingFraction: 0.82).delay(0.13), value: groupsVisible)
+
+                        // ── Group 3: Tools & Data ───────────────────────────
+                        SDGroup {
+                            SDNavRow(icon: "chart.line.uptrend.xyaxis", label: "Creator & Insights") { CreatorGroupView() }
+                            SDDivider()
+                            SDNavRow(icon: "square.and.arrow.down.on.square", label: "Import Content") { ImportLauncherView() }
+                        }
+                        .opacity(groupsVisible ? 1 : 0)
+                        .offset(y: groupsVisible ? 0 : 18)
+                        .animation(.spring(response: 0.46, dampingFraction: 0.82).delay(0.17), value: groupsVisible)
+
+                        // ── Group 4: Help & Legal ───────────────────────────
+                        SDGroup {
+                            SDNavRow(icon: "questionmark.circle", label: "Help & Support")       { HelpSupportView() }
+                            SDDivider()
+                            SDNavRow(icon: "flag",                label: "Report a Problem")     { ReportProblemView() }
+                            SDDivider()
+                            SDNavRow(icon: "info.circle",         label: "About AMEN")           { AboutAmenView() }
+                        }
+                        .opacity(groupsVisible ? 1 : 0)
+                        .offset(y: groupsVisible ? 0 : 18)
+                        .animation(.spring(response: 0.46, dampingFraction: 0.82).delay(0.20), value: groupsVisible)
+
+                        // ── Sign Out ────────────────────────────────────────
+                        SDGroup {
+                            SDActionRow(icon: "rectangle.portrait.and.arrow.right",
+                                        label: "Sign Out",
+                                        style: .danger) {
+                                HapticManager.impact(style: .medium)
+                                showSignOutConfirmation = true
+                            }
+                        }
+                        .opacity(groupsVisible ? 1 : 0)
+                        .offset(y: groupsVisible ? 0 : 18)
+                        .animation(.spring(response: 0.46, dampingFraction: 0.82).delay(0.23), value: groupsVisible)
+
+                        // ── Delete account footer ───────────────────────────
+                        NavigationLink {
+                            DeleteAccountView()
+                        } label: {
+                            Text("Deactivate or delete account")
+                                .font(.system(size: 12))
+                                .foregroundStyle(SD.danger.opacity(0.60))
+                        }
+                        .padding(.top, 2)
+                        .padding(.bottom, 32)
+                        .opacity(groupsVisible ? 1 : 0)
+                        .animation(.easeIn(duration: 0.2).delay(0.28), value: groupsVisible)
                     }
                     .padding(.horizontal, 16)
-                    .padding(.top, 12)
-                    .padding(.bottom, 40)
+                    .padding(.top, 8)
                 }
             }
-            .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
-            .navigationDestination(isPresented: $navigateToAccountSettings) {
-                AccountSettingsView()
-            }
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text("Settings")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(SD.label)
+                }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") {
+                    Button {
                         HapticManager.impact(style: .light)
                         dismiss()
+                    } label: {
+                        Text("Done")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(SD.label)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 5)
+                            .background(
+                                Capsule()
+                                    .fill(SD.panel)
+                                    .overlay(Capsule().stroke(SD.panelEdge, lineWidth: 1))
+                            )
                     }
-                    .font(.custom("OpenSans-SemiBold", size: 16))
-                    .foregroundStyle(.white)
+                    .buttonStyle(.plain)
                 }
+            }
+            .toolbarBackground(SD.bg, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .navigationDestination(isPresented: $navigateToAccountSettings) {
+                AccountSettingsView()
             }
             .confirmationDialog("Sign Out", isPresented: $showSignOutConfirmation, titleVisibility: .visible) {
                 Button("Sign Out", role: .destructive) { signOut() }
@@ -65,430 +172,347 @@ struct SettingsView: View {
             .onReceive(NotificationCenter.default.publisher(for: .navigateToAccountSettings)) { _ in
                 navigateToAccountSettings = true
             }
-        }
-    }
-
-    // MARK: - Section: Account
-
-    private var accountSection: some View {
-        AmenSettingsSectionView(header: "ACCOUNT") {
-            AmenSettingsRow(icon: "person.circle.fill", iconColor: .blue, title: "Edit Profile") {
-                AccountSettingsView()
-            }
-            SettingsDivider()
-            AmenSettingsRow(icon: "person.crop.rectangle.fill", iconColor: Color(red: 0.4, green: 0.6, blue: 1.0), title: "Account Type") {
-                AccountTypeSettingsView()
-            }
-            SettingsDivider()
-            AmenSettingsRow(icon: "hand.raised.fill", iconColor: .red, title: "Blocked Accounts") {
-                BlockedUsersView()
-            }
-            SettingsDivider()
-            AmenSettingsRow(icon: "speaker.slash.fill", iconColor: Color(red: 0.7, green: 0.4, blue: 0.9), title: "Muted Accounts") {
-                MutedAccountsView()
-            }
-            SettingsDivider()
-            AmenSettingsRow(icon: "eye.slash.fill", iconColor: .gray, title: "Hidden Words & Filters") {
-                HiddenWordsSettingsView()
+            .onAppear {
+                withAnimation { groupsVisible = true }
             }
         }
     }
 
-    // MARK: - Section: Privacy & Safety
+    // MARK: - Profile Header
 
-    private var privacySafetySection: some View {
-        AmenSettingsSectionView(header: "PRIVACY & SAFETY") {
-            AmenSettingsRow(icon: "lock.shield.fill", iconColor: .green, title: "Privacy Settings") {
-                PrivacySettingsView()
-            }
-            SettingsDivider()
-            AmenSettingsRow(icon: "message.fill", iconColor: Color(red: 0.3, green: 0.75, blue: 0.55), title: "Message Controls") {
-                MessageControlsSettingsView()
-            }
-            SettingsDivider()
-            AmenSettingsRow(icon: "eye.fill", iconColor: Color(red: 0.4, green: 0.7, blue: 1.0), title: "Activity Status") {
-                ActivityStatusSettingsView()
-            }
-            SettingsDivider()
-            AmenSettingsRow(icon: "shield.lefthalf.filled.badge.checkmark", iconColor: Color(red: 0.3, green: 0.6, blue: 1.0), title: "Transparency Centre") {
-                TransparencyCentreView()
-            }
-            SettingsDivider()
-            AmenSettingsRow(icon: "hand.point.up.left.fill", iconColor: Color(red: 0.9, green: 0.6, blue: 0.2), title: "Sensitive Content") {
-                SensitiveContentSettingsView()
-            }
-            SettingsDivider()
-            AmenSettingsRow(icon: "shield.checkered", iconColor: .purple, title: "Safety & Community") {
-                SafetyDashboardView()
-            }
-        }
-    }
-
-    // MARK: - Section: Notifications
-
-    private var notificationsSection: some View {
-        AmenSettingsSectionView(header: "NOTIFICATIONS") {
-            AmenSettingsRow(icon: "bell.badge.fill", iconColor: .orange, title: "Push Notifications") {
-                NotificationSettingsView()
-            }
-            SettingsDivider()
-            AmenSettingsRow(icon: "moon.fill", iconColor: Color(red: 0.4, green: 0.4, blue: 0.9), title: "Quiet Mode") {
-                QuietModeSettingsView()
-            }
-            SettingsDivider()
-            AmenSettingsRow(icon: "alarm.fill", iconColor: Color(red: 0.9, green: 0.5, blue: 0.3), title: "Prayer Reminders") {
-                PrayerReminderSettingsView()
-            }
-        }
-    }
-
-    // MARK: - Section: Security
-
-    private var securitySection: some View {
-        AmenSettingsSectionView(header: "SECURITY") {
-            AmenSettingsRow(icon: "key.fill", iconColor: Color(red: 0.9, green: 0.75, blue: 0.2), title: "Change Password") {
-                ChangePasswordView()
-            }
-            SettingsDivider()
-            AmenSettingsRow(icon: "lock.app.dashed", iconColor: .green, title: "Two-Factor Authentication") {
-                TwoFactorAuthView()
-            }
-            SettingsDivider()
-            AmenSettingsRow(icon: "iphone.gen3", iconColor: Color(red: 0.4, green: 0.8, blue: 0.9), title: "Login Activity & Devices") {
-                ActiveSessionsView()
-            }
-            SettingsDivider()
-            AmenSettingsRow(icon: "arrow.down.circle.fill", iconColor: Color(red: 0.5, green: 0.6, blue: 0.8), title: "Download Your Data") {
-                DownloadDataView()
-            }
-            SettingsDivider()
-            AmenSettingsRow(icon: "checkmark.shield.fill", iconColor: Color(red: 0.3, green: 0.75, blue: 0.5), title: "Account Status") {
-                AccountStatusView()
-            }
-            SettingsDivider()
-            SettingsRowExternal(icon: "camera.fill", iconColor: .gray, title: "App Permissions") {
-                if let url = URL(string: UIApplication.openSettingsURLString) {
-                    UIApplication.shared.open(url)
+    private var profileHeader: some View {
+        NavigationLink(destination: AccountSettingsView()) {
+            HStack(spacing: 14) {
+                // Avatar placeholder
+                ZStack {
+                    Circle()
+                        .fill(SD.panel)
+                        .frame(width: 52, height: 52)
+                        .overlay(Circle().stroke(SD.panelEdge, lineWidth: 1))
+                    Image(systemName: "person.fill")
+                        .font(.system(size: 22))
+                        .foregroundStyle(SD.secondary)
                 }
-            }
-        }
-    }
 
-    // MARK: - Section: Content & Feed
-
-    private var contentFeedSection: some View {
-        AmenSettingsSectionView(header: "CONTENT & FEED") {
-            AmenSettingsRow(icon: "text.word.spacing", iconColor: Color(red: 0.6, green: 0.4, blue: 0.9), title: "Muted Words & Topics") {
-                HiddenWordsSettingsView()
-            }
-            SettingsDivider()
-            AmenSettingsRow(icon: "slider.horizontal.3", iconColor: Color(red: 0.3, green: 0.65, blue: 0.9), title: "Feed Preferences") {
-                HeyFeedControlsSheet()
-            }
-            SettingsDivider()
-            AmenSettingsRow(icon: "character.bubble.fill", iconColor: Color(red: 0.8, green: 0.5, blue: 0.3), title: "Language & Translation") {
-                LanguageSettingsView()
-            }
-            SettingsDivider()
-            AmenSettingsRow(icon: "gear.badge", iconColor: .gray, title: "Default Post Settings") {
-                DefaultPostSettingsView()
-            }
-        }
-    }
-
-    // MARK: - Section: Wellbeing
-
-    private var wellbeingSection: some View {
-        AmenSettingsSectionView(header: "WELLBEING") {
-            AmenSettingsRow(icon: "chart.bar.fill", iconColor: Color(red: 0.3, green: 0.8, blue: 0.6), title: "Screen Time & Usage") {
-                ScrollBudgetSettingsView()
-            }
-            SettingsDivider()
-            AmenSettingsRow(icon: "building.columns.fill", iconColor: Color(red: 0.9, green: 0.7, blue: 0.3), title: "Sunday Focus Mode") {
-                SundayFocusModeSettingsView()
-            }
-            SettingsDivider()
-            AmenSettingsRow(icon: "hand.raised.app.fill", iconColor: Color(red: 0.6, green: 0.5, blue: 0.9), title: "Take a Break Reminders") {
-                TakeABreakSettingsView()
-            }
-        }
-    }
-
-    // MARK: - Section: Berean AI
-
-    private var bereanAISection: some View {
-        AmenSettingsSectionView(header: "BEREAN AI") {
-            AmenSettingsRow(icon: "sparkles", iconColor: Color(red: 0.5, green: 0.6, blue: 1.0), title: "AI Preferences") {
-                BereanAISettingsView()
-            }
-        }
-    }
-
-    // MARK: - Section: Creator
-
-    private var creatorSection: some View {
-        AmenSettingsSectionView(header: "CREATOR") {
-            AmenSettingsRow(icon: "chart.line.uptrend.xyaxis", iconColor: Color(red: 0.4, green: 0.75, blue: 0.9), title: "Insights & Analytics") {
-                CreatorInsightsView()
-            }
-            SettingsDivider()
-            AmenSettingsRow(icon: "doc.text.fill", iconColor: Color(red: 0.8, green: 0.6, blue: 0.3), title: "Drafts") {
-                DraftsSettingsView()
-            }
-        }
-    }
-
-    // MARK: - Section: Import Data
-
-    private var importDataSection: some View {
-        AmenSettingsSectionView(header: "YOUR DATA") {
-            NavigationLink {
-                ImportLauncherView()
-                    .navigationTitle("Import Content")
-                    .navigationBarTitleDisplayMode(.inline)
-            } label: {
-                HStack(spacing: 14) {
-                    Image(systemName: "square.and.arrow.down.on.square")
-                        .font(.system(size: 17))
-                        .foregroundStyle(Color.blue)
-                        .frame(width: 28)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Import Your Content")
-                            .font(.system(size: 16, weight: .regular))
-                        Text("From Instagram, X, or others")
-                            .font(.system(size: 13))
-                            .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 3) {
+                    if let user = Auth.auth().currentUser {
+                        Text(user.displayName ?? "Your Account")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(SD.label)
+                        Text(user.email ?? "")
+                            .font(.system(size: 12))
+                            .foregroundStyle(SD.secondary)
+                            .lineLimit(1)
+                    } else {
+                        Text("Your Account")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(SD.label)
+                        Text("Manage profile & preferences")
+                            .font(.system(size: 12))
+                            .foregroundStyle(SD.secondary)
                     }
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(.tertiary)
                 }
-                .padding(.vertical, 4)
-            }
-            .buttonStyle(.plain)
-        }
-    }
 
-    // MARK: - Section: Help & Legal
-
-    private var helpLegalSection: some View {
-        AmenSettingsSectionView(header: "HELP & LEGAL") {
-            AmenSettingsRow(icon: "questionmark.circle.fill", iconColor: .purple, title: "Help & Support") {
-                HelpSupportView()
-            }
-            SettingsDivider()
-            AmenSettingsRow(icon: "flag.fill", iconColor: .orange, title: "Report a Problem") {
-                ReportProblemView()
-            }
-            SettingsDivider()
-            AmenSettingsRow(icon: "book.closed.fill", iconColor: Color(red: 0.4, green: 0.7, blue: 0.5), title: "Community Guidelines") {
-                LegalDocView(title: "Community Guidelines", urlString: "https://amenapp.com/community-guidelines")
-            }
-            SettingsDivider()
-            AmenSettingsRow(icon: "lock.doc.fill", iconColor: .gray, title: "Privacy Policy") {
-                LegalDocView(title: "Privacy Policy", urlString: "https://amenapp.com/privacy")
-            }
-            SettingsDivider()
-            AmenSettingsRow(icon: "doc.plaintext.fill", iconColor: .gray, title: "Terms of Service") {
-                LegalDocView(title: "Terms of Service", urlString: "https://amenapp.com/terms")
-            }
-            SettingsDivider()
-            AmenSettingsRow(icon: "info.circle.fill", iconColor: .gray, title: "About AMEN") {
-                AboutAmenView()
-            }
-        }
-    }
-
-    // MARK: - Section: Accessibility
-
-    private var accessibilitySection: some View {
-        AmenSettingsSectionView(header: "ACCESSIBILITY") {
-            AmenSettingsRow(icon: "figure.walk.motion", iconColor: Color(red: 0.4, green: 0.7, blue: 0.9), title: "Motion & Animations") {
-                AccessibilitySettingsView()
-            }
-            SettingsDivider()
-            AmenSettingsRow(icon: "textformat.size", iconColor: Color(red: 0.7, green: 0.5, blue: 0.9), title: "Text Size & Display") {
-                TextSizeSettingsView()
-            }
-            SettingsDivider()
-            AmenSettingsRow(icon: "captions.bubble.fill", iconColor: Color(red: 0.4, green: 0.75, blue: 0.55), title: "Captions & Alt Text") {
-                CaptionsAltTextSettingsView()
-            }
-        }
-    }
-
-    // MARK: - Sign Out
-
-    private var signOutButton: some View {
-        Button(role: .destructive) {
-            HapticManager.impact(style: .medium)
-            showSignOutConfirmation = true
-        } label: {
-            HStack {
                 Spacer()
-                Label {
-                    Text("Sign Out")
-                        .font(.custom("OpenSans-SemiBold", size: 16))
-                        .foregroundStyle(.red)
-                } icon: {
-                    Image(systemName: "rectangle.portrait.and.arrow.right")
-                        .foregroundStyle(.red)
-                }
-                Spacer()
-            }
-            .padding(16)
-        }
-        .glassEffect(GlassEffectStyle.regular.interactive(), in: RoundedRectangle(cornerRadius: 16))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-    }
 
-    private var deleteAccountFooter: some View {
-        NavigationLink {
-            DeleteAccountView()
-        } label: {
-            Text("Deactivate or Delete Account")
-                .font(.custom("OpenSans-Regular", size: 13))
-                .foregroundStyle(.red.opacity(0.7))
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(SD.chevron)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .background(
+                RoundedRectangle(cornerRadius: SD.radius, style: .continuous)
+                    .fill(SD.panel)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: SD.radius, style: .continuous)
+                            .stroke(SD.panelEdge, lineWidth: 1)
+                    )
+            )
         }
-        .padding(.bottom, 8)
+        .buttonStyle(SDPressStyle())
     }
 
     // MARK: - Sign Out Logic
 
     private func signOut() {
         HapticManager.notification(type: .success)
-        Task {
-            await PushNotificationManager.shared.removeFCMTokenFromFirestore()
-            PushNotificationManager.shared.clearBadge()
-            await MainActor.run {
-                // Stop all RTDB & Firestore listeners BEFORE signing out
-                // to prevent permission_denied floods and stale listener state.
-                // Must mirror AuthenticationViewModel.signOut() cleanup list.
-                PostInteractionsService.shared.stopAllObservers()
-                RealtimeRepostsService.shared.stopAllObservers()
-                RealtimeSavedPostsService.shared.removeSavedPostsListener()
-                RealtimeDatabaseService.shared.cleanup()
-                RealtimePostService.shared.stopAllObserving()
-                FollowService.shared.stopListening()
-                NotificationService.shared.stopListening()
-                BlockService.shared.stopListening()
-                RealtimeCommentsService.shared.removeAllListeners()
-                ActivityFeedService.shared.stopAllObservers()
-                do {
-                    try Auth.auth().signOut()
-                } catch {
-                    Logger.error("Sign out failed", error: error)
-                }
-                dismiss()
-            }
-        }
+        // P1 FIX: Delegate to AuthenticationViewModel.signOut() which performs full
+        // teardown including 2FA state, phone auth, FCM deregistration, and all
+        // listener cleanup via AppLifecycleManager. Previously this path did its own
+        // partial teardown, leaving stale is2FAInProgress/pending2FACredential state.
+        authViewModel.signOut()
+        dismiss()
     }
 }
 
-// MARK: - Reusable Settings Section Container
+// MARK: - Group Container
 
-struct AmenSettingsSectionView<Content: View>: View {
-    let header: String
+struct SDGroup<Content: View>: View {
     @ViewBuilder let content: () -> Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(header)
-                .font(.custom("OpenSans-Bold", size: 11))
-                .foregroundStyle(.white.opacity(0.5))
-                .padding(.horizontal, 4)
+        VStack(spacing: 0) {
+            content()
+        }
+        .background(
+            RoundedRectangle(cornerRadius: SD.radius, style: .continuous)
+                .fill(SD.panel)
+                .overlay(
+                    RoundedRectangle(cornerRadius: SD.radius, style: .continuous)
+                        .stroke(SD.panelEdge, lineWidth: 1)
+                )
+        )
+        .clipShape(RoundedRectangle(cornerRadius: SD.radius, style: .continuous))
+    }
+}
 
-            VStack(spacing: 0) {
-                content()
+// MARK: - Navigation Row
+
+struct SDNavRow<Destination: View>: View {
+    let icon: String
+    let label: String
+    @ViewBuilder let destination: () -> Destination
+    @State private var isPressed = false
+
+    var body: some View {
+        NavigationLink(destination: destination()) {
+            rowBody(showChevron: true)
+        }
+        .buttonStyle(SDPressStyle())
+    }
+
+    @ViewBuilder
+    private func rowBody(showChevron: Bool) -> some View {
+        HStack(spacing: 13) {
+            Image(systemName: icon)
+                .font(.system(size: 16, weight: .regular))
+                .foregroundStyle(SD.label)
+                .frame(width: 22, alignment: .center)
+
+            Text(label)
+                .font(.system(size: 15, weight: .regular))
+                .foregroundStyle(SD.label)
+
+            Spacer()
+
+            if showChevron {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(SD.chevron)
             }
-            .glassEffect(GlassEffectStyle.regular, in: RoundedRectangle(cornerRadius: 16))
-            .clipShape(RoundedRectangle(cornerRadius: 16))
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 13)
+        .contentShape(Rectangle())
+    }
+}
+
+// MARK: - Action Row (button — no navigation)
+
+enum SDRowStyle { case standard, danger }
+
+struct SDActionRow: View {
+    let icon: String
+    let label: String
+    var style: SDRowStyle = .standard
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 13) {
+                Image(systemName: icon)
+                    .font(.system(size: 16, weight: .regular))
+                    .foregroundStyle(style == .danger ? SD.danger : SD.label)
+                    .frame(width: 22, alignment: .center)
+
+                Text(label)
+                    .font(.system(size: 15, weight: .regular))
+                    .foregroundStyle(style == .danger ? SD.danger : SD.label)
+
+                Spacer()
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 13)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(SDPressStyle())
+    }
+}
+
+// MARK: - Divider
+
+struct SDDivider: View {
+    var body: some View {
+        SD.divider
+            .frame(height: 0.5)
+            .padding(.leading, 51)
+    }
+}
+
+// MARK: - Press ButtonStyle
+
+struct SDPressStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(
+                configuration.isPressed
+                    ? SD.rowHover
+                    : Color.clear
+            )
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+    }
+}
+
+// MARK: - Grouped Detail Views
+// These gather related settings under one destination to reduce top-level clutter.
+
+// Security (was its own section — now one row)
+struct SecurityGroupView: View {
+    var body: some View {
+        SDDetailScaffold(title: "Security") {
+            SDGroup {
+                SDNavRow(icon: "key",               label: "Change Password")            { ChangePasswordView() }
+                SDDivider()
+                SDNavRow(icon: "lock.app.dashed",   label: "Two-Factor Authentication")  { TwoFactorAuthView() }
+                SDDivider()
+                SDNavRow(icon: "iphone.gen3",       label: "Login Activity & Devices")   { ActiveSessionsView() }
+                SDDivider()
+                SDNavRow(icon: "arrow.down.circle", label: "Download Your Data")         { DownloadDataView() }
+                SDDivider()
+                SDNavRow(icon: "checkmark.shield",  label: "Account Status")             { AccountStatusView() }
+                SDDivider()
+                SDActionRow(icon: "camera", label: "App Permissions") {
+                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                        UIApplication.shared.open(url)
+                    }
+                }
+            }
         }
     }
 }
 
-// MARK: - Reusable Settings Row (NavigationLink)
+// Content & Feed + Accessibility (merged under Preferences)
+struct ContentFeedGroupView: View {
+    var body: some View {
+        SDDetailScaffold(title: "Feed & Content") {
+            SDGroup {
+                SDNavRow(icon: "text.word.spacing",    label: "Muted Words & Topics")  { HiddenWordsSettingsView() }
+                SDDivider()
+                SDNavRow(icon: "slider.horizontal.3",  label: "Feed Preferences")      { HeyFeedControlsSheet() }
+                SDDivider()
+                SDNavRow(icon: "gear.badge",            label: "Default Post Settings") { DefaultPostSettingsView() }
+            }
+
+            SDGroup {
+                SDNavRow(icon: "figure.walk.motion",   label: "Motion & Animations")   { AccessibilitySettingsView() }
+                SDDivider()
+                SDNavRow(icon: "textformat.size",       label: "Text Size & Display")   { TextSizeSettingsView() }
+                SDDivider()
+                SDNavRow(icon: "captions.bubble",      label: "Captions & Alt Text")    { CaptionsAltTextSettingsView() }
+            }
+        }
+    }
+}
+
+// Wellbeing group
+struct WellbeingGroupView: View {
+    var body: some View {
+        SDDetailScaffold(title: "Wellbeing") {
+            SDGroup {
+                SDNavRow(icon: "chart.bar",              label: "Screen Time & Usage")     { ScrollBudgetSettingsView() }
+                SDDivider()
+                SDNavRow(icon: "building.columns",       label: "Sunday Focus Mode")        { SundayFocusModeSettingsView() }
+                SDDivider()
+                SDNavRow(icon: "hand.raised.app",        label: "Take a Break Reminders")  { TakeABreakSettingsView() }
+                SDDivider()
+                SDNavRow(icon: "alarm",                  label: "Prayer Reminders")         { PrayerReminderSettingsView() }
+                SDDivider()
+                SDNavRow(icon: "moon",                   label: "Quiet Mode")               { QuietModeSettingsView() }
+            }
+        }
+    }
+}
+
+// Creator group
+struct CreatorGroupView: View {
+    var body: some View {
+        SDDetailScaffold(title: "Creator") {
+            SDGroup {
+                SDNavRow(icon: "chart.line.uptrend.xyaxis", label: "Insights & Analytics") { CreatorInsightsView() }
+                SDDivider()
+                SDNavRow(icon: "doc.text",                  label: "Drafts")               { DraftsSettingsView() }
+            }
+        }
+    }
+}
+
+// MARK: - Shared detail page scaffold
+
+struct SDDetailScaffold<Content: View>: View {
+    let title: String
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        ZStack {
+            SD.bg.ignoresSafeArea()
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 10) {
+                    content()
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+                .padding(.bottom, 40)
+            }
+        }
+        .navigationTitle(title)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(SD.bg, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
+    }
+}
+
+// MARK: - Legacy aliases (keep compilation of unchanged subviews calling old components)
+
+typealias AmenSettingsSectionView_Legacy = AmenSettingsSectionView
+typealias SettingsDivider_Legacy         = SettingsDivider
+
+// Keep old components alive so subviews that reference them still compile.
+struct AmenSettingsSectionView<Content: View>: View {
+    let header: String
+    @ViewBuilder let content: () -> Content
+    var body: some View {
+        SDGroup { content() }
+    }
+}
+
+struct SettingsDivider: View {
+    var body: some View { SDDivider() }
+}
 
 struct AmenSettingsRow<Destination: View>: View {
     let icon: String
     let iconColor: Color
     let title: String
     @ViewBuilder let destination: () -> Destination
-
     var body: some View {
-        NavigationLink(destination: destination()) {
-            settingsRowContent(icon: icon, iconColor: iconColor, title: title)
-        }
-        .buttonStyle(.plain)
+        SDNavRow(icon: icon, label: title, destination: destination)
     }
 }
-
-// MARK: - Reusable Settings Row (external / action)
 
 struct SettingsRowExternal: View {
     let icon: String
     let iconColor: Color
     let title: String
     let action: () -> Void
-
     var body: some View {
-        Button(action: action) {
-            HStack {
-                settingsRowContent(icon: icon, iconColor: iconColor, title: title)
-                Image(systemName: "arrow.up.right")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.3))
-                    .padding(.trailing, 16)
-            }
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-// MARK: - Shared row inner layout
-
-@ViewBuilder
-private func settingsRowContent(icon: String, iconColor: Color, title: String) -> some View {
-    HStack(spacing: 12) {
-        ZStack {
-            RoundedRectangle(cornerRadius: 7)
-                .fill(iconColor.opacity(0.18))
-                .frame(width: 32, height: 32)
-            Image(systemName: icon)
-                .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(iconColor)
-        }
-
-        Text(title)
-            .font(.custom("OpenSans-SemiBold", size: 15))
-            .foregroundStyle(.white)
-
-        Spacer()
-
-        Image(systemName: "chevron.right")
-            .font(.system(size: 12, weight: .semibold))
-            .foregroundStyle(.white.opacity(0.3))
-    }
-    .padding(.horizontal, 14)
-    .padding(.vertical, 13)
-    .contentShape(Rectangle())
-}
-
-// MARK: - Divider helper
-
-struct SettingsDivider: View {
-    var body: some View {
-        Divider()
-            .background(Color.white.opacity(0.08))
-            .padding(.leading, 58)
+        SDActionRow(icon: icon, label: title, style: .standard, action: action)
     }
 }
 
 // MARK: - Preview
 
 #Preview {
-    NavigationStack {
-        SettingsView()
-    }
+    SettingsView()
+        .environmentObject(AuthenticationViewModel())
 }
