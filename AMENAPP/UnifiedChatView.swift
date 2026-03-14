@@ -63,6 +63,11 @@ struct UnifiedChatView: View {
     @State private var isMutualFollow: Bool = false
     @State private var isFollowingOtherUser: Bool = false
     @State private var isFollowButtonLoading: Bool = false
+    @State private var isFollowedByOtherUser: Bool = false  // they follow us
+
+    // Request accept/decline in-progress
+    @State private var isAcceptingRequest: Bool = false
+    @State private var isDecliningRequest: Bool = false
 
     // Reaction picker state
     @State private var showReactionPicker = false
@@ -128,9 +133,40 @@ struct UnifiedChatView: View {
                 // Header
                 liquidGlassHeader
                 
-                // Accept/Decline banner for pending requests
-                if conversation.status == "pending" && conversation.requesterId != Auth.auth().currentUser?.uid {
-                    messageRequestBanner
+                // Incoming message request banner (enhanced)
+                if isIncomingRequest {
+                    ChatRequestBanner(
+                        conversation: conversation,
+                        followRelationship: followRelationship,
+                        isFollowLoading: isFollowButtonLoading,
+                        isAccepting: isAcceptingRequest,
+                        isDeclining: isDecliningRequest,
+                        onViewProfile: { showUserProfile = true },
+                        onFollow: { followOtherUser() },
+                        onAccept: { acceptMessageRequest() },
+                        onDecline: { declineMessageRequest() },
+                        onRestrict: { restrictSender() },
+                        onBlock: {
+                            userIdToBlock = otherUserId
+                            showBlockConfirmation = true
+                        },
+                        onReport: {
+                            // Report the conversation
+                            Task {
+                                try? await messagingService.reportSpam(
+                                    conversation.id,
+                                    reason: "Message request report"
+                                )
+                                await MainActor.run {
+                                    toastManager.showSuccess("Reported")
+                                }
+                            }
+                        }
+                    )
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .top).combined(with: .opacity),
+                        removal: .move(edge: .top).combined(with: .opacity)
+                    ))
                 }
 
                 // Messages
@@ -160,6 +196,7 @@ struct UnifiedChatView: View {
                                             let followStatus = try await FirebaseMessagingService.shared.checkFollowStatus(userId1: Auth.auth().currentUser?.uid ?? "", userId2: uid)
                                             await MainActor.run {
                                                 isFollowingOtherUser = followStatus.user1FollowsUser2
+                                                isFollowedByOtherUser = followStatus.user2FollowsUser1
                                                 isMutualFollow = followStatus.user1FollowsUser2 && followStatus.user2FollowsUser1
                                                 isFollowButtonLoading = false
                                                 // Dismiss the notice — they can now send a message request
@@ -226,25 +263,16 @@ struct UnifiedChatView: View {
                 .animation(.spring(response: 0.35, dampingFraction: 0.8), value: showAccountFrozen)
             }
 
-            // Reaction picker overlay
-            if showReactionPicker, let message = selectedMessageForReaction {
-                ReactionPickerOverlay(
-                    message: message,
-                    isShowing: $showReactionPicker,
-                    onReaction: { emoji in
-                        addReaction(to: message, emoji: emoji)
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                            showReactionPicker = false
-                        }
-                    }
-                )
-                .transition(.scale.combined(with: .opacity))
-            }
+            // Premium iMessage-quality reaction tray overlay (AMENReactionSystem)
+            ReactionTrayOverlay(state: ReactionPresentationState.shared)
         }
         .navigationBarHidden(true)
         .withToast()
         .sheet(isPresented: $showUserProfile) {
-            ChatUserProfileSheet(conversation: conversation)
+            ChatUserProfileSheet(
+                conversation: conversation,
+                resolvedUserId: otherUserId ?? conversation.otherParticipantId
+            )
         }
         .sheet(isPresented: $showGroupInfo) {
             GroupInfoView(conversation: conversation)
@@ -369,6 +397,40 @@ struct UnifiedChatView: View {
     }
     
     // MARK: - Computed Properties
+
+    /// Derived from the resolved follow-status flags.
+    private var followRelationship: ChatFollowRelationship {
+        if otherUserId == nil { return .loading }
+        switch (isFollowingOtherUser, isFollowedByOtherUser) {
+        case (true,  true):  return .mutual
+        case (false, true):  return .theyFollowYou
+        case (true,  false): return .youFollowThem
+        case (false, false): return .noFollowRelationship
+        }
+    }
+
+    /// True when this is the first meaningful exchange (pending request or empty accepted chat).
+    private var isFirstTimeChat: Bool {
+        // Show identity card for incoming pending, outgoing pending, or accepted but no messages yet.
+        let isIncomingRequest = conversation.status == "pending"
+            && conversation.requesterId != Auth.auth().currentUser?.uid
+        let isOutgoingRequest = conversation.status == "pending"
+            && conversation.requesterId == Auth.auth().currentUser?.uid
+        let isEmptyAccepted = conversation.status == "accepted" && messages.isEmpty
+        return isIncomingRequest || isOutgoingRequest || isEmptyAccepted
+    }
+
+    /// True when the current user is the requester (outgoing pending).
+    private var isOutgoingPending: Bool {
+        conversation.status == "pending"
+            && conversation.requesterId == Auth.auth().currentUser?.uid
+    }
+
+    /// True when we should show the incoming request banner.
+    private var isIncomingRequest: Bool {
+        conversation.status == "pending"
+            && conversation.requesterId != Auth.auth().currentUser?.uid
+    }
 
     private var inputBarHeight: CGFloat {
         if isMediaSectionExpanded {
@@ -503,74 +565,6 @@ struct UnifiedChatView: View {
         )
     }
     
-    // MARK: - Message Request Banner
-    
-    private var messageRequestBanner: some View {
-        VStack(spacing: 12) {
-            // Info text
-            VStack(spacing: 8) {
-                Image(systemName: "envelope.badge")
-                    .font(.system(size: 32))
-                    .foregroundStyle(.blue)
-                
-                Text("Message Request")
-                    .font(.custom("OpenSans-Bold", size: 16))
-                    .foregroundStyle(.primary)
-                
-                Text("\(conversation.name) wants to message you")
-                    .font(.custom("OpenSans-Regular", size: 14))
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-            }
-            .padding(.top, 16)
-            
-            // Action buttons
-            HStack(spacing: 12) {
-                // Decline button
-                Button {
-                    declineMessageRequest()
-                } label: {
-                    Text("Delete")
-                        .font(.custom("OpenSans-SemiBold", size: 15))
-                        .foregroundStyle(.red)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(Color.red.opacity(0.1))
-                        )
-                }
-                
-                // Accept button
-                Button {
-                    acceptMessageRequest()
-                } label: {
-                    Text("Accept")
-                        .font(.custom("OpenSans-SemiBold", size: 15))
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(Color.blue)
-                        )
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 16)
-        }
-        .background(
-            Rectangle()
-                .fill(.ultraThinMaterial)
-        )
-        .overlay(
-            Rectangle()
-                .fill(Color(.systemGray5))
-                .frame(height: 1),
-            alignment: .bottom
-        )
-    }
-    
     // MARK: - Messages
     
     private var messagesScrollView: some View {
@@ -578,6 +572,39 @@ struct UnifiedChatView: View {
             ScrollViewReader { proxy in
                 ScrollView(showsIndicators: false) {
                     LazyVStack(spacing: 0) {
+                        // ── Identity card (first-time / empty chat) ──────────────────
+                        if isFirstTimeChat && !isIncomingRequest {
+                            ChatIdentityCard(
+                                conversation: conversation,
+                                followRelationship: followRelationship,
+                                isFollowLoading: isFollowButtonLoading,
+                                onViewProfile: { showUserProfile = true },
+                                onFollow: { followOtherUser() },
+                                overridePhotoURL: otherUserProfilePhoto
+                            )
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+                        }
+
+                        // ── Outgoing pending state ────────────────────────────────────
+                        if isOutgoingPending {
+                            ChatOutgoingPendingBanner(conversation: conversation)
+                                .transition(.opacity)
+                        }
+
+                        // ── Conversation source context banner ────────────────────────
+                        if isFirstTimeChat && conversation.source != .direct {
+                            ChatSourceBanner(source: conversation.source)
+                                .padding(.horizontal, 16)
+                        }
+
+                        // ── Empty state prompt (accepted, no messages) ────────────────
+                        if conversation.status == "accepted" && messages.isEmpty {
+                            ChatEmptyState(
+                                conversation: conversation,
+                                followRelationship: followRelationship
+                            )
+                        }
+
                         // P1-3 FIX: Pagination load more button
                         if messagingService.canLoadMoreMessages(conversationId: conversation.id) {
                             Button {
@@ -998,31 +1025,32 @@ struct UnifiedChatView: View {
             .buttonStyle(SpringButtonStyle())
             
             // Text input - frosted glass with visible text and subtle border
+            let inputBackground = RoundedRectangle(cornerRadius: 25)
+                .fill(Color(.systemBackground).opacity(0.5))
+            let inputBorder = RoundedRectangle(cornerRadius: 25)
+                .stroke(Color.black.opacity(0.15), lineWidth: 1)
             HStack(spacing: 10) {
-                TextField("", text: $messageText, axis: .vertical)
-                    .font(.system(size: 16, weight: .regular))
-                    .lineLimit(1...4)
-                    .focused($isInputFocused)
-                    .tint(Color.primary)
-                    .foregroundColor(Color.primary)
-                    .placeholder(when: messageText.isEmpty) {
+                ZStack(alignment: .leading) {
+                    if messageText.isEmpty {
                         Text(placeholderText)
                             .font(.system(size: 16, weight: .regular))
                             .foregroundColor(Color.primary.opacity(0.4))
+                            .allowsHitTesting(false)
                     }
+                    TextField("", text: $messageText, axis: .vertical)
+                        .font(.system(size: 16, weight: .regular))
+                        .lineLimit(1...4)
+                        .focused($isInputFocused)
+                        .tint(Color.primary)
+                        .foregroundColor(Color.primary)
+                }
             }
             .padding(.leading, 16)
             .padding(.trailing, 8)
             .frame(maxWidth: .infinity)
             .frame(height: 50)
-            .background(
-                RoundedRectangle(cornerRadius: 25)
-                    .fill(Color(.systemBackground).opacity(0.5))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 25)
-                    .stroke(Color.black.opacity(0.15), lineWidth: 1)
-            )
+            .background(inputBackground)
+            .overlay(inputBorder)
             
             // Send/Voice button - dark circular design
             Button {
@@ -1192,6 +1220,17 @@ struct UnifiedChatView: View {
             startListeningToProfilePhotoUpdates()
         }
 
+        // Start typing indicator listener — shows "... is typing" bubble when other
+        // participant is actively typing. The service already filters out the current
+        // user and stale entries (>5s), so the callback contains only remote typers.
+        messagingService.startListeningToTyping(conversationId: conversation.id) { typingNames in
+            Task { @MainActor in
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    self.isTyping = !typingNames.isEmpty
+                }
+            }
+        }
+
         // Clear unread badge fire-and-forget — don't block listener startup
         Task {
             try? await messagingService.clearUnreadCount(conversationId: conversation.id)
@@ -1215,6 +1254,8 @@ struct UnifiedChatView: View {
         listenerTask = nil
         
         messagingService.stopListeningToMessages(conversationId: conversation.id)
+        // Stop typing indicator listener and remove our own typing status
+        messagingService.stopListeningToTyping(conversationId: conversation.id)
         typingDebounceTimer?.invalidate()
         typingDebounceTimer = nil
         
@@ -1243,6 +1284,12 @@ struct UnifiedChatView: View {
                 // Any pending (optimistic) message whose ID now appears in the snapshot
                 // has been confirmed by Firestore — remove the optimistic copy.
                 seenMessageIDs.formUnion(fetchedIDs)
+                // P1 FIX: Prune seenMessageIDs to prevent unbounded memory growth.
+                // Each entry is a Firestore document ID (~28 bytes); 500 entries ≈ 14KB.
+                // When we exceed 500, trim to the 250 most recently fetched entries.
+                if seenMessageIDs.count > 500 {
+                    seenMessageIDs = Set(fetchedIDs.prefix(250))
+                }
                 for id in fetchedIDs where pendingMessages[id] != nil {
                     pendingMessages.removeValue(forKey: id)
                 }
@@ -1445,6 +1492,16 @@ struct UnifiedChatView: View {
                 // ────────────────────────────────────────────────────────────────────
                 let currentUserId = Auth.auth().currentUser?.uid ?? ""
 
+                // Group chats: skip the 1-on-1 safety gateway pipeline.
+                // The pattern-of-behavior engine (ConversationRiskEngine) models
+                // grooming/exploitation in private DMs and requires a single
+                // recipientId. Groups have multiple recipients, so the DM model
+                // doesn't apply and the missing recipientId would cause a false
+                // blockAndStrike. Content safety is still enforced by
+                // ThinkFirstGuardrailsService above, which runs for all message types.
+                if conversation.isGroup {
+                    // Skip straight to the Firestore write (below).
+                } else {
                 // P0 FIX: Guard against empty recipientId. If the other user's ID
                 // hasn't resolved yet (async race on first open), fail fast rather than
                 // passing an empty string to the safety gateway and Firestore writes.
@@ -1567,16 +1624,6 @@ struct UnifiedChatView: View {
                 }
                 // ── END SAFETY GATEWAY ─────────────────────────────────────────────
 
-                dlog("📤 Sending message to: \(conversationId)")
-
-                try await messagingService.sendMessage(
-                    conversationId: conversationId,
-                    text: textToSend,
-                    clientMessageId: messageId
-                )
-
-                dlog("✅ Message sent successfully!")
-
                 // Attach warning flag to Firestore message doc (fire-and-forget)
                 if case .warnRecipient(let signals, let score) = gatewayDecision {
                     let signalStrings = signals.map { $0.rawValue }
@@ -1593,6 +1640,7 @@ struct UnifiedChatView: View {
                 }
 
                 // Post-delivery async deep scan (does not block UI)
+                // Only for 1:1 DMs — group chats skip (no single recipientId).
                 MessageSafetyGateway.shared.runAsyncDeepScan(
                     messageId: messageId,
                     conversationId: conversationId,
@@ -1600,6 +1648,18 @@ struct UnifiedChatView: View {
                     senderId: currentUserId,
                     recipientId: recipientId
                 )
+
+                } // end else (1:1 DM safety gateway)
+
+                dlog("📤 Sending message to: \(conversationId)")
+
+                try await messagingService.sendMessage(
+                    conversationId: conversationId,
+                    text: textToSend,
+                    clientMessageId: messageId
+                )
+
+                dlog("✅ Message sent successfully!")
                 
                 // Success haptic
                 await MainActor.run {
@@ -1775,6 +1835,7 @@ struct UnifiedChatView: View {
             ) {
                 await MainActor.run {
                     self.isFollowingOtherUser = followStatus.user1FollowsUser2
+                    self.isFollowedByOtherUser = followStatus.user2FollowsUser1
                     self.isMutualFollow = followStatus.user1FollowsUser2 && followStatus.user2FollowsUser1
                 }
             }
@@ -1939,24 +2000,23 @@ struct UnifiedChatView: View {
     }
     
     private func acceptMessageRequest() {
+        guard !isAcceptingRequest else { return }
+        isAcceptingRequest = true
         Task {
             do {
                 try await messagingService.acceptMessageRequest(conversationId: conversation.id)
                 dlog("✅ Message request accepted")
                 
                 await MainActor.run {
+                    isAcceptingRequest = false
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
                     toastManager.showSuccess("Request accepted")
-                    
-                    // Haptic feedback
-                    let haptic = UINotificationFeedbackGenerator()
-                    haptic.notificationOccurred(.success)
-                    
-                    // Dismiss the chat view to return to messages list
                     dismiss()
                 }
             } catch {
                 dlog("❌ Error accepting request: \(error)")
                 await MainActor.run {
+                    isAcceptingRequest = false
                     toastManager.showError("Failed to accept request")
                 }
             }
@@ -1964,6 +2024,8 @@ struct UnifiedChatView: View {
     }
     
     private func declineMessageRequest() {
+        guard !isDecliningRequest else { return }
+        isDecliningRequest = true
         Task {
             do {
                 // Delete the conversation (Instagram-style decline)
@@ -1971,19 +2033,60 @@ struct UnifiedChatView: View {
                 dlog("✅ Message request declined and deleted")
                 
                 await MainActor.run {
+                    isDecliningRequest = false
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
                     toastManager.showSuccess("Request deleted")
-                    
-                    // Haptic feedback
-                    let haptic = UINotificationFeedbackGenerator()
-                    haptic.notificationOccurred(.success)
-                    
-                    // Dismiss the chat view to return to messages list
                     dismiss()
                 }
             } catch {
                 dlog("❌ Error declining request: \(error)")
                 await MainActor.run {
+                    isDecliningRequest = false
                     toastManager.showError("Failed to delete request")
+                }
+            }
+        }
+    }
+
+    private func followOtherUser() {
+        guard let uid = otherUserId, !isFollowButtonLoading else { return }
+        isFollowButtonLoading = true
+        Task {
+            do {
+                try await FollowService.shared.followUser(userId: uid)
+                let followStatus = try await FirebaseMessagingService.shared.checkFollowStatus(
+                    userId1: Auth.auth().currentUser?.uid ?? "",
+                    userId2: uid
+                )
+                await MainActor.run {
+                    isFollowingOtherUser = followStatus.user1FollowsUser2
+                    isFollowedByOtherUser = followStatus.user2FollowsUser1
+                    isMutualFollow = followStatus.user1FollowsUser2 && followStatus.user2FollowsUser1
+                    isFollowButtonLoading = false
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                }
+            } catch {
+                await MainActor.run { isFollowButtonLoading = false }
+            }
+        }
+    }
+
+    private func restrictSender() {
+        guard let uid = otherUserId,
+              let currentUid = Auth.auth().currentUser?.uid else { return }
+        Task {
+            do {
+                // Write a restriction record so future messages are filtered.
+                let db = Firestore.firestore()
+                try await db.collection("users").document(currentUid)
+                    .collection("restricted").document(uid)
+                    .setData(["restrictedAt": FieldValue.serverTimestamp(), "userId": uid])
+                await MainActor.run {
+                    toastManager.showSuccess("\(conversation.name) restricted")
+                }
+            } catch {
+                await MainActor.run {
+                    toastManager.showError("Could not restrict user")
                 }
             }
         }
@@ -1995,6 +2098,7 @@ struct UnifiedChatView: View {
 struct ChatUserProfileSheet: View {
     @Environment(\.dismiss) private var dismiss
     let conversation: ChatConversation
+    var resolvedUserId: String? = nil  // Pre-resolved otherUserId from UnifiedChatView
     
     @ObservedObject private var userService = LegacyUserService.shared
     @ObservedObject private var messagingService = FirebaseMessagingService.shared
@@ -2008,6 +2112,7 @@ struct ChatUserProfileSheet: View {
     @State private var showShareSheet = false
     @State private var isSubmittingReport = false
     @State private var reportConfirmationMessage: String?
+    @State private var showFullProfile = false
     
     var body: some View {
         ZStack {
@@ -2026,9 +2131,7 @@ struct ChatUserProfileSheet: View {
             if isLoading {
                 // Loading state
                 VStack(spacing: 16) {
-                    ProgressView()
-                        .scaleEffect(1.2)
-                        .tint(Color(red: 0.1, green: 0.1, blue: 0.1))
+                    AMENLoadingIndicator()
                     
                     Text("Loading profile...")
                         .font(.system(size: 15, weight: .medium))
@@ -2169,7 +2272,37 @@ struct ChatUserProfileSheet: View {
                             .padding(.top, 12)
                             
                             // Action buttons
-                            HStack(spacing: 16) {
+                            VStack(spacing: 12) {
+                                // View Full Profile button — navigates to the user's real profile
+                                if let profileUserId = resolvedUserId ?? otherUserProfile?.id, !profileUserId.isEmpty {
+                                    Button {
+                                        showFullProfile = true
+                                    } label: {
+                                        Text("View Full Profile")
+                                            .font(.system(size: 17, weight: .semibold))
+                                            .foregroundColor(.white)
+                                            .frame(maxWidth: .infinity)
+                                            .frame(height: 56)
+                                            .background(
+                                                RoundedRectangle(cornerRadius: 28)
+                                                    .fill(
+                                                        LinearGradient(
+                                                            colors: [
+                                                                Color(red: 0.15, green: 0.15, blue: 0.15),
+                                                                Color(red: 0.05, green: 0.05, blue: 0.05)
+                                                            ],
+                                                            startPoint: .leading,
+                                                            endPoint: .trailing
+                                                        )
+                                                    )
+                                                    .shadow(color: .black.opacity(0.15), radius: 12, y: 6)
+                                            )
+                                    }
+                                    .buttonStyle(SpringButtonStyle())
+                                }
+
+                                // Continue Chat row (with more options menu)
+                                HStack(spacing: 16) {
                                 // Primary action button
                                 Button {
                                     dismiss()
@@ -2261,7 +2394,8 @@ struct ChatUserProfileSheet: View {
                                             .foregroundStyle(Color(red: 0.1, green: 0.1, blue: 0.1))
                                     }
                                 }
-                            }
+                                } // end HStack (Continue Chat row)
+                            } // end VStack (action buttons)
                             .padding(.horizontal, 24)
                             .padding(.top, 32)
                         }
@@ -2337,6 +2471,13 @@ struct ChatUserProfileSheet: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(errorMessage ?? "An unknown error occurred")
+        }
+        .sheet(isPresented: $showFullProfile) {
+            if let profileUserId = resolvedUserId ?? otherUserProfile?.id, !profileUserId.isEmpty {
+                NavigationStack {
+                    UserProfileView(userId: profileUserId)
+                }
+            }
         }
     }
     
@@ -2671,6 +2812,14 @@ struct LiquidGlassMessageBubble: View {
                             .padding(.vertical, 9)
                             .background(bubbleBackground)
                             .frame(maxWidth: 280, alignment: isFromCurrentUser ? .trailing : .leading)
+                            .reactionPicker(
+                                id: message.id,
+                                isFromCurrentUser: isFromCurrentUser,
+                                context: .message,
+                                selectedEmoji: message.reactions
+                                    .first(where: { $0.userId == (FirebaseManager.shared.currentUser?.uid ?? "") })?.emoji,
+                                onSelect: { emoji in onReact(emoji) }
+                            )
                             .onTapGesture(count: 2) {
                                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
                                 withAnimation(.spring(response: 0.3, dampingFraction: 0.65)) {
@@ -2733,7 +2882,8 @@ struct LiquidGlassMessageBubble: View {
         .animation(.spring(response: 0.28, dampingFraction: 0.7), value: showInlineReactions)
     }
 
-    // MARK: - Inline Reaction Bar (floats above bubble, no background, iMessage style)
+    // MARK: - Inline Reaction Bar
+    // Legacy path kept for double-tap; the new long-press path uses ReactionTrayOverlay.
 
     private var inlineReactionBar: some View {
         HStack(spacing: 2) {
@@ -2767,32 +2917,12 @@ struct LiquidGlassMessageBubble: View {
     // MARK: - Reactions row
 
     private var reactionsRow: some View {
-        let grouped = Dictionary(grouping: message.reactions, by: { $0.emoji })
-        return HStack(spacing: 4) {
-            ForEach(Array(grouped.keys.sorted()), id: \.self) { emoji in
-                let count = grouped[emoji]?.count ?? 0
-                Button {
-                    onReact(emoji)
-                } label: {
-                    HStack(spacing: 2) {
-                        Text(emoji).font(.system(size: 13))
-                        if count > 1 {
-                            Text("\(count)")
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 3)
-                    .background(
-                        Capsule()
-                            .fill(Color(.systemBackground))
-                            .shadow(color: .black.opacity(0.08), radius: 3, y: 1)
-                            .overlay(Capsule().strokeBorder(Color(.systemGray4), lineWidth: 0.5))
-                    )
-                }
-                .buttonStyle(.plain)
-            }
+        ReactionBadgeRow(
+            reactions: message.reactions.groupedByEmoji,
+            currentUserId: FirebaseManager.shared.currentUser?.uid ?? "",
+            alignment: isFromCurrentUser ? .trailing : .leading
+        ) { emoji in
+            onReact(emoji)
         }
         .padding(.horizontal, 4)
     }
@@ -2999,64 +3129,13 @@ struct MediaButton: View {
 
 // MARK: - Reaction Picker Overlay (long-press, centered above screen midpoint)
 
+// ReactionPickerOverlay replaced by AMENReactionSystem.ReactionTrayOverlay.
+// Kept as thin shim so call sites that check showReactionPicker still compile.
 struct ReactionPickerOverlay: View {
     let message: AppMessage
     @Binding var isShowing: Bool
     var onReaction: (String) -> Void
-
-    private let reactions = ["❤️", "🙏", "🔥", "😂", "😮", "👍", "😢", "🙌"]
-
-    var body: some View {
-        ZStack {
-            // Dimmed backdrop
-            Color.black.opacity(0.35)
-                .ignoresSafeArea()
-                .onTapGesture {
-                    withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) {
-                        isShowing = false
-                    }
-                }
-
-            VStack(spacing: 16) {
-                // Preview of the message being reacted to
-                Text(message.text)
-                    .font(.system(size: 15))
-                    .foregroundStyle(.primary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 12)
-                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
-                    .frame(maxWidth: 280)
-
-                // Emoji grid
-                HStack(spacing: 10) {
-                    ForEach(reactions, id: \.self) { emoji in
-                        Button {
-                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                            onReaction(emoji)
-                        } label: {
-                            Text(emoji)
-                                .font(.system(size: 32))
-                                .padding(10)
-                                .background(
-                                    Circle()
-                                        .fill(.regularMaterial)
-                                        .shadow(color: .black.opacity(0.1), radius: 4, y: 2)
-                                )
-                        }
-                        .buttonStyle(ScaleButtonStyle())
-                    }
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .background(.regularMaterial, in: Capsule())
-                .shadow(color: .black.opacity(0.18), radius: 16, y: 8)
-            }
-            .scaleEffect(isShowing ? 1.0 : 0.8)
-            .opacity(isShowing ? 1.0 : 0.0)
-            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isShowing)
-        }
-    }
+    var body: some View { EmptyView() }
 }
 
 // MARK: - Preview
