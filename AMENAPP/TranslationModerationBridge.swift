@@ -152,14 +152,11 @@ final class TranslationModerationBridge {
     // MARK: - Private Helpers
 
     private func assessTextRisk(_ text: String) async -> Double {
-        // Delegate to existing ContentSafetyShieldService
-        // ContentRiskAnalyzer is the source of truth for risk scoring
-        return await Task.detached(priority: .userInitiated) { [weak self] in
-            guard self != nil else { return 0 }
-            // ContentRiskAnalyzer returns 0-100 threat score
-            let analyzer = TranslationRiskAnalyzerProxy()
-            return Double(analyzer.analyzeText(text).overallThreatScore)
-        }.value
+        // ContentRiskAnalyzer is nonisolated — safe to call from any context.
+        // It returns a ContentRiskResult with totalScore in 0.0–1.0 range;
+        // we scale to 0–100 to match the thresholds used in this bridge.
+        let result = ContentRiskAnalyzer.shared.analyze(text: text, context: .unknown)
+        return result.totalScore * 100.0
     }
 
     private func translateForModeration(text: String, sourceLang: String) async -> String? {
@@ -213,18 +210,3 @@ struct MultilingualModerationResult {
     let isHardBlocked: Bool
 }
 
-// MARK: - Translation Moderation Risk Stub
-
-/// Thin wrapper that calls through to the real ContentRiskAnalyzer in ContentRiskAnalyzer.swift.
-/// Defined here only so TranslationModerationBridge can compile without importing internal types.
-private struct TranslationRiskAnalyzerProxy {
-    struct RiskResult {
-        let overallThreatScore: Int
-    }
-    func analyzeText(_ text: String) -> RiskResult {
-        // ContentRiskAnalyzer (the real one) is @MainActor and lives in ContentRiskAnalyzer.swift.
-        // This proxy returns 0 (safe default) — the actual risk score is obtained by calling
-        // ContentSafetyShieldService.shared in the caller's async context.
-        return RiskResult(overallThreatScore: 0)
-    }
-}

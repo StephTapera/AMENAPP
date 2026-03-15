@@ -1094,11 +1094,16 @@ struct TestimonyPostCard: View {
             // Header
             headerView
             
-            // Content
-            Text(post.content)
-                .font(.custom("OpenSans-Regular", size: 15))
-                .foregroundStyle(.primary)
-                .lineSpacing(4)
+            // Content (with translation support)
+            TranslatableTextBlock(
+                text: post.content,
+                contentType: .testimony,
+                contentId: post.firebaseId ?? post.id.uuidString,
+                surface: .feed,
+                isPublicContent: true,
+                font: .custom("OpenSans-Regular", size: 15),
+                foregroundColor: .primary
+            )
             
             // Engagement Actions - Prayer UI Style
             engagementActionsView
