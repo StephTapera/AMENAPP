@@ -28,6 +28,7 @@ struct PrayerView: View {
     @State private var hasRanked = false
     @State private var scrollViewDelegate: ScrollViewDelegateHandler?
     @State private var showHeader = true
+    @State private var pressedTab: PrayerTab? = nil
     private let tabHaptic = UIImpactFeedbackGenerator(style: .light)
     
     // MARK: - Pagination State
@@ -89,27 +90,35 @@ struct PrayerView: View {
                     Spacer()
                     HStack(spacing: 8) {
                         ForEach(PrayerTab.allCases, id: \.self) { tab in
-                            Button {
-                                let t0 = Date()
-                                selectedTab = tab
-                                tabHaptic.impactOccurred()
-                                // Measure how long state update + next render cycle takes
-                                DispatchQueue.main.async {
-                                    let ms = Date().timeIntervalSince(t0) * 1000
-                                    print("🔘 [PrayerView] Filter tap → '\(tab.rawValue)' settled in \(String(format: "%.1f", ms))ms")
-                                }
-                            } label: {
-                                Text(tab.rawValue)
-                                    .font(.custom("OpenSans-SemiBold", size: 14))
-                                    .foregroundStyle(selectedTab == tab ? .white : .black)
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 8)
-                                    .background(
-                                        Capsule()
-                                            .fill(selectedTab == tab ? Color.black : Color.gray.opacity(0.1))
-                                    )
-                            }
-                            .buttonStyle(.plain)
+                            Text(tab.rawValue)
+                                .font(.custom("OpenSans-SemiBold", size: 14))
+                                .foregroundStyle(selectedTab == tab ? .white : .black)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 8)
+                                .background(
+                                    Capsule()
+                                        .fill(selectedTab == tab ? Color.black : Color.gray.opacity(0.1))
+                                )
+                                // Instant scale-down on finger contact — no render cycle needed
+                                .scaleEffect(pressedTab == tab ? 0.93 : 1.0)
+                                .animation(.easeOut(duration: 0.08), value: pressedTab)
+                                .animation(.easeOut(duration: 0.12), value: selectedTab)
+                                ._onButtonGesture(
+                                    pressing: { pressing in
+                                        withAnimation(.easeOut(duration: 0.08)) {
+                                            pressedTab = pressing ? tab : nil
+                                        }
+                                    },
+                                    perform: {
+                                        let t0 = Date()
+                                        selectedTab = tab
+                                        tabHaptic.impactOccurred()
+                                        DispatchQueue.main.async {
+                                            let ms = Date().timeIntervalSince(t0) * 1000
+                                            print("🔘 [PrayerView] Filter tap → '\(tab.rawValue)' settled in \(String(format: "%.1f", ms))ms")
+                                        }
+                                    }
+                                )
                         }
                     }
                     .animation(.easeOut(duration: 0.12), value: selectedTab)
