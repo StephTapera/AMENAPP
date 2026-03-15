@@ -84,6 +84,33 @@ const {
   onPostCreateValidate,
 } = require("./postAndCommentFunctions");
 
+// Jobs Platform: notifications, alerts, moderation
+const {
+  onJobApplicationCreated,
+  onJobApplicationUpdated,
+  onJobListingCreated,
+  reportJobListing,
+} = require("./jobFunctions");
+
+// Creator Studio: commissions, bookings, inquiries, earnings
+const {
+  onCommissionRequestCreated,
+  onCommissionStatusUpdated,
+  onBookingRequestCreated,
+  onBookingStatusUpdated,
+  onInquiryCreated,
+  reportStudioContent,
+  monthlyEarningsRollup,
+} = require("./studioFunctions");
+
+// Calendar & Events: RSVP counters, reminders, follow-ups
+const {
+  onEventRSVPCreated,
+  onEventRSVPUpdated,
+  sendEventReminders,
+  sendPostEventFollowUp,
+} = require("./eventFunctions");
+
 // Export all functions
 exports.sendPushNotification = sendPushNotification;
 exports.onUserFollow = onUserFollow;
@@ -760,3 +787,30 @@ exports.sendDailyNotificationDigest = onSchedule(
       }
     },
 );
+
+// ============================================================================
+// JOBS PLATFORM
+// ============================================================================
+exports.onJobApplicationCreated = onJobApplicationCreated;
+exports.onJobApplicationUpdated = onJobApplicationUpdated;
+exports.onJobListingCreated     = onJobListingCreated;
+exports.reportJobListing        = reportJobListing;
+
+// ============================================================================
+// CREATOR STUDIO
+// ============================================================================
+exports.onCommissionRequestCreated = onCommissionRequestCreated;
+exports.onCommissionStatusUpdated  = onCommissionStatusUpdated;
+exports.onBookingRequestCreated    = onBookingRequestCreated;
+exports.onBookingStatusUpdated     = onBookingStatusUpdated;
+exports.onInquiryCreated           = onInquiryCreated;
+exports.reportStudioContent        = reportStudioContent;
+exports.monthlyEarningsRollup      = monthlyEarningsRollup;
+
+// ============================================================================
+// CALENDAR & EVENTS
+// ============================================================================
+exports.onEventRSVPCreated  = onEventRSVPCreated;
+exports.onEventRSVPUpdated  = onEventRSVPUpdated;
+exports.sendEventReminders  = sendEventReminders;
+exports.sendPostEventFollowUp = sendPostEventFollowUp;
