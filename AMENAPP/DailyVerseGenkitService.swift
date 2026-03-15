@@ -23,6 +23,11 @@ class DailyVerseGenkitService: ObservableObject {
     @Published var isGenerating = false
     @Published var lastError: (any Error)?
     @Published var todayVerse: PersonalizedDailyVerse?
+
+    // In-flight task guard — prevents duplicate Cloud Function calls when two callers
+    // (DailyVerseBanner + AIDailyVerseView) both invoke generatePersonalizedDailyVerse()
+    // before the first call completes.
+    private var generationTask: Task<PersonalizedDailyVerse, Never>?
     
     nonisolated private let db = Firestore.firestore()
     nonisolated private let functions = Functions.functions(region: "us-central1")
@@ -46,7 +51,25 @@ class DailyVerseGenkitService: ObservableObject {
             print("📖 Using cached daily verse")
             return cached
         }
-        
+
+        // If a generation is already in flight, await it instead of firing a second
+        // Cloud Function call. This prevents the "was already running" GTMSessionFetcher
+        // warning when DailyVerseBanner and AIDailyVerseView both call this on launch.
+        if !forceRefresh, let existing = generationTask {
+            return await existing.value
+        }
+
+        let task = Task<PersonalizedDailyVerse, Never> { [weak self] in
+            guard let self else { return PersonalizedDailyVerse.placeholder }
+            return await self._generateVerseImpl(userContext: userContext)
+        }
+        generationTask = task
+        let verse = await task.value
+        generationTask = nil
+        return verse
+    }
+
+    private func _generateVerseImpl(userContext: UserVerseContext?) async -> PersonalizedDailyVerse {
         isGenerating = true
         defer { isGenerating = false }
         
@@ -445,6 +468,19 @@ struct PersonalizedDailyVerse: Codable, Identifiable {
     enum CodingKeys: String, CodingKey {
         case id, reference, text, theme, reflection, actionPrompt, relatedVerses, prayerPrompt, personalizedFor, date
     }
+
+    /// Used as a non-throwing fallback when the weak self capture is nil (extremely rare).
+    static let placeholder = PersonalizedDailyVerse(
+        reference: "Romans 8:28",
+        text: "And we know that in all things God works for the good of those who love him.",
+        theme: "Trust",
+        reflection: "God is working all things for your good.",
+        actionPrompt: "Trust God with one area of your life today.",
+        relatedVerses: [],
+        prayerPrompt: "Lord, I trust your plans for my life.",
+        personalizedFor: nil,
+        date: Date()
+    )
 }
 
 struct UserVerseContext: Codable {
