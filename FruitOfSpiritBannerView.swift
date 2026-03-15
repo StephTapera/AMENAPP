@@ -525,8 +525,13 @@ struct FruitOfSpiritBannerView: View {
                     radius: 2, x: 0, y: 1)
             .contentShape(RoundedRectangle(cornerRadius: BannerTokens.cornerRadius))
             .onTapGesture {
+                let t0 = Date()
                 tapHaptic.impactOccurred()
                 withAnimation(BannerTokens.expandSpring) { isExpanded.toggle() }
+                DispatchQueue.main.async {
+                    let ms = Date().timeIntervalSince(t0) * 1000
+                    print("🌿 [FruitBanner] Tap → expand=\(!isExpanded) settled in \(String(format: "%.1f", ms))ms")
+                }
             }
             // Opacity-only press feedback — no scale so the clipped+shadowed layer
             // doesn't trigger a GPU compositing re-pass on every press frame.
@@ -627,8 +632,13 @@ struct FruitOfSpiritBannerView: View {
                 Spacer()
                 // "Open" label — tapping card opens detail sheet
                 Button {
+                    let t0 = Date()
                     tapHaptic.impactOccurred()
                     showSheet = true
+                    DispatchQueue.main.async {
+                        let ms = Date().timeIntervalSince(t0) * 1000
+                        print("🌿 [FruitBanner] EXPLORE tapped → sheet presenting in \(String(format: "%.1f", ms))ms")
+                    }
                 } label: {
                     Text("EXPLORE")
                         .font(.system(size: 8.5, weight: .semibold))

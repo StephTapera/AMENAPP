@@ -35,7 +35,7 @@
 	<key>FirebaseAppDelegateProxyEnabled</key>
 	<false/>
 	<key>GOOGLE_VISION_API_KEY</key>
-	<string>AIzaSyBRg7axwpIAxoKjuSuCBSqCtMuxfkqfE-k</string>
+	<string>$(GOOGLE_VISION_API_KEY)</string>
 	<key>NSAppleMusicUsageDescription</key>
 	<string>AMEN uses Apple Music to play worship songs in your Church Notes.</string>
 	<key>NSUserTrackingUsageDescription</key>
@@ -45,7 +45,7 @@
 	<key>NSUserNotificationsUsageDescription</key>
 	<string>We&apos;ll send you reminders about church service times and when you&apos;re near your saved churches</string>
 	<key>OPENAI_API_KEY</key>
-	<string></string>
+	<string>$(OPENAI_API_KEY)</string>
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
 		<string>com.amenapp.feed.refresh</string>
@@ -57,9 +57,9 @@
 		<string>processing</string>
 	</array>
 	<key>VertexAI</key>
-	<string>AQ.Ab8RN6LUsJb4uBsOHXI_0ZmKvfNLkWcMUm9w3UlYqR_nQpgrlg</string>
+	<string>$(VERTEX_AI_KEY)</string>
 	<key>YOUVERSION_API_KEY</key>
-	<string>U64zDCF20CB5oVmCdZbH6LproDocCLImEbZCyRXHhUxFkRjx</string>
+	<string>$(YOUVERSION_API_KEY)</string>
 	<key>FEED_RANKING_URL</key>
 	<string>$(FEED_RANKING_URL)</string>
 	<key>SEARCH_SERVICE_URL</key>
@@ -73,6 +73,12 @@
 	<key>NSSupportsLiveActivitiesFrequentUpdates</key>
 	<false/>
 	<key>ANTHROPIC_API_KEY</key>
-	<string></string>
+	<string>$(ANTHROPIC_API_KEY)</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>AMEN needs access to your photo library to share images in posts, messages, and your profile.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>AMEN uses the camera to take photos for posts, messages, and your profile picture.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>AMEN uses your location to find nearby churches and faith communities.</string>
 </dict>
 </plist>

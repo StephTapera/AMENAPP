@@ -1,3 +1,4 @@
+#if DEBUG
 //
 //  DeveloperToolsView.swift
 //  AMENAPP
@@ -285,3 +286,5 @@ struct InstructionStep: View {
 #Preview {
     DeveloperToolsView()
 }
+
+#endif

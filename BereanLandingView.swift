@@ -74,44 +74,47 @@ struct BereanLandingView: View {
             Color.bereanBackground.ignoresSafeArea()
 
             // ── Scrollable content ──────────────────────────────────────
-            ScrollView(.vertical, showsIndicators: false) {
-                VStack(spacing: 0) {
-                    // Top spacer (accounts for navigation header)
-                    Spacer().frame(height: 24)
+            GeometryReader { geo in
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(spacing: 0) {
+                        // Center hero vertically in the upper half of the screen
+                        // so "How can I help you" sits at the visual midpoint.
+                        // ~38% down from top feels balanced above the input bar.
+                        Spacer().frame(height: max(24, geo.size.height * 0.30))
 
-                    // Hero greeting
-                    BereanHeroGreetingView(
-                        greeting: greeting,
-                        shouldAnimate: !hasAnimatedThisSession,
-                        onSequenceComplete: {
-                            hasAnimatedThisSession = true
-                            revealCards()
+                        // Hero greeting
+                        BereanHeroGreetingView(
+                            greeting: greeting,
+                            shouldAnimate: !hasAnimatedThisSession,
+                            onSequenceComplete: {
+                                hasAnimatedThisSession = true
+                                revealCards()
+                            }
+                        )
+
+                        // Status / context card (only if has previous session)
+                        if hasPreviousConversation {
+                            BereanContinueCard(onTap: onContinuePrevious ?? {})
+                                .padding(.horizontal, 20)
+                                .padding(.top, 32)
+                                .opacity(statusCardVisible ? 1 : 0)
+                                .offset(y: statusCardVisible ? 0 : 12)
                         }
-                    )
-                    .padding(.top, 28)
 
-                    // Status / context card (only if has previous session)
-                    if hasPreviousConversation {
-                        BereanContinueCard(onTap: onContinuePrevious ?? {})
-                            .padding(.horizontal, 20)
-                            .padding(.top, 32)
-                            .opacity(statusCardVisible ? 1 : 0)
-                            .offset(y: statusCardVisible ? 0 : 12)
+                        // Quick action cards
+                        BereanQuickActionSection(
+                            actions: BereanQuickAction.defaults,
+                            isVisible: cardsVisible,
+                            onActionTap: { action in
+                                inputText = action.prompt
+                                inputFocused = true
+                            }
+                        )
+                        .padding(.top, 28)
+
+                        // Bottom padding for input bar clearance
+                        Spacer().frame(height: 110)
                     }
-
-                    // Quick action cards
-                    BereanQuickActionSection(
-                        actions: BereanQuickAction.defaults,
-                        isVisible: cardsVisible,
-                        onActionTap: { action in
-                            inputText = action.prompt
-                            inputFocused = true
-                        }
-                    )
-                    .padding(.top, 28)
-
-                    // Bottom padding for input bar clearance
-                    Spacer().frame(height: 110)
                 }
             }
 
@@ -557,28 +560,31 @@ struct BereanLandingEmbedded: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        VStack(spacing: 0) {
-            Spacer().frame(height: 40)
+        GeometryReader { geo in
+            VStack(spacing: 0) {
+                // Push hero to visual center of the available space
+                Spacer().frame(height: max(32, geo.size.height * 0.28))
 
-            BereanHeroGreetingView(
-                greeting: greeting,
-                shouldAnimate: !hasAnimatedThisSession,
-                onSequenceComplete: {
-                    hasAnimatedThisSession = true
-                    revealCards()
-                }
-            )
+                BereanHeroGreetingView(
+                    greeting: greeting,
+                    shouldAnimate: !hasAnimatedThisSession,
+                    onSequenceComplete: {
+                        hasAnimatedThisSession = true
+                        revealCards()
+                    }
+                )
 
-            BereanQuickActionSection(
-                actions: BereanQuickAction.defaults,
-                isVisible: cardsVisible,
-                onActionTap: { action in onActionTap(action.prompt) }
-            )
-            .padding(.top, 28)
+                BereanQuickActionSection(
+                    actions: BereanQuickAction.defaults,
+                    isVisible: cardsVisible,
+                    onActionTap: { action in onActionTap(action.prompt) }
+                )
+                .padding(.top, 28)
 
-            Spacer().frame(height: 40)
+                Spacer().frame(height: 40)
+            }
+            .frame(maxWidth: .infinity)
         }
-        .frame(maxWidth: .infinity)
         .onAppear {
             greeting = BereanGreetingManager.greeting()
             if reduceMotion {

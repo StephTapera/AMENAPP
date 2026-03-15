@@ -689,6 +689,7 @@ class AppReadyStateManager: ObservableObject {
 
     /// Called when a user signs in (fresh install, sign-out + sign-back-in, update).
     func signalSignIn() {
+        dlog("🚦 [LAUNCH] signalSignIn() → isShowingLoadingScreen = true")
         isShowingLoadingScreen = true
     }
 
@@ -702,7 +703,11 @@ class AppReadyStateManager: ObservableObject {
 
     /// Call once posts have been loaded (or after a maximum wait) to dismiss the screen.
     func signalReady() {
-        guard isShowingLoadingScreen else { return }
+        guard isShowingLoadingScreen else {
+            dlog("🚦 [LAUNCH] signalReady() called but screen already hidden — no-op")
+            return
+        }
+        dlog("🚦 [LAUNCH] signalReady() → isShowingLoadingScreen = false (animating out)")
         withAnimation(.easeInOut(duration: 0.6)) {
             isShowingLoadingScreen = false
         }
@@ -856,7 +861,7 @@ struct AppLoadingScreen: View {
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            Color.white.ignoresSafeArea()
 
             VStack(spacing: 0) {
                 Spacer()
@@ -873,14 +878,14 @@ struct AppLoadingScreen: View {
                 Text("Social Media, Re-ordered")
                     .font(.system(size: 13, weight: .light))
                     .tracking(2)
-                    .foregroundColor(.white.opacity(0.55))
+                    .foregroundColor(.black.opacity(0.35))
                     .padding(.top, 16)
                     .opacity(taglineOpacity)
 
                 Spacer()
 
                 // Loading dots — shown only when the app is actively loading
-                AMENLoadingIndicator(color: .white, dotSize: 8, spacing: 7, bounceHeight: 10)
+                AMENLoadingIndicator(color: .black.opacity(0.3), dotSize: 8, spacing: 7, bounceHeight: 10)
                     .opacity(dotsOpacity)
                     .padding(.bottom, 60)
             }

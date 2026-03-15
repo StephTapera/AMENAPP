@@ -21,6 +21,16 @@ class CloudFunctionsService: ObservableObject {
         // functions.useEmulator(withHost: "localhost", port: 5001)
     }
     
+    // MARK: - Generic Callable
+
+    /// Call any Cloud Function by name with arbitrary data.
+    /// Returns the raw response data (caller is responsible for casting).
+    func call(_ name: String, data: Any? = nil) async throws -> Any {
+        let callable = functions.httpsCallable(name)
+        let result = try await callable.call(data)
+        return result.data
+    }
+
     // MARK: - Messaging Functions
     
     /// Create or get existing conversation

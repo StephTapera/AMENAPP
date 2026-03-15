@@ -44,8 +44,11 @@ struct PrayerView: View {
     }
     
     // MARK: - Filtered Posts
-    
+
+    /// Computed once per body evaluation — callers must snapshot with `let posts = filteredPosts`
+    /// rather than evaluating this multiple times per render pass (expensive filter + sort).
     var filteredPosts: [Post] {
+        let t0 = Date()
         var posts = postsManager.prayerPosts.filter { post in
             guard let topicTag = post.topicTag else { return false }
             switch selectedTab {
@@ -59,6 +62,8 @@ struct PrayerView: View {
             let rankedIds = Set(rankedPrayers.map { $0.id })
             posts = rankedPrayers.filter { rankedIds.contains($0.id) }
         }
+        let ms = Date().timeIntervalSince(t0) * 1000
+        if ms > 5 { print("⚡️ [PrayerView] filteredPosts took \(String(format: "%.1f", ms))ms (\(posts.count) posts, tab=\(selectedTab.rawValue))") }
         return posts
     }
 
@@ -85,8 +90,14 @@ struct PrayerView: View {
                     HStack(spacing: 8) {
                         ForEach(PrayerTab.allCases, id: \.self) { tab in
                             Button {
+                                let t0 = Date()
                                 selectedTab = tab
                                 tabHaptic.impactOccurred()
+                                // Measure how long state update + next render cycle takes
+                                DispatchQueue.main.async {
+                                    let ms = Date().timeIntervalSince(t0) * 1000
+                                    print("🔘 [PrayerView] Filter tap → '\(tab.rawValue)' settled in \(String(format: "%.1f", ms))ms")
+                                }
                             } label: {
                                 Text(tab.rawValue)
                                     .font(.custom("OpenSans-SemiBold", size: 14))
@@ -111,6 +122,7 @@ struct PrayerView: View {
 
                 // MARK: Posts Feed
                 LazyVStack(spacing: 16) {
+                    // Snapshot once — avoids triple filter+sort on every body re-evaluation.
                     let allPosts = filteredPosts
                     let displayPosts = Array(allPosts.prefix(visiblePostCount))
 
@@ -119,7 +131,7 @@ struct PrayerView: View {
                     }
 
                     // Pagination spinner
-                    if isLoadingMore && visiblePostCount < filteredPosts.count {
+                    if isLoadingMore && visiblePostCount < allPosts.count {
                         HStack {
                             Spacer()
                             ProgressView().scaleEffect(0.8).padding(.vertical, 20)
@@ -128,7 +140,7 @@ struct PrayerView: View {
                     }
 
                     // Empty state
-                    if filteredPosts.isEmpty {
+                    if allPosts.isEmpty {
                         VStack(spacing: 16) {
                             Image(systemName: emptyStateIcon)
                                 .font(.system(size: 48))
@@ -166,7 +178,14 @@ struct PrayerView: View {
             // hasRanked intentionally NOT reset: avoids expensive re-rank on every tab switch.
         }
         .onChange(of: postsManager.prayerPosts) { oldValue, newValue in
-            if oldValue.count != newValue.count {
+            // Only re-rank when the Prayer Request subset actually changes.
+            // Guard on count change only — avoids re-rank on like/comment edits
+            // that don't add/remove requests, and avoids re-rank when only
+            // Praise/Answered posts change count.
+            let oldRequestCount = oldValue.filter { $0.topicTag == "Prayer Request" }.count
+            let newRequestCount = newValue.filter { $0.topicTag == "Prayer Request" }.count
+            if oldRequestCount != newRequestCount {
+                print("🙏 [PrayerView] Request count changed \(oldRequestCount)→\(newRequestCount), re-ranking")
                 rankPrayerRequests()
             }
         }
@@ -198,12 +217,14 @@ struct PrayerView: View {
             return
         }
 
+        let t0 = Date()
         // Snapshot captured above — safe to use from detached task without data races
         Task.detached(priority: .userInitiated) {
             let ranked = await prayerAlgorithm.rankPrayers(snapshot, for: history)
             await MainActor.run {
+                let ms = Date().timeIntervalSince(t0) * 1000
                 rankedPrayers = ranked
-                print("🙏 Prayers ranked: \(rankedPrayers.count) requests prioritized")
+                print("🙏 [PrayerView] Ranked \(rankedPrayers.count) requests in \(String(format: "%.1f", ms))ms")
             }
         }
     }
@@ -245,15 +266,18 @@ struct PrayerView: View {
     /// Load more posts when user scrolls near the bottom
     private func loadMorePosts() {
         guard !isLoadingMore else { return }
-        
         isLoadingMore = true
-        
-        // Simulate a brief delay for smooth loading
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+        let t0 = Date()
+        // Use a minimal delay (1 frame) so the spinner appears before the list
+        // expands — avoids the 300ms artificial lag from the old asyncAfter(0.3)
+        DispatchQueue.main.async {
             let increment = 10
-            let maxCount = postsManager.prayerPosts.count
+            // Use filteredPosts count (not prayerPosts) so we don't over-paginate
+            let maxCount = filteredPosts.count
             visiblePostCount = min(visiblePostCount + increment, maxCount)
             isLoadingMore = false
+            let ms = Date().timeIntervalSince(t0) * 1000
+            print("📄 [PrayerView] Loaded more posts → visibleCount=\(visiblePostCount)/\(maxCount) in \(String(format: "%.1f", ms))ms")
         }
     }
     

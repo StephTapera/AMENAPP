@@ -1367,6 +1367,7 @@ struct FindChurchView: View {
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar(.hidden, for: .navigationBar)
+            .toolbar(.hidden, for: .tabBar)
         }
         .tint(Color(red: 0.2, green: 0.2, blue: 0.2))
         .alert("Error", isPresented: $showErrorAlert) {

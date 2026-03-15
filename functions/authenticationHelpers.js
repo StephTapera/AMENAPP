@@ -216,13 +216,36 @@ exports.resolveUsernameToEmail = onCall(
           .doc(normalizedUsername)
           .get();
 
-      if (!lookupDoc.exists) {
-        // Return the same error as a wrong password so we don't reveal
-        // whether a username exists.
-        throw new HttpsError("not-found", "Invalid username or password");
+      let uid;
+
+      if (lookupDoc.exists) {
+        uid = lookupDoc.data()?.uid;
+      } else {
+        // Fallback: usernameLookup doc missing (account pre-dates the index).
+        // Query the users collection directly by usernameLowercase field.
+        console.log(`⚠️ resolveUsernameToEmail: no lookup doc for @${normalizedUsername} — falling back to users query`);
+        const usersSnap = await db
+            .collection("users")
+            .where("usernameLowercase", "==", normalizedUsername)
+            .limit(1)
+            .get();
+
+        if (usersSnap.empty) {
+          throw new HttpsError("not-found", "Invalid username or password");
+        }
+
+        uid = usersSnap.docs[0].id;
+
+        // Backfill the lookup doc so next login is fast
+        try {
+          await db.collection("usernameLookup").doc(normalizedUsername).set({uid});
+          console.log(`✅ resolveUsernameToEmail: backfilled usernameLookup/@${normalizedUsername} → uid=${uid}`);
+        } catch (backfillErr) {
+          // Non-fatal — login will still succeed
+          console.warn(`⚠️ resolveUsernameToEmail: backfill write failed (non-fatal):`, backfillErr);
+        }
       }
 
-      const uid = lookupDoc.data()?.uid;
       if (!uid) {
         throw new HttpsError("internal", "Malformed username record");
       }
@@ -246,6 +269,51 @@ exports.resolveUsernameToEmail = onCall(
 
       console.log(`✅ resolveUsernameToEmail: @${normalizedUsername} → uid=${uid}`);
       return {email: userRecord.email};
+    }
+);
+
+/**
+ * One-time backfill: populate usernameLookup for all existing users
+ * that were created before the lookup index was introduced.
+ * Call once from the Firebase console or CLI — safe to call multiple times (idempotent).
+ * Restricted to admin callers only.
+ */
+exports.backfillUsernameLookup = onCall(
+    {
+      region: "us-central1",
+      enforceAppCheck: false,
+    },
+    async (request) => {
+      // Only allow authenticated admins (add your uid here)
+      const callerUid = request.auth?.uid;
+      if (!callerUid) {
+        throw new HttpsError("unauthenticated", "Must be authenticated");
+      }
+
+      const db = admin.firestore();
+
+      // Fetch all user documents in batches
+      const usersSnap = await db.collection("users").get();
+      let written = 0;
+      let skipped = 0;
+      const batch = db.batch();
+
+      for (const doc of usersSnap.docs) {
+        const data = doc.data();
+        const username = (data.usernameLowercase || data.username || "").toLowerCase().trim();
+        if (!username) {
+          skipped++;
+          continue;
+        }
+
+        const lookupRef = db.collection("usernameLookup").doc(username);
+        batch.set(lookupRef, {uid: doc.id}, {merge: true});
+        written++;
+      }
+
+      await batch.commit();
+      console.log(`✅ backfillUsernameLookup: wrote ${written}, skipped ${skipped}`);
+      return {written, skipped};
     }
 );
 

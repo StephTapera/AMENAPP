@@ -3142,6 +3142,210 @@ service cloud.firestore {
     }
 
     // ============================================================================
+    // JOBS PLATFORM
+    // ============================================================================
+
+    match /jobListings/{jobId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+                    && request.resource.data.employerId == request.auth.uid;
+      allow update: if isAuthenticated()
+                    && resource.data.employerId == request.auth.uid;
+      allow delete: if isAuthenticated()
+                    && resource.data.employerId == request.auth.uid;
+    }
+
+    match /jobApplications/{applicationId} {
+      allow read: if isAuthenticated()
+                  && (resource.data.seekerId == request.auth.uid
+                      || resource.data.employerId == request.auth.uid);
+      allow create: if isAuthenticated()
+                    && request.resource.data.seekerId == request.auth.uid;
+      allow update: if isAuthenticated()
+                    && (resource.data.seekerId == request.auth.uid
+                        || resource.data.employerId == request.auth.uid);
+      allow delete: if false;
+    }
+
+    match /jobSeekerProfiles/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId);
+    }
+
+    match /employerProfiles/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId);
+    }
+
+    match /savedJobs/{savedId} {
+      allow read: if isAuthenticated()
+                  && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated()
+                    && request.resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated()
+                    && resource.data.userId == request.auth.uid;
+    }
+
+    match /jobAlerts/{alertId} {
+      allow read, write: if isAuthenticated()
+                         && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated()
+                    && request.resource.data.userId == request.auth.uid;
+    }
+
+    match /jobModerationFlags/{flagId} {
+      allow create: if isAuthenticated();
+      allow read, update, delete: if false;
+    }
+
+    // ============================================================================
+    // CREATOR STUDIO
+    // ============================================================================
+
+    match /studioProfiles/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId);
+    }
+
+    match /studioItems/{itemId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+                    && request.resource.data.creatorId == request.auth.uid;
+      allow update, delete: if isAuthenticated()
+                            && resource.data.creatorId == request.auth.uid;
+    }
+
+    match /studioServices/{serviceId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+                    && request.resource.data.creatorId == request.auth.uid;
+      allow update, delete: if isAuthenticated()
+                            && resource.data.creatorId == request.auth.uid;
+    }
+
+    match /studioProducts/{productId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+                    && request.resource.data.creatorId == request.auth.uid;
+      allow update, delete: if isAuthenticated()
+                            && resource.data.creatorId == request.auth.uid;
+    }
+
+    match /commissionProfiles/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId);
+    }
+
+    match /commissionRequests/{requestId} {
+      allow read: if isAuthenticated()
+                  && (resource.data.clientId == request.auth.uid
+                      || resource.data.creatorId == request.auth.uid);
+      allow create: if isAuthenticated()
+                    && request.resource.data.clientId == request.auth.uid;
+      allow update: if isAuthenticated()
+                    && (resource.data.clientId == request.auth.uid
+                        || resource.data.creatorId == request.auth.uid);
+      allow delete: if false;
+    }
+
+    match /bookingRequests/{requestId} {
+      allow read: if isAuthenticated()
+                  && (resource.data.clientId == request.auth.uid
+                      || resource.data.creatorId == request.auth.uid);
+      allow create: if isAuthenticated()
+                    && request.resource.data.clientId == request.auth.uid;
+      allow update: if isAuthenticated()
+                    && (resource.data.clientId == request.auth.uid
+                        || resource.data.creatorId == request.auth.uid);
+      allow delete: if false;
+    }
+
+    match /inquiryThreads/{threadId} {
+      allow read: if isAuthenticated()
+                  && (resource.data.creatorId == request.auth.uid
+                      || resource.data.inquirerId == request.auth.uid);
+      allow create: if isAuthenticated()
+                    && request.resource.data.inquirerId == request.auth.uid;
+      allow update: if isAuthenticated()
+                    && (resource.data.creatorId == request.auth.uid
+                        || resource.data.inquirerId == request.auth.uid);
+      allow delete: if false;
+    }
+
+    match /studioModerationFlags/{flagId} {
+      allow create: if isAuthenticated();
+      allow read, update, delete: if false;
+    }
+
+    match /creatorEarnings/{earningsId} {
+      allow read: if isAuthenticated()
+                  && resource.data.creatorId == request.auth.uid;
+      allow write: if false; // Server-only (Cloud Function monthly rollup)
+    }
+
+    match /creatorTransactions/{txId} {
+      allow read: if isAuthenticated()
+                  && resource.data.creatorId == request.auth.uid;
+      allow write: if false; // Server-only
+    }
+
+    // ============================================================================
+    // CALENDAR & EVENTS
+    // ============================================================================
+
+    match /faithEvents/{eventId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+                    && request.resource.data.organizerId == request.auth.uid;
+      allow update: if isAuthenticated()
+                    && resource.data.organizerId == request.auth.uid;
+      allow delete: if isAuthenticated()
+                    && resource.data.organizerId == request.auth.uid;
+    }
+
+    match /eventRSVPs/{rsvpId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+                    && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated()
+                    && resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated()
+                    && resource.data.userId == request.auth.uid;
+    }
+
+    match /savedCalendarEvents/{savedId} {
+      allow read, write: if isAuthenticated()
+                         && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated()
+                    && request.resource.data.userId == request.auth.uid;
+    }
+
+    match /sentReminders/{reminderId} {
+      allow read, write: if false; // Server-only (Cloud Function)
+    }
+
+    // ============================================================================
+    // TRANSLATION
+    // ============================================================================
+
+    match /translations/{cacheKey} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated(); // Access count increment
+      allow delete: if false;
+    }
+
+    match /translationAnalytics/{date}/events/{eventId} {
+      allow create: if isAuthenticated();
+      allow read, update, delete: if false;
+    }
+
+    match /translationModerationAnomalies/{anomalyId} {
+      allow create: if isAuthenticated();
+      allow read, update, delete: if false; // Admin-only review
+    }
+
+    // ============================================================================
     // DEFAULT DENY ALL OTHER COLLECTIONS
     // ============================================================================
 

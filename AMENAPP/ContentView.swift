@@ -26,12 +26,12 @@ struct ContentView: View {
     // ⚡️ P1-3 FIX: Extracted specific state from singletons to avoid ContentView
     // redrawing on every @Published change in SessionTimeoutManager, AppReadyStateManager,
     // AppUsageTracker, and SundayChurchFocusManager. Action calls go direct to .shared.
-    // Pre-seed from AppReadyStateManager so the overlay is already true on the FIRST
-    // SwiftUI render when a cached user exists. Using = false here means the @State
-    // initializes before .onReceive fires, leaving a 1-frame window where the overlay
-    // is down and SignInView is visible. Seeding from .shared.isShowingLoadingScreen
-    // closes that window entirely.
-    @State private var isShowingLoadingScreen = AppReadyStateManager.shared.isShowingLoadingScreen
+    // Drive the overlay directly off AppReadyStateManager as an @ObservedObject so
+    // there is ZERO frame delay between signalSignIn()/signalReady() publishing and the
+    // overlay responding. The old @State + onReceive pattern had a 1-frame lag that caused
+    // the main screen to briefly appear between signalSignIn() and the @State update.
+    @ObservedObject private var appReadyState = AppReadyStateManager.shared
+    private var isShowingLoadingScreen: Bool { appReadyState.isShowingLoadingScreen }
     @State private var showLimitReachedDialog = false
     @State private var showCreatePost: Bool
     @State private var showCreateQuickActions = false
@@ -576,10 +576,8 @@ struct ContentView: View {
         .onReceive(SessionTimeoutManager.shared.$showTimeoutWarning) { show in
             showTimeoutWarning = show
         }
-        .onReceive(AppReadyStateManager.shared.$isShowingLoadingScreen) { show in
-            dlog("🚦 [LAUNCH] isShowingLoadingScreen changed → \(show)")
-            isShowingLoadingScreen = show
-        }
+        // isShowingLoadingScreen is now a computed var from @ObservedObject appReadyState —
+        // no onReceive needed. Logging handled in AppReadyStateManager.signalSignIn/signalReady.
         .onReceive(AppUsageTracker.shared.$showLimitReachedDialog) { show in
             showLimitReachedDialog = show
         }

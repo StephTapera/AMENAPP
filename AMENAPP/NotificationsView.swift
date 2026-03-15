@@ -75,6 +75,7 @@ struct NotificationsView: View {
     /// Rebuild the filtered+sorted+grouped notification list.
     /// Called only when source data or selected filter actually changes (via .onChange).
     private func rebuildGroupedNotifications() {
+        dlog("🔔 [NOTIF] rebuildGroupedNotifications — source=\(notificationService.notifications.count) filter=\(selectedFilter.rawValue)")
         var notifications = notificationService.notifications
 
         // P0 FIX: Filter out self-notifications (user shouldn't see their own actions)
@@ -104,7 +105,9 @@ struct NotificationsView: View {
             return lhsDate > rhsDate
         }
 
-        cachedGroupedNotifications = deduplicator.groupNotifications(sorted)
+        let rebuilt = deduplicator.groupNotifications(sorted)
+        dlog("🔔 [NOTIF] rebuild complete — \(notifications.count) filtered → \(rebuilt.count) groups (was \(cachedGroupedNotifications.count))")
+        cachedGroupedNotifications = rebuilt
     }
     
     var body: some View {
@@ -286,8 +289,15 @@ struct NotificationsView: View {
     
     @ViewBuilder
     private var notificationListView: some View {
+        // 🔔 [NOTIF] Branch: isLoading=\(notificationService.isLoading) groups=\(groupedNotifications.count)
+        let _ = dlog("🔔 [NOTIF] listView branch — isLoading=\(notificationService.isLoading) groups=\(groupedNotifications.count) unread=\(notificationService.unreadCount)")
         if notificationService.isLoading {
             // P0 FIX: Show loading skeleton instead of spinner for better UX
+            NotificationsLoadingView()
+        } else if groupedNotifications.isEmpty && !notificationService.notifications.isEmpty {
+            // Cache hasn't been populated yet (first render after tab switch before onAppear
+            // rebuilds cachedGroupedNotifications). Show skeleton instead of empty state to
+            // avoid a 1-frame flash of "No notifications yet" when data already exists.
             NotificationsLoadingView()
         } else if groupedNotifications.isEmpty {
             emptyStateView
@@ -454,10 +464,13 @@ struct NotificationsView: View {
     // MARK: - Lifecycle Handlers
     
     private func handleOnAppear() {
+        dlog("🔔 [NOTIF] NotificationsView.onAppear — notifications=\(notificationService.notifications.count) unread=\(notificationService.unreadCount) isLoading=\(notificationService.isLoading)")
         notificationService.startListening()
-        // Auto-mark all notifications as read when the screen is opened (like Instagram/Threads)
+        dlog("🔔 [NOTIF] startListening() called — isLoading=\(notificationService.isLoading)")
+        // Auto-mark all notifications as read when the screen is opened (like Instagram/Threads).
+        // Badge is cleared inside markAllAsRead() after writes land — see that function for details.
         markAllAsRead()
-        clearBadgeCount()
+        dlog("🔔 [NOTIF] markAllAsRead called (badge cleared after writes land)")
         
         // Load follow requests and priority scores
         Task { @MainActor in
@@ -486,6 +499,7 @@ struct NotificationsView: View {
     }
     
     private func handleOnDisappear() {
+        dlog("🔔 [NOTIF] NotificationsView.onDisappear — notifications=\(notificationService.notifications.count) unread=\(notificationService.unreadCount)")
         // P1-4 FIX: Do NOT stop the notification listener on tab-switch disappear.
         // Stopping and restarting on every tab switch causes stale UI, missed real-time
         // updates, and wasteful network cycles. The listener is idempotent (startListening
@@ -870,12 +884,15 @@ struct NotificationsView: View {
     }
     
     private func markAllAsRead() {
+        dlog("🔔 [NOTIF] markAllAsRead — unreadCount before=\(notificationService.unreadCount)")
+        // Badge is cleared AFTER Firestore writes land to prevent the BadgeCountManager
+        // notificationsListener from re-reading stale unread docs and flipping the
+        // app icon badge back from 0 to the old count (0→8 race condition).
         Task {
             try? await notificationService.markAllAsRead()
+            dlog("🔔 [NOTIF] markAllAsRead complete — unreadCount after=\(notificationService.unreadCount)")
+            clearBadgeCount()
         }
-        
-        // Update badge count
-        clearBadgeCount()
     }
     
     private func markAsRead(_ notification: AppNotification) {

@@ -146,7 +146,11 @@ final class NotificationService: ObservableObject {
         if listener != nil {
             return
         }
-        isLoading = true
+        // Only show loading skeleton when we have no cached data yet.
+        // If notifications is non-empty we already have a valid data set from a
+        // previous listener session; setting isLoading=true here would produce a
+        // skeleton flash every time the user re-visits the Notifications tab.
+        isLoading = notifications.isEmpty
         error = nil
         retryCount = 0
         
@@ -813,8 +817,11 @@ final class NotificationService: ObservableObject {
             return
         }
         
-        isLoading = true
-        
+        // Only show loading skeleton when we have no cached data yet.
+        // If we already have notifications, the user sees live content while
+        // we fetch fresh data in the background — no skeleton flash on pop/pull.
+        isLoading = notifications.isEmpty
+
         do {
             let snapshot = try await db.collection("users")
                 .document(userId)
@@ -822,7 +829,7 @@ final class NotificationService: ObservableObject {
                 .order(by: "createdAt", descending: true)
                 .limit(to: maxNotifications)
                 .getDocuments()
-            
+
             // Clear per-source caches before processing fresh data so stale
             // topLevelDocs don't resurface on the next listener merge.
             subcollectionDocs = snapshot.documents

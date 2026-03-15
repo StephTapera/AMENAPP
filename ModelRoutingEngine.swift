@@ -511,10 +511,18 @@ final class ModelRoutingEngine: ObservableObject {
     // MARK: Cloud Function Invocation
 
     private func invokeCloudFunction(_ name: String, payload: [String: Any]) async throws -> [String: Any] {
-        // In production this calls Firebase Functions via the Firebase SDK.
-        // The Cloud Function handles provider credentials server-side.
-        // Stub implementation — replace with actual Firebase Functions call.
-        guard let url = URL(string: "https://us-central1-YOURPROJECT.cloudfunctions.net/\(name)") else {
+        // Use Firebase Functions SDK callable instead of raw HTTP.
+        // CloudFunctionsService wraps Functions.functions().httpsCallable().
+        let result = try await CloudFunctionsService.shared.call(name, data: payload)
+        if let dict = result as? [String: Any] {
+            return dict
+        }
+        return ["result": result as Any]
+    }
+
+    /// Fallback HTTP invocation (unused — kept for reference).
+    private func _invokeCloudFunctionHTTP(_ name: String, payload: [String: Any]) async throws -> [String: Any] {
+        guard let url = URL(string: "https://us-central1-amen-app.cloudfunctions.net/\(name)") else {
             throw RoutingError.invalidEndpoint
         }
 

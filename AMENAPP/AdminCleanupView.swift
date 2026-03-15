@@ -1,3 +1,4 @@
+#if DEBUG
 //
 //  AdminCleanupView.swift
 //  AMENAPP
@@ -424,3 +425,5 @@ struct AdminCleanupView: View {
 #Preview {
     AdminCleanupView()
 }
+
+#endif
