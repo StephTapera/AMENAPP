@@ -66,19 +66,20 @@ final class LiveActivityBridge {
         )
         let content = ActivityContent(state: state, staleDate: serviceDate.addingTimeInterval(7200))
         do {
-            let activity = try Activity<ChurchServiceActivityAttributes>.request(
+            let activity = try ActivityKit.Activity<ChurchServiceActivityAttributes>.request(
                 attributes: attrs,
                 content: content,
                 pushType: nil
             )
             return activity.id
         } catch {
+            print("[LiveActivity] Failed to start church service activity: \(error.localizedDescription)")
             return nil
         }
     }
 
     func updateChurchService(id: String, serviceDate: Date, minutes: Int) async {
-        guard let activity = Activity<ChurchServiceActivityAttributes>.activities.first(where: { $0.id == id }) else { return }
+        guard let activity = ActivityKit.Activity<ChurchServiceActivityAttributes>.activities.first(where: { $0.id == id }) else { return }
         let state = ChurchServiceActivityAttributes.ContentState(
             phase: minutes > 0 ? .upcoming : .active,
             minutesUntilStart: minutes,
@@ -88,7 +89,7 @@ final class LiveActivityBridge {
     }
 
     func endChurchService(id: String, animated: Bool) async {
-        guard let activity = Activity<ChurchServiceActivityAttributes>.activities.first(where: { $0.id == id }) else { return }
+        guard let activity = ActivityKit.Activity<ChurchServiceActivityAttributes>.activities.first(where: { $0.id == id }) else { return }
         let policy: ActivityUIDismissalPolicy = animated ? .default : .immediate
         await activity.end(nil, dismissalPolicy: policy)
     }
@@ -113,19 +114,20 @@ final class LiveActivityBridge {
         let expiry = Date().addingTimeInterval(15 * 60)
         let content = ActivityContent(state: state, staleDate: expiry)
         do {
-            let activity = try Activity<PrayerReminderActivityAttributes>.request(
+            let activity = try ActivityKit.Activity<PrayerReminderActivityAttributes>.request(
                 attributes: attrs,
                 content: content,
                 pushType: nil
             )
             return activity.id
         } catch {
+            print("[LiveActivity] Failed to start prayer activity: \(error.localizedDescription)")
             return nil
         }
     }
 
     func markPrayerAnswered(id: String) async {
-        guard let activity = Activity<PrayerReminderActivityAttributes>.activities.first(where: { $0.id == id }) else { return }
+        guard let activity = ActivityKit.Activity<PrayerReminderActivityAttributes>.activities.first(where: { $0.id == id }) else { return }
         var state = activity.content.state
         state.status = .prayed
         await activity.update(ActivityContent(state: state, staleDate: nil))
@@ -134,7 +136,7 @@ final class LiveActivityBridge {
     }
 
     func snoozePrayer(id: String) async -> String {
-        guard let activity = Activity<PrayerReminderActivityAttributes>.activities.first(where: { $0.id == id }) else { return id }
+        guard let activity = ActivityKit.Activity<PrayerReminderActivityAttributes>.activities.first(where: { $0.id == id }) else { return id }
         var state = activity.content.state
         state.status = .snoozed
         state.minutesRemaining = 15
@@ -144,14 +146,14 @@ final class LiveActivityBridge {
     }
 
     func updateAmenCount(id: String, count: Int) async {
-        guard let activity = Activity<PrayerReminderActivityAttributes>.activities.first(where: { $0.id == id }) else { return }
+        guard let activity = ActivityKit.Activity<PrayerReminderActivityAttributes>.activities.first(where: { $0.id == id }) else { return }
         var state = activity.content.state
         state.amenCount = count
         await activity.update(ActivityContent(state: state, staleDate: nil))
     }
 
     func endPrayer(id: String, animated: Bool) async {
-        guard let activity = Activity<PrayerReminderActivityAttributes>.activities.first(where: { $0.id == id }) else { return }
+        guard let activity = ActivityKit.Activity<PrayerReminderActivityAttributes>.activities.first(where: { $0.id == id }) else { return }
         let policy: ActivityUIDismissalPolicy = animated ? .default : .immediate
         await activity.end(nil, dismissalPolicy: policy)
     }
@@ -184,33 +186,34 @@ final class LiveActivityBridge {
         )
         let content = ActivityContent(state: state, staleDate: Date().addingTimeInterval(Double(totalSeconds) + 60))
         do {
-            let activity = try Activity<WorshipMusicActivityAttributes>.request(
+            let activity = try ActivityKit.Activity<WorshipMusicActivityAttributes>.request(
                 attributes: attrs,
                 content: content,
                 pushType: nil
             )
             return activity.id
         } catch {
+            print("[LiveActivity] Failed to start music activity: \(error.localizedDescription)")
             return nil
         }
     }
 
     func pauseMusic(id: String) async {
-        guard let activity = Activity<WorshipMusicActivityAttributes>.activities.first(where: { $0.id == id }) else { return }
+        guard let activity = ActivityKit.Activity<WorshipMusicActivityAttributes>.activities.first(where: { $0.id == id }) else { return }
         var state = activity.content.state
         state.isPlaying = false
         await activity.update(ActivityContent(state: state, staleDate: nil))
     }
 
     func updateMusicElapsed(id: String, elapsed: Int) async {
-        guard let activity = Activity<WorshipMusicActivityAttributes>.activities.first(where: { $0.id == id }) else { return }
+        guard let activity = ActivityKit.Activity<WorshipMusicActivityAttributes>.activities.first(where: { $0.id == id }) else { return }
         var state = activity.content.state
         state.elapsedSeconds = elapsed
         await activity.update(ActivityContent(state: state, staleDate: nil))
     }
 
     func endMusic(id: String, animated: Bool) async {
-        guard let activity = Activity<WorshipMusicActivityAttributes>.activities.first(where: { $0.id == id }) else { return }
+        guard let activity = ActivityKit.Activity<WorshipMusicActivityAttributes>.activities.first(where: { $0.id == id }) else { return }
         let policy: ActivityUIDismissalPolicy = animated ? .default : .immediate
         await activity.end(nil, dismissalPolicy: policy)
     }
@@ -241,13 +244,14 @@ final class LiveActivityBridge {
         let expiresAt = ISO8601DateFormatter().date(from: expiresAtISO) ?? Date().addingTimeInterval(900)
         let content = ActivityContent(state: state, staleDate: expiresAt)
         do {
-            let activity = try Activity<ReplyActivityAttributes>.request(
+            let activity = try ActivityKit.Activity<ReplyActivityAttributes>.request(
                 attributes: attrs,
                 content: content,
                 pushType: nil
             )
             return activity.id
         } catch {
+            print("[LiveActivity] Failed to start reply activity: \(error.localizedDescription)")
             return nil
         }
     }
@@ -260,7 +264,7 @@ final class LiveActivityBridge {
         privacyLevel: ReplyActivityAttributes.PrivacyLevel,
         contextSnippet: String?
     ) async {
-        guard let activity = Activity<ReplyActivityAttributes>.activities.first(where: { $0.id == id }) else { return }
+        guard let activity = ActivityKit.Activity<ReplyActivityAttributes>.activities.first(where: { $0.id == id }) else { return }
         let state = ReplyActivityAttributes.ContentState(
             suggestion1: suggestion1,
             suggestion2: suggestion2,
@@ -273,7 +277,7 @@ final class LiveActivityBridge {
     }
 
     func endReplyActivity(id: String, animated: Bool) async {
-        guard let activity = Activity<ReplyActivityAttributes>.activities.first(where: { $0.id == id }) else { return }
+        guard let activity = ActivityKit.Activity<ReplyActivityAttributes>.activities.first(where: { $0.id == id }) else { return }
         let policy: ActivityUIDismissalPolicy = animated ? .default : .immediate
         await activity.end(nil, dismissalPolicy: policy)
     }
@@ -281,10 +285,10 @@ final class LiveActivityBridge {
     // MARK: - Restoration
 
     func restoreActiveIds() async -> RestoredActivityIds {
-        let church = Activity<ChurchServiceActivityAttributes>.activities.first?.id
-        let prayer = Activity<PrayerReminderActivityAttributes>.activities.first?.id
-        let music  = Activity<WorshipMusicActivityAttributes>.activities.first?.id
-        let reply  = Activity<ReplyActivityAttributes>.activities.first?.id
+        let church = ActivityKit.Activity<ChurchServiceActivityAttributes>.activities.first?.id
+        let prayer = ActivityKit.Activity<PrayerReminderActivityAttributes>.activities.first?.id
+        let music  = ActivityKit.Activity<WorshipMusicActivityAttributes>.activities.first?.id
+        let reply  = ActivityKit.Activity<ReplyActivityAttributes>.activities.first?.id
         return RestoredActivityIds(church: church, prayer: prayer, music: music, reply: reply)
     }
 }

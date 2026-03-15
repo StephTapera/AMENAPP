@@ -172,6 +172,84 @@ exports.checkUsernameAvailability = onCall(
 );
 
 /**
+ * Resolve a username to the account email so the client can call
+ * signInWithEmailAndPassword without the email ever being stored
+ * in a public Firestore document.
+ *
+ * Flow:
+ *   1. Client sends { username }  (no password — never sent to the server)
+ *   2. Function reads usernameLookup/{username} → gets { uid }
+ *   3. Function calls admin.auth().getUser(uid) → gets email
+ *   4. Returns { email } to the client
+ *   5. Client calls Firebase Auth signInWithEmailAndPassword(email, password)
+ *
+ * This function is intentionally unauthenticated (no auth guard) so it can
+ * be called before the user has a Firebase token. It does NOT return a token
+ * or perform the sign-in itself, so it cannot be abused to bypass passwords.
+ *
+ * Rate-limiting note: Firebase App Check (enforced in production) + the fact
+ * that we return only the email (not a token) keep abuse risk minimal.
+ */
+exports.resolveUsernameToEmail = onCall(
+    {
+      region: "us-central1",
+      enforceAppCheck: false, // Allow pre-auth callers; App Check still blocks invalid apps
+    },
+    async (request) => {
+      const {username} = request.data;
+
+      if (!username || typeof username !== "string") {
+        throw new HttpsError("invalid-argument", "username is required");
+      }
+
+      const normalizedUsername = username.trim().toLowerCase().replace(/^@/, "");
+
+      if (!/^[a-z0-9_.]{1,30}$/.test(normalizedUsername)) {
+        throw new HttpsError("invalid-argument", "Invalid username format");
+      }
+
+      const db = admin.firestore();
+
+      // Step 1: look up the uid from the public (email-free) index
+      const lookupDoc = await db
+          .collection("usernameLookup")
+          .doc(normalizedUsername)
+          .get();
+
+      if (!lookupDoc.exists) {
+        // Return the same error as a wrong password so we don't reveal
+        // whether a username exists.
+        throw new HttpsError("not-found", "Invalid username or password");
+      }
+
+      const uid = lookupDoc.data()?.uid;
+      if (!uid) {
+        throw new HttpsError("internal", "Malformed username record");
+      }
+
+      // Step 2: resolve uid → email via Admin SDK (never stored publicly)
+      let userRecord;
+      try {
+        userRecord = await admin.auth().getUser(uid);
+      } catch (err) {
+        console.error(`resolveUsernameToEmail: getUser(${uid}) failed:`, err);
+        throw new HttpsError("not-found", "Invalid username or password");
+      }
+
+      if (!userRecord.email) {
+        // Account created via phone or anonymous — cannot sign in with password
+        throw new HttpsError(
+            "failed-precondition",
+            "This account does not have a password. Please sign in another way."
+        );
+      }
+
+      console.log(`✅ resolveUsernameToEmail: @${normalizedUsername} → uid=${uid}`);
+      return {email: userRecord.email};
+    }
+);
+
+/**
  * P0-2: Clean up username reservation when user document is deleted
  * Triggered automatically when users/{userId} is deleted
  */

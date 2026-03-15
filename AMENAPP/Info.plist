@@ -28,6 +28,7 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>amenapp</string>
+				<string>amen</string>
 			</array>
 		</dict>
 	</array>
@@ -44,11 +45,16 @@
 	<key>NSUserNotificationsUsageDescription</key>
 	<string>We&apos;ll send you reminders about church service times and when you&apos;re near your saved churches</string>
 	<key>OPENAI_API_KEY</key>
-	<string>YOUR_OPENAI_API_KEY_HERE</string>
+	<string>${OPENAI_API_KEY}</string>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.amenapp.feed.refresh</string>
+	</array>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
 		<string>fetch</string>
+		<string>processing</string>
 	</array>
 	<key>VertexAI</key>
 	<string>AQ.Ab8RN6LUsJb4uBsOHXI_0ZmKvfNLkWcMUm9w3UlYqR_nQpgrlg</string>
@@ -67,6 +73,6 @@
 	<key>NSSupportsLiveActivitiesFrequentUpdates</key>
 	<false/>
 	<key>ANTHROPIC_API_KEY</key>
-	<string>YOUR_ANTHROPIC_API_KEY_HERE</string>
+	<string>${ANTHROPIC_API_KEY}</string>
 </dict>
 </plist>

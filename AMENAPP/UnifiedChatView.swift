@@ -643,7 +643,7 @@ struct UnifiedChatView: View {
                             let isLastOutgoing = isFromCurrentUser && (nextMessage == nil || nextMessage?.senderId != currentUID)
                             // Show date header when the day changes between messages
                             let prevMessage: AppMessage? = index > 0 ? messages[index - 1] : nil
-                            let showDateHeader = prevMessage == nil || !Calendar.current.isDate(prevMessage!.timestamp, inSameDayAs: message.timestamp)
+                            let showDateHeader = prevMessage.map { !Calendar.current.isDate($0.timestamp, inSameDayAs: message.timestamp) } ?? true
 
                             VStack(spacing: 0) {
                                 // Date group header

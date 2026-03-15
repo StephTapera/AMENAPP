@@ -138,6 +138,18 @@ exports.onMediaFinalize      = onMediaFinalize;
 exports.onPostCreateValidate = onPostCreateValidate;
 
 // ============================================================================
+// TRUST SCORE — E2EE messaging safety layer
+// ============================================================================
+const {
+  onTrustScoreRequested,
+  onMessageSafetyEvent,
+  scheduledTrustScoreRefresh,
+} = require("./trustScore");
+exports.onTrustScoreRequested      = onTrustScoreRequested;
+exports.onMessageSafetyEvent       = onMessageSafetyEvent;
+exports.scheduledTrustScoreRefresh = scheduledTrustScoreRefresh;
+
+// ============================================================================
 // REALTIME DATABASE: COMMENT NOTIFICATIONS
 // ============================================================================
 
@@ -185,7 +197,6 @@ exports.onRealtimeCommentCreate = onValueCreated(
 
         const postData = postDoc.data();
         const postAuthorId = postData.userId;
-        const commentAuthorId = commentData.userId;
 
         // Don't notify if user comments on their own post
         if (postAuthorId === commentAuthorId) {
@@ -304,7 +315,6 @@ exports.onRealtimeReplyCreate = onValueCreated(
 
         const parentCommentData = parentCommentSnapshot.val();
         const parentCommentAuthorId = parentCommentData.userId;
-        const replyAuthorId = commentData.userId;
 
         // Don't notify if user replies to their own comment
         if (parentCommentAuthorId === replyAuthorId) {
@@ -555,6 +565,10 @@ const authenticationHelpers = require("./authenticationHelpers");
 // P0-2: Username Uniqueness Transaction
 exports.reserveUsername = authenticationHelpers.reserveUsername;
 exports.checkUsernameAvailability = authenticationHelpers.checkUsernameAvailability;
+
+// Username → email resolver (used by SignInView for username-based login)
+// Secure: email never stored in public Firestore; Admin SDK resolves uid → email server-side.
+exports.resolveUsernameToEmail = authenticationHelpers.resolveUsernameToEmail;
 
 // P0-3: Account Deletion Cascade
 exports.onUserDeleted = authenticationHelpers.onUserDeleted;

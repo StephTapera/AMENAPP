@@ -103,7 +103,7 @@ final class WorshipMusicService {
         currentSong = nil
         isPlaying = false
         #if canImport(MusicKit)
-        Task { await ApplicationMusicPlayer.shared.stop() }
+        Task { ApplicationMusicPlayer.shared.stop() }
         #endif
         Task { await LiveActivityManager.shared.endMusicActivity() }
     }

@@ -301,7 +301,7 @@ exports.toggleReaction = onCall({ region: REGION }, async (request) => {
 //      - Updates post document's mediaProcessingStatus
 // ─────────────────────────────────────────────────────────────────────────────
 
-exports.onMediaFinalize = onObjectFinalized({ region: REGION }, async (event) => {
+exports.onMediaFinalize = onObjectFinalized({ region: 'us-west1' }, async (event) => {
   const object = event.data;
   const filePath = object.name; // e.g. "post_media/{authorUserId}/{postId}/{fileName}"
   const contentType = object.contentType;

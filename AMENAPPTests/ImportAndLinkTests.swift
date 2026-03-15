@@ -18,6 +18,7 @@ import Foundation
 // MARK: - GenericArchiveImporter Tests
 
 @Suite("GenericArchiveImporter")
+@MainActor
 struct GenericArchiveImporterTests {
 
     // MARK: - Setup helpers

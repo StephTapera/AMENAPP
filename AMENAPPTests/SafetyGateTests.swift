@@ -142,12 +142,12 @@ struct LocalContentGuardTests {
 // MARK: - UnifiedSafetyGate Unit Tests
 
 @Suite("UnifiedSafetyGate — profile field sync checks")
+@MainActor
 struct UnifiedSafetyGateProfileTests {
 
     @Test("Blocks hate speech in display name (sync path)")
     func blocksHateInDisplayName() {
-        let gate = UnifiedSafetyGate.shared
-        let result = gate.evaluateProfileField(text: "White Power 88", surface: .profileName)
+        let result = UnifiedSafetyGate.shared.evaluateProfileField(text: "White Power 88", surface: .profileName)
         if case .block = result { } else {
             Issue.record("Expected block decision for hate-speech display name")
         }
@@ -155,8 +155,7 @@ struct UnifiedSafetyGateProfileTests {
 
     @Test("Blocks impersonation in display name")
     func blocksImpersonation() {
-        let gate = UnifiedSafetyGate.shared
-        let result = gate.evaluateProfileField(text: "AMEN Official Support", surface: .profileName)
+        let result = UnifiedSafetyGate.shared.evaluateProfileField(text: "AMEN Official Support", surface: .profileName)
         if case .block = result { } else {
             Issue.record("Expected block for impersonation display name")
         }
@@ -164,8 +163,7 @@ struct UnifiedSafetyGateProfileTests {
 
     @Test("Blocks SSN in bio")
     func blocksSSNInBio() {
-        let gate = UnifiedSafetyGate.shared
-        let result = gate.evaluateProfileField(
+        let result = UnifiedSafetyGate.shared.evaluateProfileField(
             text: "Contact me! My SSN is 123-45-6789",
             surface: .profileBio
         )
@@ -176,8 +174,7 @@ struct UnifiedSafetyGateProfileTests {
 
     @Test("Requires edit for phone in bio")
     func requiresEditForPhoneInBio() {
-        let gate = UnifiedSafetyGate.shared
-        let result = gate.evaluateProfileField(
+        let result = UnifiedSafetyGate.shared.evaluateProfileField(
             text: "Call me at 555-867-5309 anytime!",
             surface: .profileBio
         )
@@ -191,8 +188,7 @@ struct UnifiedSafetyGateProfileTests {
 
     @Test("Allows normal bio with faith content")
     func allowsFaithBio() {
-        let gate = UnifiedSafetyGate.shared
-        let result = gate.evaluateProfileField(
+        let result = UnifiedSafetyGate.shared.evaluateProfileField(
             text: "Follower of Jesus | Worship leader | Mom of 3 | Grateful every day 🙏",
             surface: .profileBio
         )
@@ -203,8 +199,7 @@ struct UnifiedSafetyGateProfileTests {
 
     @Test("Allows church affiliation in display name")
     func allowsChurchName() {
-        let gate = UnifiedSafetyGate.shared
-        let result = gate.evaluateProfileField(
+        let result = UnifiedSafetyGate.shared.evaluateProfileField(
             text: "Pastor James Wilson",
             surface: .profileName
         )
@@ -217,6 +212,7 @@ struct UnifiedSafetyGateProfileTests {
 // MARK: - MessageSafetyGateway Signal Detection Tests
 
 @Suite("MessageSafetyGateway — signal classification")
+@MainActor
 struct MessageSafetyGatewaySignalTests {
 
     let gateway = MessageSafetyGateway.shared
@@ -404,6 +400,7 @@ struct IdempotencyTests {
 // MARK: - Spam Score Tests
 
 @Suite("Spam Detection")
+@MainActor
 struct SpamDetectionTests {
 
     let guardrails = ThinkFirstGuardrailsService.shared
@@ -432,13 +429,12 @@ struct SpamDetectionTests {
 // MARK: - PII Detection Tests
 
 @Suite("PII / Doxxing Detection")
+@MainActor
 struct PIIDetectionTests {
-
-    let gate = UnifiedSafetyGate.shared
 
     @Test("Phone number in DM surface triggers requireEdit")
     func phoneInDM() {
-        let result = gate.evaluateProfileField(
+        let result = UnifiedSafetyGate.shared.evaluateProfileField(
             text: "Hey call me at 212-555-1234",
             surface: .dm
         )
@@ -454,7 +450,7 @@ struct PIIDetectionTests {
     func ssnIsBlocked() {
         let surfaces: [SafetySurface] = [.post, .comment, .profileBio, .dm]
         for surface in surfaces {
-            let result = gate.evaluateProfileField(
+            let result = UnifiedSafetyGate.shared.evaluateProfileField(
                 text: "My SSN 542-80-1234 is here",
                 surface: surface
             )
@@ -467,7 +463,7 @@ struct PIIDetectionTests {
     @Test("Email in post is allowed (not PII-blocked)")
     func emailInPostAllowed() {
         // Emails in posts are not blocked at Layer 0 (only in profiles/DMs)
-        let result = gate.evaluateProfileField(text: "Contact our church at info@church.org", surface: .post)
+        let result = UnifiedSafetyGate.shared.evaluateProfileField(text: "Contact our church at info@church.org", surface: .post)
         // Email in a post surface — should allow (not profile)
         // The PII check only triggers for profileBio/profileName surfaces
         #expect(result.canProceed == true)
