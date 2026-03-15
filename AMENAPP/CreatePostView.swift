@@ -1110,15 +1110,11 @@ struct CreatePostView: View {
             Spacer()
             
             if selectedTopicTag.isEmpty && selectedCategory != .testimonies {
-                Text("Required")
-                    .font(.custom("OpenSans-SemiBold", size: 12))
-                    .foregroundStyle(.red)
+                Text("* Required")
+                    .font(.custom("OpenSans-Regular", size: 12))
+                    .foregroundStyle(.secondary)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(
-                        Capsule()
-                            .fill(Color.red.opacity(0.1))
-                    )
             } else if selectedTopicTag.isEmpty && selectedCategory == .testimonies {
                 Text("Optional")
                     .font(.custom("OpenSans-SemiBold", size: 12))
@@ -1356,6 +1352,15 @@ struct CreatePostView: View {
                         .font(.custom("OpenSans-Regular", size: 17))
                         .focused($isTextFieldFocused)
                         .scrollContentBackground(.hidden)
+                        .padding(12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(.ultraThinMaterial)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                        .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
+                                )
+                        )
                         .onChange(of: postText) { oldValue, newValue in
                             // Defer side effects so they don't trigger a re-render mid-paste,
                             // which would interrupt the paste operation on SwiftUI TextEditor.
@@ -3504,7 +3509,8 @@ private struct GlassCategorySegment: View {
                             .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
                             .foregroundStyle(isSelected ? .primary : .secondary)
                             .lineLimit(1)
-                            .minimumScaleFactor(0.8)
+                            .minimumScaleFactor(0.6)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
                 .padding(.horizontal, isSelected ? 10 : 8)
@@ -5000,9 +5006,9 @@ struct CompactGlassButton: View {
                     .scaleEffect(isPressed ? 0.88 : 1.0)
                 } else {
                     Image(systemName: icon)
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundStyle(isActive ? Color.primary : Color.primary.opacity(0.4))
-                        .frame(width: 32, height: 32)
+                        .font(.system(size: 16, weight: .light))
+                        .foregroundStyle(isActive ? Color.primary.opacity(0.7) : Color.primary.opacity(0.3))
+                        .frame(width: 36, height: 36)
                         .scaleEffect(isPressed ? 0.85 : 1.0)
                     
                     // Badge for count (e.g., image count)
