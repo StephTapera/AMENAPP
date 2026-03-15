@@ -9,6 +9,8 @@ import Foundation
 import Combine
 import FirebaseDatabase
 import FirebaseAuth
+import PDFKit
+import UIKit
 
 // MARK: - Saved Message Model
 
@@ -309,9 +311,112 @@ class BereanDataManager: ObservableObject {
     }
     
     func exportConversationAsPDF(_ conversation: SavedConversation) -> Data? {
-        // In production, use PDFKit to generate proper PDF
-        // For now, return plain text data
-        let text = exportConversationAsText(conversation)
-        return text.data(using: .utf8)
+        let pageRect = CGRect(x: 0, y: 0, width: 595, height: 842) // A4 in points
+        let renderer = UIGraphicsPDFRenderer(bounds: pageRect)
+
+        let titleFont    = UIFont.systemFont(ofSize: 20, weight: .bold)
+        let metaFont     = UIFont.systemFont(ofSize: 11, weight: .regular)
+        let senderFont   = UIFont.systemFont(ofSize: 12, weight: .semibold)
+        let bodyFont     = UIFont.systemFont(ofSize: 13, weight: .regular)
+        let verseFont    = UIFont.italicSystemFont(ofSize: 11)
+
+        let margin: CGFloat = 48
+        let lineSpacing: CGFloat = 6
+        let blockSpacing: CGFloat = 20
+        let textWidth = pageRect.width - margin * 2
+
+        func attrs(_ font: UIFont, color: UIColor = .black, alignment: NSTextAlignment = .left) -> [NSAttributedString.Key: Any] {
+            let para = NSMutableParagraphStyle()
+            para.alignment = alignment
+            para.lineSpacing = lineSpacing
+            return [.font: font, .foregroundColor: color, .paragraphStyle: para]
+        }
+
+        let data = renderer.pdfData { ctx in
+            var y: CGFloat = margin
+            var page = 1
+
+            func newPage() {
+                ctx.beginPage()
+                y = margin
+                page += 1
+            }
+
+            func checkPageBreak(needing height: CGFloat) {
+                if y + height > pageRect.height - margin {
+                    newPage()
+                }
+            }
+
+            func draw(_ string: NSAttributedString, maxWidth: CGFloat) -> CGFloat {
+                let size = string.boundingRect(
+                    with: CGSize(width: maxWidth, height: .greatestFiniteMagnitude),
+                    options: [.usesLineFragmentOrigin, .usesFontLeading],
+                    context: nil
+                ).size
+                checkPageBreak(needing: ceil(size.height) + 4)
+                string.draw(in: CGRect(x: margin, y: y, width: maxWidth, height: ceil(size.height) + 4))
+                return ceil(size.height) + 4
+            }
+
+            ctx.beginPage()
+
+            // Title
+            let titleStr = NSAttributedString(string: conversation.title, attributes: attrs(titleFont, alignment: .center))
+            y += draw(titleStr, maxWidth: textWidth)
+            y += 8
+
+            // Meta
+            let dateStr = conversation.date.formatted(date: .complete, time: .shortened)
+            let metaStr = NSAttributedString(
+                string: "\(dateStr)  |  \(conversation.translation)  |  \(conversation.messages.count) messages",
+                attributes: attrs(metaFont, color: .darkGray, alignment: .center)
+            )
+            y += draw(metaStr, maxWidth: textWidth)
+            y += blockSpacing
+
+            // Divider
+            checkPageBreak(needing: 2)
+            UIColor.lightGray.setStroke()
+            let divider = UIBezierPath()
+            divider.move(to: CGPoint(x: margin, y: y))
+            divider.addLine(to: CGPoint(x: pageRect.width - margin, y: y))
+            divider.lineWidth = 0.5
+            divider.stroke()
+            y += blockSpacing
+
+            // Messages
+            for msg in conversation.messages where msg.role != .system {
+                let sender = msg.isFromUser ? "You" : "Berean AI"
+                let senderColor: UIColor = msg.isFromUser ? .systemBlue : UIColor(red: 0.85, green: 0.38, blue: 0.22, alpha: 1)
+                let time = msg.timestamp.formatted(date: .omitted, time: .shortened)
+
+                let headerStr = NSAttributedString(
+                    string: "\(sender) · \(time)",
+                    attributes: attrs(senderFont, color: senderColor)
+                )
+                y += draw(headerStr, maxWidth: textWidth)
+
+                let bodyStr = NSAttributedString(string: msg.content, attributes: attrs(bodyFont))
+                y += draw(bodyStr, maxWidth: textWidth)
+
+                if !msg.verseReferences.isEmpty {
+                    let refs = "References: " + msg.verseReferences.joined(separator: ", ")
+                    let refStr = NSAttributedString(string: refs, attributes: attrs(verseFont, color: .darkGray))
+                    y += draw(refStr, maxWidth: textWidth)
+                }
+                y += blockSpacing
+            }
+
+            // Footer
+            let footerStr = NSAttributedString(
+                string: "Exported from Berean AI — AMEN App",
+                attributes: attrs(metaFont, color: .lightGray, alignment: .center)
+            )
+            let footerY = pageRect.height - margin
+            footerStr.draw(in: CGRect(x: margin, y: footerY - 16, width: textWidth, height: 16))
+        }
+
+        return data
     }
 }

@@ -14,41 +14,48 @@ import FirebaseAuth
 import FirebaseFirestore
 
 // MARK: - Image Picker
+// P2-4 FIX: Replaced deprecated UIImagePickerController with PHPickerViewController.
+// PHPickerViewController is the modern API (iOS 14+) with privacy-preserving access —
+// it does not require NSPhotoLibraryUsageDescription and shows only the photos the user selects.
 
 struct BereanImagePicker: UIViewControllerRepresentable {
     @Binding var selectedImage: UIImage?
     @Environment(\.dismiss) private var dismiss
-    
-    func makeUIViewController(context: Context) -> UIImagePickerController {
-        let picker = UIImagePickerController()
+
+    func makeUIViewController(context: Context) -> PHPickerViewController {
+        var config = PHPickerConfiguration()
+        config.filter = .images
+        config.selectionLimit = 1
+        // .current avoids requesting broad library access; user picks from a standard system UI.
+        config.preferredAssetRepresentationMode = .current
+        let picker = PHPickerViewController(configuration: config)
         picker.delegate = context.coordinator
-        picker.sourceType = .photoLibrary
-        picker.allowsEditing = false
         return picker
     }
-    
-    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
-    
+
+    func updateUIViewController(_ uiViewController: PHPickerViewController, context: Context) {}
+
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
     }
-    
-    class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+
+    class Coordinator: NSObject, PHPickerViewControllerDelegate {
         let parent: BereanImagePicker
-        
+
         init(_ parent: BereanImagePicker) {
             self.parent = parent
         }
-        
-        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
-            if let image = info[.originalImage] as? UIImage {
-                parent.selectedImage = image
+
+        func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
+            parent.dismiss()
+            guard let result = results.first else { return }
+            result.itemProvider.loadObject(ofClass: UIImage.self) { object, _ in
+                if let image = object as? UIImage {
+                    DispatchQueue.main.async {
+                        self.parent.selectedImage = image
+                    }
+                }
             }
-            parent.dismiss()
-        }
-        
-        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
-            parent.dismiss()
         }
     }
 }
@@ -305,8 +312,23 @@ class SpeechRecognitionService: NSObject, ObservableObject, SFSpeechRecognizerDe
             }
         }
         
-        // Configure audio tap
-        let recordingFormat = inputNode.outputFormat(forBus: 0)
+        // Configure audio tap — validate the hardware format before installing.
+        // inputNode.outputFormat(forBus:) can return a zeroed format (sampleRate 0,
+        // channelCount 0) when no hardware input is available (e.g. simulator without
+        // mic, Bluetooth handoff, or cold engine start). Passing that format to
+        // installTap causes the 'IsFormatSampleRateAndChannelCountValid' AVAudio crash.
+        let hwFormat = inputNode.outputFormat(forBus: 0)
+        let recordingFormat: AVAudioFormat
+        if hwFormat.sampleRate > 0 && hwFormat.channelCount > 0 {
+            recordingFormat = hwFormat
+        } else {
+            // Fall back to a standard 16 kHz mono format that SFSpeechRecognizer accepts.
+            guard let fallback = AVAudioFormat(standardFormatWithSampleRate: 16000, channels: 1) else {
+                throw NSError(domain: "SpeechRecognition", code: -2,
+                              userInfo: [NSLocalizedDescriptionKey: "No valid audio input format available"])
+            }
+            recordingFormat = fallback
+        }
         inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { buffer, _ in
             recognitionRequest.append(buffer)
         }

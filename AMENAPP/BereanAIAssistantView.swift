@@ -7,6 +7,8 @@
 
 import SwiftUI
 import Combine
+import FirebaseFirestore
+import FirebaseAuth
 
 /// Berean AI Assistant - Your intelligent Bible study companion
 struct BereanAIAssistantView: View {
@@ -73,6 +75,7 @@ struct BereanAIAssistantView: View {
     @ObservedObject private var networkMonitor = AMENNetworkMonitor.shared
     @ObservedObject private var dataManager = BereanDataManager.shared
     @ObservedObject private var premiumManager = PremiumManager.shared
+    @ObservedObject private var userPreferences = BereanUserPreferences.shared
     
     // Advanced AI features
     @State private var showDevotionalGenerator = false
@@ -108,6 +111,9 @@ struct BereanAIAssistantView: View {
     // ✅ Memory status banner
     @State private var showClearSessionConfirm = false
     
+    // Regenerate / edit state
+    @State private var editingMessage: BereanMessage? = nil  // message currently being edited
+
     // ✅ Debounce for contextual suggestions (avoids firing on every keystroke)
     @State private var suggestionDebounceTask: Task<Void, Never>?
     // Tasks used for delayed onAppear effects so they can be cancelled on disappear.
@@ -119,6 +125,7 @@ struct BereanAIAssistantView: View {
     @State private var quickActionButtonScale: CGFloat = 1.0
     @State private var showFirstTimeLongPressHint = false
     @AppStorage("hasSeenBereanLongPressHint") private var hasSeenLongPressHint = false
+    @AppStorage("berean_composer_draft") private var composerDraft = ""
     
     // Welcome section animations
     @State private var bibleIconScale: CGFloat = 0.5
@@ -248,6 +255,129 @@ struct BereanAIAssistantView: View {
         }
     }
     
+    // Extracted to help the compiler type-check the body expression within time limits.
+    private var scrollOffsetTracker: some View {
+        BereanScrollOffsetTracker()
+    }
+
+    // Base ScrollView with non-proxy modifiers — split out to reduce type-checker load.
+    private var chatScrollView: some View {
+        let base = SwiftUI.ScrollView(.vertical) {
+            chatMessageList
+        }
+        .coordinateSpace(name: "bereanScroll")
+        .refreshable {
+            await refreshConversation()
+        }
+        .onTapGesture {
+            isInputFocused = false
+        }
+        return base
+            .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
+                let scrolledDown = value < -10
+                let backAtTop = value > -50
+                let collapse = value < -110
+                let expand = value > -50
+                if collapse && !shouldCollapseBibleIcon {
+                    withAnimation(.easeInOut(duration: 0.25)) { shouldCollapseBibleIcon = true }
+                } else if expand && shouldCollapseBibleIcon {
+                    withAnimation(.easeInOut(duration: 0.25)) { shouldCollapseBibleIcon = false }
+                }
+                if scrolledDown { userHasScrolledUp = true }
+                else if backAtTop { userHasScrolledUp = false }
+            }
+    }
+
+    // Extracted ScrollView + proxy-dependent modifiers to avoid compiler type-check timeout.
+    @ViewBuilder
+    private func chatScrollContent(proxy: ScrollViewProxy) -> some View {
+        chatScrollView
+        .onChange(of: viewModel.messages.count) { _, _ in
+            if !userHasScrolledUp, let lastMessage = viewModel.messages.last {
+                withAnimation(.easeOut(duration: 0.25)) {
+                    proxy.scrollTo(lastMessage.id, anchor: .bottom)
+                }
+            }
+        }
+        .onChange(of: viewModel.messages.last?.content.count) { _, _ in
+            guard isGenerating, !userHasScrolledUp,
+                  let lastMessage = viewModel.messages.last else { return }
+            proxy.scrollTo(lastMessage.id, anchor: .bottom)
+        }
+        .onChange(of: isInputFocused) { _, newValue in
+            if newValue, let lastMessage = viewModel.messages.last {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    withAnimation(.easeOut(duration: 0.25)) {
+                        proxy.scrollTo(lastMessage.id, anchor: .bottom)
+                    }
+                }
+            }
+        }
+    }
+
+    // Extracted chat message list to avoid compiler type-check timeout in ScrollView body.
+    private var chatMessageList: some View {
+        VStack(spacing: 20) {
+            if viewModel.messages.isEmpty {
+                bereanEmptyStateView
+            } else {
+                ForEach(viewModel.messages) { message in
+                    messageBubbleRow(message: message)
+                }
+                .environment(\.messageShareHandler) { message in
+                    messageToShare = message
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        showShareSheet = true
+                    }
+                }
+                .environment(\.bereanQuickActionHandler, BereanResponseActionHandler { message, action in
+                    handleBereanQuickAction(message: message, action: action)
+                })
+                .environmentObject(dataManager)
+                if isThinking {
+                    ThinkingIndicatorView()
+                        .transition(.scale.combined(with: .opacity))
+                }
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 20)
+        .padding(.bottom, 120)
+        .background(scrollOffsetTracker)
+    }
+
+    // Extracted ForEach row to avoid compiler type-check timeout in the body.
+    @ViewBuilder
+    private func messageBubbleRow(message: BereanMessage) -> some View {
+        let isLastBerean = !message.isFromUser &&
+            viewModel.messages.last(where: { !$0.isFromUser })?.id == message.id &&
+            !isGenerating
+        MessageBubbleView(
+            message: message,
+            onOpenSelah: { msg in
+                selahQuery = viewModel.messages
+                    .last(where: { $0.isFromUser })?.content ?? ""
+                selahMessage = msg
+                showSelahView = true
+            },
+            onFollowUp: isLastBerean ? { prompt in
+                sendMessage(prompt)
+            } : nil,
+            onRegenerate: isLastBerean ? {
+                regenerateLastResponse()
+            } : nil,
+            onEdit: message.isFromUser ? { msg in
+                beginEditMessage(msg)
+            } : nil
+        )
+        .id(message.id)
+        .transition(.asymmetric(
+            insertion: .scale(scale: 0.9).combined(with: .opacity),
+            removal: .opacity
+        ))
+        .animation(.easeOut(duration: 0.2), value: viewModel.messages.count)
+    }
+
     var body: some View {
         ZStack {
             // Clean white background — matches reference image design language
@@ -260,113 +390,7 @@ struct BereanAIAssistantView: View {
                 
                 // Chat Content
                 ScrollViewReader { proxy in
-                    ScrollView {
-                        VStack(spacing: 20) {
-                            // Empty state — centered animation shown before first message
-                            if viewModel.messages.isEmpty {
-                                bereanEmptyStateView
-                            } else {
-                                // Messages
-                                ForEach(viewModel.messages) { message in
-                                    let isLastBerean = !message.isFromUser &&
-                                        viewModel.messages.last(where: { !$0.isFromUser })?.id == message.id &&
-                                        !isGenerating
-                                    MessageBubbleView(
-                                        message: message,
-                                        onOpenSelah: { msg in
-                                            selahQuery = viewModel.messages
-                                                .last(where: { $0.isFromUser })?.content ?? ""
-                                            selahMessage = msg
-                                            showSelahView = true
-                                        },
-                                        onFollowUp: isLastBerean ? { prompt in
-                                            sendMessage(prompt)
-                                        } : nil
-                                    )
-                                        .id(message.id)
-                                        .transition(.asymmetric(
-                                            insertion: .scale(scale: 0.9).combined(with: .opacity),
-                                            removal: .opacity
-                                        ))
-                                        .animation(.easeOut(duration: 0.2), value: viewModel.messages.count)
-                                }
-                                .environment(\.messageShareHandler) { message in
-                                    messageToShare = message
-                                    withAnimation(.easeOut(duration: 0.2)) {
-                                        showShareSheet = true
-                                    }
-                                }
-                                .environmentObject(dataManager)
-                                
-                                // Thinking Indicator
-                                if isThinking {
-                                    ThinkingIndicatorView()
-                                        .transition(.scale.combined(with: .opacity))
-                                }
-                            }
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.top, 20)
-                        .padding(.bottom, 120)
-                        // Track scroll position via background GeometryReader — avoids layout jitter
-                        .background(
-                            GeometryReader { geo in
-                                Color.clear.preference(
-                                    key: ScrollOffsetPreferenceKey.self,
-                                    value: geo.frame(in: .named("bereanScroll")).minY
-                                )
-                            }
-                        )
-                    }
-                    .coordinateSpace(name: "bereanScroll")
-                    .refreshable {
-                        await refreshConversation()
-                    }
-                    .onTapGesture {
-                        isInputFocused = false
-                    }
-                    .onChange(of: viewModel.messages.count) { _, _ in
-                        if !userHasScrolledUp, let lastMessage = viewModel.messages.last {
-                            withAnimation(.easeOut(duration: 0.25)) {
-                                proxy.scrollTo(lastMessage.id, anchor: .bottom)
-                            }
-                        }
-                    }
-                    // During streaming the count stays constant but the last message
-                    // grows — scroll to bottom on every content length change so the
-                    // text cascades smoothly downward as it arrives.
-                    .onChange(of: viewModel.messages.last?.content.count) { _, _ in
-                        guard isGenerating, !userHasScrolledUp,
-                              let lastMessage = viewModel.messages.last else { return }
-                        proxy.scrollTo(lastMessage.id, anchor: .bottom)
-                    }
-                    .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
-                        // value is minY of content — negative when scrolled down
-                        let scrolledDown = value < -10
-                        let backAtTop = value > -50
-
-                        // Hysteresis: collapse at -110, expand at -50 — prevents flicker at boundary
-                        let collapse = value < -110
-                        let expand = value > -50
-                        if collapse && !shouldCollapseBibleIcon {
-                            withAnimation(.easeInOut(duration: 0.25)) { shouldCollapseBibleIcon = true }
-                        } else if expand && shouldCollapseBibleIcon {
-                            withAnimation(.easeInOut(duration: 0.25)) { shouldCollapseBibleIcon = false }
-                        }
-
-                        if scrolledDown { userHasScrolledUp = true }
-                        else if backAtTop { userHasScrolledUp = false }
-                    }
-                    .onChange(of: isInputFocused) { _, newValue in
-                        // Scroll to bottom when keyboard appears
-                        if newValue, let lastMessage = viewModel.messages.last {
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                                withAnimation(.easeOut(duration: 0.25)) {
-                                    proxy.scrollTo(lastMessage.id, anchor: .bottom)
-                                }
-                            }
-                        }
-                    }
+                    chatScrollContent(proxy: proxy)
                 }
                 
                 Spacer(minLength: 0)
@@ -435,6 +459,12 @@ struct BereanAIAssistantView: View {
                     },
                     onDeleteConversation: { conversation in
                         viewModel.deleteConversation(conversation)
+                    },
+                    onPinConversation: { conversation in
+                        viewModel.togglePin(conversation)
+                    },
+                    onStarConversation: { conversation in
+                        viewModel.toggleStar(conversation)
                     },
                     onShowSaved: {
                         showConversationDrawer = false
@@ -626,7 +656,13 @@ struct BereanAIAssistantView: View {
             setupKeyboardObservers()
             // Initialize speech recognizer
             speechRecognizer = SpeechRecognitionService()
-            
+
+            // Restore composer draft (only when no initialQuery is provided)
+            if initialQuery == nil, messageText.isEmpty, !composerDraft.isEmpty {
+                messageText = composerDraft
+                composerDraft = ""  // clear stored draft once restored
+            }
+
             // Auto-send initial query (e.g. testimony reflection from PostCard).
             // Use a stored Task so it can be cancelled in onDisappear, preventing
             // a use-after-free if the view is dismissed before the delay fires.
@@ -672,6 +708,8 @@ struct BereanAIAssistantView: View {
             if !viewModel.messages.isEmpty {
                 viewModel.saveCurrentConversation()
             }
+            // Persist composer draft so it survives navigation
+            composerDraft = messageText
         }
     }
     
@@ -1073,7 +1111,17 @@ struct BereanAIAssistantView: View {
     // MARK: - Empty State (centered animation shown before first message)
 
     private var bereanEmptyStateView: some View {
-        BereanCenteredEmptyState()
+        BereanPremiumLandingView(
+            personalityMode: $personalityMode,
+            onQuickAction: { prompt in
+                if prompt.isEmpty {
+                    // "Ask Anything" — just open keyboard
+                    isInputFocused = true
+                } else {
+                    sendMessage(prompt)
+                }
+            }
+        )
     }
     
     // MARK: - Input Bar (Glassmorphic - Bottom Fixed)
@@ -1836,6 +1884,25 @@ struct BereanAIAssistantView: View {
         print("✅ Conversation refreshed")
     }
     
+    /// Regenerate the last Berean response
+    private func regenerateLastResponse() {
+        guard !isGenerating else { return }
+        if let query = viewModel.popLastAssistantMessage(), !query.isEmpty {
+            // Remove any optimistic user-message duplicate then re-send
+            sendMessage(query, isRetry: true)
+        }
+    }
+
+    /// Begin editing a user message: rewind thread and populate the composer
+    private func beginEditMessage(_ message: BereanMessage) {
+        guard !isGenerating else { return }
+        let content = message.content
+        viewModel.editUserMessage(at: message.id, newContent: content)
+        messageText = content
+        isInputFocused = true
+        editingMessage = message
+    }
+
     /// Start a new conversation
     private func startNewConversation() {
         withAnimation(.easeOut(duration: 0.25)) {
@@ -1880,6 +1947,28 @@ struct BereanAIAssistantView: View {
         print("✅ All data cleared successfully")
     }
     
+    /// Handle Berean quick-action chip taps
+    private func handleBereanQuickAction(message: BereanMessage, action: BereanResponseAction) {
+        switch action {
+        case .saveToNotes:
+            // Save to BereanDataManager saved messages with a "notes" tag
+            dataManager.saveMessage(message, tags: ["notes"])
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+
+        case .shareAsPost:
+            messageToShare = message
+            withAnimation(.easeOut(duration: 0.2)) {
+                showShareSheet = true
+            }
+
+        case .turnIntoPrayer, .applyPractically, .journalPrompt:
+            // Send the associated follow-up prompt as a new message
+            let prompt = action.followUpPrompt
+            guard !prompt.isEmpty else { return }
+            sendMessage(prompt)
+        }
+    }
+
     /// Handle image upload for OCR/analysis
     private func handleImageUpload(_ image: UIImage) {
         // In production: Use Vision API for OCR
@@ -2014,6 +2103,7 @@ struct BereanAIAssistantView: View {
             // ✅ P0-5: Use appendMessage instead of direct append
             viewModel.appendMessage(userMessage)
             messageText = ""
+            composerDraft = ""  // clear saved draft on successful send
             showSuggestions = false
             isThinking = true
             isGenerating = true  // ✅ Set generating state
@@ -2044,12 +2134,15 @@ struct BereanAIAssistantView: View {
             for: trimmedText,
             requestId: requestId,  // ✅ Pass request ID
             responseMode: responseMode,  // ✅ Pass response mode for cost control
-            personalityPrefix: personalityMode.systemPromptPrefix,  // ✅ Pass personality voice
+            // Combine personality voice with personalization preferences suffix
+            personalityPrefix: [personalityMode.systemPromptPrefix, userPreferences.systemPromptSuffix]
+                .filter { !$0.isEmpty }.joined(separator: " "),
             onChunk: { chunk in
                 // Preserve the existing message ID so SwiftUI treats this as an in-place
                 // update rather than a remove+insert cycle. Without preserving the ID,
                 // MessageBubbleView is destroyed and recreated on every chunk, which
                 // triggers the .onAppear entrance animation and causes the blink.
+                // NOTE: onChunk is always called on MainActor by generateResponseStreaming.
                 if let lastIndex = viewModel.messages.lastIndex(where: { $0.role == .assistant }) {
                     let existingMessage = viewModel.messages[lastIndex]
                     let updatedMessage = BereanMessage(
@@ -2491,6 +2584,10 @@ struct MessageBubbleView: View {
     var onOpenSelah: ((BereanMessage) -> Void)? = nil
     /// Called when user taps a follow-up action chip. Receives the pre-composed prompt text.
     var onFollowUp: ((String) -> Void)? = nil
+    /// Called when user taps "Regenerate" on the last assistant message.
+    var onRegenerate: (() -> Void)? = nil
+    /// Called when user taps "Edit" on a user message.
+    var onEdit: ((BereanMessage) -> Void)? = nil
     @State private var showActions = false
     @State private var lightbulbPressed = false
     @State private var praisePressed = false
@@ -2498,7 +2595,10 @@ struct MessageBubbleView: View {
     @State private var showReportIssue = false
     @State private var appeared = false
     @State private var showFollowUpRow = false
+    @State private var copied = false   // brief checkmark flash after copy
+    @State private var showQuickActions = false
     @Environment(\.messageShareHandler) private var shareHandler
+    @Environment(\.bereanQuickActionHandler) private var quickActionEnv
     @EnvironmentObject private var dataManager: BereanDataManager
 
     var body: some View {
@@ -2554,6 +2654,21 @@ struct MessageBubbleView: View {
         .onAppear {
             withAnimation(.easeOut(duration: 0.22).delay(0.04)) {
                 appeared = true
+            }
+        }
+        .contextMenu {
+            Button {
+                UIPasteboard.general.string = message.content
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+            } label: {
+                Label("Copy", systemImage: "doc.on.doc")
+            }
+            if let onEdit {
+                Button {
+                    onEdit(message)
+                } label: {
+                    Label("Edit Message", systemImage: "pencil")
+                }
             }
         }
     }
@@ -2650,6 +2765,22 @@ struct MessageBubbleView: View {
 
                     Spacer()
 
+                    // Copy — visible inline button with flash feedback
+                    Button {
+                        UIPasteboard.general.string = message.content
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        withAnimation(.easeOut(duration: 0.15)) { copied = true }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                            withAnimation(.easeOut(duration: 0.2)) { copied = false }
+                        }
+                    } label: {
+                        Image(systemName: copied ? "checkmark" : "doc.on.doc")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(copied ? Color(red: 0.3, green: 0.75, blue: 0.5) : Color(white: 0.5))
+                            .frame(width: 28, height: 28)
+                            .animation(.easeOut(duration: 0.15), value: copied)
+                    }
+
                     // Share to feed
                     Button {
                         UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -2659,6 +2790,19 @@ struct MessageBubbleView: View {
                             .font(.system(size: 12, weight: .medium))
                             .foregroundStyle(Color(white: 0.5))
                             .frame(width: 28, height: 28)
+                    }
+
+                    // Regenerate (only shown when callback is provided, i.e., last message)
+                    if let onRegenerate {
+                        Button {
+                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                            onRegenerate()
+                        } label: {
+                            Image(systemName: "arrow.clockwise")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(Color(white: 0.5))
+                                .frame(width: 28, height: 28)
+                        }
                     }
 
                     // More options
@@ -2716,6 +2860,44 @@ struct MessageBubbleView: View {
                 )
                 .padding(.horizontal, -22) // bleed to edge so pills don't feel inset
             }
+
+            // Berean quick-action row — spiritual actions on this response
+            if showQuickActions {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(BereanResponseAction.allCases, id: \.self) { action in
+                            Button {
+                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                quickActionEnv(message, action)
+                            } label: {
+                                HStack(spacing: 5) {
+                                    Image(systemName: action.icon)
+                                        .font(.system(size: 11, weight: .medium))
+                                    Text(action.rawValue)
+                                        .font(.system(size: 12, weight: .medium))
+                                }
+                                .foregroundStyle(Color(white: 0.3))
+                                .padding(.horizontal, 11)
+                                .padding(.vertical, 6)
+                                .background(
+                                    Capsule()
+                                        .fill(Color(white: 0.93))
+                                        .overlay(Capsule().stroke(Color(white: 0.86), lineWidth: 0.5))
+                                )
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal, 22)
+                    .padding(.vertical, 2)
+                }
+                .padding(.horizontal, -22)
+                .padding(.top, 6)
+                .transition(.asymmetric(
+                    insertion: .move(edge: .bottom).combined(with: .opacity),
+                    removal: .opacity
+                ))
+            }
         }
         .padding(.horizontal, 22)
         .padding(.vertical, 6)
@@ -2730,6 +2912,11 @@ struct MessageBubbleView: View {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
                     withAnimation(.easeOut(duration: 0.22)) {
                         showFollowUpRow = true
+                    }
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.85) {
+                    withAnimation(.easeOut(duration: 0.22)) {
+                        showQuickActions = true
                     }
                 }
             }
@@ -2754,6 +2941,64 @@ extension EnvironmentValues {
     var messageShareHandler: ((BereanMessage) -> Void)? {
         get { self[MessageShareHandlerKey.self] }
         set { self[MessageShareHandlerKey.self] = newValue }
+    }
+}
+
+// MARK: - Berean Response Action (quick-action chips on responses)
+
+enum BereanResponseAction: String, CaseIterable {
+    case turnIntoPrayer   = "Turn into prayer"
+    case saveToNotes      = "Save to Notes"
+    case applyPractically = "Apply this"
+    case journalPrompt    = "Journal prompt"
+    case shareAsPost      = "Share insight"
+
+    var icon: String {
+        switch self {
+        case .turnIntoPrayer:   return "hands.sparkles"
+        case .saveToNotes:      return "note.text.badge.plus"
+        case .applyPractically: return "figure.walk"
+        case .journalPrompt:    return "pencil.and.scribble"
+        case .shareAsPost:      return "arrow.up.circle"
+        }
+    }
+
+    var followUpPrompt: String {
+        switch self {
+        case .turnIntoPrayer:
+            return "Turn the insight you just shared into a heartfelt prayer I can pray."
+        case .saveToNotes:
+            return "" // handled specially in the view (saves, no new query)
+        case .applyPractically:
+            return "Give me 3 practical ways I can apply what you just shared to my daily life."
+        case .journalPrompt:
+            return "Give me a meaningful journal reflection prompt based on what you just shared."
+        case .shareAsPost:
+            return "" // handled specially (opens share sheet)
+        }
+    }
+}
+
+// MARK: - Berean Response Action Environment Key
+
+private struct BereanResponseActionHandlerKey: EnvironmentKey {
+    static let defaultValue: BereanResponseActionHandler = .init(nil)
+}
+
+struct BereanResponseActionHandler {
+    let action: ((BereanMessage, BereanResponseAction) -> Void)?
+    init(_ action: ((BereanMessage, BereanResponseAction) -> Void)?) {
+        self.action = action
+    }
+    func callAsFunction(_ message: BereanMessage, _ responseAction: BereanResponseAction) {
+        action?(message, responseAction)
+    }
+}
+
+extension EnvironmentValues {
+    var bereanQuickActionHandler: BereanResponseActionHandler {
+        get { self[BereanResponseActionHandlerKey.self] }
+        set { self[BereanResponseActionHandlerKey.self] = newValue }
     }
 }
 
@@ -3149,31 +3394,40 @@ struct BereanMessage: Identifiable, Codable, Equatable {
     let role: MessageRole
     let timestamp: Date
     var verseReferences: [String]
-    
+    /// User feedback on this message: nil = no feedback yet, true = thumbs up, false = thumbs down
+    var feedback: Bool?
+    /// Whether the user has bookmarked this specific response for quick reference
+    var isBookmarked: Bool
+
     // Convenience computed property for backward compatibility
     var isFromUser: Bool {
         return role == .user
     }
-    
+
     enum MessageRole: String, Codable {
         case user
         case assistant
         case system
     }
-    
+
     // ✅ Equatable conformance for performance optimization
     static func == (lhs: BereanMessage, rhs: BereanMessage) -> Bool {
         return lhs.id == rhs.id &&
                lhs.content == rhs.content &&
                lhs.role == rhs.role &&
-               lhs.verseReferences == rhs.verseReferences
+               lhs.verseReferences == rhs.verseReferences &&
+               lhs.feedback == rhs.feedback &&
+               lhs.isBookmarked == rhs.isBookmarked
     }
-    
-    init(id: UUID = UUID(), content: String, role: MessageRole, timestamp: Date, verseReferences: [String] = []) {
+
+    init(id: UUID = UUID(), content: String, role: MessageRole, timestamp: Date,
+         verseReferences: [String] = [], feedback: Bool? = nil, isBookmarked: Bool = false) {
         self.id = id
         self.content = content
         self.role = role
         self.timestamp = timestamp
+        self.feedback = feedback
+        self.isBookmarked = isBookmarked
         self.verseReferences = verseReferences
     }
 }
@@ -3415,24 +3669,27 @@ class BereanViewModel: ObservableObject {
     
     // MARK: - Conversation Management
     
-    /// Save current conversation to history
+    /// Save current conversation to history (uses a fast fallback title,
+    /// then patches it asynchronously with an AI-generated title).
     func saveCurrentConversation() {
         guard !messages.isEmpty else {
             print("⚠️ No messages to save")
             return
         }
-        
+
         let conversation = SavedConversation(
             title: generateConversationTitle(),
             messages: messages,
             date: Date(),
             translation: selectedTranslation
         )
-        
+
         savedConversations.insert(conversation, at: 0)
         saveConversationsToUserDefaults()
-        
         print("✅ Conversation saved: \(conversation.title)")
+
+        // Kick off AI title generation in background; it will patch the stored record when done
+        generateAITitle(for: conversation.id)
     }
     
     /// Load a saved conversation
@@ -3446,7 +3703,27 @@ class BereanViewModel: ObservableObject {
     func deleteConversation(_ conversation: SavedConversation) {
         savedConversations.removeAll { $0.id == conversation.id }
         saveConversationsToUserDefaults()
+        deleteConversationFromFirestore(conversation)
         print("🗑️ Deleted conversation: \(conversation.title)")
+    }
+
+    /// Toggle pin state for a conversation
+    func togglePin(_ conversation: SavedConversation) {
+        guard let index = savedConversations.firstIndex(where: { $0.id == conversation.id }) else { return }
+        savedConversations[index].isPinned.toggle()
+        // Re-sort: pinned first, then by date descending
+        savedConversations.sort {
+            if $0.isPinned != $1.isPinned { return $0.isPinned }
+            return $0.date > $1.date
+        }
+        saveConversationsToUserDefaults()
+    }
+
+    /// Toggle star state for a conversation
+    func toggleStar(_ conversation: SavedConversation) {
+        guard let index = savedConversations.firstIndex(where: { $0.id == conversation.id }) else { return }
+        savedConversations[index].isStarred.toggle()
+        saveConversationsToUserDefaults()
     }
     
     /// Update conversation title
@@ -3475,6 +3752,27 @@ class BereanViewModel: ObservableObject {
         messages = []
         print("🗑️ Messages cleared")
     }
+
+    /// Remove the last assistant message so the caller can re-run generation.
+    /// Returns the last user query string (to re-send), or nil if nothing to regenerate.
+    @discardableResult
+    func popLastAssistantMessage() -> String? {
+        // Remove trailing assistant message(s)
+        while messages.last?.role == .assistant {
+            messages.removeLast()
+        }
+        // Return the user query that preceded them
+        return messages.last(where: { $0.role == .user })?.content
+    }
+
+    /// Edit the most recent user message: trims messages back to that point
+    /// and returns the edited text so the caller can re-send.
+    func editUserMessage(at messageId: UUID, newContent: String) {
+        guard let idx = messages.firstIndex(where: { $0.id == messageId }) else { return }
+        // Keep everything up to (but not including) the target message
+        messages = Array(messages.prefix(idx))
+        print("✏️ User message edited — thread rewound to \(idx) messages")
+    }
     
     /// Clear all data (conversations + messages)
     func clearAllData() {
@@ -3484,17 +3782,44 @@ class BereanViewModel: ObservableObject {
         print("🗑️ All data cleared")
     }
     
-    /// Generate a title from the first user message
+    /// Generate a short fallback title from the first user message (no network needed)
     private func generateConversationTitle() -> String {
         let firstUserMessage = messages.first(where: { $0.role == .user })
         let content = firstUserMessage?.content ?? "Conversation"
-        
-        // Take first 50 chars or first sentence
         let title = String(content.prefix(50))
-        if title.count < content.count {
-            return title + "..."
+        return title.count < content.count ? title + "..." : title
+    }
+
+    /// Ask the AI to produce a 4-6 word title for the current conversation,
+    /// then update the most-recent saved conversation in place.
+    func generateAITitle(for conversationId: UUID) {
+        // Build a compact summary of the exchange (first user + first assistant turn)
+        let userSnippet  = messages.first(where: { $0.role == .user })?.content.prefix(300) ?? ""
+        let replySnippet = messages.first(where: { $0.role == .assistant })?.content.prefix(300) ?? ""
+        guard !userSnippet.isEmpty else { return }
+
+        Task {
+            let prompt = """
+            Create a 4–6 word title for this conversation. Return ONLY the title, no quotes, no punctuation at the end.
+
+            User: \(userSnippet)
+            Assistant: \(replySnippet)
+            """
+            do {
+                let raw = try await genkitService.sendMessageSync(prompt, mode: .shepherd)
+                let title = raw
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                    .components(separatedBy: "\n").first ?? raw
+                await MainActor.run {
+                    if let idx = self.savedConversations.firstIndex(where: { $0.id == conversationId }) {
+                        self.savedConversations[idx].title = String(title.prefix(80))
+                        self.saveConversationsToUserDefaults()
+                    }
+                }
+            } catch {
+                // Non-critical — fallback title already set
+            }
         }
-        return title
     }
     
     // MARK: - Persistence
@@ -3506,23 +3831,109 @@ class BereanViewModel: ObservableObject {
             print("💾 Saved \(savedConversations.count) conversations to UserDefaults")
         } catch {
             print("❌ Failed to save conversations: \(error.localizedDescription)")
-            // Don't throw - this is a best-effort persistence
         }
+        // Fire-and-forget cloud sync
+        syncConversationsToFirestore()
     }
-    
+
     private func loadSavedConversations() {
         guard let data = UserDefaults.standard.data(forKey: "berean_conversations") else {
-            print("ℹ️ No saved conversations found")
+            print("ℹ️ No saved conversations found locally")
+            // Try cloud fallback
+            fetchConversationsFromFirestore()
             return
         }
-        
+
         do {
             savedConversations = try JSONDecoder().decode([SavedConversation].self, from: data)
-            print("📖 Loaded \(savedConversations.count) conversations")
+            print("📖 Loaded \(savedConversations.count) conversations from local cache")
+            // Merge newer cloud data in background (non-blocking)
+            fetchConversationsFromFirestore()
         } catch {
-            print("❌ Failed to load conversations: \(error.localizedDescription)")
-            // Reset to empty array on corruption
+            print("❌ Failed to decode local conversations — clearing cache: \(error.localizedDescription)")
+            UserDefaults.standard.removeObject(forKey: "berean_conversations")
             savedConversations = []
+            fetchConversationsFromFirestore()
+        }
+    }
+
+    // MARK: - Firestore Sync
+
+    /// Firestore collection path: users/{uid}/bereanConversations
+    private var firestoreCollection: CollectionReference? {
+        guard let uid = Auth.auth().currentUser?.uid else { return nil }
+        return Firestore.firestore().collection("users").document(uid).collection("bereanConversations")
+    }
+
+    /// Write all conversations to Firestore in the background. Each conversation is
+    /// stored as its own document (id = conversation.id.uuidString) so individual
+    /// deletes/updates are cheap. Large message arrays are JSON-encoded as a string
+    /// field to avoid Firestore's 1 MiB document limit issues with deeply nested arrays.
+    private func syncConversationsToFirestore() {
+        guard let col = firestoreCollection else { return }
+        let toSync = savedConversations.prefix(maxSavedConversations)
+        Task.detached(priority: .background) {
+            for conversation in toSync {
+                guard let encoded = try? JSONEncoder().encode(conversation),
+                      let json = String(data: encoded, encoding: .utf8) else { continue }
+                let docRef = col.document(conversation.id.uuidString)
+                try? await docRef.setData([
+                    "id":          conversation.id.uuidString,
+                    "title":       conversation.title,
+                    "translation": conversation.translation,
+                    "date":        Timestamp(date: conversation.date),
+                    "isPinned":    conversation.isPinned,
+                    "isStarred":   conversation.isStarred,
+                    "messageCount": conversation.messages.count,
+                    "payload":     json   // full JSON blob for restoration
+                ], merge: true)
+            }
+            print("☁️ Synced \(toSync.count) conversations to Firestore")
+        }
+    }
+
+    /// Fetch conversations from Firestore and merge them with local data.
+    /// Cloud wins for any conversation not present locally.
+    private func fetchConversationsFromFirestore() {
+        guard let col = firestoreCollection else { return }
+        Task.detached(priority: .background) {
+            guard let snapshot = try? await col
+                .order(by: "date", descending: true)
+                .limit(to: 50)
+                .getDocuments() else { return }
+
+            var cloudConversations: [SavedConversation] = []
+            for doc in snapshot.documents {
+                guard let payload = doc.data()["payload"] as? String,
+                      let data = payload.data(using: .utf8),
+                      let conv = try? JSONDecoder().decode(SavedConversation.self, from: data)
+                else { continue }
+                cloudConversations.append(conv)
+            }
+
+            await MainActor.run {
+                guard !cloudConversations.isEmpty else { return }
+                // Merge: keep local + add any cloud-only conversations
+                let localIds = Set(self.savedConversations.map { $0.id })
+                let newFromCloud = cloudConversations.filter { !localIds.contains($0.id) }
+                if !newFromCloud.isEmpty {
+                    self.savedConversations.append(contentsOf: newFromCloud)
+                    self.savedConversations.sort {
+                        if $0.isPinned != $1.isPinned { return $0.isPinned }
+                        return $0.date > $1.date
+                    }
+                    self.saveConversationsToUserDefaults()
+                    print("☁️ Merged \(newFromCloud.count) conversations from Firestore")
+                }
+            }
+        }
+    }
+
+    /// Delete a single conversation from Firestore
+    private func deleteConversationFromFirestore(_ conversation: SavedConversation) {
+        guard let col = firestoreCollection else { return }
+        Task.detached(priority: .background) {
+            try? await col.document(conversation.id.uuidString).delete()
         }
     }
     
@@ -3555,7 +3966,174 @@ class BereanViewModel: ObservableObject {
         pendingRequestId = nil  // ✅ P0-1: Clear pending request
         print("⏸️ Stopped AI generation")
     }
-    
+
+    // MARK: - Continue Generating
+
+    /// Asks the AI to continue from where it left off on the last assistant response.
+    /// Useful when a response was truncated or the user wants more depth.
+    func continueGenerating(
+        responseMode: BereanResponseMode,
+        personalityPrefix: String,
+        onChunk: @escaping (String) -> Void,
+        onComplete: @escaping (BereanMessage) -> Void,
+        onError: @escaping (Error) -> Void
+    ) {
+        guard let lastAssistant = messages.last(where: { $0.role == .assistant }),
+              !lastAssistant.content.isEmpty else {
+            onError(NSError(domain: "BereanViewModel", code: -1,
+                            userInfo: [NSLocalizedDescriptionKey: "No response to continue"]))
+            return
+        }
+        let continuePrompt = "Please continue your previous response from where you left off."
+        let requestId = UUID()
+        generateResponseStreaming(
+            for: continuePrompt,
+            requestId: requestId,
+            responseMode: responseMode,
+            personalityPrefix: personalityPrefix,
+            onChunk: onChunk,
+            onComplete: onComplete,
+            onError: onError
+        )
+    }
+
+    // MARK: - Feedback & Bookmark
+
+    /// Record thumbs up/down on an assistant message. Persists via conversation save.
+    func setFeedback(_ feedback: Bool?, on messageId: UUID) {
+        guard let idx = messages.firstIndex(where: { $0.id == messageId }) else { return }
+        let m = messages[idx]
+        messages[idx] = BereanMessage(
+            id: m.id, content: m.content, role: m.role, timestamp: m.timestamp,
+            verseReferences: m.verseReferences, feedback: feedback, isBookmarked: m.isBookmarked
+        )
+    }
+
+    /// Toggle the bookmarked state of a message.
+    @discardableResult
+    func toggleBookmark(on messageId: UUID) -> Bool {
+        guard let idx = messages.firstIndex(where: { $0.id == messageId }) else { return false }
+        let m = messages[idx]
+        let newState = !m.isBookmarked
+        messages[idx] = BereanMessage(
+            id: m.id, content: m.content, role: m.role, timestamp: m.timestamp,
+            verseReferences: m.verseReferences, feedback: m.feedback, isBookmarked: newState
+        )
+        return newState
+    }
+
+    /// All bookmarked messages across the current in-session thread.
+    var bookmarkedMessages: [BereanMessage] {
+        messages.filter { $0.isBookmarked }
+    }
+
+    // MARK: - Conversation Search
+
+    /// Search across all saved conversations by title, message content, or verse references.
+    /// Returns results sorted by recency, with the matching snippet for each.
+    struct ConversationSearchResult: Identifiable {
+        let id = UUID()
+        let conversation: SavedConversation
+        /// The first message snippet that matched the query (nil if only the title matched).
+        let matchingSnippet: String?
+    }
+
+    func searchConversations(query: String) -> [ConversationSearchResult] {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !trimmed.isEmpty else { return [] }
+
+        return savedConversations.compactMap { conv in
+            // Title match
+            if conv.title.lowercased().contains(trimmed) {
+                return ConversationSearchResult(conversation: conv, matchingSnippet: nil)
+            }
+            // Message content match — find the first matching message body
+            if let matchingMsg = conv.messages.first(where: {
+                $0.content.lowercased().contains(trimmed)
+            }) {
+                // Return a short snippet around the match
+                let snippet = String(matchingMsg.content.prefix(120))
+                return ConversationSearchResult(conversation: conv, matchingSnippet: snippet)
+            }
+            // Verse reference match
+            if conv.messages.contains(where: { msg in
+                msg.verseReferences.contains(where: { $0.lowercased().contains(trimmed) })
+            }) {
+                return ConversationSearchResult(conversation: conv, matchingSnippet: "Verse reference match")
+            }
+            return nil
+        }
+        .sorted { $0.conversation.date > $1.conversation.date }
+    }
+
+    // MARK: - Folder Management
+
+    /// All unique folder tags currently in use across saved conversations.
+    var allFolderTags: [String] {
+        let tags = savedConversations.compactMap { $0.folderTag }
+        return Array(Set(tags)).sorted()
+    }
+
+    /// Conversations grouped by folder tag. Untagged conversations are under key "".
+    var conversationsByFolder: [String: [SavedConversation]] {
+        Dictionary(grouping: savedConversations, by: { $0.folderTag ?? "" })
+    }
+
+    /// Assign a folder tag to a saved conversation.
+    func setFolderTag(_ tag: String?, on conversationId: UUID) {
+        guard let idx = savedConversations.firstIndex(where: { $0.id == conversationId }) else { return }
+        let c = savedConversations[idx]
+        savedConversations[idx] = SavedConversation(
+            id: c.id, title: c.title, messages: c.messages, date: c.date,
+            translation: c.translation, isPinned: c.isPinned, isStarred: c.isStarred,
+            folderTag: tag
+        )
+        saveConversationsToUserDefaults()
+    }
+
+    // MARK: - Offline Retry Queue
+
+    private struct QueuedMessage: Codable {
+        let id: UUID
+        let text: String
+        let timestamp: Date
+    }
+
+    private let retryQueueKey = "berean_offline_retry_queue"
+
+    /// Add a failed message to the offline retry queue so it can be resent when connectivity restores.
+    func enqueueForRetry(_ messageText: String) {
+        var queue = loadRetryQueue()
+        let entry = QueuedMessage(id: UUID(), text: messageText, timestamp: Date())
+        queue.append(entry)
+        // Cap queue at 20 entries to avoid unbounded growth
+        if queue.count > 20 { queue = Array(queue.suffix(20)) }
+        saveRetryQueue(queue)
+        print("📥 Queued for retry: \"\(String(messageText.prefix(40)))…\"")
+    }
+
+    /// Returns the oldest queued message and removes it from the queue.
+    func dequeueNextRetry() -> String? {
+        var queue = loadRetryQueue()
+        guard !queue.isEmpty else { return nil }
+        let entry = queue.removeFirst()
+        saveRetryQueue(queue)
+        return entry.text
+    }
+
+    var hasQueuedMessages: Bool { !loadRetryQueue().isEmpty }
+
+    private func loadRetryQueue() -> [QueuedMessage] {
+        guard let data = UserDefaults.standard.data(forKey: retryQueueKey),
+              let decoded = try? JSONDecoder().decode([QueuedMessage].self, from: data) else { return [] }
+        return decoded
+    }
+
+    private func saveRetryQueue(_ queue: [QueuedMessage]) {
+        guard let data = try? JSONEncoder().encode(queue) else { return }
+        UserDefaults.standard.set(data, forKey: retryQueueKey)
+    }
+
     // MARK: - Message Management
     
     /// Append message with automatic trimming
@@ -4537,17 +5115,161 @@ struct PremiumFeatureCard: View {
 
 struct SavedConversation: Identifiable, Codable {
     let id: UUID
-    let title: String
+    var title: String
     let messages: [BereanMessage]
     let date: Date
     let translation: String
-    
-    init(id: UUID = UUID(), title: String, messages: [BereanMessage], date: Date, translation: String) {
+    var isPinned: Bool
+    var isStarred: Bool
+    /// Optional folder/project tag for grouping conversations (e.g. "Sermon Prep", "Daily Study")
+    var folderTag: String?
+
+    init(id: UUID = UUID(), title: String, messages: [BereanMessage], date: Date, translation: String,
+         isPinned: Bool = false, isStarred: Bool = false, folderTag: String? = nil) {
         self.id = id
         self.title = title
         self.messages = messages
         self.date = date
         self.translation = translation
+        self.isPinned = isPinned
+        self.isStarred = isStarred
+        self.folderTag = folderTag
+    }
+}
+
+// MARK: - Berean User Preferences
+
+/// Lightweight UserDefaults-backed store for Berean AI personalization settings.
+/// Persists across sessions without requiring authentication.
+/// Values feed into the system prompt suffix at request time.
+final class BereanUserPreferences: ObservableObject {
+
+    static let shared = BereanUserPreferences()
+    private init() { loadFromDefaults() }
+
+    // MARK: Translation preference
+    @Published var preferredTranslation: String = "ESV" {
+        didSet { UserDefaults.standard.set(preferredTranslation, forKey: "berean_pref_translation") }
+    }
+
+    // MARK: Response length
+    enum ResponseLength: String, CaseIterable, Codable {
+        case concise    = "concise"
+        case balanced   = "balanced"
+        case thorough   = "thorough"
+
+        var label: String {
+            switch self {
+            case .concise:  return "Concise"
+            case .balanced: return "Balanced"
+            case .thorough: return "Thorough"
+            }
+        }
+
+        var systemPromptHint: String {
+            switch self {
+            case .concise:  return "Keep responses brief (1-3 sentences). Be direct."
+            case .balanced: return ""
+            case .thorough: return "Provide comprehensive, thorough answers with full context."
+            }
+        }
+    }
+
+    @Published var responseLength: ResponseLength = .balanced {
+        didSet { UserDefaults.standard.set(responseLength.rawValue, forKey: "berean_pref_length") }
+    }
+
+    // MARK: Tone preference
+    enum TonePreference: String, CaseIterable, Codable {
+        case scholarly      = "scholarly"
+        case pastoral       = "pastoral"
+        case conversational = "conversational"
+
+        var label: String {
+            switch self {
+            case .scholarly:      return "Scholarly"
+            case .pastoral:       return "Pastoral"
+            case .conversational: return "Conversational"
+            }
+        }
+
+        var systemPromptHint: String {
+            switch self {
+            case .scholarly:      return "Use a scholarly, precise tone with theological terminology where appropriate."
+            case .pastoral:       return ""
+            case .conversational: return "Use a warm, conversational tone as if talking with a friend."
+            }
+        }
+    }
+
+    @Published var tone: TonePreference = .pastoral {
+        didSet { UserDefaults.standard.set(tone.rawValue, forKey: "berean_pref_tone") }
+    }
+
+    // MARK: Discipleship maturity
+    enum DiscipleshipMaturity: String, CaseIterable, Codable {
+        case newBeliever = "newBeliever"
+        case growing     = "growing"
+        case mature      = "mature"
+
+        var label: String {
+            switch self {
+            case .newBeliever: return "New Believer"
+            case .growing:     return "Growing"
+            case .mature:      return "Mature Believer"
+            }
+        }
+
+        var systemPromptHint: String {
+            switch self {
+            case .newBeliever: return "The user is a new believer — avoid jargon, explain theological terms simply."
+            case .growing:     return ""
+            case .mature:      return "The user has a strong theological foundation — engage at a mature level."
+            }
+        }
+    }
+
+    @Published var discipleshipMaturity: DiscipleshipMaturity = .growing {
+        didSet { UserDefaults.standard.set(discipleshipMaturity.rawValue, forKey: "berean_pref_maturity") }
+    }
+
+    // MARK: Verse-first mode
+    /// When true, Berean leads every answer with a Scripture reference before the prose explanation.
+    @Published var verseFirstMode: Bool = false {
+        didSet { UserDefaults.standard.set(verseFirstMode, forKey: "berean_pref_verseFirst") }
+    }
+
+    // MARK: Wisdom mode
+    /// When true, frames all answers through a "biblical wisdom for everyday life" lens.
+    @Published var wisdomMode: Bool = false {
+        didSet { UserDefaults.standard.set(wisdomMode, forKey: "berean_pref_wisdomMode") }
+    }
+
+    // MARK: Composed system prompt additions
+    /// Extra text to append to the system prompt, derived from current preferences.
+    var systemPromptSuffix: String {
+        var parts: [String] = []
+        if !responseLength.systemPromptHint.isEmpty    { parts.append(responseLength.systemPromptHint) }
+        if !tone.systemPromptHint.isEmpty               { parts.append(tone.systemPromptHint) }
+        if !discipleshipMaturity.systemPromptHint.isEmpty { parts.append(discipleshipMaturity.systemPromptHint) }
+        if verseFirstMode { parts.append("Lead every answer with a direct Scripture reference before explaining.") }
+        if wisdomMode     { parts.append("Frame answers through the lens of biblical wisdom applied to everyday life.") }
+        return parts.joined(separator: " ")
+    }
+
+    // MARK: Persistence
+    private func loadFromDefaults() {
+        if let t = UserDefaults.standard.string(forKey: "berean_pref_translation") {
+            preferredTranslation = t
+        }
+        if let r = UserDefaults.standard.string(forKey: "berean_pref_length"),
+           let v = ResponseLength(rawValue: r) { responseLength = v }
+        if let t = UserDefaults.standard.string(forKey: "berean_pref_tone"),
+           let v = TonePreference(rawValue: t) { tone = v }
+        if let m = UserDefaults.standard.string(forKey: "berean_pref_maturity"),
+           let v = DiscipleshipMaturity(rawValue: m) { discipleshipMaturity = v }
+        verseFirstMode = UserDefaults.standard.bool(forKey: "berean_pref_verseFirst")
+        wisdomMode     = UserDefaults.standard.bool(forKey: "berean_pref_wisdomMode")
     }
 }
 
@@ -5356,6 +6078,8 @@ struct BereanConversationDrawer: View {
     let onNewChat: () -> Void
     let onSelectConversation: (SavedConversation) -> Void
     let onDeleteConversation: (SavedConversation) -> Void
+    let onPinConversation: (SavedConversation) -> Void
+    let onStarConversation: (SavedConversation) -> Void
     let onShowSaved: () -> Void
     let onShowTranslation: () -> Void
     let onShowOnboarding: () -> Void
@@ -5363,6 +6087,9 @@ struct BereanConversationDrawer: View {
 
     @State private var searchText = ""
     @State private var showDeleteConfirm: SavedConversation? = nil
+    @State private var showFolderView = false
+    @State private var folderPickerTarget: SavedConversation? = nil
+    @State private var expandedFolders: Set<String> = []
 
     private var filteredConversations: [SavedConversation] {
         guard !searchText.isEmpty else { return conversations }
@@ -5370,6 +6097,22 @@ struct BereanConversationDrawer: View {
             $0.title.localizedCaseInsensitiveContains(searchText) ||
             $0.messages.contains { $0.content.localizedCaseInsensitiveContains(searchText) }
         }
+    }
+
+    // All unique folder tags across conversations, plus "" bucket for untagged.
+    private var folderGroups: [(tag: String, conversations: [SavedConversation])] {
+        var groups: [String: [SavedConversation]] = [:]
+        for conv in filteredConversations {
+            let key = conv.folderTag ?? ""
+            groups[key, default: []].append(conv)
+        }
+        // Sort: named folders alphabetically, then untagged last
+        let named = groups.keys
+            .filter { !$0.isEmpty }
+            .sorted()
+            .map { (tag: $0, conversations: groups[$0]!) }
+        let untagged = groups[""].map { (tag: "", conversations: $0) }
+        return named + (untagged.map { [$0] } ?? [])
     }
 
     private let drawerWidth: CGFloat = min(UIScreen.main.bounds.width * 0.82, 340)
@@ -5433,6 +6176,29 @@ struct BereanConversationDrawer: View {
         } message: {
             Text("This conversation will be permanently removed.")
         }
+        .sheet(item: $folderPickerTarget) { target in
+            BereanFolderPickerSheet(
+                conversation: target,
+                currentTag: target.folderTag,
+                onAssign: { tag in
+                    if let idx = conversations.firstIndex(where: { $0.id == target.id }) {
+                        conversations[idx] = SavedConversation(
+                            id: target.id,
+                            title: target.title,
+                            messages: target.messages,
+                            date: target.date,
+                            translation: target.translation,
+                            isPinned: target.isPinned,
+                            isStarred: target.isStarred,
+                            folderTag: tag
+                        )
+                    }
+                    folderPickerTarget = nil
+                }
+            )
+            .presentationDetents([.medium])
+            .presentationDragIndicator(.visible)
+        }
     }
 
     // MARK: Header
@@ -5443,12 +6209,12 @@ struct BereanConversationDrawer: View {
                 Circle()
                     .fill(BereanDesign.coral.opacity(0.12))
                     .frame(width: 36, height: 36)
-                Image(systemName: "folder.fill")
+                Image(systemName: showFolderView ? "folder.fill" : "bubble.left.and.bubble.right.fill")
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(BereanDesign.coral)
             }
             VStack(alignment: .leading, spacing: 2) {
-                Text("Conversations")
+                Text(showFolderView ? "Folders" : "Conversations")
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(Color(white: 0.14))
                 Text("\(conversations.count) saved")
@@ -5456,6 +6222,22 @@ struct BereanConversationDrawer: View {
                     .foregroundStyle(Color(white: 0.5))
             }
             Spacer()
+            // Folder/list toggle
+            Button {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.78)) {
+                    showFolderView.toggle()
+                }
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            } label: {
+                Image(systemName: showFolderView ? "list.bullet" : "folder")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(showFolderView ? BereanDesign.coral : Color(white: 0.45))
+                    .frame(width: 30, height: 30)
+                    .background(
+                        Circle().fill(showFolderView ? BereanDesign.coral.opacity(0.10) : Color.black.opacity(0.05))
+                    )
+            }
+            .buttonStyle(.plain)
             Button {
                 withAnimation(.spring(response: 0.34, dampingFraction: 0.84)) {
                     isShowing = false
@@ -5555,23 +6337,166 @@ struct BereanConversationDrawer: View {
 
     // MARK: Conversations Section
 
-    private var conversationsSection: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text("Recent")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(Color(white: 0.5))
-                .textCase(.uppercase)
-                .tracking(0.8)
-                .padding(.horizontal, 20)
-                .padding(.top, 18)
-                .padding(.bottom, 8)
+    private var pinnedConversations: [SavedConversation] {
+        filteredConversations.filter { $0.isPinned }
+    }
+    private var unpinnedConversations: [SavedConversation] {
+        filteredConversations.filter { !$0.isPinned }
+    }
 
-            VStack(spacing: 4) {
-                ForEach(filteredConversations) { conversation in
-                    conversationRow(conversation)
+    private var conversationsSection: some View {
+        Group {
+            if showFolderView {
+                folderGroupedSection
+            } else {
+                flatConversationsSection
+            }
+        }
+    }
+
+    // MARK: Flat (default) layout — Pinned + Recent sections
+    private var flatConversationsSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Pinned section
+            if !pinnedConversations.isEmpty {
+                Text("Pinned")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(BereanDesign.coral.opacity(0.85))
+                    .textCase(.uppercase)
+                    .tracking(0.8)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 18)
+                    .padding(.bottom, 8)
+                VStack(spacing: 4) {
+                    ForEach(pinnedConversations) { conversation in
+                        conversationRow(conversation)
+                    }
+                }
+                .padding(.horizontal, 16)
+            }
+
+            // Recent section
+            if !unpinnedConversations.isEmpty {
+                Text("Recent")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Color(white: 0.5))
+                    .textCase(.uppercase)
+                    .tracking(0.8)
+                    .padding(.horizontal, 20)
+                    .padding(.top, pinnedConversations.isEmpty ? 18 : 14)
+                    .padding(.bottom, 8)
+                VStack(spacing: 4) {
+                    ForEach(unpinnedConversations) { conversation in
+                        conversationRow(conversation)
+                    }
+                }
+                .padding(.horizontal, 16)
+            }
+        }
+    }
+
+    // MARK: Folder grouped layout
+    private var folderGroupedSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if folderGroups.isEmpty {
+                emptyConversationsState
+            } else {
+                ForEach(folderGroups, id: \.tag) { group in
+                    folderSection(tag: group.tag, conversations: group.conversations)
                 }
             }
+        }
+        .padding(.top, 8)
+    }
+
+    @ViewBuilder
+    private func folderSection(tag: String, conversations: [SavedConversation]) -> some View {
+        let displayName = tag.isEmpty ? "Uncategorised" : tag
+        let isExpanded = expandedFolders.contains(tag) || tag.isEmpty
+        let mostRecent = conversations.max(by: { $0.date < $1.date })?.date
+        let msgCount = conversations.reduce(0) { $0 + $1.messages.count }
+
+        VStack(alignment: .leading, spacing: 0) {
+            // Folder header row (tappable to expand/collapse)
+            Button {
+                withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+                    if expandedFolders.contains(tag) {
+                        expandedFolders.remove(tag)
+                    } else {
+                        expandedFolders.insert(tag)
+                    }
+                }
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            } label: {
+                HStack(spacing: 10) {
+                    // Folder icon
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(tag.isEmpty ? Color(white: 0.92) : BereanDesign.coral.opacity(0.12))
+                            .frame(width: 30, height: 30)
+                        Image(systemName: tag.isEmpty ? "tray" : "folder.fill")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(tag.isEmpty ? Color(white: 0.5) : BereanDesign.coral)
+                    }
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(displayName)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(tag.isEmpty ? Color(white: 0.45) : Color(white: 0.16))
+
+                        HStack(spacing: 6) {
+                            // Conversation count badge
+                            Text("\(conversations.count) thread\(conversations.count == 1 ? "" : "s")")
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundStyle(BereanDesign.coral.opacity(0.85))
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Capsule().fill(BereanDesign.coral.opacity(0.10)))
+
+                            // Message count
+                            Text("\(msgCount) msg\(msgCount == 1 ? "" : "s")")
+                                .font(.system(size: 10))
+                                .foregroundStyle(Color(white: 0.55))
+
+                            // Most recent date
+                            if let date = mostRecent {
+                                Text("· \(relativeDate(date))")
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(Color(white: 0.55))
+                            }
+                        }
+                    }
+
+                    Spacer()
+
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(Color(white: 0.55))
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(Color.white.opacity(0.55))
+                )
+            }
+            .buttonStyle(.plain)
             .padding(.horizontal, 16)
+            .padding(.top, 10)
+            .padding(.bottom, isExpanded ? 4 : 0)
+
+            // Conversation rows under this folder (collapsible)
+            if isExpanded {
+                VStack(spacing: 4) {
+                    ForEach(conversations) { conversation in
+                        conversationRow(conversation)
+                            .padding(.leading, 10) // indent under folder
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 4)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
         }
     }
 
@@ -5583,17 +6508,24 @@ struct BereanConversationDrawer: View {
             HStack(spacing: 10) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(Color(white: 0.94))
+                        .fill(conversation.isPinned ? BereanDesign.coral.opacity(0.12) : Color(white: 0.94))
                         .frame(width: 32, height: 32)
-                    Image(systemName: "bubble.left.and.bubble.right")
+                    Image(systemName: conversation.isPinned ? "pin.fill" : "bubble.left.and.bubble.right")
                         .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(Color(white: 0.45))
+                        .foregroundStyle(conversation.isPinned ? BereanDesign.coral : Color(white: 0.45))
                 }
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(conversation.title)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(Color(white: 0.18))
-                        .lineLimit(1)
+                    HStack(spacing: 4) {
+                        Text(conversation.title)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(Color(white: 0.18))
+                            .lineLimit(1)
+                        if conversation.isStarred {
+                            Image(systemName: "star.fill")
+                                .font(.system(size: 9))
+                                .foregroundStyle(Color(red: 1.0, green: 0.78, blue: 0.2))
+                        }
+                    }
                     HStack(spacing: 4) {
                         Text(conversation.translation)
                             .font(.system(size: 10, weight: .medium))
@@ -5609,15 +6541,6 @@ struct BereanConversationDrawer: View {
                     }
                 }
                 Spacer()
-                Button {
-                    showDeleteConfirm = conversation
-                } label: {
-                    Image(systemName: "trash")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(Color(white: 0.65))
-                        .frame(width: 28, height: 28)
-                }
-                .buttonStyle(.plain)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
@@ -5627,6 +6550,35 @@ struct BereanConversationDrawer: View {
             )
         }
         .buttonStyle(.plain)
+        .contextMenu {
+            Button {
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                onPinConversation(conversation)
+            } label: {
+                Label(conversation.isPinned ? "Unpin" : "Pin to Top", systemImage: conversation.isPinned ? "pin.slash" : "pin")
+            }
+            Button {
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                onStarConversation(conversation)
+            } label: {
+                Label(conversation.isStarred ? "Unstar" : "Star", systemImage: conversation.isStarred ? "star.slash" : "star")
+            }
+            Button {
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                folderPickerTarget = conversation
+            } label: {
+                Label(
+                    conversation.folderTag != nil ? "Move Folder (\(conversation.folderTag!))" : "Add to Folder",
+                    systemImage: "folder.badge.plus"
+                )
+            }
+            Divider()
+            Button(role: .destructive) {
+                showDeleteConfirm = conversation
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
+        }
     }
 
     // MARK: Empty States
@@ -5755,78 +6707,620 @@ struct BereanConversationDrawer: View {
     }
 }
 
-// MARK: - BereanCenteredEmptyState
+// MARK: - BereanFolderPickerSheet
 //
-// Minimal centered animation for Berean's empty chat state.
-// A soft pulsing cross symbol with a subtitle — no cards, no banners.
+// Half-sheet for assigning or changing a conversation's folder tag.
+// Shows preset folder chips and a "Create new…" text field.
+// Conforms to View (not Identifiable) — presented via .sheet(item:) on SavedConversation.
 
-struct BereanCenteredEmptyState: View {
+struct BereanFolderPickerSheet: View {
+    let conversation: SavedConversation
+    let currentTag: String?
+    let onAssign: (String?) -> Void
 
-    @State private var pulse = false
-    @State private var appeared = false
+    @Environment(\.dismiss) private var dismiss
+    @State private var customFolderName: String = ""
+    @State private var showCustomInput: Bool = false
+    @FocusState private var isCustomInputFocused: Bool
 
-    private let coral = BereanDesign.coral
+    private let presets: [String] = [
+        "Study", "Prayer", "Sermon Prep", "Daily Devotion",
+        "Church Notes", "Discipleship", "Questions", "Favorites"
+    ]
 
     var body: some View {
-        VStack(spacing: 20) {
-            Spacer()
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    // Conversation title preview
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Add to Folder")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .textCase(.uppercase)
+                            .tracking(0.5)
+                        Text(conversation.title)
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .foregroundStyle(.primary)
+                            .lineLimit(2)
+                    }
+                    .padding(.horizontal)
 
-            ZStack {
-                // Outer soft glow ring
-                Circle()
-                    .fill(coral.opacity(0.08))
-                    .frame(width: 96, height: 96)
-                    .scaleEffect(pulse ? 1.18 : 1.0)
-                    .animation(
-                        .easeInOut(duration: 2.2).repeatForever(autoreverses: true),
-                        value: pulse
-                    )
+                    // Preset folder chips
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Folders")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .textCase(.uppercase)
+                            .tracking(0.5)
+                            .padding(.horizontal)
 
-                // Inner ring
-                Circle()
-                    .fill(coral.opacity(0.13))
-                    .frame(width: 68, height: 68)
-                    .scaleEffect(pulse ? 1.10 : 1.0)
-                    .animation(
-                        .easeInOut(duration: 2.2).repeatForever(autoreverses: true).delay(0.15),
-                        value: pulse
-                    )
+                        LazyVGrid(columns: [
+                            GridItem(.flexible()),
+                            GridItem(.flexible()),
+                            GridItem(.flexible())
+                        ], spacing: 10) {
+                            ForEach(presets, id: \.self) { preset in
+                                folderChip(preset)
+                            }
+                        }
+                        .padding(.horizontal)
+                    }
 
-                // Cross icon
-                Image(systemName: "cross.fill")
-                    .font(.system(size: 26, weight: .regular))
-                    .foregroundStyle(coral)
-                    .scaleEffect(appeared ? 1.0 : 0.7)
-                    .opacity(appeared ? 1.0 : 0.0)
-                    .animation(.spring(response: 0.55, dampingFraction: 0.70).delay(0.1), value: appeared)
+                    // Create new folder input
+                    VStack(alignment: .leading, spacing: 10) {
+                        if showCustomInput {
+                            HStack(spacing: 10) {
+                                Image(systemName: "folder.badge.plus")
+                                    .foregroundStyle(Color(red: 0.93, green: 0.4, blue: 0.3))
+                                    .font(.system(size: 15))
+                                TextField("Folder name…", text: $customFolderName)
+                                    .font(.subheadline)
+                                    .focused($isCustomInputFocused)
+                                    .onSubmit { commitCustomFolder() }
+                                if !customFolderName.isEmpty {
+                                    Button(action: commitCustomFolder) {
+                                        Text("Add")
+                                            .font(.subheadline)
+                                            .fontWeight(.semibold)
+                                            .foregroundStyle(Color(red: 0.93, green: 0.4, blue: 0.3))
+                                    }
+                                }
+                            }
+                            .padding(12)
+                            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+                            .padding(.horizontal)
+                        } else {
+                            Button {
+                                showCustomInput = true
+                                isCustomInputFocused = true
+                            } label: {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "folder.badge.plus")
+                                    Text("Create new folder…")
+                                        .font(.subheadline)
+                                }
+                                .foregroundStyle(Color(red: 0.93, green: 0.4, blue: 0.3))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(12)
+                                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+                            }
+                            .padding(.horizontal)
+                        }
+                    }
+
+                    // Remove from folder option
+                    if currentTag != nil {
+                        Button {
+                            onAssign(nil)
+                            dismiss()
+                        } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: "folder.badge.minus")
+                                Text("Remove from folder")
+                                    .font(.subheadline)
+                            }
+                            .foregroundStyle(.red)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(12)
+                            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+                        }
+                        .padding(.horizontal)
+                    }
+
+                    Spacer(minLength: 32)
+                }
+                .padding(.top, 8)
             }
-
-            VStack(spacing: 6) {
-                Text("Ask Berean anything")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(Color(white: 0.12))
-
-                Text("Scripture-grounded answers, any time")
-                    .font(.system(size: 14))
-                    .foregroundStyle(Color(white: 0.50))
-                    .multilineTextAlignment(.center)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
             }
-            .opacity(appeared ? 1.0 : 0.0)
-            .offset(y: appeared ? 0 : 8)
-            .animation(.easeOut(duration: 0.4).delay(0.25), value: appeared)
-
-            Spacer()
         }
-        .frame(maxWidth: .infinity)
-        .frame(minHeight: 360)
+    }
+
+    @ViewBuilder
+    private func folderChip(_ name: String) -> some View {
+        let isSelected = currentTag == name
+        Button {
+            onAssign(name)
+            dismiss()
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: isSelected ? "folder.fill" : "folder")
+                    .font(.system(size: 12))
+                Text(name)
+                    .font(.caption)
+                    .fontWeight(isSelected ? .semibold : .regular)
+                    .lineLimit(1)
+            }
+            .foregroundStyle(isSelected ? Color(red: 0.93, green: 0.4, blue: 0.3) : .primary)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .frame(maxWidth: .infinity)
+            .background(
+                isSelected
+                    ? Color(red: 0.93, green: 0.4, blue: 0.3).opacity(0.12)
+                    : Color(.systemGray5),
+                in: RoundedRectangle(cornerRadius: 10)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .strokeBorder(
+                        isSelected ? Color(red: 0.93, green: 0.4, blue: 0.3).opacity(0.4) : Color.clear,
+                        lineWidth: 1
+                    )
+            )
+        }
+    }
+
+    private func commitCustomFolder() {
+        let trimmed = customFolderName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        onAssign(trimmed)
+        dismiss()
+    }
+}
+
+// MARK: - BereanPremiumLandingView
+//
+// Premium editorial landing screen for Berean AI.
+// Shows a time-aware typewriter greeting, quick action cards, and suggested prompts.
+// Replaces the old minimal cross/pulse empty state.
+
+struct BereanPremiumLandingView: View {
+    @Binding var personalityMode: BereanPersonalityMode
+    let onQuickAction: (String) -> Void
+
+    @State private var heroVisible = false
+    @State private var cardsVisible = false
+    @State private var promptsVisible = false
+
+    @Environment(\.accessibilityReduceMotion) private var shouldReduceMotion
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+
+            // ── Hero greeting section ─────────────────────────────────────────
+            BereanTypographyHero()
+                .opacity(heroVisible ? 1 : 0)
+                .offset(y: heroVisible ? 0 : (shouldReduceMotion ? 0 : 14))
+                .animation(
+                    shouldReduceMotion
+                        ? .none
+                        : .spring(response: 0.60, dampingFraction: 0.80),
+                    value: heroVisible
+                )
+                .padding(.horizontal, BereanDesign.pagePad)
+                .padding(.top, 24)
+                .padding(.bottom, 28)
+
+            // ── Quick action 2-column grid ────────────────────────────────────
+            BereanLandingQuickGrid(onTap: onQuickAction)
+                .opacity(cardsVisible ? 1 : 0)
+                .offset(y: cardsVisible ? 0 : (shouldReduceMotion ? 0 : 12))
+                .animation(
+                    shouldReduceMotion
+                        ? .none
+                        : .spring(response: 0.55, dampingFraction: 0.82).delay(0.12),
+                    value: cardsVisible
+                )
+
+            // ── Suggested prompts card ────────────────────────────────────────
+            BereanLandingSuggestedPrompts(onTap: onQuickAction)
+                .opacity(promptsVisible ? 1 : 0)
+                .offset(y: promptsVisible ? 0 : (shouldReduceMotion ? 0 : 12))
+                .animation(
+                    shouldReduceMotion
+                        ? .none
+                        : .spring(response: 0.55, dampingFraction: 0.82).delay(0.22),
+                    value: promptsVisible
+                )
+                .padding(.top, 20)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .onAppear {
-            appeared = true
-            pulse = true
+            heroVisible = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + (shouldReduceMotion ? 0 : 0.20)) {
+                cardsVisible = true
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + (shouldReduceMotion ? 0 : 0.32)) {
+                promptsVisible = true
+            }
         }
         .onDisappear {
-            appeared = false
-            pulse = false
+            heroVisible = false
+            cardsVisible = false
+            promptsVisible = false
         }
+    }
+}
+
+// MARK: - BereanTypographyHero
+// Editorial center-focused text hero with typewriter greeting and subheadline.
+
+struct BereanTypographyHero: View {
+
+    // ── Greeting logic ────────────────────────────────────────────────────────
+    private static func greeting() -> String {
+        let hour = Calendar.current.component(.hour, from: Date())
+        switch hour {
+        case 5..<12:  return "Good morning."
+        case 12..<17: return "Good afternoon."
+        case 17..<22: return "Good evening."
+        default:      return "Still up?"
+        }
+    }
+
+    private static func followUp() -> String {
+        let hour = Calendar.current.component(.hour, from: Date())
+        switch hour {
+        case 5..<12:  return "What would you like to understand?"
+        case 12..<17: return "How can I help today?"
+        case 17..<22: return "What wisdom are you seeking?"
+        default:      return "Let's think through it together."
+        }
+    }
+
+    @State private var greetingText = ""
+    @State private var followUpText = ""
+    @State private var showFollowUp = false
+    @State private var showSubtext = false
+    @State private var cursorVisible = true
+    @State private var typingDone = false
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private let greeting = BereanTypographyHero.greeting()
+    private let followUp = BereanTypographyHero.followUp()
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+
+            // Primary greeting — typewriter
+            HStack(alignment: .lastTextBaseline, spacing: 0) {
+                Text(greetingText)
+                    .font(.system(size: 34, weight: .bold, design: .default))
+                    .foregroundStyle(Color(white: 0.08))
+                    .tracking(-0.8)
+                    .lineLimit(1)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                // Blinking cursor — only while typing, settles after done
+                if !typingDone || (showFollowUp && followUpText.count < followUp.count) {
+                    Rectangle()
+                        .fill(BereanDesign.coral)
+                        .frame(width: 2, height: 32)
+                        .cornerRadius(1)
+                        .opacity(cursorVisible ? 1 : 0)
+                        .animation(
+                            .easeInOut(duration: 0.5).repeatForever(autoreverses: true),
+                            value: cursorVisible
+                        )
+                        .padding(.leading, 2)
+                }
+            }
+
+            // Follow-up line — fades/types in after greeting finishes
+            if showFollowUp {
+                Text(followUpText)
+                    .font(.system(size: 22, weight: .regular, design: .default))
+                    .foregroundStyle(Color(white: 0.38))
+                    .tracking(-0.3)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .transition(.opacity.animation(.easeIn(duration: 0.25)))
+            }
+
+            // Subtext caption
+            if showSubtext {
+                Text("Biblical wisdom for life, work, and understanding.")
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundStyle(Color(white: 0.58))
+                    .tracking(0)
+                    .padding(.top, 2)
+                    .transition(.opacity.animation(.easeIn(duration: 0.30)))
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .onAppear {
+            cursorVisible = true
+            if reduceMotion {
+                // Skip animation — show full text immediately
+                greetingText = greeting
+                followUpText = followUp
+                showFollowUp = true
+                showSubtext = true
+                typingDone = true
+            } else {
+                typewriterSequence()
+            }
+        }
+    }
+
+    private func typewriterSequence() {
+        // Phase 1: type greeting
+        let greetingChars = Array(greeting)
+        let charInterval: TimeInterval = 0.042
+
+        for (i, char) in greetingChars.enumerated() {
+            DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * charInterval) {
+                greetingText.append(char)
+            }
+        }
+
+        let greetingDuration = Double(greetingChars.count) * charInterval
+
+        // Phase 2: brief pause, then show follow-up
+        DispatchQueue.main.asyncAfter(deadline: .now() + greetingDuration + 0.30) {
+            typingDone = true
+            withAnimation { showFollowUp = true }
+
+            let followChars = Array(followUp)
+            let followInterval: TimeInterval = 0.036
+            for (i, char) in followChars.enumerated() {
+                DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * followInterval) {
+                    followUpText.append(char)
+                }
+            }
+
+            let followDuration = Double(followChars.count) * followInterval
+
+            // Phase 3: subtext after follow-up finishes
+            DispatchQueue.main.asyncAfter(deadline: .now() + followDuration + 0.20) {
+                withAnimation { showSubtext = true }
+            }
+        }
+    }
+}
+
+// MARK: - BereanLandingQuickGrid
+// 2-column grid of tappable quick-action cards with icon badge + label.
+
+struct BereanLandingQuickGrid: View {
+
+    let onTap: (String) -> Void
+
+    private struct QuickAction: Identifiable {
+        let id = UUID()
+        let icon: String
+        let label: String
+        let prompt: String
+        let tint: Color
+    }
+
+    private let actions: [QuickAction] = [
+        QuickAction(icon: "book.closed",         label: "Study Scripture",     prompt: "Help me study a Scripture passage in depth.",                            tint: BereanDesign.coral),
+        QuickAction(icon: "lightbulb",            label: "Explain a Verse",     prompt: "Explain this verse and its meaning:",                                    tint: Color(red: 0.28, green: 0.56, blue: 0.90)),
+        QuickAction(icon: "figure.walk",          label: "Help Me Discern",     prompt: "Help me discern a decision I'm facing from a biblical perspective.",     tint: Color(red: 0.30, green: 0.68, blue: 0.54)),
+        QuickAction(icon: "heart.text.square",    label: "Help Me Pray",        prompt: "Help me pray through something I'm carrying.",                           tint: Color(red: 0.68, green: 0.32, blue: 0.72)),
+        QuickAction(icon: "briefcase",            label: "Faith & Work",        prompt: "What does Scripture say about work, purpose, and calling?",              tint: Color(red: 0.72, green: 0.48, blue: 0.22)),
+        QuickAction(icon: "sparkles",             label: "Ask Anything",        prompt: "",                                                                       tint: BereanDesign.coral),
+    ]
+
+    private let columns = [
+        GridItem(.flexible(), spacing: 10),
+        GridItem(.flexible(), spacing: 10)
+    ]
+
+    @State private var visibleCards: Set<UUID> = []
+
+    var body: some View {
+        LazyVGrid(columns: columns, spacing: 10) {
+            ForEach(Array(actions.enumerated()), id: \.element.id) { idx, action in
+                BereanLandingActionCard(
+                    icon: action.icon,
+                    label: action.label,
+                    tint: action.tint
+                ) {
+                    let haptic = UIImpactFeedbackGenerator(style: .light)
+                    haptic.impactOccurred(intensity: 0.7)
+                    if action.prompt.isEmpty {
+                        // "Ask Anything" — just focus the input, no pre-fill
+                        onTap("")
+                    } else {
+                        onTap(action.prompt)
+                    }
+                }
+                .opacity(visibleCards.contains(action.id) ? 1 : 0)
+                .offset(y: visibleCards.contains(action.id) ? 0 : 8)
+                .animation(
+                    .spring(response: 0.45, dampingFraction: 0.80)
+                        .delay(Double(idx) * 0.06),
+                    value: visibleCards.contains(action.id)
+                )
+            }
+        }
+        .padding(.horizontal, BereanDesign.pagePad)
+        .onAppear {
+            for (i, action) in actions.enumerated() {
+                DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * 0.06) {
+                    visibleCards.insert(action.id)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - BereanLandingActionCard
+// Single tappable card: icon badge left, bold label right. White surface, subtle shadow.
+
+struct BereanLandingActionCard: View {
+    let icon: String
+    let label: String
+    let tint: Color
+    let action: () -> Void
+
+    @State private var pressed = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 11) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(tint.opacity(0.13))
+                        .frame(width: 36, height: 36)
+                    Image(systemName: icon)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(tint)
+                }
+
+                Text(label)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color(white: 0.12))
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.85)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 13)
+            .padding(.vertical, 13)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(Color.white.opacity(pressed ? 0.76 : 0.96))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .stroke(Color.black.opacity(0.065), lineWidth: 0.75)
+                    )
+                    .shadow(color: Color.black.opacity(0.055), radius: 8, x: 0, y: 3)
+            )
+            .scaleEffect(pressed ? 0.96 : 1.0)
+        }
+        .buttonStyle(.plain)
+        ._onButtonGesture { pressing in
+            withAnimation(.spring(response: 0.24, dampingFraction: 0.68)) {
+                pressed = pressing
+            }
+        } perform: {}
+        .accessibilityLabel(label)
+    }
+}
+
+// MARK: - BereanLandingSuggestedPrompts
+// Soft white card listing curated suggested prompts with hairline dividers.
+
+struct BereanLandingSuggestedPrompts: View {
+    let onTap: (String) -> Void
+
+    private let prompts: [(icon: String, text: String)] = [
+        ("text.book.closed",   "What does Scripture say about anxiety?"),
+        ("figure.2.arms.open", "How do I forgive someone who hurt me?"),
+        ("briefcase",          "Give me a biblical lens on my work situation."),
+        ("moon.stars",         "Help me understand the book of Psalms."),
+    ]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+
+            // Section label
+            Text("Try asking")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Color(white: 0.50))
+                .tracking(1.0)
+                .textCase(.uppercase)
+                .padding(.horizontal, BereanDesign.pagePad)
+                .padding(.bottom, 10)
+
+            // Rows inside white card
+            VStack(spacing: 0) {
+                ForEach(Array(prompts.enumerated()), id: \.offset) { idx, item in
+                    BereanLandingPromptRow(
+                        icon: item.icon,
+                        text: item.text,
+                        isLast: idx == prompts.count - 1,
+                        onTap: { onTap(item.text) }
+                    )
+                }
+            }
+            .background(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(Color.white.opacity(0.96))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .stroke(Color.black.opacity(0.05), lineWidth: 0.75)
+                    )
+                    .shadow(color: Color.black.opacity(0.05), radius: 14, y: 4)
+            )
+            .padding(.horizontal, BereanDesign.pagePad)
+        }
+    }
+}
+
+// MARK: - BereanLandingPromptRow
+// Single row in the suggested prompts card: dot accent + text + arrow.
+
+struct BereanLandingPromptRow: View {
+    let icon: String
+    let text: String
+    let isLast: Bool
+    let onTap: () -> Void
+
+    @State private var highlighted = false
+
+    var body: some View {
+        Button(action: {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred(intensity: 0.5)
+            onTap()
+        }) {
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundStyle(BereanDesign.coral.opacity(0.75))
+                    .frame(width: 18)
+
+                Text(text)
+                    .font(.system(size: 14, weight: .regular))
+                    .foregroundStyle(Color(white: 0.14))
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .lineLimit(2)
+
+                Image(systemName: "arrow.up.right")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(Color(white: 0.48))
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 13)
+            .background(highlighted ? Color.black.opacity(0.03) : Color.clear)
+        }
+        .buttonStyle(.plain)
+        ._onButtonGesture { pressing in
+            withAnimation(.easeOut(duration: 0.14)) { highlighted = pressing }
+        } perform: {}
+        .overlay(alignment: .bottom) {
+            if !isLast {
+                Rectangle()
+                    .fill(Color.black.opacity(0.055))
+                    .frame(height: 0.5)
+                    .padding(.leading, 46)
+            }
+        }
+        .accessibilityLabel(text)
     }
 }
 
