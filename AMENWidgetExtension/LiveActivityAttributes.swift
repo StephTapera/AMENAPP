@@ -173,7 +173,7 @@ struct ReplyActivityAttributes: Codable, Hashable {
     }
 }
 
-// MARK: - ActivityAttributes conformances
+// MARK: - ActivityAttributes conformances (available wherever ActivityKit is linked)
 
 #if canImport(ActivityKit)
 extension ChurchServiceActivityAttributes: ActivityAttributes {}

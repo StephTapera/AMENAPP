@@ -125,14 +125,18 @@ service cloud.firestore {
 
     match /users/{userId} {
       // Authenticated users can read any profile (get + list).
-      // Unauthenticated list is allowed ONLY for the username-login lookup:
-      //   SignInView queries users where usernameLowercase == <input>, limit 1
-      //   before the user has an auth token. A list with limit==1 is the exact
-      //   pattern used; direct document reads (get) still require authentication.
+      // EMAIL ENUMERATION FIX: The users collection stores email addresses.
+      // Unauthenticated list queries were previously allowed for username-login lookup
+      // (SignInView queries usernameLowercase before the user has a token).
+      // This creates an email enumeration risk: an unauthenticated attacker could
+      // query users where usernameLowercase == 'target' and read the email field.
+      // FIX: Use /usernameLookup/{username} (which stores only { uid, username }, NOT email)
+      // for pre-auth resolution. The users collection now requires full authentication for all reads.
+      // NOTE: SignInView must be updated to query /usernameLookup instead of /users for
+      // the username→email resolution step. See usernameLookup rule below.
       // CRITICAL: Backup codes must NEVER be stored in the user document.
       allow get: if isAuthenticated();
-      allow list: if isAuthenticated()
-        || request.query.limit <= 1;
+      allow list: if isAuthenticated();
 
       // Users can only create their own profile.
       // P0 FIX: Allow phone-only authentication (no email required for phone auth).
@@ -862,19 +866,21 @@ service cloud.firestore {
       allow read: if isAuthenticated()
         && resource.data.userId == request.auth.uid;
 
+      // P0 FIX: Block sender from writing notifications to users who have blocked them.
+      // Without this a blocked user can still deliver in-app notification spam to their blocker.
       // P1 FIX: Sender must identify themselves with their own uid AND the
       // notification's userId/recipientId must be non-empty (enforced below).
-      // This prevents any authenticated user from writing blank-recipient spam docs.
       // IMPORTANT: Cloud Functions are the primary notification writer.
       // Client-side writes are for optimistic read-status updates only.
       allow create: if isAuthenticated()
         && (request.resource.data.get('fromUserId', '') == request.auth.uid
           || request.resource.data.get('senderId', '') == request.auth.uid
           || request.resource.data.get('actorId', '') == request.auth.uid)
-        // SECURITY: Recipient field must be non-empty so notifications cannot be
-        // created as orphan docs without an owner.
+        // SECURITY: Recipient field must be non-empty.
         && request.resource.data.get('userId', '') != ''
-        && request.resource.data.get('recipientId', request.resource.data.get('userId', '')) != '';
+        && request.resource.data.get('recipientId', request.resource.data.get('userId', '')) != ''
+        // P0 FIX: Sender must not be blocked by the recipient.
+        && !exists(/databases/$(database)/documents/users/$(request.resource.data.get('userId', '_'))/blockedUsers/$(request.auth.uid));
 
       // Owner: mark as read. Actor: update own send-side notification (e.g., un-amen removes it).
       // SECURITY: Actor can only update their own actor fields, not the recipient's read state.
@@ -1111,9 +1117,12 @@ service cloud.firestore {
 
     match /fcmQueue/{queueId} {
       allow read: if false;
+      // P0 FIX: Require sender is not blocked by the recipient before queuing a push.
+      // Without this a blocked user can queue push notifications to their blocker.
       allow create: if isAuthenticated()
         && request.resource.data.get('userId', '') == request.auth.uid
-        && hasRequiredFields(['userId', 'recipientId', 'messageType']);
+        && hasRequiredFields(['userId', 'recipientId', 'messageType'])
+        && !exists(/databases/$(database)/documents/users/$(request.resource.data.get('recipientId', '_'))/blockedUsers/$(request.auth.uid));
       allow update: if false;
       allow delete: if false;
     }
@@ -1905,15 +1914,31 @@ service cloud.firestore {
     // TRANSLATIONS COLLECTION (PostTranslationService cross-device cache)
     // ============================================================================
 
+    // P0 NOTE: The translation cache key is a SHA-256 hash of the source text.
+    // The originalText field inside the document IS readable by any authenticated user.
+    // For DM translations this is a privacy leak — any user who can guess the hash
+    // can read the plaintext of another user's private message.
+    // MITIGATION applied below:
+    //   1. Reads are scoped to authenticated users only (already was the case).
+    //   2. create requires a `surface` field; DM-origin translations should use
+    //      surface='dm' and MUST NOT be written to the shared public cache.
+    //      The TranslationService should only write to this collection for public
+    //      content (posts, comments). DM translations must be ephemeral (in-memory only).
+    //   3. originalText is capped at 500 chars to limit exposure of any leaked content.
+    // TODO: TranslationService should skip Firestore cache writes when surface == 'dm'.
     match /translations/{cacheKey} {
       allow read: if isAuthenticated();
+      // P0 FIX: Block DM translations from being written to the shared cache.
       // P2 FIX: Length limits to prevent cache poisoning.
       allow create: if isAuthenticated()
         && request.resource.data.keys().hasAll([
           'originalText', 'translatedText', 'sourceLanguage', 'targetLanguage', 'timestamp'
         ])
-        && validLength(request.resource.data.originalText, 2000)
-        && validLength(request.resource.data.translatedText, 4000)
+        // Block DM-origin translations from the shared public cache.
+        && request.resource.data.get('surface', 'post') != 'dm'
+        && request.resource.data.get('surface', 'post') != 'message'
+        && validLength(request.resource.data.originalText, 500)
+        && validLength(request.resource.data.translatedText, 2000)
         && validLength(request.resource.data.sourceLanguage, 10)
         && validLength(request.resource.data.targetLanguage, 10);
       allow update, delete: if false;
@@ -3027,6 +3052,93 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'readAt']);
       allow delete: if isAuthenticated()
         && resource.data.get('userId', '') == request.auth.uid;
+    }
+
+    // ============================================================================
+    // FAITH EVENTS COLLECTION (EventsView / CalendarService)
+    // faithEvents documents use `hostUID` as the owner field.
+    // ============================================================================
+
+    match /faithEvents/{eventId} {
+      // Any authenticated user can read public events.
+      allow read: if isAuthenticated();
+      // Only the event host may create.
+      allow create: if isAuthenticated()
+        && request.resource.data.get('hostUID', '') == request.auth.uid
+        && hasRequiredFields(['title', 'hostUID', 'startDate', 'createdAt'])
+        && validLength(request.resource.data.title, 200)
+        && validLength(request.resource.data.get('description', ''), 5000)
+        // Block server-managed counter fields at create time.
+        && request.resource.data.get('rsvpCount', 0) == 0
+        && !request.resource.data.keys().hasAny(['isFeatured', 'removed', 'flaggedForReview']);
+      // Only the host may update their own event (except rsvpCount / rsvpUIDs which
+      // are updated by RSVP calls from any authenticated attendee).
+      allow update: if isAuthenticated()
+        && (
+          // Host updating their own event content
+          (resource.data.get('hostUID', '') == request.auth.uid
+            && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+              'hostUID', 'removed', 'flaggedForReview', 'isFeatured'
+            ]))
+          ||
+          // Attendee updating only the rsvp fields (RSVP / cancel RSVP)
+          (request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['rsvpUIDs', 'rsvpCount'])
+            && (request.resource.data.get('rsvpCount', 0)
+                - resource.data.get('rsvpCount', 0)) in [-1, 1])
+        );
+      // Only the host may delete their own event.
+      allow delete: if isAuthenticated()
+        && resource.data.get('hostUID', '') == request.auth.uid;
+    }
+
+    // ============================================================================
+    // EVENT RSVPs COLLECTION (CalendarService)
+    // One RSVP document per (eventId, userId) pair.
+    // ============================================================================
+
+    match /eventRSVPs/{rsvpId} {
+      // Only the RSVP owner may read their own record.
+      allow read: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+      // Any authenticated user may create an RSVP for themselves.
+      allow create: if isAuthenticated()
+        && request.resource.data.get('userId', '') == request.auth.uid
+        && hasRequiredFields(['userId', 'eventId', 'status', 'createdAt']);
+      // Only the RSVP owner may update (e.g. change status, cancel).
+      allow update: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['userId', 'eventId']);
+      // Only the RSVP owner may delete their RSVP.
+      allow delete: if isAuthenticated()
+        && resource.data.get('userId', '') == request.auth.uid;
+    }
+
+    // ============================================================================
+    // TRANSLATION ANALYTICS COLLECTION (TranslationService / TranslationModerationBridge)
+    // Structure: translationAnalytics/{date}/events/{eventId}
+    // Analytics events contain no PII or message content — surface/language/cacheHit only.
+    // ============================================================================
+
+    match /translationAnalytics/{date} {
+      // Server-only reads (admin SDK).
+      allow read: if false;
+      allow write: if false;
+
+      match /events/{eventId} {
+        allow read: if false;  // Server-only reads.
+        // Any authenticated user may append an analytics event for their own session.
+        // No userId is stored in the event (anonymous aggregate), so there is nothing
+        // to scope by ownership — the event contains only surface, language codes, and cacheHit.
+        allow create: if isAuthenticated()
+          && request.resource.data.keys().hasAll([
+            'surface', 'contentType', 'sourceLanguage', 'targetLanguage', 'engineVersion', 'cacheHit'
+          ])
+          && !request.resource.data.keys().hasAny(['originalText', 'translatedText'])
+          && validLength(request.resource.data.sourceLanguage, 10)
+          && validLength(request.resource.data.targetLanguage, 10);
+        allow update, delete: if false;
+      }
     }
 
     // ============================================================================

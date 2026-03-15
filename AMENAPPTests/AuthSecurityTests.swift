@@ -26,7 +26,7 @@ struct OTPGenerationTests {
             let raw = Int.random(in: 0..<1_000_000)
             let otp = String(format: "%06d", raw)
             #expect(otp.count == 6, "OTP must always be 6 characters")
-            #expect(otp.allSatisfy(\.isNumber), "OTP must contain only digits")
+            #expect(otp.allSatisfy { $0.isNumber }, "OTP must contain only digits")
         }
     }
 
@@ -68,8 +68,8 @@ struct EmailVerificationGateTests {
         task.cancel()
         try? await Task.sleep(for: .milliseconds(50))
 
-        #expect(taskCancelled, "Task must mark itself cancelled when cancel() is called")
-        #expect(!taskCompleted, "Task must not run to completion after cancel()")
+        #expect(taskCancelled)   // Task must mark itself cancelled when cancel() is called
+        #expect(!taskCompleted)  // Task must not run to completion after cancel()
     }
 
     /// Manual test checklist for EmailVerificationGateView:

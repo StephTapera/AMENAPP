@@ -126,22 +126,21 @@ service firebase.storage {
         && request.auth.uid == userId;
     }
 
-    // posts/images/{fileName}  — FirebasePostServiceEnhancements path
-    // No per-user ownership is encoded in this path; restrict writes to
-    // authenticated users and enforce MIME + size only.
+    // posts/images/{fileName}  — LEGACY flat namespace
+    // P0 FIX: This path has NO per-user ownership segment. Any authenticated user
+    // could overwrite another user's uploaded image by guessing the file name.
+    // NEW client writes are DENIED. All new post media must use the ownership-enforced
+    // post_media/{authorUserId}/{postId}/{fileName} path instead.
+    // Legacy reads remain permitted for auth'd users to avoid breaking existing posts.
     match /posts/images/{fileName} {
-      // Authenticated users can read.
+      // Authenticated users can read (legacy URLs still work).
       allow read: if isAuthenticated();
 
-      // Any authenticated user can upload here (no userId in path).
-      // Max 20MB, image or video.
-      allow write: if isAuthenticated()
-        && isValidSize(20)
-        && (isAllowedImage() || isAllowedVideo());
+      // P0 SECURITY FIX: DENY new writes — no ownership can be established here.
+      // Any client could overwrite another user's file. Migrate to post_media/.
+      allow write: if false;
 
-      // P1 FIX: No userId in this legacy path so ownership cannot be verified.
-      // Block all client deletes — deletion handled by account-deletion Cloud Function
-      // (admin SDK) or by the post author via the post_media canonical path.
+      // No client deletes — server cleanup only via admin SDK (account deletion CF).
       allow delete: if false;
     }
 
@@ -195,10 +194,19 @@ service firebase.storage {
       allow read: if isAuthenticated()
         && (request.auth.uid == senderId || request.auth.uid == recipientId);
 
-      // Only the sender can upload (Max 10MB; any content type — voice notes, docs, etc.)
+      // Only the sender can upload. Max 10MB.
+      // P1 FIX: Restrict to safe content types. Voice notes (audio/m4a, audio/mpeg),
+      // images, and PDFs are allowed. "any content type" was too broad —
+      // an attacker could upload executable files, HTML, SVG, etc.
       allow write: if isAuthenticated()
         && request.auth.uid == senderId
-        && isValidSize(10);
+        && isValidSize(10)
+        && (isAllowedImage()
+            || isAllowedVideo()
+            || request.resource.contentType in [
+              'audio/m4a', 'audio/mpeg', 'audio/mp4', 'audio/aac',
+              'application/pdf'
+            ]);
 
       // Only the sender can delete their own attachments.
       allow delete: if isAuthenticated()

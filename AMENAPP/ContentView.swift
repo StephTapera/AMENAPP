@@ -103,6 +103,7 @@ struct ContentView: View {
                     .environmentObject(authViewModel)
                     .transition(.opacity.combined(with: .move(edge: .trailing)))
                     .onAppear {
+                        dlog("🚦 [LAUNCH] ContentView → TwoFactorVerificationGateView appeared")
                         AppReadyStateManager.shared.signalReady()
                     }
             } else if !authViewModel.isAuthenticated {
@@ -111,6 +112,7 @@ struct ContentView: View {
                     .environmentObject(authViewModel)
                     .transition(.opacity)
                     .onAppear {
+                        dlog("🚦 [LAUNCH] ContentView → SignInView appeared (isAuthenticated=false)")
                         AppReadyStateManager.shared.signalReady()
                     }
             } else if authViewModel.needsUsernameSelection {
@@ -119,6 +121,7 @@ struct ContentView: View {
                     .environmentObject(authViewModel)
                     .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .opacity))
                     .onAppear {
+                        dlog("🚦 [LAUNCH] ContentView → UsernameSelectionView appeared")
                         AppReadyStateManager.shared.signalReady()
                     }
                     .onDisappear {
@@ -131,6 +134,7 @@ struct ContentView: View {
                     .environmentObject(authViewModel)
                     .transition(.opacity.combined(with: .move(edge: .trailing)))
                     .onAppear {
+                        dlog("🚦 [LAUNCH] ContentView → EmailVerificationGateView appeared")
                         AppReadyStateManager.shared.signalReady()
                     }
             } else if authViewModel.needsOnboarding {
@@ -139,6 +143,7 @@ struct ContentView: View {
                     .environmentObject(authViewModel)
                     .transition(.opacity.combined(with: .move(edge: .trailing)))
                     .onAppear {
+                        dlog("🚦 [LAUNCH] ContentView → OnboardingView appeared")
                         // Onboarding users never reach mainContent, so signalReady() would
                         // never be called there. Clear the loading screen overlay immediately
                         // so it doesn't cover the entire onboarding flow.
@@ -154,6 +159,7 @@ struct ContentView: View {
                             .presentationDragIndicator(.visible)
                     }
                     .onAppear {
+                        dlog("🚦 [LAUNCH] mainContent.onAppear fired (hasStartedCoreServices=\(hasStartedCoreServices))")
                         // Stamp the current app version so the next launch can detect updates.
                         welcomeManager.recordLaunch()
 
@@ -221,7 +227,7 @@ struct ContentView: View {
                 }
         }
         .onChange(of: authViewModel.isAuthenticated) { oldValue, newValue in
-            
+            dlog("🚦 [LAUNCH] isAuthenticated changed: \(oldValue) → \(newValue) (needsOnboarding=\(authViewModel.needsOnboarding))")
             // Check if FTUE should be shown when user becomes authenticated
             if newValue && !oldValue {
                 // Signal a fresh sign-in so the cinematic loading screen shows
@@ -544,6 +550,7 @@ struct ContentView: View {
             showTimeoutWarning = show
         }
         .onReceive(AppReadyStateManager.shared.$isShowingLoadingScreen) { show in
+            dlog("🚦 [LAUNCH] isShowingLoadingScreen changed → \(show)")
             isShowingLoadingScreen = show
         }
         .onReceive(AppUsageTracker.shared.$showLimitReachedDialog) { show in

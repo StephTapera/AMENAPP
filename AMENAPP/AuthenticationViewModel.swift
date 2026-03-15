@@ -86,21 +86,24 @@ class AuthenticationViewModel: ObservableObject {
     // MARK: - Initialization
     
     init() {
+        dlog("🚦 [LAUNCH] AuthenticationViewModel.init() — start")
         // ✅ NETWORK FIX: Set initial auth state synchronously from cached user
         // This prevents sign-in UI from showing on slow networks
         if let currentUser = Auth.auth().currentUser {
-            #if DEBUG
-            dlog("🔐 Init: Found cached user (\(currentUser.email ?? "no email"))")
-            #endif
+            dlog("🚦 [LAUNCH] Cached Firebase user found: \(currentUser.uid) — checking onboarding before setting isAuthenticated")
             
             // ✅ FIX: Check onboarding status BEFORE setting isAuthenticated
             // Load onboarding status synchronously to prevent UI glitch
             Task {
+                dlog("🚦 [LAUNCH] checkOnboardingStatus starting for cached user")
                 await checkOnboardingStatus(userId: currentUser.uid)
                 await MainActor.run {
+                    dlog("🚦 [LAUNCH] Setting isAuthenticated = true (cached user path) needsOnboarding=\(self.needsOnboarding)")
                     self.isAuthenticated = true
                 }
             }
+        } else {
+            dlog("🚦 [LAUNCH] No cached Firebase user — will show SignInView")
         }
         
         setupAuthStateListener()
@@ -157,9 +160,7 @@ class AuthenticationViewModel: ObservableObject {
                 }
                 
                 if let user = user {
-                    #if DEBUG
-                    dlog("🔐 Auth state changed: User logged in (\(user.email ?? "no email"))")
-                    #endif
+                    dlog("🚦 [LAUNCH] Auth state listener fired: user=\(user.uid) isAuthenticated=\(self.isAuthenticated)")
                     
                     // P0 FIX: For non-email providers (phone, Google, Apple), clear any stale
                     // email verification gate so users are never stuck on it after phone/social login.
@@ -172,12 +173,14 @@ class AuthenticationViewModel: ObservableObject {
                     
                     // ✅ FIX: Check onboarding status BEFORE setting isAuthenticated
                     // This prevents the UI glitch where main content flashes before onboarding
+                    dlog("🚦 [LAUNCH] Auth listener: calling checkOnboardingStatus")
                     await self.checkOnboardingStatus(userId: user.uid)
                     
                     // Now set isAuthenticated after we know the onboarding status
+                    dlog("🚦 [LAUNCH] Auth listener: setting isAuthenticated = true, needsOnboarding=\(self.needsOnboarding), needs2FA=\(self.needs2FAVerification)")
                     self.isAuthenticated = true
                 } else {
-                    dlog("🔐 Auth state changed: User logged out")
+                    dlog("🚦 [LAUNCH] Auth state listener fired: user logged out")
                     self.isAuthenticated = false
                     self.needsOnboarding = false
                     self.needsUsernameSelection = false
@@ -206,14 +209,17 @@ class AuthenticationViewModel: ObservableObject {
         defer { isCheckingOnboarding = false }
         // Check local cache first for immediate response
         let cachedCompleted = UserDefaults.standard.bool(forKey: "hasCompletedOnboarding_\(userId)")
+        dlog("🚦 [LAUNCH] checkOnboardingStatus: cache=\(cachedCompleted) for user \(userId)")
         if cachedCompleted {
             await MainActor.run {
                 self.needsOnboarding = false
                 self.needsUsernameSelection = false
             }
+            dlog("🚦 [LAUNCH] checkOnboardingStatus: cache hit → needsOnboarding=false (fast path)")
         }
 
         // Always verify against Firestore (source of truth)
+        dlog("🚦 [LAUNCH] checkOnboardingStatus: fetching Firestore to verify...")
         do {
             let userData = try await firebaseManager.fetchUserDocument(userId: userId)
             let hasCompletedOnboarding = userData["hasCompletedOnboarding"] as? Bool ?? false
@@ -223,14 +229,14 @@ class AuthenticationViewModel: ObservableObject {
                 self.needsOnboarding = !hasCompletedOnboarding
                 self.needsUsernameSelection = false
             }
-            dlog("📋 Onboarding: hasCompleted=\(hasCompletedOnboarding), needsOnboarding=\(!hasCompletedOnboarding)")
+            dlog("🚦 [LAUNCH] checkOnboardingStatus: Firestore returned hasCompleted=\(hasCompletedOnboarding) → needsOnboarding=\(!hasCompletedOnboarding)")
         } catch {
             // On error, fall back to cache; if no cache, show onboarding to be safe
             await MainActor.run {
                 self.needsOnboarding = !cachedCompleted
                 self.needsUsernameSelection = false
             }
-            dlog("⚠️ Could not fetch onboarding status: \(error.localizedDescription) — using cache: completed=\(cachedCompleted)")
+            dlog("🚦 [LAUNCH] checkOnboardingStatus: Firestore error → fallback to cache (completed=\(cachedCompleted)): \(error.localizedDescription)")
         }
     }
     

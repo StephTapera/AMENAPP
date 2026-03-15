@@ -431,6 +431,46 @@
           "order": "DESCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "secureConversations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "participants", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "isGroup", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "secureConversations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "participants", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "lastEncryptedTimestamp", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "encryptedMessages",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "senderUID", "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "messageSafetyEvents",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "senderUID", "order": "ASCENDING" },
+        { "fieldPath": "requiresReview", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "trustRecords",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "tier", "order": "ASCENDING" },
+        { "fieldPath": "lastUpdated", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
