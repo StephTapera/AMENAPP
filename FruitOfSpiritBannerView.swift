@@ -524,21 +524,23 @@ struct FruitOfSpiritBannerView: View {
             .shadow(color: .black.opacity(colorScheme == .dark ? 0.18 : 0.04),
                     radius: 2, x: 0, y: 1)
             .contentShape(RoundedRectangle(cornerRadius: BannerTokens.cornerRadius))
-            .onTapGesture {
-                let t0 = Date()
-                tapHaptic.impactOccurred()
-                withAnimation(BannerTokens.expandSpring) { isExpanded.toggle() }
-                DispatchQueue.main.async {
-                    let ms = Date().timeIntervalSince(t0) * 1000
-                    print("🌿 [FruitBanner] Tap → expand=\(!isExpanded) settled in \(String(format: "%.1f", ms))ms")
-                }
-            }
-            // Opacity-only press feedback — no scale so the clipped+shadowed layer
-            // doesn't trigger a GPU compositing re-pass on every press frame.
-            .opacity(isPressed ? 0.88 : 1.0)
+            // Instant press response on finger-down: scale + opacity together
+            .scaleEffect(isPressed ? 0.975 : 1.0)
+            .opacity(isPressed ? 0.90 : 1.0)
+            .animation(.easeOut(duration: 0.10), value: isPressed)
             ._onButtonGesture(
-                pressing: { pressing in isPressed = pressing },
-                perform: {}
+                pressing: { pressing in
+                    isPressed = pressing
+                },
+                perform: {
+                    let t0 = Date()
+                    tapHaptic.impactOccurred()
+                    withAnimation(BannerTokens.expandSpring) { isExpanded.toggle() }
+                    DispatchQueue.main.async {
+                        let ms = Date().timeIntervalSince(t0) * 1000
+                        print("🌿 [FruitBanner] Tap → expand=\(isExpanded) settled in \(String(format: "%.1f", ms))ms")
+                    }
+                }
             )
 
             // ── Chevron pill — integrated top-right ──────────────────────────

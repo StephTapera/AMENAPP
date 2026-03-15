@@ -148,29 +148,13 @@ class CacheManager {
     }
 }
 
-// MARK: - Make BookResult Codable
+// MARK: - Book Search Result (used by CacheManager)
 
-extension BookResult: Codable {
-    enum CodingKeys: String, CodingKey {
-        case title, authors, description, imageURL, purchaseLink
-    }
-    
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.title = try container.decode(String.self, forKey: .title)
-        self.authors = try container.decode([String].self, forKey: .authors)
-        self.description = try container.decode(String.self, forKey: .description)
-        self.imageURL = try container.decodeIfPresent(String.self, forKey: .imageURL)
-        self.purchaseLink = try container.decodeIfPresent(String.self, forKey: .purchaseLink)
-    }
-    
-    func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(self.title, forKey: .title)
-        try container.encode(self.authors, forKey: .authors)
-        try container.encode(self.description, forKey: .description)
-        try container.encodeIfPresent(self.imageURL, forKey: .imageURL)
-        try container.encodeIfPresent(self.purchaseLink, forKey: .purchaseLink)
-    }
+struct BookResult: Codable {
+    var title: String
+    var authors: [String]
+    var description: String
+    var imageURL: String?
+    var purchaseLink: String?
 }
 
