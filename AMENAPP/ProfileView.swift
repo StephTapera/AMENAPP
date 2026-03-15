@@ -1314,9 +1314,17 @@ struct ProfileView: View {
                     let posts = try await RealtimeSavedPostsService.shared.fetchSavedPosts()
                     await MainActor.run {
                         let previousCount = self.savedPosts.count
-                        self.savedPosts = posts.sorted { $0.createdAt > $1.createdAt }
-                        dlog("🔄 [SAVED] Saved posts updated: \(posts.count) (was \(previousCount))")
-                        if posts.count != previousCount {
+                        let existingIds = Set(self.savedPosts.map { $0.firestoreId })
+                        // Only INSERT truly-new posts — never replace the full array.
+                        // Replacing self.savedPosts entirely destroys all PostCard @State
+                        // (isSaved, isSaveInFlight, etc.) causing every visible bookmark
+                        // icon to flash as unsaved before the async check resolves.
+                        let newPosts = posts.filter { !existingIds.contains($0.firestoreId) }
+                        for post in newPosts {
+                            self.savedPosts.insert(post, at: 0)
+                        }
+                        dlog("🔄 [SAVED] Saved posts updated: \(self.savedPosts.count) (was \(previousCount), added \(newPosts.count))")
+                        if !newPosts.isEmpty {
                             let haptic = UIImpactFeedbackGenerator(style: .light)
                             haptic.impactOccurred()
                         }

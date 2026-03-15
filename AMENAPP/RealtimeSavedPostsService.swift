@@ -76,37 +76,43 @@ class RealtimeSavedPostsService: ObservableObject {
             ]
             
             try await database.updateChildValues(updates as [AnyHashable: Any])
-            
-            savedPostIds.remove(postId)
-            
-            // Send notification for UI updates
-            NotificationCenter.default.post(
-                name: Notification.Name("postUnsaved"),
-                object: nil,
-                userInfo: ["postId": postId]
-            )
-            
+
+            // Mutate @Published property and post notification on MainActor so
+            // @Published propagation is immediate and any observer reading
+            // savedPostIds right after this returns sees the updated value.
+            await MainActor.run {
+                savedPostIds.remove(postId)
+                NotificationCenter.default.post(
+                    name: Notification.Name("postUnsaved"),
+                    object: nil,
+                    userInfo: ["postId": postId]
+                )
+            }
+
             dlog("✅ Post unsaved successfully")
             return false
-            
+
         } else {
             // Save
             dlog("🔖 Saving post: \(postId)")
-            
+
             let updates: [String: Any] = [
                 savedPath: Date().timeIntervalSince1970
             ]
-            
+
             try await database.updateChildValues(updates)
-            
-            savedPostIds.insert(postId)
-            
-            // Send notification for UI updates
-            NotificationCenter.default.post(
-                name: Notification.Name("postSaved"),
-                object: nil,
-                userInfo: ["postId": postId]
-            )
+
+            // Mutate @Published property and post notification on MainActor so
+            // @Published propagation is immediate and any observer reading
+            // savedPostIds right after this returns sees the updated value.
+            await MainActor.run {
+                savedPostIds.insert(postId)
+                NotificationCenter.default.post(
+                    name: Notification.Name("postSaved"),
+                    object: nil,
+                    userInfo: ["postId": postId]
+                )
+            }
             
             dlog("✅ Post saved successfully")
             return true

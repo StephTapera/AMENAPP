@@ -43,7 +43,14 @@ class BadgeCountManager: ObservableObject {
     private var notificationsListener: ListenerRegistration?
     private var isListening = false
     private var badgeConversationsRetryCount = 0
-    
+
+    // Suppression window: after clearNotifications() the listener fires with
+    // stale unread docs before markAllAsRead() writes commit, which flips the
+    // badge back from 0 to the old count (0→8 race).  We suppress
+    // requestBadgeUpdate() for 3 seconds after a clear to let the writes land.
+    private var notificationsClearTime: Date?
+    private let notificationsClearSuppressionInterval: TimeInterval = 3.0
+
     // Auth state listener — clears badge on sign-out, starts updates on sign-in
     private var authStateListener: AuthStateDidChangeListenerHandle?
     
@@ -82,22 +89,31 @@ class BadgeCountManager: ObservableObject {
     
     /// Request badge count update (debounced and cached)
     func requestBadgeUpdate() {
+        // Suppression window: if notifications were just cleared, the Firestore
+        // listener fires with stale unread docs before markAllAsRead() writes commit.
+        // Skip the update to prevent the badge flipping 0→8.
+        if let clearTime = notificationsClearTime,
+           Date().timeIntervalSince(clearTime) < notificationsClearSuppressionInterval {
+            print("🚫 Badge update suppressed — notifications clear in progress")
+            return
+        }
+
         // If cache is valid, use it immediately
         if let cached = getCachedBadgeCount() {
             applyBadgeCount(cached)
             print("📛 Using cached badge count: \(cached)")
             return
         }
-        
+
         // Cancel any pending update
         updateTask?.cancel()
-        
+
         // Schedule new update with debounce
         updateTask = Task {
             try? await Task.sleep(for: .milliseconds(Int(debounceDelay * 1000)))
-            
+
             guard !Task.isCancelled else { return }
-            
+
             await performBadgeUpdate()
         }
     }
@@ -111,11 +127,13 @@ class BadgeCountManager: ObservableObject {
     }
 
     /// Immediate badge update for user-triggered actions (no debounce, no cache)
-    /// Use this when user marks notifications as read or performs actions that should update badge instantly
+    /// Use this when user marks notifications as read or performs actions that should update badge instantly.
+    /// Also clears the notifications suppression window so this explicit re-query always runs.
     func immediateUpdate() async {
         updateTask?.cancel()
         cachedBadgeCount = nil
         cacheTimestamp = nil
+        notificationsClearTime = nil // Clear suppression: explicit post-write re-query should always run
         await performBadgeUpdate()
     }
     
@@ -182,6 +200,9 @@ class BadgeCountManager: ObservableObject {
         totalBadgeCount = unreadMessages
         cachedBadgeCount = nil
         cacheTimestamp = nil
+        // Record clear time so requestBadgeUpdate() suppresses the listener's
+        // stale-data callback for 3 seconds, preventing the 0→8 badge race.
+        notificationsClearTime = Date()
         applyBadgeCount(unreadMessages)
         print("🧹 Notifications badge cleared")
     }

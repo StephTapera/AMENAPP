@@ -1,3 +1,4 @@
+#if DEBUG
 //
 //  MigrationAdminView.swift
 //  AMENAPP
@@ -268,3 +269,5 @@ struct MigrationAdminView: View {
 #Preview {
     MigrationAdminView()
 }
+
+#endif

@@ -112,9 +112,10 @@ extension NotificationService {
             }
             
             print("✅ Cleanup complete")
-            
-            // Refresh notifications
-            await refresh()
+            // Do NOT call refresh() here — the Firestore real-time listener delivers
+            // the updated notification set automatically after any deletes land.
+            // Calling refresh() unconditionally set isLoading=true on every tab visit
+            // even when no duplicates were found, causing a skeleton flash.
             
         } catch {
             print("❌ Error cleaning up duplicates: \(error)")

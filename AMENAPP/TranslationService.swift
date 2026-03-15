@@ -49,10 +49,8 @@ final class TranslationService: ObservableObject {
     // MARK: - Backend config
     // Replace with your actual Cloud Run / Firebase Functions URL from Config.xcconfig
 
-    private let backendBaseURL: String = {
-        Bundle.main.object(forInfoDictionaryKey: "TRANSLATION_BACKEND_URL") as? String
-            ?? "https://translation-YOURPROJECT.a.run.app"
-    }()
+    // Translation backend is now a Firebase callable Cloud Function (translateText).
+    // No URL configuration needed — Firebase SDK handles routing.
 
     private init() {}
 
@@ -341,69 +339,33 @@ final class TranslationService: ObservableObject {
             )
         }
 
-        guard let url = URL(string: "\(backendBaseURL)/v1/translate") else {
+        let requestId = UUID().uuidString
+
+        // Call translateText Cloud Function via Firebase callable
+        let payload: [String: Any] = [
+            "requestId": requestId,
+            "text": text,
+            "sourceLanguage": sourceLang == "und" ? NSNull() : sourceLang,
+            "targetLanguage": targetLang,
+            "contentType": contentType.rawValue,
+            "contentId": contentId,
+            "isPublicContent": isPublicContent,
+            "surface": surface.rawValue,
+        ]
+
+        let result = try await CloudFunctionsService.shared.call("translateText", data: payload)
+
+        guard let dict = result as? [String: Any],
+              let translatedText = dict["translatedText"] as? String else {
             throw TranslationErrorResponse(
-                requestId: UUID().uuidString,
+                requestId: requestId,
                 errorCode: .serviceUnavailable,
-                message: "Invalid backend URL",
+                message: "Invalid response from translation service",
                 retryAfterSeconds: nil
             )
         }
 
-        // Get Firebase ID token for authenticated request
-        let idToken = try await Auth.auth().currentUser?.getIDToken() ?? ""
-
-        let requestBody = TranslationRequest(
-            requestId: UUID().uuidString,
-            contentType: contentType,
-            contentId: contentId,
-            text: text,
-            sourceLanguage: sourceLang == "und" ? nil : sourceLang,
-            targetLanguage: targetLang,
-            requestingUserId: uid,
-            isPublicContent: isPublicContent,
-            surface: surface,
-            engineHint: .gcpV3
-        )
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("Bearer \(idToken)", forHTTPHeaderField: "Authorization")
-        request.timeoutInterval = 10
-
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        request.httpBody = try encoder.encode(requestBody)
-
-        let (data, response) = try await URLSession.shared.data(for: request)
-
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw TranslationErrorResponse(
-                requestId: requestBody.requestId,
-                errorCode: .serviceUnavailable,
-                message: "Invalid response",
-                retryAfterSeconds: nil
-            )
-        }
-
-        guard httpResponse.statusCode == 200 else {
-            let decoder = JSONDecoder()
-            if let errorResp = try? decoder.decode(TranslationErrorResponse.self, from: data) {
-                throw errorResp
-            }
-            throw TranslationErrorResponse(
-                requestId: requestBody.requestId,
-                errorCode: .serviceUnavailable,
-                message: "HTTP \(httpResponse.statusCode)",
-                retryAfterSeconds: httpResponse.statusCode == 429 ? 60 : nil
-            )
-        }
-
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        let translationResponse = try decoder.decode(TranslationResponse.self, from: data)
-        return translationResponse.translatedText
+        return translatedText
     }
 
     // MARK: - Apple On-Device Translation (iOS 17.4+ fallback)
