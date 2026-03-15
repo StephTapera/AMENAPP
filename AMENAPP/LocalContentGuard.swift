@@ -321,8 +321,10 @@ enum LocalContentGuard {
             }
 
             // Pass 2: deletion variants — single char removed at each position.
-            // Only apply to single-word terms (≥ 4 chars) to limit false positives.
-            guard !word.contains(" "), word.count >= 4 else { continue }
+            // Only apply to terms ≥ 6 chars to avoid false positives on short words.
+            // e.g. "tits" (4 chars) produces deletion variant "its" — a common English
+            // word. Short terms are already caught by the exact-match Pass 1 above.
+            guard !word.contains(" "), word.count >= 6 else { continue }
             let chars = Array(word)
             for dropIdx in 0..<chars.count {
                 let variant = String(chars.enumerated().compactMap { $0.offset == dropIdx ? nil : $0.element })

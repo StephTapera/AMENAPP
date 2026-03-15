@@ -125,35 +125,67 @@ class ContentSafetyShieldService: ObservableObject {
         detectionStats.totalScanned += 1
         detectionStats.lastScanTime = Date()
         
-        // Use existing ModerationService for AI detection
-        // Note: This calls the backend moderation API
-        // For now, use a simple keyword-based approach
-        let result = await performSimpleModeration(content: content)
-        
+        // Use ContentRiskAnalyzer for AI-grade, context-aware scoring.
+        // This replaces the old simple keyword approach with 100+ weighted signals
+        // covering grooming, trafficking, explicit sexual content, harassment,
+        // violence threats, profanity/hate, spam/scam, and self-harm.
+        let riskResult = ContentRiskAnalyzer.shared.analyze(text: content, context: .unknown)
+
         var threatScore = 0
         var reasons: [String] = []
         var threatLevel: ThreatLevel = .safe
-        
-        // Analyze moderation result
-        if result.containsBullying && detectBullying {
-            threatScore += 35
-            reasons.append("Potential bullying detected")
+
+        // Map ContentRiskAnalyzer categories to the legacy shield result format.
+        // Score scale: ContentRiskAnalyzer is 0.0–1.0; ThreatLevel expects 0–100.
+        let categoryScores: [ContentRiskCategory: Double] = riskResult.categoryScores
+
+        if detectHarassment {
+            let score = max(
+                categoryScores[ContentRiskCategory.harassmentExploitation] ?? 0,
+                categoryScores[ContentRiskCategory.profanityHate] ?? 0
+            )
+            if score >= 0.25 {
+                let points = Int(score * 80)
+                threatScore += points
+                reasons.append("Harassment or hostile language detected")
+            }
         }
-        
-        if result.containsSexualContent && detectSexualContent {
-            threatScore += 40
-            reasons.append("Inappropriate content detected")
+
+        if detectSexualContent {
+            let score = max(
+                categoryScores[ContentRiskCategory.explicitSexual] ?? 0,
+                categoryScores[ContentRiskCategory.groomingTrafficking] ?? 0
+            )
+            if score >= 0.20 {
+                let points = Int(score * 100)
+                threatScore += points
+                reasons.append("Potentially inappropriate content detected")
+            }
         }
-        
-        if result.containsViolence && detectViolence {
-            threatScore += 35
-            reasons.append("Violent content detected")
+
+        if detectViolence {
+            let score = categoryScores[ContentRiskCategory.violenceThreat] ?? 0
+            if score >= 0.25 {
+                let points = Int(score * 80)
+                threatScore += points
+                reasons.append("Violent or threatening language detected")
+            }
         }
-        
-        if result.containsHarassment && detectHarassment {
-            threatScore += 30
-            reasons.append("Harassment detected")
+
+        if detectBullying {
+            // Bullying overlaps with harassment; also pick up direct-attack signals
+            let score = categoryScores[ContentRiskCategory.harassmentExploitation] ?? 0
+            if score >= 0.30 {
+                let points = Int(score * 60)
+                threatScore = max(threatScore, points) // don't double-count with harassment
+                if !reasons.contains("Harassment or hostile language detected") {
+                    reasons.append("Bullying or targeted attack detected")
+                }
+            }
         }
+
+        // Cap at 100
+        threatScore = min(threatScore, 100)
         
         // Determine threat level
         switch threatScore {
@@ -200,22 +232,6 @@ class ContentSafetyShieldService: ObservableObject {
         return await screenContent(content, userId: userId)
     }
     
-    // Simple moderation helper
-    private func performSimpleModeration(content: String) async -> (containsBullying: Bool, containsSexualContent: Bool, containsViolence: Bool, containsHarassment: Bool) {
-        let lowerContent = content.lowercased()
-        
-        let bullyingKeywords = ["stupid", "idiot", "loser", "hate you", "kill yourself"]
-        let sexualKeywords = ["sex", "porn", "nude"]
-        let violenceKeywords = ["kill", "murder", "attack", "bomb", "shoot"]
-        let harassmentKeywords = ["stalk", "harass", "threaten"]
-        
-        return (
-            containsBullying: bullyingKeywords.contains { lowerContent.contains($0) },
-            containsSexualContent: sexualKeywords.contains { lowerContent.contains($0) },
-            containsViolence: violenceKeywords.contains { lowerContent.contains($0) },
-            containsHarassment: harassmentKeywords.contains { lowerContent.contains($0) }
-        )
-    }
     
     // MARK: - Warning Messages
     

@@ -125,9 +125,8 @@ final class ShabbatModeService: ObservableObject {
         UserDefaults.standard.set(enabled, forKey: enabledKey)
         updateShabbatActiveState()
         persistToFirestore(enabled: enabled)
-
-        // Log the transition
-        ShabbatAnalytics.logStateTransition(enabled: enabled, isSunday: isSunday)
+        // Note: logStateTransition is called inside updateShabbatActiveState() on active→inactive
+        // or inactive→active transitions; no separate call needed here.
         print("🕊️ ShabbatModeService: isEnabled = \(enabled)")
     }
 
@@ -200,7 +199,7 @@ final class ShabbatModeService: ObservableObject {
                 object: nil,
                 queue: .main
             ) { [weak self] _ in
-                self?.startFirestoreSync()
+                Task { @MainActor [weak self] in self?.startFirestoreSync() }
             }
             return
         }

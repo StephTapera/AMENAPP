@@ -675,26 +675,29 @@ class AppReadyStateManager: ObservableObject {
     static let shared = AppReadyStateManager()
 
     /// True while the loading screen should be displayed.
-    @Published var isShowingLoadingScreen = false
+    /// Pre-set to `true` on init if a Firebase user is already cached, so the overlay
+    /// is visible from the very first ContentView render — eliminating the separate
+    /// `isResolvingAuthState` Screen 1 and the white flash that followed its exit.
+    @Published var isShowingLoadingScreen: Bool
 
-    /// Set to true after a sign-in event; consumed once by startIfNeeded().
-    private var pendingShow = false
-
-    private init() {}
+    private init() {
+        // If a user session is already cached, start with the overlay visible.
+        // This means the overlay is already `true` before ContentView renders its body,
+        // so there is only ever ONE loading state — no dual-screen flicker.
+        isShowingLoadingScreen = Auth.auth().currentUser != nil
+    }
 
     /// Called when a user signs in (fresh install, sign-out + sign-back-in, update).
-    /// Immediately shows the loading screen so it is visible the moment mainContent appears.
     func signalSignIn() {
-        pendingShow = true
         isShowingLoadingScreen = true
     }
 
-    /// Called from ContentView.onAppear — now a lightweight guard to handle the cold-launch
-    /// path where signalSignIn() fires before the view tree is ready.
+    /// Called from ContentView.mainContent.onAppear — ensures the screen is showing
+    /// even on the path where signalSignIn() fires before the view tree is ready.
     func startIfNeeded() {
-        guard pendingShow else { return }
-        pendingShow = false
-        isShowingLoadingScreen = true
+        if !isShowingLoadingScreen {
+            isShowingLoadingScreen = true
+        }
     }
 
     /// Call once posts have been loaded (or after a maximum wait) to dismiss the screen.
@@ -842,16 +845,62 @@ private func makeDiscs(in size: CGSize) -> [DiscConfig] {
 
 // MARK: - App Loading Screen
 
-/// Full-screen launch screen: AMEN logo fades in first, then the loading dots appear below.
-/// Shown during auth resolution, sign-in, fresh install, and app update.
+/// Full-screen launch screen: AMEN logo + tagline centred on a black background,
+/// with the 3-dot loading indicator appearing below after a short delay.
+/// This is the only launch screen — there is no separate WelcomeScreenView overlay.
 struct AppLoadingScreen: View {
+    @State private var logoOpacity: Double = 0
+    @State private var logoScale: CGFloat = 0.85
+    @State private var taglineOpacity: Double = 0
+    @State private var dotsOpacity: Double = 0
+
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
 
-            AMENLoadingIndicator(color: .white, dotSize: 10, spacing: 9, bounceHeight: 13)
+            VStack(spacing: 0) {
+                Spacer()
+
+                // Logo
+                Image("amen-logo")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 90, height: 90)
+                    .opacity(logoOpacity)
+                    .scaleEffect(logoScale)
+
+                // Tagline
+                Text("Social Media, Re-ordered")
+                    .font(.system(size: 13, weight: .light))
+                    .tracking(2)
+                    .foregroundColor(.white.opacity(0.55))
+                    .padding(.top, 16)
+                    .opacity(taglineOpacity)
+
+                Spacer()
+
+                // Loading dots — shown only when the app is actively loading
+                AMENLoadingIndicator(color: .white, dotSize: 8, spacing: 7, bounceHeight: 10)
+                    .opacity(dotsOpacity)
+                    .padding(.bottom, 60)
+            }
         }
         .ignoresSafeArea()
+        .onAppear {
+            // Logo fades in immediately
+            withAnimation(.easeOut(duration: 0.35)) {
+                logoOpacity = 1.0
+                logoScale = 1.0
+            }
+            // Tagline fades in slightly after logo
+            withAnimation(.easeOut(duration: 0.3).delay(0.2)) {
+                taglineOpacity = 1.0
+            }
+            // Dots fade in after 0.6s — only visible if loading takes a moment
+            withAnimation(.easeIn(duration: 0.25).delay(0.6)) {
+                dotsOpacity = 1.0
+            }
+        }
     }
 }
 

@@ -72,6 +72,9 @@ class CommentSafetySystem {
         async let rateCheck = checkRateLimit(
             commenterId: commenterId
         )
+
+        // Political discussion de-escalation check (synchronous — fast, local only)
+        let politicalCheck = PoliticalDiscussionGuard.evaluate(text: content)
         
         // Wait for all checks
         let (toxicity, pileOn, repeatHarassment, spam, rateLimit) = try await (
@@ -121,6 +124,37 @@ class CommentSafetySystem {
             highestSeverity = max(highestSeverity, .moderate)
         }
         
+        // Political discussion de-escalation
+        if politicalCheck.requiresIntervention {
+            switch politicalCheck.level {
+            case .heated:
+                // Soft nudge — apply to violations list as light-severity
+                violations.append(.hostileLanguage)
+                highestSeverity = max(highestSeverity, .light)
+                suggestedRevisions.append(
+                    politicalCheck.nudgeMessage ??
+                    "Let's keep political conversations respectful and constructive."
+                )
+            case .escalating:
+                violations.append(.hostileLanguage)
+                highestSeverity = max(highestSeverity, .moderate)
+                suggestedRevisions.append(
+                    politicalCheck.nudgeMessage ??
+                    "Please revise your comment to keep the conversation civil."
+                )
+            case .hostile:
+                violations.append(.personalAttacks)
+                highestSeverity = max(highestSeverity, .severe)
+                maxConfidence = max(maxConfidence, 0.85)
+                suggestedRevisions.append(
+                    politicalCheck.nudgeMessage ??
+                    "This content is too hostile. Please keep discussions respectful."
+                )
+            case .calm:
+                break
+            }
+        }
+
         // Rate limit
         if rateLimit.isLimited {
             return SafetyCheckResult(
@@ -163,9 +197,11 @@ class CommentSafetySystem {
             requiresRevision = false
         } else if highestSeverity == .severe {
             // Severe violations - context-aware action
-            if context.shouldEscalate(for: violations.first!) {
+            // violations is non-empty here (checked above via violations.isEmpty), so first is safe,
+            // but use if-let to avoid a force-unwrap that would crash on any future refactor.
+            if let firstViolation = violations.first, context.shouldEscalate(for: firstViolation) {
                 action = .blockAndEscalate
-                userMessage = violations.first?.userFacingMessage
+                userMessage = firstViolation.userFacingMessage
                 requiresRevision = false
             } else {
                 action = .requireRevision

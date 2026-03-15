@@ -311,9 +311,18 @@ class CrisisDetectionService {
         for _ in 0..<10 {
             try await Task.sleep(nanoseconds: 500_000_000)
             
-            let snapshot = try await db.collection("crisisDetectionResults")
-                .document(requestId)
-                .getDocument()
+            // Permission denied means the Cloud Function hasn't written the result yet
+            // (Firestore denies reads on non-existent docs when the rule uses resource.data).
+            // Treat as "not ready yet" and continue polling.
+            let snapshot: DocumentSnapshot
+            do {
+                snapshot = try await db.collection("crisisDetectionResults")
+                    .document(requestId)
+                    .getDocument()
+            } catch let err as NSError where err.domain == "FIRFirestoreErrorDomain" && err.code == 7 {
+                // Code 7 = PERMISSION_DENIED — result not written yet, keep waiting
+                continue
+            }
             
             if snapshot.exists,
                let data = snapshot.data(),
@@ -382,53 +391,20 @@ class CrisisDetectionService {
     
     // MARK: - Logging
     
-    /// Log crisis detection for analytics and follow-up
+    /// Log crisis detection for analytics and follow-up.
+    /// NOTE: crisisDetectionLogs and moderatorAlerts are server-only collections
+    /// (Firestore rules deny all client writes). The Cloud Function that processes
+    /// crisisDetectionRequests handles all downstream logging and moderator alerting.
+    /// This method only logs locally in debug builds.
     private func logCrisisDetection(
         userId: String,
         prayerText: String,
         result: CrisisDetectionResult
     ) async {
-        
-        let logData: [String: Any] = [
-            "userId": userId,
-            "prayerTextLength": prayerText.count,
-            "isCrisis": result.isCrisis,
-            "crisisTypes": result.crisisTypes.map { $0.rawValue },
-            "urgencyLevel": result.urgencyLevel.rawValue,
-            "recommendedResources": result.recommendedResources.map { $0.rawValue },
-            "confidence": result.confidence,
-            "suggestedIntervention": result.suggestedIntervention.rawValue,
-            "timestamp": FieldValue.serverTimestamp()
-        ]
-        
-        do {
-            try await db.collection("crisisDetectionLogs")
-                .addDocument(data: logData)
-            
-            // Alert moderators for high/critical urgency
-            if result.urgencyLevel == .high || result.urgencyLevel == .critical {
-                try await alertModerators(userId: userId, result: result)
-            }
-            
-        } catch {
-            print("⚠️ [CRISIS] Failed to log detection: \(error)")
-        }
-    }
-    
-    /// Alert moderators about detected crisis
-    private func alertModerators(userId: String, result: CrisisDetectionResult) async throws {
-        let alertData: [String: Any] = [
-            "type": "crisis_alert",
-            "userId": userId,
-            "crisisTypes": result.crisisTypes.map { $0.rawValue },
-            "urgencyLevel": result.urgencyLevel.rawValue,
-            "timestamp": FieldValue.serverTimestamp(),
-            "status": "pending"
-        ]
-        
-        try await db.collection("moderatorAlerts")
-            .addDocument(data: alertData)
-        
-        print("🚨 [CRISIS] Moderators alerted for user \(userId)")
+        #if DEBUG
+        print("🧠 [CRISIS] Detection result for \(userId): isCrisis=\(result.isCrisis), urgency=\(result.urgencyLevel.rawValue), confidence=\(result.confidence)")
+        #endif
+        // All server-side logging (crisisDetectionLogs, moderatorAlerts) is handled
+        // by the Cloud Function triggered on crisisDetectionRequests writes.
     }
 }

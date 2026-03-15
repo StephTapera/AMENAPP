@@ -32,15 +32,18 @@ import FirebaseAuth
 // MARK: - Safety Surface (identifies which part of the app the content came from)
 
 enum SafetySurface: String {
-    case post           = "post"
-    case comment        = "comment"
-    case dm             = "direct_message"
-    case profileBio     = "profile_bio"
-    case profileName    = "profile_display_name"
-    case searchQuery    = "search_query"
-    case churchNote     = "church_note"
-    case testimony      = "testimony"
-    case prayerRequest  = "prayer_request"
+    case post              = "post"
+    case comment           = "comment"
+    case dm                = "direct_message"
+    case profileBio        = "profile_bio"
+    case profileName       = "profile_display_name"
+    case searchQuery       = "search_query"
+    case churchNote        = "church_note"
+    case testimony         = "testimony"
+    case prayerRequest     = "prayer_request"
+    case eventDescription  = "event_description"
+    case jobPosting        = "job_posting"
+    case jobApplication    = "job_application"
 }
 
 // MARK: - Safety Decision
@@ -264,13 +267,29 @@ final class UnifiedSafetyGate {
             }
         }
 
+        // ─── Testimony Context Detection (pre-Layer 0d) ───────────────────────────
+        // For public narrative surfaces, check if this is a personal testimony BEFORE
+        // running the sexual/profanity risk scorer. If testimony confidence is high,
+        // raise the block threshold so content like "I struggled with pornography
+        // before Christ set me free" is NOT mistakenly blocked.
+        // Solicitation penalties inside TestimonyContextDetector prevent abuse.
+        let isPublicNarrativeSurface = surface == .post || surface == .comment ||
+            surface == .testimony || surface == .prayerRequest || surface == .churchNote
+        let testimonyResult = isPublicNarrativeSurface
+            ? TestimonyContextDetector.detect(text: trimmed)
+            : TestimonyDetectionResult.notTestimony
+
         // ─── Layer 0d: Proactive sexual-risk score ─────────────────────────────────
         // For posts/testimonies/comments: compute risk score and surface soft friction.
-        // This does NOT block — only suggests the user reconsider.
+        // Thresholds are raised when testimony context is detected.
         if surface != .dm && surface != .searchQuery {
             let riskScore = SexualRiskScorer.score(trimmed)
-            if riskScore >= 0.9 {
-                // Very high — treat as a block to prevent posting
+            // When testimony is detected, raise thresholds to avoid false positives.
+            let boost = testimonyResult.thresholdBoost
+            let hardBlockThreshold = 0.90 + boost         // default 0.90
+            let requireEditThreshold = 0.55 + (boost * 0.5) // default 0.55
+
+            if riskScore >= hardBlockThreshold {
                 let decision = SafetyGateDecision.block(
                     reason: "This looks sexual or explicit. AMEN doesn't allow that. Please revise before posting.",
                     policyCode: .sexualContent
@@ -282,13 +301,63 @@ final class UnifiedSafetyGate {
                 )
                 cache(cacheKey, decision: decision, ttl: 300)
                 return decision
-            } else if riskScore >= 0.55 {
-                // Moderate — require the user to edit / acknowledge
+            } else if riskScore >= requireEditThreshold && !testimonyResult.isTestimony {
+                // Moderate risk and NOT a testimony — require edit.
+                // Testimonies with moderate scores get a soft prompt instead (below).
                 let decision = SafetyGateDecision.requireEdit(
                     violation: "This content may violate AMEN's sexual content policy. Please revise it.",
                     suggestions: ["Remove explicit language", "Keep content faith-appropriate"]
                 )
                 return decision
+            } else if riskScore >= requireEditThreshold && testimonyResult.isTestimony {
+                // Moderate risk but testimony detected — soft nudge instead of block.
+                let decision = SafetyGateDecision.softPrompt(
+                    message: "Your post touches on sensitive topics. Sharing your testimony is welcome — please keep it respectful.",
+                    suggestions: ["Focus on your journey and transformation", "Use redemptive, hope-filled language"]
+                )
+                return decision
+            }
+        }
+
+        // ─── Political Discussion De-escalation (pre-Layer 1) ────────────────────
+        // Runs on posts and comments only. Detects political hostility and applies
+        // calm/respectful nudges rather than outright blocking.
+        if surface == .post || surface == .comment {
+            let politicalResult = PoliticalDiscussionGuard.evaluate(text: trimmed)
+            switch politicalResult.level {
+            case .heated:
+                // Soft nudge — user can dismiss and post anyway
+                return SafetyGateDecision.softPrompt(
+                    message: politicalResult.nudgeMessage ?? "Let's keep political conversations respectful.",
+                    suggestions: [
+                        "Share your perspective without personal attacks",
+                        "Focus on ideas, not people",
+                        "Pray for those you disagree with",
+                    ]
+                )
+            case .escalating:
+                // Must revise before posting
+                return SafetyGateDecision.requireEdit(
+                    violation: politicalResult.nudgeMessage ?? "Please revise to keep this respectful.",
+                    suggestions: [
+                        "Remove personal attacks or inflammatory language",
+                        "Disagree respectfully — address ideas, not character",
+                    ]
+                )
+            case .hostile:
+                // Block with clear, non-preachy reason
+                let decision = SafetyGateDecision.block(
+                    reason: politicalResult.nudgeMessage ?? "This content contains hostile language that violates AMEN community guidelines.",
+                    policyCode: .hostileDirectedAtPerson
+                )
+                await logDecision(
+                    decision: decision, text: trimmed, surface: surface,
+                    authorId: authorId, targetUserId: targetUserId, layer: 1,
+                    policyCode: .hostileDirectedAtPerson
+                )
+                return decision
+            case .calm:
+                break
             }
         }
 
@@ -316,6 +385,25 @@ final class UnifiedSafetyGate {
         case .requireEdit:
             let reason = guardrailResult.violations.first?.message ?? "Please revise before posting."
             let suggestions = guardrailResult.suggestions
+            // Humor tone check: if this is borderline content (not DM/profile)
+            // and the content reads as clean humor, downgrade to softPrompt.
+            if surface != .dm && surface != .profileBio && surface != .profileName {
+                let humorClass = HumorToneClassifier.classify(text: trimmed)
+                switch humorClass {
+                case .cleanHumor:
+                    // Clean humor — soft nudge only, don't force a revision
+                    return SafetyGateDecision.softPrompt(
+                        message: "This looks like humor — just make sure it's kind and faith-appropriate!",
+                        suggestions: ["Keep it lighthearted and uplifting"]
+                    )
+                case .degradingHumor:
+                    // Degrading humor — keep requireEdit
+                    break
+                case .borderlineHumor, .notHumor:
+                    // No change
+                    break
+                }
+            }
             let decision = SafetyGateDecision.requireEdit(violation: reason, suggestions: suggestions)
             cache(cacheKey, decision: decision, ttl: 60)
             return decision
@@ -668,21 +756,23 @@ final class UnifiedSafetyGate {
 
     private func mapSurfaceToContentContext(_ surface: SafetySurface) -> ContentContext {
         switch surface {
-        case .post, .testimony, .churchNote, .prayerRequest: return .normalPost
+        case .post, .testimony, .churchNote, .prayerRequest, .eventDescription: return .normalPost
         case .comment: return .comment
         case .dm:      return .message
         case .profileBio, .profileName: return .normalPost
         case .searchQuery: return .normalPost
+        case .jobPosting, .jobApplication: return .normalPost
         }
     }
 
     private func mapSurfaceToContentCategory(_ surface: SafetySurface) -> ContentCategory {
         switch surface {
-        case .post, .testimony, .prayerRequest, .churchNote: return .post
+        case .post, .testimony, .prayerRequest, .churchNote, .eventDescription: return .post
         case .comment:                   return .comment
         case .dm:                        return .caption  // Closest available for DM text
         case .profileBio, .profileName:  return .profileBio
         case .searchQuery:               return .caption
+        case .jobPosting, .jobApplication: return .post
         }
     }
 }

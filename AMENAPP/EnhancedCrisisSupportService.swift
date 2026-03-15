@@ -369,10 +369,11 @@ class EnhancedCrisisSupportService {
             outcome: nil
         )
         
-        let logData = try Firestore.Encoder().encode(alertLog)
-        try await db.collection("crisisAlertLogs")
-            .document(alertLog.id)
-            .setData(logData)
+        // crisisAlertLogs is a server-only collection (Firestore rules deny all client writes).
+        // The Cloud Function triggered on the trusted circle notification write handles server logging.
+        #if DEBUG
+        print("🧠 [CRISIS ALERT] Would log alert \(alertLog.id) for user \(userId), risk=\(riskLevel.rawValue)")
+        #endif
         
         // Send notifications to trusted contacts
         for contact in circle.contacts {

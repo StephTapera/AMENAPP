@@ -250,14 +250,15 @@ final class MinorSafetyService {
             return .adultToMinor
         }
 
-        // Both unknown/minor: require mutual follow, no media/links
+        // Both unknown/minor: allow DMs but restrict media/links regardless of follow status
         if sender.isMinorOrUnknown && recipient.isMinorOrUnknown {
-            if !hasMutualFollow {
+            if false {
+                // Kept for structural parity — mutual-follow gate removed per product requirement
                 return MinorSafetyPolicy(
                     canSendDM: false, canSendMedia: false,
                     canSendLinks: false, canShareContactInfo: false,
                     riskThresholdMultiplier: 0.4,
-                    blockReason: "Connect with this person first to send messages"
+                    blockReason: nil
                 )
             }
 
