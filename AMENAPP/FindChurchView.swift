@@ -1107,7 +1107,11 @@ struct FindChurchView: View {
                         
                         // Main content
                         if churchSearchService.isSearching {
-                            FindChurchLoadingView()
+                            FindChurchLoadingView(
+                                pulseState: userLocation == nil
+                                    ? .searchingForLocation
+                                    : .searchingForChurches
+                            )
                         } else if shouldShowEmptyState {
                             FindChurchEmptyState(
                                 icon: "building.2",
@@ -1219,8 +1223,7 @@ struct FindChurchView: View {
                                                 if isLoadingAIRecommendations {
                                                     HStack {
                                                         Spacer()
-                                                        ProgressView()
-                                                            .scaleEffect(1.2)
+                                                        AMENLoadingIndicator()
                                                         Spacer()
                                                     }
                                                     .padding(.vertical, 32)
@@ -3428,7 +3431,7 @@ class ChurchPersistenceManager: ObservableObject {
             let encoder = JSONEncoder()
             let data = try encoder.encode(savedChurches)
             userDefaults.set(data, forKey: savedChurchesKey)
-            userDefaults.synchronize()
+            // synchronize() is deprecated since iOS 12 — writes are persisted automatically.
         } catch {
             print("❌ Failed to save churches: \(error.localizedDescription)")
         }
@@ -3453,7 +3456,7 @@ class ChurchPersistenceManager: ObservableObject {
     func clearAllChurches() {
         savedChurches.removeAll()
         userDefaults.removeObject(forKey: savedChurchesKey)
-        userDefaults.synchronize()
+        // synchronize() is deprecated since iOS 12 — writes are persisted automatically.
         print("🗑️ Cleared all saved churches")
     }
 }
@@ -4006,28 +4009,8 @@ struct FindChurchEmptyState: View {
     }
 }
 
-/// Minimal loading view for Find Church - elegant skeleton
-struct FindChurchLoadingView: View {
-    @State private var isAnimating = false
-    
-    var body: some View {
-        ScrollView(showsIndicators: false) {
-            LazyVStack(spacing: 16) {
-                ForEach(0..<3, id: \.self) { _ in
-                    MinimalChurchCardSkeleton()
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-        }
-        .opacity(isAnimating ? 0.5 : 1.0)
-        .animation(
-            Animation.easeInOut(duration: 0.8).repeatForever(autoreverses: true),
-            value: isAnimating
-        )
-        .onAppear { isAnimating = true }
-    }
-}
+// FindChurchLoadingView is defined in ChurchDiscoveryPulse.swift
+// (replaced with pulse hero card + skeleton combination)
 
 struct MinimalChurchCardSkeleton: View {
     var body: some View {

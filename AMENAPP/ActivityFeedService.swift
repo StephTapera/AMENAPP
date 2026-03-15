@@ -122,13 +122,18 @@ class ActivityFeedService: ObservableObject {
     @Published var globalActivities: [Activity] = []
     @Published var communityActivities: [String: [Activity]] = [:] // communityId -> activities
     @Published var isLoading = false
+    @Published var globalFeedError: String?
     
     // Lazy to avoid accessing Database.database() before AppDelegate sets isPersistenceEnabled.
-    nonisolated(unsafe) private lazy var database: Database = Database.database()
+    private lazy var database: Database = Database.database()
     private var ref: DatabaseReference {
         database.reference()
     }
-    
+
+    // Cached root DatabaseReference so deinit (nonisolated) can safely remove observers
+    // without crossing the MainActor boundary.
+    nonisolated(unsafe) private var _rootRef: DatabaseReference?
+
     nonisolated(unsafe) private var globalObserverHandle: DatabaseHandle?
     nonisolated(unsafe) private var communityObserverHandles: [String: DatabaseHandle] = [:]
 
@@ -141,7 +146,8 @@ class ActivityFeedService: ObservableObject {
     deinit {
         // Remove all Realtime DB handles synchronously.
         // Firebase DatabaseReference.removeObserver(withHandle:) is thread-safe.
-        let dbRef = database.reference()
+        // Use _rootRef (nonisolated) so we don't touch the @MainActor-isolated `database`.
+        guard let dbRef = _rootRef else { return }
         if let handle = globalObserverHandle {
             dbRef.child("activityFeed/global").removeObserver(withHandle: handle)
         }
@@ -326,21 +332,39 @@ class ActivityFeedService: ObservableObject {
     /// Start observing global activity feed
     func startObservingGlobalFeed() {
         guard globalObserverHandle == nil else { return }
-        
+
         print("🔊 Starting global activity feed observer")
-        
+        globalFeedError = nil
+
+        // Cache root ref now (on MainActor) so deinit can use it safely.
+        if _rootRef == nil { _rootRef = ref }
+
         let query = ref.child("activityFeed/global")
             .queryOrdered(byChild: "timestamp")
             .queryLimited(toLast: 50)
-        
-        globalObserverHandle = query.observe(.childAdded) { [weak self] snapshot in
-            self?.processActivitySnapshot(snapshot, isGlobal: true)
-        }
+
+        globalObserverHandle = query.observe(
+            .childAdded,
+            with: { [weak self] snapshot in
+                self?.globalFeedError = nil
+                self?.processActivitySnapshot(snapshot, isGlobal: true)
+            },
+            withCancel: { [weak self] error in
+                print("❌ Global activity feed error: \(error)")
+                DispatchQueue.main.async {
+                    self?.globalFeedError = error.localizedDescription
+                }
+            }
+        )
     }
     
     /// Start observing community activity feed
     func startObservingCommunityFeed(communityId: String) {
         guard communityObserverHandles[communityId] == nil else { return }
+        
+        // Ensure _rootRef is set so deinit can clean up community handles
+        // even if startObservingGlobalFeed was never called
+        if _rootRef == nil { _rootRef = ref }
         
         print("🔊 Starting community activity feed observer for: \(communityId)")
         
@@ -420,20 +444,31 @@ class ActivityFeedService: ObservableObject {
         }
     }
 
+    /// Tear down and restart the global feed observer — used for pull-to-retry.
+    func retryGlobalFeed() {
+        stopObservingGlobalFeed()
+        globalActivities.removeAll()
+        startObservingGlobalFeed()
+    }
+
     /// Stop observing community feed
     func stopObservingCommunityFeed(communityId: String) {
         if let handle = communityObserverHandles[communityId] {
             ref.child("communityActivity/\(communityId)").removeObserver(withHandle: handle)
             communityObserverHandles.removeValue(forKey: communityId)
             communitySeenIds.removeValue(forKey: communityId)
-            print("🔇 Stopped community activity feed observer for: \(communityId)")
+            dlog("🔇 Stopped community activity feed observer for: \(communityId)")
         }
     }
 
     /// Stop all observers
     func stopAllObservers() {
         stopObservingGlobalFeed()
-        for communityId in communityObserverHandles.keys {
+        // P0 FIX: Snapshot keys before iterating — stopObservingCommunityFeed mutates
+        // the dictionary via removeValue(forKey:), which causes undefined behaviour if
+        // we iterate over .keys while it is being modified.
+        let communityIds = Array(communityObserverHandles.keys)
+        for communityId in communityIds {
             stopObservingCommunityFeed(communityId: communityId)
         }
     }
@@ -442,7 +477,7 @@ class ActivityFeedService: ObservableObject {
     
     /// Fetch global activities once
     func fetchGlobalActivities() async throws -> [Activity] {
-        print("📥 Fetching global activities...")
+        dlog("📥 Fetching global activities...")
         
         let query = ref.child("activityFeed/global")
             .queryOrdered(byChild: "timestamp")

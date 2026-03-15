@@ -43,6 +43,7 @@ struct ContentView: View {
     @State private var postSuccessObserver: NSObjectProtocol?
     @State private var postingStartedObserver: NSObjectProtocol?
     @State private var postingFailedObserver: NSObjectProtocol?
+    @State private var discoverTabObserver: NSObjectProtocol?
     @State private var postingBarDismissTask: Task<Void, Never>? = nil
     @State private var showTabBar = true  // ✅ Control tab bar visibility
     @State private var lastScrollOffset: CGFloat = 0  // Track scroll position for tab bar auto-hide
@@ -50,9 +51,11 @@ struct ContentView: View {
     @State private var needsCovenantAgreement = false
     @State private var showCompulsiveReopenRedirect = false
     @State private var compulsiveReopenCount = 0
-    // Start resolving only if Firebase has a cached user — if no user is cached,
-    // we're definitely logged out and can show SignInView immediately without waiting.
-    @State private var isResolvingAuthState = Auth.auth().currentUser != nil
+    // isResolvingAuthState removed: AppReadyStateManager.isShowingLoadingScreen is now
+    // pre-set to true on init for cached users, so the overlay covers the entire auth
+    // resolution window. There is no separate Screen 1 anymore — one loading screen only.
+    // Welcome screen — layered inside the single loading overlay so both exit together.
+    @StateObject private var welcomeManager = WelcomeScreenManager()
     // Idempotency gate: prevents core service startup from running more than once
     // per session even if mainContent.onAppear fires multiple times.
     @State private var hasStartedCoreServices = false
@@ -91,34 +94,10 @@ struct ContentView: View {
     
     var body: some View {
         Group {
-            if isResolvingAuthState {
-                // Show dots only when a cached Firebase user exists and we're waiting for the
-                // auth listener to confirm their session is still valid.
-                AppLoadingScreen()
-                .onChange(of: authViewModel.isAuthenticated) { _, _ in
-                    // Auth state resolved (either true or false) — stop waiting.
-                    isResolvingAuthState = false
-                }
-                .onChange(of: authViewModel.needsOnboarding) { _, _ in
-                    isResolvingAuthState = false
-                }
-                .onChange(of: authViewModel.needs2FAVerification) { _, _ in
-                    isResolvingAuthState = false
-                }
-                .task {
-                    // Yield once so the auth listener has a chance to fire synchronously.
-                    await Task.yield()
-                    // If auth state is already determined, dismiss immediately.
-                    if authViewModel.isAuthenticated || Auth.auth().currentUser == nil {
-                        isResolvingAuthState = false
-                        return
-                    }
-                    // Hard cap: 1.5 s max — enough for any network auth check.
-                    try? await Task.sleep(nanoseconds: 1_500_000_000)
-                    isResolvingAuthState = false
-                }
-                .transition(.opacity)
-            } else if authViewModel.needs2FAVerification {
+            // AppReadyStateManager.isShowingLoadingScreen covers the auth-resolution window
+            // (it is pre-set to true for cached users before this body evaluates).
+            // We go straight to routing — the overlay handles the "loading" visual.
+            if authViewModel.needs2FAVerification {
                 // P0 SECURITY: 2FA verification gate (before email verification)
                 TwoFactorVerificationGateView()
                     .environmentObject(authViewModel)
@@ -175,6 +154,9 @@ struct ContentView: View {
                             .presentationDragIndicator(.visible)
                     }
                     .onAppear {
+                        // Stamp the current app version so the next launch can detect updates.
+                        welcomeManager.recordLaunch()
+
                         // Show cinematic loading screen if this is a fresh sign-in
                         AppReadyStateManager.shared.startIfNeeded()
 
@@ -221,7 +203,6 @@ struct ContentView: View {
                     }
             }
         }
-        .animation(.easeInOut(duration: 0.3), value: isResolvingAuthState)
         .animation(.easeInOut(duration: 0.3), value: authViewModel.needs2FAVerification)
         .animation(.easeInOut(duration: 0.3), value: authViewModel.isAuthenticated)
         .animation(.easeInOut(duration: 0.3), value: authViewModel.needsUsernameSelection)
@@ -312,7 +293,9 @@ struct ContentView: View {
                     .transition(.scale.combined(with: .opacity))
             }
         }
-        // Post-sign-in cinematic loading screen — shown until feed data is ready
+        // Single launch overlay — covers auth resolution AND post-sign-in data loading.
+        // AppLoadingScreen shows the logo + tagline + loading dots all in one view
+        // so there is no separate welcome screen stacking that causes background flashes.
         .overlay {
             if isShowingLoadingScreen {
                 AppLoadingScreen()
@@ -322,7 +305,6 @@ struct ContentView: View {
             }
         }
         .animation(.easeInOut(duration: 0.5), value: isShowingLoadingScreen)
-        .animation(.easeInOut(duration: 0.35), value: isResolvingAuthState)
     }
     
     @ViewBuilder
@@ -616,23 +598,7 @@ struct ContentView: View {
             // NOTE: startSession() is called by handleScenePhaseChange(.active) — no duplicate call here
             
             // P0-5: Parallelize cold launch tasks for 3x faster startup
-            await withTaskGroup(of: Void.self) { group in
-                // Run these tasks in parallel
-                group.addTask {
-                    // Cache current user's profile data (including profile image URL)
-                    await UserProfileImageCache.shared.cacheCurrentUserProfile()
-                }
-                
-                group.addTask {
-                    // Setup push notifications
-                    await self.setupPushNotifications()
-                }
-                
-                group.addTask {
-                    // Fetch and cache current user name
-                    await FirebaseMessagingService.shared.fetchAndCacheCurrentUserName()
-                }
-            }
+            await runParallelLaunchTasks()
             
             // Start listening to messages for real-time badge updates (after parallel tasks)
             FirebaseMessagingService.shared.startListeningToConversations()
@@ -657,6 +623,7 @@ struct ContentView: View {
             // Setup notification observers (synchronous, fast)
             setupSavedSearchObserver()
             setupPostSuccessObserver()
+            setupDiscoverTabObserver()
         }
         .onReceive(NotificationCenter.default.publisher(for: .openCreatePost)) { _ in
             withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
@@ -698,9 +665,47 @@ struct ContentView: View {
                 NotificationCenter.default.removeObserver(postingFailedObserver)
                 self.postingFailedObserver = nil
             }
+
+            if let discoverTabObserver {
+                NotificationCenter.default.removeObserver(discoverTabObserver)
+                self.discoverTabObserver = nil
+            }
         }
     }
     
+    private func setupDiscoverTabObserver() {
+        guard discoverTabObserver == nil else { return }
+        discoverTabObserver = NotificationCenter.default.addObserver(
+            forName: .switchToDiscoverTab,
+            object: nil,
+            queue: .main
+        ) { [self] _ in
+            Task { @MainActor in
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    viewModel.selectedTab = 1
+                }
+            }
+        }
+    }
+
+    // MARK: - Parallel Launch Tasks
+
+    /// Runs cache warm-up tasks concurrently on app launch.
+    /// Extracted to give the Swift type-checker a simpler expression inside the `.task` modifier.
+    private func runParallelLaunchTasks() async {
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask {
+                await UserProfileImageCache.shared.cacheCurrentUserProfile()
+            }
+            group.addTask {
+                await self.setupPushNotifications()
+            }
+            group.addTask {
+                await FirebaseMessagingService.shared.fetchAndCacheCurrentUserName()
+            }
+        }
+    }
+
     // MARK: - Push Notification Setup
     
     private func setupPushNotifications() async {
@@ -1386,9 +1391,10 @@ struct CompactTabBar: View {
                 HapticManager.notification(type: .success)
                 
                 // Reset pulse after animation
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    withAnimation {
-                        badgePulse = false
+                Task {
+                    try? await Task.sleep(for: .milliseconds(500))
+                    await MainActor.run {
+                        withAnimation { badgePulse = false }
                     }
                 }
             }
@@ -1401,14 +1407,15 @@ struct CompactTabBar: View {
                 withAnimation(.spring(response: 0.4, dampingFraction: 0.5)) {
                     newPostsBadgePulse = true
                 }
-                
+
                 // Haptic feedback for new post
                 HapticManager.notification(type: .success)
-                
+
                 // Reset pulse after animation
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    withAnimation {
-                        newPostsBadgePulse = false
+                Task {
+                    try? await Task.sleep(for: .milliseconds(500))
+                    await MainActor.run {
+                        withAnimation { newPostsBadgePulse = false }
                     }
                 }
             }
@@ -1551,8 +1558,9 @@ struct CompactTabBar: View {
             }
             
             // Reset navigation guard after animation completes
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                isNavigating = false
+            Task {
+                try? await Task.sleep(for: .milliseconds(500))
+                await MainActor.run { isNavigating = false }
             }
         } label: {
             ZStack {
@@ -1622,8 +1630,22 @@ struct CompactTabBar: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(PlainButtonStyle())
+        .accessibilityLabel(tabAccessibilityLabel(for: tab.tag))
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
     }
-    
+
+    private func tabAccessibilityLabel(for tag: Int) -> String {
+        switch tag {
+        case 0: return "Home"
+        case 1: return "Discover"
+        case 2: return totalUnreadCount > 0 ? "Messages, \(totalUnreadCount) unread" : "Messages"
+        case 3: return "Resources"
+        case 4: return badgeCountManager.unreadNotifications > 0 ? "Notifications, \(badgeCountManager.unreadNotifications) unread" : "Notifications"
+        case 5: return "Profile"
+        default: return "Tab"
+        }
+    }
+
     // MARK: - Profile Tab Content
     
     @ViewBuilder
@@ -1704,6 +1726,8 @@ struct CompactTabBar: View {
             .scaleEffect(createButtonScale)
             .animation(.spring(response: 0.3, dampingFraction: 0.6), value: createButtonScale)
             .contentShape(Rectangle())
+            .accessibilityLabel("Create post")
+            .accessibilityHint("Tap to compose a new post. Long press for quick options.")
         .onTapGesture {
             // Regular tap - open create post immediately
             
@@ -1750,8 +1774,9 @@ struct CompactTabBar: View {
                     }
                     
                     // Reset after a delay
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                        isLongPressing = false
+                    Task {
+                        try? await Task.sleep(for: .milliseconds(500))
+                        await MainActor.run { isLongPressing = false }
                     }
                 }
         )
@@ -1841,29 +1866,15 @@ struct SmartMessageBadge: View {
                 .transition(.scale.combined(with: .opacity))
             }
         }
-        .onAppear {
-            // Show count for 2 seconds, then transition to dot
-            if unreadCount > 0 {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
-                        showCount = false
-                    }
-                }
-            }
-        }
-        .onChange(of: unreadCount) { oldValue, newValue in
-            // Show count again when unread count increases
-            if newValue > oldValue && newValue > 0 {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
-                    showCount = true
-                }
-                
-                // Transition back to dot after 2 seconds
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
-                        showCount = false
-                    }
-                }
+        .task(id: unreadCount) {
+            // Show count for 2 seconds on appear or whenever unreadCount increases,
+            // then transition back to dot. Using .task(id:) automatically cancels
+            // the previous sleep when unreadCount changes.
+            guard unreadCount > 0 else { return }
+            showCount = true
+            try? await Task.sleep(for: .seconds(2))
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                showCount = false
             }
         }
     }
@@ -1877,9 +1888,14 @@ struct HomeView: View {
     @State private var showBereanAssistant = false
     @Binding var showBereanQuickActions: Bool
     @Binding var showBereanAssistantFromMenu: Bool
+    // Deep link navigation: post opened from a push notification tap
+    @State private var notificationDeepLinkPostId: String?
+    @State private var showNotificationPostDetail = false
+    #if DEBUG
     @State private var showAdminCleanup = false
     @State private var showMigrationPanel = false  // NEW: Migration panel
     @State private var tapCount = 0
+    #endif
     
     // MARK: - Scroll Detection for Dynamic UI (OPTIMIZED)
     @State private var scrollOffset: CGFloat = 0
@@ -1954,80 +1970,105 @@ struct HomeView: View {
     }
     
     var body: some View {
-        NavigationStack {
-            mainScrollContent
-                .navigationTitle("AMEN")
-                .navigationBarTitleDisplayMode(.inline)
-                // Auto-hide header when scrolling down
-                .toolbar(showToolbar ? .visible : .hidden, for: .navigationBar)
-                .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    // Search Button - hides with toolbar
-                    SearchButton(isVisible: showToolbar, action: {
-                        showBereanAssistant = true
-                    }, showQuickActions: $showBereanQuickActions)
-                }
-                
-                ToolbarItem(placement: .principal) {
-                    Button {
-                        // Tap AMEN title - toggle categories expand/collapse
-                        withAnimation(.spring(response: 0.15, dampingFraction: 0.8)) {
-                            isCategoriesExpanded.toggle()
-                        }
-                        HapticManager.impact(style: .light)
+        // FeedDrawerGestureWrapper intercepts left-swipe to reveal the
+        // community / feed-mode utility drawer from the trailing edge.
+        FeedDrawerGestureWrapper {
+            NavigationStack {
+                mainScrollContent
+                    .navigationTitle("AMEN")
+                    .navigationBarTitleDisplayMode(.inline)
+                    // Auto-hide header when scrolling down
+                    .toolbar(showToolbar ? .visible : .hidden, for: .navigationBar)
+                    .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        // Search Button - hides with toolbar
+                        SearchButton(isVisible: showToolbar, action: {
+                            showBereanAssistant = true
+                        }, showQuickActions: $showBereanQuickActions)
+                    }
+                    
+                    ToolbarItem(placement: .principal) {
+                        Button {
+                            // Tap AMEN title - toggle categories expand/collapse
+                            withAnimation(.spring(response: 0.15, dampingFraction: 0.8)) {
+                                isCategoriesExpanded.toggle()
+                            }
+                            HapticManager.impact(style: .light)
 
-                        // Secret admin access: 5 rapid taps (manual counter — no onTapGesture(count:)
-                        // which delays every single tap while the system waits to resolve the sequence)
-                        tapCount += 1
-                        if tapCount >= 5 {
-                            tapCount = 0
-                            showAdminCleanup = true
-                            HapticManager.notification(type: .success)
-                        } else {
-                            // Reset counter after 1.2 s of inactivity
-                            Task {
-                                let snapshot = tapCount
-                                try? await Task.sleep(for: .seconds(1.2))
-                                if tapCount == snapshot { tapCount = 0 }
+                            #if DEBUG
+                            // Secret admin access: 5 rapid taps (manual counter — no onTapGesture(count:)
+                            // which delays every single tap while the system waits to resolve the sequence)
+                            tapCount += 1
+                            if tapCount >= 5 {
+                                tapCount = 0
+                                showAdminCleanup = true
+                                HapticManager.notification(type: .success)
+                            } else {
+                                // Reset counter after 1.2 s of inactivity
+                                Task {
+                                    let snapshot = tapCount
+                                    try? await Task.sleep(for: .seconds(1.2))
+                                    if tapCount == snapshot { tapCount = 0 }
+                                }
+                            }
+                            #endif
+                        } label: {
+                            HStack(spacing: 4) {
+                                Text("amen")
+                                    .font(.custom("OpenSans-Bold", size: 24))
+                                    .foregroundStyle(.primary)
+                                Image(systemName: "chevron.up")
+                                    .font(.system(size: 9, weight: .medium))
+                                    .foregroundStyle(.primary.opacity(0.6))
+                                    .rotationEffect(.degrees(isCategoriesExpanded ? 180 : 0))
                             }
                         }
-                    } label: {
-                        HStack(spacing: 4) {
-                            Text("amen")
-                                .font(.custom("OpenSans-Bold", size: 24))
-                                .foregroundStyle(.primary)
-                            Image(systemName: "chevron.up")
-                                .font(.system(size: 9, weight: .medium))
-                                .foregroundStyle(.primary.opacity(0.6))
-                                .rotationEffect(.degrees(isCategoriesExpanded ? 180 : 0))
-                        }
+                    }
+                    
+                    // People and Notifications removed from toolbar - now in bottom tab bar
+                }
+                // People and Notifications now accessed via bottom tab bar
+                .environment(\.toolbarVisible, $showToolbar)
+                .fullScreenCover(isPresented: $showBereanAssistant) {
+                    BereanAIAssistantView()
+                }
+                .onChange(of: showBereanAssistantFromMenu) { _, newValue in
+                    if newValue {
+                        showBereanAssistant = true
+                        showBereanAssistantFromMenu = false // Reset
                     }
                 }
-                
-                // People and Notifications removed from toolbar - now in bottom tab bar
+                #if DEBUG
+                .sheet(isPresented: $showAdminCleanup) {
+                    AdminCleanupView()
+                }
+                .sheet(isPresented: $showMigrationPanel) {
+                    UserSearchMigrationView()
+                }
+                #endif
+                // Notification listener started in mainContent.onAppear (not here,
+                // so it fires regardless of which tab opens first)
             }
-            // People and Notifications now accessed via bottom tab bar
-            .environment(\.toolbarVisible, $showToolbar)
-            .fullScreenCover(isPresented: $showBereanAssistant) {
-                BereanAIAssistantView()
-            }
-            .onChange(of: showBereanAssistantFromMenu) { _, newValue in
-                if newValue {
-                    showBereanAssistant = true
-                    showBereanAssistantFromMenu = false // Reset
+            // Deep link: open a specific post when a push notification is tapped
+            .onReceive(NotificationCenter.default.publisher(for: .openPostFromNotification)) { notification in
+                if let postId = notification.userInfo?["postId"] as? String {
+                    notificationDeepLinkPostId = postId
+                    showNotificationPostDetail = true
                 }
             }
-            .sheet(isPresented: $showAdminCleanup) {
-                AdminCleanupView()
+            .sheet(isPresented: $showNotificationPostDetail, onDismiss: {
+                notificationDeepLinkPostId = nil
+            }) {
+                if let postId = notificationDeepLinkPostId {
+                    NavigationStack {
+                        NotificationPostDetailView(postId: postId)
+                            .navigationBarTitleDisplayMode(.inline)
+                    }
+                }
             }
-            .sheet(isPresented: $showMigrationPanel) {
-                UserSearchMigrationView()
-            }
-            // Notification listener started in mainContent.onAppear (not here,
-            // so it fires regardless of which tab opens first)
         }
     }
-    
+
     // MARK: - Computed Properties to help type checker
     
     private var mainScrollContent: some View {
@@ -4227,6 +4268,7 @@ struct OpenTableView: View {
     @ObservedObject private var scrollBudget = ScrollBudgetManager.shared
     @ObservedObject private var feedSession = FeedSessionManager.shared
     @ObservedObject private var caughtUpService = CaughtUpService.shared
+    @ObservedObject private var firebasePostService = FirebasePostService.shared
     @State private var showingOlderPosts = false   // true after user taps "View older posts"
     @State private var isRefreshing = false
     @State private var personalizedPosts: [Post] = []
@@ -4338,8 +4380,9 @@ struct OpenTableView: View {
                                 }
                             }
 
-                            // PAGINATION: Load more when approaching the end
-                            if index >= displayPosts.count - 3 && !isLoadingMore && visiblePostCount < allPosts.count {
+                            // PAGINATION: Load more when approaching the end of the in-memory slice
+                            // AND fetch the next Firestore page when in-memory posts are nearly exhausted.
+                            if index >= displayPosts.count - 3 && !isLoadingMore {
                                 loadMorePosts()
                             }
                         }
@@ -4350,7 +4393,7 @@ struct OpenTableView: View {
                     }
 
                     // Loading indicator for pagination
-                    if isLoadingMore && visiblePostCount < allPosts.count {
+                    if isLoadingMore || firebasePostService.isLoadingMore {
                         HStack {
                             Spacer()
                             AMENLoadingIndicator(dotSize: 7, spacing: 6, bounceHeight: 8)
@@ -4369,21 +4412,7 @@ struct OpenTableView: View {
 
                     // Show empty state only after initial load completes
                     if !isInitialLoad && allPosts.isEmpty && !isRefreshing {
-                        VStack(spacing: 16) {
-                            Image(systemName: "tray")
-                                .font(.system(size: 48))
-                                .foregroundStyle(.secondary)
-
-                            Text("No posts yet")
-                                .font(.custom("OpenSans-Bold", size: 18))
-                                .foregroundStyle(.primary)
-
-                            Text("Be the first to share an idea!")
-                                .font(.custom("OpenSans-Regular", size: 14))
-                                .foregroundStyle(.secondary)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 60)
+                        EmptyFeedView()
                     }
                     } // end else (skeleton)
                 }
@@ -4654,19 +4683,34 @@ struct OpenTableView: View {
     }
     
     // MARK: - Pagination
-    
-    /// Load more posts when user scrolls near the bottom
+
+    /// Load more posts when user scrolls near the bottom.
+    /// - First expands the in-memory visible window.
+    /// - When the window reaches the end of the in-memory buffer, fires a real
+    ///   Firestore page fetch (FirebasePostService.loadMorePosts) to pull the next
+    ///   25 documents from the server using the cursor stored in the service.
     private func loadMorePosts() {
-        guard !isLoadingMore else { return }
-        
-        isLoadingMore = true
-        
-        // Simulate a brief delay for smooth loading (like Instagram/Threads)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            let increment = 10 // Load 10 more posts at a time
-            visiblePostCount = min(visiblePostCount + increment, 
-                                   hasPersonalized && !personalizedPosts.isEmpty ? personalizedPosts.count : postsManager.openTablePosts.count)
+        guard !isLoadingMore && !firebasePostService.isLoadingMore else { return }
+
+        let allPosts = hasPersonalized && !personalizedPosts.isEmpty
+            ? personalizedPosts
+            : postsManager.openTablePosts
+
+        // Expand the in-memory visible window by 10
+        let newCount = min(visiblePostCount + 10, allPosts.count)
+        if newCount > visiblePostCount {
+            isLoadingMore = true
+            visiblePostCount = newCount
             isLoadingMore = false
+        }
+
+        // When we've shown all in-memory posts, go fetch the next Firestore page.
+        // This appends 25 more posts to postsManager.openTablePosts via the service,
+        // which automatically extends allPosts above on the next render pass.
+        if visiblePostCount >= allPosts.count && firebasePostService.hasMorePosts {
+            Task {
+                await firebasePostService.loadMorePosts(category: .openTable)
+            }
         }
     }
 }
@@ -5172,15 +5216,17 @@ struct DailyVerseBanner: View {
                 localColorId = newId
             }
         }
-        .task {
-            if verseService.todayVerse == nil {
-                if let data = UserDefaults.standard.data(forKey: "cachedDailyVerse"),
-                   let date = UserDefaults.standard.object(forKey: "cachedVerseDate") as? Date,
-                   Calendar.current.isDate(date, inSameDayAs: Date()),
-                   let verse = try? JSONDecoder().decode(PersonalizedDailyVerse.self, from: data) {
-                    await MainActor.run { verseService.todayVerse = verse }
-                } else {
-                    _ = await verseService.generatePersonalizedDailyVerse()
+        .onAppear {
+            guard verseService.todayVerse == nil else { return }
+            if let data = UserDefaults.standard.data(forKey: "cachedDailyVerse"),
+               let date = UserDefaults.standard.object(forKey: "cachedVerseDate") as? Date,
+               Calendar.current.isDate(date, inSameDayAs: Date()),
+               let verse = try? JSONDecoder().decode(PersonalizedDailyVerse.self, from: data) {
+                verseService.todayVerse = verse
+            } else {
+                // Use Task.detached so this is never cancelled by SwiftUI view lifecycle
+                Task.detached {
+                    _ = await DailyVerseGenkitService.shared.generatePersonalizedDailyVerse()
                 }
             }
         }
@@ -6316,6 +6362,56 @@ struct PostSuccessToast: View {
             HapticManager.notification(type: .success)
         }
     }
+}
+
+// MARK: - Empty Feed State
+
+/// Shown when the OpenTable feed has no posts.
+/// If the user has zero follows, surfaces a "Discover People" CTA to guide them.
+struct EmptyFeedView: View {
+    @ObservedObject private var followService = FollowService.shared
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Image(systemName: followService.following.isEmpty ? "person.2.slash" : "tray")
+                .font(.system(size: 48))
+                .foregroundStyle(.secondary)
+
+            Text(followService.following.isEmpty ? "Find people to follow" : "No posts yet")
+                .font(.custom("OpenSans-Bold", size: 18))
+                .foregroundStyle(.primary)
+
+            Text(
+                followService.following.isEmpty
+                    ? "Follow fellow believers to see their posts here."
+                    : "Be the first to share an idea!"
+            )
+            .font(.custom("OpenSans-Regular", size: 14))
+            .foregroundStyle(.secondary)
+            .multilineTextAlignment(.center)
+
+            if followService.following.isEmpty {
+                Button {
+                    NotificationCenter.default.post(name: .switchToDiscoverTab, object: nil)
+                } label: {
+                    Label("Discover People", systemImage: "person.badge.plus")
+                        .font(.custom("OpenSans-SemiBold", size: 15))
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 10)
+                        .background(Color.accentColor.opacity(0.12))
+                        .foregroundStyle(Color.accentColor)
+                        .clipShape(Capsule())
+                }
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 60)
+        .padding(.horizontal)
+    }
+}
+
+extension Notification.Name {
+    static let switchToDiscoverTab = Notification.Name("switchToDiscoverTab")
 }
 
 #Preview("Posting Bar - Posting") {

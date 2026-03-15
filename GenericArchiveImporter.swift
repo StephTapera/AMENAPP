@@ -33,7 +33,9 @@ struct GenericArchiveImporter: ArchiveImporter {
 
     let displayName = "Generic Archive Importer"
 
-    func canHandle(archiveRoot: URL) -> Bool {
+    nonisolated init() {}
+
+    nonisolated func canHandle(archiveRoot: URL) -> Bool {
         // Accept if any JSON file exists anywhere in the root
         let fm = FileManager.default
         guard let enumerator = fm.enumerator(at: archiveRoot,
@@ -45,10 +47,10 @@ struct GenericArchiveImporter: ArchiveImporter {
         return false
     }
 
-    func parse(archiveRoot: URL,
-               progressHandler: @escaping (ImportProgress) -> Void) async throws -> [ImportableItem] {
+    nonisolated func parse(archiveRoot: URL,
+                           progressHandler: @escaping (ImportProgress) -> Void) async throws -> [ImportableItem] {
 
-        return try await Task.detached(priority: .userInitiated) {
+        return await Task.detached(priority: .userInitiated) {
 
             var progress = ImportProgress()
             progress.phase = .parsing
@@ -88,7 +90,7 @@ struct GenericArchiveImporter: ArchiveImporter {
     // MARK: - Private Helpers
 
     /// Recursively collect all .json files, skipping system/metadata files.
-    private static func collectJSONFiles(in root: URL) -> [URL] {
+    private nonisolated static func collectJSONFiles(in root: URL) -> [URL] {
         let fm = FileManager.default
         let skipNames: Set<String> = [
             "manifest.json", "index.json", "ads_information.json",
@@ -108,7 +110,7 @@ struct GenericArchiveImporter: ArchiveImporter {
     }
 
     /// Extract one or more ImportableItems from a parsed JSON value.
-    private static func extractItems(from json: Any,
+    private nonisolated static func extractItems(from json: Any,
                                      archiveRoot: URL,
                                      jsonURL: URL) -> [ImportableItem] {
         var results: [ImportableItem] = []
@@ -146,7 +148,7 @@ struct GenericArchiveImporter: ArchiveImporter {
     }
 
     /// Build a single ImportableItem from a dictionary, tolerating missing fields.
-    private static func makeItem(from dict: [String: Any], archiveRoot: URL) -> ImportableItem? {
+    private nonisolated static func makeItem(from dict: [String: Any], archiveRoot: URL) -> ImportableItem? {
         // --- Timestamp ---
         let timestamp: Date? = {
             let keys = ["creation_timestamp", "timestamp", "taken_at", "date", "created_at"]
@@ -206,7 +208,7 @@ struct GenericArchiveImporter: ArchiveImporter {
 
     // MARK: - Utilities
 
-    private static func sanitize(_ text: String?) -> String? {
+    private nonisolated static func sanitize(_ text: String?) -> String? {
         guard var t = text else { return nil }
         // Strip HTML tags (rare but some exports include them)
         t = t.replacingOccurrences(of: "<[^>]+>",
@@ -217,7 +219,7 @@ struct GenericArchiveImporter: ArchiveImporter {
         return t.isEmpty ? nil : t
     }
 
-    private static func computeSHA256(url: URL) -> String? {
+    private nonisolated static func computeSHA256(url: URL) -> String? {
         guard let data = try? Data(contentsOf: url) else { return nil }
         let digest = SHA256.hash(data: data)
         return digest.map { String(format: "%02x", $0) }.joined()

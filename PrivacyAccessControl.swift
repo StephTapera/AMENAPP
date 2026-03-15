@@ -86,10 +86,14 @@ final class PrivacyAccessControl: ObservableObject {
             object: nil, queue: .main
         ) { [weak self] notification in
             guard let self else { return }
-            if let userId = notification.userInfo?["userId"] as? String {
-                self.cache.removeValue(forKey: userId)
-            } else {
-                self.cache.removeAll()
+            let userId = notification.userInfo?["userId"] as? String
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if let userId {
+                    self.cache.removeValue(forKey: userId)
+                } else {
+                    self.cache.removeAll()
+                }
             }
         }
     }

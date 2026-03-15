@@ -42,6 +42,7 @@ class BadgeCountManager: ObservableObject {
     private var conversationsListener: ListenerRegistration?
     private var notificationsListener: ListenerRegistration?
     private var isListening = false
+    private var badgeConversationsRetryCount = 0
     
     // Auth state listener — clears badge on sign-out, starts updates on sign-in
     private var authStateListener: AuthStateDidChangeListenerHandle?
@@ -69,6 +70,7 @@ class BadgeCountManager: ObservableObject {
                 } else {
                     // User signed out — immediately zero the badge and stop listeners
                     self.stopRealtimeUpdates()
+                    self.resetRetryCounters()
                     self.clearBadge()
                     print("🧹 Badge cleared on sign-out")
                 }
@@ -143,21 +145,33 @@ class BadgeCountManager: ObservableObject {
         guard let userId = Auth.auth().currentUser?.uid else { return }
         let db = self.db  // capture before leaving @MainActor
         Task.detached(priority: .utility) {
-            do {
-                let snapshot = try await db.collection("conversations")
-                    .whereField("participantIds", arrayContains: userId)
-                    .whereField("conversationStatus", isEqualTo: "accepted")
-                    .getDocuments()
-                let batch = db.batch()
-                for doc in snapshot.documents {
-                    if let counts = doc.data()["unreadCounts"] as? [String: Int],
-                       let count = counts[userId], count > 0 {
-                        batch.updateData(["unreadCounts.\(userId)": 0], forDocument: doc.reference)
+            // Retry once if we hit a transient permission error during auth propagation
+            for attempt in 1...2 {
+                do {
+                    let snapshot = try await db.collection("conversations")
+                        .whereField("participantIds", arrayContains: userId)
+                        .getDocuments()
+                    let batch = db.batch()
+                    for doc in snapshot.documents {
+                        let status = doc.data()["conversationStatus"] as? String
+                        guard status == nil || status == "accepted" else { continue }
+                        if let counts = doc.data()["unreadCounts"] as? [String: Int],
+                           let count = counts[userId], count > 0 {
+                            batch.updateData(["unreadCounts.\(userId)": 0], forDocument: doc.reference)
+                        }
                     }
+                    try await batch.commit()
+                    return  // success
+                } catch {
+                    let nsError = error as NSError
+                    if nsError.domain == "FIRFirestoreErrorDomain" && nsError.code == 7 && attempt == 1 {
+                        // Transient auth-propagation race — wait and retry once
+                        try? await Task.sleep(nanoseconds: 3_000_000_000)
+                        continue
+                    }
+                    print("⚠️ Failed to clear Firestore unreadCounts: \(error.localizedDescription)")
+                    return
                 }
-                try await batch.commit()
-            } catch {
-                print("⚠️ Failed to clear Firestore unreadCounts: \(error.localizedDescription)")
             }
         }
     }
@@ -203,11 +217,17 @@ class BadgeCountManager: ObservableObject {
         }
         
         do {
-            // Parallel queries for performance
-            async let messagesCount = calculateUnreadMessages(userId: userId)
-            async let notificationsCount = calculateUnreadNotifications(userId: userId)
-            
-            let (messages, notifications) = try await (messagesCount, notificationsCount)
+            // Parallel queries using withThrowingTaskGroup to avoid swift_task_dealloc
+            // crash when the parent Task is cancelled before async let children complete.
+            var messages = 0
+            var notifications = 0
+            try await withThrowingTaskGroup(of: (Bool, Int).self) { group in
+                group.addTask { (true, try await self.calculateUnreadMessages(userId: userId)) }
+                group.addTask { (false, try await self.calculateUnreadNotifications(userId: userId)) }
+                for try await (isMessages, count) in group {
+                    if isMessages { messages = count } else { notifications = count }
+                }
+            }
             
             let total = messages + notifications
             
@@ -231,13 +251,16 @@ class BadgeCountManager: ObservableObject {
     }
     
     private func calculateUnreadMessages(userId: String) async throws -> Int {
+        // Query only by participantIds to avoid requiring a composite index.
+        // Filter conversationStatus client-side.
         let snapshot = try await db.collection("conversations")
             .whereField("participantIds", arrayContains: userId)
-            .whereField("conversationStatus", isEqualTo: "accepted")
             .getDocuments()
         
         var total = 0
         for document in snapshot.documents {
+            let status = document.data()["conversationStatus"] as? String
+            guard status == nil || status == "accepted" else { continue }
             if let unreadCounts = document.data()["unreadCounts"] as? [String: Int],
                let count = unreadCounts[userId] {
                 total += count
@@ -297,32 +320,13 @@ extension BadgeCountManager {
         }
         guard let userId = Auth.auth().currentUser?.uid else { return }
 
-        conversationsListener = db.collection("conversations")
-            .whereField("participantIds", arrayContains: userId)
-            .whereField("conversationStatus", isEqualTo: "accepted")
-            .addSnapshotListener { [weak self] snapshot, error in
-                guard let self = self else { return }
-                if let error = error {
-                    print("❌ Badge – conversations listener error: \(error.localizedDescription)")
-                    return
-                }
-                // Compute unread message count directly from snapshot — avoids
-                // stale cached values after a markAsRead write.
-                guard let docs = snapshot?.documents else { return }
-                let uid = Auth.auth().currentUser?.uid ?? ""
-                var msgCount = 0
-                for doc in docs {
-                    if let counts = doc.data()["unreadCounts"] as? [String: Int],
-                       let c = counts[uid] { msgCount += c }
-                }
-                Task { @MainActor in
-                    self.unreadMessages = msgCount
-                    // Invalidate cache so the combined total is recomputed fresh
-                    self.cachedBadgeCount = nil
-                    self.cacheTimestamp = nil
-                    self.requestBadgeUpdate()
-                }
-            }
+        // Reset the retry counter on a fresh explicit start so the new session
+        // gets a full 3-retry budget. This is safe here because startRealtimeUpdates()
+        // is only called from the auth-state listener (sign-in) or external callers —
+        // NOT from the internal retry path (which calls reattachConversationsListener directly).
+        badgeConversationsRetryCount = 0
+
+        reattachConversationsListener(userId: userId)
 
         notificationsListener = db.collection("users")
             .document(userId)
@@ -352,7 +356,83 @@ extension BadgeCountManager {
         print("✅ Real-time badge listeners started")
     }
 
-    /// Stop real-time updates and cleanup listeners
+    /// Attach (or reattach) only the conversations sub-listener.
+    /// Called from startRealtimeUpdates and from the permission-error retry path.
+    /// Does NOT touch notificationsListener or isListening — those stay as-is.
+    private func reattachConversationsListener(userId: String) {
+        // Safety: remove any stale listener before reattaching.
+        conversationsListener?.remove()
+        conversationsListener = nil
+
+        // Note: We query only by participantIds (single-field index, always available).
+        // Filtering by conversationStatus in the query would require a composite index
+        // that may not exist. Instead we filter client-side to avoid permission/index errors.
+        conversationsListener = db.collection("conversations")
+            .whereField("participantIds", arrayContains: userId)
+            .addSnapshotListener { [weak self] snapshot, error in
+                guard let self = self else { return }
+                if let error = error {
+                    print("❌ Badge – conversations listener error: \(error.localizedDescription)")
+                    // Transient permission errors on startup resolve once the auth token propagates.
+                    let nsError = error as NSError
+                    if nsError.domain == "FIRFirestoreErrorDomain" && nsError.code == 7 {
+                        if self.badgeConversationsRetryCount < 3 {
+                            self.badgeConversationsRetryCount += 1
+                            let retryNum = self.badgeConversationsRetryCount
+                            let delay = UInt64(retryNum) * 3_000_000_000
+                            print("⚠️ Badge listener: permission denied — retry \(retryNum)/3 in \(retryNum * 3)s")
+                            // Detach immediately so the error callback stops firing while we wait.
+                            self.conversationsListener?.remove()
+                            self.conversationsListener = nil
+                            Task { @MainActor [weak self] in
+                                guard let self = self else { return }
+                                try? await Task.sleep(nanoseconds: delay)
+                                // Bail if stopRealtimeUpdates() was called while we waited
+                                // (it resets badgeConversationsRetryCount to 0).
+                                guard self.badgeConversationsRetryCount == retryNum else { return }
+                                guard let uid = Auth.auth().currentUser?.uid else { return }
+                                self.reattachConversationsListener(userId: uid)
+                            }
+                        } else {
+                            // Final failure — leave listener nil to stop the error flood.
+                            print("🛑 Badge listener: permission denied after 3 retries — check Firestore rules deployment.")
+                            self.conversationsListener?.remove()
+                            self.conversationsListener = nil
+                        }
+                    }
+                    return
+                }
+                // Successful read — reset retry counter
+                self.badgeConversationsRetryCount = 0
+                // Compute unread message count directly from snapshot — avoids
+                // stale cached values after a markAsRead write.
+                // Filter client-side: only count accepted (or nil/missing) conversations.
+                guard let docs = snapshot?.documents else { return }
+                let uid = Auth.auth().currentUser?.uid ?? ""
+                var msgCount = 0
+                for doc in docs {
+                    let status = doc.data()["conversationStatus"] as? String
+                    guard status == nil || status == "accepted" else { continue }
+                    if let counts = doc.data()["unreadCounts"] as? [String: Int],
+                       let c = counts[uid] { msgCount += c }
+                }
+                Task { @MainActor in
+                    self.unreadMessages = msgCount
+                    // Invalidate cache so the combined total is recomputed fresh
+                    self.cachedBadgeCount = nil
+                    self.cacheTimestamp = nil
+                    self.requestBadgeUpdate()
+                }
+            }
+    }
+
+    /// Stop real-time updates and cleanup listeners.
+    /// NOTE: badgeConversationsRetryCount is intentionally NOT reset here.
+    /// Resetting it on every stop would allow the retry loop to run forever
+    /// if stop/start cycles happen faster than the backoff delay (e.g. auth
+    /// token refresh during startup). The counter is only reset on a
+    /// successful Firestore read or when the user explicitly signs out
+    /// (call resetRetryCounters() from the sign-out path if needed).
     func stopRealtimeUpdates() {
         conversationsListener?.remove()
         notificationsListener?.remove()
@@ -360,5 +440,11 @@ extension BadgeCountManager {
         notificationsListener = nil
         isListening = false
         print("🛑 Real-time badge listeners stopped")
+    }
+
+    /// Reset the permission retry counters. Call this only on explicit sign-out
+    /// so a fresh sign-in gets a full 3-retry budget.
+    func resetRetryCounters() {
+        badgeConversationsRetryCount = 0
     }
 }

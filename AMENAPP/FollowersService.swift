@@ -44,6 +44,19 @@ class FollowersService: ObservableObject {
     private init() {
         dlog("👥 FollowersService initialized")
     }
+
+    deinit {
+        // Remove all Realtime Database observer handles to prevent memory leaks.
+        // DatabaseReference.removeObserver is thread-safe.
+        let db = Database.database().reference()
+        for (userId, handle) in followersObservers {
+            db.child("user-followers/\(userId)").removeObserver(withHandle: handle)
+        }
+        for (userId, handle) in followingObservers {
+            db.child("user-following/\(userId)").removeObserver(withHandle: handle)
+        }
+        dlog("🧹 FollowersService listeners cleaned up")
+    }
     
     // MARK: - Follow Actions
     
@@ -94,15 +107,39 @@ class FollowersService: ObservableObject {
         
         dlog("✅ Followed user: \(userId)")
         
-        // Send notification
+        // Send notification to update local follow state across the app
         NotificationCenter.default.post(
             name: Notification.Name("userFollowed"),
             object: nil,
             userInfo: ["userId": userId]
         )
         
-        // TODO: Create follow notification for the target user
-        // await NotificationService.shared.createFollowNotification(from: currentUserId, to: userId)
+        // Create follow notification for the target user in their Firestore subcollection.
+        // Uses setData with merge so a Cloud Function racing to write the same notification
+        // won't duplicate it (the idempotency key deduplicates in-memory on read).
+        let idempotencyKey = "follow_\(currentUserId)_\(userId)"
+        let notificationData: [String: Any] = [
+            "userId": userId,
+            "type": "follow",
+            "actorId": currentUserId,
+            "actorName": Auth.auth().currentUser?.displayName ?? "Someone",
+            "actorUsername": nil as String? as Any,
+            "read": false,
+            "createdAt": Timestamp(date: Date()),
+            "idempotencyKey": idempotencyKey
+        ]
+        do {
+            let ref = firestore
+                .collection("users")
+                .document(userId)
+                .collection("notifications")
+                .document(idempotencyKey)   // deterministic ID prevents duplicates
+            try await ref.setData(notificationData, merge: true)
+            dlog("✅ Follow notification sent to \(userId)")
+        } catch {
+            dlog("⚠️ Could not send follow notification: \(error.localizedDescription)")
+            // Non-fatal — follow relationship was already saved
+        }
     }
     
     /// Unfollow a user

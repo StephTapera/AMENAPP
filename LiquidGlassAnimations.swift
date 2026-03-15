@@ -119,6 +119,20 @@ extension ButtonStyle where Self == InstantFeedbackButtonStyle {
     static var instantFeedback: InstantFeedbackButtonStyle { InstantFeedbackButtonStyle() }
 }
 
+/// Lightweight pill/tab button style — opacity-only press feedback.
+/// No scale or spring so it never competes with adjacent animation work on the main thread.
+struct PillTabButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .opacity(configuration.isPressed ? 0.65 : 1.0)
+            .animation(.linear(duration: 0.08), value: configuration.isPressed)
+    }
+}
+
+extension ButtonStyle where Self == PillTabButtonStyle {
+    static var pillTab: PillTabButtonStyle { PillTabButtonStyle() }
+}
+
 // MARK: - 5. Floating Action Bubble
 
 struct FloatingActionBubble: View {

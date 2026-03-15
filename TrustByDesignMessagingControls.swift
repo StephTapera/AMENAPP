@@ -277,24 +277,40 @@ class TrustByDesignService: ObservableObject {
         }
     }
     
-    /// Check if user can mention another user
+    /// Check if user can mention another user.
+    /// Block check runs first: if either party has blocked the other, mentions are silently dropped.
     func canMention(from fromUserId: String, mention toUserId: String) async throws -> Bool {
+        // Block check — silently deny if either user has blocked the other
+        let blockerDoc = try? await db.collection("blocks")
+            .whereField("blockerId", isEqualTo: fromUserId)
+            .whereField("blockedId", isEqualTo: toUserId)
+            .limit(to: 1)
+            .getDocuments()
+        let reverseBlockDoc = try? await db.collection("blocks")
+            .whereField("blockerId", isEqualTo: toUserId)
+            .whereField("blockedId", isEqualTo: fromUserId)
+            .limit(to: 1)
+            .getDocuments()
+        if blockerDoc?.documents.isEmpty == false || reverseBlockDoc?.documents.isEmpty == false {
+            return false
+        }
+
         let doc = try await db.collection("user_privacy_settings").document(toUserId).getDocument()
-        
+
         guard let settings = try? doc.data(as: TrustPrivacySettings.self) else {
             return try await isFollower(fromUserId, of: toUserId)
         }
-        
+
         switch settings.mentionPermissionLevel {
         case .everyone:
             return true
-            
+
         case .followersOnly:
             return try await isFollower(fromUserId, of: toUserId)
-            
+
         case .mutualsOnly:
             return try await areMutualFollows(fromUserId, toUserId)
-            
+
         case .nobody:
             return false
         }

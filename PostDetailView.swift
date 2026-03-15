@@ -24,8 +24,9 @@ struct PostDetailView: View {
     @State private var isFollowInFlight = false
     @FocusState private var isCommentFocused: Bool
 
-    // CommentService uses the short (8-char prefix) ID format in Realtime Database
-    private var postId: String { String(post.firestoreId.prefix(8)) }
+    // CommentService uses the full firestoreId as the Realtime Database key.
+    // Truncating to prefix(8) produces a path that doesn't exist, resulting in empty comments.
+    private var postId: String { post.firestoreId }
 
     // Derived from @Published CommentService state — no local copy, no concurrent mutation.
     // SwiftUI re-renders automatically whenever commentService.comments or commentReplies changes.
@@ -45,6 +46,8 @@ struct PostDetailView: View {
     @State private var replyingToUsername: String? = nil  // Set when Reply is tapped
     @State private var rateLimitMessage: String? = nil   // Auto-dismissing rate limit notice
     @State private var rateLimitDismissTask: Task<Void, Never>? = nil
+    @State private var showCommentsLoadError = false      // P2 FIX: surface loadComments failure
+    @State private var scrollOffset: CGFloat = 0          // Drives scroll-reactive glass overlay
 
     // Scroll-driven sheet expansion (0 = compact hero visible, 1 = full-screen sheet)
 
@@ -90,6 +93,9 @@ struct PostDetailView: View {
 
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(spacing: 0) {
+                    // Scroll offset reporter — zero height, must be first child
+                    ScrollOffsetReader()
+
                     // ── Hero — image posts taller, text-only posts compact ───
                     GeometryReader { geo in
                         heroSection
@@ -167,16 +173,50 @@ struct PostDetailView: View {
 
                     Divider()
 
-                    // ── Comments ────────────────────────────────────────────
-                    if isLoading {
-                        loadingView
-                    } else if commentsWithReplies.isEmpty {
-                        emptyCommentsView
+                    // ── Conversation Thread (Threads-style wisdom UI) ────────
+                    if showCommentsLoadError {
+                        commentsErrorView
                     } else {
-                        commentsSection
+                        ConversationThreadView(
+                            post: post,
+                            postId: postId,
+                            commentsWithReplies: commentsWithReplies,
+                            isLoading: isLoading,
+                            savedBookIds: [],
+                            onReply: { parentComment in
+                                if let parent = parentComment {
+                                    commentText = "@\(parent.authorUsername) "
+                                    replyingToUsername = parent.authorUsername
+                                } else {
+                                    replyingToUsername = nil
+                                }
+                                isCommentFocused = true
+                            },
+                            onAmen: { comment in
+                                let uid = Auth.auth().currentUser?.uid ?? ""
+                                let alreadyAmened = !uid.isEmpty && comment.amenUserIds.contains(uid)
+                                Task { try? await CommentService.shared.toggleAmen(commentId: comment.id ?? "", postId: postId, currentlyAmened: alreadyAmened) }
+                            },
+                            onDelete: { comment in
+                                Task { try? await CommentService.shared.deleteComment(commentId: comment.id ?? "", postId: postId) }
+                            },
+                            onProfileTap: { userId in
+                                activeDetailSheet = .profile
+                            },
+                            onBerean: { query in
+                                activeDetailSheet = .berean(query)
+                            }
+                        )
                     }
 
                     Color.clear.frame(height: 20)
+                }
+            }
+            .coordinateSpace(name: "dynamicGlassScroll")
+            .onPreferenceChange(DynamicGlassScrollOffsetKey.self) { value in
+                // Throttle: skip sub-1pt jitter to avoid unnecessary redraws
+                if abs(value - scrollOffset) >= 1 {
+                    scrollOffset = value
                 }
             }
             .scrollDismissesKeyboard(.interactively)
@@ -184,6 +224,15 @@ struct PostDetailView: View {
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 commentInputBar
             }
+
+            // ── Scroll-reactive glass fog — sits above scroll content,
+            //    below the comment input bar, never blocks taps ────────────
+            DynamicGlassOverlay(
+                scrollOffset: scrollOffset,
+                coverageFraction: 0.55,
+                rampDistance: 160
+            )
+            .ignoresSafeArea(edges: .bottom)
         }
         .navigationBarHidden(true)
         .sheet(item: $activeDetailSheet) { sheet in
@@ -537,9 +586,30 @@ struct PostDetailView: View {
         }
     }
 
+    private var commentsErrorView: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "wifi.exclamationmark")
+                .font(.system(size: 28))
+                .foregroundStyle(.secondary.opacity(0.6))
+            Text("Could not load comments")
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(.secondary)
+            Button {
+                Task { await loadComments() }
+            } label: {
+                Label("Retry", systemImage: "arrow.clockwise")
+                    .font(.system(size: 14))
+                    .foregroundStyle(.blue)
+            }
+            .buttonStyle(.plain)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 36)
+    }
+
     private var loadingView: some View {
         VStack(spacing: 14) {
-            ProgressView()
+            AMENLoadingIndicator()
             Text("Loading comments…")
                 .font(.system(size: 14))
                 .foregroundStyle(.secondary)
@@ -548,140 +618,35 @@ struct PostDetailView: View {
         .padding(.vertical, 60)
     }
 
-    // MARK: - Comment Input Bar
+    // MARK: - Comment Input Bar (ThreadComposerView)
 
     private var commentInputBar: some View {
-        VStack(spacing: 0) {
-            // "Replying to @username" banner
-            if let replyUsername = replyingToUsername {
-                HStack {
-                    Image(systemName: "arrowshape.turn.up.left.fill")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                    Text("Replying to **@\(replyUsername)**")
-                        .font(.system(size: 13))
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    Button {
-                        replyingToUsername = nil
-                        // Strip the @mention prefix if user hasn't typed anything extra
-                        if commentText == "@\(replyUsername) " { commentText = "" }
-                    } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(.secondary)
-                    }
-                    .buttonStyle(.plain)
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 6)
-                .background(Color(.secondarySystemBackground))
-            }
-
-            // Rate limit notice — slides in above input, auto-dismisses after 4s
-            if let msg = rateLimitMessage {
-                HStack(spacing: 6) {
-                    Image(systemName: "clock")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(.secondary)
-                    Text(msg)
-                        .font(.system(size: 12))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                    Spacer()
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(Color(.secondarySystemBackground))
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
-
-            // Top hairline separator
-            Rectangle()
-                .fill(Color.primary.opacity(0.10))
-                .frame(height: 0.5)
-
-            HStack(spacing: 12) {
-                // User avatar
-                Group {
-                    if let imageURL = userService.currentUser?.profileImageURL,
-                       !imageURL.isEmpty,
-                       let url = URL(string: imageURL) {
-                        AsyncImage(url: url) { image in
-                            image.resizable().aspectRatio(contentMode: .fill)
-                        } placeholder: {
-                            Circle().fill(Color.gray.opacity(0.2))
-                        }
-                        .clipShape(Circle())
-                    } else {
-                        Circle()
-                            .fill(Color.gray.opacity(0.2))
-                            .overlay(
-                                Text(userService.currentUser?.initials ?? "U")
-                                    .font(.system(size: 12, weight: .semibold))
-                                    .foregroundStyle(.primary)
-                            )
-                    }
-                }
-                .frame(width: 32, height: 32)
-
-                // Text field pill background
-                HStack(spacing: 8) {
-                    TextField("Add a comment…", text: $commentText, axis: .vertical)
-                        .font(.system(size: 15))
-                        .lineLimit(1...4)
-                        .focused($isCommentFocused)
-                        .submitLabel(.send)
-                        .onSubmit { submitComment() }
-                        .contentGuardrail(text: $commentText, context: .comment) { _ in
-                            isGuardrailBlocked = true
-                        }
-                        .onChange(of: commentText) { _, _ in
-                            isGuardrailBlocked = false
-                        }
-
-                    // Send button — visible only when there is text
-                    if !commentText.isEmpty {
-                        Button { submitComment() } label: {
-                            if isSubmittingComment {
-                                ProgressView()
-                                    .frame(width: 26, height: 26)
-                            } else {
-                                Image(systemName: "arrow.up.circle.fill")
-                                    .font(.system(size: 26))
-                                    .foregroundStyle(isGuardrailBlocked ? Color.secondary : Color.blue)
-                            }
-                        }
-                        .disabled(isGuardrailBlocked || isSubmittingComment)
-                        .transition(.scale.combined(with: .opacity))
-                    }
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .fill(Color(.secondarySystemBackground))
-                )
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 10)
-            .padding(.bottom, 10)
-        }
-        .background(Color(.systemBackground))
+        ThreadComposerView(
+            text: $commentText,
+            replyingToUsername: $replyingToUsername,
+            isFocused: $isCommentFocused,
+            onSubmit: { submitComment() },
+            onBerean: { query in activeDetailSheet = .berean(query) }
+        )
     }
-
-
 
     // MARK: - Helpers
 
     private func loadComments() async {
         isLoading = true
+        showCommentsLoadError = false
         do {
             // fetchCommentsWithReplies populates commentService.comments[postId]
             // and commentService.commentReplies — commentsWithReplies (computed) updates automatically.
             _ = try await commentService.fetchCommentsWithReplies(for: postId)
         } catch {
             print("❌ Failed to load comments: \(error)")
+            // Only show the error state when comments are empty — if we already have cached
+            // comments from the real-time listener, keep showing them rather than replacing
+            // them with an error banner.
+            if commentsWithReplies.isEmpty {
+                showCommentsLoadError = true
+            }
         }
         isLoading = false
     }

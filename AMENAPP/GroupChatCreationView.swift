@@ -5,7 +5,9 @@
 //  Group Chat Creation & Management
 //
 
-// TEMPORARILY DISABLED FOR COMPILATION
+// NOTE: This file is disabled because CreateGroupView is defined in MessagesView.swift.
+// The MessagesView version already includes error surfacing (showError/errorMessage).
+// This file is kept for reference only.
 
 /*
 
@@ -29,6 +31,8 @@ struct CreateGroupView: View {
     @State private var showIconPicker = false
     @State private var groupCategory: GroupCategory = .general
     @State private var isPrivate = false
+    @State private var showCreationError = false
+    @State private var creationErrorMessage = ""
     
     private let firebaseService = FirebaseMessagingService.shared
     
@@ -126,6 +130,11 @@ struct CreateGroupView: View {
                 if let groupId = createdGroupId {
                     GroupCreatedSuccessView(groupId: groupId, groupName: groupName)
                 }
+            }
+            .alert("Couldn't Create Group", isPresented: $showCreationError) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(creationErrorMessage)
             }
         }
     }
@@ -460,7 +469,9 @@ struct CreateGroupView: View {
                 print("Error creating group: \(error)")
                 await MainActor.run {
                     isSearching = false
-                    // TODO: Show error alert
+                    creationErrorMessage = "Failed to create group. Please try again."
+                    showCreationError = true
+                    UINotificationFeedbackGenerator().notificationOccurred(.error)
                 }
             }
         }
@@ -754,5 +765,6 @@ struct GroupChatCreationView_Previews: PreviewProvider {
     }
 }
 #endif
+
 */
 

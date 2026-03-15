@@ -35,34 +35,52 @@ struct TrendingTopic: Identifiable, Hashable {
 }
 
 extension TrendingTopic {
+    // P2: Faith-centered, AMEN-appropriate default topics.
+    // backgroundColor is intentionally set to .clear here — the TrendingSection
+    // renders `iconColor.opacity(0.12)` directly so it works in both light and dark mode.
+    // These are replaced by live Firestore data as soon as loadTrendingFromFirestore() resolves.
     static let mockTopics: [TrendingTopic] = [
         TrendingTopic(
-            icon: "brain.head.profile",
-            iconColor: .blue,
-            title: "AI & Faith",
-            backgroundColor: Color(red: 0.93, green: 0.95, blue: 1.0),
-            postsCount: 142
-        ),
-        TrendingTopic(
-            icon: "shield.checkered",
-            iconColor: .green,
-            title: "Tech Ethics",
-            backgroundColor: Color(red: 0.92, green: 0.99, blue: 0.96),
-            postsCount: 89
-        ),
-        TrendingTopic(
-            icon: "lightbulb.fill",
-            iconColor: .orange,
-            title: "Startups",
-            backgroundColor: Color(red: 1.0, green: 0.97, blue: 0.93),
-            postsCount: 203
-        ),
-        TrendingTopic(
             icon: "book.fill",
-            iconColor: .purple,
+            iconColor: .indigo,
             title: "Scripture",
-            backgroundColor: Color(red: 0.96, green: 0.94, blue: 1.0),
-            postsCount: 167
+            backgroundColor: .clear,
+            postsCount: 248
+        ),
+        TrendingTopic(
+            icon: "hands.sparkles",
+            iconColor: .purple,
+            title: "Prayer",
+            backgroundColor: .clear,
+            postsCount: 312
+        ),
+        TrendingTopic(
+            icon: "star.fill",
+            iconColor: .orange,
+            title: "Testimony",
+            backgroundColor: .clear,
+            postsCount: 189
+        ),
+        TrendingTopic(
+            icon: "heart.fill",
+            iconColor: .pink,
+            title: "Devotional",
+            backgroundColor: .clear,
+            postsCount: 156
+        ),
+        TrendingTopic(
+            icon: "building.columns.fill",
+            iconColor: .teal,
+            title: "Church Life",
+            backgroundColor: .clear,
+            postsCount: 127
+        ),
+        TrendingTopic(
+            icon: "person.3.fill",
+            iconColor: .blue,
+            title: "Community",
+            backgroundColor: .clear,
+            postsCount: 203
         )
     ]
 }

@@ -290,7 +290,7 @@ private struct GlassSheetContainer<C: View>: View {
         .onAppear {
             stageIn()
         }
-        .presentationDetents([.medium, .large])
+        .presentationDetents([.large])
         .presentationDragIndicator(.visible)
         .presentationCornerRadius(32)
         .presentationBackground(.regularMaterial)

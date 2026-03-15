@@ -12,6 +12,7 @@ import FirebaseAuth
 import Combine
 import CoreLocation
 
+
 // MARK: - Discovery Search Scope
 
 enum DiscoveryScope: String, CaseIterable {
@@ -55,10 +56,12 @@ class DiscoveryViewModel: ObservableObject {
 
     // Discovery content
     @Published var suggestedPeople: [UserModel] = []
+    @Published var isLoadingSuggestions = false   // P1: distinguish loading vs empty
     // Fix #5: single source of truth — mirror FollowService.shared.following
     @Published var followingUserIds: Set<String> = []
     @Published var recentSearches: [String] = []
     @Published var trendingTopics: [TrendingTopic] = []
+    @Published var isLoadingTrending = true        // P1: skeleton state for trending
     @Published var networkError: String?
 
     // Pagination
@@ -135,6 +138,7 @@ class DiscoveryViewModel: ObservableObject {
 
     func loadTrendingFromFirestore() async {
         // Static is already loaded in init(); Firestore results replace when ready.
+        defer { isLoadingTrending = false }
         let db = Firestore.firestore()
 
         // 1. Try the curated `trending` collection (managed by Cloud Functions)
@@ -239,10 +243,15 @@ class DiscoveryViewModel: ObservableObject {
         }
     }
 
-    // MARK: - Load Suggested People  — Fix #2 (privacy filter)
+    // MARK: - Load Suggested People  — Fix #2 (privacy filter) + P0 block filter
 
     func loadSuggestedPeople() async {
         guard let currentUserId = Auth.auth().currentUser?.uid else { return }
+        isLoadingSuggestions = true
+        defer { isLoadingSuggestions = false }
+
+        // P0: snapshot blocked IDs from BlockService (already loaded at app start)
+        let blockedIds = BlockService.shared.blockedUsers
 
         do {
             // Fix #9: attach real-time listener instead of one-time fetch
@@ -261,7 +270,12 @@ class DiscoveryViewModel: ObservableObject {
                     if user.id == nil { user.id = doc.documentID }
                     // Respect showInDiscovery privacy toggle (default: true when field absent)
                     let showInDiscovery = doc.data()["showInDiscovery"] as? Bool ?? true
-                    if user.id != currentUserId && showInDiscovery { users.append(user) }
+                    guard let uid = user.id,
+                          uid != currentUserId,
+                          showInDiscovery,
+                          !blockedIds.contains(uid)   // P0: exclude blocked users
+                    else { continue }
+                    users.append(user)
                 }
             }
 
@@ -279,6 +293,11 @@ class DiscoveryViewModel: ObservableObject {
         isLoadingMore = true
         defer { isLoadingMore = false }
 
+        // P0: apply block filter on pagination pages too
+        let blockedIds = BlockService.shared.blockedUsers
+        // Track existing IDs to avoid duplicates on pagination
+        let existingIds = Set(suggestedPeople.compactMap(\.id))
+
         do {
             let snapshot = try await db.collection("users")
                 .whereField("isPrivate", isEqualTo: false)  // Fix #2
@@ -293,13 +312,19 @@ class DiscoveryViewModel: ObservableObject {
                 if var user = try? doc.data(as: UserModel.self) {
                     if user.id == nil { user.id = doc.documentID }
                     let showInDiscovery = doc.data()["showInDiscovery"] as? Bool ?? true
-                    if user.id != currentUserId && showInDiscovery { newUsers.append(user) }
+                    guard let uid = user.id,
+                          uid != currentUserId,
+                          showInDiscovery,
+                          !blockedIds.contains(uid),    // P0: block filter
+                          !existingIds.contains(uid)    // P1: dedup across pages
+                    else { continue }
+                    newUsers.append(user)
                 }
             }
 
-            // Fix #8: re-rank holistically: merge new page then sort entire list
-            let merged = suggestedPeople + newUsers
-            suggestedPeople = await rankUsers(merged, currentUserId: currentUserId)
+            // P1: only rank the new page, append to existing (avoids O(n²) full re-sort)
+            let rankedNew = await rankUsers(newUsers, currentUserId: currentUserId)
+            suggestedPeople.append(contentsOf: rankedNew)
         } catch {
             Logger.error("Load more failed", error: error)
         }
@@ -311,7 +336,12 @@ class DiscoveryViewModel: ObservableObject {
         connectionsCache = nil
         suggestedPeople = []
         searchError = nil
-        await loadSuggestedPeople()
+        networkError = nil
+        isLoadingTrending = true
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask { await self.loadSuggestedPeople() }
+            group.addTask { await self.loadTrendingFromFirestore() }
+        }
     }
 
     // MARK: - Unified Search  — Fix #6 (scope-aware), Fix #7 (150ms debounce)
@@ -329,8 +359,8 @@ class DiscoveryViewModel: ObservableObject {
         }
 
         searchTask = Task {
-            // Fix #7: reduced from 280ms → 150ms
-            try? await Task.sleep(nanoseconds: 150_000_000)
+            // P1: No sleep here — SearchExpandBar already debounces at 220ms.
+            // Adding a second delay would cause 370ms total lag.
             guard !Task.isCancelled else { return }
 
             isSearching = true
@@ -354,13 +384,15 @@ class DiscoveryViewModel: ObservableObject {
     // Fix #1: eliminate N+1 — convert AlgoliaUser directly via toUserModel()
     private func searchPeople(query: String) async {
         guard let currentUserId = Auth.auth().currentUser?.uid else { return }
+        // P0: filter blocked users from search results
+        let blockedIds = BlockService.shared.blockedUsers
 
         do {
             let algoliaUsers = try await AlgoliaSearchService.shared.searchUsers(query: query)
             if !algoliaUsers.isEmpty {
                 // Fix #1: no Firestore reads — map inline from Algolia result
                 userResults = algoliaUsers
-                    .filter { $0.objectID != currentUserId }
+                    .filter { $0.objectID != currentUserId && !blockedIds.contains($0.objectID) }
                     .map { $0.toUserModel() }
                 return
             }
@@ -379,7 +411,11 @@ class DiscoveryViewModel: ObservableObject {
             for doc in snap.documents {
                 if var user = try? doc.data(as: UserModel.self) {
                     if user.id == nil { user.id = doc.documentID }
-                    if user.id != currentUserId { users.append(user) }
+                    guard let uid = user.id,
+                          uid != currentUserId,
+                          !blockedIds.contains(uid) // P0: block filter
+                    else { continue }
+                    users.append(user)
                 }
             }
             userResults = users
@@ -480,24 +516,20 @@ class DiscoveryViewModel: ObservableObject {
 
     // MARK: - Ranking  — Fix #13 (smarter: mutual followers, profile completeness, recency)
 
-    private func rankUsers(_ users: [UserModel], currentUserId: String) async -> [UserModel] {
+    @MainActor private func rankUsers(_ users: [UserModel], currentUserId: String) async -> [UserModel] {
         // Fetch mutual-follower info once per ranking pass
         let myFollowing = followingUserIds  // already populated from listener / FollowService
-
-        return users.sorted { a, b in
-            func score(_ u: UserModel) -> Double {
-                var s = 0.0
-                // Follower popularity (log-scaled to not over-weight celebrities)
-                s += log(Double(max(u.followersCount, 1)) + 1) * 2.0
-                // Profile completeness
-                if !(u.bio?.isEmpty ?? true) { s += 3.0 }
-                if !(u.profileImageURL?.isEmpty ?? true) { s += 2.0 }
-                // Mutual connection: already following boosts visibility of their connections
-                if let uid = u.id, myFollowing.contains(uid) { s += 10.0 }
-                return s
-            }
-            return score(a) > score(b)
+        // Pre-compute scores on @MainActor to avoid accessing @DocumentID-isolated id in Sendable closure
+        let scores: [Double] = users.map { u in
+            var s = 0.0
+            s += log(Double(max(u.followersCount, 1)) + 1) * 2.0
+            if !(u.bio?.isEmpty ?? true) { s += 3.0 }
+            if !(u.profileImageURL?.isEmpty ?? true) { s += 2.0 }
+            if let uid = u.id, myFollowing.contains(uid) { s += 10.0 }
+            return s
         }
+        let indexed = zip(users, scores).sorted { $0.1 > $1.1 }
+        return indexed.map(\.0)
     }
 }
 
@@ -585,9 +617,12 @@ struct PeopleDiscoveryViewNew: View {
             }
             .task {
                 scopeHaptic.prepare()
-                async let people: () = vm.loadSuggestedPeople()
-                async let trending: () = vm.loadTrendingFromFirestore()
-                _ = await (people, trending)
+                // Use withTaskGroup instead of async let to avoid swift_task_dealloc
+                // crash when the view disappears mid-fetch and the task is cancelled.
+                await withTaskGroup(of: Void.self) { group in
+                    group.addTask { await vm.loadSuggestedPeople() }
+                    group.addTask { await vm.loadTrendingFromFirestore() }
+                }
             }
             .navigationDestination(item: $selectedTopic) { topic in
                 TrendingTopicFeedView(topic: topic)
@@ -596,8 +631,14 @@ struct PeopleDiscoveryViewNew: View {
                 // Remove the Firestore follow listener when the view leaves to prevent accumulation
                 vm.detachFollowListener()
             }
+            // P1: Do NOT call vm.search() here — SearchExpandBar's onQueryChanged
+            // already calls it after its 220ms debounce. Calling it here too would
+            // fire immediately AND 220ms later, causing double backend requests.
+            // The onChange only clears results when the text is emptied.
             .onChange(of: searchText) { _, newVal in
-                vm.search(query: newVal)
+                if newVal.isEmpty {
+                    vm.search(query: "")  // Clear results immediately when field is cleared
+                }
             }
             .onChange(of: vm.scope) { _, _ in
                 if !searchText.isEmpty { vm.search(query: searchText) }
@@ -748,63 +789,112 @@ struct PeopleDiscoveryViewNew: View {
 
     private var trendingSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Trending Topics")
-                .font(.custom("OpenSans-SemiBold", size: 16))
-                .foregroundStyle(.primary)
-                .padding(.horizontal, 20)
+            HStack {
+                Text("Trending Topics")
+                    .font(.custom("OpenSans-SemiBold", size: 16))
+                    .foregroundStyle(.primary)
+                Spacer()
+            }
+            .padding(.horizontal, 20)
 
-            VStack(spacing: 0) {
-                ForEach(vm.trendingTopics) { topic in
-                    Button {
-                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                        vm.addRecentSearch(topic.title)
-                        selectedTopic = topic
-                    } label: {
-                        HStack(spacing: 14) {
-                            ZStack {
-                                Circle()
-                                    .fill(topic.backgroundColor)
-                                    .frame(width: 40, height: 40)
-                                Image(systemName: topic.icon)
-                                    .font(.system(size: 16, weight: .medium))
-                                    .foregroundStyle(topic.iconColor)
-                            }
-
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(topic.title)
-                                    .font(.custom("OpenSans-SemiBold", size: 15))
-                                    .foregroundStyle(.primary)
-                                Text(topic.postsCount > 1000
-                                     ? "\(topic.postsCount / 1000).\((topic.postsCount % 1000) / 100)K posts"
-                                     : "\(topic.postsCount) posts")
-                                    .font(.custom("OpenSans-Regular", size: 13))
-                                    .foregroundStyle(.secondary)
-                            }
-
-                            Spacer()
-
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundStyle(.tertiary)
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(DiscoveryPressStyle())
-
-                    if topic.id != vm.trendingTopics.last?.id {
-                        Divider().padding(.leading, 70)
+            if vm.isLoadingTrending {
+                // P1: Skeleton for trending topics while loading from Firestore
+                VStack(spacing: 0) {
+                    ForEach(0..<4, id: \.self) { i in
+                        TrendingTopicSkeletonRow()
+                        if i < 3 { Divider().padding(.leading, 70) }
                     }
                 }
+                .background(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(Color(uiColor: .secondarySystemBackground))
+                )
+                .padding(.horizontal, 16)
+            } else if vm.trendingTopics.isEmpty {
+                // P2: Proper empty state for no trending topics
+                HStack {
+                    Spacer()
+                    VStack(spacing: 8) {
+                        Image(systemName: "chart.line.uptrend.xyaxis")
+                            .font(.system(size: 28, weight: .light))
+                            .foregroundStyle(.tertiary)
+                        Text("No trending topics yet")
+                            .font(.custom("OpenSans-Regular", size: 14))
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 28)
+                    Spacer()
+                }
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(vm.trendingTopics) { topic in
+                        Button {
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            vm.addRecentSearch(topic.title)
+                            selectedTopic = topic
+                        } label: {
+                            HStack(spacing: 14) {
+                                ZStack {
+                                    // P2: Use system adaptive fill so icon bg works in dark mode
+                                    Circle()
+                                        .fill(topic.iconColor.opacity(0.12))
+                                        .frame(width: 40, height: 40)
+                                    Image(systemName: topic.icon)
+                                        .font(.system(size: 16, weight: .medium))
+                                        .foregroundStyle(topic.iconColor)
+                                }
+                                .accessibilityHidden(true)
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(topic.title)
+                                        .font(.custom("OpenSans-SemiBold", size: 15))
+                                        .foregroundStyle(.primary)
+                                    // P1: Fixed post count format — correct K rounding
+                                    Text(formattedPostCount(topic.postsCount))
+                                        .font(.custom("OpenSans-Regular", size: 13))
+                                        .foregroundStyle(.secondary)
+                                }
+
+                                Spacer()
+
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundStyle(.tertiary)
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(DiscoveryPressStyle())
+                        .accessibilityLabel("\(topic.title), \(formattedPostCount(topic.postsCount))")
+                        .accessibilityHint("Tap to view posts about \(topic.title)")
+
+                        if topic.id != vm.trendingTopics.last?.id {
+                            Divider().padding(.leading, 70)
+                        }
+                    }
+                }
+                .background(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(Color(uiColor: .secondarySystemBackground))
+                )
+                .padding(.horizontal, 16)
             }
-            .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(Color(uiColor: .secondarySystemBackground))
-            )
-            .padding(.horizontal, 16)
         }
         .padding(.bottom, 28)
+    }
+
+    /// P1: Correct K-formatting — rounds to one decimal place properly
+    private func formattedPostCount(_ count: Int) -> String {
+        if count >= 1_000_000 {
+            let m = Double(count) / 1_000_000
+            return String(format: "%.1fM posts", m)
+        } else if count >= 1_000 {
+            let k = Double(count) / 1_000
+            return String(format: "%.1fK posts", k)
+        } else {
+            return "\(count) posts"
+        }
     }
 
     private var suggestedPeopleSection: some View {
@@ -814,14 +904,39 @@ struct PeopleDiscoveryViewNew: View {
                 .foregroundStyle(.primary)
                 .padding(.horizontal, 20)
 
-            if vm.suggestedPeople.isEmpty {
+            if vm.isLoadingSuggestions && vm.suggestedPeople.isEmpty {
+                // P1: Skeleton while loading (not a generic spinner)
+                VStack(spacing: 0) {
+                    ForEach(0..<5, id: \.self) { i in
+                        PersonRowSkeletonView()
+                        if i < 4 { Divider().padding(.leading, 74) }
+                    }
+                }
+                .background(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(Color(uiColor: .secondarySystemBackground))
+                )
+                .padding(.horizontal, 16)
+            } else if !vm.isLoadingSuggestions && vm.suggestedPeople.isEmpty {
+                // P1: Genuine empty state (not a loading state)
                 HStack {
                     Spacer()
-                    ProgressView()
-                        .tint(.secondary)
+                    VStack(spacing: 10) {
+                        Image(systemName: "person.2.slash")
+                            .font(.system(size: 32, weight: .light))
+                            .foregroundStyle(.tertiary)
+                        Text("No suggestions right now")
+                            .font(.custom("OpenSans-SemiBold", size: 15))
+                            .foregroundStyle(.primary)
+                        Text("Check back soon as your community grows.")
+                            .font(.custom("OpenSans-Regular", size: 13))
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding(.horizontal, 32)
+                    .padding(.vertical, 36)
                     Spacer()
                 }
-                .padding(.vertical, 40)
             } else {
                 LazyVStack(spacing: 0) {
                     ForEach(Array(vm.suggestedPeople.enumerated()), id: \.element.id) { idx, user in
@@ -849,7 +964,7 @@ struct PeopleDiscoveryViewNew: View {
                     if vm.isLoadingMore {
                         HStack {
                             Spacer()
-                            ProgressView().tint(.secondary)
+                            AMENLoadingIndicator(dotSize: 7, spacing: 6, bounceHeight: 8)
                             Spacer()
                         }
                         .padding(.vertical, 16)
@@ -873,7 +988,7 @@ struct PeopleDiscoveryViewNew: View {
             HStack {
                 Spacer()
                 VStack(spacing: 12) {
-                    ProgressView().tint(.secondary)
+                    AMENLoadingIndicator()
                     Text("Searching...")
                         .font(.custom("OpenSans-Regular", size: 14))
                         .foregroundStyle(.secondary)
@@ -1022,6 +1137,10 @@ struct ScopeTabButton: View {
             )
         }
         .buttonStyle(PlainButtonStyle())
+        // P2: Accessibility — announce selected filter to VoiceOver
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+        .accessibilityLabel(scope.rawValue)
+        .accessibilityHint(isSelected ? "Currently selected filter" : "Tap to filter by \(scope.rawValue)")
     }
 }
 
@@ -1068,6 +1187,9 @@ struct DiscoveryPersonRow: View {
                 }
             }
             .buttonStyle(ScaleButtonStyle())
+            // P2: Accessibility — avatar taps open profile
+            .accessibilityLabel("\(user.displayName)'s profile photo")
+            .accessibilityHint("Tap to view profile")
 
             // Info
             Button(action: onTap) {
@@ -1097,11 +1219,13 @@ struct DiscoveryPersonRow: View {
                             .lineLimit(1)
 
                         if user.followersCount > 0 {
-                            Text("•").foregroundStyle(.tertiary)
+                            Text("•").foregroundStyle(.tertiary).accessibilityHidden(true)
                             Image(systemName: "person.2.fill")
                                 .font(.system(size: 9))
                                 .foregroundStyle(.tertiary)
-                            Text("\(user.followersCount)")
+                                .accessibilityHidden(true)
+                            // P2: format large follower counts
+                            Text(formatFollowerCount(user.followersCount))
                                 .font(.custom("OpenSans-Regular", size: 13))
                                 .foregroundStyle(.secondary)
                         }
@@ -1116,6 +1240,8 @@ struct DiscoveryPersonRow: View {
                 }
             }
             .buttonStyle(PlainButtonStyle())
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(buildPersonAccessibilityLabel())
 
             Spacer(minLength: 8)
 
@@ -1166,15 +1292,22 @@ struct DiscoveryPersonRow: View {
                 .animation(.spring(response: 0.3, dampingFraction: 0.7), value: showCheckmark)
             }
             .buttonStyle(ScaleButtonStyle())
+            // P2: Accessibility — announce follow state to VoiceOver
+            .accessibilityLabel(localIsFollowing ? "Following \(user.displayName)" : "Follow \(user.displayName)")
+            .accessibilityHint(localIsFollowing ? "Tap to unfollow" : "Tap to follow")
+            .accessibilityAddTraits(localIsFollowing ? [.isSelected] : [])
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 11)
         .opacity(appeared ? 1 : 0)
         .offset(y: appeared ? 0 : 8)
         .onAppear {
-            // Initialize local follow state from prop on first appear
+            // P1: Initialize local follow state from prop on first appear
+            // (must be here, not in init, because @State is reset on re-creation)
             localIsFollowing = isFollowing
-            let delay = min(Double(cardIndex) * 0.04, 0.25)
+            // P1: Cap stagger at 6 items (0.04 * 6 = 0.24s max) — beyond that no delay
+            // Avoids long "waterfall" when a large list is scrolled into view.
+            let delay = cardIndex < 8 ? Double(cardIndex) * 0.04 : 0
             withAnimation(.spring(response: 0.35, dampingFraction: 0.8).delay(delay)) {
                 appeared = true
             }
@@ -1189,52 +1322,172 @@ struct DiscoveryPersonRow: View {
             }
         }
     }
+
+    // P2: Format large follower counts readably
+    private func formatFollowerCount(_ count: Int) -> String {
+        if count >= 1_000_000 { return String(format: "%.1fM", Double(count) / 1_000_000) }
+        if count >= 1_000 { return String(format: "%.1fK", Double(count) / 1_000) }
+        return "\(count)"
+    }
+
+    private func buildPersonAccessibilityLabel() -> String {
+        var parts = [user.displayName, "@\(user.username)"]
+        if user.followersCount > 0 {
+            parts.append("\(formatFollowerCount(user.followersCount)) followers")
+        }
+        if let bio = user.bio, !bio.isEmpty { parts.append(bio) }
+        return parts.joined(separator: ", ")
+    }
 }
 
 // MARK: - Discovery Post Row
 
 struct DiscoveryPostRow: View {
     let post: AlgoliaPost
+    // P0: Post rows must be navigatable — state for sheet presentation
+    @State private var navigateToPost = false
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: "doc.text")
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(.secondary)
-                .frame(width: 22, height: 22)
-                .padding(.top, 1)
+        Button {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            navigateToPost = true
+        } label: {
+            HStack(alignment: .top, spacing: 12) {
+                // P2: Category-coloured icon instead of plain grey doc
+                ZStack {
+                    Circle()
+                        .fill(categoryColor(post.category).opacity(0.1))
+                        .frame(width: 36, height: 36)
+                    Image(systemName: categoryIcon(post.category))
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(categoryColor(post.category))
+                }
+                .accessibilityHidden(true)
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(post.content)
-                    .font(.custom("OpenSans-Regular", size: 14))
-                    .foregroundStyle(.primary)
-                    .lineLimit(2)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(post.content)
+                        .font(.custom("OpenSans-Regular", size: 14))
+                        .foregroundStyle(.primary)
+                        .lineLimit(2)
 
-                HStack(spacing: 6) {
-                    Text("by \(post.authorName)")
-                        .font(.custom("OpenSans-Medium", size: 12))
-                        .foregroundStyle(.secondary)
-
-                    Text("•").foregroundStyle(.tertiary)
-
-                    Text(post.category.capitalized)
-                        .font(.custom("OpenSans-Medium", size: 12))
-                        .foregroundStyle(.blue)
-
-                    if let count = post.amenCount, count > 0 {
-                        Text("•").foregroundStyle(.tertiary)
-                        Text("\(count) Amens")
-                            .font(.custom("OpenSans-Regular", size: 12))
+                    HStack(spacing: 6) {
+                        Text("by \(post.authorName)")
+                            .font(.custom("OpenSans-Medium", size: 12))
                             .foregroundStyle(.secondary)
+
+                        Text("•").foregroundStyle(.tertiary).accessibilityHidden(true)
+
+                        Text(post.category.capitalized)
+                            .font(.custom("OpenSans-Medium", size: 12))
+                            .foregroundStyle(categoryColor(post.category))
+
+                        if let count = post.amenCount, count > 0 {
+                            Text("•").foregroundStyle(.tertiary).accessibilityHidden(true)
+                            Text("\(count) Amens")
+                                .font(.custom("OpenSans-Regular", size: 12))
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
-            }
 
-            Spacer()
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.tertiary)
+                    .accessibilityHidden(true)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .contentShape(Rectangle())
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .contentShape(Rectangle())
+        .buttonStyle(DiscoveryPressStyle())
+        .accessibilityLabel("Post by \(post.authorName): \(post.content.prefix(100))")
+        .accessibilityHint("Tap to view post")
+        .sheet(isPresented: $navigateToPost) {
+            // Navigate to post detail — sheet is safe here since we're inside a list
+            if let postId = Optional(post.objectID), !postId.isEmpty {
+                NavigationView {
+                    PostDetailViewWrapper(postId: postId)
+                }
+            }
+        }
+    }
+
+    private func categoryIcon(_ category: String) -> String {
+        switch category.lowercased() {
+        case "prayer":     return "hands.sparkles"
+        case "testimony":  return "star.fill"
+        case "scripture":  return "book.fill"
+        case "devotional": return "heart.fill"
+        default:           return "doc.text"
+        }
+    }
+
+    private func categoryColor(_ category: String) -> Color {
+        switch category.lowercased() {
+        case "prayer":     return .purple
+        case "testimony":  return .orange
+        case "scripture":  return .blue
+        case "devotional": return .pink
+        default:           return .secondary
+        }
+    }
+}
+
+// Lightweight wrapper so PostDetailView loads by ID without requiring a full Post object
+private struct PostDetailViewWrapper: View {
+    let postId: String
+    @State private var post: Post?
+    @State private var isLoading = true
+    @State private var loadFailed = false
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        Group {
+            if isLoading {
+                VStack(spacing: 14) {
+                    AMENLoadingIndicator()
+                    Text("Loading post…")
+                        .font(.custom("OpenSans-Regular", size: 14))
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if loadFailed || post == nil {
+                VStack(spacing: 16) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.system(size: 40, weight: .light))
+                        .foregroundStyle(.orange)
+                    Text("Post unavailable")
+                        .font(.custom("OpenSans-SemiBold", size: 17))
+                    Button("Close") { dismiss() }
+                        .font(.custom("OpenSans-SemiBold", size: 15))
+                }
+            } else if let p = post {
+                PostDetailView(post: p)
+            }
+        }
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Done") { dismiss() }
+                    .font(.custom("OpenSans-SemiBold", size: 15))
+            }
+        }
+        .task {
+            do {
+                let doc = try await Firestore.firestore()
+                    .collection("posts").document(postId).getDocument()
+                if let p = try? doc.data(as: Post.self) {
+                    post = p
+                } else {
+                    loadFailed = true
+                }
+            } catch {
+                loadFailed = true
+            }
+            isLoading = false
+        }
     }
 }
 
@@ -1242,49 +1495,86 @@ struct DiscoveryPostRow: View {
 
 struct DiscoveryChurchRow: View {
     let church: ChurchEntity
+    @State private var showProfile = false
 
     var body: some View {
-        HStack(spacing: 12) {
-            // Church icon
-            ZStack {
-                Circle()
-                    .fill(Color(uiColor: .tertiarySystemFill))
-                    .frame(width: 46, height: 46)
-                Image(systemName: "building.columns.fill")
-                    .font(.system(size: 18, weight: .medium))
-                    .foregroundStyle(.secondary)
-            }
+        Button {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            showProfile = true
+        } label: {
+            HStack(spacing: 12) {
+                // P2: Show church logo/photo if available, fallback to icon
+                ZStack {
+                    Circle()
+                        .fill(Color(uiColor: .tertiarySystemFill))
+                        .frame(width: 46, height: 46)
 
-            VStack(alignment: .leading, spacing: 3) {
-                Text(church.name)
-                    .font(.custom("OpenSans-SemiBold", size: 15))
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
+                    if let logoURL = church.logoURL ?? church.photoURL,
+                       !logoURL.isEmpty,
+                       let url = URL(string: logoURL) {
+                        CachedAsyncImage(url: url) { image in
+                            image.resizable().scaledToFill()
+                                .frame(width: 46, height: 46)
+                                .clipShape(Circle())
+                        } placeholder: {
+                            Image(systemName: "building.columns.fill")
+                                .font(.system(size: 18, weight: .medium))
+                                .foregroundStyle(.secondary)
+                        }
+                    } else {
+                        Image(systemName: "building.columns.fill")
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .accessibilityHidden(true)
 
-                if !church.address.isEmpty {
-                    Text(church.address)
-                        .font(.custom("OpenSans-Regular", size: 13))
-                        .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(church.name)
+                        .font(.custom("OpenSans-SemiBold", size: 15))
+                        .foregroundStyle(.primary)
                         .lineLimit(1)
+
+                    if !church.address.isEmpty {
+                        Text(church.address)
+                            .font(.custom("OpenSans-Regular", size: 13))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+
+                    if let denom = church.denomination, !denom.isEmpty {
+                        Text(denom)
+                            .font(.custom("OpenSans-Regular", size: 12))
+                            .foregroundStyle(.tertiary)
+                            .lineLimit(1)
+                    }
                 }
 
-                if let denom = church.denomination, !denom.isEmpty {
-                    Text(denom)
-                        .font(.custom("OpenSans-Regular", size: 12))
-                        .foregroundStyle(.tertiary)
-                        .lineLimit(1)
-                }
+                Spacer(minLength: 8)
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.tertiary)
+                    .accessibilityHidden(true)
             }
-
-            Spacer(minLength: 8)
-
-            Image(systemName: "chevron.right")
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(.tertiary)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 11)
+            .contentShape(Rectangle())
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 11)
-        .contentShape(Rectangle())
+        .buttonStyle(DiscoveryPressStyle())
+        .accessibilityLabel("\(church.name)\(church.denomination.map { ", \($0)" } ?? "")")
+        .accessibilityHint("Tap to view church profile")
+        .sheet(isPresented: $showProfile) {
+            NavigationView {
+                ChurchProfileView(churchId: church.id)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button("Done") { showProfile = false }
+                                .font(.custom("OpenSans-SemiBold", size: 15))
+                        }
+                    }
+            }
+        }
     }
 }
 
@@ -1306,45 +1596,13 @@ struct DiscoveryPressStyle: ButtonStyle {
 
 struct SafeUserProfileWrapper: View {
     let userId: String
-    @State private var loadFailed = false
-    @State private var isLoading = true
     @Environment(\.dismiss) var dismiss
 
     var body: some View {
-        Group {
-            if loadFailed {
-                VStack(spacing: 20) {
-                    Image(systemName: "exclamationmark.triangle")
-                        .font(.system(size: 48))
-                        .foregroundStyle(.orange)
-                    Text("Unable to Load Profile")
-                        .font(.custom("OpenSans-Bold", size: 20))
-                    Text("This profile could not be loaded.")
-                        .font(.custom("OpenSans-Regular", size: 14))
-                        .foregroundStyle(.secondary)
-                    Button {
-                        dismiss()
-                    } label: {
-                        Text("Close")
-                            .font(.custom("OpenSans-SemiBold", size: 16))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 32)
-                            .padding(.vertical, 12)
-                            .background(RoundedRectangle(cornerRadius: 24).fill(.black))
-                    }
-                }
-            } else {
-                UserProfileView(userId: userId, showsDismissButton: true)
-                    .task {
-                        try? await Task.sleep(nanoseconds: 100_000_000)
-                        isLoading = false
-                    }
-            }
-        }
-        .task {
-            try? await Task.sleep(nanoseconds: 10_000_000_000)
-            if isLoading { loadFailed = true }
-        }
+        // P0: Removed the 10-second hard-timeout hack that falsely showed
+        // "load failed" on slow networks. UserProfileView handles its own
+        // loading/error states internally — just let it render directly.
+        UserProfileView(userId: userId, showsDismissButton: true)
     }
 }
 
@@ -1368,7 +1626,7 @@ struct TrendingTopicFeedView: View {
 
             if isLoading {
                 VStack(spacing: 14) {
-                    ProgressView().tint(.secondary)
+                    AMENLoadingIndicator()
                     Text("Loading posts…")
                         .font(.custom("OpenSans-Regular", size: 14))
                         .foregroundStyle(.secondary)
@@ -1447,12 +1705,23 @@ struct TrendingTopicFeedView: View {
         isLoading = true
         loadError = nil
         do {
-            // Fetch from all three main categories, filter by topicTag = topic.title, merge & sort
-            async let openTable = service.fetchPosts(for: .openTable, topicTag: topic.title, limit: 20)
-            async let testimonies = service.fetchPosts(for: .testimonies, topicTag: topic.title, limit: 10)
-            async let prayer = service.fetchPosts(for: .prayer, topicTag: topic.title, limit: 10)
-
-            let (ot, te, pr) = try await (openTable, testimonies, prayer)
+            // Fetch from all three main categories in parallel using withThrowingTaskGroup
+            // (async let tuple-await can crash with swift_task_dealloc on task cancellation)
+            var ot: [Post] = []
+            var te: [Post] = []
+            var pr: [Post] = []
+            try await withThrowingTaskGroup(of: (String, [Post]).self) { group in
+                group.addTask { ("ot", try await service.fetchPosts(for: .openTable, topicTag: topic.title, limit: 20)) }
+                group.addTask { ("te", try await service.fetchPosts(for: .testimonies, topicTag: topic.title, limit: 10)) }
+                group.addTask { ("pr", try await service.fetchPosts(for: .prayer, topicTag: topic.title, limit: 10)) }
+                for try await (key, posts) in group {
+                    switch key {
+                    case "ot": ot = posts
+                    case "te": te = posts
+                    default:   pr = posts
+                    }
+                }
+            }
             let combined = (ot + te + pr).sorted { $0.createdAt > $1.createdAt }
 
             // Deduplicate by firebaseId
@@ -1465,6 +1734,84 @@ struct TrendingTopicFeedView: View {
             loadError = error.localizedDescription
         }
         isLoading = false
+    }
+}
+
+// MARK: - Skeleton Views for Discovery
+
+/// Animated shimmer skeleton for a person row while data loads
+struct PersonRowSkeletonView: View {
+    @State private var shimmer = false
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Circle()
+                .fill(skeletonGradient)
+                .frame(width: 46, height: 46)
+
+            VStack(alignment: .leading, spacing: 6) {
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(skeletonGradient)
+                    .frame(width: 120, height: 12)
+
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(skeletonGradient)
+                    .frame(width: 80, height: 10)
+            }
+
+            Spacer()
+
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(skeletonGradient)
+                .frame(width: 72, height: 32)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 11)
+        .onAppear {
+            withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
+                shimmer = true
+            }
+        }
+    }
+
+    private var skeletonGradient: some ShapeStyle {
+        Color(uiColor: .systemFill).opacity(shimmer ? 0.5 : 1.0)
+    }
+}
+
+/// Animated shimmer skeleton for a trending topic row while data loads
+struct TrendingTopicSkeletonRow: View {
+    @State private var shimmer = false
+
+    var body: some View {
+        HStack(spacing: 14) {
+            Circle()
+                .fill(skeletonGradient)
+                .frame(width: 40, height: 40)
+
+            VStack(alignment: .leading, spacing: 6) {
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(skeletonGradient)
+                    .frame(width: 100, height: 12)
+
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(skeletonGradient)
+                    .frame(width: 60, height: 10)
+            }
+
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .onAppear {
+            withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
+                shimmer = true
+            }
+        }
+    }
+
+    private var skeletonGradient: some ShapeStyle {
+        Color(uiColor: .systemFill).opacity(shimmer ? 0.5 : 1.0)
     }
 }
 

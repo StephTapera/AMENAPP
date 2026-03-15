@@ -63,6 +63,11 @@ struct AmenShareSheet: View {
     let note: ChurchNote
     @Environment(\.dismiss) var dismiss
     @State private var showExternalShare = false
+    @State private var isSharing = false
+    @State private var showShareSuccess = false
+    @State private var shareSuccessMessage = ""
+    @State private var showShareError = false
+    @State private var shareErrorMessage = ""
     
     var body: some View {
         NavigationView {
@@ -142,67 +147,102 @@ struct AmenShareSheet: View {
         .sheet(isPresented: $showExternalShare) {
             ShareSheet(items: [generateShareText()])
         }
+        .alert("Shared!", isPresented: $showShareSuccess) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(shareSuccessMessage)
+        }
+        .alert("Share Failed", isPresented: $showShareError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(shareErrorMessage)
+        }
+        .disabled(isSharing)
     }
     
     // MARK: - Share Actions
     
     private func shareToOpenTable() {
-        // TODO: Implement OpenTable sharing
-        // This would create a new OpenTable post with the note content
-        print("📝 Sharing to OpenTable: \(note.title)")
-        
-        // Post to OpenTable with note content
-        Task {
-            // await OpenTableService.shared.createPost(
-            //     title: note.title,
-            //     content: generateShareText(),
-            //     tags: note.tags
-            // )
-            
-            await MainActor.run {
-                dismiss()
-                // Show success toast/alert
+        isSharing = true
+        Task { @MainActor in
+            defer { isSharing = false }
+            var content = note.title + "\n\n"
+            if let sermon = note.sermonTitle { content += "Sermon: \(sermon)\n" }
+            if let pastor = note.pastor { content += "Pastor: \(pastor)\n" }
+            if let church = note.churchName { content += "Church: \(church)\n" }
+            if let scripture = note.scripture { content += "\n\(scripture)\n" }
+            content += "\n\(note.content)"
+            if !note.tags.isEmpty {
+                content += "\n\n" + note.tags.map { "#\($0)" }.joined(separator: " ")
             }
+            PostsManager.shared.createPost(
+                content: content,
+                category: .openTable,
+                topicTag: note.tags.first ?? "ChurchNotes",
+                visibility: .everyone,
+                allowComments: true,
+                imageURLs: nil,
+                linkURL: nil,
+                churchNoteId: note.id
+            )
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            shareSuccessMessage = "Your note has been shared to OpenTable."
+            showShareSuccess = true
+            dismiss()
         }
     }
-    
+
     private func shareToTestimonies() {
-        // TODO: Implement Testimonies sharing
-        // This would create a new testimony with the note content
-        print("💜 Sharing to Testimonies: \(note.title)")
-        
-        Task {
-            // await TestimonyService.shared.createTestimony(
-            //     title: note.title,
-            //     content: note.content,
-            //     scripture: note.scripture,
-            //     tags: note.tags
-            // )
-            
-            await MainActor.run {
-                dismiss()
-                // Show success toast/alert
+        isSharing = true
+        Task { @MainActor in
+            defer { isSharing = false }
+            var content = note.title + "\n\n"
+            if let scripture = note.scripture { content += "\(scripture)\n\n" }
+            content += note.content
+            if !note.tags.isEmpty {
+                content += "\n\n" + note.tags.map { "#\($0)" }.joined(separator: " ")
             }
+            PostsManager.shared.createPost(
+                content: content,
+                category: .testimonies,
+                topicTag: note.tags.first ?? "Testimony",
+                visibility: .everyone,
+                allowComments: true,
+                imageURLs: nil,
+                linkURL: nil,
+                churchNoteId: note.id
+            )
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            shareSuccessMessage = "Your note has been shared as a Testimony."
+            showShareSuccess = true
+            dismiss()
         }
     }
-    
+
     private func shareToPrayer() {
-        // TODO: Implement Prayer sharing
-        // This would create a new prayer request with the note content
-        print("🙏 Sharing to Prayer: \(note.title)")
-        
-        Task {
-            // await PrayerService.shared.createPrayerRequest(
-            //     title: note.title,
-            //     description: note.content,
-            //     scripture: note.scripture,
-            //     tags: note.tags
-            // )
-            
-            await MainActor.run {
-                dismiss()
-                // Show success toast/alert
+        isSharing = true
+        Task { @MainActor in
+            defer { isSharing = false }
+            var content = note.title + "\n\n"
+            if let scripture = note.scripture { content += "\(scripture)\n\n" }
+            content += note.content
+            if !note.tags.isEmpty {
+                content += "\n\n" + note.tags.map { "#\($0)" }.joined(separator: " ")
             }
+            PostsManager.shared.createPost(
+                content: content,
+                category: .prayer,
+                topicTag: note.tags.first ?? "Prayer",
+                visibility: .everyone,
+                allowComments: true,
+                imageURLs: nil,
+                linkURL: nil,
+                churchNoteId: note.id
+            )
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            shareSuccessMessage = "Your note has been shared as a Prayer Request."
+            showShareSuccess = true
+            dismiss()
         }
     }
     

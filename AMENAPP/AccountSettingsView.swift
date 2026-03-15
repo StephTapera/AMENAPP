@@ -63,7 +63,6 @@ struct BiometricSettingRow: View {
 
 struct SundayChurchFocusSettingRow: View {
     @ObservedObject private var focusManager = SundayChurchFocusManager.shared
-    @State private var candleFlicker = false
     
     var body: some View {
         Toggle(isOn: Binding(
@@ -71,14 +70,16 @@ struct SundayChurchFocusSettingRow: View {
             set: { focusManager.setEnabled($0) }
         )) {
             HStack(spacing: 12) {
-                // Smart candle icon
+                // Candle icon — P2-1 FIX: Drive animation via .animation modifier
+                // instead of imperative withAnimation(.repeatForever) in onAppear.
+                // The old approach stacked new animations on every re-appear and never
+                // stopped them when the toggle was disabled.
                 ZStack {
-                    // Glow effect
+                    // Glow effect (only when enabled)
                     if focusManager.isEnabled {
                         Circle()
                             .fill(Color.orange.opacity(0.2))
                             .frame(width: 30, height: 30)
-                            .opacity(candleFlicker ? 0.6 : 1.0)
                     }
                     
                     // Candle with flame
@@ -96,18 +97,16 @@ struct SundayChurchFocusSettingRow: View {
                                     endPoint: .bottom
                                 )
                             )
-                            .offset(y: -8)
-                            .scaleEffect(candleFlicker ? 1.05 : 1.0)
+                            .scaleEffect(focusManager.isEnabled ? 1.05 : 1.0)
+                            .animation(
+                                focusManager.isEnabled
+                                    ? .easeInOut(duration: 1.5).repeatForever(autoreverses: true)
+                                    : .default,
+                                value: focusManager.isEnabled
+                            )
                     }
                 }
                 .frame(width: 24)
-                .onAppear {
-                    if focusManager.isEnabled {
-                        withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
-                            candleFlicker = true
-                        }
-                    }
-                }
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Shabbat Mode")
@@ -136,6 +135,15 @@ struct AccountSettingsView: View {
     @State private var showPrivacyDashboard = false
     @State private var isPrivateAccount = false
     @State private var isTogglingPrivacy = false
+
+    // Age / DOB (read-only, loaded from Firestore)
+    @State private var birthYear: Int? = nil
+    @State private var ageTierRaw: String? = nil
+
+    private var ageTierDisplayName: String {
+        guard let raw = ageTierRaw, let tier = AgeTier(rawValue: raw) else { return "Unknown" }
+        return tier.displayName
+    }
     
     var body: some View {
         NavigationStack {
@@ -230,6 +238,38 @@ struct AccountSettingsView: View {
                         }
                     }
                     .buttonStyle(PlainButtonStyle())
+
+                    // Date of Birth (read-only)
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Date of Birth")
+                                .font(.custom("OpenSans-SemiBold", size: 15))
+                                .foregroundStyle(.primary)
+
+                            if let year = birthYear {
+                                HStack(spacing: 6) {
+                                    Text("Born \(year)")
+                                        .font(.custom("OpenSans-Regular", size: 13))
+                                        .foregroundStyle(.secondary)
+                                    Text("·")
+                                        .foregroundStyle(.secondary)
+                                    Text(ageTierDisplayName)
+                                        .font(.custom("OpenSans-Regular", size: 13))
+                                        .foregroundStyle(.secondary)
+                                }
+                            } else {
+                                Text("Not set")
+                                    .font(.custom("OpenSans-Regular", size: 13))
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+
+                        Spacer()
+
+                        Image(systemName: "lock.fill")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.tertiary)
+                    }
                 } header: {
                     Text("ACCOUNT INFORMATION")
                         .font(.custom("OpenSans-Bold", size: 12))
@@ -397,6 +437,26 @@ struct AccountSettingsView: View {
                         .font(.custom("OpenSans-Regular", size: 12))
                 }
                 
+                // Translation & Language
+                Section {
+                    NavigationLink(destination: TranslationSettingsView()) {
+                        HStack {
+                            Image(systemName: "globe")
+                                .frame(width: 24)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Translation & Language")
+                                    .font(.custom("OpenSans-SemiBold", size: 15))
+                                Text(TranslationSettingsManager.shared.preferences.contentTranslationMode.displayLabel)
+                                    .font(.custom("OpenSans-Regular", size: 13))
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                } header: {
+                    Text("LANGUAGE")
+                        .font(.custom("OpenSans-Bold", size: 12))
+                }
+
                 // ✅ Scroll Budget & Wellbeing Controls
                 Section {
                     NavigationLink(destination: ScrollBudgetSettingsView()) {
@@ -470,6 +530,7 @@ struct AccountSettingsView: View {
                 Task {
                     await userService.fetchCurrentUser()
                     await loadPrivateAccountStatus()
+                    await loadAgeInfo()
                 }
             }
         }
@@ -515,7 +576,7 @@ struct AccountSettingsView: View {
 
             // Invalidate PrivacyAccessControl cache so all views immediately reflect the change.
             // This covers profile views, feed scoring, and comment gates for the current user.
-            await PrivacyAccessControl.shared.invalidateAll()
+            PrivacyAccessControl.shared.invalidateAll()
             NotificationCenter.default.post(name: .followRelationshipChanged, object: nil)
 
             // Success haptic
@@ -533,6 +594,20 @@ struct AccountSettingsView: View {
             // Error haptic
             let errorHaptic = UINotificationFeedbackGenerator()
             errorHaptic.notificationOccurred(.error)
+        }
+    }
+
+    private func loadAgeInfo() async {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        do {
+            let doc = try await Firestore.firestore().collection("users").document(uid).getDocument()
+            let data = doc.data() ?? [:]
+            await MainActor.run {
+                birthYear   = data["birthYear"] as? Int
+                ageTierRaw  = data["ageTier"]   as? String
+            }
+        } catch {
+            print("❌ Failed to load age info: \(error)")
         }
     }
 }

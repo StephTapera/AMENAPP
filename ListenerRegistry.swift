@@ -41,12 +41,12 @@ class ListenerRegistry {
     ) -> ListenerRegistration {
         // Return existing listener if available
         if let existing = activeListeners[key] {
-            print("📡 Using existing listener for key: \(key)")
+            dlog("📡 Using existing listener for key: \(key)")
             return existing
         }
-        
+
         // Create new listener
-        print("📡 Creating new listener for key: \(key)")
+        dlog("📡 Creating new listener for key: \(key)")
         let listener = create()
         activeListeners[key] = listener
         
@@ -59,7 +59,7 @@ class ListenerRegistry {
         if let listener = activeListeners[key] {
             listener.remove()
             activeListeners.removeValue(forKey: key)
-            print("📡 Removed listener for key: \(key)")
+            dlog("📡 Removed listener for key: \(key)")
         }
     }
     
@@ -72,14 +72,48 @@ class ListenerRegistry {
     
     /// Remove all listeners (useful for cleanup on logout)
     func removeAllListeners() {
-        print("📡 Removing all \(activeListeners.count) active listeners")
-        
+        dlog("📡 Removing all \(activeListeners.count) active listeners")
+
         for (key, listener) in activeListeners {
             listener.remove()
-            print("📡 Removed listener: \(key)")
+            dlog("📡 Removed listener: \(key)")
         }
         
         activeListeners.removeAll()
+        // Also clear the lightweight boolean gate set
+        activeKeys.removeAll()
+    }
+
+    // MARK: - Lightweight boolean gate (no ListenerRegistration needed)
+
+    /// A set of active service keys tracked without storing the underlying
+    /// ListenerRegistration object. Used as an idempotency guard for services
+    /// that manage their own listener handles internally.
+    private var activeKeys = Set<String>()
+
+    /// Marks `key` as active and returns `true` the first time it is seen.
+    /// Returns `false` on subsequent calls until `end(_:)` is called.
+    /// Useful for `guard ListenerRegistry.shared.begin("follow") else { return }` patterns.
+    @discardableResult
+    func begin(_ key: String) -> Bool {
+        guard !activeKeys.contains(key) else { return false }
+        activeKeys.insert(key)
+        return true
+    }
+
+    /// Removes `key` from the active set so it can be re-registered.
+    func end(_ key: String) {
+        activeKeys.remove(key)
+    }
+
+    /// Returns `true` if `key` is currently registered.
+    func isActive(_ key: String) -> Bool {
+        activeKeys.contains(key)
+    }
+
+    /// Reset all state (call on sign-out so the next sign-in starts fresh).
+    func reset() {
+        removeAllListeners()
     }
     
     /// Get count of active listeners (for debugging)

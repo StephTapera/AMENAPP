@@ -67,6 +67,13 @@ class PostInteractionsService: ObservableObject {
     }
     
     private var observers: [String: DatabaseHandle] = [:]
+    // SCALE FIX: Maximum number of simultaneously observed posts.
+    // At 2 handles per post (counts + commentsData) this caps RTDB concurrent
+    // connections at 60, well below Firebase's 100-per-client soft limit.
+    // When the cap is reached the oldest postId's listeners are evicted first.
+    private static let maxActivePostObservers = 30
+    // Insertion-order tracking so we can evict the oldest post when the cap is hit.
+    private var observerInsertionOrder: [String] = []   // postIds in observation order
 
     // P0 FIX: In-flight guards prevent concurrent toggle calls (rapid double-tap).
     // Keyed by postId so different posts can toggle independently.
@@ -267,11 +274,13 @@ class PostInteractionsService: ObservableObject {
     
     /// Get lightbulb count for post
     func getLightbulbCount(postId: String) async -> Int {
+        // Use in-memory cache if the real-time observer has already populated it
+        if let cached = postLightbulbs[postId] { return cached }
         do {
             let snapshot = try await ref.child("postInteractions").child(postId).child("lightbulbCount").getData()
             return snapshot.value as? Int ?? 0
         } catch {
-            dlog("❌ Failed to get lightbulb count: \(error)")
+            // Suppress noisy offline errors — observer will populate the value when connected
             return 0
         }
     }
@@ -395,11 +404,11 @@ class PostInteractionsService: ObservableObject {
     
     /// Get amen count for post
     func getAmenCount(postId: String) async -> Int {
+        if let cached = postAmens[postId] { return cached }
         do {
             let snapshot = try await ref.child("postInteractions").child(postId).child("amenCount").getData()
             return snapshot.value as? Int ?? 0
         } catch {
-            dlog("❌ Failed to get amen count: \(error)")
             return 0
         }
     }
@@ -657,11 +666,11 @@ class PostInteractionsService: ObservableObject {
     
     /// Get comment count for post
     func getCommentCount(postId: String) async -> Int {
+        if let cached = postComments[postId] { return cached }
         do {
             let snapshot = try await ref.child("postInteractions").child(postId).child("commentCount").getData()
             return snapshot.value as? Int ?? 0
         } catch {
-            dlog("❌ Failed to get comment count: \(error)")
             return 0
         }
     }
@@ -787,11 +796,11 @@ class PostInteractionsService: ObservableObject {
     
     /// Get repost count for post
     func getRepostCount(postId: String) async -> Int {
+        if let cached = postReposts[postId] { return cached }
         do {
             let snapshot = try await ref.child("postInteractions").child(postId).child("repostCount").getData()
             return snapshot.value as? Int ?? 0
         } catch {
-            dlog("❌ Failed to get repost count: \(error)")
             return 0
         }
     }
@@ -800,8 +809,22 @@ class PostInteractionsService: ObservableObject {
     
     /// Observe interactions for a specific post
     func observePostInteractions(postId: String) {
-        // Remove existing observers
+        // Already observing this post — skip re-registration.
+        // Without this guard every tab switch re-registers 40 RTDB listeners simultaneously
+        // (2 per card × 20 cards), which stalls the main thread and causes visible lag.
+        guard observers["\(postId)_counts"] == nil else { return }
+        // Remove any partial existing observers
         stopObservingPost(postId: postId)
+
+        // SCALE FIX: Enforce a hard cap on concurrent RTDB post observers.
+        // When the cap is reached, evict the oldest observer to make room.
+        let currentPostCount = observerInsertionOrder.count
+        if currentPostCount >= Self.maxActivePostObservers {
+            let evictCount = currentPostCount - Self.maxActivePostObservers + 1
+            let toEvict = Array(observerInsertionOrder.prefix(evictCount))
+            toEvict.forEach { stopObservingPost(postId: $0) }
+        }
+        observerInsertionOrder.append(postId)
         
         let postRef = ref.child("postInteractions").child(postId)
         
@@ -914,17 +937,27 @@ class PostInteractionsService: ObservableObject {
                 observers.removeValue(forKey: key)
             }
         }
+        observerInsertionOrder.removeAll { $0 == postId }
     }
     
     /// Stop ALL active observers — call on sign-out or when no posts are visible.
     func stopAllObservers() {
-        // Each key is formatted as "\(postId)_<suffix>" where suffix is one of the
-        // five known suffixes. We remove by handle directly on the root ref so we
-        // don't need to reconstruct the path (avoids any fragility with postId format).
-        for (_, handle) in observers {
-            ref.removeObserver(withHandle: handle)
+        // Each key is formatted as "\(postId)_counts" or "\(postId)_commentsData".
+        // Observers were registered on child refs (postInteractions/postId), so we
+        // must remove them on the same child ref, not the root ref.
+        let knownSuffixes = ["_counts", "_commentsData"]
+        for (key, handle) in observers {
+            var postId = key
+            for suffix in knownSuffixes {
+                if key.hasSuffix(suffix) {
+                    postId = String(key.dropLast(suffix.count))
+                    break
+                }
+            }
+            ref.child("postInteractions").child(postId).removeObserver(withHandle: handle)
         }
         observers.removeAll()
+        observerInsertionOrder.removeAll()
     }
     
     // MARK: - Load User Interactions

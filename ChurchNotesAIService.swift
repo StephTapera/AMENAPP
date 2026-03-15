@@ -251,19 +251,21 @@ enum AIServiceError: LocalizedError {
 struct ChurchNoteAIAssistantView: View {
     let note: ChurchNote
     @ObservedObject private var aiService = ChurchNotesAIService.shared
+    @ObservedObject private var premiumManager = PremiumManager.shared
     @State private var selectedFeature: AIFeature?
     @State private var result: String?
     @State private var showError = false
     @State private var errorMessage = ""
+    @State private var showUpgradeSheet = false
     @Environment(\.dismiss) var dismiss
-    
+
     enum AIFeature: String, CaseIterable {
         case summarize = "Summarize"
         case reflect = "Reflection Questions"
         case pray = "Create Prayer"
         case takeaways = "Key Takeaways"
         case recap = "Shareable Recap"
-        
+
         var icon: String {
             switch self {
             case .summarize: return "doc.text.magnifyingglass"
@@ -273,7 +275,7 @@ struct ChurchNoteAIAssistantView: View {
             case .recap: return "square.and.arrow.up"
             }
         }
-        
+
         var description: String {
             switch self {
             case .summarize: return "Get a concise summary of your notes"
@@ -283,6 +285,9 @@ struct ChurchNoteAIAssistantView: View {
             case .recap: return "Create a short, shareable version"
             }
         }
+
+        /// All features require Berean Pro to prevent unmetered AI cost.
+        var requiresPro: Bool { true }
     }
     
     var body: some View {
@@ -315,6 +320,11 @@ struct ChurchNoteAIAssistantView: View {
             } message: {
                 Text(errorMessage)
             }
+            .sheet(isPresented: $showUpgradeSheet) {
+                PremiumUpgradeView()
+                    .presentationDetents([.large])
+                    .presentationDragIndicator(.visible)
+            }
         }
     }
     
@@ -330,14 +340,44 @@ struct ChurchNoteAIAssistantView: View {
                     ForEach(AIFeature.allCases, id: \.self) { feature in
                         AIFeatureButton(
                             feature: feature,
-                            isProcessing: aiService.isProcessing && selectedFeature == feature
+                            isProcessing: aiService.isProcessing && selectedFeature == feature,
+                            isLocked: feature.requiresPro && !premiumManager.hasProAccess
                         ) {
                             runAIFeature(feature)
                         }
                     }
                 }
                 .padding(.horizontal, 20)
-                .padding(.bottom, 40)
+
+                // Free-tier nudge banner
+                if !premiumManager.hasProAccess {
+                    Button { showUpgradeSheet = true } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: "sparkles")
+                                .font(.system(size: 15, weight: .semibold))
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Unlock AI Church Notes")
+                                    .font(.system(size: 14, weight: .semibold))
+                                Text("Summarize sermons, create prayers & more with Berean Pro")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                        }
+                        .foregroundStyle(.primary)
+                        .padding(14)
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
+                        .overlay(RoundedRectangle(cornerRadius: 14)
+                            .strokeBorder(Color(uiColor: .separator).opacity(0.4), lineWidth: 0.5))
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 4)
+                    .padding(.bottom, 40)
+                }
             }
         }
     }
@@ -394,18 +434,24 @@ struct ChurchNoteAIAssistantView: View {
     }
     
     private func runAIFeature(_ feature: AIFeature) {
+        // Gate: require Berean Pro before calling AI backend
+        if feature.requiresPro && !premiumManager.hasProAccess {
+            showUpgradeSheet = true
+            return
+        }
+
         guard let userId = Auth.auth().currentUser?.uid else {
             errorMessage = "You must be signed in to use AI features"
             showError = true
             return
         }
-        
+
         selectedFeature = feature
-        
+
         Task {
             do {
                 let result: String
-                
+
                 switch feature {
                 case .summarize:
                     result = try await aiService.summarizeNotes(note, userId: userId)
@@ -418,15 +464,21 @@ struct ChurchNoteAIAssistantView: View {
                 case .recap:
                     result = try await aiService.createShareableRecap(note, userId: userId)
                 }
-                
+
                 await MainActor.run {
                     self.result = result
                     self.selectedFeature = nil
                 }
-                
+
+            } catch AIServiceError.rateLimitExceeded {
+                await MainActor.run {
+                    errorMessage = AIServiceError.rateLimitExceeded.errorDescription ?? "Rate limit reached."
+                    showError = true
+                    selectedFeature = nil
+                }
             } catch {
                 await MainActor.run {
-                    errorMessage = error.localizedDescription
+                    errorMessage = "The AI service is temporarily unavailable. Please try again shortly."
                     showError = true
                     selectedFeature = nil
                 }
@@ -438,44 +490,59 @@ struct ChurchNoteAIAssistantView: View {
 struct AIFeatureButton: View {
     let feature: ChurchNoteAIAssistantView.AIFeature
     let isProcessing: Bool
+    var isLocked: Bool = false
     let action: () -> Void
-    
+
     var body: some View {
         Button(action: action) {
             HStack(spacing: 16) {
-                Image(systemName: feature.icon)
-                    .font(.system(size: 24))
-                    .foregroundStyle(.blue)
-                    .frame(width: 40)
-                
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(feature.rawValue)
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(.black)
-                    
-                    Text(feature.description)
-                        .font(.system(size: 14))
-                        .foregroundStyle(.black.opacity(0.6))
+                ZStack {
+                    Image(systemName: feature.icon)
+                        .font(.system(size: 22))
+                        .foregroundStyle(isLocked ? Color(uiColor: .tertiaryLabel) : .blue)
+                        .frame(width: 40)
                 }
-                
+
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 6) {
+                        Text(feature.rawValue)
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(isLocked ? Color(uiColor: .secondaryLabel) : Color(uiColor: .label))
+                        if isLocked {
+                            Image(systemName: "lock.fill")
+                                .font(.system(size: 11))
+                                .foregroundStyle(Color(uiColor: .tertiaryLabel))
+                        }
+                    }
+
+                    Text(isLocked ? "Requires Berean Pro" : feature.description)
+                        .font(.system(size: 14))
+                        .foregroundStyle(Color(uiColor: .secondaryLabel))
+                }
+
                 Spacer()
-                
+
                 if isProcessing {
                     ProgressView()
-                        .tint(.black)
+                        .tint(Color(uiColor: .label))
+                } else if isLocked {
+                    Image(systemName: "lock.fill")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(Color(uiColor: .tertiaryLabel))
                 } else {
                     Image(systemName: "chevron.right")
                         .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(.black.opacity(0.3))
+                        .foregroundStyle(Color(uiColor: .tertiaryLabel))
                 }
             }
             .padding(16)
-            .background(Color.white)
-            .cornerRadius(12)
+            .background(Color(uiColor: .secondarySystemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
-                    .stroke(Color.black.opacity(0.1), lineWidth: 1)
+                    .stroke(Color(uiColor: .separator).opacity(0.5), lineWidth: 0.5)
             )
+            .opacity(isLocked ? 0.75 : 1.0)
         }
         .disabled(isProcessing)
     }

@@ -134,7 +134,7 @@ struct EnhancedCommentRow: View {
                             Text(userReaction?.rawValue ?? "React")
                                 .font(.custom("OpenSans-Medium", size: 12))
                         }
-                        .foregroundStyle(userReaction != nil ? userReaction!.color : .black.opacity(0.6))
+                        .foregroundStyle(userReaction?.color ?? .black.opacity(0.6))
                         .scaleEffect(reactionScale)
                     }
                     

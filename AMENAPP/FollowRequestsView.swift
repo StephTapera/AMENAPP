@@ -430,7 +430,7 @@ class FollowRequestsViewModel: ObservableObject {
                 .collection("notifications").addDocument(data: acceptedNotification)
             
             // Invalidate privacy cache so the requester's content access updates
-            await PrivacyAccessControl.shared.invalidate(userId: fromUserId)
+            PrivacyAccessControl.shared.invalidate(userId: fromUserId)
             NotificationCenter.default.post(
                 name: .followRelationshipChanged,
                 object: nil,
@@ -474,7 +474,7 @@ class FollowRequestsViewModel: ObservableObject {
             dlog("✅ Rejected/deleted follow request from: \(request.fromUserId)")
 
             // Invalidate privacy cache so the requester's pending state clears
-            await PrivacyAccessControl.shared.invalidate(userId: request.fromUserId)
+            PrivacyAccessControl.shared.invalidate(userId: request.fromUserId)
             
             let haptic = UIImpactFeedbackGenerator(style: .light)
             haptic.impactOccurred()

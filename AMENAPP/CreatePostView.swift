@@ -40,7 +40,6 @@ struct CreatePostView: View {
     @State private var allowComments = true
     @State private var commentPermission: CommentPermissionLevel = .everyone  // ✅ Comment permission level
     @State private var showCommentControls = false  // ✅ Show comment controls sheet
-    @State private var keyboardHeight: CGFloat = 0
     @State private var showingSuggestions = false
     @State private var hashtagSuggestions: [String] = []
     @State private var showingDraftSavedNotice = false
@@ -73,13 +72,60 @@ struct CreatePostView: View {
     @State private var recoveredDraft: Draft?
     @State private var uploadProgress: Double = 0.0
     @State private var isUploadingImages = false
-    
+
+    // MARK: - Camera (instant photo)
+    @State private var showingCamera = false
+    @State private var cameraImage: UIImage? = nil  // single captured photo
+
+    // MARK: - Poll composer
+    @State private var showingPoll = false
+    @State private var pollQuestion = ""
+    @State private var pollOptions: [String] = ["", ""]  // start with 2 blank options
+    @State private var pollDuration: PollDuration = .oneDay
+
+    // MARK: - Action card (camera / poll menu)
+    @State private var showingActionCard = false
+
+    // MARK: - Toolbar expand/collapse
+    @State private var isToolbarExpanded = false
+
+    enum PollDuration: String, CaseIterable, Identifiable {
+        case oneDay   = "1 day"
+        case threeDays = "3 days"
+        case oneWeek  = "1 week"
+        case noExpiry = "No expiry"
+        var id: String { rawValue }
+        var expiryDate: Date? {
+            switch self {
+            case .oneDay:    return Calendar.current.date(byAdding: .day, value: 1, to: Date())
+            case .threeDays: return Calendar.current.date(byAdding: .day, value: 3, to: Date())
+            case .oneWeek:   return Calendar.current.date(byAdding: .day, value: 7, to: Date())
+            case .noExpiry:  return nil
+            }
+        }
+    }
+
     // Tag people
     @State private var taggedUsers: [MentionedUser] = []
     @State private var showingTagPeopleSheet = false
+
+    // Audience / visibility
+    @State private var postVisibility: Post.PostVisibility = .everyone
+    @State private var showingAudienceSheet = false
+
+    // Scripture verse
+    @State private var attachedVerseReference: String = ""
+    @State private var attachedVerseText: String = ""
+    @State private var showingVersePickerSheet = false
+
+    // Church tag
+    @State private var taggedChurchId: String = ""
+    @State private var taggedChurchName: String = ""
+    @State private var showingChurchTagSheet = false
     
-    // P0-1 FIX: Prevent duplicate post creation
-    @State private var inFlightPostHash: Int? = nil
+    // P0-1 FIX: Prevent duplicate post creation using a UUID idempotency token.
+    // Using UUID instead of hashValue (hashValue is unstable across launches and collision-prone).
+    @State private var inFlightPostId: String? = nil
     
     // P0-2 FIX: Store delayed tasks for cancellation
     @State private var delayedTasks: [Task<Void, Never>] = []
@@ -123,6 +169,11 @@ struct CreatePostView: View {
     init(initialCategory: PostCategory? = nil) {
         if let category = initialCategory {
             _selectedCategory = State(initialValue: category)
+            // P1-3: Prayer posts default to followers-only comments + followers visibility for privacy
+            if category == .prayer {
+                _commentPermission = State(initialValue: .followersOnly)
+                _postVisibility = State(initialValue: .followers)
+            }
         }
     }
     
@@ -336,7 +387,7 @@ struct CreatePostView: View {
             .photosPicker(
                 isPresented: $showingImagePicker,
                 selection: $selectedImages,
-                maxSelectionCount: 2,
+                maxSelectionCount: 4,
                 matching: .images
             )
             .onChange(of: selectedImages) { _, newItems in
@@ -387,6 +438,26 @@ struct CreatePostView: View {
                         // Update allowComments based on permission
                         allowComments = (newValue != .nobody)
                     }
+            }
+            .sheet(isPresented: $showingAudienceSheet) {
+                PostAudienceSheet(selectedVisibility: $postVisibility)
+                    .presentationDetents([.medium])
+            }
+            .sheet(isPresented: $showingVersePickerSheet) {
+                PostVersePickerSheet(
+                    verseReference: $attachedVerseReference,
+                    verseText: $attachedVerseText,
+                    isPresented: $showingVersePickerSheet
+                )
+                .presentationDetents([.medium, .large])
+            }
+            .sheet(isPresented: $showingChurchTagSheet) {
+                PostChurchTagSheet(
+                    taggedChurchId: $taggedChurchId,
+                    taggedChurchName: $taggedChurchName,
+                    isPresented: $showingChurchTagSheet
+                )
+                .presentationDetents([.medium, .large])
             }
             .sheet(isPresented: $showModerationBlockingModal) {
                 if let decision = blockingModerationDecision {
@@ -450,18 +521,6 @@ struct CreatePostView: View {
             .sheet(isPresented: $showBereanToneSheet) {
                 bereanToneSheetContent
             }
-            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { notification in
-                if let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect {
-                    withAnimation(.easeOut(duration: 0.2)) {
-                        keyboardHeight = keyboardFrame.height
-                    }
-                }
-            }
-            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
-                withAnimation(.easeOut(duration: 0.2)) {
-                    keyboardHeight = 0
-                }
-            }
             .onReceive(NotificationCenter.default.publisher(for: Notification.Name("aiContentDetected"))) { notification in
                 if let userInfo = notification.userInfo,
                    let confidence = userInfo["confidence"] as? Double,
@@ -471,6 +530,12 @@ struct CreatePostView: View {
                     showAIContentAlert = true
                 }
             }
+        }
+        .interactiveDismissDisabled(!postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !selectedImageData.isEmpty || !linkURL.isEmpty || cameraImage != nil || showingPoll)
+        // Camera sheet — native UIImagePickerController for instant capture
+        .sheet(isPresented: $showingCamera) {
+            CameraImagePicker(image: $cameraImage)
+                .ignoresSafeArea()
         }
         .alert(errorTitle, isPresented: $showingErrorAlert) {
             // P1-6 FIX: Show retry button for network/upload errors
@@ -549,25 +614,30 @@ struct CreatePostView: View {
     
     // MARK: - Computed Properties
     private var canPost: Bool {
-        // Content validation - must have text and be within character limit
-        let hasContent = !postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let hasText = !postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         let isWithinLimit = postText.count <= 500
-        
-        // Block posting if over character limit
-        guard isWithinLimit else {
-            return false
-        }
-        
-        // If posting to #OPENTABLE or Prayer, topic tag is required
-        if selectedCategory == .openTable || selectedCategory == .prayer {
+        guard isWithinLimit else { return false }
+
+        let hasCameraPhoto = cameraImage != nil
+        let hasValidPoll = showingPoll && pollHasValidOptions
+
+        // Any of: text, camera photo, or valid poll qualifies as content
+        let hasContent = hasText || hasCameraPhoto || hasValidPoll
+
+        // Prayer requires a topic tag
+        if selectedCategory == .prayer {
             return hasContent && !selectedTopicTag.isEmpty
         }
-        
         return hasContent
+    }
+
+    private var pollHasValidOptions: Bool {
+        let filled = pollOptions.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        return filled.count >= 2
     }
     
     private var characterCountText: String {
-        "\(postText.count)/500 characters"
+        "\(postText.count) / 500"
     }
     
     private var characterCountColor: Color {
@@ -668,31 +738,47 @@ struct CreatePostView: View {
                 if selectedCategory == .openTable || selectedCategory == .prayer || selectedCategory == .testimonies {
                     topicTagSelectorView
                 }
+                if selectedCategory == .prayer || selectedCategory == .testimonies {
+                    verseSelectorView
+                }
                 textEditorView
-                if !selectedImageData.isEmpty {
-                    VStack(spacing: 8) {
-                        ImagePreviewGrid(images: $selectedImageData)
-                        
-                        // P1-4 FIX: Show upload progress when uploading
-                        if isUploadingImages {
-                            HStack(spacing: 12) {
-                                ProgressView(value: uploadProgress, total: 1.0)
-                                    .progressViewStyle(LinearProgressViewStyle(tint: Color(red: 0.31, green: 0.22, blue: 0.58)))
-                                    .frame(maxWidth: .infinity)
-                                
-                                Text("\(Int(uploadProgress * 100))%")
-                                    .font(.caption)
-                                    .fontWeight(.medium)
-                                    .foregroundColor(.secondary)
-                                    .frame(width: 40)
-                            }
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 8)
-                            .transition(.move(edge: .top).combined(with: .opacity))
+
+                // Camera photo preview (instant capture)
+                if let capturedImage = cameraImage {
+                    CameraAttachmentPreview(image: capturedImage) {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                            cameraImage = nil
                         }
                     }
                     .padding(.horizontal, 20)
+                    .transition(.scale(scale: 0.92).combined(with: .opacity))
+                    .animation(.spring(response: 0.35, dampingFraction: 0.8), value: cameraImage != nil)
                 }
+
+                // Library photo grid
+                if !selectedImageData.isEmpty {
+                    ImagePreviewGrid(images: $selectedImageData)
+                        .padding(.horizontal, 20)
+                }
+
+                // Poll composer card
+                if showingPoll {
+                    PollComposerCard(
+                        options: $pollOptions,
+                        duration: $pollDuration,
+                        onRemove: {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                                showingPoll = false
+                                pollOptions = ["", ""]
+                                pollDuration = .oneDay
+                            }
+                        }
+                    )
+                    .padding(.horizontal, 20)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .animation(.spring(response: 0.4, dampingFraction: 0.8), value: showingPoll)
+                }
+
                 ComposerLinkPreview(controller: linkController)
                     .padding(.horizontal, 20)
                     .animation(.spring(response: 0.35, dampingFraction: 0.8), value: linkController.activeURL)
@@ -743,147 +829,196 @@ struct CreatePostView: View {
                 .transition(.move(edge: .bottom).combined(with: .opacity))
                 .animation(.easeOut(duration: 0.15), value: postText.count > 400)
             }
-            
-            // Unified bottom toolbar: X | Draft | tools | POST
-            HStack(spacing: 10) {
-                // X (close) button — leftmost
+
+            // Collapsible toolbar pill: X | [scrollable tools] | POST
+            // X and POST are always pinned at the ends; the middle section
+            // scrolls horizontally so it never overflows the capsule bounds.
+            HStack(spacing: 0) {
+
+                // X (close) — always visible, left anchor
                 CompactGlassButton(icon: "xmark", isActive: false) {
                     isTextFieldFocused = false
                     if !postText.isEmpty { saveDraft() }
                     dismiss()
                 }
                 .accessibilityLabel("Close")
-                
-                // Draft button (slides in when text exists)
-                if !postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    CompactGlassButton(icon: "square.and.arrow.down", isActive: false) {
-                        isTextFieldFocused = false
-                        saveDraft()
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                            showingDraftSavedNotice = true
+                .padding(.leading, 4)
+
+                // ── Scrollable middle: expand toggle + tools ─────────────
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+
+                        // Expand / Collapse toggle — leftmost in the scroll area
+                        Button {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.75, blendDuration: 0.2)) {
+                                isToolbarExpanded.toggle()
+                            }
+                            let haptic = UIImpactFeedbackGenerator(style: .light)
+                            haptic.prepare()
+                            haptic.impactOccurred(intensity: 0.7)
+                        } label: {
+                            Image(systemName: isToolbarExpanded ? "chevron.left" : "ellipsis")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(Color.primary.opacity(0.6))
+                                .frame(width: 32, height: 32)
+                                .scaleEffect(isToolbarExpanded ? 0.95 : 1.0)
+                                .contentTransition(.symbolEffect(.replace.magic(fallback: .replace)))
                         }
-                        scheduleDelayedAction(seconds: 1.5) {
-                            withAnimation { showingDraftSavedNotice = false }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(isToolbarExpanded ? "Collapse toolbar" : "Expand toolbar")
+
+                        // ── Tools (only when expanded) ────────────────────
+                        if isToolbarExpanded {
+
+                            Rectangle()
+                                .fill(Color.white.opacity(0.25))
+                                .frame(width: 0.5, height: 22)
+                                .transition(.opacity)
+
+                            // Photo library
+                            CompactGlassButton(
+                                icon: "photo.fill",
+                                isActive: !selectedImageData.isEmpty,
+                                count: selectedImageData.count
+                            ) {
+                                showingImagePicker = true
+                            }
+                            .accessibilityLabel("Add photos")
+                            .transition(.scale.combined(with: .opacity))
+
+                            // Camera
+                            CompactGlassButton(
+                                icon: "camera.fill",
+                                isActive: cameraImage != nil
+                            ) {
+                                guard !showingPoll else { return }
+                                showingCamera = true
+                            }
+                            .accessibilityLabel("Take photo")
+                            .opacity(showingPoll ? 0.35 : 1.0)
+                            .transition(.scale.combined(with: .opacity))
+
+                            // Poll
+                            CompactGlassButton(
+                                icon: showingPoll ? "chart.bar.fill" : "chart.bar",
+                                isActive: showingPoll
+                            ) {
+                                guard cameraImage == nil else { return }
+                                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                                    showingPoll.toggle()
+                                    if !showingPoll {
+                                        pollOptions = ["", ""]
+                                        pollDuration = .oneDay
+                                    }
+                                }
+                            }
+                            .accessibilityLabel(showingPoll ? "Remove poll" : "Create poll")
+                            .opacity(cameraImage != nil ? 0.35 : 1.0)
+                            .transition(.scale.combined(with: .opacity))
+
+                            // Link
+                            CompactGlassButton(
+                                icon: "link",
+                                isActive: !linkURL.isEmpty || linkController.activeURL != nil
+                            ) {
+                                showingLinkSheet = true
+                            }
+                            .accessibilityLabel("Add link")
+                            .transition(.scale.combined(with: .opacity))
+
+                            // Schedule
+                            CompactGlassButton(
+                                icon: "calendar",
+                                isActive: scheduledDate != nil
+                            ) {
+                                showingScheduleSheet = true
+                            }
+                            .accessibilityLabel("Schedule post")
+                            .transition(.scale.combined(with: .opacity))
+
+                            // Community (comment controls)
+                            CompactGlassButton(
+                                icon: allowComments ? "bubble.left.and.bubble.right.fill" : "bubble.left.and.bubble.right",
+                                isActive: allowComments
+                            ) {
+                                showCommentControls = true
+                            }
+                            .accessibilityLabel("Comment controls")
+                            .transition(.scale.combined(with: .opacity))
+
+                            // Tag people
+                            CompactGlassButton(
+                                icon: "person.badge.plus",
+                                isActive: !taggedUsers.isEmpty,
+                                count: taggedUsers.count
+                            ) {
+                                showingTagPeopleSheet = true
+                            }
+                            .accessibilityLabel("Tag people")
+                            .transition(.scale.combined(with: .opacity))
+
+                            // Draft (only when text exists)
+                            if !postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                CompactGlassButton(icon: "square.and.arrow.down", isActive: false) {
+                                    isTextFieldFocused = false
+                                    saveDraft()
+                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                        showingDraftSavedNotice = true
+                                    }
+                                    scheduleDelayedAction(seconds: 1.5) {
+                                        withAnimation { showingDraftSavedNotice = false }
+                                    }
+                                }
+                                .accessibilityLabel("Save draft")
+                                .transition(.scale.combined(with: .opacity))
+                            }
                         }
                     }
-                    .accessibilityLabel("Save draft")
-                    .transition(.opacity.combined(with: .scale(scale: 0.8)))
+                    .padding(.horizontal, 6)
+                    .animation(.spring(response: 0.35, dampingFraction: 0.75, blendDuration: 0.2), value: isToolbarExpanded)
+                    .animation(.easeOut(duration: 0.15), value: postText.isEmpty)
                 }
-                
-                // Thin divider
-                Rectangle()
-                    .fill(Color.white.opacity(0.25))
-                    .frame(width: 0.5, height: 22)
-                
-                // Photo button
-                CompactGlassButton(
-                    icon: "photo.fill",
-                    isActive: !selectedImageData.isEmpty,
-                    count: selectedImageData.count
-                ) {
-                    withAnimation(.easeOut(duration: 0.15)) {
-                        showingImagePicker = true
-                    }
-                }
-                .accessibilityLabel("Add photos")
-                
-                // Link button
-                CompactGlassButton(
-                    icon: "link",
-                    isActive: !linkURL.isEmpty || linkController.activeURL != nil
-                ) {
-                    withAnimation(.easeOut(duration: 0.15)) {
-                        showingLinkSheet = true
-                    }
-                }
-                .accessibilityLabel("Add link")
-                
-                // Schedule button
-                CompactGlassButton(
-                    icon: "calendar",
-                    isActive: scheduledDate != nil
-                ) {
-                    withAnimation(.easeOut(duration: 0.15)) {
-                        showingScheduleSheet = true
-                    }
-                }
-                .accessibilityLabel("Schedule post")
-                
-                // Comment controls
-                CompactGlassButton(
-                    icon: allowComments ? "bubble.left.and.bubble.right.fill" : "bubble.left.and.bubble.right",
-                    isActive: allowComments
-                ) {
-                    showCommentControls = true
-                }
-                .accessibilityLabel("Comment controls")
-                
-                // Tag people button
-                CompactGlassButton(
-                    icon: "person.badge.plus",
-                    isActive: !taggedUsers.isEmpty,
-                    count: taggedUsers.count
-                ) {
-                    withAnimation(.easeOut(duration: 0.15)) {
-                        showingTagPeopleSheet = true
-                    }
-                }
-                .accessibilityLabel("Tag people")
-                
-                // Thin divider
-                Rectangle()
-                    .fill(Color.white.opacity(0.25))
-                    .frame(width: 0.5, height: 22)
-                
-                // POST button — rightmost, neumorphic send style
+                // Clip so tools don't visually bleed past the POST button
+                .clipped()
+
+                // ── POST button — always visible, right anchor ───────────
                 Button(action: {
                     guard canPost && !isPublishing else { return }
                     isTextFieldFocused = false
                     publishPost()
                 }) {
                     ZStack {
-                        // Outer neumorphic raised circle
                         Circle()
-                            .fill(
-                                LinearGradient(
-                                    colors: [
-                                        Color(.systemBackground).opacity(canPost ? 1.0 : 0.7),
-                                        Color(.secondarySystemBackground).opacity(canPost ? 1.0 : 0.7)
-                                    ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .frame(width: 36, height: 36)
-                            // Light shadow (top-left highlight)
-                            .shadow(color: Color.white.opacity(0.8), radius: 3, x: -2, y: -2)
-                            // Dark shadow (bottom-right depth)
-                            .shadow(color: Color.black.opacity(0.18), radius: 4, x: 2, y: 2)
-                        
-                        // Inner pressed inset when disabled/inactive
-                        if !canPost {
-                            Circle()
-                                .fill(Color(.tertiarySystemBackground).opacity(0.6))
-                                .frame(width: 28, height: 28)
-                                .shadow(color: Color.black.opacity(0.08), radius: 2, x: 1, y: 1)
-                        }
-                        
+                            .fill(Color(red: 0.91, green: 0.91, blue: 0.93).opacity(canPost ? 1.0 : 0.55))
+                            .frame(width: 38, height: 38)
+                            .shadow(color: Color.black.opacity(0.10), radius: 4, x: 0, y: 2)
+
                         if isPublishing {
                             ProgressView()
-                                .tint(Color(.label))
-                                .scaleEffect(0.75)
-                        } else {
-                            Image(systemName: scheduledDate != nil ? "calendar.badge.clock" : "paperplane.fill")
+                                .tint(Color(red: 0.92, green: 0.15, blue: 0.26))
+                                .scaleEffect(0.80)
+                        } else if scheduledDate != nil {
+                            Image(systemName: "calendar.badge.clock")
                                 .font(.system(size: 14, weight: .bold))
-                                .foregroundStyle(canPost ? Color(.label) : Color(.label).opacity(0.3))
+                                .foregroundStyle(canPost
+                                    ? Color(red: 0.92, green: 0.15, blue: 0.26)
+                                    : Color(red: 0.92, green: 0.15, blue: 0.26).opacity(0.30))
+                        } else {
+                            UpwardArrowIcon(
+                                size: 18,
+                                color: canPost
+                                    ? Color(red: 0.92, green: 0.15, blue: 0.26)
+                                    : Color(red: 0.92, green: 0.15, blue: 0.26).opacity(0.30)
+                            )
                         }
                     }
                 }
                 .disabled(!canPost || isPublishing || isUploadingImages)
                 .accessibilityLabel(scheduledDate != nil ? "Schedule post" : "Publish post")
                 .modifier(ShakeEffect(shakes: shakePublishButton ? 3 : 0))
+                .padding(.trailing, 4)
             }
-            .padding(.horizontal, 12)
+            .padding(.horizontal, 4)
             .padding(.vertical, 8)
             .background(
                 ZStack {
@@ -919,6 +1054,7 @@ struct CreatePostView: View {
             .padding(.horizontal, 20)
             .padding(.bottom, 6)
         }
+        .animation(.spring(response: 0.35, dampingFraction: 0.75, blendDuration: 0.2), value: isToolbarExpanded)
         .animation(.easeOut(duration: 0.15), value: selectedImageData.count)
         .animation(.easeOut(duration: 0.15), value: linkURL)
         .animation(.easeOut(duration: 0.15), value: scheduledDate)
@@ -1013,7 +1149,7 @@ struct CreatePostView: View {
                 
                 Text(selectedTopicTag)
                     .font(.custom("OpenSans-Bold", size: 15))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
             }
             
             Spacer()
@@ -1029,6 +1165,189 @@ struct CreatePostView: View {
         )
     }
     
+    // MARK: - Audience Selector
+
+    private var audienceSelectorView: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "person.2.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.blue)
+                Text("Audience")
+                    .font(.custom("OpenSans-Bold", size: 15))
+                    .foregroundStyle(.primary)
+                Spacer()
+            }
+
+            Button {
+                withAnimation(.easeOut(duration: 0.2)) {
+                    showingAudienceSheet = true
+                }
+            } label: {
+                HStack {
+                    Image(systemName: postVisibility.icon)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(postVisibility.tintColor)
+                    Text(postVisibility.displayName)
+                        .font(.custom("OpenSans-Bold", size: 15))
+                        .foregroundStyle(.primary)
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                }
+                .padding(14)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color(.systemGray6))
+                )
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 4)
+    }
+
+    // MARK: - Verse Picker
+
+    private var verseSelectorView: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "book.closed.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.orange)
+                Text("Scripture")
+                    .font(.custom("OpenSans-Bold", size: 15))
+                    .foregroundStyle(.primary)
+                Spacer()
+                Text("Optional")
+                    .font(.custom("OpenSans-SemiBold", size: 12))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Capsule().fill(Color.gray.opacity(0.1)))
+            }
+
+            Button {
+                withAnimation(.easeOut(duration: 0.2)) {
+                    showingVersePickerSheet = true
+                }
+            } label: {
+                HStack {
+                    if attachedVerseReference.isEmpty {
+                        Text("Attach a Bible verse")
+                            .font(.custom("OpenSans-Regular", size: 15))
+                            .foregroundStyle(.secondary)
+                    } else {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(attachedVerseReference)
+                                .font(.custom("OpenSans-Bold", size: 15))
+                                .foregroundStyle(.primary)
+                            if !attachedVerseText.isEmpty {
+                                Text(attachedVerseText)
+                                    .font(.custom("OpenSans-Regular", size: 13))
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(2)
+                            }
+                        }
+                    }
+                    Spacer()
+                    if !attachedVerseReference.isEmpty {
+                        Button {
+                            withAnimation {
+                                attachedVerseReference = ""
+                                attachedVerseText = ""
+                            }
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 16))
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                    } else {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(14)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color(.systemGray6))
+                )
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 4)
+    }
+
+    // MARK: - Church Tag
+
+    private var churchTagView: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "building.columns.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.indigo)
+                Text("Tag a Church")
+                    .font(.custom("OpenSans-Bold", size: 15))
+                    .foregroundStyle(.primary)
+                Spacer()
+                Text("Optional")
+                    .font(.custom("OpenSans-SemiBold", size: 12))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Capsule().fill(Color.gray.opacity(0.1)))
+            }
+
+            Button {
+                withAnimation(.easeOut(duration: 0.2)) {
+                    showingChurchTagSheet = true
+                }
+            } label: {
+                HStack {
+                    if taggedChurchName.isEmpty {
+                        Text("Tag your church")
+                            .font(.custom("OpenSans-Regular", size: 15))
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text(taggedChurchName)
+                            .font(.custom("OpenSans-Bold", size: 15))
+                            .foregroundStyle(.primary)
+                    }
+                    Spacer()
+                    if !taggedChurchName.isEmpty {
+                        Button {
+                            withAnimation {
+                                taggedChurchId = ""
+                                taggedChurchName = ""
+                            }
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 16))
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                    } else {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(14)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color(.systemGray6))
+                )
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 4)
+    }
+
     private var textEditorView: some View {
         VStack(alignment: .leading, spacing: 12) {
             GeometryReader { geometry in
@@ -1053,6 +1372,8 @@ struct CreatePostView: View {
                                 detectHashtags(in: snapshot)
                             }
                             linkController.handleTextChange(newValue)
+                            // P1-4: Debounced autosave — saves 3s after user stops typing
+                            scheduleAutosave()
                         }
                     
                     // Placeholder overlay
@@ -1218,40 +1539,59 @@ struct CreatePostView: View {
     }
     
     private func scheduleIndicatorView(scheduledDate: Date) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: "calendar.badge.clock")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(.green)
-            
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Scheduled for")
-                    .font(.custom("OpenSans-SemiBold", size: 12))
-                    .foregroundStyle(.secondary)
-                
-                ScheduledWhenLine(date: scheduledDate)
+        // Premium widget-style schedule indicator — matches SchedulePostSheet design language
+        let accent     = Color(red: 0.98, green: 0.82, blue: 0.18)
+        let accentDark = Color(red: 0.14, green: 0.10, blue: 0.02)
+        let ink        = Color(red: 0.10, green: 0.10, blue: 0.10)
+
+        return HStack(spacing: 0) {
+            // Left accent block — day number
+            VStack(spacing: 1) {
+                Text(scheduledDate, format: .dateTime.weekday(.abbreviated))
+                    .font(.custom("OpenSans-Bold", size: 9))
+                    .foregroundStyle(accentDark.opacity(0.75))
+                    .tracking(0.8)
+                    .textCase(.uppercase)
+                Text(scheduledDate, format: .dateTime.day())
+                    .font(.system(size: 22, weight: .black))
+                    .foregroundStyle(accentDark)
             }
-            
-            Spacer()
-            
-            Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                    self.scheduledDate = nil
+            .frame(width: 48)
+            .padding(.vertical, 10)
+            .background(accent)
+
+            // Right info section
+            HStack(spacing: 10) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Scheduled for")
+                        .font(.custom("OpenSans-Regular", size: 11))
+                        .foregroundStyle(ink.opacity(0.50))
+                    ScheduledWhenLine(date: scheduledDate)
                 }
-            } label: {
-                Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 20))
-                    .foregroundStyle(.secondary)
+                Spacer()
+                Button {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        self.scheduledDate = nil
+                    }
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                } label: {
+                    ZStack {
+                        Circle()
+                            .fill(ink.opacity(0.07))
+                            .frame(width: 28, height: 28)
+                        Image(systemName: "xmark")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(ink.opacity(0.55))
+                    }
+                }
             }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity)
+            .background(Color(red: 0.97, green: 0.97, blue: 0.95))
         }
-        .padding(12)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.green.opacity(0.1))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(Color.green.opacity(0.3), lineWidth: 1)
-        )
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .shadow(color: Color.black.opacity(0.07), radius: 8, y: 2)
         .padding(.horizontal, 20)
         .transition(.scale.combined(with: .opacity))
     }
@@ -1296,6 +1636,11 @@ struct CreatePostView: View {
             selectedCategory = category
             updateHashtagSuggestions()
         }
+        // P1-3: Prayer posts default to followers-only comments for privacy
+        if category == .prayer {
+            commentPermission = .followersOnly
+            allowComments = true
+        }
     }
     
     // MARK: - Prayer Type Helpers
@@ -1335,7 +1680,7 @@ struct CreatePostView: View {
         case .followersOnly:
             return .following
         case .mutualsOnly:
-            return .mentioned  // Map mutuals to mentioned (closest match)
+            return .mentioned  // Stored as "mentioned" in Firestore; CommentService maps it back to .mutualsOnly → enforces mutual-follow check correctly
         case .nobody:
             return .off
         }
@@ -1598,7 +1943,7 @@ struct CreatePostView: View {
             category: selectedCategory.rawValue,
             topicTag: selectedTopicTag.isEmpty ? nil : selectedTopicTag,
             linkURL: linkURL.isEmpty ? nil : linkURL,
-            visibility: "everyone"
+            visibility: postVisibility.rawValue
         )
         
         withAnimation {
@@ -1649,16 +1994,17 @@ struct CreatePostView: View {
         showMentionSuggestions = false
         mentionSuggestions = []
         
-        // P0-3 FIX: Block duplicate post attempts using a stable hash of
-        // the actual content + category so rapid double-taps are deduplicated.
-        let contentHash = "\(postText)|\(selectedCategory.rawValue)|\(selectedTopicTag)".hashValue
-        if let existingHash = inFlightPostHash, existingHash == contentHash {
-            dlog("⚠️ [P0-1] Duplicate post blocked (hash: \(contentHash))")
-            return
-        }
-        
+        // P0-1 FIX: Check isPublishing FIRST — fastest, cheapest guard.
         guard !isPublishing else {
             dlog("⚠️ Already publishing, skipping")
+            return
+        }
+
+        // P0-1 FIX: Block duplicate taps using a UUID idempotency token.
+        // A non-nil inFlightPostId means a publish is already in progress;
+        // nil it out on every success/failure/validation path so the user can retry.
+        guard inFlightPostId == nil else {
+            dlog("⚠️ [P0-1] Duplicate post blocked (in-flight id: \(inFlightPostId!))")
             return
         }
         
@@ -1678,12 +2024,12 @@ struct CreatePostView: View {
                 title: "Slow Down",
                 message: "You're posting quite frequently. \(unlockMessage)"
             )
-            inFlightPostHash = nil
+            inFlightPostId = nil
             return
         }
         
-        // Set in-flight hash immediately to block duplicates
-        inFlightPostHash = contentHash
+        // Set idempotency token immediately to block concurrent duplicates
+        inFlightPostId = UUID().uuidString
         
         // Dismiss keyboard
         isTextFieldFocused = false
@@ -1695,7 +2041,7 @@ struct CreatePostView: View {
         
         guard !sanitizedContent.isEmpty else {
             dlog("❌ Empty post detected")
-            inFlightPostHash = nil  // P1 FIX: Allow retry after fixing validation error
+            inFlightPostId = nil  // P1 FIX: Allow retry after fixing validation error
             showError(
                 title: "Empty Post",
                 message: "Please write something before posting."
@@ -1705,7 +2051,7 @@ struct CreatePostView: View {
         
         guard sanitizedContent.count <= 500 else {
             dlog("❌ Post too long: \(sanitizedContent.count) characters")
-            inFlightPostHash = nil  // P1 FIX: Allow retry after fixing validation error
+            inFlightPostId = nil  // P1 FIX: Allow retry after fixing validation error
             showError(
                 title: "Post Too Long",
                 message: "Your post is \(sanitizedContent.count - 500) characters over the limit. Please shorten it to 500 characters or less."
@@ -1716,7 +2062,7 @@ struct CreatePostView: View {
         // Validate topic tag for #OPENTABLE and Prayer
         if (selectedCategory == .openTable || selectedCategory == .prayer) && selectedTopicTag.isEmpty {
             dlog("❌ Topic tag required but missing")
-            inFlightPostHash = nil  // P1 FIX: Allow retry after fixing validation error
+            inFlightPostId = nil  // P1 FIX: Allow retry after fixing validation error
             showError(
                 title: "Topic Tag Required",
                 message: selectedCategory == .openTable ? 
@@ -1729,7 +2075,7 @@ struct CreatePostView: View {
         // Validate link URL if provided
         if !linkURL.isEmpty && !isValidURL(linkURL) {
             dlog("❌ Invalid link URL: \(linkURL)")
-            inFlightPostHash = nil  // P1 FIX: Allow retry after fixing validation error
+            inFlightPostId = nil  // P1 FIX: Allow retry after fixing validation error
             showError(
                 title: "Invalid Link",
                 message: "The link you provided is not valid. Please enter a complete URL starting with http:// or https://"
@@ -1740,7 +2086,7 @@ struct CreatePostView: View {
         // Validate image count
         if selectedImageData.count > 4 {
             dlog("❌ Too many images: \(selectedImageData.count)")
-            inFlightPostHash = nil  // P1 FIX: Allow retry after fixing validation error
+            inFlightPostId = nil  // P1 FIX: Allow retry after fixing validation error
             showError(
                 title: "Too Many Images",
                 message: "You can only attach up to 4 images per post. Please remove \(selectedImageData.count - 4) image(s)."
@@ -1753,9 +2099,18 @@ struct CreatePostView: View {
         // ============================================================================
         // ✅ HEY FEED: Think First Guardrails + MODERATION CONSTITUTION Stage 1
         // ============================================================================
+        // P1-5: Show loading state immediately so the user gets feedback during safety evaluation
+        isPublishing = true
         Task {
             // ── Stage 1: ModerationIngestService (local guard + doxxing + grooming) ──
-            let authorId = Auth.auth().currentUser?.uid ?? ""
+            guard let authorId = Auth.auth().currentUser?.uid else {
+                await MainActor.run {
+                    isPublishing = false
+                    inFlightPostId = nil
+                    showError(title: "Not Signed In", message: "Please sign in again to post.")
+                }
+                return
+            }
             let ingestContentType: ModerationContentType = {
                 switch selectedCategory {
                 case .prayer: return .prayer
@@ -1773,13 +2128,15 @@ struct CreatePostView: View {
             switch preSubmitResult {
             case .block(let reason, _):
                 await MainActor.run {
-                    inFlightPostHash = nil
+                    isPublishing = false  // P1-5: clear loading state on block
+                    inFlightPostId = nil
                     showError(title: "Can't Post This", message: reason)
                 }
                 return
             case .requireEdit(let message, let redacted):
                 await MainActor.run {
-                    inFlightPostHash = nil
+                    isPublishing = false  // P1-5: clear loading state on edit required
+                    inFlightPostId = nil
                     if let redacted { postText = redacted }
                     showError(title: "Edit Required", message: message)
                 }
@@ -1787,7 +2144,8 @@ struct CreatePostView: View {
             case .softPrompt(let message, let canOverride):
                 if !canOverride {
                     await MainActor.run {
-                        inFlightPostHash = nil
+                        isPublishing = false  // P1-5: clear loading state on soft block
+                        inFlightPostId = nil
                         showError(title: "Content Notice", message: message)
                     }
                     return
@@ -1835,20 +2193,23 @@ struct CreatePostView: View {
                     #if DEBUG
                     dlog("⚠️ Think First: Soft prompt - showing user suggestions")
                     #endif
+                    isPublishing = false  // P1-5: clear spinner while user reviews the prompt sheet
                     showThinkFirstPrompt = true
-                    
+
                 case .requireEdit:
                     // Strongly recommend editing (e.g., PII detected with auto-redaction)
                     #if DEBUG
                     dlog("⚠️ Think First: Edit required - showing redaction options")
                     #endif
+                    isPublishing = false  // P1-5: clear spinner while user reviews the prompt sheet
                     showThinkFirstPrompt = true
-                    
+
                 case .block:
                     // Hard block for policy violations
                     #if DEBUG
                     dlog("🚫 Think First: Content blocked")
                     #endif
+                    isPublishing = false  // P1-5: clear spinner while user sees blocked sheet
                     showThinkFirstPrompt = true
                 }
             }
@@ -1911,6 +2272,23 @@ struct CreatePostView: View {
         linkURL: String?
     ) {
         Task {
+            // Safety net: if any unhandled throw escapes the do/catch below,
+            // ensure isPublishing and inFlightPostId are always cleared.
+            // Individual error paths each reset these explicitly; this defer
+            // is the last-resort guard against logic errors or future regressions.
+            defer {
+                Task { @MainActor in
+                    if isPublishing {
+                        isPublishing = false
+                        inFlightPostId = nil
+                        isUploadingImages = false
+                        uploadProgress = 0.0
+                    }
+                }
+            }
+            // Track uploaded Storage folder path so we can delete orphaned images
+            // if the Firestore write subsequently fails (see catch blocks below).
+            var uploadedGroupPath: String? = nil
             do {
                 dlog("🚀 Starting post creation...")
                 dlog("   Content length: \(content.count)")
@@ -1937,7 +2315,7 @@ struct CreatePostView: View {
                     dlog("🚫 [LocalGuard] Blocked (\(localGuard.category.rawValue)): content rejected before network")
                     await MainActor.run {
                         isPublishing = false
-                        inFlightPostHash = nil
+                        inFlightPostId = nil
                         notifyPostingFailed()
                         showError(
                             title: "Post Not Allowed",
@@ -1949,7 +2327,7 @@ struct CreatePostView: View {
                 // ─────────────────────────────────────────────────────────
 
                 // P1-1 FIX: PARALLEL MODERATION - Run all safety checks in parallel
-                let contentCategory: ContentCategory = category == .prayer ? .post : .post
+                let contentCategory: ContentCategory = .post
                 dlog("🛡️ Starting parallel moderation checks...")
                 
                 // TRUST & SAFETY: Export real authenticity signals from tracking
@@ -1970,7 +2348,7 @@ struct CreatePostView: View {
                     dlog("   Reason: \(aiResult.reason)")
                     await MainActor.run {
                         isPublishing = false
-                        inFlightPostHash = nil
+                        inFlightPostId = nil
                         notifyPostingFailed()
                         showError(
                             title: "Share Your Own Voice",
@@ -1985,7 +2363,7 @@ struct CreatePostView: View {
                     dlog("⚠️ Pasted/AI content detected - showing source label prompt (confidence: \(Int(aiResult.confidence * 100))%)")
                     await MainActor.run {
                         isPublishing = false
-                        inFlightPostHash = nil
+                        inFlightPostId = nil
                         notifyPostingFailed()
                         showSourcePrompt = true
                     }
@@ -2011,16 +2389,23 @@ struct CreatePostView: View {
                         .getDocument()
                 }
                 
+                // Merge camera image (if any) into the selectedImageData upload batch
+                if let camImg = cameraImage, let camData = camImg.jpegData(compressionQuality: 0.85) {
+                    await MainActor.run { selectedImageData.insert(camData, at: 0) }
+                }
+
                 // P0-3 FIX: Make image upload BLOCKING if images attached
                 var imageURLs: [String]? = nil
                 if !selectedImageData.isEmpty {
                     dlog("📤 Uploading \(selectedImageData.count) images (blocking)...")
                     do {
-                        imageURLs = try await uploadImages()
+                        let uploadResult = try await uploadImages()
+                        imageURLs = uploadResult.urls
+                        uploadedGroupPath = uploadResult.groupPath
                         dlog("✅ Images uploaded: \(imageURLs?.count ?? 0)")
                         
                         // Verify we got URLs back
-                        if imageURLs == nil || imageURLs!.isEmpty {
+                        if imageURLs?.isEmpty ?? true {
                             throw NSError(
                                 domain: "ImageUpload",
                                 code: -1,
@@ -2032,7 +2417,7 @@ struct CreatePostView: View {
                         // P1-6 FIX: Offer retry for network/upload errors
                         await MainActor.run {
                             isPublishing = false
-                            inFlightPostHash = nil
+                            inFlightPostId = nil
                             notifyPostingFailed()
                             let friendlyError = getUserFriendlyError(from: error)
                             
@@ -2136,7 +2521,7 @@ struct CreatePostView: View {
                     content: content,
                     category: category,
                     topicTag: topicTag,
-                    visibility: .everyone,
+                    visibility: postVisibility,
                     allowComments: allowComments,
                     commentPermissions: allowComments ? mapToPostCommentPermissions(commentPermission) : .off,
                     imageURLs: imageURLs,
@@ -2145,6 +2530,8 @@ struct CreatePostView: View {
                     linkPreviewDescription: linkController.metadata?.description,
                     linkPreviewImageURL: linkController.metadata?.imageURL?.absoluteString,
                     linkPreviewSiteName: linkController.metadata?.siteName,
+                    verseReference: attachedVerseReference.isEmpty ? nil : attachedVerseReference,
+                    verseText: attachedVerseText.isEmpty ? nil : attachedVerseText,
                     createdAt: timestamp,
                     amenCount: 0,
                     lightbulbCount: 0,
@@ -2165,6 +2552,12 @@ struct CreatePostView: View {
                         uniqueKeysWithValues: taggedUsers.map { ($0.userId, "approved") }
                     )
                 }
+
+                // Set church tag if provided
+                if !taggedChurchId.isEmpty {
+                    newPost.taggedChurchId = taggedChurchId
+                    newPost.taggedChurchName = taggedChurchName.isEmpty ? nil : taggedChurchName
+                }
                 
                 dlog("   ✅ Post object created: \(postId)")
                 
@@ -2176,7 +2569,7 @@ struct CreatePostView: View {
                     "content": content,
                     "category": category.rawValue,
                     "topicTag": topicTag as Any,
-                    "visibility": "everyone",
+                    "visibility": postVisibility.rawValue,
                     "allowComments": allowComments,
                     "imageURLs": imageURLs as Any,
                     "linkURL": (linkURL ?? linkController.activeURL?.absoluteString) as Any? as Any,
@@ -2233,7 +2626,46 @@ struct CreatePostView: View {
                     postData["contentSource"] = source
                     dlog("   🏷️ Content source label: \(source)")
                 }
-                
+
+                // ✅ Attached scripture verse (from verse picker)
+                if !attachedVerseReference.isEmpty {
+                    postData["verseReference"] = attachedVerseReference
+                    if !attachedVerseText.isEmpty {
+                        postData["verseText"] = attachedVerseText
+                    }
+                    dlog("   📖 Verse attached: \(attachedVerseReference)")
+                }
+
+                // ✅ Church tag
+                if !taggedChurchId.isEmpty {
+                    postData["taggedChurchId"] = taggedChurchId
+                    postData["taggedChurchName"] = taggedChurchName
+                    dlog("   ⛪ Church tagged: \(taggedChurchName)")
+                }
+
+                // ✅ Poll attachment
+                if showingPoll && pollHasValidOptions {
+                    let filledOptions = pollOptions
+                        .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+                        .map { PostPoll.PollOption(id: UUID().uuidString, text: $0, voteCount: 0) }
+                    let poll = PostPoll(
+                        question: pollQuestion.trimmingCharacters(in: .whitespacesAndNewlines),
+                        options: filledOptions,
+                        expiresAt: pollDuration.expiryDate,
+                        totalVotes: 0
+                    )
+                    postData["poll"] = poll.firestoreData
+                    dlog("   📊 Poll attached: \(filledOptions.count) options, expires: \(String(describing: pollDuration.expiryDate))")
+                }
+
+                // SECURITY: Stamp every post with moderationStatus="pending" so the
+                // server-side Cloud Function trigger (posts/{postId} onCreate) always
+                // runs a second-pass moderation check. A modified client that bypasses
+                // the pre-write checks above will still have this field present, and the
+                // Cloud Function will evaluate and delete the post if it violates policy.
+                postData["moderationStatus"] = "pending"
+                postData["clientSafetyVersion"] = 1
+
                 // P0-4 FIX: Check if post already exists (idempotency)
                 dlog("   🔍 Checking for existing post (idempotency)...")
                 let existingPost = try? await FirebaseManager.shared.firestore
@@ -2245,7 +2677,7 @@ struct CreatePostView: View {
                     dlog("⏭️ [P0-4] Post already created (idempotency): \(postId.uuidString)")
                     // Post already exists, skip creation but still show success
                     await MainActor.run {
-                        inFlightPostHash = nil
+                        inFlightPostId = nil
                         linkController.reset()
                         UserDefaults.standard.removeObject(forKey: "autoSavedDraft")
                         withAnimation { showingSuccessNotice = true }
@@ -2339,7 +2771,7 @@ struct CreatePostView: View {
                     dlog("✅ Notification sent successfully")
                     
                     // Clear state (P0-1, P1-2)
-                    inFlightPostHash = nil
+                    inFlightPostId = nil
                     postContentSource = nil  // reset source label for next post
                     UserDefaults.standard.removeObject(forKey: "autoSavedDraft")
                     
@@ -2397,9 +2829,14 @@ struct CreatePostView: View {
                 dlog("   Localized failure reason: \(error.localizedFailureReason ?? "none")")
                 dlog("   Localized recovery suggestion: \(error.localizedRecoverySuggestion ?? "none")")
 
+                // P0-7 FIX: Delete orphaned Storage images if the Firestore write failed.
+                if let groupPath = uploadedGroupPath {
+                    deleteStorageFolder(path: groupPath)
+                }
+
                 await MainActor.run {
                     isPublishing = false
-                    inFlightPostHash = nil  // P0-1 FIX: Clear hash on error
+                    inFlightPostId = nil  // P0-1 FIX: Clear hash on error
                     notifyPostingFailed()
                     ToastManager.shared.show(ToastNotification(
                         message: "Post failed to send. Please try again.",
@@ -2422,9 +2859,14 @@ struct CreatePostView: View {
                     dlog("   Recovery suggestion: \(error.recoverySuggestion ?? "none")")
                 }
 
+                // P0-7 FIX: Delete orphaned Storage images if the Firestore write failed.
+                if let groupPath = uploadedGroupPath {
+                    deleteStorageFolder(path: groupPath)
+                }
+
                 await MainActor.run {
                     isPublishing = false
-                    inFlightPostHash = nil  // P0-1 FIX: Clear hash on error
+                    inFlightPostId = nil  // P0-1 FIX: Clear hash on error
                     notifyPostingFailed()
                     ToastManager.shared.show(ToastNotification(
                         message: "Post failed to send. Please try again.",
@@ -2469,7 +2911,9 @@ struct CreatePostView: View {
         }
     }
     
-    private func uploadImages() async throws -> [String] {
+    /// Upload all selected images and return their download URLs along with the Storage group path
+    /// so callers can delete the whole folder if the subsequent Firestore write fails.
+    private func uploadImages() async throws -> (urls: [String], groupPath: String) {
         var imageURLs: [String] = []
         
         guard let userId = Auth.auth().currentUser?.uid else {
@@ -2482,7 +2926,7 @@ struct CreatePostView: View {
         
         // Validate image data before upload
         guard !selectedImageData.isEmpty else {
-            return []
+            return (urls: [], groupPath: "")
         }
         
         await MainActor.run {
@@ -2592,15 +3036,37 @@ struct CreatePostView: View {
             isUploadingImages = false
             uploadProgress = 0.0
         }
-        
-        // Warn user if some images failed but post can still be created
-        if failedUploads > 0 && !imageURLs.isEmpty {
-            dlog("⚠️ \(failedUploads) image(s) failed to upload, but continuing with \(imageURLs.count) successful upload(s)")
+
+        // If ANY image failed, throw — don't silently post with fewer images than the user selected.
+        // A user who selected 4 images expects all 4 to appear. Posting with 3 is a silent failure.
+        if failedUploads > 0 {
+            throw NSError(
+                domain: "ImageUpload",
+                code: -4,
+                userInfo: [NSLocalizedDescriptionKey: "\(failedUploads) of \(totalImages) image\(failedUploads == 1 ? "" : "s") failed to upload. Please check your connection and try again."]
+            )
         }
-        
-        return imageURLs
+
+        let groupPath = "post_media/\(userId)/\(uploadGroupId)"
+        return (urls: imageURLs, groupPath: groupPath)
     }
-    
+
+    /// Delete an entire Storage folder path to clean up orphaned images after a failed post write.
+    private func deleteStorageFolder(path: String) {
+        Task.detached(priority: .utility) {
+            do {
+                let folderRef = FirebaseManager.shared.storage.reference().child(path)
+                let listing = try await folderRef.listAll()
+                for item in listing.items {
+                    try? await item.delete()
+                }
+                dlog("🗑️ Cleaned up orphaned upload folder: \(path)")
+            } catch {
+                dlog("⚠️ Failed to clean up orphaned upload folder \(path): \(error)")
+            }
+        }
+    }
+
     /// Compress image to target size
     nonisolated private func compressImage(_ data: Data, maxSizeInMB: Double) -> Data? {
         guard let image = UIImage(data: data) else { return nil }
@@ -2630,7 +3096,8 @@ struct CreatePostView: View {
                 // Upload images first if any
                 var imageURLs: [String]? = nil
                 if !selectedImageData.isEmpty {
-                    imageURLs = try await uploadImages()
+                    let uploadResult = try await uploadImages()
+                    imageURLs = uploadResult.urls
                 }
                 
                 // MARK: - ✅ IMPLEMENTED: Scheduled Posts with Cloud Functions
@@ -2666,7 +3133,7 @@ struct CreatePostView: View {
                     }
                     
                     isPublishing = false
-                    inFlightPostHash = nil  // FIX: clear hash so user can post again after scheduling
+                    inFlightPostId = nil  // FIX: clear hash so user can post again after scheduling
                     
                     // P0-2 FIX: Cancellable dismiss
                     scheduleDelayedAction(seconds: 0.5) {
@@ -2677,6 +3144,7 @@ struct CreatePostView: View {
                 }
                 
                 // NOTE: Cloud Function will publish at scheduled time
+                // TODO: [BACKEND] Deploy executeScheduledPosts Cloud Function to publish pending scheduled posts
                 // Example Cloud Function (deploy separately):
                 // exports.publishScheduledPosts = functions.pubsub.schedule('every 1 minutes')
                 //   .onRun(async (context) => {
@@ -2770,11 +3238,23 @@ struct CreatePostView: View {
     private func startAutoSaveTimer() {
         autoSaveTask = Task { @MainActor in
             while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: 30_000_000_000) // 30 seconds
+                try? await Task.sleep(nanoseconds: 30_000_000_000) // 30 second heartbeat (text-change path handles frequent saves)
                 if !Task.isCancelled {
                     autoSaveDraft()
                 }
             }
+        }
+    }
+
+    /// P1-4: Debounced autosave triggered by text changes — saves 3 seconds after the user stops typing
+    private func scheduleAutosave() {
+        autoSaveTask?.cancel()
+        autoSaveTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 3_000_000_000) // 3 seconds after last keystroke
+            guard !Task.isCancelled else { return }
+            autoSaveDraft()
+            // Resume heartbeat loop after the debounce fires
+            startAutoSaveTimer()
         }
     }
     
@@ -2921,59 +3401,59 @@ struct GlassCategoryBar: View {
     let onSelect: (CreatePostView.PostCategory) -> Void
 
     var body: some View {
-        ScrollViewReader { proxy in
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 0) {
-                    ForEach(categories, id: \.self) { category in
-                        GlassCategorySegment(
-                            category: category,
-                            isSelected: selected == category,
-                            namespace: namespace
-                        ) {
-                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                            withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
-                                selected = category
-                            }
-                            onSelect(category)
-                        }
-                        .id(category)
+        HStack(spacing: 0) {
+            ForEach(categories, id: \.self) { category in
+                GlassCategorySegment(
+                    category: category,
+                    isSelected: selected == category,
+                    namespace: namespace
+                ) {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
+                        selected = category
                     }
+                    onSelect(category)
                 }
-                .padding(.horizontal, 5)
-                .padding(.vertical, 5)
-            }
-            .frame(height: 48)
-            // Outer pill — the glass container
-            .background(
-                Capsule()
-                    .fill(.ultraThinMaterial)
-                    .overlay(
-                        // Subtle top-edge specular highlight
-                        Capsule()
-                            .strokeBorder(
-                                LinearGradient(
-                                    colors: [
-                                        Color.white.opacity(0.55),
-                                        Color.white.opacity(0.10)
-                                    ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ),
-                                lineWidth: 1
-                            )
-                    )
-                    .shadow(color: Color.black.opacity(0.10), radius: 16, x: 0, y: 4)
-                    .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 1)
-            )
-            .clipShape(Capsule())
-            .onChange(of: selected) { _, newVal in
-                withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
-                    proxy.scrollTo(newVal, anchor: .center)
-                }
+                .id(category)
+                .frame(maxWidth: .infinity)
             }
         }
+        .padding(.horizontal, 5)
+        .padding(.vertical, 5)
+        .frame(height: 48)
+        // Outer pill — glass container
+        .background(
+            Capsule()
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    Capsule()
+                        .strokeBorder(
+                            LinearGradient(
+                                colors: [
+                                    Color.white.opacity(0.55),
+                                    Color.white.opacity(0.10)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1
+                        )
+                )
+                .shadow(color: Color.black.opacity(0.10), radius: 16, x: 0, y: 4)
+                .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 1)
+        )
+        .clipShape(Capsule())
+        // Static neon-red border around the outer capsule
+        .overlay(
+            Capsule()
+                .strokeBorder(
+                    Color.primary.opacity(0.75),
+                    lineWidth: 1.5
+                )
+        )
     }
 }
+
 
 /// A single segment inside GlassCategoryBar.
 private struct GlassCategorySegment: View {
@@ -2984,8 +3464,8 @@ private struct GlassCategorySegment: View {
 
     @State private var isPressed = false
 
-    // Label only shows for selected — matches Apple Music shrink-to-icon-when-unselected.
-    private var showLabel: Bool { isSelected }
+    // Label always visible so users can read every category at a glance.
+    private var showLabel: Bool { true }
 
     var body: some View {
         Button(action: action) {
@@ -3015,19 +3495,19 @@ private struct GlassCategorySegment: View {
                 // Icon + optional label
                 HStack(spacing: 5) {
                     Image(systemName: category.icon)
-                        .font(.system(size: 14, weight: isSelected ? .semibold : .regular))
+                        .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
                         .foregroundStyle(isSelected ? .primary : .secondary)
                         .symbolRenderingMode(.hierarchical)
 
                     if showLabel {
                         Text(segmentLabel)
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(.primary)
+                            .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
+                            .foregroundStyle(isSelected ? .primary : .secondary)
                             .lineLimit(1)
-                            .transition(.opacity.combined(with: .scale(scale: 0.85)))
+                            .minimumScaleFactor(0.8)
                     }
                 }
-                .padding(.horizontal, isSelected ? 13 : 11)
+                .padding(.horizontal, isSelected ? 10 : 8)
                 .padding(.vertical, 6)
             }
             // Minimum 44pt height for accessibility
@@ -3091,7 +3571,7 @@ struct EnhancedToolbarButton: View {
             VStack(spacing: 4) {
                 Image(systemName: icon)
                     .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(isActive ? activeColor : .black.opacity(0.6))
+                    .foregroundStyle(isActive ? activeColor : Color.primary.opacity(0.6))
                 
                 Text(label)
                     .font(.custom("OpenSans-SemiBold", size: 10))
@@ -3305,201 +3785,279 @@ struct TopicTagCard: View {
     }
 }
 
-// Schedule Post Sheet - Black & White Glassmorphic Design
+// Schedule Post Sheet - Premium Widget Design
 struct SchedulePostSheet: View {
     @Binding var isPresented: Bool
     @Binding var scheduledDate: Date?
     @State private var selectedDateTime = Date()
-    
+
+    // MARK: Design tokens — adaptive to light/dark mode
+    private let ink        = Color(uiColor: .label)
+    private let surface    = Color(uiColor: .secondarySystemBackground)
+    private let accent     = Color(red: 0.98, green: 0.82, blue: 0.18)   // warm amber-yellow accent
+    private let accentDark = Color(red: 0.14, green: 0.10, blue: 0.02)   // text on accent (always dark on yellow)
+    private let subtext    = Color(uiColor: .secondaryLabel)
+
     // Minimum schedule time is 5 minutes from now
     private var minimumDate: Date {
         Calendar.current.date(byAdding: .minute, value: 5, to: Date()) ?? Date()
     }
-    
+
+    // MARK: Formatted display helpers
+    private var dayOfWeek: String {
+        let f = DateFormatter(); f.dateFormat = "EEEE"; return f.string(from: selectedDateTime).uppercased()
+    }
+    private var dayNumber: String {
+        let f = DateFormatter(); f.dateFormat = "d"; return f.string(from: selectedDateTime)
+    }
+    private var monthYear: String {
+        let f = DateFormatter(); f.dateFormat = "MMM yyyy"; return f.string(from: selectedDateTime).uppercased()
+    }
+    private var timeString: String {
+        let f = DateFormatter(); f.dateFormat = "h:mm a"; return f.string(from: selectedDateTime)
+    }
+    private var timezoneString: String {
+        TimeZone.current.abbreviation() ?? "LOCAL"
+    }
+
     var body: some View {
-        ZStack(alignment: .topTrailing) {
-            // Main content
-            VStack(spacing: 24) {
-                // Header with glassmorphic design
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack(spacing: 12) {
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 0) {
+
+                // ── TOP NAV BAR ──────────────────────────────────────────
+                HStack {
+                    Button { isPresented = false } label: {
                         ZStack {
                             Circle()
-                                .fill(.ultraThinMaterial)
-                                .frame(width: 48, height: 48)
-                                .overlay(
-                                    Circle()
-                                        .stroke(Color.black.opacity(0.1), lineWidth: 1)
-                                )
-                            
-                            Image(systemName: "calendar.badge.clock")
-                                .font(.system(size: 24, weight: .semibold))
-                                .foregroundStyle(.black)
+                                .fill(Color.black.opacity(0.06))
+                                .frame(width: 34, height: 34)
+                            Image(systemName: "xmark")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(ink)
                         }
-                        
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Schedule Post")
-                                .font(.custom("OpenSans-Bold", size: 20))
-                                .foregroundStyle(.black)
-                            
-                            Text("Choose when to publish")
-                                .font(.custom("OpenSans-Regular", size: 14))
-                                .foregroundStyle(.black.opacity(0.6))
-                        }
-                        
-                        Spacer()
                     }
+                    .buttonStyle(.plain)
+                    Spacer()
+                    Text("Schedule Post")
+                        .font(.custom("OpenSans-Bold", size: 15))
+                        .foregroundStyle(ink)
+                    Spacer()
+                    // balance
+                    Circle()
+                        .fill(Color.clear)
+                        .frame(width: 34, height: 34)
                 }
                 .padding(.horizontal, 20)
-                .padding(.top, 60) // Space for X button
-                
-                // Date picker with glassmorphic background
-                VStack(spacing: 16) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("DATE & TIME")
-                            .font(.custom("OpenSans-Bold", size: 13))
-                            .foregroundStyle(.black.opacity(0.5))
-                            .tracking(1)
-                        
+                .padding(.top, 20)
+                .padding(.bottom, 16)
+
+                // ── HERO DATE WIDGET ────────────────────────────────────
+                // Two-zone card: dark left panel + light right panel
+                HStack(spacing: 0) {
+
+                    // LEFT — dark panel, large selected date
+                    VStack(alignment: .leading, spacing: 6) {
+                        Spacer()
+                        Text(dayOfWeek)
+                            .font(.custom("OpenSans-Bold", size: 11))
+                            .foregroundStyle(Color.white.opacity(0.55))
+                            .tracking(1.5)
+
+                        Text(dayNumber)
+                            .font(.system(size: 64, weight: .black, design: .default))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
+
+                        Text(monthYear)
+                            .font(.custom("OpenSans-SemiBold", size: 11))
+                            .foregroundStyle(Color.white.opacity(0.55))
+                            .tracking(1.0)
+
+                        Spacer()
+
+                        // Time badge — accent block
+                        HStack(spacing: 5) {
+                            Image(systemName: "clock.fill")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(accentDark)
+                            Text(timeString)
+                                .font(.custom("OpenSans-Bold", size: 13))
+                                .foregroundStyle(accentDark)
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(accent)
+                        )
+
+                        HStack(spacing: 4) {
+                            Image(systemName: "globe")
+                                .font(.system(size: 9))
+                                .foregroundStyle(Color.white.opacity(0.45))
+                            Text(timezoneString)
+                                .font(.custom("OpenSans-Regular", size: 10))
+                                .foregroundStyle(Color.white.opacity(0.45))
+                        }
+                        .padding(.top, 2)
+                        .padding(.bottom, 4)
+                    }
+                    .padding(20)
+                    .frame(width: 140)
+                    .frame(maxHeight: .infinity)
+                    .background(ink)
+
+                    // RIGHT — light panel, native date picker
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text("PICK DATE & TIME")
+                            .font(.custom("OpenSans-Bold", size: 10))
+                            .foregroundStyle(subtext)
+                            .tracking(1.2)
+                            .padding(.horizontal, 14)
+                            .padding(.top, 14)
+                            .padding(.bottom, 2)
+
                         DatePicker(
-                            "Schedule Time",
+                            "",
                             selection: $selectedDateTime,
                             in: minimumDate...,
                             displayedComponents: [.date, .hourAndMinute]
                         )
                         .datePickerStyle(.graphical)
-                        .padding(16)
-                        .background(
-                            ZStack {
-                                RoundedRectangle(cornerRadius: 20)
-                                    .fill(.ultraThinMaterial)
-                                
-                                RoundedRectangle(cornerRadius: 20)
-                                    .fill(
-                                        LinearGradient(
-                                            colors: [
-                                                Color.white.opacity(0.3),
-                                                Color.white.opacity(0.1)
-                                            ],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        )
-                                    )
-                                
-                                RoundedRectangle(cornerRadius: 20)
-                                    .stroke(Color.black.opacity(0.1), lineWidth: 1)
-                            }
-                        )
+                        .tint(ink)
+                        .padding(.horizontal, 6)
+                        .padding(.bottom, 10)
+                        .labelsHidden()
                     }
-                    
-                    // Info box with glassmorphic design
-                    HStack(spacing: 12) {
-                        Image(systemName: "info.circle.fill")
-                            .foregroundStyle(.black.opacity(0.7))
-                        
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Auto-publishes at selected time")
-                                .font(.custom("OpenSans-SemiBold", size: 13))
-                                .foregroundStyle(.black.opacity(0.8))
-                            
-                            Text("Minimum: 5 minutes from now")
-                                .font(.custom("OpenSans-Regular", size: 12))
-                                .foregroundStyle(.black.opacity(0.6))
+                    .frame(maxWidth: .infinity)
+                    .background(surface)
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 22))
+                .shadow(color: Color.black.opacity(0.10), radius: 16, y: 4)
+                .padding(.horizontal, 20)
+
+                // ── INFO ROW ────────────────────────────────────────────
+                HStack(spacing: 10) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(accent.opacity(0.15))
+                            .frame(width: 32, height: 32)
+                        Image(systemName: "clock.badge.checkmark.fill")
+                            .font(.system(size: 13))
+                            .foregroundStyle(Color(red: 0.55, green: 0.44, blue: 0.02))
+                    }
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("Auto-publishes at selected time")
+                            .font(.custom("OpenSans-SemiBold", size: 13))
+                            .foregroundStyle(ink)
+                        Text("Minimum 5 minutes from now · \(timezoneString)")
+                            .font(.custom("OpenSans-Regular", size: 11))
+                            .foregroundStyle(subtext)
+                    }
+                    Spacer()
+                }
+                .padding(14)
+                .background(
+                    RoundedRectangle(cornerRadius: 14)
+                        .fill(surface)
+                        .shadow(color: Color.black.opacity(0.05), radius: 8, y: 2)
+                )
+                .padding(.horizontal, 20)
+                .padding(.top, 14)
+
+                // ── SCHEDULED SUMMARY (when a date is already set) ──────
+                if scheduledDate != nil {
+                    HStack(spacing: 10) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(ink.opacity(0.06))
+                                .frame(width: 32, height: 32)
+                            Image(systemName: "calendar.badge.clock")
+                                .font(.system(size: 13))
+                                .foregroundStyle(ink)
                         }
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("Currently scheduled")
+                                .font(.custom("OpenSans-SemiBold", size: 12))
+                                .foregroundStyle(subtext)
+                            if let sd = scheduledDate {
+                                Text("\(sd, style: .date)  \(sd, style: .time)")
+                            }
+                        }
+                        .font(.custom("OpenSans-Bold", size: 13))
+                        .foregroundStyle(ink)
+                        Spacer()
                     }
                     .padding(14)
                     .background(
-                        ZStack {
-                            Capsule()
-                                .fill(.ultraThinMaterial)
-                            
-                            Capsule()
-                                .fill(Color.black.opacity(0.03))
-                            
-                            Capsule()
-                                .stroke(Color.black.opacity(0.1), lineWidth: 1)
-                        }
+                        RoundedRectangle(cornerRadius: 14)
+                            .fill(accent.opacity(0.12))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 14)
+                                    .stroke(accent.opacity(0.35), lineWidth: 1)
+                            )
                     )
+                    .padding(.horizontal, 20)
+                    .padding(.top, 10)
                 }
-                .padding(.horizontal, 20)
-                
-                Spacer()
-                
-                VStack(spacing: 12) {
-                    // Schedule button - Black glassmorphic
+
+                Spacer(minLength: 28)
+
+                // ── CTA BUTTONS ─────────────────────────────────────────
+                VStack(spacing: 10) {
+                    // PRIMARY — Schedule Post
                     Button {
+                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                         scheduledDate = selectedDateTime
                         isPresented = false
-                        
                     } label: {
                         HStack(spacing: 10) {
-                            Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 18, weight: .semibold))
-                            
+                            Image(systemName: "calendar.badge.checkmark")
+                                .font(.system(size: 15, weight: .bold))
                             Text("Schedule Post")
                                 .font(.custom("OpenSans-Bold", size: 16))
                         }
-                        .foregroundStyle(.white)
+                        .foregroundStyle(accentDark)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
                         .background(
-                            ZStack {
-                                Capsule()
-                                    .fill(Color.black)
-                                
-                                Capsule()
-                                    .stroke(Color.white.opacity(0.2), lineWidth: 1)
-                            }
-                            .shadow(color: .black.opacity(0.2), radius: 12, y: 4)
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(accent)
+                                .shadow(color: accent.opacity(0.45), radius: 10, y: 4)
                         )
                     }
-                    .buttonStyle(.plain)
-                    
-                    // Clear schedule button (if already scheduled)
+                    .buttonStyle(SquishButtonStyle())
+
+                    // SECONDARY — Remove schedule (if already set)
                     if scheduledDate != nil {
                         Button {
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
                             scheduledDate = nil
                             isPresented = false
                         } label: {
                             Text("Remove Schedule")
                                 .font(.custom("OpenSans-SemiBold", size: 15))
-                                .foregroundStyle(.black.opacity(0.6))
+                                .foregroundStyle(ink.opacity(0.70))
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 14)
                                 .background(
-                                    Capsule()
-                                        .stroke(Color.black.opacity(0.2), lineWidth: 1.5)
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .fill(surface)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 16)
+                                                .stroke(ink.opacity(0.14), lineWidth: 1.5)
+                                        )
                                 )
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(SquishButtonStyle())
                     }
                 }
                 .padding(.horizontal, 20)
-                .padding(.bottom, 30)
+                .padding(.bottom, 36)
             }
-            
-            // X button - Top right
-            Button {
-                isPresented = false
-            } label: {
-                ZStack {
-                    Circle()
-                        .fill(.ultraThinMaterial)
-                        .frame(width: 36, height: 36)
-                        .overlay(
-                            Circle()
-                                .stroke(Color.black.opacity(0.1), lineWidth: 1)
-                        )
-                    
-                    Image(systemName: "xmark")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(.black.opacity(0.7))
-                }
-            }
-            .buttonStyle(.plain)
-            .padding(.top, 16)
-            .padding(.trailing, 20)
         }
+        .background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea())
         .presentationDetents([.large])
         .onAppear {
             // Initialize with minimum date if not already set
@@ -3525,11 +4083,11 @@ struct MinimalCategoryButton: View {
             VStack(spacing: 6) {
                 Text(category.displayName)
                     .font(.custom("OpenSans-Bold", size: 15))
-                    .foregroundStyle(isSelected ? .black : .black.opacity(0.4))
+                    .foregroundStyle(isSelected ? Color.primary : Color.primary.opacity(0.4))
                 
                 if isSelected {
                     Capsule()
-                        .fill(Color.black)
+                        .fill(Color.primary)
                         .frame(height: 3)
                         .matchedGeometryEffect(id: "underline", in: namespace)
                 } else {
@@ -3567,7 +4125,7 @@ struct GlassToolbarButton: View {
         }) {
             Image(systemName: icon)
                 .font(.system(size: 22, weight: .semibold))
-                .foregroundStyle(.black)
+                .foregroundStyle(Color.primary)
                 .frame(width: 48, height: 48)
                 .scaleEffect(isPressed ? 0.9 : 1.0)
                 .opacity(isActive ? 1.0 : 0.5)
@@ -4016,7 +4574,7 @@ struct ConsolidatedToolbar: View {
             } label: {
                 Image(systemName: "ellipsis.circle")
                     .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(.black.opacity(0.6))
+                    .foregroundStyle(Color.primary.opacity(0.6))
                     .frame(width: 36, height: 36)
             }
         }
@@ -4069,7 +4627,7 @@ struct CompactToolbarButton: View {
         }) {
             Image(systemName: icon)
                 .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(isActive ? .black : .black.opacity(0.5))
+                .foregroundStyle(isActive ? Color.primary : Color.primary.opacity(0.5))
                 .frame(width: 36, height: 36)
                 .scaleEffect(isPressed ? 0.9 : 1.0)
         }
@@ -4173,6 +4731,234 @@ struct GlassToolbarIcon: View {
     }
 }
 
+// MARK: - Camera Image Picker
+
+/// Wraps UIImagePickerController to give instant camera access from SwiftUI.
+struct CameraImagePicker: UIViewControllerRepresentable {
+    @Binding var image: UIImage?
+    @Environment(\.dismiss) private var dismiss
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    func makeUIViewController(context: Context) -> UIImagePickerController {
+        let picker = UIImagePickerController()
+        picker.sourceType = UIImagePickerController.isSourceTypeAvailable(.camera) ? .camera : .photoLibrary
+        picker.allowsEditing = false
+        picker.delegate = context.coordinator
+        return picker
+    }
+
+    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
+
+    class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+        let parent: CameraImagePicker
+        init(_ parent: CameraImagePicker) { self.parent = parent }
+
+        func imagePickerController(_ picker: UIImagePickerController,
+                                   didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
+            if let img = info[.originalImage] as? UIImage {
+                parent.image = img
+            }
+            parent.dismiss()
+        }
+
+        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+            parent.dismiss()
+        }
+    }
+}
+
+// MARK: - Camera Attachment Preview
+
+/// Shows the captured photo inside the composer with a remove button.
+struct CameraAttachmentPreview: View {
+    let image: UIImage
+    let onRemove: () -> Void
+
+    var body: some View {
+        ZStack(alignment: .topTrailing) {
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFill()
+                .frame(maxWidth: .infinity)
+                .frame(height: 220)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+
+            // Remove button
+            Button(action: onRemove) {
+                ZStack {
+                    Circle()
+                        .fill(Color(.systemBackground).opacity(0.92))
+                        .frame(width: 30, height: 30)
+                    Image(systemName: "xmark")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(.primary)
+                }
+            }
+            .padding(8)
+            .accessibilityLabel("Remove photo")
+        }
+    }
+}
+
+// MARK: - Poll Composer Card
+
+/// Inline poll creation card inserted beneath the text editor.
+struct PollComposerCard: View {
+    @Binding var options: [String]
+    @Binding var duration: CreatePostView.PollDuration
+    let onRemove: () -> Void
+
+    // Focus tracking for individual option fields
+    @FocusState private var focusedIndex: Int?
+
+    private let maxOptions = 4
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header
+            HStack {
+                Image(systemName: "chart.bar.fill")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                Text("Poll")
+                    .font(.custom("OpenSans-SemiBold", size: 14))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button(action: onRemove) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 20))
+                        .foregroundStyle(.secondary)
+                }
+                .accessibilityLabel("Remove poll")
+            }
+            .padding(.horizontal, 14)
+            .padding(.top, 12)
+            .padding(.bottom, 10)
+
+            Divider()
+                .padding(.horizontal, 14)
+
+            // Poll options
+            VStack(spacing: 0) {
+                ForEach(options.indices, id: \.self) { index in
+                    HStack(spacing: 10) {
+                        // Option label circle
+                        ZStack {
+                            Circle()
+                                .strokeBorder(Color(.systemGray4), lineWidth: 1.5)
+                                .frame(width: 22, height: 22)
+                            Text(optionLabel(index))
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                        }
+
+                        TextField(index < 2 ? "Option \(index + 1)" : "Add option \(index + 1)",
+                                  text: $options[index])
+                            .font(.custom("OpenSans-Regular", size: 15))
+                            .focused($focusedIndex, equals: index)
+                            .submitLabel(index < options.count - 1 ? .next : .done)
+                            .onSubmit {
+                                if index < options.count - 1 {
+                                    focusedIndex = index + 1
+                                } else {
+                                    focusedIndex = nil
+                                }
+                            }
+
+                        // Remove button (only for options beyond the first 2)
+                        if index >= 2 {
+                            removeOptionButton(at: index)
+                        }
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+
+                    if index < options.count - 1 {
+                        Divider().padding(.leading, 50)
+                    }
+                }
+            }
+
+            // Add option button
+            if options.count < maxOptions {
+                Divider().padding(.horizontal, 14)
+
+                Button {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        options.append("")
+                        focusedIndex = options.count - 1
+                    }
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "plus.circle")
+                            .font(.system(size: 15, weight: .medium))
+                        Text("Add option")
+                            .font(.custom("OpenSans-Regular", size: 14))
+                    }
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                }
+                .accessibilityLabel("Add poll option")
+            }
+
+            Divider().padding(.horizontal, 14)
+
+            // Duration picker
+            HStack {
+                Image(systemName: "clock")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+                Text("Duration")
+                    .font(.custom("OpenSans-Regular", size: 14))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Picker("Duration", selection: $duration) {
+                    ForEach(CreatePostView.PollDuration.allCases) { d in
+                        Text(d.rawValue).tag(d)
+                    }
+                }
+                .pickerStyle(.menu)
+                .font(.custom("OpenSans-Regular", size: 14))
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color(.secondarySystemGroupedBackground))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(Color(.systemGray5), lineWidth: 1)
+        )
+    }
+
+    private func optionLabel(_ index: Int) -> String {
+        let labels = ["A", "B", "C", "D"]
+        return index < labels.count ? labels[index] : "\(index + 1)"
+    }
+
+    @ViewBuilder
+    private func removeOptionButton(at index: Int) -> some View {
+        let accessLabel = "Remove option \(index + 1)"
+        Button {
+            var copy = options
+            copy.remove(at: index)
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                options = copy
+            }
+        } label: {
+            Image(systemName: "minus.circle.fill")
+                .font(.system(size: 18))
+                .foregroundStyle(Color(.systemGray3))
+        }
+        .accessibilityLabel(accessLabel)
+    }
+}
+
 // MARK: - Compact Glass Button (NEW - Smaller, Production-Ready)
 
 struct CompactGlassButton: View {
@@ -4183,6 +4969,8 @@ struct CompactGlassButton: View {
     
     @State private var isPressed = false
     
+    private var isClose: Bool { icon == "xmark" }
+
     var body: some View {
         Button(action: {
             withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
@@ -4198,25 +4986,39 @@ struct CompactGlassButton: View {
             }
         }) {
             ZStack(alignment: .topTrailing) {
-                Image(systemName: icon)
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(isActive ? Color.primary : Color.primary.opacity(0.4))
-                    .frame(width: 32, height: 32)
-                    .scaleEffect(isPressed ? 0.85 : 1.0)
-                
-                // Badge for count (e.g., image count)
-                if count > 0 {
-                    Text("\(count)")
-                        .font(.custom("OpenSans-Bold", size: 9))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 4)
-                        .padding(.vertical, 2)
-                        .background(
-                            Capsule()
-                                .fill(Color.blue)
-                        )
-                        .offset(x: 8, y: -8)
-                        .transition(.scale.combined(with: .opacity))
+                if isClose {
+                    // Close button: same gray-circle style as the Post button
+                    ZStack {
+                        Circle()
+                            .fill(Color(red: 0.91, green: 0.91, blue: 0.93))
+                            .frame(width: 38, height: 38)
+                            .shadow(color: Color.black.opacity(0.10), radius: 4, x: 0, y: 2)
+                        Image(systemName: icon)
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundStyle(Color.primary.opacity(0.75))
+                    }
+                    .scaleEffect(isPressed ? 0.88 : 1.0)
+                } else {
+                    Image(systemName: icon)
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(isActive ? Color.primary : Color.primary.opacity(0.4))
+                        .frame(width: 32, height: 32)
+                        .scaleEffect(isPressed ? 0.85 : 1.0)
+                    
+                    // Badge for count (e.g., image count)
+                    if count > 0 {
+                        Text("\(count)")
+                            .font(.custom("OpenSans-Bold", size: 9))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 2)
+                            .background(
+                                Capsule()
+                                    .fill(Color.blue)
+                            )
+                            .offset(x: 8, y: -8)
+                            .transition(.scale.combined(with: .opacity))
+                    }
                 }
             }
         }
@@ -4278,102 +5080,88 @@ struct MinimalToolbarButton: View {
 
 // MARK: - Liquid Glass Post Button (Matching Design)
 
+// MARK: - Upward Arrow Icon
+/// Bold chunky upward arrow — matches the reference button style (thick rounded stem + arrowhead).
+/// Pure Canvas vector, crisp at any size.
+struct UpwardArrowIcon: View {
+    var size: CGFloat = 24
+    var color: Color = Color(red: 0.92, green: 0.15, blue: 0.26)
+
+    var body: some View {
+        Canvas { ctx, canvasSize in
+            let w = canvasSize.width
+            let h = canvasSize.height
+            let lw = w * 0.22        // stroke line-width — chunky like the reference
+
+            // Vertical stem: runs from ~bottom-centre up to ~mid-height
+            let stemPath = Path { p in
+                p.move(to:    CGPoint(x: w * 0.50, y: h * 0.92))
+                p.addLine(to: CGPoint(x: w * 0.50, y: h * 0.40))
+            }
+            ctx.stroke(stemPath, with: .color(color),
+                       style: StrokeStyle(lineWidth: lw, lineCap: .round))
+
+            // Arrowhead: two diagonal lines from the tip
+            let arrowPath = Path { p in
+                // Left wing
+                p.move(to:    CGPoint(x: w * 0.18, y: h * 0.60))
+                p.addLine(to: CGPoint(x: w * 0.50, y: h * 0.10))
+                // Right wing
+                p.addLine(to: CGPoint(x: w * 0.82, y: h * 0.60))
+            }
+            ctx.stroke(arrowPath, with: .color(color),
+                       style: StrokeStyle(lineWidth: lw, lineCap: .round, lineJoin: .round))
+        }
+        .frame(width: size, height: size)
+    }
+}
+
 struct LiquidGlassPostButton: View {
     let isEnabled: Bool
     let isPublishing: Bool
     let isScheduled: Bool
     let action: () -> Void
-    
+
+    private let red = Color(red: 0.92, green: 0.15, blue: 0.26)
+
     @State private var isPressed = false
-    @State private var shimmerPhase: CGFloat = 0
-    
+
     var body: some View {
         Button(action: {
             guard isEnabled && !isPublishing else { return }
-            
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.6)) {
-                isPressed = true
+            withAnimation(.spring(response: 0.20, dampingFraction: 0.65)) { isPressed = true }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
+                withAnimation(.spring(response: 0.30, dampingFraction: 0.70)) { isPressed = false }
             }
-            
-            // Button animation reset (non-critical)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.6)) {
-                    isPressed = false
-                }
-            }
-            
             action()
         }) {
             ZStack {
-                // Dark glass background
+                // Soft light-gray circle — matches reference exactly
                 Circle()
-                    .fill(Color(red: 0.2, green: 0.2, blue: 0.2))
+                    .fill(Color(red: 0.91, green: 0.91, blue: 0.93).opacity(isEnabled ? 1.0 : 0.50))
                     .frame(width: 56, height: 56)
-                
-                // Inner dark circle for depth
-                Circle()
-                    .fill(Color(red: 0.15, green: 0.15, blue: 0.15))
-                    .frame(width: 54, height: 54)
-                
-                // Metallic rainbow shimmer border (matching design)
-                if isEnabled {
-                    Circle()
-                        .strokeBorder(
-                            AngularGradient(
-                                gradient: Gradient(colors: [
-                                    Color(red: 0.5, green: 0.8, blue: 1.0),  // Light blue
-                                    Color(red: 0.8, green: 0.5, blue: 1.0),  // Purple
-                                    Color(red: 1.0, green: 0.7, blue: 0.5),  // Orange
-                                    Color(red: 1.0, green: 1.0, blue: 0.7),  // Yellow
-                                    Color(red: 0.5, green: 0.8, blue: 1.0),  // Back to light blue
-                                ]),
-                                center: .center,
-                                startAngle: .degrees(shimmerPhase),
-                                endAngle: .degrees(shimmerPhase + 360)
-                            ),
-                            lineWidth: 2
-                        )
-                        .frame(width: 56, height: 56)
-                        .opacity(0.8)
-                        .shadow(color: Color.cyan.opacity(0.4), radius: 8, x: 0, y: 0)
-                        .shadow(color: Color.purple.opacity(0.3), radius: 12, x: 0, y: 0)
-                } else {
-                    // Disabled state border
-                    Circle()
-                        .strokeBorder(
-                            Color.gray.opacity(0.3),
-                            lineWidth: 2
-                        )
-                        .frame(width: 56, height: 56)
-                }
-                
-                // Icon or loading
+                    .shadow(color: Color.black.opacity(isEnabled ? 0.12 : 0.04), radius: 8, x: 0, y: 3)
+
                 if isPublishing {
                     ProgressView()
-                        .tint(.white)
+                        .tint(red)
                         .scaleEffect(1.1)
+                } else if isScheduled {
+                    Image(systemName: "calendar.badge.clock")
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundStyle(isEnabled ? red : red.opacity(0.30))
                 } else {
-                    Image(systemName: isScheduled ? "calendar.badge.clock" : "arrow.up")
-                        .font(.system(size: 24, weight: .semibold))
-                        .foregroundStyle(isEnabled ? Color.white : Color.white.opacity(0.4))
-                        .rotationEffect(.degrees(isPressed ? -5 : 0))
+                    // Bold chunky upward arrow
+                    UpwardArrowIcon(
+                        size: 26,
+                        color: isEnabled ? red : red.opacity(0.30)
+                    )
                 }
             }
-            .scaleEffect(isPressed ? 0.92 : 1.0)
-            .shadow(
-                color: isEnabled ? Color.black.opacity(0.4) : Color.clear,
-                radius: 20,
-                y: 8
-            )
+            .scaleEffect(isPressed ? 0.90 : 1.0)
         }
         .disabled(!isEnabled || isPublishing)
         .buttonStyle(PlainButtonStyle())
-        .onAppear {
-            // Animate shimmer continuously
-            withAnimation(.linear(duration: 3).repeatForever(autoreverses: false)) {
-                shimmerPhase = 360
-            }
-        }
     }
 }
 
@@ -4726,6 +5514,9 @@ private struct BereanToneButton: View {
                 isAnimating = true
             }
         }
+        .onDisappear {
+            isAnimating = false
+        }
         .onChange(of: isLoading) { _, loading in
             pulseScale = loading ? 1.4 : 1.0
         }
@@ -4740,6 +5531,8 @@ private struct AlgoliaMentionSuggestionRow: View {
     let onTap: () -> Void
 
     @State private var isPressed = false
+    // Fallback profile image URL fetched from Firestore when Algolia index lacks it
+    @State private var resolvedImageURL: String? = nil
 
     var body: some View {
         Button(action: onTap) {
@@ -4750,7 +5543,9 @@ private struct AlgoliaMentionSuggestionRow: View {
                         .fill(Color(uiColor: .tertiarySystemFill))
                         .frame(width: 40, height: 40)
 
-                    if let urlStr = user.profileImageURL,
+                    let effectiveURL = resolvedImageURL ?? user.profileImageURL
+
+                    if let urlStr = effectiveURL,
                        !urlStr.isEmpty,
                        let url = URL(string: urlStr) {
                         CachedAsyncImage(url: url) { img in
@@ -4766,6 +5561,13 @@ private struct AlgoliaMentionSuggestionRow: View {
                         Text(user.displayName.prefix(1).uppercased())
                             .font(.custom("OpenSans-Bold", size: 16))
                             .foregroundStyle(.primary)
+                    }
+                }
+                .task(id: user.objectID) {
+                    // Only fetch from Firestore when Algolia didn't return a profile image
+                    guard (user.profileImageURL ?? "").isEmpty else { return }
+                    if let url = await fetchProfileImageURL(userId: user.objectID) {
+                        resolvedImageURL = url
                     }
                 }
 
@@ -4808,6 +5610,17 @@ private struct AlgoliaMentionSuggestionRow: View {
         ._onButtonGesture { pressing in
             isPressed = pressing
         } perform: {}
+    }
+
+    /// Fetches profileImageURL from Firestore when Algolia's index doesn't have it.
+    private func fetchProfileImageURL(userId: String) async -> String? {
+        guard !userId.isEmpty else { return nil }
+        do {
+            let doc = try await Firestore.firestore().collection("users").document(userId).getDocument()
+            return doc.data()?["profileImageURL"] as? String
+        } catch {
+            return nil
+        }
     }
 }
 
@@ -5336,6 +6149,631 @@ private struct SourceLabelPrompt: View {
                 }
             }
             .ignoresSafeArea(edges: .bottom)
+        }
+    }
+}
+
+// MARK: - Post Audience Sheet
+
+struct PostAudienceSheet: View {
+    @Binding var selectedVisibility: Post.PostVisibility
+    @Environment(\.dismiss) private var dismiss
+
+    private let options: [Post.PostVisibility] = [.everyone, .followers, .community]
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                // Header description
+                VStack(spacing: 6) {
+                    Text("Who can see this post?")
+                        .font(.custom("OpenSans-Bold", size: 17))
+                        .foregroundStyle(.primary)
+                    Text("Choose who will be able to view and interact with your post.")
+                        .font(.custom("OpenSans-Regular", size: 13))
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 24)
+                }
+                .padding(.top, 8)
+                .padding(.bottom, 20)
+
+                VStack(spacing: 0) {
+                    ForEach(options, id: \.self) { option in
+                        Button {
+                            selectedVisibility = option
+                            dismiss()
+                        } label: {
+                            HStack(spacing: 14) {
+                                ZStack {
+                                    Circle()
+                                        .fill(option.tintColor.opacity(0.12))
+                                        .frame(width: 40, height: 40)
+                                    Image(systemName: option.icon)
+                                        .font(.system(size: 16, weight: .semibold))
+                                        .foregroundStyle(option.tintColor)
+                                }
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(option.displayName)
+                                        .font(.custom("OpenSans-SemiBold", size: 15))
+                                        .foregroundStyle(.primary)
+                                    Text(option.audienceDescription)
+                                        .font(.custom("OpenSans-Regular", size: 12))
+                                        .foregroundStyle(.secondary)
+                                }
+
+                                Spacer()
+
+                                if selectedVisibility == option {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundStyle(option.tintColor)
+                                        .font(.system(size: 20))
+                                }
+                            }
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 14)
+                        }
+                        .buttonStyle(.plain)
+
+                        if option != options.last {
+                            Divider().padding(.leading, 74)
+                        }
+                    }
+                }
+                .background(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(Color(uiColor: .secondarySystemBackground))
+                )
+                .padding(.horizontal, 16)
+
+                Spacer()
+            }
+            .navigationTitle("Audience")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                        .font(.custom("OpenSans-Regular", size: 16))
+                }
+            }
+        }
+    }
+}
+
+private extension Post.PostVisibility {
+    var audienceDescription: String {
+        switch self {
+        case .everyone: return "Visible to everyone on AMEN"
+        case .followers: return "Only people who follow you"
+        case .community: return "Only verified church community members"
+        }
+    }
+}
+
+// MARK: - Post Verse Picker Sheet
+
+struct PostVersePickerSheet: View {
+    @Binding var verseReference: String
+    @Binding var verseText: String
+    @Binding var isPresented: Bool
+
+    // Selected verse — starts pre-populated if the post already has a verse attached
+    @State private var selectedReference: String = ""
+    @State private var selectedText: String = ""
+
+    // Search state
+    @State private var searchQuery: String = ""
+    @State private var searchResults: [ScripturePassage] = []
+    @State private var isSearching: Bool = false
+    @State private var searchError: String? = nil
+    @State private var searchTask: Task<Void, Never>? = nil
+
+    // Version picker
+    @State private var selectedVersion: ScripturePassage.BibleVersion = .niv
+
+    @FocusState private var searchFocused: Bool
+
+    private let bibleService = YouVersionBibleService.shared
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                // ── Search bar ──────────────────────────────────────────────
+                VStack(spacing: 0) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundStyle(.secondary)
+                            .font(.system(size: 16))
+                        TextField("Search a verse or type reference (e.g. John 3:16)", text: $searchQuery)
+                            .font(.custom("OpenSans-Regular", size: 15))
+                            .focused($searchFocused)
+                            .autocorrectionDisabled()
+                            .submitLabel(.search)
+                            .onSubmit { triggerSearch() }
+                            .onChange(of: searchQuery) { _, newValue in
+                                scheduleSearch(newValue)
+                            }
+                        if isSearching {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                        } else if !searchQuery.isEmpty {
+                            Button { searchQuery = ""; searchResults = []; searchError = nil } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .background(Color(uiColor: .secondarySystemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .padding(.horizontal, 16)
+                    .padding(.top, 12)
+                    .padding(.bottom, 8)
+
+                    // Version picker
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach([ScripturePassage.BibleVersion.niv,
+                                     .esv, .kjv, .nkjv, .nlt, .nasb], id: \.self) { version in
+                                Button {
+                                    selectedVersion = version
+                                    if !searchQuery.isEmpty { triggerSearch() }
+                                } label: {
+                                    Text(version.rawValue.uppercased())
+                                        .font(.custom("OpenSans-SemiBold", size: 12))
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 6)
+                                        .background(
+                                            Capsule()
+                                                .fill(selectedVersion == version
+                                                      ? Color.indigo
+                                                      : Color(uiColor: .secondarySystemBackground))
+                                        )
+                                        .foregroundStyle(selectedVersion == version ? .white : .primary)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                    }
+                    .padding(.bottom, 8)
+
+                    Divider()
+                }
+
+                // ── Main content area ───────────────────────────────────────
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+
+                        // Error state
+                        if let error = searchError {
+                            HStack(spacing: 8) {
+                                Image(systemName: "exclamationmark.circle")
+                                    .foregroundStyle(.orange)
+                                Text(error)
+                                    .font(.custom("OpenSans-Regular", size: 14))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(16)
+                        }
+
+                        // Search results list
+                        if !searchResults.isEmpty {
+                            VStack(spacing: 0) {
+                                ForEach(searchResults, id: \.reference) { passage in
+                                    Button {
+                                        selectPassage(passage)
+                                    } label: {
+                                        HStack(alignment: .top, spacing: 12) {
+                                            Image(systemName: selectedReference == passage.reference
+                                                  ? "checkmark.circle.fill" : "book.closed")
+                                                .font(.system(size: 18))
+                                                .foregroundStyle(selectedReference == passage.reference
+                                                                 ? .indigo : .secondary)
+                                                .frame(width: 24)
+                                                .padding(.top, 2)
+
+                                            VStack(alignment: .leading, spacing: 4) {
+                                                Text(passage.reference)
+                                                    .font(.custom("OpenSans-SemiBold", size: 15))
+                                                    .foregroundStyle(.primary)
+                                                if !passage.text.isEmpty {
+                                                    Text(passage.text)
+                                                        .font(.custom("OpenSans-Regular", size: 13))
+                                                        .foregroundStyle(.secondary)
+                                                        .lineLimit(3)
+                                                        .italic()
+                                                }
+                                            }
+                                            Spacer(minLength: 0)
+                                        }
+                                        .padding(.horizontal, 16)
+                                        .padding(.vertical, 12)
+                                        .contentShape(Rectangle())
+                                    }
+                                    .buttonStyle(.plain)
+                                    .background(
+                                        selectedReference == passage.reference
+                                        ? Color.indigo.opacity(0.06)
+                                        : Color.clear
+                                    )
+
+                                    Divider()
+                                        .padding(.leading, 52)
+                                }
+                            }
+                        } else if searchQuery.isEmpty && selectedReference.isEmpty {
+                            // Empty state — hints
+                            VStack(spacing: 16) {
+                                Image(systemName: "book.closed.fill")
+                                    .font(.system(size: 40))
+                                    .foregroundStyle(Color.indigo.opacity(0.4))
+                                Text("Search by keyword or reference")
+                                    .font(.custom("OpenSans-SemiBold", size: 16))
+                                    .foregroundStyle(.primary)
+                                VStack(spacing: 6) {
+                                    ForEach(["\"strength\"", "\"peace\"", "\"Philippians 4:13\"", "\"John 3:16\""], id: \.self) { hint in
+                                        Button {
+                                            searchQuery = hint.replacingOccurrences(of: "\"", with: "")
+                                            triggerSearch()
+                                        } label: {
+                                            Text(hint)
+                                                .font(.custom("OpenSans-Regular", size: 14))
+                                                .foregroundStyle(.indigo)
+                                                .padding(.horizontal, 14)
+                                                .padding(.vertical, 6)
+                                                .background(
+                                                    Capsule()
+                                                        .fill(Color.indigo.opacity(0.08))
+                                                )
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.top, 48)
+                            .padding(.horizontal, 24)
+                        } else if !searchQuery.isEmpty && searchResults.isEmpty && !isSearching {
+                            VStack(spacing: 8) {
+                                Image(systemName: "magnifyingglass")
+                                    .font(.system(size: 32))
+                                    .foregroundStyle(.secondary.opacity(0.5))
+                                Text("No results for \"\(searchQuery)\"")
+                                    .font(.custom("OpenSans-Regular", size: 15))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.top, 48)
+                        }
+
+                        // ── Selected verse preview card ───────────────────
+                        if !selectedReference.isEmpty {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Selected Verse")
+                                    .font(.custom("OpenSans-SemiBold", size: 13))
+                                    .foregroundStyle(.secondary)
+                                    .padding(.horizontal, 16)
+
+                                VStack(alignment: .leading, spacing: 6) {
+                                    HStack(spacing: 6) {
+                                        Image(systemName: "book.closed.fill")
+                                            .font(.system(size: 12))
+                                            .foregroundStyle(.indigo)
+                                        Text(selectedReference)
+                                            .font(.custom("OpenSans-Bold", size: 13))
+                                            .foregroundStyle(.indigo)
+                                        Spacer()
+                                        Text(selectedVersion.rawValue.uppercased())
+                                            .font(.custom("OpenSans-Regular", size: 11))
+                                            .foregroundStyle(Color.indigo.opacity(0.7))
+                                    }
+                                    if !selectedText.isEmpty {
+                                        Text(selectedText)
+                                            .font(.custom("OpenSans-Regular", size: 13))
+                                            .foregroundStyle(.primary)
+                                            .italic()
+                                    }
+                                }
+                                .padding(14)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                        .fill(Color.indigo.opacity(0.08))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                                .strokeBorder(Color.indigo.opacity(0.2), lineWidth: 1)
+                                        )
+                                )
+                                .padding(.horizontal, 16)
+
+                                // Clear selection
+                                Button(role: .destructive) {
+                                    selectedReference = ""
+                                    selectedText = ""
+                                } label: {
+                                    Label("Remove", systemImage: "trash")
+                                        .font(.custom("OpenSans-Regular", size: 13))
+                                }
+                                .padding(.horizontal, 16)
+                                .padding(.bottom, 8)
+                            }
+                            .padding(.top, searchResults.isEmpty ? 0 : 16)
+                        }
+                    }
+                    .padding(.bottom, 24)
+                }
+            }
+            .navigationTitle("Attach Verse")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { isPresented = false }
+                        .font(.custom("OpenSans-Regular", size: 16))
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Attach") {
+                        verseReference = selectedReference
+                        verseText = selectedText
+                        isPresented = false
+                    }
+                    .font(.custom("OpenSans-SemiBold", size: 16))
+                    .disabled(selectedReference.isEmpty)
+                }
+            }
+            .onAppear {
+                // Pre-populate if an existing verse is already attached
+                selectedReference = verseReference
+                selectedText = verseText
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                    searchFocused = true
+                }
+            }
+        }
+    }
+
+    // MARK: - Helpers
+
+    private func scheduleSearch(_ query: String) {
+        searchTask?.cancel()
+        let trimmed = query.trimmingCharacters(in: .whitespaces)
+        guard trimmed.count >= 2 else {
+            searchResults = []
+            searchError = nil
+            return
+        }
+        searchTask = Task {
+            try? await Task.sleep(nanoseconds: 400_000_000) // 400ms debounce
+            guard !Task.isCancelled else { return }
+            await performSearch(trimmed)
+        }
+    }
+
+    private func triggerSearch() {
+        let trimmed = searchQuery.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return }
+        searchTask?.cancel()
+        searchTask = Task { await performSearch(trimmed) }
+    }
+
+    @MainActor
+    private func performSearch(_ query: String) async {
+        isSearching = true
+        searchError = nil
+        do {
+            let results = try await bibleService.searchVerses(query: query, version: selectedVersion, limit: 12)
+            searchResults = results
+            if results.isEmpty {
+                // Try fetching as a direct reference (e.g. "John 3:16")
+                let passage = try await bibleService.fetchVerse(reference: query, version: selectedVersion)
+                searchResults = [passage]
+            }
+        } catch {
+            // If direct reference fetch also fails, show a gentle message
+            searchError = "No results found. Try a different reference or keyword."
+            searchResults = []
+        }
+        isSearching = false
+    }
+
+    private func selectPassage(_ passage: ScripturePassage) {
+        selectedReference = passage.reference
+        selectedText = passage.text
+        searchFocused = false
+    }
+}
+
+// MARK: - Post Church Tag Sheet
+
+struct PostChurchTagSheet: View {
+    @Binding var taggedChurchId: String
+    @Binding var taggedChurchName: String
+    @Binding var isPresented: Bool
+
+    @State private var searchText = ""
+    @State private var searchResults: [(id: String, name: String, city: String)] = []
+    @State private var isSearching = false
+    @State private var searchTask: Task<Void, Never>?
+    @FocusState private var searchFocused: Bool
+
+    private let db = Firestore.firestore()
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                // Search bar
+                HStack(spacing: 10) {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundStyle(.secondary)
+                        .font(.system(size: 15))
+                    TextField("Search churches by name", text: $searchText)
+                        .font(.custom("OpenSans-Regular", size: 15))
+                        .focused($searchFocused)
+                        .onChange(of: searchText) { _, newValue in
+                            triggerSearch(query: newValue)
+                        }
+                    if !searchText.isEmpty {
+                        Button { searchText = "" } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(12)
+                .background(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(Color(uiColor: .secondarySystemBackground))
+                )
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+                .padding(.bottom, 4)
+
+                Divider()
+
+                if searchText.isEmpty {
+                    // Current selection or prompt
+                    if !taggedChurchId.isEmpty {
+                        HStack(spacing: 12) {
+                            Image(systemName: "building.columns.fill")
+                                .font(.system(size: 16))
+                                .foregroundStyle(.purple)
+                                .frame(width: 36, height: 36)
+                                .background(Circle().fill(Color.purple.opacity(0.1)))
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(taggedChurchName)
+                                    .font(.custom("OpenSans-SemiBold", size: 15))
+                                Text("Currently tagged")
+                                    .font(.custom("OpenSans-Regular", size: 12))
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Button(role: .destructive) {
+                                taggedChurchId = ""
+                                taggedChurchName = ""
+                                isPresented = false
+                            } label: {
+                                Text("Remove")
+                                    .font(.custom("OpenSans-Regular", size: 14))
+                            }
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 14)
+
+                        Divider().padding(.horizontal, 20)
+                    }
+
+                    VStack(spacing: 8) {
+                        Image(systemName: "building.columns")
+                            .font(.system(size: 32))
+                            .foregroundStyle(Color(uiColor: .tertiaryLabel))
+                        Text("Search for a church to tag")
+                            .font(.custom("OpenSans-Regular", size: 14))
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .padding(.top, 60)
+
+                } else if isSearching {
+                    ProgressView()
+                        .padding(.top, 40)
+                        .frame(maxWidth: .infinity)
+                } else if searchResults.isEmpty {
+                    VStack(spacing: 8) {
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 28))
+                            .foregroundStyle(Color(uiColor: .tertiaryLabel))
+                        Text("No churches found for \"\(searchText)\"")
+                            .font(.custom("OpenSans-Regular", size: 14))
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .padding(.top, 60)
+                } else {
+                    List(searchResults, id: \.id) { church in
+                        Button {
+                            taggedChurchId = church.id
+                            taggedChurchName = church.name
+                            isPresented = false
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: "building.columns.fill")
+                                    .font(.system(size: 14))
+                                    .foregroundStyle(.purple)
+                                    .frame(width: 32, height: 32)
+                                    .background(Circle().fill(Color.purple.opacity(0.1)))
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(church.name)
+                                        .font(.custom("OpenSans-SemiBold", size: 14))
+                                        .foregroundStyle(.primary)
+                                    if !church.city.isEmpty {
+                                        Text(church.city)
+                                            .font(.custom("OpenSans-Regular", size: 12))
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                                Spacer()
+                                if taggedChurchId == church.id {
+                                    Image(systemName: "checkmark")
+                                        .foregroundStyle(.purple)
+                                        .font(.system(size: 14, weight: .semibold))
+                                }
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .listRowSeparatorTint(Color(uiColor: .separator).opacity(0.5))
+                    }
+                    .listStyle(.plain)
+                }
+            }
+            .navigationTitle("Tag a Church")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { isPresented = false }
+                        .font(.custom("OpenSans-Regular", size: 16))
+                }
+            }
+            .onAppear {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                    searchFocused = true
+                }
+            }
+        }
+    }
+
+    private func triggerSearch(query: String) {
+        searchTask?.cancel()
+        let trimmed = query.trimmingCharacters(in: .whitespaces)
+        guard trimmed.count >= 2 else {
+            searchResults = []
+            return
+        }
+        searchTask = Task {
+            try? await Task.sleep(nanoseconds: 300_000_000) // 300ms debounce
+            guard !Task.isCancelled else { return }
+            await MainActor.run { isSearching = true }
+            do {
+                let snapshot = try await db.collection("churches")
+                    .whereField("name", isGreaterThanOrEqualTo: trimmed)
+                    .whereField("name", isLessThan: trimmed + "\u{f8ff}")
+                    .limit(to: 20)
+                    .getDocuments()
+                guard !Task.isCancelled else { return }
+                let results: [(id: String, name: String, city: String)] = snapshot.documents.compactMap { doc in
+                    guard let name = doc.data()["name"] as? String else { return nil }
+                    let city = doc.data()["city"] as? String ?? ""
+                    return (id: doc.documentID, name: name, city: city)
+                }
+                await MainActor.run {
+                    searchResults = results
+                    isSearching = false
+                }
+            } catch {
+                await MainActor.run { isSearching = false }
+            }
         }
     }
 }

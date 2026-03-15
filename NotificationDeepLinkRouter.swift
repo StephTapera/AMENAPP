@@ -363,20 +363,45 @@ extension URL {
 struct NotificationNavigationHandler: ViewModifier {
     @ObservedObject var router = NotificationDeepLinkRouter.shared
     @Binding var selectedTab: Int  // Reference to tab selection binding
-    
+
     func body(content: Content) -> some View {
         content
             .onChange(of: router.activeDestination) { _, newDestination in
                 guard let destination = newDestination else { return }
-                
+
                 // Handle navigation based on destination.
                 // Tab layout: 0=Home, 1=Discovery, 2=Messages, 3=Resources, 4=Notifications, 5=Profile
                 switch destination {
-                case .post:
-                    selectedTab = 0  // Home tab
-                case .profile:
-                    selectedTab = 5  // Profile tab
-                case .conversation, .messages:
+                case .post(let postId, let scrollToCommentId):
+                    selectedTab = 0  // Switch to Home tab
+                    // Give the tab a moment to appear, then post notification for HomeView to open post detail
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                        NotificationCenter.default.post(
+                            name: .openPostFromNotification,
+                            object: nil,
+                            userInfo: ["postId": postId, "scrollToCommentId": scrollToCommentId as Any]
+                        )
+                    }
+                case .profile(let userId):
+                    selectedTab = 5  // Switch to Profile tab
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                        NotificationCenter.default.post(
+                            name: .openProfileFromNotification,
+                            object: nil,
+                            userInfo: ["userId": userId]
+                        )
+                    }
+                case .conversation(let conversationId, _):
+                    selectedTab = 2  // Switch to Messages tab
+                    // Trigger MessagingCoordinator to open the specific conversation
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                        NotificationCenter.default.post(
+                            name: .openConversation,
+                            object: nil,
+                            userInfo: ["conversationId": conversationId]
+                        )
+                    }
+                case .messages:
                     selectedTab = 2  // Messages tab
                 case .notifications:
                     selectedTab = 4  // Notifications tab
@@ -384,7 +409,7 @@ struct NotificationNavigationHandler: ViewModifier {
                     // Routed to Resources tab which contains Prayer and Church Notes
                     selectedTab = 3
                 }
-                
+
                 // Clear destination after handling
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                     router.clearDestination()

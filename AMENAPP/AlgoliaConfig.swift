@@ -44,8 +44,7 @@ enum AlgoliaConfig {
  ⚠️ SECURITY NOTE:
  - Application ID: ✅ Public
  - Search-Only API Key: ✅ Safe to use in iOS app (read-only)
- - Write/Admin API Key: ⚠️ Should be server-side in production
-   (For development/testing, okay to include temporarily)
+ - Write/Admin API Key: ⛔️ Must NEVER be in the client binary (already removed)
  
  🏭 PRODUCTION SETUP:
  For production apps, the Write/Admin API Key should be:

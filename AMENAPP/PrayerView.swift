@@ -147,6 +147,7 @@ struct PrayerView: View {
                 .padding(.horizontal)
         }
         .task {
+            // Keep listener alive across tab switches — only start if not already active
             FirebasePostService.shared.startListening(category: .prayer)
             if !hasRanked {
                 prayerAlgorithm.loadHistory()
@@ -161,8 +162,8 @@ struct PrayerView: View {
             }
         }
         .onDisappear {
-            FirebasePostService.shared.stopListening(category: .prayer)
-            hasRanked = false
+            // Don't stop the listener — keep it alive for real-time updates across tab switches.
+            // hasRanked intentionally NOT reset: avoids expensive re-rank on every tab switch.
         }
         .onChange(of: postsManager.prayerPosts) { oldValue, newValue in
             if oldValue.count != newValue.count {
@@ -3041,7 +3042,7 @@ struct PrayerCommentRow: View {
         // Background sync to Firebase
         Task.detached(priority: .userInitiated) {
             do {
-                try await commentService.toggleAmen(commentId: commentId, postId: postId)
+                try await commentService.toggleAmen(commentId: commentId, postId: postId, currentlyAmened: previousState)
                 print("✅ Amen toggled successfully")
             } catch {
                 print("❌ Failed to toggle amen: \(error.localizedDescription)")

@@ -20,6 +20,9 @@ class RealtimeSavedPostsService: ObservableObject {
     
     private let database: DatabaseReference
     private var savedPostsListener: DatabaseHandle?
+    // Cache the userId at registration time so removeSavedPostsListener() works
+    // even after sign-out clears Auth.auth().currentUser
+    private var savedPostsUserId: String?
     
     @Published var savedPostIds: Set<String> = []  // For quick lookup
     @Published var isLoading = false
@@ -60,9 +63,9 @@ class RealtimeSavedPostsService: ObservableObject {
         let userId = currentUser.uid
         let savedPath = "/user_saved_posts/\(userId)/\(postId)"
         
-        // Check if already saved
-        let snapshot = try await database.child(savedPath).getData()
-        let isSaved = snapshot.exists()
+        // Use the in-memory cache for the toggle decision — avoids a round-trip to RTDB
+        // that can return stale offline-cached data and cause double-unsave on rapid taps.
+        let isSaved = savedPostIds.contains(postId)
         
         if isSaved {
             // Unsave
@@ -80,7 +83,7 @@ class RealtimeSavedPostsService: ObservableObject {
             NotificationCenter.default.post(
                 name: Notification.Name("postUnsaved"),
                 object: nil,
-                userInfo: ["postId": UUID(uuidString: postId) ?? UUID()]
+                userInfo: ["postId": postId]
             )
             
             dlog("✅ Post unsaved successfully")
@@ -102,7 +105,7 @@ class RealtimeSavedPostsService: ObservableObject {
             NotificationCenter.default.post(
                 name: Notification.Name("postSaved"),
                 object: nil,
-                userInfo: ["postId": UUID(uuidString: postId) ?? UUID()]
+                userInfo: ["postId": postId]
             )
             
             dlog("✅ Post saved successfully")
@@ -139,7 +142,14 @@ class RealtimeSavedPostsService: ObservableObject {
             
             return isSaved
         } catch {
-            dlog("⚠️ Failed to check saved status (using cache): \(error.localizedDescription)")
+            // Suppress startup transient "client offline / no active listeners" errors —
+            // these fire when RTDB hasn't finished handshaking yet even though the network
+            // monitor reports connected. The cache fallback below is correct behavior.
+            let isOfflineError = error.localizedDescription.contains("client offline") ||
+                                 error.localizedDescription.contains("no active listeners")
+            if !isOfflineError {
+                dlog("⚠️ Failed to check saved status (using cache): \(error.localizedDescription)")
+            }
             // Fall back to cached value
             return isPostSavedSync(postId: postId)
         }
@@ -238,6 +248,7 @@ class RealtimeSavedPostsService: ObservableObject {
         
         removeSavedPostsListener()  // Remove existing listener
         
+        savedPostsUserId = userId  // Cache for cleanup on sign-out
         let savedPostsRef = database.child("user_saved_posts").child(userId)
         
         // ✅ CRITICAL FIX: Keep saved posts synced locally for offline persistence
@@ -263,14 +274,12 @@ class RealtimeSavedPostsService: ObservableObject {
     }
     
     func removeSavedPostsListener() {
-        if let handle = savedPostsListener {
-            guard let currentUser = Auth.auth().currentUser else { return }
-            let userId = currentUser.uid
-            
-            database.child("user_saved_posts").child(userId).removeObserver(withHandle: handle)
-            savedPostsListener = nil
-            dlog("🔇 Removed saved posts listener")
-        }
+        guard let handle = savedPostsListener,
+              let userId = savedPostsUserId else { return }
+        database.child("user_saved_posts").child(userId).removeObserver(withHandle: handle)
+        savedPostsListener = nil
+        savedPostsUserId = nil
+        dlog("🔇 Removed saved posts listener")
     }
     
     // MARK: - Get Saved Count

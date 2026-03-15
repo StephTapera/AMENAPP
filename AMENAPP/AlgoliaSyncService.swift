@@ -211,9 +211,10 @@ class AlgoliaSyncService {
     
     // MARK: - Bulk Sync (Initial Setup)
     
-    /// Bulk sync all existing users from Firestore to Algolia
-    /// Run this once to populate Algolia with existing data
-    func bulkSyncUsers(limit: Int = 1000) async throws {
+    /// Bulk sync all existing users from Firestore to Algolia.
+    /// Paginates through all users in batches of 500 to handle any collection size.
+    /// Run this once (or after profile image uploads) to ensure Algolia is fully up to date.
+    func bulkSyncUsers(limit: Int = 0) async throws {
         guard let client = writeClient else {
             throw NSError(
                 domain: "AlgoliaSyncService",
@@ -221,47 +222,59 @@ class AlgoliaSyncService {
                 userInfo: [NSLocalizedDescriptionKey: "Algolia not configured"]
             )
         }
-        
-        print("🔄 Starting bulk user sync (limit: \(limit))...")
-        
-        // Fetch users from Firestore
-        let snapshot = try await db.collection("users")
-            .limit(to: limit)
-            .getDocuments()
-        
-        print("📥 Fetched \(snapshot.documents.count) users from Firestore")
-        
-        var records: [AlgoliaUserRecord] = []
-        
-        for document in snapshot.documents {
-            let data = document.data()
-            let record = AlgoliaUserRecord(
-                objectID: document.documentID,
-                displayName: data["displayName"] as? String ?? "",
-                username: data["username"] as? String ?? "",
-                usernameLowercase: data["usernameLowercase"] as? String ?? "",
-                bio: data["bio"] as? String ?? "",
-                followersCount: data["followersCount"] as? Int ?? 0,
-                followingCount: data["followingCount"] as? Int ?? 0,
-                profileImageURL: data["profileImageURL"] as? String ?? "",
-                isVerified: data["isVerified"] as? Bool ?? false,
-                createdAt: data["createdAt"] as? Double ?? Date().timeIntervalSince1970,
-                _tags: ["user"]
-            )
-            records.append(record)
-        }
-        
-        // Batch save to Algolia
-        if !records.isEmpty {
+
+        let batchSize = 500
+        var lastDocument: DocumentSnapshot? = nil
+        var totalSynced = 0
+        print("🔄 Starting bulk user sync (all users, batch size: \(batchSize))...")
+
+        repeat {
+            // Build paginated query
+            var query: Query = db.collection("users")
+                .order(by: FieldPath.documentID())
+                .limit(to: batchSize)
+            if let last = lastDocument {
+                query = query.start(afterDocument: last)
+            }
+
+            let snapshot = try await query.getDocuments()
+            guard !snapshot.documents.isEmpty else { break }
+
+            lastDocument = snapshot.documents.last
+
+            var records: [AlgoliaUserRecord] = []
+            for document in snapshot.documents {
+                let data = document.data()
+                let record = AlgoliaUserRecord(
+                    objectID: document.documentID,
+                    displayName: data["displayName"] as? String ?? "",
+                    username: data["username"] as? String ?? "",
+                    usernameLowercase: data["usernameLowercase"] as? String ?? "",
+                    bio: data["bio"] as? String ?? "",
+                    followersCount: data["followersCount"] as? Int ?? 0,
+                    followingCount: data["followingCount"] as? Int ?? 0,
+                    profileImageURL: data["profileImageURL"] as? String ?? "",
+                    isVerified: data["isVerified"] as? Bool ?? false,
+                    createdAt: data["createdAt"] as? Double ?? Date().timeIntervalSince1970,
+                    _tags: ["user"]
+                )
+                records.append(record)
+            }
+
             let responses = try await client.saveObjects(
                 indexName: usersIndexName,
                 objects: records
             )
+            totalSynced += records.count
             let taskIDs = responses.map { String($0.taskID) }.joined(separator: ", ")
-            print("✅ Bulk synced \(records.count) users to Algolia (tasks: \(taskIDs))")
-        } else {
-            print("⚠️ No users to sync")
-        }
+            print("✅ Synced batch of \(records.count) users (total: \(totalSynced), tasks: \(taskIDs))")
+
+            // If we got fewer than batchSize, we've reached the end
+            if snapshot.documents.count < batchSize { break }
+
+        } while true
+
+        print("✅ Bulk sync complete — \(totalSynced) users synced to Algolia")
     }
     
     /// Bulk sync all existing posts from Firestore to Algolia

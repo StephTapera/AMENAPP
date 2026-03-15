@@ -346,15 +346,16 @@ final class DataImportService: ObservableObject {
 /// Layout: personal_information.json + posts/ directory.
 struct InstagramArchiveImporter: ArchiveImporter {
     let displayName = "Instagram Archive Importer"
+    nonisolated init() {}
 
-    func canHandle(archiveRoot: URL) -> Bool {
+    nonisolated func canHandle(archiveRoot: URL) -> Bool {
         let personalInfo = archiveRoot.appendingPathComponent("personal_information.json")
         let postsDir = archiveRoot.appendingPathComponent("posts")
         return FileManager.default.fileExists(atPath: personalInfo.path)
             || FileManager.default.fileExists(atPath: postsDir.path)
     }
 
-    func parse(archiveRoot: URL, progressHandler: @escaping (ImportProgress) -> Void) async throws -> [ImportableItem] {
+    nonisolated func parse(archiveRoot: URL, progressHandler: @escaping (ImportProgress) -> Void) async throws -> [ImportableItem] {
         // Delegate to generic parser — Instagram's JSON post format is handled there
         let generic = GenericArchiveImporter()
         var result = try await generic.parse(archiveRoot: archiveRoot, progressHandler: progressHandler)
@@ -370,14 +371,15 @@ struct InstagramArchiveImporter: ArchiveImporter {
 /// Layout: data/tweets.js (JSONP-style: window.YTD.tweets.part0 = [...])
 struct TwitterArchiveImporter: ArchiveImporter {
     let displayName = "X / Twitter Archive Importer"
+    nonisolated init() {}
 
-    func canHandle(archiveRoot: URL) -> Bool {
+    nonisolated func canHandle(archiveRoot: URL) -> Bool {
         let tweetsJS = archiveRoot.appendingPathComponent("data/tweets.js")
         return FileManager.default.fileExists(atPath: tweetsJS.path)
     }
 
-    func parse(archiveRoot: URL, progressHandler: @escaping (ImportProgress) -> Void) async throws -> [ImportableItem] {
-        return try await Task.detached(priority: .userInitiated) {
+    nonisolated func parse(archiveRoot: URL, progressHandler: @escaping (ImportProgress) -> Void) async throws -> [ImportableItem] {
+        return await Task.detached(priority: .userInitiated) {
             var progress = ImportProgress()
             progress.phase = .parsing
             progressHandler(progress)

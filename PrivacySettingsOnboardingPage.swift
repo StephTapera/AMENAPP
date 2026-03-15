@@ -198,8 +198,9 @@ struct PrivacySettingsOnboardingPage: View {
                                                 }
                                             }
 
+                                            let iconColor: Color = commentModeration == level ? .blue : .white.opacity(0.6)
                                             Image(systemName: level.icon)
-                                                .foregroundStyle(commentModeration == level ? .blue : .white.opacity(0.6))
+                                                .foregroundStyle(iconColor)
                                                 .frame(width: 24)
 
                                             VStack(alignment: .leading, spacing: 4) {
@@ -355,6 +356,61 @@ struct MessagingPrivacyOption: View {
             )
         }
         .buttonStyle(PlainButtonStyle())
+    }
+}
+
+// MARK: - Onboarding Navigation Buttons (local copy)
+
+private struct OnboardingNavigationButtons: View {
+    let currentPage: Int
+    let totalPages: Int
+    let canContinue: Bool
+    let onBack: () -> Void
+    let onSkip: () -> Void
+    let onNext: () -> Void
+
+    var body: some View {
+        HStack(spacing: 16) {
+            if currentPage > 0 {
+                Button(action: onBack) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 13, weight: .semibold))
+                        Text("Back")
+                            .font(.system(size: 15, weight: .medium))
+                    }
+                    .foregroundStyle(.white.opacity(0.7))
+                    .frame(height: 52)
+                }
+                .buttonStyle(.plain)
+            }
+
+            Spacer()
+
+            Button(action: onSkip) {
+                Text("Skip")
+                    .font(.system(size: 14, weight: .regular))
+                    .foregroundStyle(.white.opacity(0.5))
+            }
+            .buttonStyle(.plain)
+
+            Button(action: onNext) {
+                HStack(spacing: 6) {
+                    Text(currentPage == totalPages - 1 ? "Finish" : "Next")
+                        .font(.system(size: 15, weight: .semibold))
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                }
+                .foregroundStyle(.white)
+                .frame(height: 52)
+                .padding(.horizontal, 20)
+                .background(
+                    Capsule().fill(canContinue ? Color.blue : Color.blue.opacity(0.4))
+                )
+            }
+            .buttonStyle(.plain)
+            .disabled(!canContinue)
+        }
     }
 }
 

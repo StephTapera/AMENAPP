@@ -8,6 +8,49 @@
 import Foundation
 import SwiftUI
 
+// MARK: - Conversation Source Context
+
+/// Where/how a conversation was initiated — shown as a subtle banner.
+public enum ConversationSource: String, Codable, Equatable {
+    case direct          = "direct"
+    case fromPost        = "from_post"
+    case fromTestimony   = "from_testimony"
+    case fromPrayer      = "from_prayer"
+    case fromChurch      = "from_church"
+    case fromChurchNotes = "from_church_notes"
+    case fromProfile     = "from_profile"
+    case fromOpportunity = "from_opportunity"
+    case fromComment     = "from_comment"
+
+    var label: String {
+        switch self {
+        case .direct:          return ""
+        case .fromPost:        return "Messaged you from your post"
+        case .fromTestimony:   return "Responded to your testimony"
+        case .fromPrayer:      return "Reached out about a prayer request"
+        case .fromChurch:      return "Connected through a church page"
+        case .fromChurchNotes: return "Reached out through Church Notes"
+        case .fromProfile:     return "Started from your profile"
+        case .fromOpportunity: return "Contacted you through Opportunities"
+        case .fromComment:     return "Replied to your comment"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .direct:          return "bubble.left.and.bubble.right"
+        case .fromPost:        return "doc.text"
+        case .fromTestimony:   return "star"
+        case .fromPrayer:      return "hands.sparkles"
+        case .fromChurch:      return "building.columns"
+        case .fromChurchNotes: return "note.text"
+        case .fromProfile:     return "person.circle"
+        case .fromOpportunity: return "briefcase"
+        case .fromComment:     return "text.bubble"
+        }
+    }
+}
+
 // MARK: - Conversation Model
 
 public struct ChatConversation: Identifiable, Equatable {
@@ -24,7 +67,10 @@ public struct ChatConversation: Identifiable, Equatable {
     public let isMuted: Bool // Whether notifications are muted
     public let requesterId: String? // User who initiated the conversation (for message requests)
     public let otherParticipantId: String? // Non-current user's ID for 1:1 conversations
-    
+    public let source: ConversationSource // How/where this conversation was initiated
+    public let otherUserBio: String? // Short bio preview for identity card
+    public let otherUserUsername: String? // @username for identity card
+
     // Equatable conformance
     public static func == (lhs: ChatConversation, rhs: ChatConversation) -> Bool {
         lhs.id == rhs.id &&
@@ -38,7 +84,10 @@ public struct ChatConversation: Identifiable, Equatable {
         lhs.isPinned == rhs.isPinned &&
         lhs.isMuted == rhs.isMuted &&
         lhs.requesterId == rhs.requesterId &&
-        lhs.otherParticipantId == rhs.otherParticipantId
+        lhs.otherParticipantId == rhs.otherParticipantId &&
+        lhs.source == rhs.source &&
+        lhs.otherUserBio == rhs.otherUserBio &&
+        lhs.otherUserUsername == rhs.otherUserUsername
         // Note: Excluding avatarColor from comparison as Color doesn't conform to Equatable
     }
     
@@ -55,7 +104,10 @@ public struct ChatConversation: Identifiable, Equatable {
         isPinned: Bool = false,
         isMuted: Bool = false,
         requesterId: String? = nil,
-        otherParticipantId: String? = nil
+        otherParticipantId: String? = nil,
+        source: ConversationSource = .direct,
+        otherUserBio: String? = nil,
+        otherUserUsername: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -70,6 +122,9 @@ public struct ChatConversation: Identifiable, Equatable {
         self.isMuted = isMuted
         self.requesterId = requesterId
         self.otherParticipantId = otherParticipantId
+        self.source = source
+        self.otherUserBio = otherUserBio
+        self.otherUserUsername = otherUserUsername
     }
     
     public var initials: String {

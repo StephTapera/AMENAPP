@@ -518,7 +518,7 @@ struct ReflectSheet: View {
                     ? "❓ \(text)"
                     : "💡 \(text)"
                 _ = try await CommentService.shared.addComment(
-                    postId: String(post.firestoreId.prefix(8)),
+                    postId: post.firestoreId,
                     content: taggedContent,
                     post: post
                 )

@@ -7,6 +7,7 @@
 
 import Foundation
 import Combine
+import FirebaseAuth
 
 @MainActor
 class ContentViewModel: ObservableObject {
@@ -21,12 +22,11 @@ class ContentViewModel: ObservableObject {
     }
     
     func switchToMessages() {
-        selectedTab = 1
+        selectedTab = 2  // Messages is tab index 2 (Home=0, People=1, Messages=2, Resources=3, Notifications=4, Profile=5)
     }
-    
-    func switchToCreate() {
-        selectedTab = 2
-    }
+
+    // Note: there is no dedicated Create tab — posts are created via the compose button overlay.
+    // This method is kept for API symmetry but has no corresponding tab to switch to.
     
     func switchToHome() {
         selectedTab = 0
@@ -39,7 +39,9 @@ class ContentViewModel: ObservableObject {
     }
     
     func signOut() {
-        // TODO: Implement sign out logic
+        // Run full listener teardown and cache clear before invalidating credentials.
+        AppLifecycleManager.shared.performFullSignOutCleanup()
+        try? Auth.auth().signOut()
         isAuthenticated = false
         currentUser = nil
     }

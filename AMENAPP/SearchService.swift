@@ -233,7 +233,7 @@ class SearchService: ObservableObject {
             firestoreId: userId,
             title: displayName,
             subtitle: "@\(username)",
-            metadata: "\(followerCount) followers" + (bio != nil && !bio!.isEmpty ? " • \(bio!.prefix(50))" : ""),
+            metadata: "\(followerCount) followers" + (bio.flatMap { $0.isEmpty ? nil : " • \($0.prefix(50))" } ?? ""),
             type: .person,
             isVerified: isVerified
         )

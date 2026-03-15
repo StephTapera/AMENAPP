@@ -13,6 +13,7 @@ import FirebaseDatabase  // ✅ Added for Realtime Database
 import FirebaseRemoteConfig  // ✅ Added for AI API keys
 import GoogleSignIn
 import StoreKit  // ✅ Added for In-App Purchases
+import BackgroundTasks  // ✅ BGAppRefreshTask for background feed refresh
 // import FirebaseVertexAI  // TODO: Add Firebase VertexAI package later to enable AI features
 
 @main
@@ -22,14 +23,8 @@ struct AMENAPPApp: App {
     
     @State private var currentUser: UserModel? = nil  // Store user for personalized welcome
     
-    // Welcome screen
-    @StateObject private var welcomeManager = WelcomeScreenManager()
-    @State private var showWelcomeScreen = false
-    
     // PERFORMANCE: Store auth listener handle for cleanup
     @State private var authStateHandle: AuthStateDidChangeListenerHandle?
-    // Track previous auth state to detect nil -> user sign-in transitions.
-    @State private var hadAuthUserOnLastEvent = false
     // P1-3 FIX: Track whether FCM setup has already run this session
     // to prevent redundant token writes on every foreground transition.
     @State private var fcmSetupDone = false
@@ -48,6 +43,17 @@ struct AMENAPPApp: App {
         defer { PerfEnd(_launchToken) }
         // Note: Firebase.configure() is called in AppDelegate.didFinishLaunchingWithOptions
         // Database persistence is also configured in AppDelegate after Firebase.configure()
+
+        // Register background task handler.
+        // Must be registered during app init (before the app finishes launching).
+        // iOS will call this handler when it decides to wake the app for a background refresh.
+        BGTaskScheduler.shared.register(
+            forTaskWithIdentifier: "com.amenapp.feed.refresh",
+            using: nil
+        ) { task in
+            guard let refreshTask = task as? BGAppRefreshTask else { return }
+            Self.handleFeedRefreshTask(refreshTask)
+        }
 
         // Phase 3 fix: Configure URLCache for better image scroll performance.
         // Default is only 512KB RAM + 10MB disk — too small for a social feed.
@@ -150,15 +156,6 @@ struct AMENAPPApp: App {
                 ContentView()
                     .handleChurchDeepLinks()  // ✅ Handle church deep links
 
-                if showWelcomeScreen {
-                    WelcomeScreenView(isPresented: $showWelcomeScreen)
-                        .transition(.opacity)
-                        .zIndex(1)
-                        .onDisappear {
-                            welcomeManager.recordLaunch()
-                        }
-                }
-
                 // ✅ P0-1: Under-13 hard block — full-screen gate when ageTier is "blocked".
                 // Overlays all app content and prevents any interaction. The only available
                 // action is signing out. The gate disappears automatically when the user
@@ -181,16 +178,8 @@ struct AMENAPPApp: App {
                     }
 
                     // ⚡️ PERFORMANCE OPTIMIZED: Parallel startup with instant UI
-                    showWelcomeScreen = welcomeManager.shouldShowWelcome()
                     ScrollBudgetManager.shared.trackAppReopen()
 
-                    // Only arm the cinematic loading screen when a user is already signed in.
-                    // For logged-out users skip it entirely — SignInView appears immediately
-                    // and there is nothing to "load", so the overlay would just get stuck.
-                    if Auth.auth().currentUser != nil {
-                        AppReadyStateManager.shared.signalSignIn()
-                    }
-                    
                     // PARALLEL: All startup tasks run simultaneously.
                     // P0-C FIX: Use withTaskGroup so child tasks are properly cancelled
                     // when the parent task is cancelled in onDisappear. Using async let
@@ -293,6 +282,7 @@ struct AMENAPPApp: App {
                     refreshQuickActions()
                 case .background:
                     BehavioralAwarenessEngine.shared.endSession()
+                    Self.scheduleBackgroundFeedRefresh()
                 default:
                     break
                 }
@@ -394,17 +384,10 @@ struct AMENAPPApp: App {
     // MARK: - Auth State Listener
     
     private func setupAuthStateListener() {
-        // Seed the previous-state tracker before attaching the listener.
-        hadAuthUserOnLastEvent = Auth.auth().currentUser != nil
         // PERFORMANCE: Store handle for cleanup
         authStateHandle = Auth.auth().addStateDidChangeListener { auth, user in
             Task { @MainActor in
                 if let user = user {
-                    // Detect nil → user transition to show logo welcome screen on re-login.
-                    if !self.hadAuthUserOnLastEvent {
-                        self.welcomeManager.markSignIn()
-                    }
-                    self.hadAuthUserOnLastEvent = true
                     // User logged in - register token
                     #if DEBUG
                     dlog("👤 User logged in: \(user.uid)")
@@ -434,7 +417,6 @@ struct AMENAPPApp: App {
                         FollowService.shared.startListening()
                     }
                 } else {
-                    self.hadAuthUserOnLastEvent = false
                     // P0-D FIX: Reset fcmSetupDone so the next sign-in within the same
                     // session re-registers the FCM token for the new user account.
                     // Without this, a second sign-in skips FCM setup and push notifications
@@ -595,5 +577,52 @@ struct AMENAPPApp: App {
                 "destination": draft.destination
             ]
         )
+    }
+
+    // MARK: - Background Feed Refresh
+
+    /// Schedule the next BGAppRefreshTask request.
+    /// Call this on foreground → background transition and after each completed refresh.
+    /// iOS may invoke the task as early as 15 minutes after scheduling, subject to
+    /// system heuristics (battery, usage patterns, etc.).
+    static func scheduleBackgroundFeedRefresh() {
+        let request = BGAppRefreshTaskRequest(identifier: "com.amenapp.feed.refresh")
+        request.earliestBeginDate = Date(timeIntervalSinceNow: 15 * 60) // at most every 15 min
+        do {
+            try BGTaskScheduler.shared.submit(request)
+            dlog("✅ BGAppRefreshTask scheduled (earliest: 15 min)")
+        } catch {
+            dlog("⚠️ BGAppRefreshTask schedule failed: \(error)")
+        }
+    }
+
+    /// Execute a lightweight feed and notification refresh in the background.
+    /// Must complete and call task.setTaskCompleted() within 30 seconds.
+    private static func handleFeedRefreshTask(_ task: BGAppRefreshTask) {
+        // Schedule the next refresh immediately so we chain future wakeups.
+        scheduleBackgroundFeedRefresh()
+
+        task.expirationHandler = {
+            // iOS is revoking our budget — mark incomplete so the system knows
+            // we didn't finish (may affect future scheduling heuristics).
+            task.setTaskCompleted(success: false)
+        }
+
+        let refreshTask = Task {
+            guard Auth.auth().currentUser != nil else {
+                task.setTaskCompleted(success: true)
+                return
+            }
+            // Prefetch latest posts into Firestore local cache so the feed
+            // appears instant when the user next opens the app.
+            await FirebasePostService.shared.preloadCacheSync()
+            task.setTaskCompleted(success: true)
+            dlog("✅ BGAppRefreshTask completed — feed cache updated")
+        }
+
+        task.expirationHandler = {
+            refreshTask.cancel()
+            task.setTaskCompleted(success: false)
+        }
     }
 }

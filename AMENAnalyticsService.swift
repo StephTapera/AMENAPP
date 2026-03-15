@@ -143,8 +143,11 @@ final class AMENAnalyticsService {
     private let db = Firestore.firestore()
     private let flags = AMENFeatureFlags.shared
 
-    // In-memory buffer for batching (flush every 30s or 20 events)
+    // In-memory buffer for batching (flush every 30s or 20 events).
+    // Hard cap at 200 events: if Firestore writes fail repeatedly and the buffer
+    // grows past this limit, the oldest events are dropped to prevent OOM.
     private var eventBuffer: [(name: String, props: [String: Any], ts: Date)] = []
+    private static let maxBufferSize = 200
     private var flushTask: Task<Void, Never>?
 
     private init() {
@@ -176,7 +179,12 @@ final class AMENAnalyticsService {
         let params = event.properties.isEmpty ? nil : event.properties
         Analytics.logEvent(event.name, parameters: params)
 
-        // Buffer for secondary Firestore write (requires auth)
+        // Buffer for secondary Firestore write (requires auth).
+        // Drop oldest entry first if the buffer has reached the hard cap,
+        // preventing unbounded growth when Firestore writes fail repeatedly.
+        if eventBuffer.count >= Self.maxBufferSize {
+            eventBuffer.removeFirst()
+        }
         eventBuffer.append((event.name, event.properties, Date()))
         if eventBuffer.count >= 20 {
             Task { await flush() }

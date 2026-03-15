@@ -170,19 +170,22 @@ extension FirebaseMessagingService {
         
         let conversationRef = db.collection("conversations").document(requestId)
         
-        // Fetch the conversation first to get requesterId and acceptor name
+        // Fetch the conversation first to get requesterId, acceptor name, and current status
         let conversationDoc = try await conversationRef.getDocument()
         let requesterId = conversationDoc.data()?["requesterId"] as? String
-        
+        let currentStatus = conversationDoc.data()?["conversationStatus"] as? String ?? "accepted"
+
         try await conversationRef.updateData([
             "conversationStatus": "accepted",
             "acceptedAt": Timestamp(date: Date()),
             "acceptedBy": currentUserId,
             "updatedAt": Timestamp(date: Date())
         ])
-        
-        // Notify the requester that their message request was accepted
-        if let requesterId, !requesterId.isEmpty, requesterId != currentUserId {
+
+        // Only notify the requester if this conversation was actually pending.
+        // Guarding on "pending" prevents duplicate notifications when the function is
+        // called on a conversation that is already accepted (e.g. auto-accept on reply).
+        if currentStatus == "pending", let requesterId, !requesterId.isEmpty, requesterId != currentUserId {
             let acceptorDoc = try? await db.collection("users").document(currentUserId).getDocument()
             let acceptorName = acceptorDoc?.data()?["displayName"] as? String ?? "Someone"
             let notification: [String: Any] = [

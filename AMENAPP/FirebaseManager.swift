@@ -166,6 +166,18 @@ class FirebaseManager {
 
             print("✅ FirebaseManager: User profile created successfully!")
 
+            // ── Username lookup index — public read, enables username availability checks ──
+            // SECURITY FIX: Store only uid (not email) to prevent unauthenticated email enumeration.
+            // Username-based sign-in must be handled server-side via a Cloud Function.
+            do {
+                try await firestore.collection("usernameLookup")
+                    .document(finalUsername)
+                    .setData(["uid": user.uid])
+                print("✅ FirebaseManager: Username lookup index written")
+            } catch {
+                print("⚠️ FirebaseManager: Username lookup index write failed (non-critical): \(error)")
+            }
+
             // ⭐️ Sync to Algolia for instant search
             do {
                 try await AlgoliaSyncService.shared.syncUser(userId: user.uid, userData: finalUserData)
@@ -414,12 +426,28 @@ class FirebaseManager {
             "showActivityStatus": true,
             "allowTagging": true,
             "hasCompletedOnboarding": false,
-            "authProvider": "google"
+            "authProvider": "google",
+            // ToS + Privacy Policy acceptance stamped at account creation.
+            // Google/Apple IdP accounts implicitly accept by completing sign-in.
+            "tosVersion": "1.0",
+            "privacyPolicyVersion": "1.0",
+            "tosAcceptedAt": Timestamp(date: Date()),
+            "privacyPolicyAcceptedAt": Timestamp(date: Date())
         ]
         
         try await firestore.collection(CollectionPath.users)
             .document(user.uid)
             .setData(userData)
+        
+        // Username lookup index — uid only (no email to prevent enumeration)
+        do {
+            try await firestore.collection("usernameLookup")
+                .document(username)
+                .setData(["uid": user.uid])
+            print("✅ FirebaseManager: Username lookup index written (Google)")
+        } catch {
+            print("⚠️ FirebaseManager: Username lookup index write failed (non-critical): \(error)")
+        }
         
         // Sync to Algolia
         try? await AlgoliaSyncService.shared.syncUser(userId: user.uid, userData: userData)
@@ -491,12 +519,27 @@ class FirebaseManager {
             "showActivityStatus": true,
             "allowTagging": true,
             "hasCompletedOnboarding": false,
-            "authProvider": "apple"
+            "authProvider": "apple",
+            // ToS + Privacy Policy acceptance stamped at account creation.
+            "tosVersion": "1.0",
+            "privacyPolicyVersion": "1.0",
+            "tosAcceptedAt": Timestamp(date: Date()),
+            "privacyPolicyAcceptedAt": Timestamp(date: Date())
         ]
         
         try await firestore.collection(CollectionPath.users)
             .document(user.uid)
             .setData(userData)
+        
+        // Username lookup index — uid only (no email to prevent enumeration)
+        do {
+            try await firestore.collection("usernameLookup")
+                .document(username)
+                .setData(["uid": user.uid])
+            print("✅ FirebaseManager: Username lookup index written (Apple)")
+        } catch {
+            print("⚠️ FirebaseManager: Username lookup index write failed (non-critical): \(error)")
+        }
         
         // Sync to Algolia
         try? await AlgoliaSyncService.shared.syncUser(userId: user.uid, userData: userData)

@@ -90,4 +90,3 @@ struct QuickReplyChip: View {
         }
     }
 }
-

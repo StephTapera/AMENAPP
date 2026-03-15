@@ -218,9 +218,9 @@ final class NotificationAggregationService: ObservableObject {
     func generateAggregatedText(
         for notifications: [AppNotification]
     ) -> String {
-        guard !notifications.isEmpty else { return "" }
+        guard let firstNotification = notifications.first else { return "" }
         
-        let type = notifications.first!.type
+        let type = firstNotification.type
         let count = notifications.count
         
         if count == 1 {

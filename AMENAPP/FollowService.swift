@@ -111,28 +111,31 @@ class FollowService: ObservableObject {
             followOperationsInProgress.remove(userId)
         }
         
-        // Check if already following (check Firestore directly, not cache)
-        let snapshot = try await db.collection(FirebaseManager.CollectionPath.follows)
+        // P1-6 FIX: Parallelize the two independent reads (existing-follow check + privacy lookup).
+        // Previously these ran sequentially; running them concurrently cuts latency roughly in half.
+        // The existingRequest check (3rd read) still depends on targetUserDoc so it stays sequential.
+        async let followSnapshotTask = db.collection(FirebaseManager.CollectionPath.follows)
             .whereField("followerId", isEqualTo: currentUserId)
             .whereField("followingId", isEqualTo: userId)
             .limit(to: 1)
             .getDocuments()
-        
+
+        async let targetUserDocTask = db.collection(FirebaseManager.CollectionPath.users)
+            .document(userId)
+            .getDocument()
+
+        let (snapshot, targetUserDoc) = try await (followSnapshotTask, targetUserDocTask)
+
         if !snapshot.documents.isEmpty {
             dlog("⚠️ Already following this user (found in Firestore)")
             following.insert(userId) // Update cache
             return
         }
         
-        // Check if target account is private — send a follow request instead of instant follow
-        let targetUserDoc = try await db.collection(FirebaseManager.CollectionPath.users)
-            .document(userId)
-            .getDocument()
-        
         let isPrivate = targetUserDoc.data()?["isPrivate"] as? Bool ?? false
         
         if isPrivate {
-            // Check if request already sent
+            // Check if request already sent (depends on knowing isPrivate, so sequential is fine)
             let existingRequest = try await db.collection("followRequests")
                 .whereField("fromUserId", isEqualTo: currentUserId)
                 .whereField("toUserId", isEqualTo: userId)
@@ -195,14 +198,14 @@ class FollowService: ObservableObject {
         let targetUserRef = db.collection(FirebaseManager.CollectionPath.users).document(userId)
         batch.updateData([
             "followersCount": FieldValue.increment(Int64(1)),
-            "updatedAt": Date()
+            "updatedAt": FieldValue.serverTimestamp()
         ], forDocument: targetUserRef)
         
         // 3. Increment following count on current user
         let currentUserRef = db.collection(FirebaseManager.CollectionPath.users).document(currentUserId)
         batch.updateData([
             "followingCount": FieldValue.increment(Int64(1)),
-            "updatedAt": Date()
+            "updatedAt": FieldValue.serverTimestamp()
         ], forDocument: currentUserRef)
         
         // Commit batch
@@ -231,11 +234,17 @@ class FollowService: ObservableObject {
         haptic.notificationOccurred(.success)
 
         // Invalidate privacy cache so follow state is fresh everywhere
-        await PrivacyAccessControl.shared.invalidate(userId: userId)
+        PrivacyAccessControl.shared.invalidate(userId: userId)
         NotificationCenter.default.post(
             name: .followRelationshipChanged,
             object: nil,
             userInfo: ["userId": userId]
+        )
+        // Broadcast to all UI components observing followStateChanged
+        NotificationCenter.default.post(
+            name: .followStateChanged,
+            object: nil,
+            userInfo: ["userId": userId, "isFollowing": true]
         )
     }
     
@@ -283,35 +292,47 @@ class FollowService: ObservableObject {
         let followDocRef = followDoc.reference
         let targetUserRef = db.collection(FirebaseManager.CollectionPath.users).document(userId)
         let currentUserRef = db.collection(FirebaseManager.CollectionPath.users).document(currentUserId)
-        
-        // P1 FIX: Use a transaction to delete the follow doc and clamp-decrement
-        // counters atomically — prevents counts going negative on rapid/duplicate taps.
+
+        // Pre-read current counts so we can apply a floor of 0 in the batch write.
+        // FieldValue.increment(-1) can produce negative counts on concurrent unfollows;
+        // reading first and using max(0, count - 1) prevents that.
+        // The Firestore isCounterUpdate() rule allows a delta of [-1, 0, 1], so a 0 delta
+        // (when count is already 0) is still accepted.
+        async let targetSnapTask = targetUserRef.getDocument()
+        async let currentSnapTask = currentUserRef.getDocument()
+        let (targetSnap, currentSnap) = try await (targetSnapTask, currentSnapTask)
+        let newFollowersCount = max(0, (targetSnap.data()?["followersCount"] as? Int ?? 0) - 1)
+        let newFollowingCount = max(0, (currentSnap.data()?["followingCount"] as? Int ?? 0) - 1)
+
+        // Use a batch write instead of a transaction for unfollow.
+        // Transactions require every doc to be read before write (for security rule evaluation
+        // of resource.data). The follows_index delete was failing because there was no prior
+        // transaction.getDocument(indexRef), leaving resource.data null when the rule checked
+        // resource.data.get('followerId'). A batch write with the computed values avoids this
+        // entirely — the rules' isCounterUpdate() check passes because the delta is ±1 (or 0).
+        let batch = db.batch()
+        batch.deleteDocument(followDocRef)
+        batch.updateData([
+            "followersCount": newFollowersCount,
+            "updatedAt": FieldValue.serverTimestamp()
+        ], forDocument: targetUserRef)
+        batch.updateData([
+            "followingCount": newFollowingCount,
+            "updatedAt": FieldValue.serverTimestamp()
+        ], forDocument: currentUserRef)
+
+        // Only delete the index doc if it actually exists — a missing index doc causes
+        // resource==null in Firestore rules, which would deny the entire batch (Code=7).
+        let indexRef = db.collection("follows_index").document("\(currentUserId)_\(userId)")
+        let indexSnap = try? await indexRef.getDocument()
+        if indexSnap?.exists == true {
+            batch.deleteDocument(indexRef)
+        }
+
         do {
-            _ = try await db.runTransaction { transaction, errorPointer in
-                // Read current counts inside the transaction
-                let targetSnap: DocumentSnapshot
-                let currentSnap: DocumentSnapshot
-                do {
-                    targetSnap  = try transaction.getDocument(targetUserRef)
-                    currentSnap = try transaction.getDocument(currentUserRef)
-                } catch let fetchError as NSError {
-                    errorPointer?.pointee = fetchError
-                    return nil
-                }
-                
-                let targetFollowers = max(0, (targetSnap.data()?["followersCount"] as? Int ?? 0) - 1)
-                let currentFollowing = max(0, (currentSnap.data()?["followingCount"] as? Int ?? 0) - 1)
-                
-                transaction.deleteDocument(followDocRef)
-                transaction.updateData(["followersCount": targetFollowers, "updatedAt": Date()], forDocument: targetUserRef)
-                transaction.updateData(["followingCount": currentFollowing, "updatedAt": Date()], forDocument: currentUserRef)
-                // Remove follows_index entry so privacy rules no longer grant access
-                let indexRef = self.db.collection("follows_index").document("\(currentUserId)_\(userId)")
-                transaction.deleteDocument(indexRef)
-                return nil
-            }
+            try await batch.commit()
         } catch {
-            dlog("❌ Unfollow transaction failed: \(error)")
+            dlog("❌ Unfollow batch failed: \(error)")
             // Revert optimistic update on error
             following.insert(userId)
             throw error
@@ -322,11 +343,17 @@ class FollowService: ObservableObject {
         haptic.impactOccurred()
 
         // Invalidate privacy cache on unfollow
-        await PrivacyAccessControl.shared.invalidate(userId: userId)
+        PrivacyAccessControl.shared.invalidate(userId: userId)
         NotificationCenter.default.post(
             name: .followRelationshipChanged,
             object: nil,
             userInfo: ["userId": userId]
+        )
+        // Broadcast to all UI components observing followStateChanged
+        NotificationCenter.default.post(
+            name: .followStateChanged,
+            object: nil,
+            userInfo: ["userId": userId, "isFollowing": false]
         )
     }
     
@@ -468,7 +495,7 @@ class FollowService: ObservableObject {
         dlog("✅ Follower removed successfully")
 
         // Invalidate privacy cache for the removed follower
-        await PrivacyAccessControl.shared.invalidate(userId: followerId)
+        PrivacyAccessControl.shared.invalidate(userId: followerId)
         NotificationCenter.default.post(
             name: .followRelationshipChanged,
             object: nil,

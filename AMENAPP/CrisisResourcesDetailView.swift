@@ -44,10 +44,8 @@ struct CrisisResourcesDetailView: View {
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 0) {
-                // ── Hero glass header ─────────────────────────────────────────
+                // ── Full-bleed immersive hero — extends into safe area ────────
                 heroHeader
-                    .opacity(appeared ? 1 : 0)
-                    .scaleEffect(appeared ? 1 : 0.97)
 
                 // ── Emergency CTA — always visible ───────────────────────────
                 emergencyCTA
@@ -95,8 +93,11 @@ struct CrisisResourcesDetailView: View {
                     .opacity(appeared ? 1 : 0)
             }
         }
-        .navigationTitle("Crisis Help")
+        .ignoresSafeArea(edges: .top)
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(false)
+        .toolbarColorScheme(.dark, for: .navigationBar)
         .onAppear {
             withAnimation(.easeOut(duration: 0.55).delay(0.08)) {
                 appeared = true
@@ -122,51 +123,84 @@ struct CrisisResourcesDetailView: View {
 
     // MARK: Hero Header
 
+    // Crisis-unique color palette — deep burgundy warmth, not used elsewhere in the app
+    private let crisisDark    = Color(red: 0.18, green: 0.07, blue: 0.10)   // deep burgundy-black
+    private let crisisMid     = Color(red: 0.42, green: 0.12, blue: 0.22)   // rich crimson
+    private let crisisAccent  = Color(red: 0.72, green: 0.28, blue: 0.32)   // warm rose
+    private let crisisGold    = Color(red: 0.88, green: 0.72, blue: 0.48)   // harvest gold
+    private let crisisInkLight = Color.white.opacity(0.92)
+    private let crisisSubLight = Color.white.opacity(0.60)
+
     private var heroHeader: some View {
-        ZStack(alignment: .bottomLeading) {
-            // Lens gradient background — warm rose, not alarming
-            LinearGradient(
-                colors: [
-                    Color(red: 0.95, green: 0.88, blue: 0.88),
-                    Color(red: 0.98, green: 0.93, blue: 0.90)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea(edges: .top)
+        GeometryReader { geo in
+            ZStack(alignment: .bottomLeading) {
+                // Base — deep burgundy gradient
+                LinearGradient(
+                    colors: [crisisDark, crisisMid],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
 
-            // Lens highlight — soft white refraction
-            Ellipse()
-                .fill(Color.white.opacity(0.28))
-                .frame(width: 220, height: 90)
-                .blur(radius: 32)
-                .offset(x: 80, y: -20)
+                // Warm radial bloom from top-right
+                RadialGradient(
+                    colors: [crisisAccent.opacity(0.35), Color.clear],
+                    center: UnitPoint(x: 0.82, y: 0.15),
+                    startRadius: 20,
+                    endRadius: 280
+                )
 
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 10) {
-                    ZStack {
-                        Circle()
-                            .fill(Color(red: 0.85, green: 0.22, blue: 0.22).opacity(0.14))
-                            .frame(width: 48, height: 48)
-                        Image(systemName: "heart.circle.fill")
-                            .font(.system(size: 24, weight: .semibold))
-                            .foregroundStyle(Color(red: 0.75, green: 0.18, blue: 0.18))
-                    }
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("You're not alone.")
-                            .font(.custom("OpenSans-Bold", size: 22))
-                            .foregroundStyle(Color(red: 0.28, green: 0.14, blue: 0.14))
-                        Text("Help is here, anytime.")
-                            .font(.custom("OpenSans-Regular", size: 14))
-                            .foregroundStyle(Color(red: 0.45, green: 0.28, blue: 0.28))
+                // Gold accent — bottom-left warmth
+                RadialGradient(
+                    colors: [crisisGold.opacity(0.18), Color.clear],
+                    center: UnitPoint(x: 0.05, y: 0.95),
+                    startRadius: 0,
+                    endRadius: 200
+                )
+
+                // Subtle grain texture — horizontal editorial lines
+                VStack(spacing: 28) {
+                    ForEach(0..<6, id: \.self) { _ in
+                        Rectangle()
+                            .fill(Color.white.opacity(0.03))
+                            .frame(height: 1)
                     }
                 }
+                .frame(maxWidth: .infinity)
+
+                // Content — sits above safe area bottom
+                VStack(alignment: .leading, spacing: 0) {
+                    Spacer()
+
+                    // Eyebrow label
+                    Text("CRISIS HELP & SUPPORT")
+                        .font(.system(size: 9, weight: .semibold))
+                        .kerning(2.5)
+                        .foregroundStyle(crisisSubLight)
+                        .padding(.bottom, 10)
+
+                    // Large serif headline
+                    Text("You are\nnot alone.")
+                        .font(.custom("Georgia", size: 38))
+                        .fontWeight(.regular)
+                        .foregroundStyle(crisisInkLight)
+                        .lineSpacing(4)
+                        .padding(.bottom, 10)
+
+                    // Subtitle
+                    Text("Confidential help is here, 24/7.")
+                        .font(.system(size: 14, weight: .regular))
+                        .foregroundStyle(crisisSubLight)
+                        .padding(.bottom, 28)
+                }
                 .padding(.horizontal, 24)
-                .padding(.bottom, 24)
-                .padding(.top, 16)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .frame(width: geo.size.width, height: geo.size.height)
         }
         .frame(maxWidth: .infinity)
+        .frame(height: 300)
+        .ignoresSafeArea(edges: .top)
+        .opacity(appeared ? 1 : 0)
     }
 
     // MARK: Emergency CTA

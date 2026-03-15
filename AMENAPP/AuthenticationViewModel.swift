@@ -1267,10 +1267,15 @@ class AuthenticationViewModel: ObservableObject {
     /// P0: Server-side rate limiting to prevent abuse
     private func checkServerRateLimit(phoneNumber: String) async -> Bool {
         // Cloud Functions deployed - server-side rate limiting enabled
+        // callable.call() must not be cancelled mid-flight (causes asyncLet_finish_after_task_completion crash).
+        // We run it in a Task.detached and await its value without propagating cancellation.
         do {
             let functions = Functions.functions()
             let callable = functions.httpsCallable("checkPhoneVerificationRateLimit")
-            let result = try await callable.call(["phoneNumber": phoneNumber, "action": "send"])
+            let callTask = Task.detached {
+                try await callable.call(["phoneNumber": phoneNumber, "action": "send"])
+            }
+            let result = try await callTask.value
 
             if let data = result.data as? [String: Any],
                let allowed = data["allowed"] as? Bool {

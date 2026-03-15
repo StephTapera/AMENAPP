@@ -84,8 +84,7 @@ struct NotificationsSettingsView: View {
         .disabled(isSaving)
         .overlay {
             if isLoading {
-                ProgressView()
-                    .scaleEffect(1.2)
+                AMENLoadingIndicator()
             }
         }
         .task {

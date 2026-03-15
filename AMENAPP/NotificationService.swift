@@ -104,7 +104,7 @@ final class NotificationService: ObservableObject {
     func toggleAINotifications() {
         useAINotifications.toggle()
         UserDefaults.standard.set(useAINotifications, forKey: "useAINotifications_v1")
-        print(useAINotifications ? "✅ AI notifications enabled" : "⚠️ AI notifications disabled")
+        dlog(useAINotifications ? "✅ AI notifications enabled" : "⚠️ AI notifications disabled")
     }
     
     // MARK: - Setup Observers
@@ -321,8 +321,8 @@ final class NotificationService: ObservableObject {
     private func handleListenerError(_ firestoreError: Error) async {
         let nsError = firestoreError as NSError
         
-        print("❌ Firestore listener error: \(firestoreError.localizedDescription)")
-        print("   Error code: \(nsError.code), domain: \(nsError.domain)")
+        dlog("❌ Firestore listener error: \(firestoreError.localizedDescription)")
+        dlog("   Error code: \(nsError.code), domain: \(nsError.domain)")
         
         self.isLoading = false
         
@@ -349,8 +349,9 @@ final class NotificationService: ObservableObject {
         retryCount += 1
         let delay = pow(2.0, Double(retryCount)) // Exponential backoff: 2s, 4s, 8s
         
-        print("🔄 Retrying connection in \(delay)s (attempt \(retryCount)/\(maxRetries))")
+        dlog("🔄 Retrying connection in \(delay)s (attempt \(retryCount)/\(maxRetries))")
         
+        retryTask?.cancel()
         retryTask = Task {
             try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
             
@@ -380,7 +381,7 @@ final class NotificationService: ObservableObject {
         // Clear per-source caches so a fresh startListening() begins from a clean slate
         subcollectionDocs = []
         topLevelDocs = []
-        print("🛑 Stopped listening to notifications")
+        dlog("🛑 Stopped listening to notifications")
     }
     
     // MARK: - Duplicate Cleanup
@@ -426,11 +427,11 @@ final class NotificationService: ObservableObject {
     /// This handles cases where Cloud Functions might have created duplicates
     func removeDuplicateFollowNotifications() async {
         guard let userId = Auth.auth().currentUser?.uid else {
-            print("⚠️ Cannot cleanup: No authenticated user")
+            dlog("⚠️ Cannot cleanup: No authenticated user")
             return
         }
         
-        print("🧹 Starting duplicate follow notification cleanup...")
+        dlog("🧹 Starting duplicate follow notification cleanup...")
         
         do {
             // Get all follow notifications from user's subcollection
@@ -464,20 +465,20 @@ final class NotificationService: ObservableObject {
                 for doc in sortedDocs.dropFirst() {
                     batch.deleteDocument(doc.reference)
                     deletedCount += 1
-                    print("🗑️ Marking duplicate notification for deletion from \(actorId)")
+                    dlog("🗑️ Marking duplicate notification for deletion from \(actorId)")
                 }
             }
             
             // Commit batch delete
             if deletedCount > 0 {
                 try await batch.commit()
-                print("✅ Cleaned up \(deletedCount) duplicate follow notifications")
+                dlog("✅ Cleaned up \(deletedCount) duplicate follow notifications")
             } else {
-                print("✅ No duplicate follow notifications found")
+                dlog("✅ No duplicate follow notifications found")
             }
             
         } catch {
-            print("❌ Failed to cleanup duplicate notifications: \(error.localizedDescription)")
+            dlog("❌ Failed to cleanup duplicate notifications: \(error.localizedDescription)")
             // Don't throw - this is a best-effort cleanup
         }
     }
@@ -512,9 +513,9 @@ final class NotificationService: ObservableObject {
                 await updateBadgeCount()
             }
             
-            print("✅ Marked notification as read: \(notificationId)")
+            dlog("✅ Marked notification as read: \(notificationId)")
         } catch let error as NSError {
-            print("❌ Error marking notification as read: \(error.localizedDescription)")
+            dlog("❌ Error marking notification as read: \(error.localizedDescription)")
             throw NotificationServiceError.firestoreError(error)
         }
     }
@@ -522,13 +523,13 @@ final class NotificationService: ObservableObject {
     /// Mark all notifications as read
     func markAllAsRead() async throws {
         guard !notifications.isEmpty else {
-            print("ℹ️ No notifications to mark as read")
+            dlog("ℹ️ No notifications to mark as read")
             return
         }
         
         let unreadNotifications = notifications.filter { !$0.read }
         guard !unreadNotifications.isEmpty else {
-            print("ℹ️ All notifications already read")
+            dlog("ℹ️ All notifications already read")
             return
         }
         
@@ -566,7 +567,7 @@ final class NotificationService: ObservableObject {
         unreadCount = 0
         await updateBadgeCount()
         
-        print("✅ Marked \(totalCommitted) notifications as read")
+        dlog("✅ Marked \(totalCommitted) notifications as read")
     }
     
     // MARK: - Delete Notification
@@ -594,58 +595,58 @@ final class NotificationService: ObservableObject {
             unreadCount = notifications.filter { !$0.read }.count
             await updateBadgeCount()
             
-            print("✅ Deleted notification: \(notificationId)")
+            dlog("✅ Deleted notification: \(notificationId)")
         } catch {
-            print("❌ Error deleting notification: \(error.localizedDescription)")
+            dlog("❌ Error deleting notification: \(error.localizedDescription)")
             throw NotificationServiceError.firestoreError(error)
         }
     }
     
-    /// Delete all read notifications
+    /// Delete all read notifications — processes in 499-operation Firestore batches
+    /// to handle high-engagement users without silently dropping items.
     func deleteAllRead() async throws {
         let readNotifications = notifications.filter { $0.read }
         
         guard !readNotifications.isEmpty else {
-            print("ℹ️ No read notifications to delete")
+            dlog("ℹ️ No read notifications to delete")
             return
         }
         
         guard let userId = Auth.auth().currentUser?.uid else {
             throw NotificationServiceError.notAuthenticated
         }
-        
-        let batch = db.batch()
-        var batchCount = 0
-        
-        for notification in readNotifications {
-            guard let id = notification.id else { continue }
-            let ref = db.collection("users")
-                .document(userId)
-                .collection("notifications")
-                .document(id)
-            batch.deleteDocument(ref)
-            batchCount += 1
-            
-            // Firestore batch limit is 500 operations
-            if batchCount >= 500 {
-                print("⚠️ Reached Firestore batch limit, processing partial batch")
-                break
+
+        let chunkSize = 499  // stay under the 500-operation Firestore limit
+        let chunks = stride(from: 0, to: readNotifications.count, by: chunkSize).map {
+            Array(readNotifications[$0..<min($0 + chunkSize, readNotifications.count)])
+        }
+        var totalDeleted = 0
+
+        for chunk in chunks {
+            let batch = db.batch()
+            for notification in chunk {
+                guard let id = notification.id else { continue }
+                let ref = db.collection("users")
+                    .document(userId)
+                    .collection("notifications")
+                    .document(id)
+                batch.deleteDocument(ref)
+                totalDeleted += 1
+            }
+            do {
+                try await batch.commit()
+            } catch {
+                dlog("❌ Error deleting read notifications batch: \(error.localizedDescription)")
+                throw NotificationServiceError.firestoreError(error)
             }
         }
-        
-        do {
-            try await batch.commit()
-            
-            // Update local state
-            notifications.removeAll { $0.read }
-            unreadCount = notifications.filter { !$0.read }.count
-            await updateBadgeCount()
-            
-            print("✅ Deleted \(batchCount) read notifications")
-        } catch {
-            print("❌ Error deleting read notifications: \(error.localizedDescription)")
-            throw NotificationServiceError.firestoreError(error)
-        }
+
+        // Update local state after all batches committed
+        notifications.removeAll { $0.read }
+        unreadCount = notifications.filter { !$0.read }.count
+        await updateBadgeCount()
+
+        dlog("✅ Deleted \(totalDeleted) read notifications")
     }
     
     // MARK: - Mention Notifications
@@ -666,11 +667,11 @@ final class NotificationService: ObservableObject {
         contentType: String
     ) async {
         guard !mentions.isEmpty else {
-            print("ℹ️ No mentions to notify")
+            dlog("ℹ️ No mentions to notify")
             return
         }
         
-        print("📧 Sending \(mentions.count) mention notifications...")
+        dlog("📧 Sending \(mentions.count) mention notifications...")
         
         let batch = db.batch()
         var batchCount = 0
@@ -701,21 +702,21 @@ final class NotificationService: ObservableObject {
             
             // Firestore batch limit is 500 operations
             if batchCount >= 500 {
-                print("⚠️ Reached Firestore batch limit")
+                dlog("⚠️ Reached Firestore batch limit")
                 break
             }
         }
         
         guard batchCount > 0 else {
-            print("ℹ️ No mention notifications to send")
+            dlog("ℹ️ No mention notifications to send")
             return
         }
         
         do {
             try await batch.commit()
-            print("✅ Sent \(batchCount) mention notifications")
+            dlog("✅ Sent \(batchCount) mention notifications")
         } catch {
-            print("❌ Failed to send mention notifications: \(error.localizedDescription)")
+            dlog("❌ Failed to send mention notifications: \(error.localizedDescription)")
         }
     }
     
@@ -738,11 +739,11 @@ final class NotificationService: ObservableObject {
         sharerUsername: String?
     ) async {
         guard !recipientIds.isEmpty else {
-            print("ℹ️ No recipients to notify for church note sharing")
+            dlog("ℹ️ No recipients to notify for church note sharing")
             return
         }
         
-        print("📧 Sending \(recipientIds.count) church note sharing notifications...")
+        dlog("📧 Sending \(recipientIds.count) church note sharing notifications...")
         
         let batch = db.batch()
         var batchCount = 0
@@ -773,21 +774,21 @@ final class NotificationService: ObservableObject {
             
             // Firestore batch limit is 500 operations
             if batchCount >= 500 {
-                print("⚠️ Reached Firestore batch limit for church note sharing")
+                dlog("⚠️ Reached Firestore batch limit for church note sharing")
                 break
             }
         }
         
         guard batchCount > 0 else {
-            print("ℹ️ No church note sharing notifications to send")
+            dlog("ℹ️ No church note sharing notifications to send")
             return
         }
         
         do {
             try await batch.commit()
-            print("✅ Sent \(batchCount) church note sharing notifications")
+            dlog("✅ Sent \(batchCount) church note sharing notifications")
         } catch {
-            print("❌ Failed to send church note sharing notifications: \(error.localizedDescription)")
+            dlog("❌ Failed to send church note sharing notifications: \(error.localizedDescription)")
         }
     }
     
@@ -804,10 +805,10 @@ final class NotificationService: ObservableObject {
     
     /// Manually refresh notifications (useful for pull-to-refresh)
     func refresh() async {
-        print("🔄 Manually refreshing notifications...")
+        dlog("🔄 Manually refreshing notifications...")
         
         guard let userId = Auth.auth().currentUser?.uid else {
-            print("⚠️ Cannot refresh: No authenticated user")
+            dlog("⚠️ Cannot refresh: No authenticated user")
             error = .notAuthenticated
             return
         }
@@ -828,9 +829,9 @@ final class NotificationService: ObservableObject {
             topLevelDocs = []
             await processNotifications(subcollectionDocs)
             retryCount = 0 // Reset retry count on successful manual refresh
-            print("✅ Manual refresh complete")
+            dlog("✅ Manual refresh complete")
         } catch {
-            print("❌ Error refreshing notifications: \(error.localizedDescription)")
+            dlog("❌ Error refreshing notifications: \(error.localizedDescription)")
             self.error = .firestoreError(error)
             isLoading = false
         }
@@ -845,7 +846,7 @@ final class NotificationService: ObservableObject {
             throw NotificationServiceError.notAuthenticated
         }
         
-        print("🧹 Starting cleanup of corrupted notifications...")
+        dlog("🧹 Starting cleanup of corrupted notifications...")
         
         let snapshot = try await db.collection("users")
             .document(userId)
@@ -861,35 +862,35 @@ final class NotificationService: ObservableObject {
             } catch {
                 // If it fails, add to corrupted list
                 corruptedIds.append(doc.documentID)
-                print("⚠️ Found corrupted notification: \(doc.documentID)")
-                print("   Error: \(error.localizedDescription)")
-                print("   Data: \(doc.data())")
+                dlog("⚠️ Found corrupted notification: \(doc.documentID)")
+                dlog("   Error: \(error.localizedDescription)")
+                dlog("   Data: \(doc.data())")
             }
         }
         
         guard !corruptedIds.isEmpty else {
-            print("✅ No corrupted notifications found")
+            dlog("✅ No corrupted notifications found")
             return
         }
         
-        // Delete corrupted notifications in batches
-        let batch = db.batch()
-        var batchCount = 0
-        
-        for corruptedId in corruptedIds {
-            let ref = db.collection("users").document(userId).collection("notifications").document(corruptedId)
-            batch.deleteDocument(ref)
-            batchCount += 1
-            
-            if batchCount >= 500 {
-                print("⚠️ Reached Firestore batch limit at 500, processing partial batch")
-                break
-            }
+        // Delete corrupted notifications in 499-operation Firestore batches
+        let chunkSize = 499
+        let chunks = stride(from: 0, to: corruptedIds.count, by: chunkSize).map {
+            Array(corruptedIds[$0..<min($0 + chunkSize, corruptedIds.count)])
         }
-        
-        try await batch.commit()
-        
-        print("✅ Deleted \(batchCount) corrupted notification(s)")
+        var totalDeleted = 0
+
+        for chunk in chunks {
+            let batch = db.batch()
+            for corruptedId in chunk {
+                let ref = db.collection("users").document(userId).collection("notifications").document(corruptedId)
+                batch.deleteDocument(ref)
+                totalDeleted += 1
+            }
+            try await batch.commit()
+        }
+
+        dlog("✅ Deleted \(totalDeleted) corrupted notification(s)")
         
         // Refresh notifications after cleanup
         await refresh()

@@ -148,7 +148,13 @@ class AIToneGuidanceService: ObservableObject {
                 }
                 result = toneFeedback
             } catch {
-                print("❌ [TONE] Analysis failed: \(error)")
+                // URLError.cancelled (-999) is expected when a prior analysis task is
+                // intentionally cancelled by the debounce logic — not a real failure.
+                let nsErr = error as NSError
+                if !(nsErr.domain == NSURLErrorDomain && nsErr.code == NSURLErrorCancelled)
+                    && !(nsErr.domain == "NSURLErrorDomain" && nsErr.code == -999) {
+                    print("❌ [TONE] Analysis failed: \(error)")
+                }
                 await MainActor.run {
                     isAnalyzing = false
                 }

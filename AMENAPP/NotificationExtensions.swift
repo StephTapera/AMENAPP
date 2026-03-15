@@ -48,7 +48,19 @@ extension Notification.Name {
     /// Posted to open the create post sheet from anywhere in the app
     static let openCreatePost = Notification.Name("openCreatePost")
 
+    /// Posted when the user taps the Home tab button while already on the Home tab.
+    /// HomeView observes this to scroll to top and refresh the feed.
+    static let homeTabTapped = Notification.Name("homeTabTapped")
+
     /// Posted when the Share Extension hands off a draft to the main app.
     /// UserInfo: ["text": String, "linkURL": String, "destination": String]
     static let openCreatePostFromShare = Notification.Name("openCreatePostFromShare")
+
+    /// Posted when a push notification tap requests opening a specific post.
+    /// UserInfo: ["postId": String, "scrollToCommentId": String?]
+    static let openPostFromNotification = Notification.Name("openPostFromNotification")
+
+    /// Posted when a push notification tap requests opening a specific user profile.
+    /// UserInfo: ["userId": String]
+    static let openProfileFromNotification = Notification.Name("openProfileFromNotification")
 }

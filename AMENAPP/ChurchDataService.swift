@@ -10,6 +10,7 @@ import Foundation
 import FirebaseFirestore
 import FirebaseAuth
 import CoreLocation
+import MapKit
 
 @MainActor
 class ChurchDataService {
@@ -48,11 +49,18 @@ class ChurchDataService {
             return firestoreResults
         }
         
-        // Otherwise, also search Google Places (if needed)
-        // For now, just return Firestore results
-        // TODO: Integrate Google Places API
+        // Supplement with Apple Maps (MKLocalSearch) results when Firestore has fewer than 5 hits
+        let mapsResults = await searchAppleMaps(query: query, near: location, radius: radius)
         
-        return firestoreResults
+        // Merge: keep Firestore results first (they have full church data), append Maps results
+        // that don't duplicate a church already found in Firestore (matched by name proximity)
+        var combined = firestoreResults
+        let existingNames = Set(firestoreResults.map { $0.name.lowercased() })
+        for result in mapsResults where !existingNames.contains(result.name.lowercased()) {
+            combined.append(result)
+        }
+        combined.sort { ($0.distance ?? Double.infinity) < ($1.distance ?? Double.infinity) }
+        return combined
     }
     
     private func searchFirestore(
@@ -97,9 +105,126 @@ class ChurchDataService {
         return results
     }
     
-    /// Get or create church from Google Places ID
+    /// Search Apple Maps for churches near a location and convert to ChurchSearchResult
+    private func searchAppleMaps(
+        query: String,
+        near location: CLLocation,
+        radius: Double
+    ) async -> [ChurchSearchResult] {
+        let request = MKLocalSearch.Request()
+        // Use query if non-empty; otherwise fall back to generic "church"
+        request.naturalLanguageQuery = query.isEmpty ? "church" : "\(query) church"
+        let radiusMeters = radius * 1609.34 // miles → meters
+        request.region = MKCoordinateRegion(
+            center: location.coordinate,
+            latitudinalMeters: radiusMeters,
+            longitudinalMeters: radiusMeters
+        )
+        
+        guard let response = try? await MKLocalSearch(request: request).start() else {
+            return []
+        }
+        
+        return response.mapItems.compactMap { item -> ChurchSearchResult? in
+            guard let name = item.name else { return nil }
+            let coord = item.location.coordinate
+            let itemLocation = CLLocation(latitude: coord.latitude, longitude: coord.longitude)
+            let distanceMiles = location.distance(from: itemLocation) / 1609.34
+            guard distanceMiles <= radius else { return nil }
+            
+            let address: String
+            if #available(iOS 26, *) {
+                address = item.addressRepresentations?.fullAddress(includingRegion: false, singleLine: true) ?? ""
+            } else {
+                address = [item.placemark.subThoroughfare, item.placemark.thoroughfare]
+                    .compactMap { $0 }.joined(separator: " ")
+            }
+            let city = item.placemark.locality ?? ""
+            
+            // Build a lightweight ChurchEntity from the Maps result (no Firestore ID yet)
+            let churchId = "maps_\(item.placemark.countryCode ?? "")_\(name.replacingOccurrences(of: " ", with: "_").lowercased())"
+            return ChurchSearchResult(
+                id: churchId,
+                church: nil,
+                name: name,
+                address: address,
+                city: city,
+                distance: distanceMiles,
+                placeId: nil,
+                isExisting: false,
+                photoReference: nil
+            )
+        }
+    }
+    
+    /// Get or create a ChurchEntity from an Apple Maps MKMapItem (used when user taps a Maps result)
+    func getOrCreateChurch(fromMapItem item: MKMapItem) async throws -> ChurchEntity {
+        let name = item.name ?? "Unknown Church"
+        let coord = item.location.coordinate
+        
+        // Check Firestore for existing church with same name + approximate location
+        let snapshot = try await db.collection("churches")
+            .whereField("name", isEqualTo: name)
+            .limit(to: 5)
+            .getDocuments()
+        
+        for doc in snapshot.documents {
+            if let existing = try? Firestore.Decoder().decode(ChurchEntity.self, from: doc.data()) {
+                let existingLoc = CLLocation(latitude: existing.coordinate.latitude, longitude: existing.coordinate.longitude)
+                let mapLoc = CLLocation(latitude: coord.latitude, longitude: coord.longitude)
+                // If within 0.1 miles, treat as the same church
+                if existingLoc.distance(from: mapLoc) < 160 {
+                    return existing
+                }
+            }
+        }
+        
+        // Not found — create a new ChurchEntity from the MapItem
+        let address: String
+        if #available(iOS 26, *) {
+            address = item.addressRepresentations?.fullAddress(includingRegion: false, singleLine: true) ?? ""
+        } else {
+            address = [item.placemark.subThoroughfare, item.placemark.thoroughfare]
+                .compactMap { $0 }.joined(separator: " ")
+        }
+        
+        let newId = UUID().uuidString
+        let newChurch = ChurchEntity(
+            id: newId,
+            placeId: nil,
+            name: name,
+            address: address,
+            city: item.placemark.locality ?? "",
+            state: item.placemark.administrativeArea,
+            zipCode: item.placemark.postalCode,
+            country: item.placemark.countryCode ?? "US",
+            coordinate: ChurchEntity.GeoPoint(
+                latitude: coord.latitude,
+                longitude: coord.longitude
+            ),
+            phoneNumber: item.phoneNumber,
+            email: nil,
+            website: item.url?.absoluteString,
+            denomination: nil,
+            photoURL: nil,
+            logoURL: nil,
+            serviceTimes: [],
+            memberCount: 0,
+            visitCount: 0,
+            tipCount: 0,
+            createdAt: Date(),
+            updatedAt: Date(),
+            source: .userSubmitted
+        )
+        
+        let data = try Firestore.Encoder().encode(newChurch)
+        try await db.collection("churches").document(newId).setData(data)
+        
+        return newChurch
+    }
+    
+    /// Legacy: look up by placeId string (kept for backwards compatibility)
     func getOrCreateChurch(placeId: String) async throws -> ChurchEntity {
-        // Check if church already exists
         let existingSnapshot = try await db.collection("churches")
             .whereField("placeId", isEqualTo: placeId)
             .limit(to: 1)
@@ -110,8 +235,6 @@ class ChurchDataService {
             return church
         }
         
-        // Create new church
-        // TODO: Fetch from Google Places API
         throw ChurchError.notFound
     }
     

@@ -14,40 +14,43 @@ struct DraftsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var selectedDraft: PostDraft?
     @State private var showDeleteAllConfirmation = false
-    @State private var draftToDelete: PostDraft?
-    @State private var showDeleteConfirmation = false
-    
+
     var body: some View {
         NavigationStack {
             ZStack {
                 Color(.systemGroupedBackground)
                     .ignoresSafeArea()
-                
+
                 if draftsManager.drafts.isEmpty {
-                    // Empty State
                     emptyStateView
                 } else {
-                    // Drafts List
                     ScrollView {
-                        VStack(spacing: 16) {
-                            // Info Banner
-                            infoBanner
-                            
-                            // Drafts
+                        LazyVStack(spacing: 12) {
+                            // Compact info bar — not a heavy banner
+                            infoBar
+                                .padding(.horizontal, 16)
+                                .padding(.top, 4)
+
                             ForEach(draftsManager.drafts) { draft in
-                                DraftCard(
-                                    draft: draft,
-                                    onTap: {
-                                        selectedDraft = draft
-                                    },
-                                    onDelete: {
-                                        draftToDelete = draft
-                                        showDeleteConfirmation = true
+                                DraftCard(draft: draft) {
+                                    selectedDraft = draft
+                                }
+                                .padding(.horizontal, 16)
+                                // Swipe to delete
+                                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                    Button(role: .destructive) {
+                                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                            draftsManager.deleteDraft(draft)
+                                        }
+                                    } label: {
+                                        Label("Delete", systemImage: "trash")
                                     }
-                                )
+                                }
                             }
+
+                            Spacer().frame(height: 32)
                         }
-                        .padding()
+                        .padding(.vertical, 8)
                     }
                 }
             }
@@ -58,19 +61,22 @@ struct DraftsView: View {
                     Button("Done") {
                         dismiss()
                     }
+                    .font(.custom("OpenSans-SemiBold", size: 15))
                 }
-                
+
                 if !draftsManager.drafts.isEmpty {
                     ToolbarItem(placement: .primaryAction) {
                         Menu {
                             Button {
-                                draftsManager.cleanupExpiredDrafts()
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                    draftsManager.cleanupExpiredDrafts()
+                                }
                             } label: {
                                 Label("Clean Up Expired", systemImage: "trash.circle")
                             }
-                            
+
                             Divider()
-                            
+
                             Button(role: .destructive) {
                                 showDeleteAllConfirmation = true
                             } label: {
@@ -78,100 +84,78 @@ struct DraftsView: View {
                             }
                         } label: {
                             Image(systemName: "ellipsis.circle")
-                                .font(.system(size: 18))
+                                .font(.system(size: 17))
                         }
                     }
                 }
             }
             .sheet(item: $selectedDraft) { draft in
                 EditDraftView(draft: draft) { updatedDraft in
-                    // Update draft in manager
                     if let index = draftsManager.drafts.firstIndex(where: { $0.id == draft.id }) {
                         draftsManager.drafts[index] = updatedDraft
                     }
                 }
             }
-            .confirmationDialog("Delete this draft?", isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
-                Button("Delete", role: .destructive) {
-                    if let draft = draftToDelete {
-                        withAnimation {
-                            draftsManager.deleteDraft(draft)
-                        }
-                        let haptic = UINotificationFeedbackGenerator()
-                        haptic.notificationOccurred(.success)
-                    }
-                }
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                Text("This action cannot be undone.")
-            }
-            .confirmationDialog("Delete all drafts?", isPresented: $showDeleteAllConfirmation, titleVisibility: .visible) {
+            .confirmationDialog(
+                "Delete all \(draftsManager.drafts.count) drafts?",
+                isPresented: $showDeleteAllConfirmation,
+                titleVisibility: .visible
+            ) {
                 Button("Delete All", role: .destructive) {
-                    withAnimation {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                         draftsManager.deleteAllDrafts()
                     }
-                    let haptic = UINotificationFeedbackGenerator()
-                    haptic.notificationOccurred(.warning)
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text("All \(draftsManager.drafts.count) drafts will be permanently deleted.")
+                Text("This cannot be undone.")
             }
         }
     }
-    
+
     // MARK: - Empty State
-    
+
     private var emptyStateView: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 16) {
             ZStack {
                 Circle()
-                    .fill(Color.black.opacity(0.05))
-                    .frame(width: 100, height: 100)
-                
+                    .fill(Color(.tertiarySystemFill))
+                    .frame(width: 80, height: 80)
+
                 Image(systemName: "doc.text")
-                    .font(.system(size: 48))
+                    .font(.system(size: 34, weight: .medium))
                     .foregroundStyle(.secondary)
             }
-            
-            Text("No Drafts")
-                .font(.custom("OpenSans-Bold", size: 24))
-                .foregroundStyle(.primary)
-            
-            Text("Your saved drafts will appear here.\nThey'll be automatically deleted after 7 days.")
-                .font(.custom("OpenSans-Regular", size: 15))
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .lineSpacing(4)
+
+            VStack(spacing: 6) {
+                Text("No Drafts")
+                    .font(.custom("OpenSans-Bold", size: 20))
+                    .foregroundStyle(.primary)
+
+                Text("Posts you save while composing\nappear here for up to 7 days.")
+                    .font(.custom("OpenSans-Regular", size: 14))
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .lineSpacing(3)
+            }
         }
         .padding(.horizontal, 40)
     }
-    
-    // MARK: - Info Banner
-    
-    private var infoBanner: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "info.circle.fill")
-                .font(.system(size: 20))
-                .foregroundStyle(.blue)
-            
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Auto-delete after 7 days")
-                    .font(.custom("OpenSans-Bold", size: 13))
-                    .foregroundStyle(.primary)
-                
-                Text("Drafts are saved locally on your device")
-                    .font(.custom("OpenSans-Regular", size: 12))
-                    .foregroundStyle(.secondary)
-            }
-            
+
+    // MARK: - Info Bar
+
+    private var infoBar: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "clock")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(.secondary)
+
+            Text("Drafts are saved locally · auto-deleted after 7 days")
+                .font(.custom("OpenSans-Regular", size: 12))
+                .foregroundStyle(.secondary)
+
             Spacer()
         }
-        .padding(14)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.blue.opacity(0.1))
-        )
     }
 }
 
@@ -180,153 +164,165 @@ struct DraftsView: View {
 struct DraftCard: View {
     let draft: PostDraft
     let onTap: () -> Void
-    let onDelete: () -> Void
-    
+
     @State private var isPressed = false
-    
+
     var body: some View {
         Button {
             onTap()
         } label: {
-            VStack(alignment: .leading, spacing: 14) {
-                // Header
+            VStack(alignment: .leading, spacing: 0) {
+                // ── Header (matches PostCard header style) ──────────────────
                 HStack(spacing: 12) {
-                    // Category Icon
+                    // Category icon — same 44x44 circle as PostCard avatar
                     ZStack {
                         Circle()
-                            .fill(draft.categoryColor.opacity(0.15))
-                            .frame(width: 40, height: 40)
-                        
+                            .fill(draft.categoryColor.opacity(0.12))
+                            .frame(width: 44, height: 44)
+
                         Image(systemName: draft.categoryIcon)
                             .font(.system(size: 18, weight: .semibold))
                             .foregroundStyle(draft.categoryColor)
                     }
-                    
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(draft.category)
-                            .font(.custom("OpenSans-Bold", size: 14))
-                            .foregroundStyle(.primary)
-                        
-                        if let topicTag = draft.topicTag {
-                            Text(topicTag)
-                                .font(.custom("OpenSans-SemiBold", size: 12))
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        // Category label styled like author name
+                        HStack(spacing: 6) {
+                            Text(draft.category)
+                                .font(.custom("OpenSans-Bold", size: 15))
+                                .foregroundStyle(.primary)
+
+                            // Expiry badge — urgent only
+                            if draft.daysRemaining <= 2 {
+                                expiryBadge
+                            }
+                        }
+
+                        // Topic tag styled like username line
+                        if let tag = draft.topicTag {
+                            Text(tag)
+                                .font(.custom("OpenSans-Regular", size: 13))
+                                .foregroundStyle(.secondary)
+                        } else {
+                            Text(timeAgoString(from: draft.savedAt))
+                                .font(.custom("OpenSans-Regular", size: 13))
                                 .foregroundStyle(.secondary)
                         }
                     }
-                    
+
                     Spacer()
-                    
-                    // Delete Button
-                    Button {
-                        onDelete()
-                    } label: {
-                        Image(systemName: "trash")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(.red)
-                            .frame(width: 36, height: 36)
-                            .background(
-                                Circle()
-                                    .fill(Color.red.opacity(0.1))
-                            )
-                    }
-                }
-                
-                // Content Preview
-                Text(draft.content)
-                    .font(.custom("OpenSans-Regular", size: 15))
-                    .foregroundStyle(.primary)
-                    .lineLimit(3)
-                    .lineSpacing(4)
-                
-                // Footer
-                HStack {
-                    // Time Info
-                    HStack(spacing: 6) {
-                        Image(systemName: "clock")
-                            .font(.system(size: 12))
-                            .foregroundStyle(.secondary)
-                        
-                        Text(timeAgoString(from: draft.savedAt))
-                            .font(.custom("OpenSans-SemiBold", size: 12))
-                            .foregroundStyle(.secondary)
-                    }
-                    
-                    Spacer()
-                    
-                    // Expiry Warning
-                    if draft.daysRemaining <= 2 {
-                        HStack(spacing: 4) {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .font(.system(size: 11))
-                            
-                            Text("\(draft.daysRemaining) day\(draft.daysRemaining == 1 ? "" : "s") left")
-                                .font(.custom("OpenSans-Bold", size: 11))
-                        }
-                        .foregroundStyle(draft.daysRemaining == 0 ? .red : .orange)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(
-                            Capsule()
-                                .fill((draft.daysRemaining == 0 ? Color.red : Color.orange).opacity(0.15))
-                        )
-                    } else {
-                        Text("Expires in \(draft.daysRemaining) days")
+
+                    // Days remaining — non-urgent, quiet
+                    if draft.daysRemaining > 2 {
+                        Text("\(draft.daysRemaining)d")
                             .font(.custom("OpenSans-Regular", size: 12))
                             .foregroundStyle(.tertiary)
                     }
                 }
-                
-                // Link indicator
-                if let link = draft.linkURL, !link.isEmpty {
-                    HStack(spacing: 6) {
-                        Image(systemName: "link")
-                            .font(.system(size: 11))
-                        Text("Link attached")
-                            .font(.custom("OpenSans-SemiBold", size: 11))
+                .padding(.horizontal, 20)
+                .padding(.top, 18)
+
+                // ── Content preview ─────────────────────────────────────────
+                Text(draft.content)
+                    .font(.custom("OpenSans-Regular", size: 15))
+                    .foregroundStyle(.primary)
+                    .lineLimit(4)
+                    .lineSpacing(3)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 12)
+
+                // ── Metadata pills row ───────────────────────────────────────
+                if draft.linkURL != nil || draft.topicTag != nil {
+                    HStack(spacing: 8) {
+                        if let link = draft.linkURL, !link.isEmpty {
+                            metadataPill(
+                                icon: "link",
+                                label: "Link",
+                                color: .blue
+                            )
+                        }
+                        if draft.topicTag != nil {
+                            // Show time here since tag already showed above
+                            metadataPill(
+                                icon: "clock",
+                                label: timeAgoString(from: draft.savedAt),
+                                color: .secondary
+                            )
+                        }
+                        Spacer()
                     }
-                    .foregroundStyle(.blue)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(
-                        Capsule()
-                            .fill(Color.blue.opacity(0.1))
-                    )
+                    .padding(.horizontal, 20)
+                    .padding(.top, 10)
                 }
+
+                Spacer().frame(height: 18)
             }
-            .padding(16)
             .background(
-                RoundedRectangle(cornerRadius: 16)
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
                     .fill(Color(.systemBackground))
-                    .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
+                    .shadow(color: .black.opacity(0.04), radius: 4, y: 2)
             )
-            .scaleEffect(isPressed ? 0.98 : 1.0)
+            // Thin left accent bar matching category color
+            .overlay(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 2, style: .continuous)
+                    .fill(draft.categoryColor.opacity(0.6))
+                    .frame(width: 3)
+                    .padding(.vertical, 18)
+                    .padding(.leading, 1)
+            }
+            .scaleEffect(isPressed ? 0.985 : 1.0)
+            .animation(.spring(response: 0.2, dampingFraction: 0.7), value: isPressed)
         }
-        .buttonStyle(PlainButtonStyle())
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in
-                    withAnimation(.easeIn(duration: 0.1)) {
-                        isPressed = true
-                    }
-                }
-                .onEnded { _ in
-                    withAnimation(.easeOut(duration: 0.1)) {
-                        isPressed = false
-                    }
-                }
+        .buttonStyle(.plain)
+        ._onButtonGesture(pressing: { pressing in
+            isPressed = pressing
+        }, perform: {})
+    }
+
+    // MARK: - Subviews
+
+    @ViewBuilder
+    private var expiryBadge: some View {
+        let isExpiring = draft.daysRemaining == 0
+        HStack(spacing: 3) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 9))
+            Text(isExpiring ? "Expires today" : "\(draft.daysRemaining)d left")
+                .font(.custom("OpenSans-Bold", size: 10))
+        }
+        .foregroundStyle(isExpiring ? .red : .orange)
+        .padding(.horizontal, 7)
+        .padding(.vertical, 3)
+        .background(
+            Capsule()
+                .fill((isExpiring ? Color.red : Color.orange).opacity(0.12))
         )
     }
-    
+
+    private func metadataPill(icon: String, label: String, color: Color) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.system(size: 10, weight: .medium))
+            Text(label)
+                .font(.custom("OpenSans-SemiBold", size: 11))
+        }
+        .foregroundStyle(color)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(
+            Capsule()
+                .fill(color.opacity(0.1))
+        )
+    }
+
     private func timeAgoString(from date: Date) -> String {
-        let now = Date()
-        let components = Calendar.current.dateComponents([.minute, .hour, .day], from: date, to: now)
-        
+        let components = Calendar.current.dateComponents([.minute, .hour, .day], from: date, to: Date())
         if let days = components.day, days > 0 {
             return days == 1 ? "1 day ago" : "\(days) days ago"
         } else if let hours = components.hour, hours > 0 {
-            return hours == 1 ? "1 hour ago" : "\(hours) hours ago"
+            return hours == 1 ? "1 hr ago" : "\(hours) hrs ago"
         } else if let minutes = components.minute, minutes > 0 {
-            return minutes == 1 ? "1 minute ago" : "\(minutes) minutes ago"
+            return minutes == 1 ? "1 min ago" : "\(minutes) min ago"
         } else {
             return "Just now"
         }
@@ -338,123 +334,140 @@ struct DraftCard: View {
 struct EditDraftView: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var postsManager = PostsManager.shared
-    
+
     let draft: PostDraft
     let onUpdate: (PostDraft) -> Void
-    
+
     @State private var content: String
-    @State private var linkURL: String
     @State private var isPublishing = false
-    
+    @State private var isSaving = false
+    @State private var showDeleteConfirmation = false
+    @FocusState private var editorFocused: Bool
+
     init(draft: PostDraft, onUpdate: @escaping (PostDraft) -> Void) {
         self.draft = draft
         self.onUpdate = onUpdate
         _content = State(initialValue: draft.content)
-        _linkURL = State(initialValue: draft.linkURL ?? "")
     }
-    
+
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    // Category Header
-                    HStack(spacing: 12) {
-                        ZStack {
-                            Circle()
-                                .fill(draft.categoryColor.opacity(0.15))
-                                .frame(width: 50, height: 50)
-                            
-                            Image(systemName: draft.categoryIcon)
-                                .font(.system(size: 22, weight: .semibold))
-                                .foregroundStyle(draft.categoryColor)
-                        }
-                        
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(draft.category)
-                                .font(.custom("OpenSans-Bold", size: 18))
-                            
-                            if let topicTag = draft.topicTag {
-                                Text(topicTag)
-                                    .font(.custom("OpenSans-SemiBold", size: 14))
+            ZStack(alignment: .bottom) {
+                Color(.systemGroupedBackground)
+                    .ignoresSafeArea()
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        // ── Category context row ─────────────────────────────
+                        HStack(spacing: 12) {
+                            ZStack {
+                                Circle()
+                                    .fill(draft.categoryColor.opacity(0.12))
+                                    .frame(width: 44, height: 44)
+
+                                Image(systemName: draft.categoryIcon)
+                                    .font(.system(size: 18, weight: .semibold))
+                                    .foregroundStyle(draft.categoryColor)
+                            }
+
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(draft.category)
+                                    .font(.custom("OpenSans-Bold", size: 15))
+                                    .foregroundStyle(.primary)
+
+                                HStack(spacing: 6) {
+                                    Text("Saved \(timeAgoString(from: draft.savedAt))")
+                                        .font(.custom("OpenSans-Regular", size: 13))
+                                        .foregroundStyle(.secondary)
+
+                                    if let tag = draft.topicTag {
+                                        Text("·")
+                                            .foregroundStyle(.tertiary)
+                                        Text(tag)
+                                            .font(.custom("OpenSans-Regular", size: 13))
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                            }
+
+                            Spacer()
+
+                            // Expiry indicator
+                            VStack(alignment: .trailing, spacing: 1) {
+                                Text("\(draft.daysRemaining)")
+                                    .font(.custom("OpenSans-Bold", size: 17))
+                                    .foregroundStyle(draft.daysRemaining <= 2 ? (draft.daysRemaining == 0 ? .red : .orange) : .primary)
+                                Text("days left")
+                                    .font(.custom("OpenSans-Regular", size: 11))
                                     .foregroundStyle(.secondary)
                             }
                         }
-                        
-                        Spacer()
-                        
-                        // Expiry Badge
-                        VStack(alignment: .trailing, spacing: 2) {
-                            Text("\(draft.daysRemaining)")
-                                .font(.custom("OpenSans-Bold", size: 20))
-                                .foregroundStyle(draft.daysRemaining <= 2 ? .red : .primary)
-                            
-                            Text("days left")
-                                .font(.custom("OpenSans-Regular", size: 11))
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .padding()
-                    .background(
-                        RoundedRectangle(cornerRadius: 16)
-                            .fill(Color(.systemGray6))
-                    )
-                    
-                    // Content Editor
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Content")
-                            .font(.custom("OpenSans-Bold", size: 15))
-                            .foregroundStyle(.secondary)
-                        
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 18)
+                        .background(Color(.systemBackground))
+
+                        Divider()
+                            .padding(.horizontal, 20)
+
+                        // ── Text editor ──────────────────────────────────────
                         TextEditor(text: $content)
                             .font(.custom("OpenSans-Regular", size: 16))
-                            .frame(minHeight: 200)
-                            .padding(12)
-                            .background(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color(.systemGray6))
-                            )
-                    }
-                    
-                    // Link (if exists)
-                    if !draft.linkURL.isNilOrEmpty {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Link")
-                                .font(.custom("OpenSans-Bold", size: 15))
-                                .foregroundStyle(.secondary)
-                            
-                            HStack(spacing: 12) {
+                            .focused($editorFocused)
+                            .frame(minHeight: 220)
+                            .scrollContentBackground(.hidden)
+                            .background(Color(.systemBackground))
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
+
+                        // ── Link row (read-only) ──────────────────────────────
+                        if let link = draft.linkURL, !link.isEmpty {
+                            Divider()
+                                .padding(.horizontal, 20)
+
+                            HStack(spacing: 10) {
                                 Image(systemName: "link")
-                                    .font(.system(size: 18))
+                                    .font(.system(size: 14, weight: .medium))
                                     .foregroundStyle(.blue)
-                                
-                                Text(draft.linkURL ?? "")
-                                    .font(.custom("OpenSans-Regular", size: 14))
-                                    .foregroundStyle(.primary)
+                                Text(link)
+                                    .font(.custom("OpenSans-Regular", size: 13))
+                                    .foregroundStyle(.secondary)
                                     .lineLimit(1)
-                                
                                 Spacer()
                             }
-                            .padding()
-                            .background(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color(.systemGray6))
-                            )
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 14)
+                            .background(Color(.systemBackground))
                         }
+
+                        // ── Visibility row ────────────────────────────────────
+                        Divider()
+                            .padding(.horizontal, 20)
+
+                        HStack(spacing: 8) {
+                            Image(systemName: visibilityIcon(draft.visibility))
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(.secondary)
+                            Text(draft.visibility)
+                                .font(.custom("OpenSans-Regular", size: 13))
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 14)
+                        .background(Color(.systemBackground))
+
+                        Spacer().frame(height: 100) // Clearance for bottom bar
                     }
-                    
-                    // Saved Info
-                    HStack(spacing: 6) {
-                        Image(systemName: "clock.fill")
-                            .font(.system(size: 12))
-                            .foregroundStyle(.secondary)
-                        
-                        Text("Saved \(timeAgoString(from: draft.savedAt))")
-                            .font(.custom("OpenSans-Regular", size: 13))
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(.horizontal)
+                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    .shadow(color: .black.opacity(0.04), radius: 4, y: 2)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 16)
                 }
-                .padding()
+
+                // ── Bottom action bar ────────────────────────────────────────
+                bottomBar
+                    .background(.ultraThinMaterial)
+                    .ignoresSafeArea(edges: .bottom)
             }
             .navigationTitle("Edit Draft")
             .navigationBarTitleDisplayMode(.inline)
@@ -463,69 +476,146 @@ struct EditDraftView: View {
                     Button("Cancel") {
                         dismiss()
                     }
+                    .font(.custom("OpenSans-SemiBold", size: 15))
                 }
-                
+
                 ToolbarItem(placement: .primaryAction) {
-                    Menu {
-                        Button {
-                            publishDraft()
-                        } label: {
-                            Label("Publish Now", systemImage: "paperplane.fill")
-                        }
-                        
-                        Button {
-                            updateDraft()
-                        } label: {
-                            Label("Save Changes", systemImage: "square.and.arrow.down")
-                        }
-                        
-                        Divider()
-                        
-                        Button(role: .destructive) {
-                            DraftsManager.shared.deleteDraft(draft)
-                            dismiss()
-                        } label: {
-                            Label("Delete Draft", systemImage: "trash")
-                        }
+                    Button(role: .destructive) {
+                        showDeleteConfirmation = true
                     } label: {
-                        Image(systemName: "ellipsis.circle")
+                        Image(systemName: "trash")
+                            .font(.system(size: 15))
+                            .foregroundStyle(.red)
                     }
+                }
+            }
+            .confirmationDialog("Delete this draft?", isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
+                Button("Delete Draft", role: .destructive) {
+                    DraftsManager.shared.deleteDraft(draft)
+                    dismiss()
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This cannot be undone.")
+            }
+            .onAppear {
+                // Auto-focus editor so keyboard appears immediately
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                    editorFocused = true
                 }
             }
         }
     }
-    
+
+    // MARK: - Bottom Bar
+
+    private var bottomBar: some View {
+        HStack(spacing: 12) {
+            // Save changes
+            Button {
+                saveDraft()
+            } label: {
+                HStack(spacing: 6) {
+                    if isSaving {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                            .tint(.primary)
+                    } else {
+                        Image(systemName: "square.and.arrow.down")
+                            .font(.system(size: 14, weight: .medium))
+                    }
+                    Text(isSaving ? "Saving…" : "Save")
+                        .font(.custom("OpenSans-SemiBold", size: 15))
+                }
+                .foregroundStyle(.primary)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 13)
+                .background(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(Color(.secondarySystemFill))
+                )
+            }
+            .disabled(content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSaving || isPublishing)
+
+            // Publish
+            Button {
+                publishDraft()
+            } label: {
+                HStack(spacing: 6) {
+                    if isPublishing {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                            .tint(.white)
+                    } else {
+                        Image(systemName: "paperplane.fill")
+                            .font(.system(size: 14, weight: .medium))
+                    }
+                    Text(isPublishing ? "Publishing…" : "Publish")
+                        .font(.custom("OpenSans-Bold", size: 15))
+                }
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 13)
+                .background(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(
+                            content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                            ? Color.primary.opacity(0.3)
+                            : Color.primary
+                        )
+                )
+            }
+            .disabled(content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isPublishing || isSaving)
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 12)
+        .padding(.bottom, 24)
+    }
+
+    // MARK: - Actions
+
+    private func saveDraft() {
+        guard !isSaving else { return }
+        isSaving = true
+        editorFocused = false
+
+        let updatedDraft = PostDraft(
+            id: draft.id,
+            content: content,
+            category: draft.category,
+            topicTag: draft.topicTag,
+            linkURL: draft.linkURL,
+            visibility: draft.visibility,
+            savedAt: Date()
+        )
+        onUpdate(updatedDraft)
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            isSaving = false
+            dismiss()
+        }
+    }
+
     private func publishDraft() {
         guard !isPublishing else { return }
         isPublishing = true
-        
-        // Convert category string to Post.PostCategory
+        editorFocused = false
+
         let postCategory: Post.PostCategory
         switch draft.category {
-        case "#OPENTABLE":
-            postCategory = .openTable
-        case "Testimonies":
-            postCategory = .testimonies
-        case "Prayer":
-            postCategory = .prayer
-        default:
-            postCategory = .openTable
+        case "#OPENTABLE": postCategory = .openTable
+        case "Testimonies": postCategory = .testimonies
+        case "Prayer": postCategory = .prayer
+        default: postCategory = .openTable
         }
-        
-        // Convert visibility string to Post.PostVisibility
+
         let postVisibility: Post.PostVisibility
         switch draft.visibility {
-        case "Everyone":
-            postVisibility = .everyone
-        case "Followers":
-            postVisibility = .followers
-        case "Community Only":
-            postVisibility = .community
-        default:
-            postVisibility = .everyone
+        case "Followers": postVisibility = .followers
+        case "Community Only": postVisibility = .community
+        default: postVisibility = .everyone
         }
-        
-        // Create post
+
         postsManager.createPost(
             content: content,
             category: postCategory,
@@ -535,49 +625,30 @@ struct EditDraftView: View {
             imageURLs: nil,
             linkURL: draft.linkURL
         )
-        
-        // Delete draft
+
         DraftsManager.shared.deleteDraft(draft)
-        
-        // Haptic feedback
-        let haptic = UINotificationFeedbackGenerator()
-        haptic.notificationOccurred(.success)
-        
-        // Dismiss
+
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
             dismiss()
         }
     }
-    
-    private func updateDraft() {
-        let updatedDraft = PostDraft(
-            id: draft.id,
-            content: content,
-            category: draft.category,
-            topicTag: draft.topicTag,
-            linkURL: linkURL.isEmpty ? nil : linkURL,
-            visibility: draft.visibility,
-            savedAt: Date() // Update save time
-        )
-        
-        onUpdate(updatedDraft)
-        
-        let haptic = UINotificationFeedbackGenerator()
-        haptic.notificationOccurred(.success)
-        
-        dismiss()
+
+    private func visibilityIcon(_ visibility: String) -> String {
+        switch visibility {
+        case "Followers": return "person.2"
+        case "Community Only": return "building.2"
+        default: return "globe"
+        }
     }
-    
+
     private func timeAgoString(from date: Date) -> String {
-        let now = Date()
-        let components = Calendar.current.dateComponents([.minute, .hour, .day], from: date, to: now)
-        
+        let components = Calendar.current.dateComponents([.minute, .hour, .day], from: date, to: Date())
         if let days = components.day, days > 0 {
             return days == 1 ? "1 day ago" : "\(days) days ago"
         } else if let hours = components.hour, hours > 0 {
-            return hours == 1 ? "1 hour ago" : "\(hours) hours ago"
+            return hours == 1 ? "1 hr ago" : "\(hours) hrs ago"
         } else if let minutes = components.minute, minutes > 0 {
-            return minutes == 1 ? "1 minute ago" : "\(minutes) minutes ago"
+            return minutes == 1 ? "1 min ago" : "\(minutes) min ago"
         } else {
             return "just now"
         }

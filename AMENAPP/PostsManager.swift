@@ -73,6 +73,9 @@ struct Post: Identifiable, Codable, Equatable {
     var flaggedForReview: Bool = false // Post is under review by moderators
     var removed: Bool = false // Post was removed by automated moderation
 
+    // Poll attachment — nil when the post has no poll
+    var poll: PostPoll? = nil
+
     enum PostCategory: String, Codable, CaseIterable {
         case openTable = "openTable"      // ✅ Firebase-safe (no special chars)
         case testimonies = "testimonies"  // ✅ Firebase-safe (lowercase)
@@ -339,6 +342,40 @@ struct Post: Identifiable, Codable, Equatable {
 
     var backendId: String {
         firebaseId ?? id.uuidString
+    }
+}
+
+// MARK: - Poll Model
+
+/// A lightweight poll attached to a post.
+/// Stored as a nested map in Firestore under posts/{id}/poll.
+struct PostPoll: Codable, Equatable {
+    /// The poll question (can be empty; post text serves as the question).
+    var question: String
+    /// The individual answer options.
+    var options: [PollOption]
+    /// When the poll closes. Nil = no expiry.
+    var expiresAt: Date?
+    /// Total vote count (denormalised for fast display).
+    var totalVotes: Int
+
+    struct PollOption: Codable, Equatable, Identifiable {
+        var id: String          // Firestore-safe key (uuid string)
+        var text: String
+        var voteCount: Int
+    }
+
+    /// Firestore dictionary representation for writing.
+    var firestoreData: [String: Any] {
+        var data: [String: Any] = [
+            "question": question,
+            "options": options.map { ["id": $0.id, "text": $0.text, "voteCount": $0.voteCount] },
+            "totalVotes": totalVotes
+        ]
+        if let exp = expiresAt {
+            data["expiresAt"] = Timestamp(date: exp)
+        }
+        return data
     }
 }
 

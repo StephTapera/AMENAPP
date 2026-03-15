@@ -741,12 +741,12 @@ class AmenConnectViewModel: ObservableObject {
                 loaded.append(profile)
             }
 
-            // Fall back to sample data when no profiles exist in Firestore yet
-            profiles = loaded.isEmpty ? AmenConnectProfile.sampleProfiles : loaded
+            profiles = loaded
 
         } catch {
             print("⚠️ AmenConnect: Failed to load profiles — \(error.localizedDescription)")
-            profiles = AmenConnectProfile.sampleProfiles
+            // Don't fall back to sample data in production — show empty state instead
+            profiles = []
         }
     }
     

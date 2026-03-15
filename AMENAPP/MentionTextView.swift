@@ -116,6 +116,9 @@ struct MentionTextView: View {
                         return .systemAction
                     })
             }
+            // Fix: ZStack does not inherit proposed width — Text layers inside won't
+            // wrap unless we explicitly constrain the ZStack to fill available width.
+            .frame(maxWidth: .infinity, alignment: .leading)
             .onAppear {
                 highlightProgress = 0
                 withAnimation(.easeOut(duration: 0.55).delay(0.2)) {

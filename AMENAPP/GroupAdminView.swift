@@ -30,6 +30,8 @@ struct GroupInfoView: View {
     @State private var isUploadingPhoto = false
     @State private var isMuted = false
     @State private var isTogglingMute = false
+    /// Cancels the real-time conversation listener when the view disappears.
+    @State private var conversationListener: ListenerRegistration?
     
     var currentUserId: String {
         Auth.auth().currentUser?.uid ?? ""
@@ -96,8 +98,12 @@ struct GroupInfoView: View {
             } message: {
                 Text(errorMessage)
             }
-            .task {
-                await loadGroupInfo()
+            .onAppear {
+                startListeningToGroupInfo()
+            }
+            .onDisappear {
+                conversationListener?.remove()
+                conversationListener = nil
             }
         }
     }
@@ -307,52 +313,62 @@ struct GroupInfoView: View {
     
     // MARK: - Actions
     
-    private func loadGroupInfo() async {
-        isLoading = true
-        defer {
-            Task { @MainActor in isLoading = false }
-        }
-
+    /// Starts a real-time Firestore listener for the group conversation document.
+    /// Updates are applied immediately so admin/member changes propagate without
+    /// the user needing to dismiss and reopen the sheet.
+    private func startListeningToGroupInfo() {
         guard let userId = Auth.auth().currentUser?.uid else { return }
         let db = Firestore.firestore()
+        isLoading = true
 
-        do {
-            // Fetch conversation document for participantNames, participantPhotoURLs, adminIds
-            let doc = try await db.collection("conversations")
-                .document(conversation.id)
-                .getDocument()
+        conversationListener = db.collection("conversations")
+            .document(conversation.id)
+            .addSnapshotListener { [self] snapshot, error in
+                if error != nil {
+                    DispatchQueue.main.async {
+                        isLoading = false
+                        errorMessage = "Could not load group info"
+                        showError = true
+                    }
+                    return
+                }
 
-            guard doc.exists, let data = doc.data() else { return }
+                guard let data = snapshot?.data() else { return }
 
-            let participantIds = data["participantIds"] as? [String] ?? []
-            let participantNames = data["participantNames"] as? [String: String] ?? [:]
-            let participantPhotos = data["participantPhotoURLs"] as? [String: String] ?? [:]
-            let adminIds = Set(data["adminIds"] as? [String] ?? [])
+                let participantIds = data["participantIds"] as? [String] ?? []
+                let participantNames = data["participantNames"] as? [String: String] ?? [:]
+                let participantPhotos = data["participantPhotoURLs"] as? [String: String] ?? [:]
+                let adminIdSet = Set(data["adminIds"] as? [String] ?? [])
 
-            let members: [GroupMember] = participantIds.map { pid in
-                GroupMember(
-                    userId: pid,
-                    name: participantNames[pid] ?? "Member",
-                    isAdmin: adminIds.contains(pid),
-                    profileImageUrl: participantPhotos[pid]
-                )
+                let members: [GroupMember] = participantIds.map { pid in
+                    GroupMember(
+                        userId: pid,
+                        name: participantNames[pid] ?? "Member",
+                        isAdmin: adminIdSet.contains(pid),
+                        profileImageUrl: participantPhotos[pid]
+                    )
+                }
+
+                // If the current user was removed from the group, dismiss this sheet.
+                let stillInGroup = participantIds.contains(userId)
+
+                DispatchQueue.main.async {
+                    isLoading = false
+                    groupName = (data["groupName"] as? String) ?? conversation.name
+                    groupMembers = members
+                    if !stillInGroup {
+                        dismiss()
+                    }
+                }
             }
 
-            // Check mute status
+        // Load mute status separately (not real-time — mute changes are local)
+        Task {
             let muteDoc = try? await db.collection("mutedConversations")
                 .document("\(userId)_\(conversation.id)")
                 .getDocument()
-
             await MainActor.run {
-                groupName = conversation.name
-                groupMembers = members
                 isMuted = muteDoc?.exists ?? false
-            }
-        } catch {
-            await MainActor.run {
-                // Fall back to what we know from the ChatConversation
-                groupName = conversation.name
-                groupMembers = [GroupMember(userId: userId, name: "You", isAdmin: false)]
             }
         }
     }

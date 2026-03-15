@@ -175,8 +175,7 @@ struct ProfileView: View {
                     // Content - flows naturally after tabs
                     if isLoading {
                         VStack(spacing: 20) {
-                            ProgressView()
-                                .scaleEffect(1.2)
+                            AMENLoadingIndicator()
 
                             Text("Loading...")
                                 .font(.custom("OpenSans-SemiBold", size: 16))
@@ -1065,18 +1064,32 @@ struct ProfileView: View {
             // ALWAYS fetch fresh data and set up listeners
             dlog("🔥 Fetching fresh data from Firestore and Realtime DB...")
             
-            // Fetch all four data sources in parallel
-            async let fetchedPostsTask = FirebasePostService.shared.fetchUserPosts(userId: userId)
-            async let fetchedSavedPostsTask = RealtimeSavedPostsService.shared.fetchSavedPosts()
-            async let fetchedRepliesTask = AMENAPP.RealtimeCommentsService.shared.fetchUserCommentInteractions(userId: userId)
-            async let fetchedRepostsTask = RealtimeRepostsService.shared.fetchUserReposts(userId: userId)
-            
-            let (fetchedPosts, fetchedSavedPosts, fetchedReplies, fetchedReposts) = try await (
-                fetchedPostsTask,
-                fetchedSavedPostsTask,
-                fetchedRepliesTask,
-                fetchedRepostsTask
-            )
+            // Fetch all four data sources in parallel using withThrowingTaskGroup.
+            // async let tuple-await causes swift_task_dealloc fatal error when the parent
+            // task is cancelled (e.g. user swipes back) before all children complete.
+            var fetchedPosts: [Post] = []
+            var fetchedSavedPosts: [Post] = []
+            var fetchedReplies: [Comment] = []
+            var fetchedReposts: [Post] = []
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                group.addTask {
+                    let posts = try await FirebasePostService.shared.fetchUserPosts(userId: userId)
+                    await MainActor.run { fetchedPosts = posts }
+                }
+                group.addTask {
+                    let saved = try await RealtimeSavedPostsService.shared.fetchSavedPosts()
+                    await MainActor.run { fetchedSavedPosts = saved }
+                }
+                group.addTask {
+                    let replies = try await AMENAPP.RealtimeCommentsService.shared.fetchUserCommentInteractions(userId: userId)
+                    await MainActor.run { fetchedReplies = replies }
+                }
+                group.addTask {
+                    let reposts = try await RealtimeRepostsService.shared.fetchUserReposts(userId: userId)
+                    await MainActor.run { fetchedReposts = reposts }
+                }
+                try await group.waitForAll()
+            }
 
             userPosts = fetchedPosts
             savedPosts = fetchedSavedPosts
@@ -1275,29 +1288,34 @@ struct ProfileView: View {
         // TASK 4: Fix saved posts not showing
         // ============================================================================
         
-        // 2. Listen to saved posts in real-time
+        // 2. Listen to saved posts in real-time.
+        // Only re-fetch when count INCREASES (new save). Removals are handled
+        // by the "postUnsaved" NotificationCenter observer below, which removes
+        // a single post locally. A full array replacement on every unsave destroys
+        // all PostCard @State (isSaved, etc.) causing every visible card to flash.
         RealtimeSavedPostsService.shared.observeSavedPosts { postIds in
             dlog("🔄 [SAVED] Saved posts IDs changed: \(postIds.count) IDs")
-            
+
             // Skip the immediate re-fetch if the parallel block just ran
             if let last = self.lastParallelFetchDate,
                Date().timeIntervalSince(last) < self.observerGracePeriod {
                 dlog("⏭️ [SAVED] Skipping redundant fetch (within grace period of parallel fetch)")
                 return
             }
-            
+
+            // Only reload when a post was ADDED (count went up)
+            guard postIds.count > self.savedPosts.count else {
+                dlog("⏭️ [SAVED] Count did not increase — skipping full reload")
+                return
+            }
+
             Task {
                 do {
                     let posts = try await RealtimeSavedPostsService.shared.fetchSavedPosts()
                     await MainActor.run {
                         let previousCount = self.savedPosts.count
-                        
-                        // Sort by newest first
                         self.savedPosts = posts.sorted { $0.createdAt > $1.createdAt }
-                        
-                        dlog("🔄 [SAVED] Saved posts updated:")
-                        dlog("   Total: \(posts.count) (was \(previousCount))")
-                        
+                        dlog("🔄 [SAVED] Saved posts updated: \(posts.count) (was \(previousCount))")
                         if posts.count != previousCount {
                             let haptic = UIImpactFeedbackGenerator(style: .light)
                             haptic.impactOccurred()
@@ -1305,7 +1323,6 @@ struct ProfileView: View {
                     }
                 } catch {
                     dlog("❌ [SAVED] Error fetching saved posts: \(error)")
-                    dlog("   Keeping existing \(self.savedPosts.count) saved posts")
                 }
             }
         }
@@ -2130,6 +2147,12 @@ struct ProfilePostCard: View {
                 .lineSpacing(4)
                 .fixedSize(horizontal: false, vertical: true)
             
+            // IMAGES: Render post images/media if present
+            if let imageURLs = post.imageURLs, !imageURLs.isEmpty {
+                PostImagesView(imageURLs: imageURLs)
+                    .padding(.top, 6)
+            }
+            
             // INTERACTIONS: Glassmorphic buttons (counts only visible to post owner)
             HStack(spacing: 12) {
                 // Amen/Lightbulb button
@@ -2531,14 +2554,10 @@ struct ProfilePostCard: View {
     }
     
     private func deletePost() {
+        // PostsManager.deletePost already fires the .postDeleted notification internally.
+        // Do not post it again here — doing so would trigger the ProfileView observer twice,
+        // firing duplicate haptic feedback and redundant removeAll calls.
         postsManager.deletePost(postId: post.id)
-        
-        NotificationCenter.default.post(
-            name: Notification.Name("postDeleted"),
-            object: nil,
-            userInfo: ["postId": post.id]
-        )
-        
         dlog("🗑️ Post deleted")
     }
     
@@ -3668,7 +3687,10 @@ struct EditProfileView: View {
                     "displayNameLowercase": name.lowercased(),
                     "bio": bio,
                     "interests": interests,
-                    "updatedAt": FieldValue.serverTimestamp()
+                    "updatedAt": FieldValue.serverTimestamp(),
+                    // Include profileImageURL so Algolia stays in sync when profile is saved.
+                    // Without this, every saveProfile() call would overwrite Algolia with an empty URL.
+                    "profileImageURL": profileData.profileImageURL ?? ""
                 ]
                 
                 // ✅ NEW: Include bioURL if not empty, otherwise remove it
@@ -4975,52 +4997,28 @@ struct ProfilePhotoEditView: View {
     
     private func uploadProfilePhoto() {
         guard let image = selectedImage else { return }
-        guard let userId = Auth.auth().currentUser?.uid else {
-            errorMessage = "Not signed in"
-            return
-        }
         
         isUploading = true
         errorMessage = nil
         
         Task {
             do {
-                dlog("📤 Uploading profile photo...")
+                dlog("📤 Uploading profile photo via ProfilePhotoService...")
+                // Routes through ProfileImageSafetyGate before any upload occurs
+                let urlString = try await ProfilePhotoService.shared.uploadProfilePhoto(image: image)
+                dlog("✅ Profile photo uploaded: \(urlString)")
                 
-                // Upload to Firebase Storage
-                let firebaseManager = FirebaseManager.shared
-                let path = "profile_images/\(userId)/profile.jpg"
-                let downloadURL = try await firebaseManager.uploadImage(image, to: path, compressionQuality: 0.7)
-                
-                dlog("✅ Image uploaded to: \(downloadURL.absoluteString)")
-                
-                // Update Firestore
-                try await firebaseManager.updateDocument([
-                    "profileImageURL": downloadURL.absoluteString,
-                    "updatedAt": Date()
-                ], at: "users/\(userId)")
-                
-                dlog("✅ Profile updated with new image URL")
-                
-                // ✅ Update UserDefaults cache so new posts include the profile image
-                UserDefaults.standard.set(downloadURL.absoluteString, forKey: "currentUserProfileImageURL")
-                dlog("✅ Updated UserDefaults cache with new profile image URL")
-                
-                // Update local state
                 await MainActor.run {
-                    onPhotoUpdated(downloadURL.absoluteString)
+                    onPhotoUpdated(urlString)
                     isUploading = false
                     
-                    // Show success feedback
                     let haptic = UINotificationFeedbackGenerator()
                     haptic.notificationOccurred(.success)
                     
-                    // Dismiss after short delay
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                         dismiss()
                     }
                 }
-                
             } catch {
                 dlog("❌ Upload failed: \(error)")
                 await MainActor.run {
@@ -5260,53 +5258,28 @@ struct ProfileImagePicker: View {
     
     private func uploadProfilePhoto() {
         guard let image = selectedImage else { return }
-        guard let userId = Auth.auth().currentUser?.uid else {
-            errorMessage = "Not signed in"
-            return
-        }
         
         isUploading = true
         errorMessage = nil
         
         Task {
             do {
-                dlog("📤 Uploading profile photo...")
+                dlog("📤 Uploading profile photo via ProfilePhotoService...")
+                // Routes through ProfileImageSafetyGate before any upload occurs
+                let urlString = try await ProfilePhotoService.shared.uploadProfilePhoto(image: image)
+                dlog("✅ Profile photo uploaded: \(urlString)")
                 
-                // Upload to Firebase Storage
-                let firebaseManager = FirebaseManager.shared
-                let path = "profile_images/\(userId)/profile.jpg"
-                let downloadURL = try await firebaseManager.uploadImage(image, to: path, compressionQuality: 0.7)
-                
-                dlog("✅ Image uploaded to: \(downloadURL.absoluteString)")
-                
-                // Update Firestore
-                let db = Firestore.firestore()
-                try await db.collection("users").document(userId).updateData([
-                    "profileImageURL": downloadURL.absoluteString,
-                    "updatedAt": FieldValue.serverTimestamp()
-                ])
-                
-                dlog("✅ Firestore updated with profile image URL")
-                
-                // ✅ Update UserDefaults cache so new posts include the profile image
-                UserDefaults.standard.set(downloadURL.absoluteString, forKey: "currentUserProfileImageURL")
-                dlog("✅ Updated UserDefaults cache with new profile image URL")
-                
-                // Update local state
                 await MainActor.run {
-                    profileData.profileImageURL = downloadURL.absoluteString
+                    profileData.profileImageURL = urlString
                     isUploading = false
                     
-                    // Show success feedback
                     let haptic = UINotificationFeedbackGenerator()
                     haptic.notificationOccurred(.success)
                     
-                    // Dismiss after short delay
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                         dismiss()
                     }
                 }
-                
             } catch {
                 dlog("❌ Upload failed: \(error)")
                 await MainActor.run {
@@ -5506,8 +5479,7 @@ struct SafetySecurityView: View {
         NavigationStack {
             Group {
                 if isLoading {
-                    ProgressView()
-                        .scaleEffect(1.2)
+                    AMENLoadingIndicator()
                 } else {
                     securitySettingsList
                 }
@@ -5953,8 +5925,7 @@ struct LoginHistoryView: View {
         NavigationStack {
             ZStack {
                 if isLoading {
-                    ProgressView()
-                        .scaleEffect(1.2)
+                    AMENLoadingIndicator()
                 } else if loginSessions.isEmpty {
                     emptyHistoryState
                 } else {

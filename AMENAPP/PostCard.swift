@@ -23,7 +23,9 @@ struct PostCard: View {
     
     // PERF: Only observe services whose published properties are actually read in the view body.
     // postsManager and moderationService are only used in action handlers — not observed.
-    @ObservedObject private var savedPostsService = RealtimeSavedPostsService.shared
+    // Not @ObservedObject — prevents all PostCards from re-rendering when any save changes.
+    // isSaved state is managed locally; service is only used for action calls and initial load.
+    private let savedPostsService = RealtimeSavedPostsService.shared
     @ObservedObject private var followService = FollowService.shared
     @ObservedObject private var pinnedPostService = PinnedPostService.shared
     @ObservedObject private var interactionsService = PostInteractionsService.shared
@@ -99,13 +101,16 @@ struct PostCard: View {
     // ✅ Real-time profile image
     @State private var currentProfileImageURL: String?
     
-    // Translation state
+    // Translation state — managed by TranslationService
     @State private var showTranslatedContent = false
     @State private var translatedContent: String?
     @State private var detectedLanguage: String?
+    @State private var translationUIState: TranslationUIState = .available
+    @State private var showTranslationInfoSheet = false
     @State private var isTranslating = false
-    // PERF: translationService only called for getDeviceLanguage() which never changes mid-session
+    // PERF: Legacy translationService kept for backward compat; new service is action-only (not observed)
     private let translationService = PostTranslationService.shared
+    private let newTranslationService = TranslationService.shared
     
     // P1-B FIX: Content expansion state now lives in PostInteractionsService
     // (keyed by stablePostId) so it survives SwiftUI view recycling during scroll.
@@ -143,7 +148,7 @@ struct PostCard: View {
             switch self {
             case .openTable: return "" // Remove #OPENTABLE badge entirely
             case .testimonies: return "Testimonies"
-            case .prayer: return "Prayer"
+            case .prayer: return "" // Prayer Request topic tag is shown instead
             }
         }
     }
@@ -854,27 +859,91 @@ struct PostCard: View {
     }
     
     private var translationToggleButton: some View {
-        Button {
-            HapticManager.impact(style: .light)
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                showTranslatedContent.toggle()
+        Group {
+            switch translationUIState {
+            case .loading:
+                // Pulsing loading chip — matches AMEN design language
+                HStack(spacing: 5) {
+                    Image(systemName: "globe")
+                        .font(.system(size: 11, weight: .medium))
+                    Text("Translating…")
+                        .font(.custom("OpenSans-SemiBold", size: 12))
+                }
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(Capsule().fill(Color.primary.opacity(0.06)))
+                .modifier(PulsingOpacityModifier())
+
+            case .translated(let variant):
+                HStack(spacing: 8) {
+                    // Source language label
+                    HStack(spacing: 4) {
+                        Image(systemName: "globe")
+                            .font(.system(size: 10, weight: .medium))
+                        Text("Translated from \(SupportedLanguage.displayName(for: variant.sourceLanguage))")
+                            .font(.custom("OpenSans-Regular", size: 11))
+                    }
+                    .foregroundStyle(.secondary)
+                    .onTapGesture { showTranslationInfoSheet = true }
+
+                    // Toggle original/translated
+                    Button {
+                        HapticManager.impact(style: .light)
+                        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                            showTranslatedContent.toggle()
+                        }
+                    } label: {
+                        Text(showTranslatedContent ? "View original" : "View translation")
+                            .font(.custom("OpenSans-SemiBold", size: 11))
+                            .foregroundStyle(.secondary)
+                            .underline()
+                    }
+                    .buttonStyle(.plain)
+                }
+                .sheet(isPresented: $showTranslationInfoSheet) {
+                    TranslationInfoSheet(variant: variant, isPresented: $showTranslationInfoSheet)
+                }
+
+            case .available:
+                // "See Translation" button
+                Button {
+                    HapticManager.impact(style: .light)
+                    Task { await triggerTranslation() }
+                } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: "globe")
+                            .font(.system(size: 11, weight: .medium))
+                        Text("See translation")
+                            .font(.custom("OpenSans-SemiBold", size: 12))
+                    }
+                    .foregroundStyle(.primary.opacity(0.65))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(
+                        Capsule()
+                            .fill(.ultraThinMaterial)
+                            .overlay(Capsule().stroke(Color.primary.opacity(0.1), lineWidth: 0.5))
+                    )
+                }
+                .buttonStyle(.plain)
+
+            case .error(let err):
+                HStack(spacing: 6) {
+                    Text(err.userFacingMessage)
+                        .font(.custom("OpenSans-Regular", size: 11))
+                        .foregroundStyle(.secondary)
+                    Button("Retry") {
+                        Task { await triggerTranslation() }
+                    }
+                    .font(.custom("OpenSans-SemiBold", size: 11))
+                    .foregroundStyle(.secondary)
+                }
+
+            case .notNeeded, .disabled:
+                EmptyView()
             }
-        } label: {
-            HStack(spacing: 6) {
-                Image(systemName: "globe")
-                    .font(.system(size: 11, weight: .medium))
-                Text(showTranslatedContent ? "View original" : "View translation")
-                    .font(.custom("OpenSans-SemiBold", size: 12))
-            }
-            .foregroundStyle(.blue)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(
-                Capsule()
-                    .fill(Color.blue.opacity(0.1))
-            )
         }
-        .buttonStyle(.plain)
     }
     
     private var timeAndTagRow: some View {
@@ -919,6 +988,15 @@ struct PostCard: View {
         }
     }
     
+    /// Controls visibility of the translation affordance row
+    private var shouldShowTranslationAffordance: Bool {
+        switch translationUIState {
+        case .notNeeded, .disabled: return false
+        case .available: return detectedLanguage != nil && detectedLanguage != translationService.getDeviceLanguage()
+        case .loading, .translated, .error: return true
+        }
+    }
+
     private var bereanInitialQuery: String {
         let text = post?.content ?? content
         if category == .testimonies {
@@ -981,6 +1059,7 @@ struct PostCard: View {
                 commentCount: $commentCount,
                 repostCount: $repostCount,
                 prayingNowCount: $prayingNowCount,
+                isSaveInFlight: $isSaveInFlight,
                 isLightbulbToggleInFlight: $isLightbulbToggleInFlight,
                 expectedLightbulbState: $expectedLightbulbState,
                 isRepostToggleInFlight: $isRepostToggleInFlight,
@@ -1038,55 +1117,67 @@ struct PostCard: View {
             .sheet(isPresented: $showBereanSheet) {
                 BereanAIAssistantView(initialQuery: bereanInitialQuery)
             }
+            .task(id: content) {
+                await detectAndTranslatePost()
+            }
     }
     
     // MARK: - Translation Logic
-    
+
+    /// Called on appear to detect language and set initial translation UI state.
     private func detectAndTranslatePost() async {
-        guard post != nil, !content.isEmpty else { return }
-        
-        do {
-            // Detect language
-            let sourceLang = try await translationService.detectLanguage(content)
-            await MainActor.run {
-                detectedLanguage = sourceLang
-            }
-            
-            let deviceLang = translationService.getDeviceLanguage()
-            
-            // Only translate if different from device language
-            if sourceLang != deviceLang {
-                // Try to get cached translation first
-                if let cached = try await translationService.fetchTranslationFromFirestore(
-                    text: content,
-                    sourceLanguage: sourceLang,
-                    targetLanguage: deviceLang
-                ) {
-                    await MainActor.run {
-                        translatedContent = cached
-                    }
-                } else {
-                    // Translate in background
-                    await MainActor.run {
-                        isTranslating = true
-                    }
-                    
-                    let translation = try await translationService.translateText(
-                        content,
-                        from: sourceLang,
-                        to: deviceLang
-                    )
-                    
-                    await MainActor.run {
-                        translatedContent = translation
-                        isTranslating = false
-                    }
-                }
-            }
-        } catch {
-            dlog("❌ Translation detection failed: \(error.localizedDescription)")
-            await MainActor.run {
-                isTranslating = false
+        guard !content.isEmpty else { return }
+
+        // Detect language on-device (instant, private)
+        let detection = await newTranslationService.detectLanguage(content)
+        guard detection.isReliable else { return }
+
+        detectedLanguage = detection.languageCode
+
+        let settings = TranslationSettingsManager.shared
+        let postId = post?.firestoreId ?? "unknown"
+
+        // Check if we should auto-translate or just offer a button
+        if settings.shouldAutoTranslate(detectedLang: detection.languageCode, contentType: .post) {
+            await triggerTranslation()
+        } else if settings.shouldOfferTranslation(detectedLang: detection.languageCode, contentType: .post) {
+            translationUIState = .available
+        } else {
+            translationUIState = .notNeeded
+        }
+        _ = postId // suppress unused warning
+    }
+
+    /// Manually or automatically trigger translation for this post.
+    private func triggerTranslation() async {
+        guard translationUIState != .loading else { return }
+
+        let postId = post?.firestoreId ?? UUID().uuidString
+        let visibility = post?.visibility
+
+        // Determine if content is public (affects caching tier)
+        let isPublic: Bool
+        switch visibility {
+        case .everyone: isPublic = true
+        case .followers, .community: isPublic = false
+        case .none: isPublic = true
+        }
+
+        translationUIState = .loading
+
+        let result = await newTranslationService.translate(
+            text: content,
+            contentType: .post,
+            contentId: postId,
+            surface: .feed,
+            isPublicContent: isPublic
+        )
+
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+            translationUIState = result
+            if let translated = result.translatedText {
+                translatedContent = translated
+                showTranslatedContent = true
             }
         }
     }
@@ -1243,6 +1334,8 @@ struct PostCard: View {
                     HapticManager.impact(style: .light)
                 }
                 .foregroundStyle(.primary)
+                // Fix: Constrain text to available width so long unbreakable words don't overflow
+                .frame(maxWidth: .infinity, alignment: .leading)
                 // P1-B FIX: Read expansion state from the service (survives scroll recycle)
                 .lineLimit(interactionsService.isExpanded(stablePostId) ? nil : 10)
                 .frame(maxHeight: interactionsService.isExpanded(stablePostId) ? nil : 400)
@@ -1270,8 +1363,9 @@ struct PostCard: View {
             .padding(.horizontal, 20)
             .padding(.top, 16)
             
-            // Translation toggle button (only show if post is in different language)
-            if detectedLanguage != nil && detectedLanguage != translationService.getDeviceLanguage() {
+            // Translation affordance — driven by translationUIState state machine
+            // Shows: "See Translation" | loading chip | "Translated from X / View original" | error
+            if shouldShowTranslationAffordance {
                 translationToggleButton
                     .padding(.horizontal, 20)
                     .padding(.top, 8)
@@ -2200,6 +2294,15 @@ struct PostCard: View {
         lastSaveActionTimestamp = Date()
         isSaveInFlight = true
 
+        // ✅ DESYNC FIX: If local isSaved and global savedPostIds disagree, trust the
+        // global set (it's the authoritative source from Firestore/RTDB).
+        // This prevents the wrong operation when the local state drifted.
+        let globalIsSaved = savedPostsService.savedPostIds.contains(post.firestoreId)
+        if isSaved != globalIsSaved {
+            logDebug("  ⚠️ DESYNC DETECTED: isSaved=\(isSaved) but savedPostIds.contains=\(globalIsSaved). Correcting local state.", category: "SAVE")
+            isSaved = globalIsSaved
+        }
+
         // Store previous state for rollback
         let previousState = isSaved
 
@@ -2818,7 +2921,9 @@ private struct PostCardSheetsModifier: ViewModifier {
 private struct PostCardInteractionsModifier: ViewModifier {
     let post: Post?
     @ObservedObject var interactionsService: PostInteractionsService  // ✅ FIXED: Observe changes
-    @ObservedObject var savedPostsService: RealtimeSavedPostsService  // ✅ FIXED: Observe changes
+    // Not @ObservedObject — we don't want every card to re-render when ANY post is saved/unsaved.
+    // State sync happens through the isSaved @Binding + isSaveInFlight guard.
+    let savedPostsService: RealtimeSavedPostsService
     
     @Binding var hasLitLightbulb: Bool
     @Binding var hasSaidAmen: Bool
@@ -2830,6 +2935,7 @@ private struct PostCardInteractionsModifier: ViewModifier {
     @Binding var commentCount: Int
     @Binding var repostCount: Int
     @Binding var prayingNowCount: Int
+    @Binding var isSaveInFlight: Bool
     @Binding var isLightbulbToggleInFlight: Bool
     @Binding var expectedLightbulbState: Bool
     @Binding var isRepostToggleInFlight: Bool
@@ -2838,6 +2944,24 @@ private struct PostCardInteractionsModifier: ViewModifier {
     
     @State private var hasCompletedInitialLoad = false
     
+    // PERF: Single narrow value watched by ONE onChange — replaces 4 separate dictionary-level
+    // observers. Each PostCard only re-evaluates its own 4 counts, not the full global dict.
+    private struct PostCounts: Equatable {
+        var lightbulbs: Int
+        var amens: Int
+        var comments: Int
+        var reposts: Int
+    }
+    private var countsForThisPost: PostCounts {
+        let id = post?.firebaseId ?? post?.id.uuidString ?? ""
+        return PostCounts(
+            lightbulbs: interactionsService.postLightbulbs[id] ?? lightbulbCount,
+            amens:      interactionsService.postAmens[id]      ?? amenCount,
+            comments:   interactionsService.postComments[id]   ?? commentCount,
+            reposts:    interactionsService.postReposts[id]    ?? repostCount
+        )
+    }
+
     // Helper computed properties to simplify onChange expressions
     private var isPostLightbulbed: Bool {
         guard let post = post else { return false }
@@ -2922,7 +3046,12 @@ private struct PostCardInteractionsModifier: ViewModifier {
                     let reposts = await interactionsService.getRepostCount(postId: stableId)
                     
                     await MainActor.run {
-                        isSaved = savedStatus
+                        // Only apply the fetched saved status if no save/unsave is currently
+                        // in-flight. Overwriting while in-flight would clobber the optimistic
+                        // toggle the user just tapped and cause the button to snap back.
+                        if !isSaveInFlight {
+                            isSaved = savedStatus
+                        }
                         lightbulbCount = lightbulbs
                         amenCount = amens
                         commentCount = comments
@@ -2947,37 +3076,15 @@ private struct PostCardInteractionsModifier: ViewModifier {
                     interactionsService.stopObservingPost(postId: stableId)
                 }
             }
-            .onChange(of: interactionsService.postLightbulbs) { oldValue, newValue in
-                guard let post = post else { return }
-                // P0 FIX: Use stable ID for dictionary lookup
-                let stableId = post.firebaseId ?? post.id.uuidString
-                if let count = interactionsService.postLightbulbs[stableId] {
-                    lightbulbCount = count
-                }
-            }
-            .onChange(of: interactionsService.postAmens) { oldValue, newValue in
-                guard let post = post else { return }
-                // P0 FIX: Use stable ID for dictionary lookup
-                let stableId = post.firebaseId ?? post.id.uuidString
-                if let count = interactionsService.postAmens[stableId] {
-                    amenCount = count
-                }
-            }
-            .onChange(of: interactionsService.postComments) { oldValue, newValue in
-                guard let post = post else { return }
-                // P0 FIX: Use stable ID for dictionary lookup
-                let stableId = post.firebaseId ?? post.id.uuidString
-                if let count = interactionsService.postComments[stableId] {
-                    commentCount = count
-                }
-            }
-            .onChange(of: interactionsService.postReposts) { oldValue, newValue in
-                guard let post = post else { return }
-                // P0 FIX: Use stable ID for dictionary lookup
-                let stableId = post.firebaseId ?? post.id.uuidString
-                if let count = interactionsService.postReposts[stableId] {
-                    repostCount = count
-                }
+            // PERF: Single observer on a narrow Equatable value keyed to THIS post only.
+            // Previously 4 separate onChange(of: [String:Int]) handlers fired for EVERY
+            // PostCard whenever any post's count changed — O(visible cards) re-renders
+            // per interaction. Now only this card re-evaluates its own counts.
+            .onChange(of: countsForThisPost) { _, counts in
+                lightbulbCount = counts.lightbulbs
+                amenCount      = counts.amens
+                commentCount   = counts.comments
+                repostCount    = counts.reposts
             }
             // ✅ Update lightbulb state when userLightbulbedPosts changes
             .onChange(of: isPostLightbulbed) { oldState, newState in
@@ -3042,24 +3149,10 @@ private struct PostCardInteractionsModifier: ViewModifier {
                     }
                 }
             }
-            // ✅ NEW: Monitor savedPostIds changes and sync to local state
-            .onChange(of: savedPostsService.savedPostIds) { oldValue, newValue in
-                guard let post = post, hasCompletedInitialLoad else { return }
-                let postId = post.firestoreId
-                
-                let wasInOldSet = oldValue.contains(postId)
-                let isInNewSet = newValue.contains(postId)
-                
-                // Only act if THIS specific post's state changed
-                guard wasInOldSet != isInNewSet else { return }
-                
-                // Sync local state to match backend truth
-                if isSaved != isInNewSet {
-                    withTransaction(Transaction(animation: nil)) {
-                        isSaved = isInNewSet
-                    }
-                }
-            }
+            // NOTE: We intentionally do NOT observe savedPostsService.savedPostIds here.
+            // Observing the shared singleton would cause EVERY PostCard to re-render
+            // (and animate its bookmark icon) whenever any user saves any post.
+            // isSaved is kept correct by: (1) initial task load, (2) toggleSave() reconciliation.
     }
     
     private func checkIfPraying(postId: String) async -> Bool {

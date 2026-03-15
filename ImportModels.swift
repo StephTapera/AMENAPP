@@ -138,6 +138,7 @@ struct ImportBatch: Identifiable, Codable {
 
 /// Observable progress state for the import pipeline.
 struct ImportProgress {
+    nonisolated init() {}
     var phase: Phase = .idle
     var currentItemIndex: Int = 0
     var totalItems: Int = 0

@@ -18,7 +18,8 @@ struct WhyAmISeeingThisSheet: View {
     @Environment(\.dismiss) private var dismiss
     let post: Post
     let reasons: [FeedReason]
-    
+    @State private var showFeedControls = false
+
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
@@ -74,8 +75,7 @@ struct WhyAmISeeingThisSheet: View {
                 // Footer Actions
                 VStack(spacing: 12) {
                     Button {
-                        dismiss()
-                        // TODO: Navigate to Hey Feed controls
+                        showFeedControls = true
                     } label: {
                         Text("Adjust Feed Preferences")
                             .font(.subheadline.weight(.medium))
@@ -107,9 +107,12 @@ struct WhyAmISeeingThisSheet: View {
                     }
                 }
             }
+            .sheet(isPresented: $showFeedControls) {
+                HeyFeedControlsSheet()
+            }
         }
     }
-    
+
     private func reasonTitle(for type: FeedReason.ReasonType) -> String {
         switch type {
         case .followedAuthor: return "You follow this person"

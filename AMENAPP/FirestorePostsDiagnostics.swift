@@ -57,7 +57,7 @@ class FirestorePostsDiagnostics {
     private func checkAuthentication() async {
         print("📱 Step 1: Checking Authentication")
         
-        guard let currentUser = Auth.auth().currentUser else {
+        guard Auth.auth().currentUser != nil else {
             print("   ❌ NOT AUTHENTICATED - User must sign in to view profiles")
             return
         }

@@ -63,6 +63,38 @@ extension View {
     func glassEffectUnion(id: String, namespace: Namespace.ID) -> some View {
         self.matchedGeometryEffect(id: "union_\(id)", in: namespace)
     }
+
+    /// Overlays a scroll-reactive bottom-up frosted glass fog on a ScrollView.
+    ///
+    /// Reads the scroll offset via `DynamicGlassScrollOffsetKey` and feeds it into
+    /// `DynamicGlassOverlay`. The overlay is non-interactive (`allowsHitTesting(false)`)
+    /// and ignores the bottom safe area so it flows under the home indicator.
+    ///
+    /// **Usage — wrap your ScrollView:**
+    /// ```swift
+    /// ScrollView {
+    ///     VStack {
+    ///         ScrollOffsetReader()   // must be first child
+    ///         // ... content ...
+    ///     }
+    /// }
+    /// .coordinateSpace(name: "dynamicGlassScroll")
+    /// .scrollReactiveGlass()
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - coverageFraction: Fraction of the view height the glass panel covers at full intensity (default 0.65).
+    ///   - rampDistance: Scroll distance in points over which glass ramps from base to full intensity (default 180).
+    /// - Returns: The view with a `DynamicGlassOverlay` anchored to its bottom edge.
+    func scrollReactiveGlass(
+        coverageFraction: CGFloat = 0.65,
+        rampDistance: CGFloat = 180
+    ) -> some View {
+        self.modifier(ScrollReactiveGlassModifier(
+            coverageFraction: coverageFraction,
+            rampDistance: rampDistance
+        ))
+    }
 }
 
 // MARK: - Glass Effect Style
@@ -237,6 +269,35 @@ struct AnyShape: Shape {
     
     func path(in rect: CGRect) -> Path {
         _path(rect)
+    }
+}
+
+// MARK: - Scroll-Reactive Glass Modifier
+
+/// ViewModifier backing `.scrollReactiveGlass()`. Tracks `DynamicGlassScrollOffsetKey`
+/// changes and passes the value to `DynamicGlassOverlay`.
+private struct ScrollReactiveGlassModifier: ViewModifier {
+    let coverageFraction: CGFloat
+    let rampDistance: CGFloat
+
+    @State private var scrollOffset: CGFloat = 0
+
+    func body(content: Content) -> some View {
+        content
+            .onPreferenceChange(DynamicGlassScrollOffsetKey.self) { value in
+                // Throttle sub-pixel noise — only update when change ≥ 1pt
+                if abs(value - scrollOffset) >= 1 {
+                    scrollOffset = value
+                }
+            }
+            .overlay(alignment: .bottom) {
+                DynamicGlassOverlay(
+                    scrollOffset: scrollOffset,
+                    coverageFraction: coverageFraction,
+                    rampDistance: rampDistance
+                )
+                .ignoresSafeArea(edges: .bottom)
+            }
     }
 }
 

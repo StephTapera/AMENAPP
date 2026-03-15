@@ -12,6 +12,9 @@
 
 import SwiftUI
 import FirebaseAuth
+#if canImport(MusicKit)
+import MusicKit
+#endif
 
 // MARK: - Enhanced Note Editor with Smart Features
 
@@ -55,6 +58,10 @@ struct EnhancedChurchNoteEditor: View {
     
     // UX-3: Scripture detection
     @State private var detectedScriptures: [String] = []
+
+    // Music: worship songs attached to this note
+    @State private var worshipSongs: [WorshipSongReference] = []
+    @State private var showSongSearch = false
     
     var canSave: Bool {
         !title.isEmpty && !content.isEmpty
@@ -79,6 +86,7 @@ struct EnhancedChurchNoteEditor: View {
             _scripture = State(initialValue: note.scripture ?? "")
             _tags = State(initialValue: note.tags)
             _initialContent = State(initialValue: note.content)
+            _worshipSongs = State(initialValue: note.worshipSongs)
         }
     }
     
@@ -112,7 +120,12 @@ struct EnhancedChurchNoteEditor: View {
                         if showingToolbar {
                             quickInsertToolbar
                         }
-                        
+
+                        // Worship songs attached to this note
+                        if !worshipSongs.isEmpty {
+                            worshipSongsSection
+                        }
+
                         // Tags section
                         tagsSection
                     }
@@ -139,6 +152,14 @@ struct EnhancedChurchNoteEditor: View {
         }
         .onChange(of: content) { oldValue, newValue in
             handleContentChange(newValue)
+        }
+        .sheet(isPresented: $showSongSearch) {
+            SongSearchSheet { song in
+                if !worshipSongs.contains(where: { $0.title == song.title && $0.artist == song.artist }) {
+                    worshipSongs.append(song)
+                    trackUnsavedChanges()
+                }
+            }
         }
     }
     
@@ -399,6 +420,10 @@ struct EnhancedChurchNoteEditor: View {
                     QuickInsertButton(icon: "checkmark.circle.fill", label: "Action Step") {
                         insertTemplate("\n\n✅ Action Step: ")
                     }
+
+                    QuickInsertButton(icon: "music.note", label: "Add Song") {
+                        showSongSearch = true
+                    }
                 }
                 .padding(.horizontal, 20)
             }
@@ -406,8 +431,69 @@ struct EnhancedChurchNoteEditor: View {
         .transition(.move(edge: .top).combined(with: .opacity))
     }
     
+    // MARK: - Worship Songs Section
+
+    private var worshipSongsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Worship Songs")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.black.opacity(0.5))
+                    .textCase(.uppercase)
+                    .tracking(1)
+
+                Spacer()
+
+                Button {
+                    showSongSearch = true
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 11, weight: .semibold))
+                        Text("Add")
+                            .font(.system(size: 12, weight: .medium))
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(Color.black.opacity(0.05))
+                    .foregroundStyle(.black.opacity(0.7))
+                    .cornerRadius(6)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 20)
+
+            VStack(spacing: 8) {
+                ForEach(worshipSongs) { song in
+                    HStack(spacing: 0) {
+                        WorshipSongCard(
+                            title: song.title,
+                            artist: song.artist,
+                            churchNoteId: nil
+                        )
+
+                        // Remove button
+                        Button {
+                            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                                worshipSongs.removeAll { $0.id == song.id }
+                                trackUnsavedChanges()
+                            }
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 18))
+                                .foregroundStyle(Color(.systemGray3))
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.trailing, 4)
+                    }
+                    .padding(.horizontal, 16)
+                }
+            }
+        }
+    }
+
     // MARK: - Tags Section
-    
+
     private var tagsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Tags (Optional)")
@@ -544,7 +630,8 @@ struct EnhancedChurchNoteEditor: View {
             updatedNote.scripture = scripture.isEmpty ? nil : scripture
             updatedNote.scriptureReferences = detectedScriptures
             updatedNote.tags = tags
-            
+            updatedNote.worshipSongs = worshipSongs
+
             try await notesService.updateNote(updatedNote)
         } else {
             // Create new note
@@ -558,9 +645,10 @@ struct EnhancedChurchNoteEditor: View {
                 content: content,
                 scripture: scripture.isEmpty ? nil : scripture,
                 tags: tags,
-                scriptureReferences: detectedScriptures
+                scriptureReferences: detectedScriptures,
+                worshipSongs: worshipSongs
             )
-            
+
             try await notesService.createNote(newNote)
         }
     }
@@ -610,6 +698,197 @@ struct QuickInsertButton: View {
     }
 }
 
+// MARK: - Song Search Sheet
+
+/// Presents a lightweight search bar that queries Apple Music via WorshipMusicService
+/// (MusicKit when available, Apple Music search URL otherwise).
+/// Calls `onAdd` with a `WorshipSongReference` when the user picks a result.
+struct SongSearchSheet: View {
+    let onAdd: (WorshipSongReference) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var query = ""
+    @State private var results: [SongResult] = []
+    @State private var isSearching = false
+    @State private var searchTask: Task<Void, Never>?
+    @FocusState private var focused: Bool
+
+    struct SongResult: Identifiable {
+        let id: String
+        let title: String
+        let artist: String
+        let albumArtURL: String?
+        let appleMusicURL: String?
+        let musicKitID: String?
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                // Search bar
+                HStack(spacing: 10) {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundStyle(.secondary)
+                    TextField("Song title or artist…", text: $query)
+                        .focused($focused)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                        .submitLabel(.search)
+                        .onSubmit { runSearch() }
+                        .onChange(of: query) { _, _ in scheduleDebouncedSearch() }
+                    if isSearching {
+                        ProgressView().scaleEffect(0.75)
+                    } else if !query.isEmpty {
+                        Button { query = ""; results = [] } label: {
+                            Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(12)
+                .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+
+                Divider().padding(.top, 12)
+
+                if results.isEmpty && !isSearching && !query.isEmpty {
+                    ContentUnavailableView("No results", systemImage: "music.note",
+                        description: Text("Try a different song or artist name."))
+                        .padding(.top, 40)
+                } else {
+                    List(results) { song in
+                        Button {
+                            let ref = WorshipSongReference(
+                                title: song.title,
+                                artist: song.artist,
+                                musicKitID: song.musicKitID,
+                                appleMusicURL: song.appleMusicURL,
+                                albumArtURL: song.albumArtURL
+                            )
+                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                            onAdd(ref)
+                            dismiss()
+                        } label: {
+                            HStack(spacing: 12) {
+                                // Album art or placeholder
+                                Group {
+                                    if let urlStr = song.albumArtURL, let url = URL(string: urlStr) {
+                                        AsyncImage(url: url) { phase in
+                                            if case .success(let img) = phase {
+                                                img.resizable().aspectRatio(contentMode: .fill)
+                                            } else {
+                                                Color(.systemGray5)
+                                            }
+                                        }
+                                    } else {
+                                        Color(.systemGray5)
+                                            .overlay(Image(systemName: "music.note")
+                                                .foregroundStyle(.secondary))
+                                    }
+                                }
+                                .frame(width: 44, height: 44)
+                                .clipShape(RoundedRectangle(cornerRadius: 6))
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(song.title)
+                                        .font(.system(size: 15, weight: .semibold))
+                                        .foregroundStyle(.primary)
+                                        .lineLimit(1)
+                                    Text(song.artist)
+                                        .font(.system(size: 13))
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                }
+
+                                Spacer()
+
+                                Image(systemName: "plus.circle")
+                                    .font(.system(size: 20))
+                                    .foregroundStyle(Color.purple)
+                            }
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .listStyle(.plain)
+                }
+
+                Spacer(minLength: 0)
+            }
+            .navigationTitle("Add Worship Song")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+        }
+        .onAppear { focused = true }
+        .onDisappear { searchTask?.cancel() }
+    }
+
+    private func scheduleDebouncedSearch() {
+        searchTask?.cancel()
+        guard !query.trimmingCharacters(in: .whitespaces).isEmpty else {
+            results = []
+            return
+        }
+        searchTask = Task {
+            try? await Task.sleep(nanoseconds: 400_000_000)
+            guard !Task.isCancelled else { return }
+            runSearch()
+        }
+    }
+
+    private func runSearch() {
+        let term = query.trimmingCharacters(in: .whitespaces)
+        guard !term.isEmpty else { return }
+        searchTask?.cancel()
+        searchTask = Task {
+            await MainActor.run { isSearching = true }
+            let found = await searchSongs(query: term)
+            await MainActor.run {
+                results = found
+                isSearching = false
+            }
+        }
+    }
+
+    func searchSongs(query: String) async -> [SongResult] {
+        // MusicKit catalog search when the framework and authorization are available.
+        // Falls back to an Apple Music deep-link result in all other cases.
+        #if canImport(MusicKit)
+        do {
+            let status = await MusicAuthorization.request()
+            if status == .authorized {
+                var req = MusicCatalogSearchRequest(term: query, types: [Song.self])
+                req.limit = 15
+                let resp = try await req.response()
+                if !resp.songs.isEmpty {
+                    return resp.songs.map { song in
+                        SongResult(
+                            id: song.id.rawValue,
+                            title: song.title,
+                            artist: song.artistName,
+                            albumArtURL: song.artwork?.url(width: 120, height: 120)?.absoluteString,
+                            appleMusicURL: song.url?.absoluteString,
+                            musicKitID: song.id.rawValue
+                        )
+                    }
+                }
+            }
+        } catch {}
+        #endif
+        let searchURL = WorshipMusicService.appleMusicSearchURL(title: query, artist: "")?.absoluteString
+        return [SongResult(
+            id: UUID().uuidString, title: query,
+            artist: "Search in Apple Music →",
+            albumArtURL: nil, appleMusicURL: searchURL, musicKitID: nil
+        )]
+    }
+}
+
 // MARK: - Minimal Text Field (local to editor)
 
 private struct EditorMinimalTextField: View {
@@ -640,3 +919,4 @@ private struct EditorMinimalTextField: View {
         .padding(.horizontal, 20)
     }
 }
+

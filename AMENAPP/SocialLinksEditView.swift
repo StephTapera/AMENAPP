@@ -74,6 +74,7 @@ struct SocialLinksEditView: View {
     @Binding var socialLinks: [SocialLinkUI]
     
     @State private var showAddLinkSheet = false
+    @State private var editingLink: SocialLinkUI? = nil
     @State private var isLoading = false
     @State private var showError = false
     @State private var errorMessage = ""
@@ -110,7 +111,7 @@ struct SocialLinksEditView: View {
                                         removeLink(link)
                                     },
                                     onEdit: {
-                                        // TODO: Edit functionality
+                                        editingLink = link
                                     }
                                 )
                             }
@@ -181,6 +182,17 @@ struct SocialLinksEditView: View {
                 AddSocialLinkSheet(onAdd: { platform, username in
                     addLink(platform: platform, username: username)
                 })
+            }
+            .sheet(item: $editingLink) { linkToEdit in
+                AddSocialLinkSheet(
+                    initialPlatform: linkToEdit.platform,
+                    initialUsername: linkToEdit.username,
+                    onAdd: { platform, username in
+                        // Remove old entry for this link, then add updated one
+                        socialLinks.removeAll { $0.id == linkToEdit.id }
+                        addLink(platform: platform, username: username)
+                    }
+                )
             }
             .alert("Error", isPresented: $showError) {
                 Button("OK", role: .cancel) { }
@@ -331,7 +343,21 @@ struct SocialLinkRow: View {
             }
             
             Spacer()
-            
+
+            // Edit Button
+            Button {
+                onEdit()
+            } label: {
+                Image(systemName: "pencil")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(.blue)
+                    .frame(width: 36, height: 36)
+                    .background(
+                        Circle()
+                            .fill(Color.blue.opacity(0.1))
+                    )
+            }
+
             // Delete Button
             Button {
                 onDelete()
@@ -359,14 +385,24 @@ struct SocialLinkRow: View {
 
 struct AddSocialLinkSheet: View {
     @Environment(\.dismiss) var dismiss
-    
+
     let onAdd: (SocialLinkUI.SocialPlatform, String) -> Void
-    
-    @State private var selectedPlatform: SocialLinkUI.SocialPlatform = .instagram
-    @State private var username = ""
+
+    @State private var selectedPlatform: SocialLinkUI.SocialPlatform
+    @State private var username: String
     @State private var showValidationError = false
     @State private var validationMessage = ""
     @FocusState private var isUsernameFocused: Bool
+
+    init(
+        initialPlatform: SocialLinkUI.SocialPlatform = .instagram,
+        initialUsername: String = "",
+        onAdd: @escaping (SocialLinkUI.SocialPlatform, String) -> Void
+    ) {
+        _selectedPlatform = State(initialValue: initialPlatform)
+        _username = State(initialValue: initialUsername)
+        self.onAdd = onAdd
+    }
     
     var body: some View {
         NavigationStack {

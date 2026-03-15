@@ -216,6 +216,7 @@ struct UserProfileView: View {
     @State private var showErrorAlert = false
     @State private var errorMessage = ""
     @State private var isFollowing = false
+    @State private var isFollowedByThisUser = false  // This user follows the current user
     @State private var isBlocked = false  // Current user has blocked this user
     @State private var isBlockedBy = false  // P0-4: This user has blocked current user
     @State private var isMuted = false  // Privacy: Mute status
@@ -245,6 +246,7 @@ struct UserProfileView: View {
     @State private var showCompactHeader = false  // Show compact header when scrolled
     @StateObject private var scrollManager = SmartScrollManager()
     @ObservedObject private var pinnedPostService = PinnedPostService.shared
+    @ObservedObject private var followService = FollowService.shared
     @Namespace private var tabNamespace
     
     // Additional production-ready states
@@ -266,6 +268,8 @@ struct UserProfileView: View {
             return "Following"
         } else if followRequestPending {
             return "Requested"
+        } else if isFollowedByThisUser {
+            return "Follow Back"
         } else {
             return "Follow"
         }
@@ -471,6 +475,17 @@ struct UserProfileView: View {
             
             // Cache profile for offline viewing
             cacheProfileData()
+        }
+        // Keep isFollowing in sync with the global FollowService.following set.
+        // This ensures the follow button reflects changes made from PostCard, search results,
+        // or any other surface without needing to re-fetch from Firestore.
+        .onChange(of: followService.following) { _, newFollowing in
+            // Only update if we're viewing someone else's profile (not our own)
+            guard userId != Auth.auth().currentUser?.uid else { return }
+            let nowFollowing = newFollowing.contains(userId)
+            if isFollowing != nowFollowing {
+                isFollowing = nowFollowing
+            }
         }
         .onOpenURL { url in
             handleDeepLink(url)
@@ -776,14 +791,11 @@ struct UserProfileView: View {
     private func refreshProfile() async {
         isRefreshing = true
         
-        // P1-3: Invalidate cache on manual refresh
+        // Invalidate cache so loadProfileData bypasses TTL check
         profileCachedAt = nil
         
-        // Simulate network delay
-        try? await Task.sleep(nanoseconds: 1_500_000_000) // 1.5 seconds
-        
-        // Reload profile data
-        await loadProfileData()
+        // Force fresh data from Firestore server (bypasses SDK offline cache)
+        await loadProfileData(forceServerFetch: true)
         
         isRefreshing = false
         
@@ -792,7 +804,7 @@ struct UserProfileView: View {
     }
     
     @MainActor
-    private func loadProfileData() async {
+    private func loadProfileData(forceServerFetch: Bool = false) async {
         // P1-3: Check cache TTL (5 minutes)
         if let cachedAt = profileCachedAt,
            profileData != nil,
@@ -923,25 +935,43 @@ struct UserProfileView: View {
             // Phase 2 fix: Show profile header immediately — don't wait for posts/reposts.
             isLoading = false
             
-            // Fetch follow status and privacy status first so we can gate content
-            print("📥 Fetching follow status and privacy status before content...")
+            // Skip all follow / privacy relationship checks when viewing own profile.
+            // Running them for self produces misleading "not following" logs, fires
+            // unnecessary Firestore reads, and can attach duplicate listeners.
+            let isOwnProfile = userId == Auth.auth().currentUser?.uid
 
-            async let followStatusTask = checkFollowStatus()
-            async let privacyStatusTask = checkPrivacyStatus()
-            isFollowing = try await followStatusTask
-            await privacyStatusTask
+            if isOwnProfile {
+                // Own profile: always "following" self isn't meaningful — hide follow UI
+                isFollowing = false
+                // No block/mute/privacy checks needed for self
+                viewerRelationship = .ownProfile  // Always show own content
+                print("✅ Own profile detected — skipping follow & privacy checks")
+            } else {
+                // External profile: fetch follow status and privacy status before gating content
+                // P0-C FIX: async let tuple-await causes swift_task_dealloc on task cancellation.
+                // Run sequentially — these are fast Firestore reads so the performance difference is negligible.
+                print("📥 Fetching follow status and privacy status before content...")
+                isFollowing = try await checkFollowStatus()
+                await checkPrivacyStatus()
+                // Load the canonical viewer relationship (used to gate private content)
+                viewerRelationship = await PrivacyAccessControl.shared.relationship(to: userId)
+            }
 
-            // Load the canonical viewer relationship (used to gate private content)
-            viewerRelationship = await PrivacyAccessControl.shared.relationship(to: userId)
-
-            // Fetch user's content — posts are gated by privacy, reposts run in parallel
+            // Fetch user's content — posts are gated by privacy, reposts run in parallel.
+            // P0-C FIX: Use withThrowingTaskGroup instead of async let tuple-await to avoid
+            // swift_task_dealloc crash when the parent .task {} is cancelled on view disappear.
             print("📥 Starting parallel fetch for posts and reposts...")
-
-            async let postsTask = fetchUserPosts(page: 1)
-            async let repostsTask = fetchUserReposts()
-
-            // Await all tasks
-            (posts, reposts) = try await (postsTask, repostsTask)
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                group.addTask { [self, forceServerFetch] in
+                    let fetched = try await fetchUserPosts(page: 1, forceServerFetch: forceServerFetch)
+                    await MainActor.run { self.posts = fetched }
+                }
+                group.addTask { [self] in
+                    let fetched = try await fetchUserReposts()
+                    await MainActor.run { self.reposts = fetched }
+                }
+                try await group.waitForAll()
+            }
             
             print("✅ Parallel fetch completed:")
             print("   - Posts: \(posts.count)")
@@ -1008,7 +1038,7 @@ struct UserProfileView: View {
     
     // MARK: - Network Calls
     
-    private func fetchUserPosts(page: Int) async throws -> [ProfilePost] {
+    private func fetchUserPosts(page: Int, forceServerFetch: Bool = false) async throws -> [ProfilePost] {
         print("📥 Fetching posts for user: \(userId) (page: \(page))")
 
         // Privacy gate: non-followers cannot see posts on private accounts
@@ -1022,7 +1052,7 @@ struct UserProfileView: View {
 
         // ✅ FIX: Use Firestore where posts are actually saved
         let postService = FirebasePostService.shared
-        let userPosts = try await postService.fetchUserPosts(userId: userId)
+        let userPosts = try await postService.fetchUserPosts(userId: userId, forceServerFetch: forceServerFetch)
         
         print("✅ Fetched \(userPosts.count) posts from Firestore for user")
         
@@ -1127,6 +1157,18 @@ struct UserProfileView: View {
         let isFollowing = await followService.isFollowing(userId: userId)
         
         print("✅ Follow status for \(userId): \(isFollowing ? "following" : "not following")")
+        
+        // Check if this user follows the current user (for "Follow Back" button)
+        if let currentUserId = Auth.auth().currentUser?.uid {
+            let db = Firestore.firestore()
+            let theyFollowMeSnap = try? await db.collection("follows")
+                .whereField("followerId", isEqualTo: userId)
+                .whereField("followingId", isEqualTo: currentUserId)
+                .limit(to: 1)
+                .getDocuments()
+            let theyFollowMe = !(theyFollowMeSnap?.documents.isEmpty ?? true)
+            await MainActor.run { isFollowedByThisUser = theyFollowMe }
+        }
         
         // P0-5: Check for pending follow request if not following and account is private
         if !isFollowing, let profile = profileData, profile.isPrivateAccount {
@@ -1860,6 +1902,19 @@ struct UserProfileView: View {
                                 }
                             }
                             
+                            // "Follows you" indicator — shown when this user follows the viewer
+                            if isFollowedByThisUser && !isBlocked && !isBlockedBy {
+                                Text("Follows you")
+                                    .font(.custom("OpenSans-Regular", size: 12))
+                                    .foregroundStyle(.secondary)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 3)
+                                    .background(
+                                        Capsule()
+                                            .fill(Color(UIColor.secondarySystemFill))
+                                    )
+                            }
+                            
                             // Bio URL Link (moved to top)
                             if let bioURL = profileData.bioURL, !bioURL.isEmpty, let bioURLParsed = URL(string: bioURL) {
                                 Link(destination: bioURLParsed) {
@@ -2341,8 +2396,7 @@ struct UserPostsContentView: View {
                 // Loading indicator at bottom
                 if hasMorePosts && scrollManager.isPrefetching {
                     HStack(spacing: 12) {
-                        ProgressView()
-                            .scaleEffect(0.9)
+                        AMENLoadingIndicator(dotSize: 7, spacing: 6, bounceHeight: 8)
                         Text("Loading more posts...")
                             .font(.custom("OpenSans-Regular", size: 14))
                             .foregroundStyle(.secondary)
@@ -3211,7 +3265,7 @@ struct FollowersListView: View {
             ScrollView {
                 LazyVStack(spacing: 12) {
                     if isLoading {
-                        ProgressView()
+                        AMENLoadingIndicator()
                             .padding(.top, 40)
                     } else if users.isEmpty {
                         UserProfileEmptyStateView(
@@ -3896,8 +3950,7 @@ struct ProfileRepostCard: View {
 struct LoadingStateView: View {
     var body: some View {
         VStack(spacing: 20) {
-            ProgressView()
-                .scaleEffect(1.2)
+            AMENLoadingIndicator()
             
             Text("Loading...")
                 .font(.custom("OpenSans-Regular", size: 14))
@@ -4376,7 +4429,7 @@ struct ScrollViewWithOffset<Content: View>: View {
             VStack(spacing: 0) {
                 GeometryReader { geometry in
                     Color.clear.preference(
-                        key: ScrollOffsetPreferenceKey.self,
+                        key: ProfileScrollOffsetPreferenceKey.self,
                         value: geometry.frame(in: .named("scroll")).minY
                     )
                 }
@@ -4386,15 +4439,15 @@ struct ScrollViewWithOffset<Content: View>: View {
             }
         }
         .coordinateSpace(name: "scroll")
-        .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
+        .onPreferenceChange(ProfileScrollOffsetPreferenceKey.self) { value in
             print("🔍 ScrollViewWithOffset raw value: \(value), converted: \(-value)")
             offset = -value  // Negative because scroll offset is inverted
         }
     }
 }
 
-/// Preference key for tracking scroll offset
-struct ScrollOffsetPreferenceKey: PreferenceKey {
+/// Preference key for tracking scroll offset in UserProfileView
+struct ProfileScrollOffsetPreferenceKey: PreferenceKey {
     static var defaultValue: CGFloat = 0
     
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
@@ -4559,8 +4612,7 @@ struct ChatConversationLoader: View {
             } else {
                 // Minimal inline spinner — replaces the full-screen blocking loader
                 VStack(spacing: 16) {
-                    ProgressView()
-                        .scaleEffect(1.2)
+                    AMENLoadingIndicator()
                     Text(userName)
                         .font(.custom("OpenSans-SemiBold", size: 15))
                         .foregroundStyle(.primary)

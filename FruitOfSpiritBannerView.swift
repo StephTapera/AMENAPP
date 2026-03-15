@@ -464,16 +464,18 @@ struct FruitOfSpiritBannerView: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
+    // Reuse the generator — don't instantiate on every tap
+    private let tapHaptic = UIImpactFeedbackGenerator(style: .light)
+
     private let fruit = todaysFruit
 
-    // Short verse: first sentence of scripture, capped at 90 chars
-    private var shortVerse: String {
-        let raw = fruit.scripture
-        // Take up to the first sentence break
+    // Short verse: first sentence of scripture, capped at 90 chars.
+    // Stored as a constant — computed once at init, never on body re-evaluation.
+    private let shortVerse: String = {
+        let raw = todaysFruit.scripture
         let sentences = raw.components(separatedBy: CharacterSet(charactersIn: ".!"))
         let first = sentences.first?.trimmingCharacters(in: .whitespaces) ?? raw
         if first.count <= 90 { return first }
-        // Hard-truncate at word boundary
         let words = first.split(separator: " ")
         var result = ""
         for word in words {
@@ -482,7 +484,7 @@ struct FruitOfSpiritBannerView: View {
             result = candidate
         }
         return result + "\u{2026}"
-    }
+    }()
 
     var body: some View {
         bannerCard
@@ -490,6 +492,7 @@ struct FruitOfSpiritBannerView: View {
             .opacity(appeared ? 1 : 0)
             .scaleEffect(appeared ? 1 : 0.97)
             .onAppear {
+                tapHaptic.prepare()
                 withAnimation(BannerTokens.fadeIn.delay(0.06)) { appeared = true }
             }
             .sheet(isPresented: $showSheet) {
@@ -520,16 +523,16 @@ struct FruitOfSpiritBannerView: View {
                     radius: 12, x: 0, y: 4)
             .shadow(color: .black.opacity(colorScheme == .dark ? 0.18 : 0.04),
                     radius: 2, x: 0, y: 1)
-            .scaleEffect(isPressed ? 0.985 : 1.0)
-            .animation(BannerTokens.expandSpring, value: isExpanded)
-            .animation(.easeOut(duration: 0.10), value: isPressed)
             .contentShape(RoundedRectangle(cornerRadius: BannerTokens.cornerRadius))
             .onTapGesture {
-                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                tapHaptic.impactOccurred()
                 withAnimation(BannerTokens.expandSpring) { isExpanded.toggle() }
             }
+            // Opacity-only press feedback — no scale so the clipped+shadowed layer
+            // doesn't trigger a GPU compositing re-pass on every press frame.
+            .opacity(isPressed ? 0.88 : 1.0)
             ._onButtonGesture(
-                pressing: { pressing in withAnimation { isPressed = pressing } },
+                pressing: { pressing in isPressed = pressing },
                 perform: {}
             )
 
@@ -624,7 +627,7 @@ struct FruitOfSpiritBannerView: View {
                 Spacer()
                 // "Open" label — tapping card opens detail sheet
                 Button {
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    tapHaptic.impactOccurred()
                     showSheet = true
                 } label: {
                     Text("EXPLORE")
@@ -735,6 +738,8 @@ struct FruitOfSpiritDetailSheet: View {
     @State private var showBereanSheet = false
     @State private var bereanInitialQuery = ""
     @Environment(\.dismiss) private var dismiss
+    private let haptic = UIImpactFeedbackGenerator(style: .light)
+    private let hapticMedium = UIImpactFeedbackGenerator(style: .medium)
 
     enum DetailTab: String, CaseIterable {
         case learn = "Learn"
@@ -786,7 +791,7 @@ struct FruitOfSpiritDetailSheet: View {
             .overlay(alignment: .topTrailing) {
                 // ── Minimal close button — always above scroll content ──
                 Button {
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    haptic.impactOccurred()
                     dismiss()
                 } label: {
                     ZStack {
@@ -808,6 +813,10 @@ struct FruitOfSpiritDetailSheet: View {
             .ignoresSafeArea()
             .sheet(isPresented: $showBereanSheet) {
                 BereanAIAssistantView(initialQuery: bereanInitialQuery)
+            }
+            .onAppear {
+                haptic.prepare()
+                hapticMedium.prepare()
             }
     }
 
@@ -879,7 +888,7 @@ struct FruitOfSpiritDetailSheet: View {
         HStack(spacing: 0) {
             ForEach(DetailTab.allCases, id: \.self) { tab in
                 Button {
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    haptic.impactOccurred()
                     withAnimation(FT.tabAnim) { activeTab = tab }
                 } label: {
                     VStack(spacing: 6) {
@@ -975,7 +984,7 @@ struct FruitOfSpiritDetailSheet: View {
 
     private var askBereanButton: some View {
         Button {
-            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            hapticMedium.impactOccurred()
             bereanInitialQuery = "Can you explain the fruit of \(fruit.name) (\(fruit.greekWord)) from Galatians 5:22-23? How do I practically grow in \(fruit.name) as a Christian?"
             showBereanSheet = true
         } label: {
@@ -1051,7 +1060,7 @@ struct FruitOfSpiritDetailSheet: View {
         let isOpen = expandedSection == key
         return VStack(spacing: 0) {
             Button {
-                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                haptic.impactOccurred()
                 withAnimation(FT.expandAnim) {
                     expandedSection = isOpen ? nil : key
                 }
@@ -1131,7 +1140,7 @@ struct FruitOfSpiritDetailSheet: View {
                             if let match = allFruits.first(where: { $0.name == rel }),
                                let matchIndex = allFruits.firstIndex(where: { $0.name == rel }) {
                                 Button {
-                                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                    haptic.impactOccurred()
                                     withAnimation(FT.fruitAnim) {
                                         selectedFruitIndex = matchIndex
                                         expandedSection = nil
@@ -1207,7 +1216,7 @@ struct FruitOfSpiritDetailSheet: View {
     private func editorialFruitRow(_ f: FruitOfSpirit, index: Int) -> some View {
         let isSelected = index == selectedFruitIndex
         return Button {
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            haptic.impactOccurred()
             withAnimation(FT.fruitAnim) {
                 selectedFruitIndex = index
                 expandedSection = nil
@@ -1310,7 +1319,7 @@ struct FruitOfSpiritDetailSheet: View {
 
             // Start button — minimal outlined style
             Button {
-                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                hapticMedium.impactOccurred()
                 currentQuestionIndex = 0
                 selectedAnswerIndex = nil
                 answeredCorrectly = nil
@@ -1452,7 +1461,7 @@ struct FruitOfSpiritDetailSheet: View {
                 hairline
 
                 Button {
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    haptic.impactOccurred()
                     withAnimation(FT.expandAnim) {
                         if currentQuestionIndex + 1 < quizQuestions.count {
                             currentQuestionIndex += 1
@@ -1502,7 +1511,7 @@ struct FruitOfSpiritDetailSheet: View {
 
         return Button {
             guard selectedAnswerIndex == nil else { return }
-            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            hapticMedium.impactOccurred()
             withAnimation(FT.expandAnim) {
                 selectedAnswerIndex = index
                 answeredCorrectly = (index == correctIndex)
@@ -1612,7 +1621,7 @@ struct FruitOfSpiritDetailSheet: View {
 
     private func resultActionRow(label: String, icon: String, action: @escaping () -> Void) -> some View {
         Button {
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            haptic.impactOccurred()
             action()
         } label: {
             HStack {

@@ -43,98 +43,168 @@ class HomeFeedAlgorithm: ObservableObject {
         }
     }
     
-    // MARK: - Post Scoring
-    
-    /// Score a post for personalized relevance (0-100)
-    func scorePost(_ post: Post, for interests: UserInterests, followingIds: Set<String> = []) -> Double {
-        // ✅ HEY FEED: Apply user preferences.
-        // Only enforce mutes/hides once preferences have been loaded from Firestore
-        // (lastRefreshTime != nil). Before that, skip filtering to avoid showing
-        // a muted-free feed on cold start that snaps to filtered state after load.
-        let prefsService = HeyFeedPreferencesService.shared
-        let prefsLoaded = prefsService.lastRefreshTime != nil
-        let prefs = prefsService.preferences
-        
-        // Skip muted authors (only after prefs are loaded)
-        if prefsLoaded && prefs.mutedAuthors.contains(post.authorId) {
-            return 0.0
+    // MARK: - Scoring Context (pre-captures MainActor values for background use)
+
+    /// Snapshot of all @MainActor-isolated values needed by scorePost.
+    /// Captured on the main thread in personalizePostsDebounced, then passed
+    /// to the background Task.detached so scorePost can run fully nonisolated.
+    struct ScoringContext {
+        let prefsLoaded: Bool
+        let mutedAuthors: Set<String>
+        let hiddenPosts: Set<String>
+        let boostedPosts: Set<String>
+        let boostedAuthors: Set<String>
+        let controversyPenaltyFactor: Double
+        let topicWeights: [FeedTopic: Double]
+        let modeWeightsRecency: Double
+        let modeWeightsFollowing: Double
+        let currentUserId: String?
+
+        @MainActor
+        static func capture() -> ScoringContext {
+            let svc = HeyFeedPreferencesService.shared
+            let prefs = svc.preferences
+            let weights = prefs.mode.weights
+            // Build a local copy of topic weights so background thread never touches @MainActor state
+            var topicWeights: [FeedTopic: Double] = [:]
+            for topic in FeedTopic.allCases {
+                topicWeights[topic] = svc.getTopicWeight(topic)
+            }
+            return ScoringContext(
+                prefsLoaded: svc.lastRefreshTime != nil,
+                mutedAuthors: prefs.mutedAuthors,
+                hiddenPosts: prefs.hiddenPosts,
+                boostedPosts: prefs.boostedPosts,
+                boostedAuthors: prefs.boostedAuthors,
+                controversyPenaltyFactor: prefs.debateLevel.controversyPenalty / 50.0,
+                topicWeights: topicWeights,
+                modeWeightsRecency: weights.recency,
+                modeWeightsFollowing: weights.following,
+                currentUserId: Auth.auth().currentUser?.uid
+            )
         }
-        
-        // Skip hidden posts (only after prefs are loaded)
-        if prefsLoaded && prefs.hiddenPosts.contains(post.firebaseId ?? post.id.uuidString) {
-            return 0.0
+    }
+
+    // MARK: - Post Scoring
+
+    /// Score a post for personalized relevance (0-100).
+    /// Pass a pre-captured `ScoringContext` when calling from a background thread.
+    /// When `context` is nil the function reads HeyFeedPreferencesService directly
+    /// (safe only on the MainActor — use only for synchronous main-thread callsites).
+    nonisolated func scorePost(_ post: Post,
+                               for interests: UserInterests,
+                               followingIds: Set<String> = [],
+                               context: ScoringContext? = nil) -> Double {
+        // Resolve preferences — use pre-captured context if provided (background-safe),
+        // otherwise read the service directly (main-thread only path).
+        let prefsLoaded: Bool
+        let mutedAuthors: Set<String>
+        let hiddenPosts: Set<String>
+        let boostedPosts: Set<String>
+        let boostedAuthors: Set<String>
+        let controversyPenaltyFactor: Double
+        let modeWeightsRecency: Double
+        let modeWeightsFollowing: Double
+        let currentUserId: String?
+
+        if let ctx = context {
+            prefsLoaded              = ctx.prefsLoaded
+            mutedAuthors             = ctx.mutedAuthors
+            hiddenPosts              = ctx.hiddenPosts
+            boostedPosts             = ctx.boostedPosts
+            boostedAuthors           = ctx.boostedAuthors
+            controversyPenaltyFactor = ctx.controversyPenaltyFactor
+            modeWeightsRecency       = ctx.modeWeightsRecency
+            modeWeightsFollowing     = ctx.modeWeightsFollowing
+            currentUserId            = ctx.currentUserId
+        } else {
+            // ⚠️ This path is only reached from main-actor-isolated call sites (legacy/sync).
+            // Use assumeIsolated so the compiler allows access to @MainActor properties.
+            let captured = MainActor.assumeIsolated {
+                let svc   = HeyFeedPreferencesService.shared
+                let prefs = svc.preferences
+                let w     = prefs.mode.weights
+                return (
+                    prefsLoaded: svc.lastRefreshTime != nil,
+                    mutedAuthors: prefs.mutedAuthors,
+                    hiddenPosts: prefs.hiddenPosts,
+                    boostedPosts: prefs.boostedPosts,
+                    boostedAuthors: prefs.boostedAuthors,
+                    controversyPenaltyFactor: prefs.debateLevel.controversyPenalty / 50.0,
+                    modeWeightsRecency: w.recency,
+                    modeWeightsFollowing: w.following,
+                    currentUserId: Auth.auth().currentUser?.uid as String?
+                )
+            }
+            prefsLoaded              = captured.prefsLoaded
+            mutedAuthors             = captured.mutedAuthors
+            hiddenPosts              = captured.hiddenPosts
+            boostedPosts             = captured.boostedPosts
+            boostedAuthors           = captured.boostedAuthors
+            controversyPenaltyFactor = captured.controversyPenaltyFactor
+            modeWeightsRecency       = captured.modeWeightsRecency
+            modeWeightsFollowing     = captured.modeWeightsFollowing
+            currentUserId            = captured.currentUserId
         }
 
-        // Privacy gate: "followers-only" posts must not appear in feed for non-followers.
-        // Private-account posts with visibility=.everyone are blocked at the Firestore rules
-        // layer (callerCanReadPost). This catches the client-side case where the Post was
-        // fetched before a privacy transition or from a cached local store.
+        // Gate: muted authors / hidden posts (only after prefs loaded from Firestore)
+        if prefsLoaded && mutedAuthors.contains(post.authorId) { return 0.0 }
+        if prefsLoaded && hiddenPosts.contains(post.firebaseId ?? post.id.uuidString) { return 0.0 }
+
+        // Privacy gate: followers-only posts must not appear for non-followers.
         if post.visibility == .followers && !followingIds.contains(post.authorId) {
-            // Allow own posts (current user may not be in their own followingIds)
-            if let currentUid = Auth.auth().currentUser?.uid, post.authorId != currentUid {
-                return 0.0
-            }
+            if let uid = currentUserId, post.authorId != uid { return 0.0 }
         }
-        
+
         var score: Double = 0.0
-        
-        // Apply mode weights
-        let modeWeights = prefs.mode.weights
-        
-        // 1. Recency Score - Weighted by mode
-        score += calculateRecencyScore(post) * modeWeights.recency * 100
-        
-        // 2. Following Relationship - Weighted by mode
-        score += calculateFollowingScore(post, followingIds: followingIds) * modeWeights.following * 100
-        
-        // 3. Topic Relevance (18%) - User's interests
+
+        // 1. Recency Score — weighted by mode
+        score += calculateRecencyScore(post) * modeWeightsRecency * 100
+
+        // 2. Following Relationship — weighted by mode
+        score += calculateFollowingScore(post, followingIds: followingIds) * modeWeightsFollowing * 100
+
+        // 3. Topic Relevance (18%)
         score += calculateTopicScore(post, interests: interests) * 0.18
-        
-        // 4. Goal Alignment (12%) - User's spiritual goals
+
+        // 4. Goal Alignment (12%)
         score += calculateGoalScore(post, interests: interests) * 0.12
-        
-        // 5. Author Affinity (9%) - Users they engage with
+
+        // 5. Author Affinity (9%)
         score += calculateAuthorScore(post, interests: interests) * 0.09
-        
-        // 6. Engagement Quality (12%) - Community validation
+
+        // 6. Engagement Quality (12%)
         score += calculateEngagementScore(post) * 0.12
-        
-        // 7. Diversity Bonus (8%) - Prevent echo chamber
+
+        // 7. Diversity Bonus (8%)
         score += calculateDiversityScore(post, interests: interests) * 0.08
-        
-        // 8. Category Boost - Special boost for Tips and Fun Facts
+
+        // 8. Category Boost — Tips and Fun Facts
         score += calculateCategoryBoost(post, interests: interests)
-        
-        // ✅ 9. Anti-Ragebait Penalty - Downrank controversial content (with debate level)
-        let controversyPenalty = calculateControversyPenalty(post) * (prefs.debateLevel.controversyPenalty / 50.0)
-        score -= controversyPenalty
-        
-        // ✅ 10. Repetition Penalty - Prevent same author spam
-        let repetitionPenalty = calculateRepetitionPenalty(post, interests: interests)
-        score -= repetitionPenalty
-        
-        // ✅ 11. HEY FEED: Topic Weighting (0x block, 1x neutral, 2x pinned)
-        // Determine post topic (simplified - you may have better topic detection)
+
+        // 9. Anti-Ragebait Penalty
+        score -= calculateControversyPenalty(post) * controversyPenaltyFactor
+
+        // 10. Repetition Penalty
+        score -= calculateRepetitionPenalty(post, interests: interests)
+
+        // 11. Topic Weight (0x block, 1x neutral, 2x pinned)
         let postTopic = mapCategoryToTopic(post.category)
-        let topicMultiplier = HeyFeedPreferencesService.shared.getTopicWeight(postTopic)
+        let topicMultiplier = context?.topicWeights[postTopic] ?? 1.0
         score *= topicMultiplier
-        
-        // ✅ 12. HEY FEED: Boosted Posts/Authors
+
+        // 12. Boosted Posts / Authors
         let postId = post.firebaseId ?? post.id.uuidString
-        if prefs.boostedPosts.contains(postId) {
-            score += 20  // +20 points for boosted posts
-        }
-        if prefs.boostedAuthors.contains(post.authorId) {
-            score += 15  // +15 points for boosted authors
-        }
-        
+        if boostedPosts.contains(postId)          { score += 20 }
+        if boostedAuthors.contains(post.authorId) { score += 15 }
+
         return min(100, max(0, score))
     }
     
     // MARK: - Following Relationship Score
     
     /// Boost posts from people user follows (relationship strength)
-    private func calculateFollowingScore(_ post: Post, followingIds: Set<String>) -> Double {
+    nonisolated private func calculateFollowingScore(_ post: Post, followingIds: Set<String>) -> Double {
         if followingIds.contains(post.authorId) {
             return 90  // High priority for followed accounts
         } else {
@@ -145,7 +215,7 @@ class HomeFeedAlgorithm: ObservableObject {
     // MARK: - Category Boost
     
     /// Give special boost to Tip and Fun Fact posts to help them surface
-    private func calculateCategoryBoost(_ post: Post, interests: UserInterests) -> Double {
+    nonisolated private func calculateCategoryBoost(_ post: Post, interests: UserInterests) -> Double {
         switch post.category {
         case .tip:
             // Tips are valuable - give them a boost to help discovery
@@ -160,7 +230,7 @@ class HomeFeedAlgorithm: ObservableObject {
     
     // MARK: - Recency Scoring
     
-    private func calculateRecencyScore(_ post: Post) -> Double {
+    nonisolated private func calculateRecencyScore(_ post: Post) -> Double {
         let now = Date()
         let hoursSincePost = now.timeIntervalSince(post.createdAt) / 3600
         
@@ -180,7 +250,7 @@ class HomeFeedAlgorithm: ObservableObject {
     
     // MARK: - Topic Relevance Scoring
     
-    private func calculateTopicScore(_ post: Post, interests: UserInterests) -> Double {
+    nonisolated private func calculateTopicScore(_ post: Post, interests: UserInterests) -> Double {
         var topicScore: Double = 50 // Baseline neutral score
         
         // Check if post topic matches user interests
@@ -206,7 +276,7 @@ class HomeFeedAlgorithm: ObservableObject {
     // MARK: - Goal Alignment Scoring
     
     /// Score posts based on alignment with user's spiritual goals
-    private func calculateGoalScore(_ post: Post, interests: UserInterests) -> Double {
+    nonisolated private func calculateGoalScore(_ post: Post, interests: UserInterests) -> Double {
         guard !interests.onboardingGoals.isEmpty else {
             return 50 // Neutral if no goals set
         }
@@ -260,7 +330,7 @@ class HomeFeedAlgorithm: ObservableObject {
     
     // MARK: - Author Affinity Scoring
     
-    private func calculateAuthorScore(_ post: Post, interests: UserInterests) -> Double {
+    nonisolated private func calculateAuthorScore(_ post: Post, interests: UserInterests) -> Double {
         guard let engagementCount = interests.engagedAuthors[post.authorId] else {
             return 30 // New author - neutral score
         }
@@ -273,7 +343,7 @@ class HomeFeedAlgorithm: ObservableObject {
     
     // MARK: - Engagement Quality Scoring
     
-    private func calculateEngagementScore(_ post: Post) -> Double {
+    nonisolated private func calculateEngagementScore(_ post: Post) -> Double {
         // Weighted engagement: comments > reactions
         // Note: viewCount is not available on Post model yet
         let commentWeight = Double(post.commentCount) * 3.0
@@ -297,7 +367,7 @@ class HomeFeedAlgorithm: ObservableObject {
     
     // MARK: - Diversity Scoring
     
-    private func calculateDiversityScore(_ post: Post, interests: UserInterests) -> Double {
+    nonisolated private func calculateDiversityScore(_ post: Post, interests: UserInterests) -> Double {
         // Reward posts from categories user hasn't engaged with much
         let categoryEngagement = interests.preferredCategories[post.category.rawValue] ?? 0
         
@@ -315,7 +385,7 @@ class HomeFeedAlgorithm: ObservableObject {
     
     /// ✅ Detect and penalize controversial/ragebait content
     /// Looks for engagement spikes combined with negative signals
-    private func calculateControversyPenalty(_ post: Post) -> Double {
+    nonisolated private func calculateControversyPenalty(_ post: Post) -> Double {
         var penalty: Double = 0.0
         
         // Signal 1: Abnormally high comment-to-reaction ratio (debate/argument)
@@ -352,7 +422,7 @@ class HomeFeedAlgorithm: ObservableObject {
     
     /// ✅ Prevent same author from dominating feed (repetition penalty)
     /// Tracks how many times user has seen this author today
-    private func calculateRepetitionPenalty(_ post: Post, interests: UserInterests) -> Double {
+    nonisolated private func calculateRepetitionPenalty(_ post: Post, interests: UserInterests) -> Double {
         // Check how many times user has engaged with this author
         let authorEngagementCount = interests.engagedAuthors[post.authorId] ?? 0
         
@@ -371,8 +441,13 @@ class HomeFeedAlgorithm: ObservableObject {
     
     // MARK: - Feed Ranking
     
-    /// Rank posts using personalized algorithm with ethical safeguards
-    func rankPosts(_ posts: [Post], for interests: UserInterests, followingIds: Set<String> = []) -> [Post] {
+    /// Rank posts using personalized algorithm with ethical safeguards.
+    /// `nonisolated` so this can be called safely from `Task.detached` without
+    /// inheriting the `@MainActor` isolation of the enclosing class.
+    nonisolated func rankPosts(_ posts: [Post],
+                              for interests: UserInterests,
+                              followingIds: Set<String> = [],
+                              scoringContext: ScoringContext? = nil) -> [Post] {
         // 1. Filter spam and low-quality content FIRST
         let filteredPosts = applyEthicalFilters(posts)
 
@@ -380,29 +455,27 @@ class HomeFeedAlgorithm: ObservableObject {
         let isPersonalized = UserDefaults.standard.object(forKey: "personalizedRecommendations") as? Bool ?? true
         guard isPersonalized else {
             // Chronological order when personalization is off
-            return filteredPosts.sorted {
-                $0.createdAt > $1.createdAt
-            }
+            return filteredPosts.sorted { $0.createdAt > $1.createdAt }
         }
 
-        // 2. Score remaining posts (with following relationship)
+        // 2. Score remaining posts — pass pre-captured context for background safety
         let scoredPosts = filteredPosts.map { post in
-            (post: post, score: scorePost(post, for: interests, followingIds: followingIds))
+            (post: post, score: scorePost(post, for: interests, followingIds: followingIds, context: scoringContext))
         }
-        
+
         // 3. Sort by score
         let sorted = scoredPosts.sorted { $0.score > $1.score }
-        
+
         // 4. Apply author diversity (prevent same author dominating feed)
         let diversified = applyAuthorDiversity(sorted)
-        
+
         return diversified.map { $0.post }
     }
     
     // MARK: - Ethical Safeguards
     
     /// Filter out spam, duplicates, and low-quality content
-    private func applyEthicalFilters(_ posts: [Post]) -> [Post] {
+    nonisolated private func applyEthicalFilters(_ posts: [Post]) -> [Post] {
         var seen = Set<String>()
         var authorPostCount: [String: Int] = [:]
         
@@ -435,7 +508,7 @@ class HomeFeedAlgorithm: ObservableObject {
     }
     
     /// Detect engagement bait patterns
-    private func detectEngagementBait(_ post: Post) -> Bool {
+    nonisolated private func detectEngagementBait(_ post: Post) -> Bool {
         let content = post.content
         
         // Check for ALL CAPS (> 70% uppercase)
@@ -454,7 +527,7 @@ class HomeFeedAlgorithm: ObservableObject {
     }
     
     /// Apply author diversity - prevent same author appearing consecutively
-    private func applyAuthorDiversity(_ scoredPosts: [(post: Post, score: Double)]) -> [(post: Post, score: Double)] {
+    nonisolated private func applyAuthorDiversity(_ scoredPosts: [(post: Post, score: Double)]) -> [(post: Post, score: Double)] {
         var result: [(post: Post, score: Double)] = []
         var lastAuthorId: String? = nil
         var skippedPosts: [(post: Post, score: Double)] = []
@@ -595,7 +668,8 @@ class HomeFeedAlgorithm: ObservableObject {
     private var lastPersonalizationTime: Date?
     private let debounceInterval: TimeInterval = 0.3  // 300ms debounce
     
-    /// Debounced personalization - prevents excessive re-ranking during rapid updates
+    /// Debounced personalization - prevents excessive re-ranking during rapid updates.
+    /// Ranking is performed on a background thread to keep the main thread free.
     func personalizePostsDebounced(_ posts: [Post]) {
         // Cancel any pending personalization task
         personalizationTask?.cancel()
@@ -603,32 +677,60 @@ class HomeFeedAlgorithm: ObservableObject {
         // Always sync followingIds from the live FollowService before ranking
         followingIds = FollowService.shared.following
 
+        // Capture all values needed by the background task while still on the main thread.
+        // ScoringContext snapshots @MainActor-isolated HeyFeedPreferencesService state so
+        // rankPosts / scorePost can run fully nonisolated in Task.detached.
+        let snapshotInterests = userInterests
+        let snapshotFollowingIds = followingIds
+        let snapshotContext = ScoringContext.capture()
+
         // Check if we need to debounce (if called within debounce interval)
         if let lastTime = lastPersonalizationTime,
            Date().timeIntervalSince(lastTime) < debounceInterval {
-            // Create debounced task
-            personalizationTask = Task { @MainActor in
+            // Create debounced task — sleep on background, then rank off main
+            personalizationTask = Task {
                 try? await Task.sleep(nanoseconds: UInt64(debounceInterval * 1_000_000_000))
-                
-                // Only proceed if not cancelled
                 guard !Task.isCancelled else { return }
-                
-                self.followingIds = FollowService.shared.following
-                self.lastPersonalizationTime = Date()
-                self.personalizedPosts = self.rankPosts(posts, for: self.userInterests, followingIds: self.followingIds)
-                
-                #if DEBUG
-                dlog("🎯 [DEBOUNCED] Personalized \(posts.count) posts")
-                #endif
+
+                // Perform CPU-heavy ranking entirely off the main thread
+                let ranked = await Task.detached(priority: .userInitiated) { [weak self] () -> [Post] in
+                    guard let self else { return posts }
+                    return self.rankPosts(posts,
+                                         for: snapshotInterests,
+                                         followingIds: snapshotFollowingIds,
+                                         scoringContext: snapshotContext)
+                }.value
+
+                guard !Task.isCancelled else { return }
+                await MainActor.run {
+                    self.followingIds = FollowService.shared.following
+                    self.lastPersonalizationTime = Date()
+                    self.personalizedPosts = ranked
+                    #if DEBUG
+                    dlog("🎯 [DEBOUNCED] Personalized \(ranked.count) posts")
+                    #endif
+                }
             }
         } else {
-            // First call or outside debounce window - execute immediately
+            // First call or outside debounce window — still rank off main thread
             lastPersonalizationTime = Date()
-            personalizedPosts = rankPosts(posts, for: userInterests, followingIds: followingIds)
-            
-            #if DEBUG
-            dlog("🎯 [IMMEDIATE] Personalized \(posts.count) posts")
-            #endif
+            personalizationTask = Task {
+                let ranked = await Task.detached(priority: .userInitiated) { [weak self] () -> [Post] in
+                    guard let self else { return posts }
+                    return self.rankPosts(posts,
+                                         for: snapshotInterests,
+                                         followingIds: snapshotFollowingIds,
+                                         scoringContext: snapshotContext)
+                }.value
+
+                guard !Task.isCancelled else { return }
+                await MainActor.run {
+                    self.personalizedPosts = ranked
+                    #if DEBUG
+                    dlog("🎯 [IMMEDIATE] Personalized \(ranked.count) posts")
+                    #endif
+                }
+            }
         }
     }
     
@@ -637,7 +739,7 @@ class HomeFeedAlgorithm: ObservableObject {
     /// Compute the benefit-optimized final score for a post.
     /// Objective function: maximize benefit, not engagement.
     /// Does NOT train on watch time, rewatch, rage comments, or session length.
-    func benefitScore(_ post: Post, for interests: UserInterests) -> BenefitScoreResult {
+    nonisolated func benefitScore(_ post: Post, for interests: UserInterests) -> BenefitScoreResult {
         let value    = computeValueScore(post, interests: interests)
         let trust    = computeTrustScore(post, interests: interests)
         let harm     = computeHarmRisk(post)
@@ -667,8 +769,8 @@ class HomeFeedAlgorithm: ObservableObject {
         let addictionRisk: Double  // scroll-trap patterns — subtract from score
         
         /// Hard limits applied before ranking: if either threshold exceeded, post is demoted/held
-        var shouldDownrank: Bool  { harmRisk > 0.6 }
-        var shouldCapImpressions: Bool { addictionRisk > 0.5 }
+        nonisolated var shouldDownrank: Bool  { harmRisk > 0.6 }
+        nonisolated var shouldCapImpressions: Bool { addictionRisk > 0.5 }
     }
     
     // MARK: ValueScore — "Does this help someone?"
@@ -676,7 +778,7 @@ class HomeFeedAlgorithm: ObservableObject {
     /// Rates a post on its potential to encourage, teach, or move someone to action.
     /// Higher weight for: scripture, practical step, testimony, encouragement.
     /// Not influenced by: view time, rewatch, comment count, session length.
-    private func computeValueScore(_ post: Post, interests: UserInterests) -> Double {
+    nonisolated private func computeValueScore(_ post: Post, interests: UserInterests) -> Double {
         var score = 0.3 // Baseline: neutral post has some value
         
         let content = post.content.lowercased()
@@ -731,7 +833,7 @@ class HomeFeedAlgorithm: ObservableObject {
     /// Not raw engagement count — weighted by quality signals.
     /// Meaningful actions (saves/lightbulbs, reposts) outweigh fast-tap reactions.
     /// Penalizes accounts with high report rates or volatile engagement patterns.
-    private func computeTrustScore(_ post: Post, interests: UserInterests) -> Double {
+    nonisolated private func computeTrustScore(_ post: Post, interests: UserInterests) -> Double {
         var score = 0.5 // Baseline: unknown author starts neutral
         
         // Author affinity from user's personal history
@@ -785,7 +887,7 @@ class HomeFeedAlgorithm: ObservableObject {
     
     /// Returns 0.0 (safe) – 1.0 (high harm). Computed independently.
     /// If > 0.6: post is downranked and queued for review.
-    private func computeHarmRisk(_ post: Post) -> Double {
+    nonisolated private func computeHarmRisk(_ post: Post) -> Double {
         var risk = 0.0
         let content = post.content.lowercased()
         
@@ -823,7 +925,7 @@ class HomeFeedAlgorithm: ObservableObject {
     
     /// Returns 0.0 (healthy) – 1.0 (high addiction risk). Computed independently.
     /// If > 0.5: impressions capped, removed from autoplay/infinite scroll contexts.
-    private func computeAddictionRisk(_ post: Post) -> Double {
+    nonisolated private func computeAddictionRisk(_ post: Post) -> Double {
         var risk = 0.0
         let content = post.content.lowercased()
         
@@ -869,7 +971,7 @@ class HomeFeedAlgorithm: ObservableObject {
         case other
         
         /// "Grounding" clusters must appear at least once per session
-        var isGrounding: Bool {
+        nonisolated var isGrounding: Bool {
             switch self {
             case .scripture, .prayer, .testimony, .practicalFaith: return true
             default: return false
@@ -879,7 +981,7 @@ class HomeFeedAlgorithm: ObservableObject {
     
     /// Classify a post into a topic cluster using lightweight keyword heuristics.
     /// No ML inference at ranking time — runs synchronously per-post.
-    func topicCluster(for post: Post) -> TopicCluster {
+    nonisolated func topicCluster(for post: Post) -> TopicCluster {
         let content = post.content.lowercased()
         
         switch post.category {
@@ -928,7 +1030,7 @@ class HomeFeedAlgorithm: ObservableObject {
     ///   - At least 1 "grounding" post (scripture/prayer/testimony/practical) per 10-post window
     ///
     /// Pipeline: Candidate generation → Safety filter → Benefit score → MMR diversity → Final list
-    private func applyMMRDiversity(_ scored: [(post: Post, score: Double)]) -> [(post: Post, score: Double)] {
+    nonisolated private func applyMMRDiversity(_ scored: [(post: Post, score: Double)]) -> [(post: Post, score: Double)] {
         guard scored.count > 3 else { return scored }
         
         let total = scored.count
@@ -1031,7 +1133,8 @@ class HomeFeedAlgorithm: ObservableObject {
     /// Rank posts using the benefit-score model.
     /// Pipeline: Candidate generation → Safety filter → Benefit score → MMR diversity → Final list.
     /// Objective: benefit, not engagement. No watch-time or session-length signal.
-    func benefitRankPosts(_ posts: [Post], for interests: UserInterests, followingIds: Set<String> = []) -> [Post] {
+    /// `nonisolated` so this can be called from `Task.detached` without main-thread blocking.
+    nonisolated func benefitRankPosts(_ posts: [Post], for interests: UserInterests, followingIds: Set<String> = []) -> [Post] {
         // 1. Candidate generation + safety filtering
         let filtered = applyEthicalFilters(posts)
         
@@ -1086,7 +1189,7 @@ class HomeFeedAlgorithm: ObservableObject {
     // MARK: - HeyFeed Integration Helpers
     
     /// Map Post category to HeyFeed topic
-    private func mapCategoryToTopic(_ category: Post.PostCategory) -> FeedTopic {
+    nonisolated private func mapCategoryToTopic(_ category: Post.PostCategory) -> FeedTopic {
         switch category {
         case .prayer:
             return .faith

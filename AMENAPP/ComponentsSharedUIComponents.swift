@@ -9,6 +9,64 @@
 
 import SwiftUI
 
+// MARK: - AMEN Loading Indicator (3-dot bounce)
+
+/// Reusable 3-dot bouncing loading indicator.
+/// Use this everywhere in the app instead of ProgressView() for content-loading states.
+///
+/// Usage:
+///   AMENLoadingIndicator()                    // default (primary color, medium size)
+///   AMENLoadingIndicator(color: .white)       // white dots (dark backgrounds)
+///   AMENLoadingIndicator(dotSize: 8)          // smaller dots for tight spaces
+struct AMENLoadingIndicator: View {
+    var color: Color = .primary
+    var dotSize: CGFloat = 9
+    var spacing: CGFloat = 8
+    var bounceHeight: CGFloat = 10
+    var animDuration: Double = 0.46
+
+    @State private var dot1Up = false
+    @State private var dot2Up = false
+    @State private var dot3Up = false
+
+    var body: some View {
+        HStack(spacing: spacing) {
+            dot(isUp: dot1Up)
+            dot(isUp: dot2Up)
+            dot(isUp: dot3Up)
+        }
+        .onAppear { startBouncing() }
+    }
+
+    private func dot(isUp: Bool) -> some View {
+        Circle()
+            .fill(color)
+            .frame(width: dotSize, height: dotSize)
+            .offset(y: isUp ? -bounceHeight : 0)
+            .animation(
+                .easeInOut(duration: animDuration).repeatForever(autoreverses: true),
+                value: isUp
+            )
+    }
+
+    private func startBouncing() {
+        let stagger = animDuration * 0.55
+        withAnimation(.easeInOut(duration: animDuration).repeatForever(autoreverses: true)) {
+            dot1Up = true
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + stagger) {
+            withAnimation(.easeInOut(duration: animDuration).repeatForever(autoreverses: true)) {
+                dot2Up = true
+            }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + stagger * 2) {
+            withAnimation(.easeInOut(duration: animDuration).repeatForever(autoreverses: true)) {
+                dot3Up = true
+            }
+        }
+    }
+}
+
 // MARK: - Loading Skeleton Views
 
 /// Skeleton loader for post cards while data is loading
@@ -345,9 +403,7 @@ struct LoadingOverlay: View {
                 .ignoresSafeArea()
             
             VStack(spacing: 16) {
-                ProgressView()
-                    .scaleEffect(1.2)
-                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                AMENLoadingIndicator(color: .white)
                 
                 Text(message)
                     .font(.custom("OpenSans-SemiBold", size: 14))

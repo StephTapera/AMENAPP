@@ -19,6 +19,9 @@ class AppUsageTracker: ObservableObject {
     @Published var dailyLimitMinutes: Int = 45
     @Published var showLimitReachedDialog: Bool = false
     @Published var hasShownLimitDialog: Bool = false
+    /// Frozen snapshot of todayUsageMinutes captured the moment the limit dialog fires.
+    /// Used by DailyLimitReachedDialog so the displayed count doesn't tick live.
+    @Published var snapshotUsageMinutes: Int = 0
     
     private var sessionStartTime: Date?
     private var currentSessionStartTime: Date?  // Track current continuous session
@@ -124,18 +127,24 @@ class AppUsageTracker: ObservableObject {
             continuousMinutes = 0
         }
         
-        // Check smart break reminder (AI-driven logic)
-        Task {
-            await smartBreakReminder.analyzeUsageAndRemind(
-                continuousMinutes: continuousMinutes,
-                totalMinutesToday: todayUsageMinutes,
-                dailyLimit: dailyLimitMinutes
-            )
+        // Check smart break reminder only when below the daily reminder cap.
+        // Skipping the Task entirely when the limit is already exhausted avoids
+        // spawning an async task + printing "limit reached" on every 1-minute tick
+        // for users who have been using the app beyond their daily threshold.
+        if smartBreakReminder.usageRemindersToday < 2 {
+            Task {
+                await smartBreakReminder.analyzeUsageAndRemind(
+                    continuousMinutes: continuousMinutes,
+                    totalMinutesToday: todayUsageMinutes,
+                    dailyLimit: dailyLimitMinutes
+                )
+            }
         }
         
         // Check if we've JUST reached the limit and haven't shown dialog yet
         // Only show dialog when we FIRST hit the exact limit
         if todayUsageMinutes == dailyLimitMinutes && !hasShownLimitDialog {
+            snapshotUsageMinutes = todayUsageMinutes
             showLimitReachedDialog = true
             hasShownLimitDialog = true
             
@@ -171,9 +180,15 @@ class AppUsageTracker: ObservableObject {
     }
     
     private func saveUsageData() {
-        UserDefaults.standard.set(todayUsageMinutes, forKey: usageKey)
-        UserDefaults.standard.set(Date(), forKey: lastSaveDateKey)
-        lastSaveDate = Date()
+        // Capture values before leaving MainActor
+        let minutesSnapshot = todayUsageMinutes
+        let now = Date()
+        lastSaveDate = now
+        // Write to UserDefaults on a background queue — synchronous I/O must not block the main thread
+        Task.detached(priority: .utility) {
+            UserDefaults.standard.set(minutesSnapshot, forKey: self.usageKey)
+            UserDefaults.standard.set(now, forKey: self.lastSaveDateKey)
+        }
     }
     
     deinit {
@@ -186,163 +201,241 @@ class AppUsageTracker: ObservableObject {
 struct DailyLimitReachedDialog: View {
     @EnvironmentObject var tracker: AppUsageTracker
     @Environment(\.scenePhase) private var scenePhase
-    
+
+    // Atmospheric orb animations — mirror the app's onboarding/Berean aesthetic
+    @State private var orbLeft = false
+    @State private var orbRight = false
+
     var body: some View {
-        VStack(spacing: 0) {
-            Spacer()
-            
-            VStack(spacing: 28) {
-                // ✅ Liquid glass icon with neomorphic shadows
-                ZStack {
-                    Circle()
-                        .fill(Color(red: 0.94, green: 0.94, blue: 0.95))
-                        .frame(width: 100, height: 100)
-                        .shadow(color: .black.opacity(0.15), radius: 10, x: 6, y: 6)
-                        .shadow(color: .white.opacity(0.8), radius: 10, x: -6, y: -6)
-                    
-                    Image(systemName: "clock.badge.exclamationmark.fill")
-                        .font(.system(size: 48, weight: .light))
-                        .foregroundStyle(.black.opacity(0.7))
-                }
-                
-                // Title
-                Text("Time for a Break")
-                    .font(.system(size: 32, weight: .light, design: .serif))
-                    .foregroundStyle(.black)
-                    .tracking(0.5)
-                
-                // Message
-                Text("You've spent **\(tracker.dailyLimitMinutes) minutes** in the app today. We encourage taking a break to pray, reflect, or spend time with loved ones.")
-                    .font(.system(size: 15, weight: .regular))
-                    .foregroundStyle(.black.opacity(0.7))
-                    .multilineTextAlignment(.center)
-                    .lineSpacing(6)
-                    .padding(.horizontal, 32)
-                
-                // ✅ Liquid glass stats card
-                HStack(spacing: 20) {
-                    VStack(spacing: 4) {
-                        Text("\(tracker.todayUsageMinutes)")
-                            .font(.system(size: 28, weight: .thin, design: .rounded))
-                            .foregroundStyle(.black)
-                        Text("Minutes Used")
-                            .font(.system(size: 11, weight: .regular))
-                            .foregroundStyle(.black.opacity(0.5))
-                            .textCase(.uppercase)
-                            .tracking(0.5)
-                    }
-                    
-                    Rectangle()
-                        .fill(Color.black.opacity(0.1))
-                        .frame(width: 1, height: 40)
-                    
-                    VStack(spacing: 4) {
-                        Text("\(tracker.dailyLimitMinutes)")
-                            .font(.system(size: 28, weight: .thin, design: .rounded))
-                            .foregroundStyle(.black)
-                        Text("Daily Limit")
-                            .font(.system(size: 11, weight: .regular))
-                            .foregroundStyle(.black.opacity(0.5))
-                            .textCase(.uppercase)
-                            .tracking(0.5)
-                    }
-                }
-                .padding(.horizontal, 24)
-                .padding(.vertical, 20)
-                .background(
-                    RoundedRectangle(cornerRadius: 20)
-                        .fill(Color(red: 0.94, green: 0.94, blue: 0.95))
-                        .shadow(color: .black.opacity(0.1), radius: 8, x: 4, y: 4)
-                        .shadow(color: .white.opacity(0.7), radius: 8, x: -4, y: -4)
-                )
-                .padding(.horizontal, 32)
-                
-                // Bible verse encouragement
-                VStack(spacing: 6) {
-                    Text("\"Be still, and know that I am God\"")
-                        .font(.system(size: 14, weight: .light, design: .serif))
-                        .foregroundStyle(.black.opacity(0.8))
-                        .italic()
-                    Text("Psalm 46:10")
-                        .font(.system(size: 11, weight: .regular))
-                        .foregroundStyle(.black.opacity(0.5))
-                        .textCase(.uppercase)
-                        .tracking(1)
-                }
-                .padding(.horizontal, 32)
-                
-                // ✅ Liquid glass buttons
-                VStack(spacing: 12) {
-                    // Take a Break button - closes app
-                    Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                            tracker.showLimitReachedDialog = false
-                        }
-                        
-                        // ✅ Close the app after brief delay for animation
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                            // Request scene suspension (graceful close that allows reopening)
-                            if UIApplication.shared.connectedScenes.first is UIWindowScene {
-                                UIApplication.shared.perform(#selector(NSXPCConnection.suspend))
-                            }
-                        }
-                    } label: {
-                        Text("Take a Break")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundStyle(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 16)
-                            .background(
-                                RoundedRectangle(cornerRadius: 16)
-                                    .fill(.black)
-                                    .shadow(color: .black.opacity(0.2), radius: 8, x: 0, y: 4)
-                            )
-                    }
-                    
-                    // Continue button - liquid glass style
-                    Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                            tracker.showLimitReachedDialog = false
-                        }
-                    } label: {
-                        Text("Continue Anyway")
-                            .font(.system(size: 15, weight: .regular))
-                            .foregroundStyle(.black.opacity(0.6))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                            .background(
-                                RoundedRectangle(cornerRadius: 16)
-                                    .fill(Color(red: 0.94, green: 0.94, blue: 0.95))
-                                    .shadow(color: .black.opacity(0.1), radius: 6, x: 3, y: 3)
-                                    .shadow(color: .white.opacity(0.7), radius: 6, x: -3, y: -3)
-                            )
-                    }
-                }
-                .padding(.horizontal, 32)
-            }
-            .padding(.vertical, 36)
-            .background(
-                RoundedRectangle(cornerRadius: 32)
+        ZStack {
+            // MARK: Backdrop — matches app's near-white atmospheric background
+            Color(red: 0.949, green: 0.949, blue: 0.969)
+                .ignoresSafeArea()
+
+            // Atmospheric blobs (same palette as BereanOnboardingView)
+            ZStack {
+                // Bottom-left — warm red/coral
+                Circle()
                     .fill(
-                        LinearGradient(
+                        RadialGradient(
                             colors: [
-                                Color(red: 0.96, green: 0.96, blue: 0.97),
-                                Color(red: 0.92, green: 0.92, blue: 0.94)
+                                Color(red: 1.0, green: 0.35, blue: 0.35).opacity(0.25),
+                                Color(red: 1.0, green: 0.45, blue: 0.30).opacity(0.10),
+                                Color.clear
                             ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
+                            center: .center,
+                            startRadius: 0,
+                            endRadius: 220
                         )
                     )
-                    .shadow(color: .black.opacity(0.15), radius: 40, y: 20)
-            )
-            .padding(.horizontal, 24)
-            
-            Spacer()
+                    .frame(width: 440, height: 440)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+                    .offset(x: -80, y: 100)
+                    .blur(radius: 70)
+                    .scaleEffect(orbLeft ? 1.06 : 1.0)
+                    .animation(.easeInOut(duration: 9).repeatForever(autoreverses: true), value: orbLeft)
+                    .allowsHitTesting(false)
+
+                // Bottom-right — violet/purple
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [
+                                Color(red: 0.55, green: 0.35, blue: 1.0).opacity(0.20),
+                                Color(red: 0.40, green: 0.25, blue: 0.90).opacity(0.08),
+                                Color.clear
+                            ],
+                            center: .center,
+                            startRadius: 0,
+                            endRadius: 200
+                        )
+                    )
+                    .frame(width: 400, height: 400)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                    .offset(x: 80, y: 80)
+                    .blur(radius: 65)
+                    .scaleEffect(orbRight ? 1.05 : 1.0)
+                    .animation(.easeInOut(duration: 11).repeatForever(autoreverses: true), value: orbRight)
+                    .allowsHitTesting(false)
+            }
+            .ignoresSafeArea()
+
+            // MARK: Card content
+            VStack(spacing: 0) {
+                Spacer()
+
+                VStack(spacing: 26) {
+                    // Icon — glass circle matching the app's icon treatment
+                    ZStack {
+                        Circle()
+                            .fill(.ultraThinMaterial)
+                            .frame(width: 88, height: 88)
+                            .overlay(
+                                Circle()
+                                    .strokeBorder(
+                                        LinearGradient(
+                                            colors: [
+                                                Color.white.opacity(0.6),
+                                                Color.white.opacity(0.15)
+                                            ],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        ),
+                                        lineWidth: 1
+                                    )
+                            )
+                            .shadow(color: .black.opacity(0.06), radius: 12, y: 6)
+
+                        Image(systemName: "clock.badge.exclamationmark.fill")
+                            .font(.system(size: 36, weight: .light))
+                            .foregroundStyle(.black.opacity(0.65))
+                    }
+
+                    // Title
+                    Text("Time for a Break")
+                        .font(.system(size: 30, weight: .light, design: .serif))
+                        .foregroundStyle(.black)
+                        .tracking(0.3)
+
+                    // Message
+                    Text("You've spent **\(tracker.snapshotUsageMinutes) minutes** in the app today. We encourage a break to pray, reflect, or be with loved ones.")
+                        .font(.system(size: 15, weight: .regular))
+                        .foregroundStyle(.black.opacity(0.65))
+                        .multilineTextAlignment(.center)
+                        .lineSpacing(5)
+                        .padding(.horizontal, 8)
+
+                    // Stats row — ultraThinMaterial pill
+                    HStack(spacing: 0) {
+                        VStack(spacing: 3) {
+                            Text("\(tracker.snapshotUsageMinutes)")
+                                .font(.system(size: 26, weight: .thin, design: .rounded))
+                                .foregroundStyle(.black)
+                            Text("Minutes Used")
+                                .font(.system(size: 10, weight: .regular))
+                                .foregroundStyle(.black.opacity(0.45))
+                                .textCase(.uppercase)
+                                .tracking(0.6)
+                        }
+                        .frame(maxWidth: .infinity)
+
+                        Rectangle()
+                            .fill(Color.black.opacity(0.08))
+                            .frame(width: 1, height: 36)
+
+                        VStack(spacing: 3) {
+                            Text("\(tracker.dailyLimitMinutes)")
+                                .font(.system(size: 26, weight: .thin, design: .rounded))
+                                .foregroundStyle(.black)
+                            Text("Daily Limit")
+                                .font(.system(size: 10, weight: .regular))
+                                .foregroundStyle(.black.opacity(0.45))
+                                .textCase(.uppercase)
+                                .tracking(0.6)
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                    .padding(.vertical, 18)
+                    .background(
+                        RoundedRectangle(cornerRadius: 18)
+                            .fill(.ultraThinMaterial)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 18)
+                                    .strokeBorder(
+                                        LinearGradient(
+                                            colors: [
+                                                Color.white.opacity(0.5),
+                                                Color.white.opacity(0.1)
+                                            ],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        ),
+                                        lineWidth: 1
+                                    )
+                            )
+                    )
+
+                    // Bible verse
+                    VStack(spacing: 5) {
+                        Text("\"Be still, and know that I am God\"")
+                            .font(.system(size: 13, weight: .light, design: .serif))
+                            .foregroundStyle(.black.opacity(0.75))
+                            .italic()
+                        Text("Psalm 46:10")
+                            .font(.system(size: 10, weight: .regular))
+                            .foregroundStyle(.black.opacity(0.4))
+                            .textCase(.uppercase)
+                            .tracking(1.2)
+                    }
+
+                    // Buttons
+                    VStack(spacing: 10) {
+                        // Primary — Take a Break
+                        Button {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                tracker.showLimitReachedDialog = false
+                            }
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                if UIApplication.shared.connectedScenes.first is UIWindowScene {
+                                    UIApplication.shared.perform(#selector(NSXPCConnection.suspend))
+                                }
+                            }
+                        } label: {
+                            Text("Take a Break")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundStyle(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 16)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 14)
+                                        .fill(.black)
+                                )
+                        }
+
+                        // Secondary — Continue Anyway (ghost/glass style)
+                        Button {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                tracker.showLimitReachedDialog = false
+                            }
+                        } label: {
+                            Text("Continue Anyway")
+                                .font(.system(size: 15, weight: .regular))
+                                .foregroundStyle(.black.opacity(0.5))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 14)
+                        }
+                    }
+                }
+                .padding(.horizontal, 28)
+                .padding(.vertical, 36)
+                .background(
+                    RoundedRectangle(cornerRadius: 28)
+                        .fill(.ultraThinMaterial)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 28)
+                                .strokeBorder(
+                                    LinearGradient(
+                                        colors: [
+                                            Color.white.opacity(0.7),
+                                            Color.white.opacity(0.2)
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    ),
+                                    lineWidth: 1
+                                )
+                        )
+                        .shadow(color: .black.opacity(0.08), radius: 40, y: 16)
+                )
+                .padding(.horizontal, 20)
+
+                Spacer()
+            }
         }
-        .background(
-            Color.black.opacity(0.4)
-                .blur(radius: 10)
-        )
         .ignoresSafeArea()
+        .onAppear {
+            orbLeft = true
+            orbRight = true
+        }
     }
 }

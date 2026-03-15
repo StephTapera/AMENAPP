@@ -64,24 +64,50 @@ class EssentialBooksViewModel: ObservableObject {
         isLoading = true
         errorMessage = nil
         
+        // P0-C FIX: async let with sequential individual awaits is vulnerable to
+        // swift_task_dealloc crash on task cancellation. Use withThrowingTaskGroup,
+        // returning values and assigning on the main actor after the group finishes.
         do {
-            async let featured = service.fetchFeaturedBooks(limit: 5)
-            async let trending = service.fetchTrendingBooks(limit: 10)
-            async let all = service.fetchAllBooks()
-            
-            featuredBooks = try await featured
-            trendingBooks = try await trending
-            allBooks = try await all
-            
+            enum BookResult {
+                case featured([Book])
+                case trending([Book])
+                case all([Book])
+            }
+            var results: [BookResult] = []
+            try await withThrowingTaskGroup(of: BookResult.self) { group in
+                group.addTask { .featured(try await self.service.fetchFeaturedBooks(limit: 5)) }
+                group.addTask { .trending(try await self.service.fetchTrendingBooks(limit: 10)) }
+                group.addTask { .all(try await self.service.fetchAllBooks()) }
+                for try await result in group { results.append(result) }
+            }
+            for result in results {
+                switch result {
+                case .featured(let v): featuredBooks = v
+                case .trending(let v): trendingBooks = v
+                case .all(let v):      allBooks = v
+                }
+            }
+
             // Load user-specific data
             if let userId = currentUserId {
-                async let recommended = service.fetchRecommendedBooks(for: userId, limit: 10)
-                async let saved = service.fetchSavedBooks(for: userId)
-                
-                recommendedBooks = try await recommended
-                savedBooks = try await saved
+                enum UserBookResult {
+                    case recommended([Book])
+                    case saved([Book])
+                }
+                var userResults: [UserBookResult] = []
+                try await withThrowingTaskGroup(of: UserBookResult.self) { group in
+                    group.addTask { .recommended(try await self.service.fetchRecommendedBooks(for: userId, limit: 10)) }
+                    group.addTask { .saved(try await self.service.fetchSavedBooks(for: userId)) }
+                    for try await result in group { userResults.append(result) }
+                }
+                for result in userResults {
+                    switch result {
+                    case .recommended(let v): recommendedBooks = v
+                    case .saved(let v):       savedBooks = v
+                    }
+                }
             }
-            
+
             print("✅ Loaded all books data successfully")
         } catch {
             errorMessage = "Failed to load books: \(error.localizedDescription)"

@@ -10,12 +10,10 @@
 import SwiftUI
 import FirebaseFirestore
 import FirebaseAuth
+import FirebaseFunctions
 import AuthenticationServices
 import CryptoKit
 import GoogleSignIn
-
-// Import for scene phase monitoring
-@preconcurrency import SwiftUI
 
 struct SignInView: View {
     @EnvironmentObject var viewModel: AuthenticationViewModel
@@ -792,43 +790,55 @@ struct SignInView: View {
     }
     
     private func signInWithUsername(_ usernameInput: String) async {
-        // Remove @ if present
-        let cleanUsername = usernameInput.lowercased()
+        // Normalise: strip leading @, lowercase, trim whitespace
+        let cleanUsername = usernameInput
             .trimmingCharacters(in: .whitespaces)
+            .lowercased()
             .replacingOccurrences(of: "@", with: "")
-        
+
         print("🔍 Username lookup: @\(cleanUsername)")
-        
-        // Look up email by username in Firestore
-        let db = Firestore.firestore()
-        
+
         do {
-            // Use usernameLowercase for case-insensitive search
-            let snapshot = try await db.collection("users")
-                .whereField("usernameLowercase", isEqualTo: cleanUsername.lowercased())
-                .limit(to: 1)
-                .getDocuments()
-            
-            guard let userDoc = snapshot.documents.first,
-                  let userEmail = userDoc.data()["email"] as? String else {
-                // Username not found
-                print("❌ Username @\(cleanUsername) not found")
+            // Call the Cloud Function — resolves username → uid → email server-side.
+            // Email is never stored in public Firestore; Admin SDK does the uid→email step.
+            let functions = Functions.functions()
+            let callable = functions.httpsCallable("resolveUsernameToEmail")
+            let result = try await callable.call(["username": cleanUsername])
+
+            guard let data = result.data as? [String: Any],
+                  let email = data["email"] as? String, !email.isEmpty else {
+                print("⚠️ resolveUsernameToEmail: unexpected response format")
                 await MainActor.run {
-                    viewModel.errorMessage = "No account found with username @\(cleanUsername)"
+                    viewModel.errorMessage = "Incorrect username or password."
                     viewModel.showError = true
                 }
                 return
             }
-            
-            dlog("✅ Found email for username lookup")
-            
-            // Found email - now sign in with it
-            await viewModel.signIn(email: userEmail, password: password)
-            
-        } catch {
-            print("❌ Username lookup failed: \(error.localizedDescription)")
+
+            print("✅ @\(cleanUsername) resolved — proceeding with sign-in")
+            // Sign in with the resolved email + the password the user typed
+            await viewModel.signIn(email: email, password: password)
+
+        } catch let error as NSError {
+            print("❌ resolveUsernameToEmail: domain=\(error.domain) code=\(error.code) — \(error.localizedDescription)")
+
+            let functionsCode = FunctionsErrorCode(rawValue: error.code)
+            let message: String
+            switch functionsCode {
+            case .notFound, .invalidArgument:
+                // Username doesn't exist — same message as wrong password to avoid enumeration
+                message = "Incorrect username or password."
+            case .failedPrecondition:
+                // Account has no password (Google/Apple sign-in only)
+                message = error.localizedDescription
+            case .internal, .unavailable, .unknown, .none:
+                // Function not deployed yet or network error
+                message = "Sign-in unavailable right now. Please use your email address to sign in."
+            default:
+                message = "Incorrect username or password."
+            }
             await MainActor.run {
-                viewModel.errorMessage = "Failed to look up username: \(error.localizedDescription)"
+                viewModel.errorMessage = message
                 viewModel.showError = true
             }
         }

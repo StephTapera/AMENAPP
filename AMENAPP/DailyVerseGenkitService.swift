@@ -24,10 +24,13 @@ class DailyVerseGenkitService: ObservableObject {
     @Published var lastError: (any Error)?
     @Published var todayVerse: PersonalizedDailyVerse?
 
-    // In-flight task guard — prevents duplicate Cloud Function calls when two callers
+    // In-flight continuation set — prevents duplicate Cloud Function calls when two callers
     // (DailyVerseBanner + AIDailyVerseView) both invoke generatePersonalizedDailyVerse()
-    // before the first call completes.
-    private var generationTask: Task<PersonalizedDailyVerse, Never>?
+    // before the first call completes. We store continuations rather than holding a Task so
+    // that each caller's own task cancellation is handled independently without tearing down
+    // the shared generation work (which caused asyncLet_finish_after_task_completion crashes).
+    private var pendingContinuations: [CheckedContinuation<PersonalizedDailyVerse, Never>] = []
+    private var isGeneratingInternally = false
     
     nonisolated private let db = Firestore.firestore()
     nonisolated private let functions = Functions.functions(region: "us-central1")
@@ -40,7 +43,12 @@ class DailyVerseGenkitService: ObservableObject {
     
     // MARK: - Generate Personalized Daily Verse
     
-    /// Generate AI-personalized daily verse based on user context
+    /// Generate AI-personalized daily verse based on user context.
+    ///
+    /// Safe to call from multiple concurrent callers: the first call fires the Cloud Function
+    /// and all subsequent callers wait on a continuation queue. When the result is ready every
+    /// caller is resumed. This avoids the detached-Task pattern that caused the
+    /// `asyncLet_finish_after_task_completion` SIGABRT on TestFlight.
     func generatePersonalizedDailyVerse(
         userContext: UserVerseContext? = nil,
         forceRefresh: Bool = false
@@ -52,23 +60,33 @@ class DailyVerseGenkitService: ObservableObject {
             return cached
         }
 
-        // If a generation is already in flight, await it instead of firing a second
-        // Cloud Function call. This prevents the "was already running" GTMSessionFetcher
-        // warning when DailyVerseBanner and AIDailyVerseView both call this on launch.
-        if !forceRefresh, let existing = generationTask {
-            return await existing.value
+        // All callers (including the first) park on the continuation queue.
+        // A single Task.detached runs the actual Firebase call, isolating it from
+        // any caller's task cancellation (which caused asyncLet_finish_after_task_completion).
+        if !isGeneratingInternally {
+            isGeneratingInternally = true
+            // Detached: does NOT inherit the calling task's cancellation token.
+            Task.detached { [weak self] in
+                guard let self else { return }
+                let verse = await self._generateVerseImpl(userContext: userContext)
+                // Must hop back to MainActor to mutate shared state.
+                await MainActor.run {
+                    self.isGeneratingInternally = false
+                    let waiting = self.pendingContinuations
+                    self.pendingContinuations.removeAll()
+                    for continuation in waiting {
+                        continuation.resume(returning: verse)
+                    }
+                }
+            }
         }
 
-        let task = Task<PersonalizedDailyVerse, Never> { [weak self] in
-            guard let self else { return PersonalizedDailyVerse.placeholder }
-            return await self._generateVerseImpl(userContext: userContext)
+        return await withCheckedContinuation { continuation in
+            pendingContinuations.append(continuation)
         }
-        generationTask = task
-        let verse = await task.value
-        generationTask = nil
-        return verse
     }
 
+    @MainActor
     private func _generateVerseImpl(userContext: UserVerseContext?) async -> PersonalizedDailyVerse {
         isGenerating = true
         defer { isGenerating = false }
@@ -105,7 +123,7 @@ class DailyVerseGenkitService: ObservableObject {
                 date: Date()
             )
 
-            await MainActor.run { self.todayVerse = verse }
+            self.todayVerse = verse
             cacheVerse(verse)
             print("✅ Cloud Function verse: \(verse.reference) — \(verse.theme)")
             return verse
@@ -125,7 +143,7 @@ class DailyVerseGenkitService: ObservableObject {
                 personalizedFor: nil,
                 date: Date()
             )
-            await MainActor.run { self.todayVerse = verse }
+            self.todayVerse = verse
             cacheVerse(verse)
             return verse
         }

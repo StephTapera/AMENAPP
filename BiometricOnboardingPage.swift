@@ -237,6 +237,25 @@ struct BiometricOnboardingPage: View {
     }
 }
 
+// MARK: - BenefitRow (used within this file)
+
+private struct BenefitRow: View {
+    let icon: String
+    let text: String
+    var color: Color = .blue
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .foregroundStyle(color)
+                .frame(width: 20)
+            Text(text)
+                .font(.custom("OpenSans-Regular", size: 13))
+                .foregroundStyle(.primary)
+        }
+    }
+}
+
 #Preview {
     ZStack {
         Color.black.ignoresSafeArea()

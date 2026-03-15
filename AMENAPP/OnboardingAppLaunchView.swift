@@ -2,236 +2,156 @@
 //  AppLaunchView.swift
 //  AMENAPP
 //
-//  Created by Steph on 1/18/26.
-//
-//  First screen users see - Choose between login, signup, or demo
+//  Redesigned — Screen 1 of the AMEN onboarding experience.
+//  Bold editorial welcome · AMEN logo · spiritual calm · premium spacing.
 //
 
 import SwiftUI
 
 struct AppLaunchView: View {
-    @State private var showOnboarding = false
     @State private var showAuth = false
     @State private var authMode: AuthMode = .login
-    @State private var animate = false
-    @State private var pulseAnimation = false
-    
+
+    // Staggered entrance phases
+    @State private var logoAppeared  = false
+    @State private var heroAppeared  = false
+    @State private var pillsAppeared = false
+    @State private var ctaAppeared   = false
+
     enum AuthMode {
         case login
         case signup
     }
-    
+
     var body: some View {
         ZStack {
-            // Animated gradient background
-            LinearGradient(
-                colors: [
-                    Color(red: 0.4, green: 0.2, blue: 0.8),
-                    Color(red: 0.6, green: 0.3, blue: 0.9),
-                    Color(red: 0.5, green: 0.3, blue: 0.85)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
-            
-            // Floating circles
-            GeometryReader { geometry in
-                Circle()
-                    .fill(Color.white.opacity(0.1))
-                    .frame(width: 250, height: 250)
-                    .blur(radius: 40)
-                    .offset(x: -50, y: -50)
-                    .scaleEffect(pulseAnimation ? 1.2 : 1.0)
-                
-                Circle()
-                    .fill(Color.white.opacity(0.08))
-                    .frame(width: 350, height: 350)
-                    .blur(radius: 60)
-                    .offset(x: geometry.size.width - 200, y: geometry.size.height - 250)
-                    .scaleEffect(pulseAnimation ? 1.0 : 1.2)
-            }
-            
+            ONB.canvas.ignoresSafeArea()
+
             VStack(spacing: 0) {
-                Spacer()
-                
-                // Logo and branding
-                VStack(spacing: 24) {
-                    // Animated Logo
-                    ZStack {
-                        Circle()
-                            .fill(Color.white.opacity(0.2))
-                            .frame(width: 160, height: 160)
-                            .blur(radius: 30)
-                            .scaleEffect(animate ? 1.0 : 0.8)
-                        
-                        Circle()
-                            .fill(Color.white)
-                            .frame(width: 120, height: 120)
-                            .shadow(color: .black.opacity(0.3), radius: 20, y: 10)
-                            .scaleEffect(animate ? 1.0 : 0.8)
-                        
-                        Image(systemName: "cross.fill")
-                            .font(.system(size: 60, weight: .bold))
-                            .foregroundStyle(
-                                LinearGradient(
-                                    colors: [Color(red: 0.5, green: 0.3, blue: 0.9), Color(red: 0.6, green: 0.4, blue: 1.0)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .scaleEffect(animate ? 1.0 : 0.8)
-                    }
-                    .opacity(animate ? 1.0 : 0)
-                    
-                    VStack(spacing: 12) {
-                        Text("AMEN")
-                            .font(.custom("OpenSans-Bold", size: 48))
-                            .foregroundStyle(.white)
-                            .offset(y: animate ? 0 : 20)
-                            .opacity(animate ? 1.0 : 0)
-                        
-                        Text("Connect. Grow. Pray Together.")
-                            .font(.custom("OpenSans-Regular", size: 17))
-                            .foregroundStyle(.white.opacity(0.9))
-                            .offset(y: animate ? 0 : 20)
-                            .opacity(animate ? 1.0 : 0)
+                Spacer().frame(height: 72)
+
+                // ── Logo ──────────────────────────────────────────────
+                ONBAMENLogo(size: 56)
+                    .opacity(logoAppeared ? 1 : 0)
+                    .scaleEffect(logoAppeared ? 1 : 0.80)
+
+                Spacer().frame(height: 32)
+
+                // ── Wordmark ──────────────────────────────────────────
+                Text("AMEN")
+                    .font(.system(size: 44, weight: .black))
+                    .tracking(10)
+                    .foregroundStyle(ONB.inkPrimary)
+                    .opacity(logoAppeared ? 1 : 0)
+                    .offset(y: logoAppeared ? 0 : 8)
+
+                Spacer().frame(height: 48)
+
+                // ── Editorial hero block ───────────────────────────────
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("A place to\ngrow in faith.")
+                        .font(.system(size: 40, weight: .black))
+                        .foregroundStyle(ONB.inkPrimary)
+                        .lineSpacing(1)
+
+                    Text("Thoughtful social, grounded in\nscripture. Free of noise.")
+                        .font(.system(size: 17, weight: .regular))
+                        .foregroundStyle(ONB.inkSecondary)
+                        .lineSpacing(4)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, ONB.pagePadding)
+                .opacity(heroAppeared ? 1 : 0)
+                .offset(y: heroAppeared ? 0 : 18)
+
+                Spacer().frame(height: 32)
+
+                // ── Feature pills ─────────────────────────────────────
+                HStack(spacing: 8) {
+                    ForEach([
+                        ("cross",                    "Prayer"),
+                        ("book.closed",              "Scripture"),
+                        ("person.2",                 "Community"),
+                        ("sparkles",                 "Berean AI"),
+                    ], id: \.1) { icon, label in
+                        HStack(spacing: 5) {
+                            Image(systemName: icon)
+                                .font(.system(size: 11, weight: .medium))
+                            Text(label)
+                                .font(.system(size: 12, weight: .medium))
+                        }
+                        .foregroundStyle(ONB.inkSecondary)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 7)
+                        .background(
+                            Capsule()
+                                .strokeBorder(ONB.inkRule, lineWidth: 1)
+                                .background(Capsule().fill(Color.white.opacity(0.6)))
+                        )
                     }
                 }
-                
+                .padding(.horizontal, ONB.pagePadding)
+                .opacity(pillsAppeared ? 1 : 0)
+                .offset(y: pillsAppeared ? 0 : 8)
+
                 Spacer()
-                
-                // Action buttons
-                VStack(spacing: 16) {
-                    // Sign Up Button (Primary)
-                    Button {
+
+                // ── Rule ──────────────────────────────────────────────
+                Rectangle()
+                    .fill(ONB.inkRule)
+                    .frame(height: 1)
+                    .padding(.horizontal, ONB.pagePadding)
+                    .opacity(ctaAppeared ? 1 : 0)
+
+                Spacer().frame(height: 24)
+
+                // ── CTA ───────────────────────────────────────────────
+                VStack(spacing: 12) {
+                    ONBPrimaryButton(title: "Create Account") {
                         authMode = .signup
                         showAuth = true
-                    } label: {
-                        HStack(spacing: 10) {
-                            Image(systemName: "person.badge.plus")
-                                .font(.system(size: 18, weight: .bold))
-                            
-                            Text("Create Account")
-                                .font(.custom("OpenSans-Bold", size: 17))
-                        }
-                        .foregroundStyle(Color(red: 0.5, green: 0.3, blue: 0.9))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 18)
-                        .background(
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(Color.white)
-                                .shadow(color: .black.opacity(0.3), radius: 16, y: 8)
-                        )
                     }
-                    .scaleEffect(animate ? 1.0 : 0.9)
-                    .opacity(animate ? 1.0 : 0)
-                    
-                    // Login Button (Secondary)
-                    Button {
+
+                    ONBSecondaryButton(title: "Log In") {
                         authMode = .login
                         showAuth = true
-                    } label: {
-                        HStack(spacing: 10) {
-                            Image(systemName: "person.fill")
-                                .font(.system(size: 18, weight: .bold))
-                            
-                            Text("Login")
-                                .font(.custom("OpenSans-Bold", size: 17))
-                        }
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 18)
-                        .background(
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(Color.white.opacity(0.2))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 16)
-                                        .stroke(Color.white.opacity(0.4), lineWidth: 2)
-                                )
-                        )
                     }
-                    .scaleEffect(animate ? 1.0 : 0.9)
-                    .opacity(animate ? 1.0 : 0)
-                    
-                    // Divider
-                    HStack(spacing: 16) {
-                        Rectangle()
-                            .fill(Color.white.opacity(0.3))
-                            .frame(height: 1)
-                        
-                        Text("OR")
-                            .font(.custom("OpenSans-SemiBold", size: 13))
-                            .foregroundStyle(.white.opacity(0.7))
-                        
-                        Rectangle()
-                            .fill(Color.white.opacity(0.3))
-                            .frame(height: 1)
-                    }
-                    .padding(.vertical, 8)
-                    .opacity(animate ? 1.0 : 0)
-                    
-                    // Demo/Preview Button
-                    Button {
-                        showOnboarding = true
-                    } label: {
-                        HStack(spacing: 10) {
-                            Image(systemName: "play.circle.fill")
-                                .font(.system(size: 18, weight: .bold))
-                                .symbolEffect(.pulse.byLayer, options: .repeating)
-                            
-                            Text("Try Demo Mode")
-                                .font(.custom("OpenSans-Bold", size: 17))
-                        }
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 18)
-                        .background(
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(
-                                    LinearGradient(
-                                        colors: [
-                                            Color.white.opacity(0.15),
-                                            Color.white.opacity(0.05)
-                                        ],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                )
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 16)
-                                        .stroke(
-                                            LinearGradient(
-                                                colors: [Color.white.opacity(0.3), Color.white.opacity(0.1)],
-                                                startPoint: .topLeading,
-                                                endPoint: .bottomTrailing
-                                            ),
-                                            lineWidth: 1.5
-                                        )
-                                )
-                        )
-                    }
-                    .scaleEffect(animate ? 1.0 : 0.9)
-                    .opacity(animate ? 1.0 : 0)
                 }
-                .padding(.horizontal, 32)
-                .padding(.bottom, 60)
+                .padding(.horizontal, ONB.pagePadding)
+                .opacity(ctaAppeared ? 1 : 0)
+                .offset(y: ctaAppeared ? 0 : 12)
+
+                Spacer().frame(height: 16)
+
+                // Fine print
+                Text("By continuing you agree to our **Terms** and **Privacy Policy**.")
+                    .font(.system(size: 11, weight: .regular))
+                    .foregroundStyle(ONB.inkTertiary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 40)
+                    .opacity(ctaAppeared ? 1 : 0)
+
+                Spacer().frame(height: 40)
             }
         }
-        .fullScreenCover(isPresented: $showOnboarding) {
-            OnboardingView()
-        }
+        .onAppear { runEntranceAnimation() }
         .fullScreenCover(isPresented: $showAuth) {
             MinimalAuthenticationView(initialMode: authMode)
         }
-        .onAppear {
-            withAnimation(.spring(response: 0.8, dampingFraction: 0.7)) {
-                animate = true
-            }
-            
-            withAnimation(.easeInOut(duration: 3.0).repeatForever(autoreverses: true)) {
-                pulseAnimation = true
-            }
+    }
+
+    private func runEntranceAnimation() {
+        withAnimation(.spring(response: 0.55, dampingFraction: 0.72).delay(0.08)) {
+            logoAppeared = true
+        }
+        withAnimation(.spring(response: 0.55, dampingFraction: 0.78).delay(0.28)) {
+            heroAppeared = true
+        }
+        withAnimation(.easeOut(duration: 0.45).delay(0.52)) {
+            pillsAppeared = true
+        }
+        withAnimation(.spring(response: 0.48, dampingFraction: 0.80).delay(0.60)) {
+            ctaAppeared = true
         }
     }
 }

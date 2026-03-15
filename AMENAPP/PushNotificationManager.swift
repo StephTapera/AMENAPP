@@ -144,26 +144,16 @@ class PushNotificationManager: NSObject, ObservableObject {
         dlog("⚠️ Skipping FCM setup on simulator (APNS not available)")
         return
         #else
-        // Get FCM token
-        Messaging.messaging().token { [weak self] token, error in
-            guard let self = self else { return }
-            
-            if let error = error {
-                // Only log as warning, not error, since it's expected on simulator
-                dlog("⚠️ FCM token unavailable: \(error.localizedDescription)")
-                return
-            }
-            
-            if let token = token {
-                Task { @MainActor in
-                    self.fcmToken = token
-                    #if DEBUG
-                    dlog("🔑 FCM Token: \(token)")
-                    #endif
-                    await self.saveFCMTokenToFirestore(token)
-                }
-            }
-        }
+        // APNS/FCM race fix: Do NOT eagerly call Messaging.messaging().token here.
+        // iOS delivers the APNS token asynchronously via
+        // didRegisterForRemoteNotificationsWithDeviceToken, which then calls
+        // retryFCMTokenIfNeeded(). Calling token() before APNS is ready produces
+        // "No APNS token specified before fetching FCM Token" warnings and the
+        // callback fires with an error anyway. We rely on two paths instead:
+        //   1. MessagingRegistrationTokenRefreshed — FCM fires this after it
+        //      internally pairs the APNS token with the FCM token.
+        //   2. retryFCMTokenIfNeeded() — called from didRegisterForRemoteNotifications
+        //      as a fallback for the case where FCM doesn't auto-refresh.
         
         // P0 FIX: Remove old observer before adding new one
         if let observer = fcmTokenObserver {
@@ -179,7 +169,7 @@ class PushNotificationManager: NSObject, ObservableObject {
             self?.fcmTokenRefreshed()
         }
         
-        dlog("✅ FCM setup complete")
+        dlog("✅ FCM setup complete (token will arrive after APNS registration)")
         #endif
     }
     

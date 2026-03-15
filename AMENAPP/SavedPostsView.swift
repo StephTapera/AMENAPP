@@ -222,14 +222,32 @@ struct SavedPostsView: View {
     }
     
     // MARK: - Real-time Updates
-    
+
     private func setupRealtimeListener() {
-        savedPostsService.observeSavedPosts { postIds in
+        // Listen for individual unsave actions — remove the post locally without
+        // replacing the entire array. Replacing the array destroys all PostCard
+        // @State (isSaved, isSaveInFlight, etc.) making every card flash unsaved.
+        NotificationCenter.default.addObserver(
+            forName: Notification.Name("postUnsaved"),
+            object: nil,
+            queue: .main
+        ) { [self] notification in
+            guard let userInfo = notification.userInfo else { return }
+            // PostCard posts "postId" as UUID; service posts as String — handle both.
+            if let postId = userInfo["postId"] as? UUID {
+                savedPosts.removeAll { $0.id == postId }
+            } else if let postIdStr = userInfo["postId"] as? String {
+                savedPosts.removeAll { $0.firestoreId == postIdStr }
+            }
+        }
+
+        // Only do a full reload when a new post is added to saved
+        // (count increased) — not on removal, which is handled above.
+        savedPostsService.observeSavedPosts { [self] postIds in
             Task { @MainActor in
-                // Only reload if the count changed (post was added/removed)
-                if postIds.count != self.savedPosts.count {
-                    print("🔄 Saved posts changed, reloading...")
-                    await self.loadSavedPosts()
+                if postIds.count > savedPosts.count {
+                    print("🔄 New saved post detected, reloading...")
+                    await loadSavedPosts()
                 }
             }
         }

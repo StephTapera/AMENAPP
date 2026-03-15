@@ -43,7 +43,13 @@ struct ActivityFeedView: View {
                 ScrollView {
                     LazyVStack(spacing: 12) {
                         if selectedTab == .global {
-                            if activityService.globalActivities.isEmpty {
+                            if let errorMessage = activityService.globalFeedError {
+                                feedErrorState(message: errorMessage)
+                            } else if activityService.isLoading && activityService.globalActivities.isEmpty {
+                                AMENLoadingIndicator()
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.top, 60)
+                            } else if activityService.globalActivities.isEmpty {
                                 emptyState
                             } else {
                                 ForEach(activityService.globalActivities) { activity in
@@ -52,7 +58,7 @@ struct ActivityFeedView: View {
                             }
                         } else {
                             if isLoadingChurch {
-                                ProgressView()
+                                AMENLoadingIndicator()
                                     .frame(maxWidth: .infinity)
                                     .padding(.top, 60)
                             } else if userChurchId == nil {
@@ -86,6 +92,9 @@ struct ActivityFeedView: View {
     
     private func loadUserChurch() async {
         guard let uid = Auth.auth().currentUser?.uid else { return }
+        // Skip the Firestore fetch if we already have the church ID — the listener
+        // is already active, so there's nothing to do on repeated view appearances.
+        guard userChurchId == nil else { return }
         isLoadingChurch = true
         defer { isLoadingChurch = false }
 
@@ -162,6 +171,37 @@ struct ActivityFeedView: View {
                 .font(.custom("OpenSans-Regular", size: 14))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 60)
+    }
+
+    private func feedErrorState(message: String) -> some View {
+        VStack(spacing: 16) {
+            Image(systemName: "wifi.exclamationmark")
+                .font(.system(size: 48))
+                .foregroundStyle(.secondary)
+
+            Text("Could Not Load Activity")
+                .font(.custom("OpenSans-Bold", size: 18))
+                .foregroundStyle(.primary)
+
+            Text("Check your connection and try again.")
+                .font(.custom("OpenSans-Regular", size: 14))
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+
+            Button {
+                activityService.retryGlobalFeed()
+            } label: {
+                Label("Retry", systemImage: "arrow.clockwise")
+                    .font(.custom("OpenSans-SemiBold", size: 15))
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 10)
+                    .background(Color.accentColor.opacity(0.12))
+                    .foregroundStyle(Color.accentColor)
+                    .clipShape(Capsule())
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 60)

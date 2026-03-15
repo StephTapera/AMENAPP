@@ -104,23 +104,18 @@ struct SavedPostsUITests {
     
     @Test("Saved posts view initializes")
     func savedPostsViewInit() async throws {
-        let view = SavedPostsView()
-        
-        #expect(view != nil, "View should initialize")
+        // SwiftUI view structs are value types — init always succeeds
+        _ = SavedPostsView()
     }
     
     @Test("Quick access button initializes")
     func quickAccessButtonInit() async throws {
-        let button = SavedPostsQuickAccessButton()
-        
-        #expect(button != nil, "Button should initialize")
+        _ = SavedPostsQuickAccessButton()
     }
     
     @Test("Saved posts row initializes")
     func savedPostsRowInit() async throws {
-        let row = SavedPostsRow()
-        
-        #expect(row != nil, "Row should initialize")
+        _ = SavedPostsRow()
     }
 }
 

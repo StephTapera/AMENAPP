@@ -233,4 +233,3 @@ class ChurchNotificationManager: NSObject, ObservableObject {
         return UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: true)
     }
 }
-

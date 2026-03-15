@@ -30,25 +30,41 @@ enum AMENInboxTokens {
     static let primaryText   = Color(.label)
     static let secondaryText = Color(.secondaryLabel)
     static let tertiaryText  = Color(.tertiaryLabel)
-    static let unreadDot     = Color.black           // solid black dot for unread
-    static let accent        = Color.black            // CTA, active state
-    static let greetingAccent = Color(red: 0.85, green: 0.55, blue: 0.15) // warm amber for "Hi name"
+    static let unreadDot     = Color(uiColor: .label)  // adapts: black in light, white in dark
+    static let accent        = Color(uiColor: .label)  // CTA, active state
+
+    // Hero header
+    // "01" editorial index marker beside the hero title
+    static let editorialIndexColor = Color(.tertiaryLabel)
+    // Warm amber accent used for the user's first name
+    static let greetingAccent = Color(red: 0.85, green: 0.55, blue: 0.15)
 
     // Typography
-    static let heroFont      = Font.system(size: 28, weight: .bold, design: .default)
-    static let nameFontRead  = Font.system(size: 15, weight: .regular)
-    static let nameFontUnread = Font.system(size: 15, weight: .semibold)
-    static let previewFont   = Font.system(size: 13, weight: .regular)
+    // Large lowercase editorial title ("messages")
+    static let editorialHeroFont = Font.system(size: 48, weight: .light, design: .default)
+    // Small index label ("01")
+    static let editorialIndexFont = Font.system(size: 18, weight: .light, design: .default)
+    // Greeting above hero
+    static let greetingFont      = Font.system(size: 13, weight: .semibold)
+    // Compact collapsed title
+    static let heroFont          = Font.system(size: 28, weight: .bold, design: .default)
+    static let nameFontRead      = Font.system(size: 15, weight: .regular)
+    static let nameFontUnread    = Font.system(size: 15, weight: .semibold)
+    static let previewFont       = Font.system(size: 13, weight: .regular)
     static let previewFontUnread = Font.system(size: 13, weight: .medium)
-    static let timestampFont = Font.system(size: 12, weight: .regular)
-    static let labelFont     = Font.system(size: 11, weight: .semibold)
-    static let aiLabelFont   = Font.system(size: 11, weight: .medium, design: .monospaced)
+    static let timestampFont     = Font.system(size: 12, weight: .regular)
+    static let labelFont         = Font.system(size: 11, weight: .semibold)
+    static let aiLabelFont       = Font.system(size: 11, weight: .medium, design: .monospaced)
+    // Filter pill
+    static let pillFont          = Font.system(size: 13, weight: .medium)
+    static let pillFontActive    = Font.system(size: 13, weight: .semibold)
 
     // Metrics
-    static let avatarSize: CGFloat   = 50
+    static let avatarSize: CGFloat      = 50
     static let quickAvatarSize: CGFloat = 44
-    static let hPad: CGFloat         = 20
-    static let rowVPad: CGFloat      = 12
+    static let headerAvatarSize: CGFloat = 30   // small avatar chip in header top-left
+    static let hPad: CGFloat            = 20
+    static let rowVPad: CGFloat         = 12
     static let separatorLeading: CGFloat = 90   // aligns under text, skips avatar
 }
 
@@ -380,25 +396,32 @@ private struct ThreadAvatarView: View {
 }
 
 // Subtle shimmer for skeleton state
+private struct ShimmerView: View {
+    @State private var phase: CGFloat = -1.0
+
+    var body: some View {
+        GeometryReader { geo in
+            LinearGradient(
+                colors: [.clear, .white.opacity(0.3), .clear],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+            .frame(width: geo.size.width * 2)
+            .offset(x: geo.size.width * phase)
+            .onAppear {
+                withAnimation(.linear(duration: 1.4).repeatForever(autoreverses: false)) {
+                    phase = 1.0
+                }
+            }
+        }
+        .clipShape(Circle())
+    }
+}
+
 private extension View {
     @ViewBuilder
     func shimmering() -> some View {
-        self.overlay(
-            GeometryReader { geo in
-                LinearGradient(
-                    colors: [.clear, .white.opacity(0.3), .clear],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
-                .frame(width: geo.size.width * 2)
-                .offset(x: -geo.size.width)
-                .animation(
-                    Animation.linear(duration: 1.4).repeatForever(autoreverses: false),
-                    value: UUID()  // trigger once on appear
-                )
-            }
-            .clipShape(Circle())
-        )
+        self.overlay(ShimmerView())
     }
 }
 
@@ -460,63 +483,154 @@ struct InboxEmptyState: View {
 
 // MARK: - Inbox Hero Header
 
-/// The white hero header: greeting, compose button, search bar.
+/// Premium editorial header for the AMEN Messages inbox.
+///
+/// Layout (top → bottom):
+///   Row 1: small avatar chip (left)  •  compose button (right)
+///   Row 2: "01  messages" large lowercase editorial title with overflow menu
+///   Row 3: debounced search bar
+///
+/// Inspired by the reference "01 inbox" editorial treatment — adapted to
+/// AMEN's spiritual, minimal, liquid-glass design language.
 struct InboxHeroHeader: View {
     let greetingName: String
     let onCompose: () -> Void
     let onBack: () -> Void
     @Binding var searchText: String
 
+    // Tracks how far the content has scrolled — fed from parent — so the
+    // header can compress when the user scrolls away.
+    var scrollOffset: CGFloat = 0
+
+    // Overflow menu
+    @State private var showOverflow = false
+
+    // Avatar image for the current user (optional — falls back to initials)
+    @ObservedObject private var userService = UserService.shared
+
+    private var userInitial: String {
+        greetingName.prefix(1).uppercased()
+    }
+
+    // Hero opacity/scale on scroll — subtle parallax feel
+    private var heroOpacity: Double {
+        let progress = min(max(scrollOffset / 80, 0), 1)
+        return Double(1.0 - progress * 0.4)
+    }
+    private var heroOffset: CGFloat {
+        min(scrollOffset * 0.25, 20)
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            // Top bar: back + title + compose
-            HStack(alignment: .center, spacing: 0) {
-                // Back button
+        VStack(alignment: .leading, spacing: 0) {
+
+            // ── Row 1: Avatar chip + compose button ──────────────────────────
+            HStack(alignment: .center) {
+                // Small user avatar — doubles as navigation hint back to profile
                 Button(action: onBack) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 16, weight: .semibold))
-                        Text("Back")
-                            .font(.system(size: 15, weight: .regular))
+                    Group {
+                        if let urlStr = userService.currentUser?.profileImageURL,
+                           let url = URL(string: urlStr) {
+                            CachedAsyncImage(url: url) { img in
+                                img.resizable()
+                                    .aspectRatio(contentMode: .fill)
+                                    .frame(width: AMENInboxTokens.headerAvatarSize,
+                                           height: AMENInboxTokens.headerAvatarSize)
+                                    .clipShape(Circle())
+                            } placeholder: {
+                                initialsChip
+                            }
+                        } else {
+                            initialsChip
+                        }
                     }
-                    .foregroundStyle(AMENInboxTokens.primaryText)
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Back")
 
                 Spacer()
 
-                // Compose
+                // Compose new message
                 Button(action: onCompose) {
                     Image(systemName: "square.and.pencil")
-                        .font(.system(size: 20, weight: .semibold))
+                        .font(.system(size: 19, weight: .medium))
                         .foregroundStyle(AMENInboxTokens.primaryText)
                         .frame(width: 40, height: 40)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("New message")
             }
             .padding(.horizontal, AMENInboxTokens.hPad)
-            .padding(.top, 8)
+            .padding(.top, 10)
 
-            // Hero greeting
-            VStack(alignment: .leading, spacing: 2) {
-                if !greetingName.isEmpty {
-                    Text("Hi \(greetingName)")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(AMENInboxTokens.greetingAccent)
-                        .kerning(0.5)
-                }
-                Text("Messages")
-                    .font(AMENInboxTokens.heroFont)
+            // ── Row 2: Editorial hero title ──────────────────────────────────
+            HStack(alignment: .lastTextBaseline, spacing: 0) {
+
+                // "01" index marker — left-anchored, small, light weight
+                Text("01")
+                    .font(AMENInboxTokens.editorialIndexFont)
+                    .foregroundStyle(AMENInboxTokens.editorialIndexColor)
+                    .kerning(1)
+                    .padding(.trailing, 10)
+                    .accessibilityHidden(true)
+
+                // "messages" — large lowercase hero word
+                Text("messages")
+                    .font(AMENInboxTokens.editorialHeroFont)
                     .foregroundStyle(AMENInboxTokens.primaryText)
+                    .kerning(-1.5)  // tight tracking for editorial feel
+                    .minimumScaleFactor(0.6)
+                    .lineLimit(1)
+
+                Spacer(minLength: 10)
+
+                // ⋯ overflow menu
+                Menu {
+                    Button {
+                        onCompose()
+                    } label: {
+                        Label("New Message", systemImage: "square.and.pencil")
+                    }
+                    Button {
+                        showOverflow = false
+                    } label: {
+                        Label("Mark All Read", systemImage: "envelope.open")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(AMENInboxTokens.secondaryText)
+                        .frame(width: 36, height: 36)
+                        .contentShape(Rectangle())
+                }
+                .accessibilityLabel("More options")
             }
             .padding(.horizontal, AMENInboxTokens.hPad)
+            .padding(.top, 6)
+            .padding(.bottom, 14)
+            .offset(y: heroOffset)
+            .opacity(heroOpacity)
 
-            // Search bar
+            // ── Row 3: Search bar ─────────────────────────────────────────────
             InboxSearchBar(text: $searchText)
                 .padding(.horizontal, AMENInboxTokens.hPad)
+                .padding(.bottom, 12)
         }
-        .padding(.bottom, 10)
         .background(AMENInboxTokens.background)
+    }
+
+    // Small initials circle — fallback when no profile photo
+    private var initialsChip: some View {
+        ZStack {
+            Circle()
+                .fill(Color(.systemGray5))
+                .frame(width: AMENInboxTokens.headerAvatarSize,
+                       height: AMENInboxTokens.headerAvatarSize)
+            Text(userInitial)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(AMENInboxTokens.secondaryText)
+        }
     }
 }
 

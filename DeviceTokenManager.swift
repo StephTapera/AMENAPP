@@ -22,14 +22,20 @@ final class DeviceTokenManager: ObservableObject {
     private let db = Firestore.firestore()
     
     // MARK: - Token State
-    
+
     @Published private(set) var currentToken: String?
     @Published private(set) var isTokenRegistered = false
     @Published private(set) var lastTokenRefresh: Date?
-    
+
     // Constants
     private let tokenRefreshInterval: TimeInterval = 7 * 24 * 60 * 60  // 7 days
     private let maxDevicesPerUser = 5  // P0 requirement: max 5 concurrent devices
+
+    // Debounce: track last registration time so back-to-back startup calls
+    // (setupFCMForExistingUser + auth state listener initial fire) don't
+    // double-write to Firestore.
+    private var lastRegistrationTime: Date?
+    private let registrationDebounceInterval: TimeInterval = 10  // seconds
     
     // MARK: - Initialization
     
@@ -39,8 +45,17 @@ final class DeviceTokenManager: ObservableObject {
     
     // MARK: - Token Registration
     
-    /// Register current device token for push notifications
+    /// Register current device token for push notifications.
+    /// Debounced: duplicate calls within `registrationDebounceInterval` seconds are no-ops.
     func registerDeviceToken() async throws {
+        // Suppress duplicate calls that fire in rapid succession at startup
+        // (setupFCMForExistingUser and the auth state listener both call this).
+        if let last = lastRegistrationTime,
+           Date().timeIntervalSince(last) < registrationDebounceInterval {
+            return
+        }
+        lastRegistrationTime = Date()
+
         guard let userId = Auth.auth().currentUser?.uid else {
             throw DeviceTokenError.notAuthenticated
         }

@@ -199,7 +199,7 @@ struct ThreadedCommentsView: View {
     private func loadComments() async {
         isLoading = true
         do {
-            commentsWithReplies = try await commentService.fetchCommentsWithReplies(for: post.id.uuidString)
+            commentsWithReplies = try await commentService.fetchCommentsWithReplies(for: post.firestoreId)
         } catch {
             errorMessage = error.localizedDescription
             showError = true
@@ -217,14 +217,14 @@ struct ThreadedCommentsView: View {
             do {
                 if let replyingTo = replyingTo {
                     _ = try await commentService.addReply(
-                        postId: post.id.uuidString,
+                        postId: post.firestoreId,
                         parentCommentId: replyingTo.id ?? "",
                         content: text
                     )
                     self.replyingTo = nil
                 } else {
                     _ = try await commentService.addComment(
-                        postId: post.id.uuidString,
+                        postId: post.firestoreId,
                         content: text
                     )
                 }
@@ -244,7 +244,7 @@ struct ThreadedCommentsView: View {
     private func deleteComment(_ comment: Comment) {
         Task {
             do {
-                try await commentService.deleteComment(commentId: comment.id ?? "", postId: post.id.uuidString)
+                try await commentService.deleteComment(commentId: comment.id ?? "", postId: post.firestoreId)
                 await loadComments()
                 
                 let haptic = UINotificationFeedbackGenerator()
@@ -257,9 +257,11 @@ struct ThreadedCommentsView: View {
     }
     
     private func toggleAmen(comment: Comment) {
+        let currentUserId = FirebaseManager.shared.currentUser?.uid ?? ""
+        let currentlyAmened = !currentUserId.isEmpty && comment.amenUserIds.contains(currentUserId)
         Task {
             do {
-                try await commentService.toggleAmen(commentId: comment.id ?? "", postId: post.id.uuidString)
+                try await commentService.toggleAmen(commentId: comment.id ?? "", postId: post.firestoreId, currentlyAmened: currentlyAmened)
                 await loadComments()
             } catch {
                 errorMessage = error.localizedDescription

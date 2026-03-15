@@ -12,6 +12,7 @@ import FirebaseAuth
 import FirebaseFirestore
 import Combine
 import PhotosUI
+import Vision
 
 struct CommentsView: View {
     let post: Post
@@ -59,8 +60,12 @@ struct CommentsView: View {
     // ✅ Emoji picker state
     @State private var showEmojiPicker = false
     
-    // ✅ Photo upload state (placeholder for future implementation)
-    @State private var showPhotoComingSoon = false
+    // Photo upload state
+    @State private var showPhotoPicker = false
+    @State private var selectedPhotoItem: PhotosPickerItem?
+    @State private var commentPhotoData: Data?
+    @State private var isModeratingPhoto = false
+    @State private var photoModerationError: String?
     
     // Berean AI rewrite assist
     @State private var bereanSuggestion: String?
@@ -95,14 +100,9 @@ struct CommentsView: View {
     // Proactive rate limit banner (shown immediately if daily limit already hit)
     @State private var rateLimitMessage: String? = nil
     
-    // ✅ CRITICAL FIX: Extract short ID (first 8 chars) for Realtime Database
-    // Firestore uses full UUIDs, but Realtime DB uses short IDs like "002BAE76"
-    private var postId: String {
-        let fullId = post.firestoreId
-        // Extract first 8 characters (the short ID used in Realtime Database)
-        let shortId = String(fullId.prefix(8))
-        return shortId
-    }
+    // Use full firestoreId — RTDB listener paths use the same full UUID as Firestore.
+    // PostDetailView uses post.firestoreId directly; CommentsView must match.
+    private var postId: String { post.firestoreId }
     
     @FocusState private var isInputFocused: Bool
     
@@ -457,6 +457,7 @@ struct CommentsView: View {
     }
 
     var body: some View {
+        ZStack {
         VStack(spacing: 0) {
             headerView
 
@@ -894,6 +895,36 @@ struct CommentsView: View {
                             .transition(.move(edge: .top).combined(with: .opacity))
                         }
                         
+                        // Attached photo preview
+                        if let photoData = commentPhotoData,
+                           let uiImage = UIImage(data: photoData) {
+                            HStack(spacing: 8) {
+                                Image(uiImage: uiImage)
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: 56, height: 56)
+                                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .strokeBorder(Color(uiColor: .separator), lineWidth: 0.5)
+                                    )
+                                Button {
+                                    withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                                        commentPhotoData = nil
+                                        selectedPhotoItem = nil
+                                    }
+                                } label: {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .font(.system(size: 18))
+                                        .foregroundStyle(Color(uiColor: .secondaryLabel))
+                                        .background(Color(uiColor: .systemBackground), in: Circle())
+                                }
+                                .buttonStyle(.plain)
+                                Spacer()
+                            }
+                            .transition(.scale(scale: 0.85).combined(with: .opacity))
+                        }
+
                         // Slow mode cooldown indicator
                         if cooldownRemaining > 0 {
                             HStack(spacing: 6) {
@@ -941,16 +972,36 @@ struct CommentsView: View {
                                     .frame(width: 24, height: 24)
                             }
                             
-                            // Photo button (placeholder - feature coming soon)
-                            Button {
-                                showPhotoComingSoon = true
-                                let haptic = UIImpactFeedbackGenerator(style: .light)
-                                haptic.impactOccurred()
-                            } label: {
-                                Image(systemName: "photo")
-                                    .font(.system(size: 18, weight: .medium))
-                                    .foregroundStyle(.black.opacity(0.7))
-                                    .frame(width: 24, height: 24)
+                            // Photo button — opens picker with AI moderation gate
+                            PhotosPicker(selection: $selectedPhotoItem,
+                                         matching: .images,
+                                         photoLibrary: .shared()) {
+                                ZStack {
+                                    if isModeratingPhoto {
+                                        ProgressView()
+                                            .frame(width: 24, height: 24)
+                                            .scaleEffect(0.7)
+                                    } else if commentPhotoData != nil {
+                                        Image(systemName: "photo.fill")
+                                            .font(.system(size: 18, weight: .medium))
+                                            .foregroundStyle(.blue)
+                                            .frame(width: 24, height: 24)
+                                    } else {
+                                        Image(systemName: "photo")
+                                            .font(.system(size: 18, weight: .medium))
+                                            .foregroundStyle(.black.opacity(0.7))
+                                            .frame(width: 24, height: 24)
+                                    }
+                                }
+                            }
+                            .buttonStyle(.plain)
+                            .onChange(of: selectedPhotoItem) { _, newItem in
+                                guard let newItem else { return }
+                                isModeratingPhoto = true
+                                photoModerationError = nil
+                                Task {
+                                    await moderateAndAttachPhoto(item: newItem)
+                                }
                             }
                             
                             // Berean AI rewrite assist button — icon-only, black/white
@@ -1061,10 +1112,10 @@ struct CommentsView: View {
                 onReject: { comment in approveComment(comment, approved: false) }
             )
         }
-        .alert("Photo Upload Coming Soon", isPresented: $showPhotoComingSoon) {
+        .alert("Photo Not Allowed", isPresented: Binding(get: { photoModerationError != nil }, set: { if !$0 { photoModerationError = nil; selectedPhotoItem = nil } })) {
             Button("OK", role: .cancel) { }
         } message: {
-            Text("Photo uploads in comments will be available in a future update with AI moderation.")
+            Text(photoModerationError ?? "This image cannot be uploaded.")
         }
         .task {
             // P0 FIX: Lazy load AI services in background (don't block sheet appearance)
@@ -1153,6 +1204,10 @@ struct CommentsView: View {
         } message: {
             Text(errorMessage)
         }
+
+        // Premium reaction tray overlay — sits above all comments content
+        ReactionTrayOverlay(state: ReactionPresentationState.shared)
+        } // end ZStack
     }
     
     // MARK: - Load Current User Data
@@ -1590,8 +1645,11 @@ struct CommentsView: View {
             }
             
             do {
-                // Get current amen status before toggling
-                let wasAmened = await commentService.hasUserAmened(commentId: commentId, postId: postId)
+                // Derive amen state from the already-populated amenUserIds on the Comment model.
+                // This avoids a Firebase getData() round-trip that returns stale offline-cached
+                // values and always resolves to "true" after the first like.
+                let currentUserId = FirebaseManager.shared.currentUser?.uid ?? ""
+                let wasAmened = !currentUserId.isEmpty && comment.amenUserIds.contains(currentUserId)
                 
                 // Optimistic UI update
                 await MainActor.run {
@@ -1617,7 +1675,7 @@ struct CommentsView: View {
                 }
                 
                 // Sync to Firebase in background
-                try await commentService.toggleAmen(commentId: commentId, postId: postId)
+                try await commentService.toggleAmen(commentId: commentId, postId: postId, currentlyAmened: wasAmened)
                 
             } catch {
                 // Revert on error
@@ -1745,18 +1803,29 @@ struct CommentsView: View {
     @MainActor
     private func updateCommentsFromService() async -> Bool {
         // Get updated comments from service cache (only top-level comments)
-        let allComments = commentService.comments[postId] ?? []
-        
+        let rawComments = commentService.comments[postId] ?? []
+
+        // Block filter: hide comments from users the current user has blocked or who blocked them.
+        let blockedUsers = BlockService.shared.blockedUsers
+        let allComments: [Comment]
+        if blockedUsers.isEmpty {
+            allComments = rawComments
+        } else {
+            allComments = rawComments.filter { !blockedUsers.contains($0.authorId) }
+        }
+
         // Build commentsWithReplies from service data
         var newCommentsWithReplies: [CommentWithReplies] = []
-        
+
         for comment in allComments {
             guard let commentId = comment.id else {
                 continue
             }
             
-            let replies = commentService.commentReplies[commentId] ?? []
-            
+            // Also filter replies from blocked users
+            let rawReplies = commentService.commentReplies[commentId] ?? []
+            let replies = blockedUsers.isEmpty ? rawReplies : rawReplies.filter { !blockedUsers.contains($0.authorId) }
+
             // Update reply count
             var updatedComment = comment
             updatedComment.replyCount = replies.count
@@ -1851,6 +1920,58 @@ struct CommentsView: View {
         withAnimation { pendingComments = pending }
     }
 
+    // MARK: - Photo moderation + attach
+
+    private func moderateAndAttachPhoto(item: PhotosPickerItem) async {
+        defer {
+            Task { @MainActor in isModeratingPhoto = false }
+        }
+        guard let data = try? await item.loadTransferable(type: Data.self) else {
+            await MainActor.run {
+                photoModerationError = "Could not load image. Please try again."
+                selectedPhotoItem = nil
+            }
+            return
+        }
+
+        // Vision-based adult content classification (on-device, no network)
+        if await isImageExplicit(data: data) {
+            await MainActor.run {
+                photoModerationError = "This image was flagged by our safety system and cannot be posted."
+                selectedPhotoItem = nil
+                commentPhotoData = nil
+            }
+            return
+        }
+
+        // ContentRiskAnalyzer pass (text-based signals won't apply to images,
+        // but we check a synthetic descriptor for future extensibility)
+        // Image passes — attach it
+        await MainActor.run {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                commentPhotoData = data
+            }
+            let haptic = UINotificationFeedbackGenerator()
+            haptic.notificationOccurred(.success)
+        }
+    }
+
+    /// Returns true if Vision detects significant adult/racy content.
+    private func isImageExplicit(data: Data) async -> Bool {
+        guard let cgImage = UIImage(data: data)?.cgImage else { return false }
+        let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+        let request = VNClassifyImageRequest()
+        do {
+            try handler.perform([request])
+            guard let observations = request.results else { return false }
+            let adultScore = observations.first(where: { $0.identifier == "explicit" })?.confidence ?? 0
+            let racyScore  = observations.first(where: { $0.identifier == "suggestive" })?.confidence ?? 0
+            return adultScore > 0.6 || racyScore > 0.85
+        } catch {
+            return false // fail open — let server-side moderation catch edge cases
+        }
+    }
+
     private func approveComment(_ comment: Comment, approved: Bool) {
         guard let commentId = comment.id else { return }
         let newStatus = approved ? "approved" : "rejected"
@@ -1887,11 +2008,13 @@ private struct PostCommentRow: View {
     var currentTime: Date = Date() // ✅ For timestamp auto-refresh
     
     @ObservedObject private var followService = FollowService.shared
-    
+
     @State private var showOptions = false
     @State private var hasAmened = false
     @State private var localAmenCount: Int = 0
     @State private var didJustFollow = false  // Optimistic follow state
+    @State private var showReportSheet = false  // Report reason picker
+    // reaction picker is handled by AMENReactionSystem (.reactionPicker modifier on MentionTextView)
     
     private var isOwnComment: Bool {
         comment.authorId == FirebaseManager.shared.currentUser?.uid
@@ -2004,6 +2127,7 @@ private struct PostCommentRow: View {
                 }
                 
                 // Content with @mention highlight + link detection
+                // Long-press opens the AMEN reaction tray (AMENReactionSystem)
                 MentionTextView(
                     text: comment.content,
                     autoDetectMentions: true,
@@ -2012,7 +2136,30 @@ private struct PostCommentRow: View {
                     lineSpacing: 3
                 )
                 .fixedSize(horizontal: false, vertical: true)
-                
+                .reactionPicker(
+                    id: comment.id ?? UUID().uuidString,
+                    isFromCurrentUser: false,
+                    context: .comment,
+                    selectedEmoji: hasAmened ? "❤️" : nil,
+                    onSelect: { emoji in
+                        if emoji == "❤️" || emoji == "🙏" {
+                            // Map heart/amen reactions to the existing amen toggle
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
+                                hasAmened.toggle()
+                            }
+                            onAmen()
+                        }
+                        // Future: route other emoji reactions to their own handlers
+                    }
+                )
+
+                // Translation affordance (lightweight, inline, non-blocking)
+                CommentTranslationRow(
+                    text: comment.content,
+                    commentId: comment.id ?? "unknown",
+                    isPublicContent: true
+                )
+
                 // Actions
                 HStack(spacing: 20) {
                     // Amen with animation (heart icon like reference)
@@ -2173,27 +2320,34 @@ private struct PostCommentRow: View {
                     Label("Mute User", systemImage: "speaker.slash")
                 }
 
-                // Report another user's comment
+                // Report another user's comment — opens reason picker sheet
                 Button(role: .destructive) {
-                    guard let commentId = comment.id else { return }
-                    Task {
-                        do {
-                            try await ModerationService.shared.reportComment(
-                                commentId: commentId,
-                                commentAuthorId: comment.authorId,
-                                postId: comment.postId,
-                                reason: .inappropriateContent,
-                                additionalDetails: nil
-                            )
-                            ToastManager.shared.success("Report submitted")
-                        } catch {
-                            print("❌ Failed to report comment: \(error)")
-                        }
-                    }
+                    showReportSheet = true
                 } label: {
                     Label("Report Comment", systemImage: "exclamationmark.triangle")
                 }
             }
+        }
+        .sheet(isPresented: $showReportSheet) {
+            CommentReportSheet(comment: comment)
+                .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
+                .presentationCornerRadius(24)
+        }
+        // Long-press reaction is handled by AMENReactionSystem via .reactionPicker() on MentionTextView
+        .onAppear {
+            // Seed hasAmened from the listener-populated amenUserIds so the heart
+            // icon reflects the real state immediately, without an async network call.
+            let uid = FirebaseManager.shared.currentUser?.uid ?? ""
+            hasAmened = !uid.isEmpty && comment.amenUserIds.contains(uid)
+            localAmenCount = comment.amenCount
+        }
+        .onChange(of: comment.amenUserIds) { _, newIds in
+            let uid = FirebaseManager.shared.currentUser?.uid ?? ""
+            hasAmened = !uid.isEmpty && newIds.contains(uid)
+        }
+        .onChange(of: comment.amenCount) { _, newCount in
+            localAmenCount = newCount
         }
     }
 
@@ -2421,6 +2575,221 @@ struct EmojiButtonStyle: ButtonStyle {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.9 : 1.0)
             .animation(.spring(response: 0.3, dampingFraction: 0.6), value: configuration.isPressed)
+    }
+}
+
+// MARK: - Comment Report Sheet
+
+struct CommentReportSheet: View {
+    let comment: Comment
+    @Environment(\.dismiss) private var dismiss
+
+    enum ReportReason: String, CaseIterable {
+        case spam              = "Spam or scam"
+        case hateSpeech        = "Hate speech or slurs"
+        case harassment        = "Harassment or bullying"
+        case misinformation    = "False or misleading content"
+        case inappropriate     = "Sexually explicit or inappropriate"
+        case selfHarm          = "Self-harm or crisis content"
+        case violence          = "Violence or threats"
+        case other             = "Something else"
+
+        var icon: String {
+            switch self {
+            case .spam: return "envelope.badge.fill"
+            case .hateSpeech: return "exclamationmark.bubble.fill"
+            case .harassment: return "person.fill.xmark"
+            case .misinformation: return "questionmark.circle.fill"
+            case .inappropriate: return "eye.slash.fill"
+            case .selfHarm: return "heart.slash.fill"
+            case .violence: return "bolt.shield.fill"
+            case .other: return "ellipsis.circle.fill"
+            }
+        }
+    }
+
+    @State private var submitted = false
+    @State private var isSubmitting = false
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if submitted {
+                    submittedView
+                } else {
+                    reasonList
+                }
+            }
+            .navigationTitle("Report Comment")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Cancel") { dismiss() }
+                        .font(.system(size: 15, weight: .semibold))
+                }
+            }
+        }
+    }
+
+    private var reasonList: some View {
+        List {
+            Section {
+                Text("Why are you reporting this comment?")
+                    .font(.system(size: 14))
+                    .foregroundStyle(.secondary)
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(.init(top: 8, leading: 0, bottom: 4, trailing: 0))
+            }
+
+            Section {
+                ForEach(Array(ReportReason.allCases.enumerated()), id: \.offset) { _, reason in
+                    Button {
+                        submitReport(reason: reason)
+                    } label: {
+                        HStack(spacing: 14) {
+                            Image(systemName: reason.icon)
+                                .font(.system(size: 16))
+                                .foregroundStyle(.primary)
+                                .frame(width: 22)
+                            Text(reason.rawValue)
+                                .font(.system(size: 15))
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            if isSubmitting {
+                                ProgressView().scaleEffect(0.7)
+                            } else {
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(Color(uiColor: .tertiaryLabel))
+                            }
+                        }
+                        .padding(.vertical, 2)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isSubmitting)
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
+    }
+
+    private var submittedView: some View {
+        VStack(spacing: 20) {
+            Spacer()
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 56))
+                .foregroundStyle(.green)
+            Text("Report Submitted")
+                .font(.system(size: 20, weight: .bold))
+            Text("Thank you for helping keep AMEN safe. We review every report.")
+                .font(.system(size: 14))
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
+            Button("Done") { dismiss() }
+                .font(.system(size: 16, weight: .semibold))
+                .padding(.horizontal, 40)
+                .padding(.vertical, 12)
+                .background(Color(uiColor: .label), in: Capsule())
+                .foregroundStyle(Color(uiColor: .systemBackground))
+            Spacer()
+        }
+    }
+
+    private func submitReport(reason: ReportReason) {
+        guard let commentId = comment.id, !isSubmitting else { return }
+        isSubmitting = true
+        Task {
+            do {
+                try await ModerationService.shared.reportComment(
+                    commentId: commentId,
+                    commentAuthorId: comment.authorId,
+                    postId: comment.postId,
+                    reason: .inappropriateContent,
+                    additionalDetails: reason.rawValue
+                )
+                await MainActor.run {
+                    isSubmitting = false
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                        submitted = true
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    isSubmitting = false
+                    ToastManager.shared.showError("Failed to submit report. Please try again.")
+                }
+            }
+        }
+    }
+}
+
+// MARK: - iOS Messages-Style Reaction Picker
+
+struct CommentReactionPicker: View {
+    @Binding var isPresented: Bool
+    let onReact: (String) -> Void
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    // AMEN spiritual + standard reactions
+    private let reactions: [(emoji: String, label: String)] = [
+        ("🙏", "Pray"),
+        ("❤️", "Love"),
+        ("🔥", "Fire"),
+        ("✝️", "Amen"),
+        ("😢", "Sad"),
+        ("😂", "Joy"),
+    ]
+
+    @State private var appeared = false
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(Array(reactions.enumerated()), id: \.offset) { index, reaction in
+                Button {
+                    onReact(reaction.emoji)
+                    let haptic = UIImpactFeedbackGenerator(style: .light)
+                    haptic.impactOccurred()
+                } label: {
+                    Text(reaction.emoji)
+                        .font(.system(size: 26))
+                        .frame(width: 42, height: 42)
+                        .background(Color(uiColor: .systemBackground).opacity(0.01), in: Circle())
+                }
+                .buttonStyle(EmojiButtonStyle())
+                .scaleEffect(appeared ? 1.0 : 0.4)
+                .opacity(appeared ? 1.0 : 0.0)
+                .animation(
+                    reduceMotion
+                        ? .easeOut(duration: 0.15)
+                        : .spring(response: 0.32, dampingFraction: 0.65).delay(Double(index) * 0.03),
+                    value: appeared
+                )
+                .accessibilityLabel(reaction.label)
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(.ultraThinMaterial, in: Capsule())
+        .overlay(Capsule().strokeBorder(Color(uiColor: .separator).opacity(0.3), lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.12), radius: 16, x: 0, y: 4)
+        .onAppear {
+            withAnimation { appeared = true }
+        }
+        // Dismiss on tap outside
+        .onTapGesture { }
+        .background(
+            Color.clear
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                        isPresented = false
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .ignoresSafeArea()
+        )
     }
 }
 

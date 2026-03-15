@@ -161,6 +161,13 @@ class ProfilePhotoService: ObservableObject {
                     print("💾 Updating Firestore user document...")
                     try await self.updateUserProfilePhoto(userId: userId, photoURL: urlString)
 
+                    // Sync updated profile image URL to Algolia so mention/search results
+                    // show the new photo immediately without any manual re-index step.
+                    try? await AlgoliaSyncService.shared.syncUser(
+                        userId: userId,
+                        userData: ["profileImageURL": urlString]
+                    )
+
                     // Schedule async deep scan post-upload
                     ProfileImageSafetyGate.shared.scheduleDeepScan(
                         imageURL: urlString,
@@ -278,7 +285,13 @@ class ProfilePhotoService: ObservableObject {
             
             // Remove photoURL from user document
             try await updateUserProfilePhoto(userId: currentUserId, photoURL: nil)
-            
+
+            // Clear from Algolia so search/mentions stop showing the old photo
+            try? await AlgoliaSyncService.shared.syncUser(
+                userId: currentUserId,
+                userData: ["profileImageURL": ""]
+            )
+
             print("✅ Profile photo deleted")
             
         } catch {

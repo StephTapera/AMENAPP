@@ -7,6 +7,33 @@
 
 import SwiftUI
 
+// MARK: - Scroll Offset Preference Key
+// Used across multiple views to track scroll position
+
+struct ScrollOffsetPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
+// MARK: - Berean Scroll Offset Tracker
+// Standalone view to report scroll offset via ScrollOffsetPreferenceKey.
+// Extracted from BereanAIAssistantView body to avoid compiler type-check timeouts.
+
+struct BereanScrollOffsetTracker: View {
+    var body: some View {
+        GeometryReader { geo in
+            SwiftUI.Color.clear
+                .preference(
+                    key: ScrollOffsetPreferenceKey.self,
+                    value: geo.frame(in: .named("bereanScroll")).minY
+                )
+        }
+    }
+}
+
 // MARK: - ScrollView with Offset Tracking
 // Note: These components are defined in ScrollViewHelpers.swift
 // If you see redeclaration errors, check for duplicate definitions in other files

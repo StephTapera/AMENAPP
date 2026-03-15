@@ -167,15 +167,23 @@ struct TestimoniesView: View {
                 personalizeTestimoniesFeed()
                 hasPersonalized = true
             }
+            // Keep listener alive across tab switches — only starts if not already active
             FirebasePostService.shared.startListening(category: .testimonies)
         }
         .onAppear {
             filterHaptic.prepare()
-            fetchPosts()
-            personalizeTestimoniesFeed()
+            // Only fetch if we have no posts yet — prevents redundant Firestore fetch on every tab switch
+            if postsManager.testimoniesPosts.isEmpty && !isLoadingPosts {
+                fetchPosts()
+            }
+            // Only personalize if preferences have already been loaded (hasPersonalized gate prevents
+            // a redundant re-rank on every re-appear before the .task personalization runs)
+            if hasPersonalized {
+                personalizeTestimoniesFeed()
+            }
         }
         .onDisappear {
-            FirebasePostService.shared.stopListening(category: .testimonies)
+            // Don't stop the listener — keep it alive so real-time updates arrive while on other tabs
         }
         .onChange(of: postsManager.testimoniesPosts) { oldValue, newValue in
             if oldValue.count != newValue.count {

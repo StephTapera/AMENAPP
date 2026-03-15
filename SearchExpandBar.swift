@@ -141,17 +141,17 @@ struct SearchExpandBar: View {
             }
             .frame(maxWidth: .infinity)
 
-            // Right: chevron close
+            // Right: xmark close — chevron.right was confusing (looks like "go forward")
             Button {
                 close()
             } label: {
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.secondary)
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 17, weight: .regular))
+                    .foregroundStyle(Color(uiColor: .tertiaryLabel))
                     .frame(width: 36, height: 44)
                     .padding(.trailing, 4)
             }
-            .accessibilityLabel("Close search")
+            .accessibilityLabel("Clear and close search")
         }
         .background(
             Capsule()

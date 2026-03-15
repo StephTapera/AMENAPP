@@ -96,6 +96,7 @@ private actor SeenIDsCache {
 struct OneTimeAppearModifier: ViewModifier {
     let id: AnyHashable
     /// Stagger delay (seconds) for list items — pass `index * 0.04` for a cascade.
+    /// When 0 (tab-switch suppression), skip the async actor hop and appear instantly.
     var delay: Double = 0
 
     @State private var visible = false
@@ -112,8 +113,12 @@ struct OneTimeAppearModifier: ViewModifier {
             )
             .onAppear {
                 guard !hasAnimated else { return }
-                // Phase 3: Check seen cache with minimal async overhead.
-                // Already-seen items become visible immediately (no delay, no animation hop).
+                // Fast path: delay==0 means tab-switch suppression — skip actor hop, appear instantly.
+                if delay == 0 {
+                    visible = true
+                    return
+                }
+                // Normal path: check seen cache so scroll-back items don't re-animate.
                 Task {
                     let alreadySeen = await SeenIDsCache.shared.contains(id)
                     await MainActor.run {

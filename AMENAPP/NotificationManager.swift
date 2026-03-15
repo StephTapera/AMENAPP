@@ -47,12 +47,12 @@ class NotificationManager: ObservableObject {
             isAuthorized = granted
             
             if granted {
-                print("✅ Notifications authorized")
+                dlog("✅ Notifications authorized")
             } else {
-                print("❌ Notifications denied")
+                dlog("❌ Notifications denied")
             }
         } catch {
-            print("❌ Notification authorization error: \(error)")
+            dlog("❌ Notification authorization error: \(error)")
         }
     }
     
@@ -75,13 +75,13 @@ class NotificationManager: ObservableObject {
             await scheduleAllNotifications()
         }
         
-        print("🔔 Notification preference updated: \(key) = \(enabled)")
+        dlog("🔔 Notification preference updated: \(key) = \(enabled)")
     }
     
     /// Load saved notification preferences from Firestore
     func loadSettings() async {
         guard let userId = Auth.auth().currentUser?.uid else {
-            print("⚠️ No authenticated user to load notification settings")
+            dlog("⚠️ No authenticated user to load notification settings")
             // Migrate legacy UserDefaults settings if they exist
             await migrateLegacySettings()
             return
@@ -98,13 +98,13 @@ class NotificationManager: ObservableObject {
                     notificationSettings["newMessages"] = firestoreSettings["messages"] ?? true
                     notificationSettings["trendingPosts"] = firestoreSettings["communityUpdates"] ?? false
                 }
-                print("✅ Loaded notification settings from Firestore: \(notificationSettings)")
+                dlog("✅ Loaded notification settings from Firestore: \(notificationSettings)")
             } else {
                 // No settings in Firestore, try migrating from UserDefaults
                 await migrateLegacySettings()
             }
         } catch {
-            print("❌ Error loading notification settings from Firestore: \(error.localizedDescription)")
+            dlog("❌ Error loading notification settings from Firestore: \(error.localizedDescription)")
             // Fall back to UserDefaults if Firestore fails
             await migrateLegacySettings()
         }
@@ -113,7 +113,7 @@ class NotificationManager: ObservableObject {
     /// Save notification preferences to Firestore
     func saveSettings() async {
         guard let userId = Auth.auth().currentUser?.uid else {
-            print("⚠️ No authenticated user to save notification settings")
+            dlog("⚠️ No authenticated user to save notification settings")
             return
         }
         
@@ -129,9 +129,9 @@ class NotificationManager: ObservableObject {
                 "notificationSettings": firestoreSettings,
                 "notificationSettingsUpdatedAt": FieldValue.serverTimestamp()
             ])
-            print("✅ Notification settings saved to Firestore")
+            dlog("✅ Notification settings saved to Firestore")
         } catch {
-            print("❌ Error saving notification settings to Firestore: \(error.localizedDescription)")
+            dlog("❌ Error saving notification settings to Firestore: \(error.localizedDescription)")
         }
     }
     
@@ -142,12 +142,12 @@ class NotificationManager: ObservableObject {
             await MainActor.run {
                 notificationSettings = decoded
             }
-            print("✅ Migrated notification settings from UserDefaults: \(notificationSettings)")
+            dlog("✅ Migrated notification settings from UserDefaults: \(notificationSettings)")
             
             // Save to Firestore and remove from UserDefaults
             await saveSettings()
             UserDefaults.standard.removeObject(forKey: settingsKey)
-            print("🧹 Removed legacy UserDefaults settings")
+            dlog("🧹 Removed legacy UserDefaults settings")
         }
     }
     
@@ -156,12 +156,12 @@ class NotificationManager: ObservableObject {
     /// Schedule prayer reminder notifications
     func schedulePrayerReminders(time: String) async {
         guard notificationSettings["prayerReminders"] == true else {
-            print("⏭️ Prayer reminders disabled, skipping scheduling")
+            dlog("⏭️ Prayer reminders disabled, skipping scheduling")
             return
         }
         
         guard isAuthorized else {
-            print("⚠️ Notifications not authorized, requesting...")
+            dlog("⚠️ Notifications not authorized, requesting...")
             await requestAuthorization()
             return
         }
@@ -192,9 +192,9 @@ class NotificationManager: ObservableObject {
             
             do {
                 try await center.add(request)
-                print("✅ Scheduled prayer reminder for \(timeSlot.hour):\(String(format: "%02d", timeSlot.minute))")
+                dlog("✅ Scheduled prayer reminder for \(timeSlot.hour):\(String(format: "%02d", timeSlot.minute))")
             } catch {
-                print("❌ Failed to schedule prayer reminder: \(error)")
+                dlog("❌ Failed to schedule prayer reminder: \(error)")
             }
         }
     }
@@ -238,9 +238,9 @@ class NotificationManager: ObservableObject {
         
         do {
             try await center.add(request)
-            print("✅ Sent message notification")
+            dlog("✅ Sent message notification")
         } catch {
-            print("❌ Failed to send message notification: \(error)")
+            dlog("❌ Failed to send message notification: \(error)")
         }
     }
     
@@ -265,19 +265,36 @@ class NotificationManager: ObservableObject {
         
         do {
             try await center.add(request)
-            print("✅ Sent trending post notification")
+            dlog("✅ Sent trending post notification")
         } catch {
-            print("❌ Failed to send trending notification: \(error)")
+            dlog("❌ Failed to send trending notification: \(error)")
         }
     }
     
     // MARK: - Schedule All
     
-    /// Re-schedule all notifications based on current settings
+    /// Re-schedule all notifications based on current settings.
+    /// Called automatically whenever a preference changes via updatePreference(_:enabled:).
     func scheduleAllNotifications() async {
-        // This would be called when settings change
-        // You'll need to store the prayer time preference and re-schedule
-        print("🔄 Re-scheduling all notifications based on settings")
+        dlog("🔄 Re-scheduling all notifications based on settings")
+
+        // Cancel all pending local notifications so we start fresh.
+        center.removeAllPendingNotificationRequests()
+
+        guard isAuthorized else {
+            dlog("⚠️ Notifications not authorized — skipping scheduling")
+            return
+        }
+
+        // Re-schedule prayer reminders if enabled, using the stored time preference.
+        if notificationSettings["prayerReminders"] == true {
+            let storedTime = UserDefaults.standard.string(forKey: "preferredPrayerTime") ?? "Morning"
+            await schedulePrayerReminders(time: storedTime)
+        }
+
+        // Message and trending-post notifications are push-delivered by the server;
+        // no local scheduling needed here beyond the category/action setup.
+        dlog("✅ Notification scheduling complete")
     }
     
     // MARK: - Clear All
@@ -285,7 +302,7 @@ class NotificationManager: ObservableObject {
     /// Remove all pending notifications
     func clearAllNotifications() {
         center.removeAllPendingNotificationRequests()
-        print("🗑️ Cleared all pending notifications")
+        dlog("🗑️ Cleared all pending notifications")
     }
 }
 
@@ -328,6 +345,6 @@ extension NotificationManager {
         )
         
         center.setNotificationCategories([prayerCategory, messageCategory])
-        print("✅ Notification categories setup complete")
+        dlog("✅ Notification categories setup complete")
     }
 }

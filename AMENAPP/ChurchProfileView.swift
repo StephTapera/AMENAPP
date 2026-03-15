@@ -34,7 +34,7 @@ struct ChurchProfileView: View {
                     // ── Scroll-driven expanding sheet layout ──────────────
                     ExpandingBottomSheet(
                         minHeight: 260,
-                        maxHeight: (UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first?.screen.bounds.height ?? UIScreen.main.bounds.height) * 0.82
+                        maxHeight: (UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first?.screen.bounds.height ?? 852) * 0.82
                     ) {
                         // Hero: full-bleed photo fills the space behind the sheet
                         churchHeroBackground(profileData.church)

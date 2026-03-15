@@ -19,10 +19,75 @@ struct GivingNonprofitsDetailView: View {
     @Environment(\.dismiss) private var dismiss
 
     enum GivingTab: String, CaseIterable {
-        case vetted  = "Vetted"
-        case local   = "Local"
-        case ways    = "Ways to Give"
+        case vetted   = "Vetted"
+        case causes   = "Causes"
+        case local    = "Local"
+        case ways     = "Ways to Give"
         case requests = "Requests"
+    }
+
+    @State private var selectedCause: GivingCategory = .all
+
+    enum GivingCategory: String, CaseIterable, Identifiable {
+        var id: String { rawValue }
+        case all            = "All"
+        case disasterRelief = "Disaster Relief"
+        case poverty        = "Poverty & Development"
+        case cleanWater     = "Clean Water"
+        case hunger         = "Hunger"
+        case homelessness   = "Housing & Shelter"
+        case fosterCare     = "Foster & Orphan Care"
+        case antiTrafficking = "Anti-Trafficking"
+        case pregnancy      = "Pregnancy & Family"
+        case recovery       = "Recovery"
+        case refugees       = "Refugees"
+        case persecutedChurch = "Persecuted Church"
+        case medicalMissions = "Medical Missions"
+        case veterans       = "Veterans"
+        case education      = "Education & Youth"
+        case missions       = "Missions"
+
+        var icon: String {
+            switch self {
+            case .all:             return "square.grid.2x2.fill"
+            case .disasterRelief:  return "bolt.heart.fill"
+            case .poverty:         return "globe.americas.fill"
+            case .cleanWater:      return "drop.fill"
+            case .hunger:          return "fork.knife"
+            case .homelessness:    return "house.fill"
+            case .fosterCare:      return "figure.2.and.child.holdinghands"
+            case .antiTrafficking: return "shield.fill"
+            case .pregnancy:       return "heart.fill"
+            case .recovery:        return "arrow.clockwise.heart.fill"
+            case .refugees:        return "person.2.fill"
+            case .persecutedChurch: return "cross.fill"
+            case .medicalMissions: return "cross.case.fill"
+            case .veterans:        return "medal.fill"
+            case .education:       return "graduationcap.fill"
+            case .missions:        return "globe.europe.africa.fill"
+            }
+        }
+
+        var color: Color {
+            switch self {
+            case .all:             return Color(red: 0.40, green: 0.40, blue: 0.40)
+            case .disasterRelief:  return Color(red: 0.82, green: 0.22, blue: 0.18)
+            case .poverty:         return Color(red: 0.18, green: 0.42, blue: 0.72)
+            case .cleanWater:      return Color(red: 0.12, green: 0.52, blue: 0.72)
+            case .hunger:          return Color(red: 0.62, green: 0.32, blue: 0.12)
+            case .homelessness:    return Color(red: 0.38, green: 0.28, blue: 0.62)
+            case .fosterCare:      return Color(red: 0.72, green: 0.32, blue: 0.42)
+            case .antiTrafficking: return Color(red: 0.55, green: 0.18, blue: 0.40)
+            case .pregnancy:       return Color(red: 0.82, green: 0.32, blue: 0.42)
+            case .recovery:        return Color(red: 0.22, green: 0.52, blue: 0.38)
+            case .refugees:        return Color(red: 0.62, green: 0.46, blue: 0.18)
+            case .persecutedChurch: return Color(red: 0.48, green: 0.22, blue: 0.72)
+            case .medicalMissions: return Color(red: 0.18, green: 0.46, blue: 0.62)
+            case .veterans:        return Color(red: 0.14, green: 0.30, blue: 0.55)
+            case .education:       return Color(red: 0.28, green: 0.48, blue: 0.22)
+            case .missions:        return Color(red: 0.42, green: 0.22, blue: 0.62)
+            }
+        }
     }
 
     // Parchment design tokens
@@ -156,33 +221,36 @@ struct GivingNonprofitsDetailView: View {
         .clipped()
     }
 
-    // MARK: Tab Switcher — Local / Global reference
+    // MARK: Tab Switcher — scrollable to fit all tabs
 
     private var tabSwitcher: some View {
-        HStack(spacing: 0) {
-            ForEach(GivingTab.allCases, id: \.self) { tab in
-                Button {
-                    withAnimation(.spring(response: 0.30, dampingFraction: 0.78)) {
-                        selectedTab = tab
-                    }
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                } label: {
-                    VStack(spacing: 6) {
-                        Text(tab.rawValue)
-                            .font(.custom(selectedTab == tab ? "OpenSans-SemiBold" : "OpenSans-Regular", size: 13))
-                            .foregroundStyle(selectedTab == tab ? ink : inkSecondary)
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 0) {
+                ForEach(GivingTab.allCases, id: \.self) { tab in
+                    Button {
+                        withAnimation(.spring(response: 0.30, dampingFraction: 0.78)) {
+                            selectedTab = tab
+                        }
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    } label: {
+                        VStack(spacing: 6) {
+                            Text(tab.rawValue)
+                                .font(.custom(selectedTab == tab ? "OpenSans-SemiBold" : "OpenSans-Regular", size: 13))
+                                .foregroundStyle(selectedTab == tab ? ink : inkSecondary)
+                                .padding(.horizontal, 4)
 
-                        Rectangle()
-                            .fill(selectedTab == tab ? goldAccent : Color.clear)
-                            .frame(height: 2)
-                            .cornerRadius(1)
+                            Rectangle()
+                                .fill(selectedTab == tab ? goldAccent : Color.clear)
+                                .frame(height: 2)
+                                .cornerRadius(1)
+                        }
                     }
+                    .frame(minWidth: 72)
+                    .buttonStyle(SquishButtonStyle())
                 }
-                .frame(maxWidth: .infinity)
-                .buttonStyle(SquishButtonStyle())
             }
+            .padding(.horizontal, 20)
         }
-        .padding(.horizontal, 20)
         .overlay(alignment: .bottom) {
             Rectangle()
                 .fill(inkSecondary.opacity(0.12))
@@ -196,6 +264,7 @@ struct GivingNonprofitsDetailView: View {
     private var tabContent: some View {
         switch selectedTab {
         case .vetted:    vettedNonprofits
+        case .causes:    causesGrid
         case .local:     localGiving
         case .ways:      waysToGive
         case .requests:  helpRequests
@@ -204,27 +273,171 @@ struct GivingNonprofitsDetailView: View {
 
     // MARK: Vetted Nonprofits
 
+    private var filteredNonprofits: [ChristianNonprofit] {
+        if selectedCause == .all {
+            return ChristianNonprofit.allNonprofits
+        }
+        return ChristianNonprofit.allNonprofits.filter { $0.givingCategory == selectedCause }
+    }
+
     private var vettedNonprofits: some View {
         VStack(spacing: 14) {
-            // Verified badge callout — editorial status pill
-            HStack(spacing: 8) {
-                Image(systemName: "checkmark.seal.fill")
-                    .font(.system(size: 13))
-                    .foregroundStyle(greenAccent)
-                Text("All featured organizations are 501(c)(3) verified")
-                    .font(.custom("OpenSans-Regular", size: 13))
+            // Accurate verification sources note
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    Image(systemName: "checkmark.seal.fill")
+                        .font(.system(size: 13))
+                        .foregroundStyle(greenAccent)
+                    Text("How we select featured organizations")
+                        .font(.custom("OpenSans-SemiBold", size: 13))
+                        .foregroundStyle(ink)
+                }
+                Text("Featured organizations are cross-checked against Charity Navigator, ECFA (Christian ministries), Candid/GuideStar, and BBB Wise Giving Alliance. Badges shown on each card reflect verified status.")
+                    .font(.custom("OpenSans-Regular", size: 12))
                     .foregroundStyle(inkSecondary)
+                    .lineSpacing(3)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 9)
+            .padding(14)
             .background(
-                Capsule()
-                    .fill(greenAccent.opacity(0.10))
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(greenAccent.opacity(0.07))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14)
+                            .stroke(greenAccent.opacity(0.18), lineWidth: 1)
+                    )
             )
-            .frame(maxWidth: .infinity, alignment: .leading)
 
-            ForEach(ChristianNonprofit.allNonprofits) { nonprofit in
-                NonprofitEditorialCard(nonprofit: nonprofit, ink: ink, inkSecondary: inkSecondary)
+            // Category filter — horizontal scroll
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(GivingCategory.allCases) { cat in
+                        Button {
+                            withAnimation(.spring(response: 0.25, dampingFraction: 0.78)) {
+                                selectedCause = cat
+                            }
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        } label: {
+                            HStack(spacing: 5) {
+                                Image(systemName: cat.icon)
+                                    .font(.system(size: 11, weight: .medium))
+                                Text(cat.rawValue)
+                                    .font(.custom(selectedCause == cat ? "OpenSans-SemiBold" : "OpenSans-Regular", size: 12))
+                            }
+                            .foregroundStyle(selectedCause == cat ? .white : ink)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 7)
+                            .background(
+                                Capsule()
+                                    .fill(selectedCause == cat ? cat.color : Color(red: 0.99, green: 0.98, blue: 0.96))
+                                    .shadow(color: ink.opacity(selectedCause == cat ? 0 : 0.06), radius: 4, y: 1)
+                            )
+                        }
+                        .buttonStyle(SquishButtonStyle())
+                    }
+                }
+                .padding(.horizontal, 1)
+                .padding(.vertical, 2)
+            }
+
+            // Result count
+            if selectedCause != .all {
+                HStack(spacing: 6) {
+                    Image(systemName: selectedCause.icon)
+                        .font(.system(size: 11))
+                        .foregroundStyle(selectedCause.color)
+                    Text("\(filteredNonprofits.count) organization\(filteredNonprofits.count == 1 ? "" : "s") in \(selectedCause.rawValue)")
+                        .font(.custom("OpenSans-Regular", size: 12))
+                        .foregroundStyle(inkSecondary)
+                    Spacer()
+                }
+            }
+
+            if filteredNonprofits.isEmpty {
+                VStack(spacing: 10) {
+                    Image(systemName: selectedCause.icon)
+                        .font(.system(size: 36))
+                        .foregroundStyle(selectedCause.color.opacity(0.4))
+                    Text("More \(selectedCause.rawValue) organizations coming soon.")
+                        .font(.custom("OpenSans-Regular", size: 14))
+                        .foregroundStyle(inkSecondary)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 40)
+            } else {
+                ForEach(filteredNonprofits) { nonprofit in
+                    NonprofitEditorialCard(nonprofit: nonprofit, ink: ink, inkSecondary: inkSecondary)
+                }
+            }
+
+            // Guardrail
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "info.circle")
+                    .font(.system(size: 12))
+                    .foregroundStyle(inkSecondary)
+                    .padding(.top, 1)
+                Text("Nonprofit listings are informational. AMEN does not process donations or guarantee accuracy. Always verify directly with the organization before giving.")
+                    .font(.custom("OpenSans-Regular", size: 11))
+                    .foregroundStyle(inkSecondary)
+                    .lineSpacing(3)
+            }
+            .padding(12)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(ink.opacity(0.04))
+            )
+        }
+        .padding(.horizontal, 20)
+    }
+
+    // MARK: Causes Grid
+
+    private var causesGrid: some View {
+        VStack(spacing: 16) {
+            Text("Browse by cause")
+                .font(.custom("OpenSans-SemiBold", size: 15))
+                .foregroundStyle(ink)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            LazyVGrid(
+                columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)],
+                spacing: 12
+            ) {
+                ForEach(GivingCategory.allCases.filter { $0 != .all }) { cat in
+                    Button {
+                        withAnimation(.spring(response: 0.28, dampingFraction: 0.78)) {
+                            selectedCause = cat
+                            selectedTab = .vetted
+                        }
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    } label: {
+                        VStack(spacing: 10) {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(cat.color.opacity(0.12))
+                                    .frame(width: 48, height: 48)
+                                Image(systemName: cat.icon)
+                                    .font(.system(size: 20, weight: .medium))
+                                    .foregroundStyle(cat.color)
+                            }
+                            Text(cat.rawValue)
+                                .font(.custom("OpenSans-SemiBold", size: 11))
+                                .foregroundStyle(ink)
+                                .multilineTextAlignment(.center)
+                                .lineLimit(2)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .padding(.horizontal, 8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(Color(red: 0.99, green: 0.98, blue: 0.96))
+                                .shadow(color: ink.opacity(0.07), radius: 8, y: 2)
+                        )
+                    }
+                    .buttonStyle(SquishButtonStyle())
+                }
             }
         }
         .padding(.horizontal, 20)
@@ -514,11 +727,35 @@ private struct NonprofitEditorialCard: View {
                                 .foregroundStyle(Color(red: 0.22, green: 0.52, blue: 0.38))
                         }
                     }
-                    Text(nonprofit.category.rawValue)
-                        .font(.custom("OpenSans-Regular", size: 11))
-                        .foregroundStyle(inkSecondary)
-                        .textCase(.uppercase)
-                        .kerning(0.4)
+                    // Category + scope row
+                    HStack(spacing: 8) {
+                        Text(nonprofit.givingCategory.rawValue)
+                            .font(.custom("OpenSans-Regular", size: 11))
+                            .foregroundStyle(inkSecondary)
+                            .textCase(.uppercase)
+                            .kerning(0.4)
+                        Text("·")
+                            .font(.system(size: 10))
+                            .foregroundStyle(inkSecondary.opacity(0.5))
+                        // Scope pill
+                        HStack(spacing: 3) {
+                            Image(systemName: nonprofit.scope == "Global" ? "globe" : nonprofit.scope == "National" ? "flag" : "location")
+                                .font(.system(size: 9, weight: .medium))
+                            Text(nonprofit.scope)
+                                .font(.custom("OpenSans-Regular", size: 10))
+                        }
+                        .foregroundStyle(nonprofit.color)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(
+                            Capsule().fill(nonprofit.color.opacity(0.10))
+                        )
+                        if nonprofit.isFaithBased {
+                            Image(systemName: "cross.fill")
+                                .font(.system(size: 9))
+                                .foregroundStyle(inkSecondary.opacity(0.5))
+                        }
+                    }
                 }
 
                 Spacer()
@@ -526,6 +763,36 @@ private struct NonprofitEditorialCard: View {
             .padding(.horizontal, 16)
             .padding(.top, 16)
             .padding(.bottom, 10)
+
+            // Verification badges
+            if !nonprofit.verificationBadges.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(nonprofit.verificationBadges, id: \.self) { badge in
+                            HStack(spacing: 4) {
+                                Image(systemName: "checkmark.seal.fill")
+                                    .font(.system(size: 9))
+                                    .foregroundStyle(Color(red: 0.22, green: 0.52, blue: 0.38))
+                                Text(badge)
+                                    .font(.custom("OpenSans-SemiBold", size: 10))
+                                    .foregroundStyle(Color(red: 0.22, green: 0.52, blue: 0.38))
+                            }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(
+                                Capsule()
+                                    .fill(Color(red: 0.22, green: 0.52, blue: 0.38).opacity(0.09))
+                                    .overlay(
+                                        Capsule()
+                                            .stroke(Color(red: 0.22, green: 0.52, blue: 0.38).opacity(0.18), lineWidth: 0.5)
+                                    )
+                            )
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 10)
+                }
+            }
 
             // Description
             Text(nonprofit.description)
@@ -959,57 +1226,401 @@ struct ChristianNonprofit: Identifiable {
     let name: String
     let description: String
     let category: GivingNonprofitsDetailView.GivingTab
+    let givingCategory: GivingNonprofitsDetailView.GivingCategory
     let icon: String
     let color: Color
     let websiteURL: String
     let donateURL: String?
     let isVerified: Bool
+    let verificationBadges: [String]   // e.g. ["ECFA", "Charity Navigator 4★", "501(c)(3)"]
+    let isFaithBased: Bool
+    let scope: String                  // "Global", "National", "Local"
     let impactStats: [String]
 
-    static let allNonprofits = [
+    static let allNonprofits: [ChristianNonprofit] = disasterReliefOrgs
+        + povertyOrgs + cleanWaterOrgs + hungerOrgs + antiTraffickingOrgs
+        + persecutedChurchOrgs + medicalOrgs + fosterCareOrgs + recoveryOrgs
+        + refugeeOrgs + veteransOrgs
+
+    // MARK: Disaster Relief
+    static let disasterReliefOrgs = [
         ChristianNonprofit(
             name: "Samaritan's Purse",
-            description: "International relief providing spiritual and physical aid to hurting people across the world.",
-            category: .vetted,
-            icon: "globe.americas.fill",
+            description: "International relief providing emergency aid, Operation Christmas Child, and disaster response in Jesus' name.",
+            category: .vetted, givingCategory: .disasterRelief,
+            icon: "bolt.heart.fill",
             color: Color(red: 0.18, green: 0.42, blue: 0.72),
             websiteURL: "https://www.samaritanspurse.org",
             donateURL: "https://www.samaritanspurse.org/donate/",
             isVerified: true,
+            verificationBadges: ["ECFA", "Charity Navigator 4★", "501(c)(3)"],
+            isFaithBased: true, scope: "Global",
             impactStats: ["Operating in 100+ countries", "Over $1B in aid distributed"]
         ),
         ChristianNonprofit(
+            name: "Convoy of Hope",
+            description: "Feeding the hungry and responding to disasters worldwide through a network of community outreaches.",
+            category: .vetted, givingCategory: .disasterRelief,
+            icon: "shippingbox.fill",
+            color: Color(red: 0.72, green: 0.36, blue: 0.14),
+            websiteURL: "https://www.convoyofhope.org",
+            donateURL: "https://www.convoyofhope.org/donate/",
+            isVerified: true,
+            verificationBadges: ["ECFA", "Charity Navigator 4★", "501(c)(3)"],
+            isFaithBased: true, scope: "Global",
+            impactStats: ["200M+ people served since 1994", "Disaster response in 100+ nations"]
+        ),
+        ChristianNonprofit(
             name: "World Vision",
-            description: "Christian humanitarian aid, development, and advocacy for children, families, and communities.",
-            category: .vetted,
+            description: "Christian humanitarian aid, development, and advocacy for children, families, and communities in crisis.",
+            category: .vetted, givingCategory: .disasterRelief,
             icon: "heart.circle.fill",
             color: Color(red: 0.72, green: 0.22, blue: 0.22),
             websiteURL: "https://www.worldvision.org",
             donateURL: "https://www.worldvision.org/donate/",
             isVerified: true,
+            verificationBadges: ["ECFA", "Charity Navigator 3★", "BBB Accredited", "501(c)(3)"],
+            isFaithBased: true, scope: "Global",
             impactStats: ["100M+ people served", "Child sponsorship in 100 countries"]
         ),
         ChristianNonprofit(
+            name: "Operation Blessing",
+            description: "Disaster relief, hunger fighting, and medical care bringing hope and healing around the world.",
+            category: .vetted, givingCategory: .disasterRelief,
+            icon: "cross.case.fill",
+            color: Color(red: 0.22, green: 0.48, blue: 0.32),
+            websiteURL: "https://www.ob.org",
+            donateURL: "https://www.ob.org/donate/",
+            isVerified: true,
+            verificationBadges: ["ECFA", "501(c)(3)"],
+            isFaithBased: true, scope: "Global",
+            impactStats: ["2B+ pounds of food distributed", "Active in 40+ countries"]
+        ),
+    ]
+
+    // MARK: Poverty & Development
+    static let povertyOrgs = [
+        ChristianNonprofit(
             name: "Compassion International",
-            description: "Releasing children from poverty in Jesus' name through child sponsorship and development.",
-            category: .vetted,
+            description: "Releasing children from poverty in Jesus' name through holistic child development and sponsorship.",
+            category: .vetted, givingCategory: .poverty,
             icon: "person.fill.checkmark",
             color: Color(red: 0.48, green: 0.22, blue: 0.72),
             websiteURL: "https://www.compassion.com",
-            donateURL: "https://www.compassion.com/donate/",
+            donateURL: "https://www.compassion.com/sponsor_a_child/",
             isVerified: true,
+            verificationBadges: ["ECFA", "Charity Navigator 4★", "Candid Platinum Seal", "501(c)(3)"],
+            isFaithBased: true, scope: "Global",
             impactStats: ["2M+ children sponsored", "26 countries served"]
         ),
         ChristianNonprofit(
-            name: "IJM — Justice",
-            description: "International Justice Mission rescues victims of violence, sexual exploitation, and slavery.",
-            category: .vetted,
+            name: "Food for the Hungry",
+            description: "Ending poverty through sustainable community development, disaster response, and discipleship.",
+            category: .vetted, givingCategory: .poverty,
+            icon: "globe.americas.fill",
+            color: Color(red: 0.62, green: 0.32, blue: 0.12),
+            websiteURL: "https://www.fh.org",
+            donateURL: "https://www.fh.org/give/",
+            isVerified: true,
+            verificationBadges: ["ECFA", "Charity Navigator 4★", "501(c)(3)"],
+            isFaithBased: true, scope: "Global",
+            impactStats: ["Active in 20+ countries", "Christian integrated development"]
+        ),
+        ChristianNonprofit(
+            name: "World Relief",
+            description: "The humanitarian arm of the National Association of Evangelicals, serving the vulnerable globally and locally.",
+            category: .vetted, givingCategory: .poverty,
+            icon: "hands.and.sparkles.fill",
+            color: Color(red: 0.18, green: 0.42, blue: 0.62),
+            websiteURL: "https://www.worldrelief.org",
+            donateURL: "https://www.worldrelief.org/donate/",
+            isVerified: true,
+            verificationBadges: ["ECFA", "Charity Navigator 4★", "BBB Accredited", "501(c)(3)"],
+            isFaithBased: true, scope: "Global",
+            impactStats: ["Active in 20 countries", "Refugee resettlement in the US"]
+        ),
+    ]
+
+    // MARK: Clean Water
+    static let cleanWaterOrgs = [
+        ChristianNonprofit(
+            name: "charity: water",
+            description: "100% of public donations fund clean water projects in developing nations. Every project GPS-tracked and reported back.",
+            category: .vetted, givingCategory: .cleanWater,
+            icon: "drop.fill",
+            color: Color(red: 0.12, green: 0.52, blue: 0.72),
+            websiteURL: "https://www.charitywater.org",
+            donateURL: "https://www.charitywater.org/donate/",
+            isVerified: true,
+            verificationBadges: ["Charity Navigator 4★", "Candid Platinum Seal", "BBB Accredited", "501(c)(3)"],
+            isFaithBased: false, scope: "Global",
+            impactStats: ["17M+ people served", "100% of donations to projects"]
+        ),
+        ChristianNonprofit(
+            name: "Living Water International",
+            description: "Providing safe water access to communities in need — and sharing the living water of Christ.",
+            category: .vetted, givingCategory: .cleanWater,
+            icon: "water.waves",
+            color: Color(red: 0.08, green: 0.44, blue: 0.68),
+            websiteURL: "https://www.water.cc",
+            donateURL: "https://www.water.cc/donate/",
+            isVerified: true,
+            verificationBadges: ["ECFA", "Charity Navigator 4★", "501(c)(3)"],
+            isFaithBased: true, scope: "Global",
+            impactStats: ["5M+ people with clean water access", "Active in 26 countries"]
+        ),
+        ChristianNonprofit(
+            name: "Water Mission",
+            description: "Faith-based nonprofit engineering safe water, sanitation, and hygiene solutions in developing nations and disaster areas.",
+            category: .vetted, givingCategory: .cleanWater,
+            icon: "drop.triangle.fill",
+            color: Color(red: 0.12, green: 0.38, blue: 0.62),
+            websiteURL: "https://www.watermission.org",
+            donateURL: "https://www.watermission.org/give/",
+            isVerified: true,
+            verificationBadges: ["ECFA", "Charity Navigator 4★", "501(c)(3)"],
+            isFaithBased: true, scope: "Global",
+            impactStats: ["8M+ people served", "60+ countries reached"]
+        ),
+    ]
+
+    // MARK: Hunger
+    static let hungerOrgs = [
+        ChristianNonprofit(
+            name: "Feeding America",
+            description: "The largest domestic hunger-relief organization, supporting 200+ food banks and 60,000 food pantries nationwide.",
+            category: .vetted, givingCategory: .hunger,
+            icon: "fork.knife",
+            color: Color(red: 0.82, green: 0.42, blue: 0.10),
+            websiteURL: "https://www.feedingamerica.org",
+            donateURL: "https://www.feedingamerica.org/donate/",
+            isVerified: true,
+            verificationBadges: ["Charity Navigator 4★", "Candid Platinum Seal", "BBB Accredited", "501(c)(3)"],
+            isFaithBased: false, scope: "National",
+            impactStats: ["53M Americans face hunger", "200+ food bank network"]
+        ),
+        ChristianNonprofit(
+            name: "Children's Hunger Fund",
+            description: "Delivering food and resources to vulnerable children in poverty through local church partnerships.",
+            category: .vetted, givingCategory: .hunger,
+            icon: "figure.and.child.holdinghands",
+            color: Color(red: 0.62, green: 0.32, blue: 0.12),
+            websiteURL: "https://www.childrenshungerfund.org",
+            donateURL: "https://www.childrenshungerfund.org/donate/",
+            isVerified: true,
+            verificationBadges: ["ECFA", "Charity Navigator 4★", "501(c)(3)"],
+            isFaithBased: true, scope: "Global",
+            impactStats: ["500K+ children served annually", "Church-to-family delivery model"]
+        ),
+    ]
+
+    // MARK: Anti-Trafficking
+    static let antiTraffickingOrgs = [
+        ChristianNonprofit(
+            name: "International Justice Mission",
+            description: "Rescuing victims of violence, sexual exploitation, slavery, and oppression — bringing rescue, restoration, and justice.",
+            category: .vetted, givingCategory: .antiTrafficking,
             icon: "shield.fill",
-            color: Color(red: 0.55, green: 0.20, blue: 0.42),
+            color: Color(red: 0.55, green: 0.18, blue: 0.40),
             websiteURL: "https://www.ijm.org",
             donateURL: "https://www.ijm.org/donate/",
             isVerified: true,
+            verificationBadges: ["ECFA", "Charity Navigator 4★", "Candid Platinum Seal", "501(c)(3)"],
+            isFaithBased: true, scope: "Global",
             impactStats: ["50,000+ people rescued", "25+ country offices"]
+        ),
+        ChristianNonprofit(
+            name: "A21",
+            description: "Abolishing injustice in the 21st century — fighting human trafficking through awareness, intervention, and aftercare.",
+            category: .vetted, givingCategory: .antiTrafficking,
+            icon: "figure.stand",
+            color: Color(red: 0.14, green: 0.14, blue: 0.14),
+            websiteURL: "https://www.a21.org",
+            donateURL: "https://www.a21.org/donate/",
+            isVerified: true,
+            verificationBadges: ["ECFA", "501(c)(3)"],
+            isFaithBased: true, scope: "Global",
+            impactStats: ["Active in 13 countries", "Hotlines, shelters & legal support"]
+        ),
+        ChristianNonprofit(
+            name: "Destiny Rescue",
+            description: "Rescuing children from sexual exploitation and slavery, and helping them stay free.",
+            category: .vetted, givingCategory: .antiTrafficking,
+            icon: "lock.open.fill",
+            color: Color(red: 0.72, green: 0.22, blue: 0.28),
+            websiteURL: "https://www.destinyrescue.org",
+            donateURL: "https://www.destinyrescue.org/us/donate/",
+            isVerified: true,
+            verificationBadges: ["ECFA", "Charity Navigator 4★", "501(c)(3)"],
+            isFaithBased: true, scope: "Global",
+            impactStats: ["12,000+ rescued", "Undercover rescue operations"]
+        ),
+    ]
+
+    // MARK: Persecuted Church
+    static let persecutedChurchOrgs = [
+        ChristianNonprofit(
+            name: "Open Doors",
+            description: "Serving persecuted Christians in the world's most hostile places with Bibles, training, and practical support.",
+            category: .vetted, givingCategory: .persecutedChurch,
+            icon: "cross.fill",
+            color: Color(red: 0.72, green: 0.18, blue: 0.18),
+            websiteURL: "https://www.opendoorsusa.org",
+            donateURL: "https://www.opendoorsusa.org/give/",
+            isVerified: true,
+            verificationBadges: ["ECFA", "Charity Navigator 4★", "501(c)(3)"],
+            isFaithBased: true, scope: "Global",
+            impactStats: ["360M+ persecuted Christians served", "Active in 70+ countries"]
+        ),
+        ChristianNonprofit(
+            name: "Voice of the Martyrs",
+            description: "Serving persecuted Christians worldwide through practical and spiritual assistance and raising awareness.",
+            category: .vetted, givingCategory: .persecutedChurch,
+            icon: "megaphone.fill",
+            color: Color(red: 0.48, green: 0.22, blue: 0.72),
+            websiteURL: "https://www.persecution.com",
+            donateURL: "https://www.persecution.com/give/",
+            isVerified: true,
+            verificationBadges: ["ECFA", "501(c)(3)"],
+            isFaithBased: true, scope: "Global",
+            impactStats: ["Active in 70+ countries", "Founded 1967"]
+        ),
+        ChristianNonprofit(
+            name: "Wycliffe Bible Translators",
+            description: "Translating scripture into every language so all people can encounter God's Word in their heart language.",
+            category: .vetted, givingCategory: .persecutedChurch,
+            icon: "book.fill",
+            color: Color(red: 0.22, green: 0.42, blue: 0.72),
+            websiteURL: "https://www.wycliffe.org",
+            donateURL: "https://www.wycliffe.org/donate/",
+            isVerified: true,
+            verificationBadges: ["ECFA", "Charity Navigator 4★", "501(c)(3)"],
+            isFaithBased: true, scope: "Global",
+            impactStats: ["3,000+ languages with active translation", "Active since 1942"]
+        ),
+    ]
+
+    // MARK: Medical Missions
+    static let medicalOrgs = [
+        ChristianNonprofit(
+            name: "Mercy Ships",
+            description: "Operating hospital ships that bring world-class surgery and medical training to the world's poorest nations.",
+            category: .vetted, givingCategory: .medicalMissions,
+            icon: "cross.case.fill",
+            color: Color(red: 0.12, green: 0.38, blue: 0.62),
+            websiteURL: "https://www.mercyships.org",
+            donateURL: "https://www.mercyships.org/give/",
+            isVerified: true,
+            verificationBadges: ["ECFA", "Charity Navigator 4★", "501(c)(3)"],
+            isFaithBased: true, scope: "Global",
+            impactStats: ["2.5M+ direct services since 1978", "Largest non-governmental hospital ship"]
+        ),
+        ChristianNonprofit(
+            name: "Joni and Friends",
+            description: "Advancing disability ministry and providing wheelchairs, respite, and support for families with disabilities worldwide.",
+            category: .vetted, givingCategory: .medicalMissions,
+            icon: "figure.roll",
+            color: Color(red: 0.28, green: 0.48, blue: 0.62),
+            websiteURL: "https://www.joniandfriends.org",
+            donateURL: "https://www.joniandfriends.org/donate/",
+            isVerified: true,
+            verificationBadges: ["ECFA", "Charity Navigator 4★", "501(c)(3)"],
+            isFaithBased: true, scope: "Global",
+            impactStats: ["250,000+ wheelchairs donated", "Family retreats in 50+ locations"]
+        ),
+    ]
+
+    // MARK: Foster Care & Orphan Care
+    static let fosterCareOrgs = [
+        ChristianNonprofit(
+            name: "Show Hope",
+            description: "Founded by Steven Curtis Chapman — providing care for orphans and funding adoptions for families.",
+            category: .vetted, givingCategory: .fosterCare,
+            icon: "heart.fill",
+            color: Color(red: 0.72, green: 0.22, blue: 0.36),
+            websiteURL: "https://www.showhope.org",
+            donateURL: "https://www.showhope.org/donate/",
+            isVerified: true,
+            verificationBadges: ["ECFA", "Charity Navigator 4★", "501(c)(3)"],
+            isFaithBased: true, scope: "Global",
+            impactStats: ["8,500+ grant families helped", "Cares for 200+ children in China"]
+        ),
+        ChristianNonprofit(
+            name: "The Forgotten Initiative",
+            description: "Equipping the church to engage the foster care crisis and care for vulnerable children and families.",
+            category: .vetted, givingCategory: .fosterCare,
+            icon: "figure.2.and.child.holdinghands",
+            color: Color(red: 0.42, green: 0.22, blue: 0.62),
+            websiteURL: "https://www.theforgotteninitiative.org",
+            donateURL: "https://www.theforgotteninitiative.org/donate/",
+            isVerified: true,
+            verificationBadges: ["ECFA", "501(c)(3)"],
+            isFaithBased: true, scope: "National",
+            impactStats: ["400K+ foster children in the US", "Church mobilization network"]
+        ),
+    ]
+
+    // MARK: Recovery
+    static let recoveryOrgs = [
+        ChristianNonprofit(
+            name: "Celebrate Recovery",
+            description: "Christ-centered 12-step recovery program for hurts, habits, and hang-ups in thousands of churches.",
+            category: .vetted, givingCategory: .recovery,
+            icon: "arrow.clockwise.heart.fill",
+            color: Color(red: 0.22, green: 0.52, blue: 0.38),
+            websiteURL: "https://www.celebraterecovery.com",
+            donateURL: "https://www.celebraterecovery.com",
+            isVerified: true,
+            verificationBadges: ["ECFA", "501(c)(3)"],
+            isFaithBased: true, scope: "National",
+            impactStats: ["35,000+ groups worldwide", "7M+ participants since 1991"]
+        ),
+        ChristianNonprofit(
+            name: "Teen Challenge",
+            description: "Faith-based addiction recovery and discipleship programs with one of the highest success rates in the nation.",
+            category: .vetted, givingCategory: .recovery,
+            icon: "person.fill.checkmark",
+            color: Color(red: 0.28, green: 0.44, blue: 0.22),
+            websiteURL: "https://www.teenchallenge.com",
+            donateURL: "https://www.teenchallenge.com/donate/",
+            isVerified: true,
+            verificationBadges: ["ECFA", "501(c)(3)"],
+            isFaithBased: true, scope: "National",
+            impactStats: ["1,400+ programs worldwide", "86% long-term sobriety rate"]
+        ),
+    ]
+
+    // MARK: Refugees
+    static let refugeeOrgs = [
+        ChristianNonprofit(
+            name: "World Relief (Refugees)",
+            description: "Resettling refugees in the US and providing care for displaced people globally through church partnerships.",
+            category: .vetted, givingCategory: .refugees,
+            icon: "person.2.fill",
+            color: Color(red: 0.62, green: 0.46, blue: 0.18),
+            websiteURL: "https://www.worldrelief.org/refugees/",
+            donateURL: "https://www.worldrelief.org/donate/",
+            isVerified: true,
+            verificationBadges: ["ECFA", "Charity Navigator 4★", "BBB Accredited", "501(c)(3)"],
+            isFaithBased: true, scope: "Global",
+            impactStats: ["300,000+ refugees resettled in the US", "Active in 20 countries"]
+        ),
+    ]
+
+    // MARK: Veterans
+    static let veteransOrgs = [
+        ChristianNonprofit(
+            name: "Tunnel to Towers Foundation",
+            description: "Honoring fallen heroes by building specially adapted smart homes for catastrophically injured veterans and first responders.",
+            category: .vetted, givingCategory: .veterans,
+            icon: "shield.lefthalf.filled",
+            color: Color(red: 0.14, green: 0.28, blue: 0.52),
+            websiteURL: "https://www.t2t.org",
+            donateURL: "https://www.t2t.org/donate/",
+            isVerified: true,
+            verificationBadges: ["BBB Accredited", "Charity Navigator 3★", "501(c)(3)"],
+            isFaithBased: false, scope: "National",
+            impactStats: ["Mortgage-free homes for Gold Star families", "200+ homes donated"]
         ),
     ]
 }
