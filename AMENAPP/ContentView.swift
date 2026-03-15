@@ -2283,6 +2283,14 @@ struct SearchButton: View {
                                 )
                         )
                         .shadow(color: .black.opacity(0.08), radius: 4, y: 2)
+                    // Soft glow halo on first launch to invite discovery
+                    if showFirstTimeLongPressHint {
+                        Circle()
+                            .fill(Color.blue.opacity(0.15))
+                            .frame(width: 56, height: 56)
+                            .blur(radius: 8)
+                            .scaleEffect(isAnimating ? 1.2 : 0.9)
+                    }
 
                     Image("amen-logo")
                         .resizable()
@@ -5136,6 +5144,7 @@ struct DailyVerseBanner: View {
     @ObservedObject private var verseService = DailyVerseGenkitService.shared
     @ObservedObject private var userService = UserService.shared
     @State private var showColorPicker = false
+    @State private var showVerseDetail = false
     @State private var localColorId: String = UserDefaults.standard.string(forKey: "bannerColorId") ?? "red"
 
     private var activeColor: BannerColorOption {
@@ -5234,10 +5243,22 @@ struct DailyVerseBanner: View {
             }
         }
         .shadow(color: activeColor.shadow.opacity(0.35), radius: 12, x: 0, y: 6)
+        .contentShape(Rectangle())
+        // Tap opens verse detail with share + reflect options
+        .onTapGesture {
+            HapticManager.impact(style: .light)
+            showVerseDetail = true
+        }
         // Long-press opens color picker (only for current user's own feed)
         .onLongPressGesture(minimumDuration: 0.4) {
             HapticManager.impact(style: .medium)
             showColorPicker = true
+        }
+        .sheet(isPresented: $showVerseDetail) {
+            DailyVerseDetailSheet(
+                verse: verseService.todayVerse,
+                color: activeColor
+            )
         }
         .sheet(isPresented: $showColorPicker) {
             BannerColorPickerSheet(selectedColorId: $localColorId) { newColorId in
@@ -5273,6 +5294,105 @@ struct DailyVerseBanner: View {
                 Task.detached {
                     _ = await DailyVerseGenkitService.shared.generatePersonalizedDailyVerse()
                 }
+            }
+        }
+    }
+}
+
+// MARK: - Daily Verse Detail Sheet
+
+struct DailyVerseDetailSheet: View {
+    let verse: PersonalizedDailyVerse?
+    let color: BannerColorOption
+    @Environment(\.dismiss) private var dismiss
+    @State private var showBerean = false
+
+    private var reference: String {
+        verse?.reference ?? "Jeremiah 29:11"
+    }
+
+    private var text: String {
+        verse?.text ?? "\"For I know the plans I have for you,\" declares the LORD, \"plans to prosper you and not to harm you, plans to give you hope and a future.\""
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 24) {
+                    // Verse card
+                    VStack(spacing: 16) {
+                        Text(text)
+                            .font(.custom("OpenSans-Regular", size: 20))
+                            .foregroundStyle(.white)
+                            .lineSpacing(6)
+                            .multilineTextAlignment(.leading)
+
+                        Text("— \(reference)")
+                            .font(.custom("OpenSans-SemiBold", size: 15))
+                            .foregroundStyle(.white.opacity(0.8))
+                            .frame(maxWidth: .infinity, alignment: .trailing)
+                    }
+                    .padding(24)
+                    .background(
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .fill(
+                                LinearGradient(
+                                    colors: [color.top, color.bottom],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                    )
+                    .padding(.horizontal)
+
+                    // Action buttons
+                    VStack(spacing: 12) {
+                        Button {
+                            showBerean = true
+                        } label: {
+                            Label("Reflect with Berean", systemImage: "sparkles")
+                                .font(.custom("OpenSans-SemiBold", size: 16))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 14)
+                                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        }
+
+                        ShareLink(item: "\(text)\n\n— \(reference)\n\nShared from AMEN") {
+                            Label("Share Verse", systemImage: "square.and.arrow.up")
+                                .font(.custom("OpenSans-SemiBold", size: 16))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 14)
+                                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        }
+                    }
+                    .padding(.horizontal)
+
+                    // Reflection prompt
+                    if let reflection = verse?.reflection, !reflection.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Today's Reflection")
+                                .font(.custom("OpenSans-Bold", size: 15))
+                                .foregroundStyle(.primary)
+                            Text(reflection)
+                                .font(.custom("OpenSans-Regular", size: 15))
+                                .foregroundStyle(.secondary)
+                                .lineSpacing(4)
+                        }
+                        .padding(.horizontal)
+                    }
+                }
+                .padding(.top, 20)
+            }
+            .navigationTitle("Daily Verse")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                        .font(.custom("OpenSans-SemiBold", size: 16))
+                }
+            }
+            .sheet(isPresented: $showBerean) {
+                BereanAIAssistantView()
             }
         }
     }
