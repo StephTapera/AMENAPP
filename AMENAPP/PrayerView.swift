@@ -1506,11 +1506,15 @@ struct PrayerPostCard: View {
     @ViewBuilder
     private var contentSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(content)
-                .font(.custom("OpenSans-Regular", size: 15))
-                .foregroundStyle(.black.opacity(0.9))
-                .lineSpacing(6)
-                .fixedSize(horizontal: false, vertical: true)
+            TranslatableTextBlock(
+                text: content,
+                contentType: .prayerRequest,
+                contentId: post.firebaseId ?? post.id.uuidString,
+                surface: .feed,
+                isPublicContent: true,
+                font: .custom("OpenSans-Regular", size: 15),
+                foregroundColor: .black.opacity(0.9)
+            )
 
             // ✅ Display post images with fast cached loading
             if let imageURLs = post.imageURLs, !imageURLs.isEmpty {

@@ -595,7 +595,11 @@ exports.checkUsernameAvailability = authenticationHelpers.checkUsernameAvailabil
 
 // Username → email resolver (used by SignInView for username-based login)
 // Secure: email never stored in public Firestore; Admin SDK resolves uid → email server-side.
+// Falls back to users collection query if usernameLookup doc is missing, and backfills it.
 exports.resolveUsernameToEmail = authenticationHelpers.resolveUsernameToEmail;
+
+// One-time backfill: populates usernameLookup for accounts pre-dating the index.
+exports.backfillUsernameLookup = authenticationHelpers.backfillUsernameLookup;
 
 // P0-3: Account Deletion Cascade
 exports.onUserDeleted = authenticationHelpers.onUserDeleted;
@@ -814,3 +818,9 @@ exports.onEventRSVPCreated  = onEventRSVPCreated;
 exports.onEventRSVPUpdated  = onEventRSVPUpdated;
 exports.sendEventReminders  = sendEventReminders;
 exports.sendPostEventFollowUp = sendPostEventFollowUp;
+
+// ============================================================================
+// TRANSLATION — Google Cloud Translation API v3
+// ============================================================================
+const {translateText} = require("./translationFunctions");
+exports.translateText = translateText;
