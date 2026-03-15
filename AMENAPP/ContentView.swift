@@ -26,7 +26,12 @@ struct ContentView: View {
     // ⚡️ P1-3 FIX: Extracted specific state from singletons to avoid ContentView
     // redrawing on every @Published change in SessionTimeoutManager, AppReadyStateManager,
     // AppUsageTracker, and SundayChurchFocusManager. Action calls go direct to .shared.
-    @State private var isShowingLoadingScreen = false
+    // Pre-seed from AppReadyStateManager so the overlay is already true on the FIRST
+    // SwiftUI render when a cached user exists. Using = false here means the @State
+    // initializes before .onReceive fires, leaving a 1-frame window where the overlay
+    // is down and SignInView is visible. Seeding from .shared.isShowingLoadingScreen
+    // closes that window entirely.
+    @State private var isShowingLoadingScreen = AppReadyStateManager.shared.isShowingLoadingScreen
     @State private var showLimitReachedDialog = false
     @State private var showCreatePost: Bool
     @State private var showCreateQuickActions = false
@@ -59,6 +64,11 @@ struct ContentView: View {
     // Idempotency gate: prevents core service startup from running more than once
     // per session even if mainContent.onAppear fires multiple times.
     @State private var hasStartedCoreServices = false
+    // Guards the Shabbat tab-redirect from firing on cold launch before .task
+    // has had a chance to set selectedTab = 0. The first scenePhase .active
+    // fires before .task runs, so without this the Shabbat check wins the race
+    // and the app opens on Resources instead of Home.
+    @State private var hasHandledFirstActivation = false
     @Environment(\.scenePhase) private var scenePhase
     
     init() {
@@ -113,7 +123,14 @@ struct ContentView: View {
                     .transition(.opacity)
                     .onAppear {
                         dlog("🚦 [LAUNCH] ContentView → SignInView appeared (isAuthenticated=false)")
-                        AppReadyStateManager.shared.signalReady()
+                        // Only drop the loading overlay if there is no cached Firebase user.
+                        // When a cached user exists, AuthenticationViewModel is still resolving
+                        // auth state asynchronously — the overlay must stay up until mainContent
+                        // signals ready. Dropping it here (while isAuthenticated is transiently
+                        // false) causes the SignInView flash.
+                        if Auth.auth().currentUser == nil {
+                            AppReadyStateManager.shared.signalReady()
+                        }
                     }
             } else if authViewModel.needsUsernameSelection {
                 // Show username selection for social sign-in users (before onboarding)
@@ -250,6 +267,7 @@ struct ContentView: View {
                 // next sign-in runs the full core services startup block again.
                 SessionTimeoutManager.shared.stopMonitoring()
                 hasStartedCoreServices = false
+                hasHandledFirstActivation = false
 
                 // Clear quick actions — shortcuts would fail auth gate if user is signed out
                 AMENQuickActionManager.shared.clearShortcuts()
@@ -261,6 +279,7 @@ struct ContentView: View {
         // .animation() modifiers on the Group, so these handlers were dead code.
         .onChange(of: messagingCoordinator.shouldOpenMessagesTab) { oldValue, newValue in
             if newValue {
+                dlog("🚦 [TAB] MessagingCoordinator → selectedTab = 2 (Messages)")
                 viewModel.selectedTab = 2  // Switch to Messages tab (now at index 2)
             }
         }
@@ -394,12 +413,12 @@ struct ContentView: View {
         return tab == 3 || tab == 5
     }
     
-    private var mainContent: some View {
+    private var mainContentBody: some View {
         ZStack {
             // Main content (takes full screen)
             selectedTabView
                 .ignoresSafeArea(.all, edges: .bottom)
-            
+
             // Email verification banner (appears at top when email not verified)
             if authViewModel.showEmailVerificationBanner {
                 VStack {
@@ -411,19 +430,19 @@ struct ContentView: View {
                 }
                 .allowsHitTesting(true)
             }
-            
+
             // Daily limit reached dialog
             if showLimitReachedDialog {
                 Color.black.opacity(0.4)
                     .ignoresSafeArea()
                     .transition(.opacity.animation(.easeInOut(duration: 0.2)))
-                
+
                 DailyLimitReachedDialog()
 
                     .transition(.scale(scale: 0.95).combined(with: .opacity).animation(.spring(response: 0.4, dampingFraction: 0.8)))
                     .zIndex(999)
             }
-            
+
             // Threads-style posting bar (appears at bottom while posting / after posted)
             if postingBarState != .hidden {
                 VStack {
@@ -456,6 +475,10 @@ struct ContentView: View {
         }
         .moderationToast() // ✅ Add moderation toast overlay
         .inAppNotificationBanner() // ✅ Instagram-style heads-up banner for foreground notifications
+    }
+
+    private var mainContentWithOverlays: some View {
+        mainContentBody
         // P0 FIX: Wire push notification deep links to tab navigation.
         // NotificationDeepLinkRouter.shared publishes activeDestination whenever
         // a push is tapped. This modifier observes it and switches selectedTab.
@@ -535,6 +558,10 @@ struct ContentView: View {
         .environmentObject(PostsManager.shared)  // P0-7: Provide for CompactTabBar
         .environmentObject(UserService.shared)  // P0-7: Provide for CompactTabBar
         .environmentObject(NotificationService.shared)  // P0-7: Provide for CompactTabBar
+    }
+
+    private var mainContent: some View {
+        mainContentWithOverlays
         // ⚡️ PERFORMANCE: Subscribe to specific state changes instead of observing entire singletons
         .onReceive(BadgeCountManager.shared.$totalBadgeCount) { count in
             totalBadgeCount = count
@@ -560,10 +587,12 @@ struct ContentView: View {
             // ✅ Real-time transition: Force re-render when Shabbat state changes
             // Use ShabbatModeService.isShabbatActive (combines isSunday + isEnabled)
             let shabbatActive = ShabbatModeService.shared.isShabbatActiveNow()
+            dlog("🚦 [TAB] ChurchFocusWindow changed \(oldValue)→\(newValue), shabbatActive=\(shabbatActive), currentTab=\(viewModel.selectedTab)")
             if shabbatActive && !isAllowedDuringChurchFocus(viewModel.selectedTab) {
                 #if DEBUG
                 ShabbatAnalytics.logStateTransition(enabled: true, isSunday: true)
                 #endif
+                dlog("🚦 [TAB] ChurchFocus active → selectedTab = 3 (Resources)")
                 viewModel.selectedTab = 3  // Resources (Church Notes/Find Church)
             } else if !shabbatActive && oldValue {
                 // Shabbat ended (midnight Sunday→Monday) — allow normal navigation
@@ -600,6 +629,7 @@ struct ContentView: View {
         }
         .task {
             // Ensure we start on Home tab (OpenTable view)
+            dlog("🚦 [TAB] .task → selectedTab = 0 (Home)")
             viewModel.selectedTab = 0
             
             // NOTE: startSession() is called by handleScenePhaseChange(.active) — no duplicate call here
@@ -990,7 +1020,16 @@ struct ContentView: View {
                 isSunday: ShabbatModeService.shared.isSunday
             )
             #endif
-            if shabbatNow && !isAllowedDuringChurchFocus(viewModel.selectedTab) {
+            // LAUNCH FIX: Skip Shabbat tab redirect on the very first activation.
+            // On cold launch, scenePhase fires .active before the .task block runs,
+            // so the Shabbat check wins the race and opens Resources instead of Home.
+            // .task owns the initial tab (sets selectedTab = 0); subsequent foreground
+            // re-entries are allowed to redirect to Resources normally.
+            if !hasHandledFirstActivation {
+                hasHandledFirstActivation = true
+                dlog("🚦 [TAB] First activation — skipping Shabbat tab redirect (tab init deferred to .task)")
+            } else if shabbatNow && !isAllowedDuringChurchFocus(viewModel.selectedTab) {
+                dlog("🚦 [TAB] Shabbat active on foreground — redirecting to Resources (tab 3)")
                 withAnimation(.easeInOut(duration: 0.25)) {
                     viewModel.selectedTab = 3
                 }
@@ -1542,6 +1581,7 @@ struct CompactTabBar: View {
             
             isNavigating = true
             
+            dlog("🚦 [TAB] User tapped tab bar → selectedTab = \(tab.tag) (from \(selectedTab))")
             withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
                 selectedTab = tab.tag
             }
