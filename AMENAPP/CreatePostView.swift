@@ -395,20 +395,50 @@ struct CreatePostView: View {
                 }
 
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        publishPost()
-                    } label: {
-                        Text("Post")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(canPublish ? .white : .white.opacity(0.5))
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 7)
-                            .background(
-                                Capsule()
-                                    .fill(canPublish ? Color.black : Color.black.opacity(0.3))
-                            )
+                    HStack(spacing: 8) {
+                        // Ambient progress ring — fades in once user starts typing
+                        if !postText.isEmpty {
+                            ZStack {
+                                Circle()
+                                    .stroke(Color.primary.opacity(0.08), lineWidth: 2)
+                                    .frame(width: 22, height: 22)
+                                Circle()
+                                    .trim(from: 0, to: min(1.0, Double(postText.count) / 500.0))
+                                    .stroke(
+                                        postText.count > 480 ? Color.red :
+                                            postText.count > 450 ? Color.orange :
+                                            Color.primary.opacity(0.3),
+                                        style: StrokeStyle(lineWidth: 2, lineCap: .round)
+                                    )
+                                    .frame(width: 22, height: 22)
+                                    .rotationEffect(.degrees(-90))
+
+                                // Show count inside ring only when close to limit
+                                if postText.count > 450 {
+                                    Text("\(500 - postText.count)")
+                                        .font(.system(size: 8, weight: .bold))
+                                        .foregroundStyle(postText.count > 480 ? .red : .orange)
+                                }
+                            }
+                            .animation(.easeOut(duration: 0.2), value: postText.count)
+                            .transition(.opacity.animation(.easeIn(duration: 0.3)))
+                        }
+
+                        Button {
+                            publishPost()
+                        } label: {
+                            Text("Post")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(canPublish ? .white : .white.opacity(0.5))
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 7)
+                                .background(
+                                    Capsule()
+                                        .fill(canPublish ? Color.black : Color.black.opacity(0.3))
+                                )
+                        }
+                        .disabled(!canPublish || isPublishing)
                     }
-                    .disabled(!canPublish || isPublishing)
                 }
             }
             .safeAreaInset(edge: .bottom) {
@@ -675,10 +705,10 @@ struct CreatePostView: View {
     private var characterCountColor: Color {
         if postText.count > 500 {
             return .red
-        } else if postText.count > 450 {
+        } else if postText.count > 480 {
             return .orange
         } else {
-            return .secondary
+            return .secondary.opacity(0.6)
         }
     }
     
@@ -977,11 +1007,16 @@ struct CreatePostView: View {
 
             Spacer()
 
-            // Character count (only near limit)
-            if postText.count > 400 {
+            // Character count — shows early but stays calm until near limit
+            if postText.count > 250 {
                 Text("\(postText.count)/500")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(postText.count > 480 ? .red : .secondary)
+                    .foregroundStyle(
+                        postText.count > 500 ? .red :
+                        postText.count > 480 ? .orange :
+                        .secondary.opacity(0.5)
+                    )
+                    .transition(.opacity.animation(.easeIn(duration: 0.3)))
             }
         }
         .padding(.horizontal, 16)
