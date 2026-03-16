@@ -1137,16 +1137,11 @@ class CommentService: ObservableObject {
                     let authorUsername: String
                     if let storedUsername = commentData["authorUsername"] as? String, !storedUsername.isEmpty {
                         authorUsername = storedUsername
-                        dlog("✅ Using stored username: @\(authorUsername)")
                     } else {
                         authorUsername = "user\(authorId.prefix(8))"
-                        dlog("⚠️ No stored username, using fallback: @\(authorUsername)")
                     }
 
                     let authorProfileImageURL = commentData["authorProfileImageURL"] as? String
-                    if let imageURL = authorProfileImageURL {
-                        dlog("✅ Profile image URL found: \(imageURL)")
-                    }
 
                     // Extract which users have amened this comment from likedBy dict.
                     // This lets PostCommentRow initialize hasAmened locally without

@@ -235,18 +235,22 @@ class TestimoniesAlgorithm: ObservableObject {
         }
     }
 
+    private static let prefsDecoder = JSONDecoder()
+    private var prefsLoaded = false
+
     func loadPreferences() {
+        guard !prefsLoaded else { return }
+
         guard let data = UserDefaults.standard.data(forKey: "testimonyPreferences_v1") else {
-            print("ℹ️ No saved testimony preferences found")
+            prefsLoaded = true
             return
         }
 
         do {
-            let decoder = JSONDecoder()
-            userPreferences = try decoder.decode(TestimonyPreferences.self, from: data)
-            print("✅ Loaded testimony preferences: \(userPreferences.engagedCategories.count) categories")
+            userPreferences = try Self.prefsDecoder.decode(TestimonyPreferences.self, from: data)
+            prefsLoaded = true
         } catch {
-            print("❌ Failed to load testimony preferences: \(error)")
+            dlog("❌ Failed to load testimony preferences: \(error)")
         }
     }
 
