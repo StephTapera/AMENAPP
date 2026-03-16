@@ -753,28 +753,53 @@ struct MessagesView: View {
                     
                     // Content based on selected tab
                     Group {
-                        if selectedTab == .messages && !pinnedConversations.isEmpty {
-                            // Pinned section
-                            VStack(alignment: .leading, spacing: 12) {
+                        // Pinned section (hidden during search)
+                        if selectedTab == .messages && !pinnedConversations.isEmpty && searchText.isEmpty {
+                            VStack(alignment: .leading, spacing: 8) {
                                 Text("PINNED")
-                                    .font(.custom("OpenSans-Bold", size: 12))
-                                    .foregroundStyle(.secondary)
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .tracking(1)
+                                    .foregroundStyle(.secondary.opacity(0.6))
                                     .padding(.horizontal, 20)
-                                    .padding(.top, 8)
-                                
+                                    .padding(.top, 10)
+
                                 ForEach(pinnedConversations) { conversation in
                                     modernConversationRow(conversation)
                                         .contextMenu {
                                             conversationContextMenu(for: conversation)
                                         }
                                 }
-                                
-                                Divider()
+
+                                // Breathing room divider before All Messages
+                                Rectangle()
+                                    .fill(Color.primary.opacity(0.06))
+                                    .frame(height: 0.5)
                                     .padding(.horizontal, 20)
-                                    .padding(.vertical, 8)
+                                    .padding(.vertical, 10)
+
+                                Text("ALL MESSAGES")
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .tracking(1)
+                                    .foregroundStyle(.secondary.opacity(0.6))
+                                    .padding(.horizontal, 20)
+                                    .padding(.bottom, 4)
                             }
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+                            .animation(.easeInOut(duration: 0.25), value: searchText.isEmpty)
                         }
-                        
+
+                        // Search results header
+                        if !searchText.isEmpty {
+                            Text("RESULTS")
+                                .font(.system(size: 11, weight: .semibold))
+                                .tracking(1)
+                                .foregroundStyle(.secondary.opacity(0.6))
+                                .padding(.horizontal, 20)
+                                .padding(.top, 10)
+                                .padding(.bottom, 4)
+                                .transition(.opacity.animation(.easeIn(duration: 0.2)))
+                        }
+
                         // Regular conversations
                         if filteredConversations.isEmpty {
                             modernEmptyState
@@ -838,21 +863,32 @@ struct MessagesView: View {
                         if conversation.isGroup {
                             Text("Group • ")
                                 .font(.custom("OpenSans-Regular", size: 14))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(.tertiary)
                         }
-                        
+
                         Text(conversation.lastMessage)
                             .font(.custom("OpenSans-Regular", size: 14))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(conversation.unreadCount > 0 ? .secondary : .tertiary)
                             .lineLimit(1)
-                        
+
                         Spacer()
-                        
-                        // ✅ Unread indicator (dot, like reference)
+
+                        // Unread: blue dot always + numeric badge if >9
                         if conversation.unreadCount > 0 {
-                            Circle()
-                                .fill(Color.blue)
-                                .frame(width: 8, height: 8)
+                            HStack(spacing: 4) {
+                                Circle()
+                                    .fill(Color.blue)
+                                    .frame(width: 8, height: 8)
+
+                                if conversation.unreadCount > 9 {
+                                    Text("\(conversation.unreadCount)")
+                                        .font(.system(size: 11, weight: .bold))
+                                        .foregroundStyle(.white)
+                                        .padding(.horizontal, 5)
+                                        .padding(.vertical, 1)
+                                        .background(Capsule().fill(Color.blue))
+                                }
+                            }
                         }
                     }
                 }
@@ -903,42 +939,65 @@ struct MessagesView: View {
                     )
                 )
                 .frame(width: 52, height: 52)
-            
+                .overlay(
+                    Circle()
+                        .strokeBorder(Color.white.opacity(0.2), lineWidth: 1)
+                )
+
             Text(conversation.name.prefix(1).uppercased())
                 .font(.custom("OpenSans-Bold", size: 20))
                 .foregroundStyle(.white)
         }
     }
     
-    // ✅ Modern empty state (clean, minimal, like reference)
+    // ✅ Modern empty state (adapts to search vs no messages)
     private var modernEmptyState: some View {
         VStack(spacing: 20) {
-            Image(systemName: "bubble.left.and.bubble.right")
-                .font(.system(size: 64))
-                .foregroundStyle(.secondary.opacity(0.5))
-            
-            Text("No messages yet")
-                .font(.custom("OpenSans-Bold", size: 20))
-                .foregroundStyle(.primary)
-            
-            Text("Start a conversation with someone")
-                .font(.custom("OpenSans-Regular", size: 15))
-                .foregroundStyle(.secondary)
-            
-            Button {
-                activeSheet = .newMessage
-            } label: {
-                Text("New Message")
-                    .font(.custom("OpenSans-SemiBold", size: 16))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 24)
-                    .padding(.vertical, 12)
-                    .background(
-                        Capsule()
-                            .fill(Color.primary)
-                    )
+            if !searchText.isEmpty {
+                // Search empty state
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 48))
+                    .foregroundStyle(.secondary.opacity(0.4))
+
+                Text("No results for \"\(searchText)\"")
+                    .font(.custom("OpenSans-SemiBold", size: 18))
+                    .foregroundStyle(.primary)
+
+                Button {
+                    searchText = ""
+                } label: {
+                    Text("Clear search")
+                        .font(.custom("OpenSans-SemiBold", size: 15))
+                        .foregroundStyle(.blue)
+                }
+            } else {
+                Image(systemName: "bubble.left.and.bubble.right")
+                    .font(.system(size: 64))
+                    .foregroundStyle(.secondary.opacity(0.5))
+
+                Text("No messages yet")
+                    .font(.custom("OpenSans-Bold", size: 20))
+                    .foregroundStyle(.primary)
+
+                Text("Start a conversation with someone")
+                    .font(.custom("OpenSans-Regular", size: 15))
+                    .foregroundStyle(.secondary)
+
+                Button {
+                    activeSheet = .newMessage
+                } label: {
+                    Text("New Message")
+                        .font(.custom("OpenSans-SemiBold", size: 16))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 12)
+                        .background(
+                            Capsule()
+                                .fill(Color.primary)
+                        )
+                }
+                .padding(.top, 8)
             }
-            .padding(.top, 8)
         }
         .frame(maxWidth: .infinity)
     }
