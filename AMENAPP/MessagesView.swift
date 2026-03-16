@@ -703,57 +703,58 @@ struct MessagesView: View {
     
     // ✅ Modern search bar (glass pill, like reference)
     private var modernSearchBar: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(.secondary)
-            
-            TextField("Search conversations", text: $searchText)
-                .font(.custom("OpenSans-Regular", size: 15))
-                .foregroundStyle(.primary)
-                .autocorrectionDisabled()
-                .textInputAutocapitalization(.never)
-            
-            if !searchText.isEmpty {
-                Button {
-                    searchText = ""
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 16))
-                        .foregroundStyle(.secondary)
-                }
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10) // Shorter pill (-2pt)
-        .background(
-            Capsule()
-                .fill(.ultraThinMaterial)
-                .shadow(color: .black.opacity(searchText.isEmpty ? 0.05 : 0.12),
-                        radius: searchText.isEmpty ? 8 : 12, y: 2) // Micro-shadow on focus
-        )
-        .animation(.easeOut(duration: 0.2), value: searchText.isEmpty)
+        VStack(spacing: 8) {
+            HStack(spacing: 12) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(.secondary)
 
-        // Inline filter chips when searching
-        if searchText.count >= 2 {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(["Photos", "Links", "People"], id: \.self) { filter in
-                        Text(filter)
-                            .font(.system(size: 12, weight: .medium))
+                TextField("Search conversations", text: $searchText)
+                    .font(.custom("OpenSans-Regular", size: 15))
+                    .foregroundStyle(.primary)
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.never)
+
+                if !searchText.isEmpty {
+                    Button {
+                        searchText = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 16))
                             .foregroundStyle(.secondary)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(
-                                Capsule()
-                                    .fill(Color(.systemGray6))
-                            )
                     }
                 }
-                .padding(.horizontal, 20)
             }
-            .transition(.opacity.combined(with: .move(edge: .top)))
-            .animation(.easeOut(duration: 0.2), value: searchText.count >= 2)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(
+                Capsule()
+                    .fill(.ultraThinMaterial)
+                    .shadow(color: .black.opacity(searchText.isEmpty ? 0.05 : 0.12),
+                            radius: searchText.isEmpty ? 8 : 12, y: 2)
+            )
+            .animation(.easeOut(duration: 0.2), value: searchText.isEmpty)
+
+            // Inline filter chips when searching
+            if searchText.count >= 2 {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(["Photos", "Links", "People"], id: \.self) { filter in
+                            Text(filter)
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(.secondary)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(
+                                    Capsule()
+                                        .fill(Color(.systemGray6))
+                                )
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                }
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
         }
     }
     
@@ -3161,10 +3162,10 @@ struct CreateGroupView: View {
 
                 Text("\(groupName.count)/\(nameCharLimit)")
                     .font(.custom("OpenSans-Regular", size: 12))
-                    .foregroundStyle(
-                        groupName.isEmpty ? .secondary :
-                        groupName.count > 45 ? .orange :
-                        .green.opacity(0.7)
+                    .foregroundColor(
+                        groupName.isEmpty ? Color.secondary :
+                        groupName.count > 45 ? Color.orange :
+                        Color.green.opacity(0.7)
                     )
             }
             .animation(.easeOut(duration: 0.2), value: groupName.isEmpty)
@@ -3200,10 +3201,10 @@ struct CreateGroupView: View {
         HStack(spacing: 6) {
             Image(systemName: satisfied ? "checkmark.circle.fill" : "circle")
                 .font(.system(size: 12))
-                .foregroundStyle(satisfied ? .green : .tertiary)
+                .foregroundColor(satisfied ? .green : Color.secondary.opacity(0.5))
             Text(text)
                 .font(.custom("OpenSans-Regular", size: 12))
-                .foregroundStyle(satisfied ? .green : .tertiary)
+                .foregroundColor(satisfied ? .green : Color.secondary.opacity(0.5))
         }
     }
     
