@@ -836,3 +836,12 @@ exports.executeScheduledPosts = executeScheduledPosts;
 // ============================================================================
 const {exportUserData} = require("./dataExport");
 exports.exportUserData = exportUserData;
+
+// ============================================================================
+// STRIPE CONNECT — Creator Studio payments
+// ============================================================================
+const stripe = require("./stripeFunctions");
+exports.stripeCreateConnectedAccount = stripe.stripeCreateConnectedAccount;
+exports.stripeGetAccountStatus       = stripe.stripeGetAccountStatus;
+exports.stripeCreatePaymentIntent    = stripe.stripeCreatePaymentIntent;
+exports.stripeRequestPayout          = stripe.stripeRequestPayout;
