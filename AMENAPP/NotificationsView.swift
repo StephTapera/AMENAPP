@@ -467,8 +467,11 @@ struct NotificationsView: View {
         dlog("🔔 [NOTIF] NotificationsView.onAppear — notifications=\(notificationService.notifications.count) unread=\(notificationService.unreadCount) isLoading=\(notificationService.isLoading)")
         notificationService.startListening()
         dlog("🔔 [NOTIF] startListening() called — isLoading=\(notificationService.isLoading)")
+        // Pre-populate groups immediately to avoid flash of empty state
+        if cachedGroupedNotifications.isEmpty && !notificationService.notifications.isEmpty {
+            rebuildGroupedNotifications()
+        }
         // Auto-mark all notifications as read when the screen is opened (like Instagram/Threads).
-        // Badge is cleared inside markAllAsRead() after writes land — see that function for details.
         markAllAsRead()
         dlog("🔔 [NOTIF] markAllAsRead called (badge cleared after writes land)")
         
