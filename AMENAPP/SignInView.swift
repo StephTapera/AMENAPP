@@ -643,6 +643,21 @@ struct SignInView: View {
                 print("⚠️ Auth request cancelled before starting")
                 return
             }
+
+            // P0 FIX: 30-second timeout on all auth operations.
+            // Prevents indefinite spinner if network hangs.
+            let timeoutTask = Task {
+                try? await Task.sleep(nanoseconds: 30_000_000_000)
+                guard !Task.isCancelled else { return }
+                await MainActor.run {
+                    if viewModel.isLoading {
+                        viewModel.isLoading = false
+                        viewModel.errorMessage = "Sign-in timed out. Please check your connection and try again."
+                        viewModel.showError = true
+                    }
+                }
+            }
+            defer { timeoutTask.cancel() }
             
             if isLogin {
                 // Login flow: phone OR email+password

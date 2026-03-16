@@ -704,9 +704,9 @@ service cloud.firestore {
       // so the admin check is a no-op for DMs.
       allow update: if isAuthenticated()
         && request.auth.uid in resource.data.participantIds
-        // 'isGroup' and 'creatorId' are immutable after creation.
+        // 'isGroup' and 'requesterId' are immutable after creation.
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
-          'creatorId', 'isGroup'
+          'requesterId', 'isGroup'
         ])
         // participantIds may only change for groups (add/remove members), and only
         // when the caller is a group admin.
@@ -724,10 +724,10 @@ service cloud.firestore {
           || (resource.data.get('isGroup', false) == true
               && request.auth.uid in resource.data.get('adminIds', []))
         )
-        // If conversationStatus is changing, only the non-creator recipient may do so.
+        // If conversationStatus is changing, only the non-requester recipient may do so.
         && (
           !request.resource.data.diff(resource.data).affectedKeys().hasAny(['conversationStatus'])
-          || resource.data.get('creatorId', '') != request.auth.uid
+          || resource.data.get('requesterId', '') != request.auth.uid
         );
 
       allow delete: if isAuthenticated()
@@ -752,11 +752,13 @@ service cloud.firestore {
             || get(/databases/$(database)/documents/userSafetyRecords/$(request.auth.uid)).data.accountStatus != 'frozen'
           );
 
-        // P0 FIX: Added participant check — non-participants cannot mutate message fields.
+        // P0 FIX: Sender can update anything. Non-sender can ONLY update readBy and reactions.
         allow update: if isAuthenticated()
           && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds
           && (resource.data.senderId == request.auth.uid
-              || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['text', 'senderId', 'timestamp']));
+              || !request.resource.data.diff(resource.data).affectedKeys().hasAny(
+                   ['text', 'senderId', 'timestamp', 'attachments', 'mediaURL', 'replyToMessageId']
+                 ));
 
         // Allow delete only by sender, and only if canDeleteMessages is not false.
         // Safety: frozen/suspended accounts have canDeleteMessages=false in userSafetyRecords.

@@ -492,11 +492,21 @@ public class FirebaseMessagingService: ObservableObject {
             throw FirebaseMessagingError.invalidInput("At least one participant is required")
         }
 
-        let conversationRef = db.collection("conversations").document()
-
         var allParticipantIds = participantIds
         if !allParticipantIds.contains(currentUserId) {
             allParticipantIds.append(currentUserId)
+        }
+
+        // P0 FIX: Use deterministic ID for 1-on-1 conversations to prevent
+        // conversation splits when both users create simultaneously.
+        // Group chats keep random IDs since they're always created by one user.
+        let conversationRef: DocumentReference
+        if !isGroup && allParticipantIds.count == 2 {
+            let sortedIds = allParticipantIds.sorted()
+            let deterministicId = sortedIds.joined(separator: "_")
+            conversationRef = db.collection("conversations").document(deterministicId)
+        } else {
+            conversationRef = db.collection("conversations").document()
         }
 
         // Fetch profile photos for all participants

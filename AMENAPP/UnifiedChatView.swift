@@ -1260,7 +1260,11 @@ struct UnifiedChatView: View {
     
     private func cleanupChatView() {
         dlog("👋 Chat view closed: \(conversation.name)")
-        
+
+        // P1 FIX: Reset send gate so user can send messages if they reopen this chat
+        isSendingMessage = false
+        inFlightMessageIDs.removeAll()
+
         // P0-2 FIX: Cancel listener task immediately to prevent memory leaks
         listenerTask?.cancel()
         listenerTask = nil

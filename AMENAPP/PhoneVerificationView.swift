@@ -564,13 +564,17 @@ struct PhoneVerificationView: View {
         }
     }
     
+    @State private var resendTimerInstance: Timer?
+
     private func startResendTimer() {
-        Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { timer in
+        resendTimerInstance?.invalidate()
+        resendTimerInstance = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [self] timer in
             if resendCountdown > 0 {
                 resendCountdown -= 1
             } else {
                 canResend = true
                 timer.invalidate()
+                resendTimerInstance = nil
             }
         }
     }

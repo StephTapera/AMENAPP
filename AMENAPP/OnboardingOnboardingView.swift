@@ -24,7 +24,8 @@ import FirebaseFirestore
 struct OnboardingView: View {
     @EnvironmentObject var authViewModel: AuthenticationViewModel
 
-    @State private var step: Int = 0
+    // P1 FIX: Persist onboarding step so force-quit resumes correctly
+    @AppStorage("onboardingStep") private var step: Int = 0
     @State private var direction: TransitionDirection = .forward
 
     // Step 3 — account setup
@@ -759,6 +760,7 @@ struct OnboardingView: View {
             try await db.collection("users").document(userId).updateData(updateData)
             await MainActor.run {
                 isSaving = false
+                step = 0 // Reset persisted step for next time
                 authViewModel.completeOnboarding()
             }
         } catch {
