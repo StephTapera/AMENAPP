@@ -5392,7 +5392,7 @@ struct DailyVerseDetailSheet: View {
                 }
             }
             .sheet(isPresented: $showBerean) {
-                BereanAIAssistantView()
+                BereanAIAssistantView(initialQuery: "Help me reflect on \(reference): \"\(text)\"")
             }
         }
     }
