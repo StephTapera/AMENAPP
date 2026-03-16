@@ -1072,7 +1072,7 @@ struct CreatePostView: View {
     
     private var categorySelectorView: some View {
         GlassCategoryBar(
-            categories: PostCategory.allCases,
+            categories: PostCategory.allCases.filter { $0 != .tip && $0 != .funFact },
             selected: $selectedCategory,
             namespace: categoryNamespace
         ) { category in
@@ -1352,15 +1352,6 @@ struct CreatePostView: View {
                         .font(.custom("OpenSans-Regular", size: 17))
                         .focused($isTextFieldFocused)
                         .scrollContentBackground(.hidden)
-                        .padding(12)
-                        .background(
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .fill(.ultraThinMaterial)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                        .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
-                                )
-                        )
                         .onChange(of: postText) { oldValue, newValue in
                             // Defer side effects so they don't trigger a re-render mid-paste,
                             // which would interrupt the paste operation on SwiftUI TextEditor.
@@ -3058,9 +3049,9 @@ struct CreatePostView: View {
 
     /// Delete an entire Storage folder path to clean up orphaned images after a failed post write.
     private func deleteStorageFolder(path: String) {
+        let folderRef = FirebaseManager.shared.storage.reference().child(path)
         Task.detached(priority: .utility) {
             do {
-                let folderRef = FirebaseManager.shared.storage.reference().child(path)
                 let listing = try await folderRef.listAll()
                 for item in listing.items {
                     try? await item.delete()
