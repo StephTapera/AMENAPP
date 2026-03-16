@@ -93,7 +93,7 @@ struct ProfileContentView: View {
                 VStack(spacing: 16) {
                     // Profile Image
                     if let imageURL = profile.profileImageURL, !imageURL.isEmpty {
-                        AsyncImage(url: URL(string: imageURL)) { phase in
+                        CachedAsyncImage(url: URL(string: imageURL)) { phase in
                             switch phase {
                             case .success(let image):
                                 image

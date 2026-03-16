@@ -120,7 +120,7 @@ struct StudioProfileView: View {
         ZStack(alignment: .bottomLeading) {
             // Banner
             if let bannerURL = profile.bannerURL {
-                AsyncImage(url: URL(string: bannerURL)) { img in
+                CachedAsyncImage(url: URL(string: bannerURL)) { img in
                     img.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: {
                     studioBannerGradient(profile)
@@ -227,7 +227,7 @@ struct StudioProfileView: View {
     private func avatarView(_ profile: StudioProfile) -> some View {
         Group {
             if let url = profile.avatarURL, let imageURL = URL(string: url) {
-                AsyncImage(url: imageURL) { img in
+                CachedAsyncImage(url: imageURL) { img in
                     img.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: {
                     initialsAvatar(profile.displayName)
@@ -572,7 +572,7 @@ struct StudioWorkCell: View {
     var body: some View {
         ZStack(alignment: .bottomLeading) {
             if let firstURL = item.mediaURLs.first, let url = URL(string: firstURL) {
-                AsyncImage(url: url) { img in
+                CachedAsyncImage(url: url) { img in
                     img.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: {
                     Rectangle().fill(Color(.systemGray5))
@@ -616,7 +616,7 @@ struct StudioWorkDetailView: View {
                     if !item.mediaURLs.isEmpty {
                         TabView {
                             ForEach(item.mediaURLs, id: \.self) { urlStr in
-                                AsyncImage(url: URL(string: urlStr)) { img in
+                                CachedAsyncImage(url: URL(string: urlStr)) { img in
                                     img.resizable().aspectRatio(contentMode: .fit)
                                 } placeholder: {
                                     Rectangle().fill(Color(.systemGray5))

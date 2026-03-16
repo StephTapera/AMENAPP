@@ -4685,7 +4685,7 @@ struct LinkPreviewCardView: View {
                             .fill(Color(.systemGray6))
                     )
             } else if let imageURL = metadata?.imageURL {
-                AsyncImage(url: imageURL) { image in
+                CachedAsyncImage(url: imageURL) { image in
                     image
                         .resizable()
                         .scaledToFill()

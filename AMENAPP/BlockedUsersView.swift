@@ -81,7 +81,7 @@ struct BlockedUsersView: View {
                 HStack(spacing: 12) {
                     // Avatar
                     if let profileImageURL = user.profileImageURL, !profileImageURL.isEmpty {
-                        AsyncImage(url: URL(string: profileImageURL)) { phase in
+                        CachedAsyncImage(url: URL(string: profileImageURL)) { phase in
                             switch phase {
                             case .success(let image):
                                 image

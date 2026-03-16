@@ -476,7 +476,7 @@ struct ThreadsStyleUserCard: View {
                     .frame(width: 48, height: 48)
                 
                 if let photoURL = user.profileImageURL, !photoURL.isEmpty {
-                    AsyncImage(url: URL(string: photoURL)) { phase in
+                    CachedAsyncImage(url: URL(string: photoURL)) { phase in
                         switch phase {
                         case .success(let image):
                             image
@@ -787,7 +787,7 @@ struct CompactUserCard: View {
                         .frame(width: 64, height: 64)
                     
                     if let photoURL = user.profileImageURL, !photoURL.isEmpty {
-                        AsyncImage(url: URL(string: photoURL)) { phase in
+                        CachedAsyncImage(url: URL(string: photoURL)) { phase in
                             switch phase {
                             case .success(let image):
                                 image

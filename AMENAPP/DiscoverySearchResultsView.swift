@@ -547,7 +547,7 @@ struct SearchChurchRow: View {
         HStack(spacing: 12) {
             Group {
                 if let url = church.imageURL, !url.isEmpty {
-                    AsyncImage(url: URL(string: url)) { img in
+                    CachedAsyncImage(url: URL(string: url)) { img in
                         img.resizable().scaledToFill()
                     } placeholder: {
                         RoundedRectangle(cornerRadius: 10).fill(Color.blue.opacity(0.1))

@@ -461,7 +461,7 @@ struct MessageComposeView: View {
         HStack(spacing: 12) {
             // Avatar
             if let imageURL = user.profileImageURL, let url = URL(string: imageURL) {
-                AsyncImage(url: url) { image in
+                CachedAsyncImage(url: url) { image in
                     image.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: {
                     Circle().fill(Color.accentColor.opacity(0.3))

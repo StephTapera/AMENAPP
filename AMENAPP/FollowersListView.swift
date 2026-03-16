@@ -191,7 +191,7 @@ private struct SocialUserRowView: View {
         if let imageURL = user.profileImageURL,
            !imageURL.isEmpty,
            let url = URL(string: imageURL) {
-            AsyncImage(url: url) { phase in
+            CachedAsyncImage(url: url) { phase in
                 switch phase {
                 case .success(let image):
                     image

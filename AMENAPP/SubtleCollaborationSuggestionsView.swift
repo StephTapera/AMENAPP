@@ -76,7 +76,7 @@ struct SubtleCollaborationSuggestionsView: View {
         return VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 12) {
                 // Profile image
-                AsyncImage(url: URL(string: match.profileImageURL ?? "")) { image in
+                CachedAsyncImage(url: URL(string: match.profileImageURL ?? "")) { image in
                     image
                         .resizable()
                         .scaledToFill()
@@ -197,7 +197,7 @@ struct InlineCollaboratorSuggestion: View {
             showProfile = true
         } label: {
             HStack(spacing: 8) {
-                AsyncImage(url: URL(string: match.profileImageURL ?? "")) { image in
+                CachedAsyncImage(url: URL(string: match.profileImageURL ?? "")) { image in
                     image
                         .resizable()
                         .scaledToFill()

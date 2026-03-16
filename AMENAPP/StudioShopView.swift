@@ -91,7 +91,7 @@ struct StudioProductCard: View {
                     .fill(product.category.color.opacity(0.15))
                     .frame(width: 64, height: 64)
                 if let coverURL = product.coverImageURL, let url = URL(string: coverURL) {
-                    AsyncImage(url: url) { img in
+                    CachedAsyncImage(url: url) { img in
                         img.resizable().aspectRatio(contentMode: .fill)
                     } placeholder: {
                         Image(systemName: product.category.icon)
@@ -179,7 +179,7 @@ struct StudioProductDetailView: View {
                 VStack(alignment: .leading, spacing: 24) {
                     // Cover
                     if let coverURL = product.coverImageURL, let url = URL(string: coverURL) {
-                        AsyncImage(url: url) { img in
+                        CachedAsyncImage(url: url) { img in
                             img.resizable().aspectRatio(contentMode: .fill)
                         } placeholder: {
                             productHeroPlaceholder

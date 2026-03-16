@@ -163,7 +163,7 @@ struct MutualConnectionsBadge: View {
 
                             if let urlString = connection.profileImageURL,
                                let url = URL(string: urlString) {
-                                AsyncImage(url: url) { image in
+                                CachedAsyncImage(url: url) { image in
                                     image
                                         .resizable()
                                         .scaledToFill()
@@ -283,7 +283,7 @@ struct MutualConnectionsListView: View {
             // Avatar
             if let urlString = connection.profileImageURL,
                let url = URL(string: urlString) {
-                AsyncImage(url: url) { image in
+                CachedAsyncImage(url: url) { image in
                     image
                         .resizable()
                         .scaledToFill()

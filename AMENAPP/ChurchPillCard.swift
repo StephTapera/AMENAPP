@@ -22,7 +22,7 @@ struct ChurchPill: View {
             HStack(spacing: 8) {
                 // Church icon/photo
                 if let photoURL = church.photoURL {
-                    AsyncImage(url: URL(string: photoURL)) { image in
+                    CachedAsyncImage(url: URL(string: photoURL)) { image in
                         image
                             .resizable()
                             .scaledToFill()
@@ -96,7 +96,7 @@ struct ChurchEntityCard: View {
                 HStack(spacing: 12) {
                     // Church photo/logo
                     if let photoURL = church.photoURL {
-                        AsyncImage(url: URL(string: photoURL)) { image in
+                        CachedAsyncImage(url: URL(string: photoURL)) { image in
                             image
                                 .resizable()
                                 .scaledToFill()

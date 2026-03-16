@@ -2197,7 +2197,7 @@ struct ChatUserProfileSheet: View {
                         VStack(spacing: 24) {
                             // Avatar
                             if let profileImageURL = userProfile.profileImageURL, !profileImageURL.isEmpty {
-                                AsyncImage(url: URL(string: profileImageURL)) { image in
+                                CachedAsyncImage(url: URL(string: profileImageURL)) { image in
                                     image
                                         .resizable()
                                         .aspectRatio(contentMode: .fill)

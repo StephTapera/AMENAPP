@@ -388,7 +388,7 @@ struct TrustedUserPickerView: View {
                             }
                         } label: {
                             HStack(spacing: 12) {
-                                AsyncImage(url: URL(string: user.profileImageURL ?? "")) { image in
+                                CachedAsyncImage(url: URL(string: user.profileImageURL ?? "")) { image in
                                     image.resizable().scaledToFill()
                                 } placeholder: {
                                     Image(systemName: "person.circle.fill")

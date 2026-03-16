@@ -118,7 +118,7 @@ struct EventDetailView: View {
     private var eventHero: some View {
         ZStack(alignment: .bottomLeading) {
             if let imageURL = event.imageURL, let url = URL(string: imageURL) {
-                AsyncImage(url: url) { img in
+                CachedAsyncImage(url: url) { img in
                     img.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: {
                     eventHeroPlaceholder

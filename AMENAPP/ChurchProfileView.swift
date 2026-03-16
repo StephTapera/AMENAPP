@@ -91,7 +91,7 @@ struct ChurchProfileView: View {
         ZStack(alignment: .bottom) {
             // Photo
             if let photoURL = church.photoURL {
-                AsyncImage(url: URL(string: photoURL)) { image in
+                CachedAsyncImage(url: URL(string: photoURL)) { image in
                     image.resizable().scaledToFill()
                 } placeholder: {
                     churchPhotoPlaceholder
@@ -521,7 +521,7 @@ struct ChurchTipCard: View {
             // Author info
             HStack(spacing: 8) {
                 if let photoURL = tip.authorPhotoURL {
-                    AsyncImage(url: URL(string: photoURL)) { image in
+                    CachedAsyncImage(url: URL(string: photoURL)) { image in
                         image
                             .resizable()
                             .scaledToFill()

@@ -75,7 +75,7 @@ struct FullScreenAvatarView: View {
     @ViewBuilder
     private var avatarContent: some View {
         if let imageURL = profileImageURL, !imageURL.isEmpty, let url = URL(string: imageURL) {
-            AsyncImage(url: url) { phase in
+            CachedAsyncImage(url: url) { phase in
                 switch phase {
                 case .success(let image):
                     image

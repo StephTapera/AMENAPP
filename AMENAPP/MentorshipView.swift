@@ -700,7 +700,7 @@ struct MentorCard: View {
                                 .font(.system(size: 20, weight: .bold))
                                 .foregroundStyle(.secondary)
                         } else {
-                            AsyncImage(url: URL(string: mentor.photoURL)) { image in
+                            CachedAsyncImage(url: URL(string: mentor.photoURL)) { image in
                                 image.resizable().scaledToFill()
                             } placeholder: {
                                 Color(.secondarySystemBackground)
