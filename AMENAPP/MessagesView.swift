@@ -70,6 +70,9 @@ struct MessagesView: View {
     @State private var scrollOffset: CGFloat = 0
     @State private var lastScrollOffset: CGFloat = 0
     @State private var showHeader = true
+    // Swipe hint (one-time discoverability)
+    @AppStorage("hasSeenMessageSwipeHint") private var hasSeenSwipeHint = false
+    @State private var showSwipeHint = false
 
     // Cached filtered lists — recomputed only when their inputs change,
     // not on every body pass.
@@ -497,7 +500,7 @@ struct MessagesView: View {
                         ? AMENInboxTokens.background        // white text on black
                         : AMENInboxTokens.secondaryText)
 
-                // Inline badge count (requests only)
+                // Inline badge count (requests only) with scale animation on first appearance
                 if let count = badge, count > 0 {
                     Text("\(min(count, 99))")
                         .font(.system(size: 10, weight: .bold))
@@ -509,6 +512,7 @@ struct MessagesView: View {
                                 ? AMENInboxTokens.background.opacity(0.3)
                                 : Color.red)
                         )
+                        .transition(.scale(scale: 0.9).combined(with: .opacity))
                 }
             }
             .padding(.horizontal, 16)
@@ -721,12 +725,36 @@ struct MessagesView: View {
             }
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .padding(.vertical, 10) // Shorter pill (-2pt)
         .background(
             Capsule()
                 .fill(.ultraThinMaterial)
-                .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
+                .shadow(color: .black.opacity(searchText.isEmpty ? 0.05 : 0.12),
+                        radius: searchText.isEmpty ? 8 : 12, y: 2) // Micro-shadow on focus
         )
+        .animation(.easeOut(duration: 0.2), value: searchText.isEmpty)
+
+        // Inline filter chips when searching
+        if searchText.count >= 2 {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(["Photos", "Links", "People"], id: \.self) { filter in
+                        Text(filter)
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(
+                                Capsule()
+                                    .fill(Color(.systemGray6))
+                            )
+                    }
+                }
+                .padding(.horizontal, 20)
+            }
+            .transition(.opacity.combined(with: .move(edge: .top)))
+            .animation(.easeOut(duration: 0.2), value: searchText.count >= 2)
+        }
     }
     
     // MARK: - Modern Content Section (Reference Style)
@@ -823,6 +851,54 @@ struct MessagesView: View {
             }
             .refreshable {
                 await refreshConversations()
+            }
+            // One-time swipe hint
+            .onAppear {
+                if !hasSeenSwipeHint && !filteredConversations.isEmpty {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                            showSwipeHint = true
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+                            withAnimation(.easeOut(duration: 0.3)) {
+                                showSwipeHint = false
+                                hasSeenSwipeHint = true
+                            }
+                        }
+                    }
+                }
+            }
+            .overlay(alignment: .bottom) {
+                // Swipe hint tooltip
+                if showSwipeHint {
+                    Text("Tip: swipe conversations for more options")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(Capsule().fill(Color.black.opacity(0.8)))
+                        .padding(.bottom, 80)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+            }
+            // Floating compose button (always visible, glass style)
+            .overlay(alignment: .bottomTrailing) {
+                Button {
+                    activeSheet = .newMessage
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                } label: {
+                    Image(systemName: "square.and.pencil")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 52, height: 52)
+                        .background(
+                            Circle()
+                                .fill(Color.black)
+                                .shadow(color: .black.opacity(0.25), radius: 10, y: 4)
+                        )
+                }
+                .padding(.trailing, 20)
+                .padding(.bottom, 20)
             }
         }
     }
@@ -1969,8 +2045,16 @@ struct MessagesView: View {
                 ScrollView(showsIndicators: false) {
                     LazyVStack(spacing: 12) {
                         ForEach(messageRequests) { request in
-                            MessageRequestRow(request: request) { action in
-                                handleRequestAction(request: request, action: action)
+                            HStack(spacing: 0) {
+                                // Left accent stripe for request rows
+                                RoundedRectangle(cornerRadius: 2)
+                                    .fill(Color.blue.opacity(0.4))
+                                    .frame(width: 3)
+                                    .padding(.vertical, 4)
+
+                                MessageRequestRow(request: request) { action in
+                                    handleRequestAction(request: request, action: action)
+                                }
                             }
                         }
                     }
