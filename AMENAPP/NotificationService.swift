@@ -1033,6 +1033,46 @@ struct AppNotification: Identifiable, Codable, Hashable {
             let rawValue = try container.decode(String.self)
             self = NotificationType(rawValue: rawValue) ?? .unknown
         }
+
+        /// SF Symbol for the action badge overlay on avatars (Threads-style).
+        var iconName: String {
+            switch self {
+            case .follow, .followRequestAccepted: return "person.badge.plus"
+            case .amen:                           return "hands.sparkles.fill"
+            case .comment, .reply:                return "bubble.fill"
+            case .mention:                        return "at"
+            case .repost:                         return "repeat"
+            case .prayerReminder, .prayerAnswered: return "hands.sparkles"
+            case .churchNoteShared:               return "book.fill"
+            case .message, .messageRequest, .messageRequestAccepted: return "envelope.fill"
+            case .unknown:                        return "bell.fill"
+            }
+        }
+
+        /// Accent color for the icon badge (Threads-style).
+        var iconColor: Color {
+            switch self {
+            case .follow, .followRequestAccepted: return .purple
+            case .amen:                           return Color(red: 1.0, green: 0.4, blue: 0.5) // pink
+            case .comment, .reply:                return .blue
+            case .mention:                        return .orange
+            case .repost:                         return .green
+            case .prayerReminder, .prayerAnswered: return .purple
+            case .churchNoteShared:               return .orange
+            case .message, .messageRequest, .messageRequestAccepted: return .blue
+            case .unknown:                        return .secondary
+            }
+        }
+
+        /// Filter category for tab filtering.
+        var filterCategory: String {
+            switch self {
+            case .follow, .followRequestAccepted: return "follows"
+            case .comment, .reply, .repost:       return "conversations"
+            case .mention:                        return "mentions"
+            default:                              return "all"
+            }
+        }
     }
     
     // MARK: - Computed Properties
@@ -1153,19 +1193,19 @@ struct AppNotification: Identifiable, Codable, Hashable {
     var color: Color {
         switch type {
         case .follow:
-            return .green
-        case .amen:
-            return .blue
-        case .comment:
             return .purple
+        case .amen:
+            return Color(red: 1.0, green: 0.4, blue: 0.5) // pink
+        case .comment:
+            return .blue
         case .prayerReminder:
-            return .orange
+            return .purple
         case .mention:
-            return .pink
+            return .orange
         case .reply:
-            return .indigo
+            return .blue
         case .repost:
-            return .cyan  // ✅ NEW
+            return .green
         case .prayerAnswered:
             return .green
         case .followRequestAccepted:
