@@ -10,7 +10,7 @@
 import SwiftUI
 import FirebaseAuth
 import FirebaseFirestore
-import Combine
+// Combine removed — all patterns use async/await or NotificationCenter
 import PhotosUI
 import Vision
 
@@ -210,8 +210,8 @@ struct CommentsView: View {
                         selectedUserId = participant.userId
                         showUserProfile = true
                         
-                        let haptic = UIImpactFeedbackGenerator(style: .light)
-                        haptic.impactOccurred()
+                        // haptic
+                        HapticManager.impact(style: .light)
                     } label: {
                         ZStack {
                             // Avatar with premium styling - using CachedAsyncImage for faster loading
@@ -348,8 +348,8 @@ struct CommentsView: View {
                 // Premium styled close button
                 Button {
                     dismiss()
-                    let haptic = UIImpactFeedbackGenerator(style: .light)
-                    haptic.impactOccurred()
+                    // haptic
+                    HapticManager.impact(style: .light)
                 } label: {
                     Image(systemName: "xmark")
                         .font(.system(size: 15, weight: .semibold))
@@ -502,8 +502,8 @@ struct CommentsView: View {
                                             }
                                             
                                             // Haptic feedback
-                                            let haptic = UIImpactFeedbackGenerator(style: .light)
-                                            haptic.impactOccurred()
+                                            // haptic
+                                            HapticManager.impact(style: .light)
                                         },
                                         onDelete: {
                                             withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
@@ -604,8 +604,8 @@ struct CommentsView: View {
                                                                 isInputFocused = true
                                                             }
                                                             
-                                                            let haptic = UIImpactFeedbackGenerator(style: .light)
-                                                            haptic.impactOccurred()
+                                                            // haptic
+                                                            HapticManager.impact(style: .light)
                                                         },
                                                         onDelete: {
                                                             withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
@@ -682,7 +682,7 @@ struct CommentsView: View {
                         HStack(spacing: 8) {
                             ForEach(smartReplySuggestions, id: \.self) { suggestion in
                                 Button {
-                                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                    HapticManager.impact(style: .light)
                                     commentText = suggestion
                                     isInputFocused = true
                                 } label: {
@@ -963,8 +963,8 @@ struct CommentsView: View {
                             // Emoji button
                             Button {
                                 showEmojiPicker = true
-                                let haptic = UIImpactFeedbackGenerator(style: .light)
-                                haptic.impactOccurred()
+                                // haptic
+                                HapticManager.impact(style: .light)
                             } label: {
                                 Image(systemName: "face.smiling")
                                     .font(.system(size: 18, weight: .medium))
@@ -1222,18 +1222,6 @@ struct CommentsView: View {
     
     // MARK: - Actions
     
-    private func loadComments() async {
-        isLoading = true
-        do {
-            commentsWithReplies = try await commentService.fetchCommentsWithReplies(for: postId)
-        } catch {
-            errorMessage = error.localizedDescription
-            showError = true
-        }
-        isLoading = false
-        refreshSmartReplies()
-    }
-    
     // MARK: - @Mention helpers
 
     /// Detects if the user is typing @<query> and triggers a debounced user search.
@@ -1289,7 +1277,7 @@ struct CommentsView: View {
                         isLoadingBereanSuggestion = false
                     }
                     let haptic = UIImpactFeedbackGenerator(style: .soft)
-                    haptic.impactOccurred()
+                    HapticManager.impact(style: .light)
                 }
             } catch {
                 print("⚠️ [Berean] Comment rewrite unavailable: \(error)")
@@ -1388,9 +1376,11 @@ struct CommentsView: View {
                 let (blockedAuthor, blockedByAuthor) = await (currentUserBlockedAuthor, authorBlockedCurrentUser)
                 if blockedAuthor || blockedByAuthor {
                     await MainActor.run {
-                        // Silent discard — don't reveal to commenter which direction the block is in
                         isSubmittingComment = false
-                        commentText = text // restore so UI isn't jarring
+                        commentText = text
+                        // Neutral message — don't reveal block direction
+                        errorMessage = "Unable to post comment."
+                        showError = true
                     }
                     return
                 }
@@ -1558,8 +1548,8 @@ struct CommentsView: View {
                 
                 // Haptic feedback
                 await MainActor.run {
-                    let haptic = UINotificationFeedbackGenerator()
-                    haptic.notificationOccurred(.success)
+                    // haptic
+                    HapticManager.notification(type: .success)
                     isSubmittingComment = false  // Re-enable after write completes
                 }
             } catch {
@@ -1611,8 +1601,8 @@ struct CommentsView: View {
                 
                 // Haptic feedback
                 await MainActor.run {
-                    let haptic = UINotificationFeedbackGenerator()
-                    haptic.notificationOccurred(.success)
+                    // haptic
+                    HapticManager.notification(type: .success)
                 }
             } catch {
                 // If deletion failed, reload comments to restore state
@@ -1632,8 +1622,8 @@ struct CommentsView: View {
         let commentId = comment.id ?? ""
         
         // Haptic feedback immediately
-        let haptic = UIImpactFeedbackGenerator(style: .medium)
-        haptic.impactOccurred()
+        // haptic
+        HapticManager.impact(style: .light)
         
         Task {
             guard !commentId.isEmpty else {
@@ -1776,16 +1766,8 @@ struct CommentsView: View {
             }
         }
         
-        // ✅ VERY slow polling as safety fallback - real-time listener handles instant updates
-        // Only polls every 30 seconds as a backup mechanism
-        pollingTask = Task {
-            while !Task.isCancelled && isListening {
-                // Very slow polling (30 seconds) - real-time listener + notifications handle instant updates
-                try? await Task.sleep(nanoseconds: 30_000_000_000) // 30s
-                
-                _ = await updateCommentsFromService()
-            }
-        }
+        // Real-time listener + commentsUpdated notification handles live updates.
+        // Polling removed — it fired 120+ Firestore reads/hour per user.
     }
     
     private func stopRealtimeListener() {
@@ -1951,8 +1933,8 @@ struct CommentsView: View {
             withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                 commentPhotoData = data
             }
-            let haptic = UINotificationFeedbackGenerator()
-            haptic.notificationOccurred(.success)
+            // haptic
+            HapticManager.notification(type: .success)
         }
     }
 
@@ -2034,8 +2016,8 @@ private struct PostCommentRow: View {
                 onProfileTap()
                 
                 // Haptic feedback
-                let haptic = UIImpactFeedbackGenerator(style: .light)
-                haptic.impactOccurred()
+                // haptic
+                HapticManager.impact(style: .light)
             } label: {
                 if let imageURL = comment.authorProfileImageURL,
                    !imageURL.isEmpty,
@@ -2091,8 +2073,8 @@ private struct PostCommentRow: View {
                     if showFollowChip {
                         Button {
                             didJustFollow = true
-                            let haptic = UIImpactFeedbackGenerator(style: .light)
-                            haptic.impactOccurred()
+                            // haptic
+                            HapticManager.impact(style: .light)
                             Task {
                                 try? await FollowService.shared.followUser(userId: comment.authorId)
                             }
@@ -2207,8 +2189,8 @@ private struct PostCommentRow: View {
                             Button {
                                 onToggleThread()
                                 
-                                let haptic = UIImpactFeedbackGenerator(style: .light)
-                                haptic.impactOccurred()
+                                // haptic
+                                HapticManager.impact(style: .light)
                             } label: {
                                 HStack(spacing: 4) {
                                     Image(systemName: isThreadExpanded ? "chevron.up" : "chevron.down")
@@ -2516,8 +2498,8 @@ struct EmojiQuickPickerView: View {
                         onSelect(emoji)
                         
                         // Haptic feedback
-                        let haptic = UIImpactFeedbackGenerator(style: .light)
-                        haptic.impactOccurred()
+                        // haptic
+                        HapticManager.impact(style: .light)
                     } label: {
                         Text(emoji)
                             .font(.system(size: 40))
@@ -2749,8 +2731,8 @@ struct CommentReactionPicker: View {
             ForEach(Array(reactions.enumerated()), id: \.offset) { index, reaction in
                 Button {
                     onReact(reaction.emoji)
-                    let haptic = UIImpactFeedbackGenerator(style: .light)
-                    haptic.impactOccurred()
+                    // haptic
+                    HapticManager.impact(style: .light)
                 } label: {
                     Text(reaction.emoji)
                         .font(.system(size: 26))
