@@ -2,14 +2,14 @@
 //  BereanActivityAttributes.swift
 //  AMENAPP
 //
-//  Data model for the Berean AI Dynamic Island Live Activity.
-//  Shared between the main app target and the widget extension target.
+//  Data model for the Berean AI Dynamic Island feature.
+//  Plain Codable struct in the main app — ActivityAttributes conformance
+//  is added in the widget extension target.
 //
 
 import Foundation
-import ActivityKit
 
-struct BereanActivityAttributes: ActivityAttributes {
+struct BereanActivityAttributes: Codable, Hashable {
     let postID: String
     let postAuthor: String
     let postPreview: String
