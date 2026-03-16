@@ -2283,14 +2283,10 @@ struct SearchButton: View {
                                 )
                         )
                         .shadow(color: .black.opacity(0.08), radius: 4, y: 2)
-                    // Soft glow halo on first launch to invite discovery
-                    if showFirstTimeLongPressHint {
-                        Circle()
-                            .fill(Color.blue.opacity(0.15))
-                            .frame(width: 56, height: 56)
-                            .blur(radius: 8)
-                            .scaleEffect(isAnimating ? 1.2 : 0.9)
-                    }
+                        .overlay(
+                            Circle()
+                                .stroke(Color.black.opacity(0.15), lineWidth: 1.5)
+                        )
 
                     Image("amen-logo")
                         .resizable()
@@ -4440,7 +4436,7 @@ struct OpenTableView: View {
                             }
                         }
                         // Seen-post tracking: fires once after 1.5s of continuous visibility
-                        .trackPostVisibility(postId: post.firestoreId ?? post.id.uuidString) { seenId in
+                        .trackPostVisibility(postId: post.firestoreId) { seenId in
                             caughtUpService.markSeen(postId: seenId)
                         }
                     }
@@ -4565,7 +4561,7 @@ struct OpenTableView: View {
             let cutoff = Date().addingTimeInterval(-72 * 3600)
             let windowIds = Set(newValue.compactMap { post -> String? in
                 guard post.createdAt > cutoff else { return nil }
-                return post.firestoreId ?? post.id.uuidString
+                return post.firestoreId
             })
             if !windowIds.isEmpty {
                 caughtUpService.setCurrentWindow(postIds: windowIds)
