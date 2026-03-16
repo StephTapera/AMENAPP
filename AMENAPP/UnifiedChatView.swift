@@ -580,6 +580,11 @@ struct UnifiedChatView: View {
                                 isFollowLoading: isFollowButtonLoading,
                                 onViewProfile: { showUserProfile = true },
                                 onFollow: { followOtherUser() },
+                                onSendPrayer: {
+                                    let firstName = conversation.name.components(separatedBy: " ").first ?? "you"
+                                    messageText = "🙏 Praying for you, \(firstName)"
+                                    isInputFocused = true
+                                },
                                 overridePhotoURL: otherUserProfilePhoto
                             )
                             .transition(.opacity.combined(with: .move(edge: .top)))
@@ -601,7 +606,11 @@ struct UnifiedChatView: View {
                         if conversation.status == "accepted" && messages.isEmpty {
                             ChatEmptyState(
                                 conversation: conversation,
-                                followRelationship: followRelationship
+                                followRelationship: followRelationship,
+                                onStarterTapped: { starter in
+                                    messageText = starter
+                                    isInputFocused = true
+                                }
                             )
                         }
 
@@ -1017,9 +1026,16 @@ struct UnifiedChatView: View {
                                 .stroke(Color.white.opacity(0.2), lineWidth: 1)
                         )
                     
-                    Image(systemName: isMediaSectionExpanded ? "xmark" : "plus")
-                        .font(.system(size: 18, weight: .medium))
-                        .foregroundStyle(Color.primary.opacity(0.6))
+                    VStack(spacing: 2) {
+                        Image(systemName: isMediaSectionExpanded ? "xmark" : "plus")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(Color.primary.opacity(0.6))
+                        if !isMediaSectionExpanded {
+                            Text("Media")
+                                .font(.system(size: 8, weight: .medium))
+                                .foregroundStyle(Color.primary.opacity(0.4))
+                        }
+                    }
                 }
             }
             .buttonStyle(SpringButtonStyle())
@@ -1029,7 +1045,7 @@ struct UnifiedChatView: View {
                 .fill(Color(.systemBackground).opacity(0.5))
             let inputBorder = RoundedRectangle(cornerRadius: 25)
                 .stroke(Color.black.opacity(0.15), lineWidth: 1)
-            HStack(spacing: 10) {
+            HStack(spacing: 8) {
                 ZStack(alignment: .leading) {
                     if messageText.isEmpty {
                         Text(placeholderText)
@@ -1044,57 +1060,53 @@ struct UnifiedChatView: View {
                         .tint(Color.primary)
                         .foregroundColor(Color.primary)
                 }
-            }
-            .padding(.leading, 16)
-            .padding(.trailing, 8)
-            .frame(maxWidth: .infinity)
-            .frame(height: 50)
-            .background(inputBackground)
-            .overlay(inputBorder)
-            
-            // Send/Voice button - dark circular design
-            Button {
-                if messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    // Start voice recording
-                    let haptic = UIImpactFeedbackGenerator(style: .medium)
-                    haptic.impactOccurred()
-                } else {
-                    sendMessage()
-                }
-            } label: {
-                ZStack {
-                    Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: isMessageEmpty ? [
-                                    Color(red: 0.2, green: 0.2, blue: 0.2),
-                                    Color(red: 0.2, green: 0.2, blue: 0.2)
-                                ] : [
-                                    Color(red: 0.15, green: 0.15, blue: 0.15),
-                                    Color(red: 0.05, green: 0.05, blue: 0.05)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(width: 50, height: 50)
-                        .shadow(color: .black.opacity(0.15), radius: 8, y: 3)
 
-                    if isMessageEmpty {
-                        // Voice/waveform icon
-                        Image(systemName: "waveform")
-                            .font(.system(size: 20, weight: .medium))
-                            .foregroundColor(.white)
+                // Voice/Send button integrated inside the input bar
+                Button {
+                    if messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        let haptic = UIImpactFeedbackGenerator(style: .medium)
+                        haptic.impactOccurred()
                     } else {
-                        // Send arrow
-                        Image(systemName: "arrow.up")
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundColor(.white)
+                        sendMessage()
+                    }
+                } label: {
+                    ZStack {
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: isMessageEmpty ? [
+                                        Color(red: 0.25, green: 0.25, blue: 0.25),
+                                        Color(red: 0.25, green: 0.25, blue: 0.25)
+                                    ] : [
+                                        Color(red: 0.15, green: 0.15, blue: 0.15),
+                                        Color(red: 0.05, green: 0.05, blue: 0.05)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 36, height: 36)
+
+                        if isMessageEmpty {
+                            Image(systemName: "waveform")
+                                .font(.system(size: 15, weight: .medium))
+                                .foregroundColor(.white)
+                        } else {
+                            Image(systemName: "arrow.up")
+                                .font(.system(size: 15, weight: .bold))
+                                .foregroundColor(.white)
+                        }
                     }
                 }
+                .buttonStyle(SpringButtonStyle())
+                .disabled(isSendingMessage)
             }
-            .buttonStyle(SpringButtonStyle())
-            .disabled(isSendingMessage) // P0-1 FIX: Prevent duplicate sends
+            .padding(.leading, 16)
+            .padding(.trailing, 6)
+            .frame(maxWidth: .infinity)
+            .frame(minHeight: 50)
+            .background(inputBackground)
+            .overlay(inputBorder)
             .opacity(isSendingMessage ? 0.5 : 1.0) // Visual feedback while sending
         }
         .padding(.horizontal, 16)
