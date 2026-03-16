@@ -884,10 +884,16 @@ struct AppLoadingScreen: View {
 
                 Spacer()
 
-                // Loading dots — shown only when the app is actively loading
-                AMENLoadingIndicator(color: .black.opacity(0.3), dotSize: 8, spacing: 7, bounceHeight: 10)
-                    .opacity(dotsOpacity)
-                    .padding(.bottom, 60)
+                // Loading dots + status text
+                VStack(spacing: 12) {
+                    AMENLoadingIndicator(color: .black.opacity(0.3), dotSize: 8, spacing: 7, bounceHeight: 10)
+
+                    Text("Loading your feed...")
+                        .font(.system(size: 12, weight: .regular))
+                        .foregroundColor(.black.opacity(0.25))
+                }
+                .opacity(dotsOpacity)
+                .padding(.bottom, 60)
             }
         }
         .ignoresSafeArea()
@@ -901,8 +907,8 @@ struct AppLoadingScreen: View {
             withAnimation(.easeOut(duration: 0.3).delay(0.2)) {
                 taglineOpacity = 1.0
             }
-            // Dots fade in after 0.6s — only visible if loading takes a moment
-            withAnimation(.easeIn(duration: 0.25).delay(0.6)) {
+            // Dots fade in quickly so user sees loading feedback immediately
+            withAnimation(.easeIn(duration: 0.2).delay(0.15)) {
                 dotsOpacity = 1.0
             }
         }
