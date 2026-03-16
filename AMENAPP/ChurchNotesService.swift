@@ -214,6 +214,46 @@ class ChurchNotesService: ObservableObject {
         // Real-time listener will automatically update the notes array
     }
     
+    // MARK: - Query Helpers
+
+    /// Get all notes for a specific church by the current user.
+    func notesForChurch(churchId: String) async throws -> [ChurchNote] {
+        guard let userId = firebaseManager.currentUser?.uid else { return [] }
+        let snap = try await db.collection("churchNotes")
+            .whereField("userId", isEqualTo: userId)
+            .whereField("churchId", isEqualTo: churchId)
+            .order(by: "date", descending: true)
+            .getDocuments()
+        return snap.documents.compactMap { try? $0.data(as: ChurchNote.self) }
+    }
+
+    /// Get note linked to a specific visit plan.
+    func noteForVisitPlan(visitPlanId: String) async throws -> ChurchNote? {
+        let snap = try await db.collection("churchNotes")
+            .whereField("visitPlanId", isEqualTo: visitPlanId)
+            .limit(to: 1)
+            .getDocuments()
+        return snap.documents.first.flatMap { try? $0.data(as: ChurchNote.self) }
+    }
+
+    /// Get distinct church IDs the user has written notes for, with counts.
+    func churchesWithNotes() async throws -> [(churchId: String, churchName: String, noteCount: Int)] {
+        guard let userId = firebaseManager.currentUser?.uid else { return [] }
+        let snap = try await db.collection("churchNotes")
+            .whereField("userId", isEqualTo: userId)
+            .getDocuments()
+        let notes = snap.documents.compactMap { try? $0.data(as: ChurchNote.self) }
+
+        var grouped: [String: (name: String, count: Int)] = [:]
+        for note in notes {
+            guard let cid = note.churchId, !cid.isEmpty else { continue }
+            let existing = grouped[cid]
+            grouped[cid] = (name: note.churchName ?? existing?.name ?? "Unknown", count: (existing?.count ?? 0) + 1)
+        }
+        return grouped.map { (churchId: $0.key, churchName: $0.value.name, noteCount: $0.value.count) }
+            .sorted { $0.noteCount > $1.noteCount }
+    }
+
     /// Update an existing note with optimistic concurrency control
     func updateNote(_ note: ChurchNote) async throws {
         guard let noteId = note.id else {
