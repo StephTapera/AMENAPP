@@ -307,7 +307,7 @@ struct CreatePostView: View {
 
                                     // Library photo grid
                                     if !selectedImageData.isEmpty {
-                                        ImagePreviewGrid(images: $selectedImageData)
+                                        ImagePreviewGrid(images: $selectedImageData, onAddMore: { showingImagePicker = true })
                                     }
 
                                     // Poll composer
@@ -371,7 +371,7 @@ struct CreatePostView: View {
                     VStack {
                         Spacer()
                         PostedPill()
-                            .padding(.bottom, 36)
+                            .padding(.bottom, 56) // Anchored just above bottom bar
                     }
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .animation(.spring(response: 0.45, dampingFraction: 0.72), value: showingSuccessNotice)
@@ -742,15 +742,15 @@ struct CreatePostView: View {
     private var placeholderText: String {
         switch selectedCategory {
         case .openTable:
-            return "Share your thoughts on AI, technology, and faith..."
+            return "What's on your heart..."
         case .testimonies:
-            return "Share how God has been working in your life..."
+            return "Share your testimony..."
         case .prayer:
-            return "Share a prayer request or praise report..."
+            return "How can we pray for you..."
         case .tip:
-            return "Share a helpful tip or advice..."
+            return "Share a tip..."
         case .funFact:
-            return "Share an interesting fun fact..."
+            return "Share a fun fact..."
         }
     }
     
@@ -789,7 +789,7 @@ struct CreatePostView: View {
 
                 // Library photo grid
                 if !selectedImageData.isEmpty {
-                    ImagePreviewGrid(images: $selectedImageData)
+                    ImagePreviewGrid(images: $selectedImageData, onAddMore: { showingImagePicker = true })
                         .padding(.horizontal, 20)
                 }
 
@@ -1309,9 +1309,19 @@ struct CreatePostView: View {
     private var topicTagButtonContent: some View {
         HStack {
             if selectedTopicTag.isEmpty {
-                Text(selectedCategory == .testimonies ? "Select a category (optional)" : selectedCategory == .openTable ? "Select a topic tag" : "Select prayer type")
-                    .font(.custom("OpenSans-Regular", size: 15))
-                    .foregroundStyle(.secondary)
+                HStack(spacing: 6) {
+                    Text(selectedCategory == .testimonies ? "Select a category (optional)" : selectedCategory == .openTable ? "Select a topic tag" : "Select prayer type")
+                        .font(.custom("OpenSans-Regular", size: 15))
+                        .foregroundStyle(.secondary)
+                    if selectedCategory != .testimonies {
+                        Text("Required")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(.secondary.opacity(0.7))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Capsule().fill(Color.primary.opacity(0.06)))
+                    }
+                }
             } else {
                 // Show icon for prayer types
                 if selectedCategory == .prayer {
@@ -4423,7 +4433,8 @@ struct EnhancedCategoryChip: View {
 
 struct ImagePreviewGrid: View {
     @Binding var images: [Data]
-    
+    var onAddMore: (() -> Void)? = nil
+
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 12) {
@@ -4436,7 +4447,7 @@ struct ImagePreviewGrid: View {
                                 .frame(width: 120, height: 120)
                                 .clipShape(RoundedRectangle(cornerRadius: 12))
                                 .transition(.scale.combined(with: .opacity))
-                            
+
                             Button {
                                 withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                                     _ = images.remove(at: index)
@@ -4446,7 +4457,7 @@ struct ImagePreviewGrid: View {
                                     Circle()
                                         .fill(Color.black.opacity(0.7))
                                         .frame(width: 28, height: 28)
-                                    
+
                                     Image(systemName: "xmark")
                                         .font(.system(size: 12, weight: .bold))
                                         .foregroundStyle(.white)
@@ -4456,6 +4467,22 @@ struct ImagePreviewGrid: View {
                         }
                         .transition(.scale.combined(with: .opacity))
                     }
+                }
+
+                // "+" add more cell (up to 4 images)
+                if images.count < 4, let onAddMore {
+                    Button(action: onAddMore) {
+                        RoundedRectangle(cornerRadius: 12)
+                            .strokeBorder(Color.primary.opacity(0.15), style: StrokeStyle(lineWidth: 1.5, dash: [6]))
+                            .frame(width: 120, height: 120)
+                            .overlay(
+                                Image(systemName: "plus")
+                                    .font(.system(size: 24, weight: .light))
+                                    .foregroundStyle(.secondary)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .transition(.scale.combined(with: .opacity))
                 }
             }
         }
@@ -5560,9 +5587,10 @@ private struct PostedPill: View {
                 withAnimation(.linear(duration: 0.36).delay(0.20)) {
                     checkmarkProgress = 1
                 }
-                // Label updates to "Posted"
+                // Label updates to "Posted" + haptic success
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
                     labelText = "Posted"
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
                     withAnimation(.spring(response: 0.34, dampingFraction: 0.76)) {
                         labelOpacity = 1
                         labelOffset = 0
