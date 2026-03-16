@@ -319,7 +319,12 @@ struct BereanAIAssistantView: View {
     private var chatMessageList: some View {
         VStack(spacing: 20) {
             if viewModel.messages.isEmpty {
-                bereanEmptyStateView
+                GeometryReader { geo in
+                    bereanEmptyStateView
+                        .frame(width: geo.size.width, height: geo.size.height)
+                }
+                .frame(maxWidth: .infinity)
+                .frame(minHeight: UIScreen.main.bounds.height * 0.65)
             } else {
                 ForEach(viewModel.messages) { message in
                     messageBubbleRow(message: message)
@@ -1115,10 +1120,17 @@ struct BereanAIAssistantView: View {
             personalityMode: $personalityMode,
             onQuickAction: { prompt in
                 if prompt.isEmpty {
-                    // "Ask Anything" — just open keyboard
                     isInputFocused = true
                 } else {
                     sendMessage(prompt)
+                }
+            },
+            isActive: isGenerating || isThinking,
+            onOrbTap: {
+                if isGenerating || isThinking {
+                    stopGeneration()
+                } else {
+                    isInputFocused = true
                 }
             }
         )
@@ -3205,43 +3217,41 @@ struct BereanVoiceListeningOverlay: View {
             VStack(spacing: 0) {
                 Spacer()
 
-                // Atmospheric pulse rings
+                // Orb + atmospheric pulse rings
                 ZStack {
                     // Outermost soft ring
                     Circle()
-                        .stroke(coral.opacity(0.06), lineWidth: 1)
-                        .frame(width: 220, height: 220)
+                        .stroke(Color(white: 0.78).opacity(0.18), lineWidth: 1)
+                        .frame(width: 230, height: 230)
                         .scaleEffect(appeared ? pulseScale * 1.12 : 0.7)
                         .opacity(appeared ? 1 : 0)
 
                     // Middle ring
                     Circle()
-                        .stroke(coral.opacity(0.12), lineWidth: 1.2)
-                        .frame(width: 160, height: 160)
+                        .stroke(Color(white: 0.70).opacity(0.22), lineWidth: 1.2)
+                        .frame(width: 168, height: 168)
                         .scaleEffect(appeared ? pulseScale * 1.06 : 0.7)
                         .opacity(appeared ? 1 : 0)
 
-                    // Inner filled ring
+                    // Soft lavender glow disc behind orb — intensifies when recording
                     Circle()
                         .fill(
                             RadialGradient(
-                                colors: [coral.opacity(0.18), coral.opacity(0.06)],
-                                center: .center, startRadius: 0, endRadius: 55
+                                colors: [
+                                    Color(red: 0.80, green: 0.78, blue: 0.96)
+                                        .opacity(recognizer.isRecording ? 0.28 : 0.12),
+                                    Color.clear
+                                ],
+                                center: .center, startRadius: 0, endRadius: 58
                             )
                         )
-                        .frame(width: 110, height: 110)
+                        .frame(width: 118, height: 118)
                         .scaleEffect(appeared ? 1.0 : 0.6)
                         .opacity(appeared ? 1 : 0)
+                        .animation(.easeInOut(duration: 0.4), value: recognizer.isRecording)
 
-                    // Mic icon
-                    Image(systemName: recognizer.isRecording ? "waveform" : "mic")
-                        .font(.system(size: 34, weight: .light))
-                        .foregroundStyle(coral)
-                        .symbolEffect(
-                            .variableColor.iterative,
-                            options: .repeating,
-                            isActive: recognizer.isRecording
-                        )
+                    // Pearl orb — active (shimmer + faster pulse) while recording
+                    BereanOrbView(isActive: recognizer.isRecording)
                         .scaleEffect(appeared ? 1.0 : 0.5)
                         .opacity(appeared ? 1 : 0)
                 }
@@ -6905,6 +6915,10 @@ struct BereanFolderPickerSheet: View {
 struct BereanPremiumLandingView: View {
     @Binding var personalityMode: BereanPersonalityMode
     let onQuickAction: (String) -> Void
+    /// Passed from parent — true while AI is generating or thinking.
+    var isActive: Bool = false
+    /// Called when the user taps the orb (focus input or stop generation).
+    var onOrbTap: (() -> Void)? = nil
 
     @State private var heroVisible = false
 
@@ -6913,6 +6927,18 @@ struct BereanPremiumLandingView: View {
     var body: some View {
         VStack(spacing: 0) {
             Spacer()
+
+            // ── Berean orb ────────────────────────────────────────────────
+            BereanOrbView(isActive: isActive, onTap: onOrbTap)
+                .opacity(heroVisible ? 1 : 0)
+                .scaleEffect(heroVisible ? 1 : (shouldReduceMotion ? 1 : 0.82))
+                .animation(
+                    shouldReduceMotion
+                        ? .none
+                        : .spring(response: 0.55, dampingFraction: 0.72),
+                    value: heroVisible
+                )
+                .padding(.bottom, 28)
 
             // ── Hero greeting (vertically centered like ChatGPT/Claude) ───
             BereanTypographyHero()
@@ -6924,6 +6950,7 @@ struct BereanPremiumLandingView: View {
                         : .spring(response: 0.60, dampingFraction: 0.80),
                     value: heroVisible
                 )
+                .frame(maxWidth: .infinity)
                 .padding(.horizontal, BereanDesign.pagePad)
 
             Spacer()
@@ -6976,7 +7003,7 @@ struct BereanTypographyHero: View {
     private let followUp = BereanTypographyHero.followUp()
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .center, spacing: 8) {
 
             // Primary greeting — typewriter
             HStack(alignment: .lastTextBaseline, spacing: 0) {
@@ -7010,12 +7037,13 @@ struct BereanTypographyHero: View {
                     .tracking(-0.3)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
+                    .multilineTextAlignment(.center)
                     .transition(.opacity.animation(.easeIn(duration: 0.25)))
             }
 
 
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .center)
         .onAppear {
             cursorVisible = true
             if reduceMotion {
@@ -7055,6 +7083,193 @@ struct BereanTypographyHero: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - BereanOrbView
+// Pearl white orb with layered ridges, inspired by Apple Intelligence orb.
+// Idles with a slow breath; responds to AI activity with shimmer + glow.
+
+struct BereanOrbView: View {
+
+    /// When true the orb pulses faster and gains a lavender shimmer.
+    var isActive: Bool = false
+    /// Optional tap action (e.g. focus input or cancel generation).
+    var onTap: (() -> Void)? = nil
+
+    @State private var breathScale: CGFloat = 1.0
+    @State private var shimmerAngle: Double = 0
+    @State private var glowOpacity: Double = 0
+
+    private let size: CGFloat = 110
+
+    var body: some View {
+        ZStack {
+            // ── Soft outer glow — intensifies when active ─────────────────
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            Color(red: 0.80, green: 0.78, blue: 0.92).opacity(isActive ? 0.55 : 0.20),
+                            Color.clear
+                        ],
+                        center: .center,
+                        startRadius: size * 0.3,
+                        endRadius: size * 0.85
+                    )
+                )
+                .frame(width: size * 1.55, height: size * 1.55)
+                .scaleEffect(breathScale * 1.05)
+                .opacity(glowOpacity)
+
+            // ── Main sphere body ──────────────────────────────────────────
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            Color.white,
+                            Color(white: 0.91),
+                            Color(red: 0.87, green: 0.86, blue: 0.93)
+                        ],
+                        center: UnitPoint(x: 0.38, y: 0.30),
+                        startRadius: 0,
+                        endRadius: size * 0.72
+                    )
+                )
+                .frame(width: size, height: size)
+                .overlay(
+                    // Layered curved ridges — the signature detail from the reference image
+                    ZStack {
+                        ForEach(0..<5, id: \.self) { i in
+                            RidgeShape(index: i)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [
+                                            Color(white: 0.72).opacity(0.60 - Double(i) * 0.09),
+                                            Color.white.opacity(0.05)
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                                .blendMode(.multiply)
+                        }
+                    }
+                    .clipShape(Circle())
+                )
+                .overlay(
+                    // Specular highlight — top-left bright spot
+                    Ellipse()
+                        .fill(
+                            RadialGradient(
+                                colors: [.white.opacity(0.90), .white.opacity(0)],
+                                center: .center,
+                                startRadius: 0,
+                                endRadius: size * 0.28
+                            )
+                        )
+                        .frame(width: size * 0.42, height: size * 0.32)
+                        .offset(x: -size * 0.15, y: -size * 0.18)
+                )
+                .overlay(
+                    // Active shimmer sweep — rotates when generating
+                    Circle()
+                        .fill(
+                            AngularGradient(
+                                colors: [
+                                    Color.white.opacity(isActive ? 0.35 : 0),
+                                    Color(red: 0.78, green: 0.76, blue: 0.96).opacity(isActive ? 0.25 : 0),
+                                    Color.white.opacity(0)
+                                ],
+                                center: .center,
+                                startAngle: .degrees(shimmerAngle),
+                                endAngle: .degrees(shimmerAngle + 160)
+                            )
+                        )
+                        .blendMode(.screen)
+                        .opacity(isActive ? 1 : 0)
+                        .animation(.easeInOut(duration: 0.5), value: isActive)
+                )
+                .shadow(color: Color(white: 0.60).opacity(0.30), radius: 18, x: 0, y: 8)
+                .shadow(color: Color(white: 0.85).opacity(0.80), radius: 4, x: -3, y: -3)
+                .scaleEffect(breathScale)
+                .animation(
+                    isActive
+                        ? .easeInOut(duration: 0.7).repeatForever(autoreverses: true)
+                        : .easeInOut(duration: 2.6).repeatForever(autoreverses: true),
+                    value: breathScale
+                )
+        }
+        .onAppear {
+            breathScale = isActive ? 1.06 : 1.032
+            glowOpacity = isActive ? 1 : 0.6
+            if isActive {
+                withAnimation(.linear(duration: 2.2).repeatForever(autoreverses: false)) {
+                    shimmerAngle = 360
+                }
+            }
+        }
+        .onChange(of: isActive) { _, active in
+            withAnimation(.easeInOut(duration: 0.45)) {
+                breathScale = active ? 1.06 : 1.032
+                glowOpacity = active ? 1 : 0.6
+            }
+            if active {
+                shimmerAngle = 0
+                withAnimation(.linear(duration: 2.2).repeatForever(autoreverses: false)) {
+                    shimmerAngle = 360
+                }
+            } else {
+                withAnimation(.easeOut(duration: 0.3)) {
+                    shimmerAngle = 0
+                }
+            }
+        }
+        .onTapGesture {
+            let haptic = UIImpactFeedbackGenerator(style: .light)
+            haptic.impactOccurred()
+            onTap?()
+        }
+        .accessibilityLabel(isActive ? "Berean is thinking" : "Berean AI")
+        .accessibilityAddTraits(.isButton)
+    }
+}
+
+// Crescent-arc ridge shape used inside BereanOrbView to replicate the layered
+// "pages" look of the reference orb image.
+private struct RidgeShape: Shape {
+    let index: Int
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let cx = rect.midX
+        let cy = rect.midY
+        let r  = rect.width * 0.5
+
+        // Each ridge is a thick crescent arc swept through the lower-left quadrant,
+        // offset slightly so they fan out like pages.
+        let offset = CGFloat(index) * 0.07
+        let thickness: CGFloat = r * 0.22
+        let outerR = r * (0.55 + offset)
+        let innerR = outerR - thickness
+
+        let startAngle = Angle.degrees(125 + Double(index) * 8)
+        let endAngle   = Angle.degrees(270 + Double(index) * 6)
+
+        // Outer arc
+        path.addArc(center: CGPoint(x: cx, y: cy),
+                    radius: outerR,
+                    startAngle: startAngle,
+                    endAngle: endAngle,
+                    clockwise: false)
+        // Inner arc (reversed to close the crescent)
+        path.addArc(center: CGPoint(x: cx, y: cy),
+                    radius: innerR,
+                    startAngle: endAngle,
+                    endAngle: startAngle,
+                    clockwise: true)
+        path.closeSubpath()
+        return path
     }
 }
 
