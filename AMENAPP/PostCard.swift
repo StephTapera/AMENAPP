@@ -3177,17 +3177,12 @@ private struct PostCardInteractionsModifier: ViewModifier {
     
     /// ✅ Check saved status with offline handling
     private func checkSavedStatusSafely(postId: String) async -> Bool {
-        let isOnline = AMENNetworkMonitor.shared.isConnected
-        
-        guard isOnline else {
-            return savedPostsService.isPostSavedSync(postId: postId)
-        }
-        
-        do {
-            return try await savedPostsService.isPostSaved(postId: postId)
-        } catch {
-            return savedPostsService.isPostSavedSync(postId: postId)
-        }
+        // Always use the authoritative in-memory set from RealtimeSavedPostsService.
+        // The per-post RTDB getData() can return stale offline-cached data during the
+        // brief DISCONNECTED→CONNECTED window on startup, causing all bookmarks to
+        // illuminate incorrectly. The savedPostIds set is populated by fetchSavedPostIds()
+        // which does a single authoritative read of the full saved set.
+        return savedPostsService.isPostSavedSync(postId: postId)
     }
     
     private func observePrayingCount(postId: String) {
