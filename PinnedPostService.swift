@@ -123,6 +123,34 @@ class PinnedPostService: ObservableObject {
         let userDoc = try await db.collection("users").document(userId).getDocument()
         return userDoc.data()?["pinnedPostId"] as? String
     }
+
+    // MARK: - Pinned Repost
+
+    /// Pin a repost to the top of the Reposts tab.
+    func pinRepost(repostId: String) async throws {
+        guard let userId = Auth.auth().currentUser?.uid else {
+            throw NSError(domain: "PinnedPost", code: 401, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
+        }
+        try await db.collection("users").document(userId).updateData([
+            "pinnedRepostId": repostId,
+        ])
+    }
+
+    /// Unpin the current pinned repost.
+    func unpinRepost() async throws {
+        guard let userId = Auth.auth().currentUser?.uid else {
+            throw NSError(domain: "PinnedPost", code: 401, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
+        }
+        try await db.collection("users").document(userId).updateData([
+            "pinnedRepostId": FieldValue.delete(),
+        ])
+    }
+
+    /// Get the pinned repost ID for a user.
+    func getPinnedRepostId(for userId: String) async throws -> String? {
+        let userDoc = try await db.collection("users").document(userId).getDocument()
+        return userDoc.data()?["pinnedRepostId"] as? String
+    }
     
     /// Load pinned post status for current user
     func loadCurrentUserPinnedPosts() async {

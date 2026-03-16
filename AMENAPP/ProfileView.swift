@@ -141,7 +141,7 @@ struct ProfileView: View {
     @State private var scrollUpdateTask: Task<Void, Never>?
     
     // PERFORMANCE: Reusable haptic generator to avoid creating new instances
-    private let tabHapticGenerator = UIImpactFeedbackGenerator(style: .light)
+    // tabHapticGenerator replaced by HapticManager
     
     // Scroll offset tracking for header animation
     @State private var scrollOffset: CGFloat = 0
@@ -413,8 +413,8 @@ struct ProfileView: View {
                 }
                 
                 // Enhanced haptic feedback
-                let haptic = UIImpactFeedbackGenerator(style: .light)
-                haptic.prepare()
+                // haptic
+                
                 haptic.impactOccurred(intensity: 0.7)
             } label: {
                 // Icon morphs between ellipsis ↔ xmark with liquid dissolve-reform
@@ -539,9 +539,9 @@ struct ProfileView: View {
                         dlog("   Total posts: \(self.userPosts.count)")
                         
                         // Success haptic with animation
-                        let haptic = UINotificationFeedbackGenerator()
-                        haptic.prepare()
-                        haptic.notificationOccurred(.success)
+                        // haptic
+                        
+                        HapticManager.notification(type: .success)
                         
                         // Force refresh after 1 second to get confirmed data
                         Task {
@@ -595,8 +595,8 @@ struct ProfileView: View {
                 
                 dlog("   🗑️ Post removed: \(postId)")
                 
-                let haptic = UINotificationFeedbackGenerator()
-                haptic.notificationOccurred(.warning)
+                // haptic
+                HapticManager.notification(type: .warning)
             }
         }
         notificationObservers.append(deletedObserver)
@@ -626,8 +626,8 @@ struct ProfileView: View {
                     dlog("   🔄 Repost added: \(repostedPost.id)")
                     dlog("   Total reposts: \(self.reposts.count)")
                     
-                    let haptic = UINotificationFeedbackGenerator()
-                    haptic.notificationOccurred(.success)
+                    // haptic
+                    HapticManager.notification(type: .success)
                 } else {
                     dlog("   ⚠️ Repost already exists")
                 }
@@ -662,8 +662,8 @@ struct ProfileView: View {
                     dlog("   Content: \(newComment.content.prefix(50))...")
                     dlog("   Total replies: \(self.userReplies.count)")
                     
-                    let haptic = UINotificationFeedbackGenerator()
-                    haptic.notificationOccurred(.success)
+                    // haptic
+                    HapticManager.notification(type: .success)
                 } else {
                     dlog("   ⚠️ Reply already exists")
                 }
@@ -690,8 +690,8 @@ struct ProfileView: View {
                     dlog("   🔖 Saved post added: \(savedPost.id)")
                     dlog("   Total saved: \(self.savedPosts.count)")
                     
-                    let haptic = UIImpactFeedbackGenerator(style: .light)
-                    haptic.impactOccurred()
+                    // haptic
+                    HapticManager.impact(style: .light)
                 } else {
                     dlog("   ⚠️ Post already saved")
                 }
@@ -720,8 +720,8 @@ struct ProfileView: View {
                 dlog("   Was present: \(wasRemoved)")
                 dlog("   Total saved: \(self.savedPosts.count)")
                 
-                let haptic = UIImpactFeedbackGenerator(style: .light)
-                haptic.impactOccurred()
+                // haptic
+                HapticManager.impact(style: .light)
             }
         }
         notificationObservers.append(unsavedObserver)
@@ -838,8 +838,8 @@ struct ProfileView: View {
         isRefreshing = false
         
         // Success haptic feedback
-        let haptic = UINotificationFeedbackGenerator()
-        haptic.notificationOccurred(.success)
+        // haptic
+        HapticManager.notification(type: .success)
         
         dlog("✅ Profile refreshed successfully")
         dlog("   Posts: \(userPosts.count)")
@@ -852,8 +852,8 @@ struct ProfileView: View {
     @MainActor
     private func enhancedRefreshProfile() async {
         // Trigger haptic at start
-        let startHaptic = UIImpactFeedbackGenerator(style: .medium)
-        startHaptic.impactOccurred()
+        // haptic
+        HapticManager.impact(style: .medium)
         
         // Smart refresh: Only fetch if data is older than 5 minutes
         let shouldSkip: Bool
@@ -865,8 +865,8 @@ struct ProfileView: View {
                 dlog("⏭️ Skipping refresh - data is fresh (last refresh: \(Int(timeSinceRefresh))s ago)")
                 
                 // Light success haptic
-                let haptic = UINotificationFeedbackGenerator()
-                haptic.notificationOccurred(.success)
+                // haptic
+                HapticManager.notification(type: .success)
                 return
             }
         } else {
@@ -888,8 +888,8 @@ struct ProfileView: View {
             showRefreshToast = true
             
             // Success haptic with notification
-            let haptic = UINotificationFeedbackGenerator()
-            haptic.notificationOccurred(.success)
+            // haptic
+            HapticManager.notification(type: .success)
             
             // Hide toast after 2 seconds
             DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
@@ -899,8 +899,8 @@ struct ProfileView: View {
             }
         } else {
             // Light success haptic for "no new posts"
-            let haptic = UIImpactFeedbackGenerator(style: .light)
-            haptic.impactOccurred()
+            // haptic
+            HapticManager.impact(style: .light)
         }
         
         dlog("✅ Enhanced refresh complete - \(newPostsCount) new posts")
@@ -910,8 +910,8 @@ struct ProfileView: View {
     @MainActor
     private func fastRefreshProfile() async {
         // Trigger haptic at start
-        let startHaptic = UIImpactFeedbackGenerator(style: .medium)
-        startHaptic.impactOccurred()
+        // haptic
+        HapticManager.impact(style: .medium)
         
         dlog("⚡ Fast real-time refresh starting...")
         let previousPostsCount = userPosts.count
@@ -934,8 +934,8 @@ struct ProfileView: View {
             showRefreshToast = true
             
             // Success haptic with notification
-            let haptic = UINotificationFeedbackGenerator()
-            haptic.notificationOccurred(.success)
+            // haptic
+            HapticManager.notification(type: .success)
             
             // Hide toast after 2 seconds
             DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
@@ -945,8 +945,8 @@ struct ProfileView: View {
             }
         } else {
             // Light success haptic for "no new content"
-            let haptic = UIImpactFeedbackGenerator(style: .light)
-            haptic.impactOccurred()
+            // haptic
+            HapticManager.impact(style: .light)
         }
         
         dlog("✅ Fast refresh complete - \(newPostsCount) new posts, \(newRepliesCount) new replies")
@@ -1184,8 +1184,8 @@ struct ProfileView: View {
             rootViewController.present(activityViewController, animated: true)
         }
         
-        let haptic = UIImpactFeedbackGenerator(style: .light)
-        haptic.impactOccurred()
+        // haptic
+        HapticManager.impact(style: .light)
     }
     
     // MARK: - Open Social Link Function
@@ -1213,8 +1213,8 @@ struct ProfileView: View {
         
         UIApplication.shared.open(url)
         
-        let haptic = UIImpactFeedbackGenerator(style: .light)
-        haptic.impactOccurred()
+        // haptic
+        HapticManager.impact(style: .light)
         
         dlog("🔗 Opened social link: \(link.platform.rawValue) - \(link.username)")
     }
@@ -1325,8 +1325,8 @@ struct ProfileView: View {
                         }
                         dlog("🔄 [SAVED] Saved posts updated: \(self.savedPosts.count) (was \(previousCount), added \(newPosts.count))")
                         if !newPosts.isEmpty {
-                            let haptic = UIImpactFeedbackGenerator(style: .light)
-                            haptic.impactOccurred()
+                            // haptic
+                            HapticManager.impact(style: .light)
                         }
                     }
                 } catch {
@@ -1358,8 +1358,8 @@ struct ProfileView: View {
                 dlog("   Total: \(posts.count) (was \(previousCount))")
                 
                 if posts.count != previousCount {
-                    let haptic = UIImpactFeedbackGenerator(style: .light)
-                    haptic.impactOccurred()
+                    // haptic
+                    HapticManager.impact(style: .light)
                 }
             }
         }
@@ -1579,7 +1579,7 @@ struct ProfileView: View {
             ForEach(ProfileTab.allCases, id: \.self) { tab in
                 Button {
                     // PERFORMANCE: Use reusable haptic generator
-                    tabHapticGenerator.impactOccurred()
+                    HapticManager.impact(style: .light)
                     
                     // Switch tab with fast, smooth animation
                     withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
@@ -1801,8 +1801,8 @@ struct ProfileView: View {
                     showFollowersList = true
                     
                     // Haptic feedback
-                    let haptic = UIImpactFeedbackGenerator(style: .light)
-                    haptic.impactOccurred()
+                    // haptic
+                    HapticManager.impact(style: .light)
                 } label: {
                     // Follower count de-emphasized: label leads, number is secondary
                     // Avoids training users to optimize for follower accumulation
@@ -1819,8 +1819,8 @@ struct ProfileView: View {
                 
                 Button {
                     showFollowingList = true
-                    let haptic = UIImpactFeedbackGenerator(style: .light)
-                    haptic.impactOccurred()
+                    // haptic
+                    HapticManager.impact(style: .light)
                 } label: {
                     HStack(spacing: 4) {
                         Text("Following")
@@ -2484,8 +2484,8 @@ struct ProfilePostCard: View {
     }
     
     private func triggerSwipeLikeAction() {
-        let haptic = UIImpactFeedbackGenerator(style: .medium)
-        haptic.impactOccurred()
+        // haptic
+        HapticManager.impact(style: .light)
         
         if post.category == .openTable {
             toggleLightbulb()
@@ -2495,8 +2495,8 @@ struct ProfilePostCard: View {
     }
     
     private func triggerSwipeCommentAction() {
-        let haptic = UIImpactFeedbackGenerator(style: .light)
-        haptic.impactOccurred()
+        // haptic
+        HapticManager.impact(style: .light)
         
         activePostCardSheet = .comments
     }
@@ -2516,8 +2516,8 @@ struct ProfilePostCard: View {
         Task {
             do {
                 try await interactionsService.toggleLightbulb(postId: post.id.uuidString)
-                let haptic = UIImpactFeedbackGenerator(style: .medium)
-                haptic.impactOccurred()
+                // haptic
+                HapticManager.impact(style: .light)
             } catch {
                 dlog("❌ Failed to toggle lightbulb: \(error)")
                 await MainActor.run {
@@ -2545,8 +2545,8 @@ struct ProfilePostCard: View {
         Task {
             do {
                 try await interactionsService.toggleAmen(postId: post.id.uuidString)
-                let haptic = UINotificationFeedbackGenerator()
-                haptic.notificationOccurred(.success)
+                // haptic
+                HapticManager.notification(type: .success)
             } catch {
                 dlog("❌ Failed to toggle amen: \(error)")
                 await MainActor.run {
@@ -2590,8 +2590,8 @@ struct ProfilePostCard: View {
     
     private func copyLink() {
         UIPasteboard.general.string = "https://amenapp.com/post/\(post.id.uuidString)"
-        let haptic = UINotificationFeedbackGenerator()
-        haptic.notificationOccurred(.success)
+        // haptic
+        HapticManager.notification(type: .success)
     }
     
     private func loadInteractions() async {
@@ -2817,8 +2817,8 @@ struct ProfileReplyCard: View {
                     onProfileTap()
                     
                     // Haptic feedback
-                    let haptic = UIImpactFeedbackGenerator(style: .light)
-                    haptic.impactOccurred()
+                    // haptic
+                    HapticManager.impact(style: .light)
                 } label: {
                     Group {
                         if let profileImageURL = comment.authorProfileImageURL, 
@@ -3441,8 +3441,8 @@ struct EditProfileView: View {
                     Button {
                         showAddInterest = true
                         // Haptic feedback
-                        let haptic = UIImpactFeedbackGenerator(style: .light)
-                        haptic.impactOccurred()
+                        // haptic
+                        HapticManager.impact(style: .light)
                     } label: {
                         Image(systemName: "plus.circle.fill")
                             .font(.system(size: 20))
@@ -3476,8 +3476,8 @@ struct EditProfileView: View {
                     }
                     
                     // Haptic feedback
-                    let haptic = UIImpactFeedbackGenerator(style: .medium)
-                    haptic.impactOccurred()
+                    // haptic
+                    HapticManager.impact(style: .light)
                 }
             }
         }
@@ -3916,8 +3916,8 @@ struct EditProfileView: View {
         // Validate - max 3 interests
         guard interests.count < 3 else {
             newInterest = ""
-            let haptic = UINotificationFeedbackGenerator()
-            haptic.notificationOccurred(.warning)
+            // haptic
+            HapticManager.notification(type: .warning)
             
             // Show alert
             showErrorAlert(title: "Maximum Interests Reached", message: "You can add a maximum of 3 interests. Remove one to add another.")
@@ -3927,8 +3927,8 @@ struct EditProfileView: View {
         // Validate - no duplicates (case-insensitive)
         guard !interests.contains(where: { $0.lowercased() == trimmedInterest.lowercased() }) else {
             // Haptic feedback for duplicate
-            let haptic = UINotificationFeedbackGenerator()
-            haptic.notificationOccurred(.warning)
+            // haptic
+            HapticManager.notification(type: .warning)
             newInterest = ""
             
             showErrorAlert(title: "Duplicate Interest", message: "You've already added this interest.")
@@ -3937,8 +3937,8 @@ struct EditProfileView: View {
         
         // Validate - reasonable length (3-30 characters)
         guard trimmedInterest.count >= 3 else {
-            let haptic = UINotificationFeedbackGenerator()
-            haptic.notificationOccurred(.warning)
+            // haptic
+            HapticManager.notification(type: .warning)
             newInterest = ""
             
             showErrorAlert(title: "Interest Too Short", message: "Interest must be at least 3 characters.")
@@ -3946,8 +3946,8 @@ struct EditProfileView: View {
         }
         
         guard trimmedInterest.count <= interestCharacterLimit else {
-            let haptic = UINotificationFeedbackGenerator()
-            haptic.notificationOccurred(.warning)
+            // haptic
+            HapticManager.notification(type: .warning)
             newInterest = ""
             
             showErrorAlert(title: "Interest Too Long", message: "Interest must be \(interestCharacterLimit) characters or less.")
@@ -3961,8 +3961,8 @@ struct EditProfileView: View {
         }
         
         // Success haptic
-        let haptic = UINotificationFeedbackGenerator()
-        haptic.notificationOccurred(.success)
+        // haptic
+        HapticManager.notification(type: .success)
         
         // Clear input
         newInterest = ""
@@ -5020,8 +5020,8 @@ struct ProfilePhotoEditView: View {
                     onPhotoUpdated(urlString)
                     isUploading = false
                     
-                    let haptic = UINotificationFeedbackGenerator()
-                    haptic.notificationOccurred(.success)
+                    // haptic
+                    HapticManager.notification(type: .success)
                     
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                         dismiss()
@@ -5033,8 +5033,8 @@ struct ProfilePhotoEditView: View {
                     errorMessage = "Upload failed. Please try again."
                     isUploading = false
                     
-                    let haptic = UINotificationFeedbackGenerator()
-                    haptic.notificationOccurred(.error)
+                    // haptic
+                    HapticManager.notification(type: .error)
                 }
             }
         }
@@ -5064,8 +5064,8 @@ struct ProfilePhotoEditView: View {
                     onPhotoUpdated(nil)
                     
                     // Show success feedback
-                    let haptic = UINotificationFeedbackGenerator()
-                    haptic.notificationOccurred(.success)
+                    // haptic
+                    HapticManager.notification(type: .success)
                     
                     // Dismiss
                     dismiss()
@@ -5076,8 +5076,8 @@ struct ProfilePhotoEditView: View {
                 await MainActor.run {
                     errorMessage = "Failed to remove photo. Please try again."
                     
-                    let haptic = UINotificationFeedbackGenerator()
-                    haptic.notificationOccurred(.error)
+                    // haptic
+                    HapticManager.notification(type: .error)
                 }
             }
         }
@@ -5119,8 +5119,8 @@ struct AchievementBadge: View {
         Button {
             showDetails = true
             
-            let haptic = UIImpactFeedbackGenerator(style: .light)
-            haptic.impactOccurred()
+            // haptic
+            HapticManager.impact(style: .light)
         } label: {
             VStack(spacing: 6) {
                 ZStack {
@@ -5281,8 +5281,8 @@ struct ProfileImagePicker: View {
                     profileData.profileImageURL = urlString
                     isUploading = false
                     
-                    let haptic = UINotificationFeedbackGenerator()
-                    haptic.notificationOccurred(.success)
+                    // haptic
+                    HapticManager.notification(type: .success)
                     
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                         dismiss()
@@ -5294,8 +5294,8 @@ struct ProfileImagePicker: View {
                     errorMessage = "Upload failed: \(error.localizedDescription)"
                     isUploading = false
                     
-                    let haptic = UINotificationFeedbackGenerator()
-                    haptic.notificationOccurred(.error)
+                    // haptic
+                    HapticManager.notification(type: .error)
                 }
             }
         }
@@ -5776,8 +5776,8 @@ struct SafetySecurityView: View {
                     isSaving = false
                     
                     // Haptic feedback
-                    let haptic = UIImpactFeedbackGenerator(style: .light)
-                    haptic.impactOccurred()
+                    // haptic
+                    HapticManager.impact(style: .light)
                     
                     dlog("✅ Security settings saved to Firestore")
                 }
@@ -5788,8 +5788,8 @@ struct SafetySecurityView: View {
                     isSaving = false
                     
                     // Haptic error feedback
-                    let haptic = UINotificationFeedbackGenerator()
-                    haptic.notificationOccurred(.error)
+                    // haptic
+                    HapticManager.notification(type: .error)
                 }
             }
         }
@@ -6023,13 +6023,13 @@ struct LoginHistoryView: View {
             do {
                 try await loginHistoryService.signOutFromSession(sessionId: session.id)
                 
-                let haptic = UINotificationFeedbackGenerator()
-                haptic.notificationOccurred(.success)
+                // haptic
+                HapticManager.notification(type: .success)
             } catch {
                 dlog("❌ Error removing session: \(error)")
                 
-                let haptic = UINotificationFeedbackGenerator()
-                haptic.notificationOccurred(.error)
+                // haptic
+                HapticManager.notification(type: .error)
             }
         }
     }
@@ -6210,8 +6210,8 @@ struct BioLinkText: View {
             Button {
                 let username = String(segment.text.dropFirst()) // Remove @
                 activeBioLinkSheet = .userProfile(username)
-                let haptic = UIImpactFeedbackGenerator(style: .light)
-                haptic.impactOccurred()
+                // haptic
+                HapticManager.impact(style: .light)
             } label: {
                 Text(segment.text)
                     .font(.custom("OpenSans-SemiBold", size: 15))
@@ -6223,8 +6223,8 @@ struct BioLinkText: View {
             Button {
                 let hashtag = String(segment.text.dropFirst()) // Remove #
                 activeBioLinkSheet = .hashtag(hashtag)
-                let haptic = UIImpactFeedbackGenerator(style: .light)
-                haptic.impactOccurred()
+                // haptic
+                HapticManager.impact(style: .light)
             } label: {
                 Text(segment.text)
                     .font(.custom("OpenSans-SemiBold", size: 15))
@@ -6318,8 +6318,8 @@ struct BioLinkText: View {
         guard let url = URL(string: urlString) else { return }
         UIApplication.shared.open(url)
         
-        let haptic = UIImpactFeedbackGenerator(style: .light)
-        haptic.impactOccurred()
+        // haptic
+        HapticManager.impact(style: .light)
     }
 }
 

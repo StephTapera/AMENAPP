@@ -487,8 +487,8 @@ struct MessagesView: View {
         let isActive = selectedTab == tab
 
         Button {
-            let haptic = UIImpactFeedbackGenerator(style: .light)
-            haptic.impactOccurred()
+            // haptic
+            HapticManager.impact(style: .light)
             withAnimation(.spring(response: 0.26, dampingFraction: 0.78)) {
                 selectedTab = tab
             }
@@ -552,8 +552,8 @@ struct MessagesView: View {
                 // ✅ Back button (chevron)
                 Button {
                     mainTabSelection.wrappedValue = 0  // Navigate to home tab immediately
-                    let haptic = UIImpactFeedbackGenerator(style: .medium)
-                    haptic.impactOccurred()
+                    // haptic
+                    HapticManager.impact(style: .light)
                 } label: {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 18, weight: .semibold))
@@ -576,8 +576,8 @@ struct MessagesView: View {
                 // ✅ Compose button (liquid glass, like reference)
                 Button {
                     activeSheet = .newMessage
-                    let haptic = UIImpactFeedbackGenerator(style: .light)
-                    haptic.impactOccurred()
+                    // haptic
+                    HapticManager.impact(style: .light)
                 } label: {
                     Image(systemName: "square.and.pencil")
                         .font(.system(size: 18, weight: .semibold))
@@ -612,8 +612,8 @@ struct MessagesView: View {
             // Back button
             Button {
                 mainTabSelection.wrappedValue = 0  // Navigate immediately
-                let haptic = UIImpactFeedbackGenerator(style: .medium)
-                haptic.impactOccurred()
+                // haptic
+                HapticManager.impact(style: .light)
             } label: {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 16, weight: .semibold))
@@ -631,8 +631,8 @@ struct MessagesView: View {
             // Compose button
             Button {
                 activeSheet = .newMessage
-                let haptic = UIImpactFeedbackGenerator(style: .light)
-                haptic.impactOccurred()
+                // haptic
+                HapticManager.impact(style: .light)
             } label: {
                 Image(systemName: "square.and.pencil")
                     .font(.system(size: 16, weight: .semibold))
@@ -664,8 +664,8 @@ struct MessagesView: View {
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                         selectedTab = tab
                     }
-                    let haptic = UIImpactFeedbackGenerator(style: .light)
-                    haptic.impactOccurred()
+                    // haptic
+                    HapticManager.impact(style: .light)
                 } label: {
                     HStack(spacing: 6) {
                         Text(tabTitle(for: tab))
@@ -886,7 +886,7 @@ struct MessagesView: View {
             .overlay(alignment: .bottomTrailing) {
                 Button {
                     activeSheet = .newMessage
-                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    HapticManager.impact(style: .medium)
                 } label: {
                     Image(systemName: "square.and.pencil")
                         .font(.system(size: 18, weight: .semibold))
@@ -1113,8 +1113,8 @@ struct MessagesView: View {
         withAnimation(.easeOut(duration: 0.2)) {
             activeSheet = .chat(conversation)
         }
-        let haptic = UIImpactFeedbackGenerator(style: .light)
-        haptic.impactOccurred()
+        // haptic
+        HapticManager.impact(style: .light)
     }
     
     // MARK: - Header Section (OLD - Keep for compatibility)
@@ -1151,8 +1151,8 @@ struct MessagesView: View {
                     withAnimation(.easeOut(duration: 0.2)) {
                         activeSheet = .newMessage
                     }
-                    let haptic = UIImpactFeedbackGenerator(style: .light)
-                    haptic.impactOccurred()
+                    // haptic
+                    HapticManager.impact(style: .light)
                 } label: {
                     Label("New Message", systemImage: "bubble.left.and.bubble.right")
                 }
@@ -1161,8 +1161,8 @@ struct MessagesView: View {
                     withAnimation(.easeOut(duration: 0.2)) {
                         activeSheet = .createGroup
                     }
-                    let haptic = UIImpactFeedbackGenerator(style: .light)
-                    haptic.impactOccurred()
+                    // haptic
+                    HapticManager.impact(style: .light)
                 } label: {
                     Label("New Group", systemImage: "person.3")
                 }
@@ -1173,8 +1173,8 @@ struct MessagesView: View {
                     withAnimation(.easeOut(duration: 0.2)) {
                         activeSheet = .settings
                     }
-                    let haptic = UIImpactFeedbackGenerator(style: .light)
-                    haptic.impactOccurred()
+                    // haptic
+                    HapticManager.impact(style: .light)
                 } label: {
                     Label("Settings", systemImage: "gearshape")
                 }
@@ -1198,8 +1198,8 @@ struct MessagesView: View {
                     withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
                         selectedTab = tab
                     }
-                    let haptic = UIImpactFeedbackGenerator(style: .light)
-                    haptic.impactOccurred()
+                    // haptic
+                    HapticManager.impact(style: .light)
                 } label: {
                     HStack(spacing: 6) {
                         Text(tabTitle(for: tab))
@@ -1331,8 +1331,8 @@ struct MessagesView: View {
                                         dlog("   - Is Group: \(conversation.isGroup)")
                                         dlog("========================================")
 
-                                        let haptic = UIImpactFeedbackGenerator(style: .light)
-                                        haptic.impactOccurred()
+                                        // haptic
+                                        HapticManager.impact(style: .light)
 
                                         activeSheet = .chat(conversation)
                                         dlog("   - Set activeSheet to chat: \(conversation.name)")
@@ -1434,8 +1434,8 @@ struct MessagesView: View {
                                 dlog("   - Is Group: \(conversation.isGroup)")
                                 dlog("========================================")
 
-                                let haptic = UIImpactFeedbackGenerator(style: .light)
-                                haptic.impactOccurred()
+                                // haptic
+                                HapticManager.impact(style: .light)
 
                                 activeSheet = .chat(conversation)
                                 dlog("   - Set activeSheet to chat: \(conversation.name)")
@@ -1539,8 +1539,8 @@ struct MessagesView: View {
         await loadMessageRequests()
 
         await MainActor.run {
-            let haptic = UINotificationFeedbackGenerator()
-            haptic.notificationOccurred(.success)
+            // haptic
+            HapticManager.notification(type: .success)
             isRefreshing = false
         }
     }
@@ -1559,8 +1559,8 @@ struct MessagesView: View {
         
         // Haptic feedback
         await MainActor.run {
-            let haptic = UINotificationFeedbackGenerator()
-            haptic.notificationOccurred(.success)
+            // haptic
+            HapticManager.notification(type: .success)
             isRefreshing = false
         }
         
@@ -1587,8 +1587,8 @@ struct MessagesView: View {
         
         // Haptic feedback
         await MainActor.run {
-            let haptic = UINotificationFeedbackGenerator()
-            haptic.notificationOccurred(.success)
+            // haptic
+            HapticManager.notification(type: .success)
             isRefreshing = false
         }
         
@@ -1611,8 +1611,8 @@ struct MessagesView: View {
             do {
                 try await FirebaseMessagingService.shared.muteConversation(conversation.id)
 
-                let haptic = UINotificationFeedbackGenerator()
-                haptic.notificationOccurred(.success)
+                // haptic
+                HapticManager.notification(type: .success)
 
                 dlog("🔕 Conversation muted: \(conversation.name)")
             } catch {
@@ -1634,8 +1634,8 @@ struct MessagesView: View {
             do {
                 try await FirebaseMessagingService.shared.unmuteConversation(conversation.id)
 
-                let haptic = UINotificationFeedbackGenerator()
-                haptic.notificationOccurred(.success)
+                // haptic
+                HapticManager.notification(type: .success)
 
                 dlog("🔔 Conversation unmuted: \(conversation.name)")
             } catch {
@@ -1657,8 +1657,8 @@ struct MessagesView: View {
             do {
                 try await FirebaseMessagingService.shared.pinConversation(conversation.id)
 
-                let haptic = UINotificationFeedbackGenerator()
-                haptic.notificationOccurred(.success)
+                // haptic
+                HapticManager.notification(type: .success)
 
                 dlog("📌 Conversation pinned: \(conversation.name)")
             } catch {
@@ -1682,8 +1682,8 @@ struct MessagesView: View {
             do {
                 try await FirebaseMessagingService.shared.unpinConversation(conversation.id)
 
-                let haptic = UINotificationFeedbackGenerator()
-                haptic.notificationOccurred(.success)
+                // haptic
+                HapticManager.notification(type: .success)
 
                 dlog("📌 Conversation unpinned: \(conversation.name)")
             } catch {
@@ -1705,8 +1705,8 @@ struct MessagesView: View {
             do {
                 try await FirebaseMessagingService.shared.reportSpam(conversation.id, reason: "Spam or unwanted messages")
 
-                let haptic = UINotificationFeedbackGenerator()
-                haptic.notificationOccurred(.success)
+                // haptic
+                HapticManager.notification(type: .success)
 
                 dlog("⚠️ Conversation reported as spam: \(conversation.name)")
             } catch {
@@ -1735,8 +1735,8 @@ struct MessagesView: View {
                     conversationId: conversation.id
                 )
 
-                let haptic = UINotificationFeedbackGenerator()
-                haptic.notificationOccurred(.success)
+                // haptic
+                HapticManager.notification(type: .success)
 
                 dlog("🗑️ Deleted conversation: \(conversation.name)")
             } catch {
@@ -1866,8 +1866,8 @@ struct MessagesView: View {
                     conversationId: conversation.id
                 )
                 
-                let haptic = UINotificationFeedbackGenerator()
-                haptic.notificationOccurred(.success)
+                // haptic
+                HapticManager.notification(type: .success)
                 
                 dlog("📦 Archived conversation: \(conversation.name)")
             } catch {
@@ -1896,8 +1896,8 @@ struct MessagesView: View {
                     conversationId: conversation.id
                 )
                 
-                let haptic = UINotificationFeedbackGenerator()
-                haptic.notificationOccurred(.success)
+                // haptic
+                HapticManager.notification(type: .success)
                 
                 dlog("📬 Unarchived conversation: \(conversation.name)")
             } catch {
@@ -1950,8 +1950,8 @@ struct MessagesView: View {
                                 conversation: conversation,
                                 aiSummary: nil,
                                 onTap: {
-                                    let haptic = UIImpactFeedbackGenerator(style: .light)
-                                    haptic.impactOccurred()
+                                    // haptic
+                                    HapticManager.impact(style: .light)
                                     activeSheet = .chat(conversation)
                                 }
                             )
@@ -2155,8 +2155,8 @@ struct MessagesView: View {
         
         // Haptic feedback and smooth transition to messages tab
         await MainActor.run {
-            let haptic = UINotificationFeedbackGenerator()
-            haptic.notificationOccurred(.success)
+            // haptic
+            HapticManager.notification(type: .success)
             
             // Smoothly transition to messages tab with animation
             withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
@@ -2196,8 +2196,8 @@ struct MessagesView: View {
         
         // Haptic feedback
         await MainActor.run {
-            let haptic = UINotificationFeedbackGenerator()
-            haptic.notificationOccurred(.warning)
+            // haptic
+            HapticManager.notification(type: .warning)
         }
         
         dlog("❌ Message request declined successfully")
@@ -2218,8 +2218,8 @@ struct MessagesView: View {
         try await messagingService.deleteConversationsWithUser(userId: userId)
         
         // Haptic feedback
-        let haptic = UINotificationFeedbackGenerator()
-        haptic.notificationOccurred(.error)
+        // haptic
+        HapticManager.notification(type: .error)
         
         dlog("🚫 User blocked successfully")
     }
@@ -2249,8 +2249,8 @@ struct MessagesView: View {
         
         // Haptic feedback
         await MainActor.run {
-            let haptic = UINotificationFeedbackGenerator()
-            haptic.notificationOccurred(.error)
+            // haptic
+            HapticManager.notification(type: .error)
         }
         
         dlog("⚠️ User reported successfully")
@@ -2355,16 +2355,16 @@ struct MessagesView: View {
                     )
                     activeSheet = .chat(tempConversation)
                 }
-                let haptic = UINotificationFeedbackGenerator()
-                haptic.notificationOccurred(.success)
+                // haptic
+                HapticManager.notification(type: .success)
             }
 
         } catch {
             dlog("❌ startConversation failed: \(error.localizedDescription)")
             await MainActor.run {
                 activeSheet = nil
-                let haptic = UINotificationFeedbackGenerator()
-                haptic.notificationOccurred(.error)
+                // haptic
+                HapticManager.notification(type: .error)
                 swipeErrorMessage = "Could not start conversation. Please try again."
                 showSwipeErrorAlert = true
             }
@@ -2407,8 +2407,8 @@ struct MessagesView: View {
             }
             
             Button {
-                let haptic = UIImpactFeedbackGenerator(style: .medium)
-                haptic.impactOccurred()
+                // haptic
+                HapticManager.impact(style: .light)
                 activeSheet = .newMessage
             } label: {
                 HStack(spacing: 8) {
@@ -2470,8 +2470,8 @@ struct NeumorphicMessagesSearchBar: View {
                         text = ""
                         isSearching = false
                     }
-                    let haptic = UIImpactFeedbackGenerator(style: .light)
-                    haptic.impactOccurred()
+                    // haptic
+                    HapticManager.impact(style: .light)
                 } label: {
                     SmartGlassmorphicButton(
                         icon: "xmark",
@@ -3311,8 +3311,8 @@ struct CreateGroupView: View {
             selectedUsers.removeAll { $0.id == user.id }
         }
         
-        let haptic = UIImpactFeedbackGenerator(style: .light)
-        haptic.impactOccurred()
+        // haptic
+        HapticManager.impact(style: .light)
     }
     
     @ViewBuilder
@@ -3492,8 +3492,8 @@ struct CreateGroupView: View {
             }
         }
         
-        let haptic = UIImpactFeedbackGenerator(style: .light)
-        haptic.impactOccurred()
+        // haptic
+        HapticManager.impact(style: .light)
     }
     
     private func createGroup() {
@@ -3531,7 +3531,7 @@ struct CreateGroupView: View {
                 
                 await MainActor.run {
                     // Success haptic
-                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                    HapticManager.notification(type: .success)
                     isCreating = false
                 }
 
@@ -3552,8 +3552,8 @@ struct CreateGroupView: View {
                     showError = true
                     isCreating = false
                     
-                    let haptic = UINotificationFeedbackGenerator()
-                    haptic.notificationOccurred(.error)
+                    // haptic
+                    HapticManager.notification(type: .error)
                 }
             }
         }
@@ -3901,8 +3901,8 @@ struct ProductionMessagingUserSearchView: View {
             LazyVStack(spacing: 0) {
                 ForEach(searchResults) { user in
                     Button {
-                        let haptic = UIImpactFeedbackGenerator(style: .light)
-                        haptic.impactOccurred()
+                        // haptic
+                        HapticManager.impact(style: .light)
                         
                         dlog("\n========================================")
                         dlog("👤 USER SELECTED FROM SEARCH")
@@ -4987,8 +4987,8 @@ struct ModernConversationDetailView: View {
             withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                 mainTabSelection.wrappedValue = 0  // Navigate to home tab
             }
-            let haptic = UIImpactFeedbackGenerator(style: .medium)
-            haptic.impactOccurred()
+            // haptic
+            HapticManager.impact(style: .light)
         } label: {
             Image(systemName: "chevron.left")
                 .font(.system(size: 18, weight: .semibold))
@@ -5134,8 +5134,8 @@ struct ModernConversationDetailView: View {
         replyingTo = nil
         isInputFocused = false
         
-        let haptic = UIImpactFeedbackGenerator(style: .light)
-        haptic.impactOccurred()
+        // haptic
+        HapticManager.impact(style: .light)
         
         // Send to Firebase
         Task { @MainActor in
@@ -5163,8 +5163,8 @@ struct ModernConversationDetailView: View {
                 messageText = textToSend
                 selectedImages = imagesToSend
                 
-                let errorHaptic = UINotificationFeedbackGenerator()
-                errorHaptic.notificationOccurred(.error)
+                // haptic
+                HapticManager.notification(type: .error)
             }
         }
     }
@@ -5227,8 +5227,8 @@ struct ModernConversationDetailView: View {
             return
         }
         
-        let haptic = UIImpactFeedbackGenerator(style: .light)
-        haptic.impactOccurred()
+        // haptic
+        HapticManager.impact(style: .light)
         
         // Add reaction to Firebase
         Task { @MainActor in

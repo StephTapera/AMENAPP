@@ -2158,6 +2158,8 @@ struct UserProfileView: View {
                                             : AnyShapeStyle(messageButtonBackground))
                                 }
                                 .disabled(messageBlocked)
+                                .accessibilityLabel(messageBlocked ? "Follow to send a message" : "Send message to \(profileData?.name ?? "user")")
+                                .accessibilityHint(messageBlocked ? "You must follow this person first" : "Double tap to open a conversation")
                                 .transition(.scale.combined(with: .opacity))
                             }
                         }
@@ -3433,6 +3435,8 @@ struct UserListRow: View {
                 }
                 .disabled(isLoading)
                 .buttonStyle(PlainButtonStyle())
+                .accessibilityLabel(isFollowing ? "Unfollow \(profileData?.name ?? "user")" : "Follow \(profileData?.name ?? "user")")
+                .accessibilityHint(isFollowing ? "Double tap to unfollow" : "Double tap to follow this person")
             }
         }
         .padding(16)
