@@ -324,14 +324,25 @@ struct NotificationsView: View {
         }
     }
 
-    /// Ordered section titles so sections appear top-to-bottom.
-    private let sectionOrder = ["Today", "Yesterday", "This Week", "Older"]
+    /// Ordered section titles (Threads-style).
+    private let sectionOrder = ["New", "Earlier Today", "Yesterday", "This Week", "Earlier"]
 
     /// Groups sorted notifications into ordered [(label, [group])] tuples.
+    /// "New" = unread from today. "Earlier Today" = read from today.
     private var timeSectionedNotifications: [(label: String, groups: [NotificationGroup])] {
         var buckets: [String: [NotificationGroup]] = [:]
         for group in groupedNotifications {
-            let label = timeBucket(for: group.mostRecentDate)
+            let label: String
+            let timeLabel = timeBucket(for: group.mostRecentDate)
+            if timeLabel == "Today" && group.hasUnread {
+                label = "New"
+            } else if timeLabel == "Today" {
+                label = "Earlier Today"
+            } else if timeLabel == "Older" {
+                label = "Earlier"
+            } else {
+                label = timeLabel
+            }
             buckets[label, default: []].append(group)
         }
         return sectionOrder.compactMap { label in
@@ -979,6 +990,15 @@ struct NotificationGroup: Identifiable, Equatable {
         return notifications.map { $0.createdAt.dateValue() }.max() ?? Date()
     }
     
+    var timeAgo: String {
+        let interval = Date().timeIntervalSince(mostRecentDate)
+        if interval < 60 { return "now" }
+        if interval < 3600 { return "\(Int(interval / 60))m" }
+        if interval < 86400 { return "\(Int(interval / 3600))h" }
+        if interval < 604800 { return "\(Int(interval / 86400))d" }
+        return "\(Int(interval / 604800))w"
+    }
+
     var hasUnread: Bool {
         notifications.contains { !$0.read }
     }
@@ -1031,12 +1051,13 @@ private struct NotificationSectionHeader: View {
     var body: some View {
         HStack {
             Text(label)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Color(uiColor: .secondaryLabel))
+                .font(.system(size: label == "New" ? 16 : 14, weight: label == "New" ? .bold : .semibold))
+                .foregroundStyle(label == "New" ? Color.primary : Color(uiColor: .secondaryLabel))
             Spacer()
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 8)
+        .padding(.top, label == "New" ? 12 : 8)
+        .padding(.bottom, 6)
         .background(Color(uiColor: .systemBackground))
     }
 }
@@ -1084,19 +1105,9 @@ struct GroupedNotificationRow: View {
                 // Avatar with type badge overlay
                 avatarView
 
-                // Text content
-                VStack(alignment: .leading, spacing: 4) {
-                    // Actor name(s) + action text
+                // Text content (name + action + timestamp + preview)
+                VStack(alignment: .leading, spacing: 2) {
                     notificationText
-
-                    // Comment / scripture preview
-                    if let commentText = group.primaryNotification.commentText, !commentText.isEmpty {
-                        Text(commentText)
-                            .font(.system(size: 14))
-                            .foregroundStyle(Color(uiColor: .secondaryLabel))
-                            .lineLimit(2)
-                            .padding(.top, 1)
-                    }
 
                     // Timestamp
                     Text(group.primaryNotification.timeAgo)
@@ -1118,6 +1129,16 @@ struct GroupedNotificationRow: View {
         .contextMenu {
             Button { onMarkAsRead() } label: {
                 Label(group.hasUnread ? "Mark as Read" : "Mark as Unread", systemImage: "envelope.open")
+            }
+            if let actorName = group.primaryNotification.actorName {
+                Button {
+                    // Mute this user's notifications
+                    if let actorId = group.primaryNotification.actorId {
+                        Task { try? await BlockService.shared.muteUser(userId: actorId) }
+                    }
+                } label: {
+                    Label("Mute \(actorName.components(separatedBy: " ").first ?? actorName)", systemImage: "speaker.slash")
+                }
             }
             Button(role: .destructive) {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { onDismiss() }
@@ -1153,10 +1174,27 @@ struct GroupedNotificationRow: View {
 
     @ViewBuilder
     private var notificationText: some View {
-        notificationAttributedText
-            .font(.system(size: 15))
-            .foregroundStyle(Color(uiColor: .label))
-            .lineLimit(2)
+        VStack(alignment: .leading, spacing: 2) {
+            // Line 1-2: "username liked your post · 4m"
+            HStack(spacing: 0) {
+                notificationAttributedText
+                    .font(.system(size: 15))
+                    .foregroundStyle(Color(uiColor: .label))
+                    .lineLimit(2)
+
+                Text(" · \(group.timeAgo)")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Color(uiColor: .tertiaryLabel))
+            }
+
+            // Line 3: comment preview (if comment/reply)
+            if let preview = group.primaryNotification.commentText, !preview.isEmpty {
+                Text(preview)
+                    .font(.system(size: 13))
+                    .foregroundStyle(Color(uiColor: .secondaryLabel))
+                    .lineLimit(1)
+            }
+        }
     }
 
     /// Builds an `AttributedString` with bold actor name(s) and plain action text.
