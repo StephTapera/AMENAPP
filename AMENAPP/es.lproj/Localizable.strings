@@ -1,0 +1,96 @@
+/*
+  Localizable.strings
+  AMENAPP
+
+  English (base) — UI localization strings.
+  Add translations by creating es.lproj/, fr.lproj/, sw.lproj/, pt.lproj/ etc.
+*/
+
+// MARK: - Tabs
+"tab.home" = "Home";
+"tab.discover" = "Discover";
+"tab.messages" = "Messages";
+"tab.resources" = "Resources";
+"tab.notifications" = "Notifications";
+"tab.profile" = "Profile";
+
+// MARK: - Auth
+"auth.signIn" = "Sign In";
+"auth.signUp" = "Sign Up";
+"auth.email" = "Email";
+"auth.password" = "Password";
+"auth.forgotPassword" = "Forgot Password?";
+"auth.continueWith" = "Continue with %@";
+"auth.orContinueWith" = "or continue with";
+"auth.agreeToTerms" = "By signing up, you agree to our Terms and Privacy Policy.";
+
+// MARK: - Feed
+"feed.openTable" = "#OPENTABLE";
+"feed.testimonies" = "Testimonies";
+"feed.prayer" = "Prayer";
+"feed.whatOnYourHeart" = "What's on your heart...";
+"feed.shareTestimony" = "Share your testimony...";
+"feed.prayerRequest" = "How can we pray for you...";
+"feed.newPost" = "New post";
+"feed.post" = "Post";
+"feed.cancel" = "Cancel";
+
+// MARK: - Interactions
+"interaction.amen" = "Amen";
+"interaction.lightbulb" = "Lightbulb";
+"interaction.comment" = "Comment";
+"interaction.repost" = "Repost";
+"interaction.save" = "Save";
+"interaction.share" = "Share";
+"interaction.seeMore" = "See more";
+"interaction.seeLess" = "See less";
+
+// MARK: - Messages
+"messages.title" = "Messages";
+"messages.newMessage" = "New Message";
+"messages.search" = "Search conversations";
+"messages.noMessages" = "No messages yet";
+"messages.startConversation" = "Start a conversation with someone";
+"messages.requests" = "Requests";
+"messages.archived" = "Archived";
+"messages.pinned" = "PINNED";
+"messages.allMessages" = "ALL MESSAGES";
+
+// MARK: - Notifications
+"notifications.title" = "Notifications";
+"notifications.markAllRead" = "Mark all as read";
+"notifications.noNotifications" = "No notifications yet";
+
+// MARK: - Profile
+"profile.follow" = "Follow";
+"profile.following" = "Following";
+"profile.followBack" = "Follow Back";
+"profile.followers" = "Followers";
+"profile.posts" = "Posts";
+"profile.editProfile" = "Edit Profile";
+"profile.settings" = "Settings";
+
+// MARK: - Berean AI
+"berean.title" = "Berean AI";
+"berean.askAnything" = "Ask Berean anything...";
+"berean.reflect" = "Reflect with Berean";
+
+// MARK: - Prayer
+"prayer.prayingForYou" = "Praying for you";
+"prayer.iPrayed" = "I Prayed";
+"prayer.prayerRequest" = "Prayer Request";
+"prayer.praiseReport" = "Praise Report";
+"prayer.answered" = "Answered Prayer";
+
+// MARK: - Common
+"common.done" = "Done";
+"common.cancel" = "Cancel";
+"common.save" = "Save";
+"common.delete" = "Delete";
+"common.edit" = "Edit";
+"common.search" = "Search";
+"common.loading" = "Loading...";
+"common.retry" = "Retry";
+"common.error" = "Error";
+"common.success" = "Success";
+"common.comingSoon" = "Coming Soon";
