@@ -233,6 +233,7 @@ struct UserProfileView: View {
     @State private var hasMorePosts = true
     @State private var isLoadingMore = false
     @State private var followerCountListener: ListenerRegistration?
+    @State private var feedRebuildTask: Task<Void, Never>?   // Debounce feed rebuilds
     @State private var postsListener: ListenerRegistration?  // P0-2: Store posts listener
     @State private var newPostObserver: NSObjectProtocol?  // P0-2: Store NotificationCenter observer
     @State private var repostObserver: NSObjectProtocol?  // P0-2: Store NotificationCenter observer
@@ -686,12 +687,10 @@ struct UserProfileView: View {
                     )
                 }
                 
-                // Update posts array — must be on main thread
+                // Update posts array — debounced to avoid thrashing on rapid updates
                 Task { @MainActor in
                     self.posts = updatedPosts
-                    await self.sortPostsWithPinnedFirst()
-                    self.buildUnifiedFeed()
-                    print("✅ Real-time: \(updatedPosts.count) posts loaded")
+                    self.scheduleFeedRebuild()
                 }
                 }
         }
@@ -1083,7 +1082,19 @@ struct UserProfileView: View {
         }
     }
     
-    // ✅ NEW: Build unified Threads-like feed from posts and reposts
+    /// Debounced feed rebuild — coalesces rapid Firestore updates into one rebuild.
+    @MainActor
+    private func scheduleFeedRebuild() {
+        feedRebuildTask?.cancel()
+        feedRebuildTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 200_000_000) // 200ms debounce
+            guard !Task.isCancelled else { return }
+            await sortPostsWithPinnedFirst()
+            buildUnifiedFeed()
+        }
+    }
+
+    // Build unified Threads-like feed from posts and reposts
     @MainActor
     private func buildUnifiedFeed() {
         var items: [ProfileFeedItem] = []
@@ -1106,7 +1117,7 @@ struct UserProfileView: View {
         // Add all reposts to feed
         items += reposts.map { repost in
             ProfileFeedItem(
-                id: "repost-\(UUID().uuidString)",
+                id: "repost-\(repost.id)",
                 type: .repost,
                 content: repost.content,
                 timestamp: repost.timestamp,
@@ -1592,10 +1603,14 @@ struct UserProfileView: View {
         let previousState = isBlocked
         isBlocked.toggle()
         
-        // If blocking, automatically unfollow and unmute
+        // If blocking, automatically unfollow, unmute, and dismiss open sheets
         if isBlocked {
             isFollowing = false
-            isMuted = false  // ✅ FIX: Blocking overrides mute
+            isMuted = false
+            // P0 PRIVACY: Clear any open comment/interaction sheets to prevent
+            // viewing blocked user's content through stale sheet state
+            selectedPostForComments = nil
+            showCommentsSheet = false
         }
         
         let haptic = UINotificationFeedbackGenerator()
@@ -2124,17 +2139,25 @@ struct UserProfileView: View {
                                 .animation(.spring(response: 0.3, dampingFraction: 0.7), value: followRequestPending)
                                 .transition(.scale.combined(with: .opacity))
                                 
-                                // Message Button (hide when scrolled to toolbar)
+                                // Message Button — disabled with rationale if private + not following
+                                let messageBlocked = profileData?.isPrivateAccount == true && !isFollowing
                                 Button {
-                                    sendMessage()
+                                    if messageBlocked {
+                                        HapticManager.notification(type: .warning)
+                                    } else {
+                                        sendMessage()
+                                    }
                                 } label: {
-                                    Text("Message")
+                                    Text(messageBlocked ? "Follow to message" : "Message")
                                         .font(.custom("OpenSans-Bold", size: 15))
-                                        .foregroundStyle(.black)
+                                        .foregroundStyle(messageBlocked ? .secondary : .black)
                                         .frame(maxWidth: .infinity)
                                         .padding(.vertical, 12)
-                                        .background(messageButtonBackground)
+                                        .background(messageBlocked
+                                            ? AnyShapeStyle(Color(.systemGray5))
+                                            : AnyShapeStyle(messageButtonBackground))
                                 }
+                                .disabled(messageBlocked)
                                 .transition(.scale.combined(with: .opacity))
                             }
                         }
