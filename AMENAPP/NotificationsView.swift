@@ -1134,7 +1134,7 @@ struct GroupedNotificationRow: View {
                 Button {
                     // Mute this user's notifications
                     if let actorId = group.primaryNotification.actorId {
-                        Task { try? await BlockService.shared.muteUser(userId: actorId) }
+                        Task { try? await ModerationService.shared.muteUser(userId: actorId) }
                     }
                 } label: {
                     Label("Mute \(actorName.components(separatedBy: " ").first ?? actorName)", systemImage: "speaker.slash")

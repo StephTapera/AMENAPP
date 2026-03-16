@@ -1,23 +1,17 @@
+#if DEBUG
 //
 //  QuickMigrationButton.swift
 //  AMENAPP
 //
 //  Quick access button for running profile image migration
-//  Add this to any view for easy testing, then remove when done
+//  Debug only — not included in Release builds
 //
 
 import SwiftUI
 
-/// Quick access button for migration - drop this into any view for testing
-/// Usage:
-/// ```swift
-/// .overlay(alignment: .bottomTrailing) {
-///     QuickMigrationButton()
-/// }
-/// ```
 struct QuickMigrationButton: View {
     @State private var showMigrationView = false
-    
+
     var body: some View {
         Button {
             showMigrationView = true
@@ -44,9 +38,6 @@ struct QuickMigrationButton: View {
     }
 }
 
-// MARK: - Usage Examples
-
-/// Example 1: Add to ContentView as floating button
 extension View {
     func withMigrationButton() -> some View {
         self.overlay(alignment: .bottomTrailing) {
@@ -54,33 +45,4 @@ extension View {
         }
     }
 }
-
-/// Example 2: Inline in any view
-/*
- struct OpenTableView: View {
-     var body: some View {
-         VStack {
-             // Your content here
-         }
-         .overlay(alignment: .bottomTrailing) {
-             QuickMigrationButton()
-         }
-     }
- }
- */
-
-#Preview {
-    ZStack {
-        Color(.systemGroupedBackground)
-            .ignoresSafeArea()
-        
-        VStack {
-            Text("Your App Content")
-                .font(.title)
-            Spacer()
-        }
-        .overlay(alignment: .bottomTrailing) {
-            QuickMigrationButton()
-        }
-    }
-}
+#endif
