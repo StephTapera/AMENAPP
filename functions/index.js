@@ -594,6 +594,20 @@ exports.bereanRankingLabels = berean.bereanRankingLabels;
 exports.bereanGenericProxy = berean.bereanGenericProxy;
 
 // ============================================================================
+// BEREAN AI: EMBEDDING & KNOWLEDGE BASE FUNCTIONS
+// Powers vector RAG, cross-references, word studies, and commentary.
+// Admin functions for building the Berean intelligence layer.
+// ============================================================================
+const bereanEmbed = require("./bereanEmbeddingFunctions");
+
+exports.bereanEmbedText = bereanEmbed.bereanEmbedText;
+exports.bereanEmbedChapters = bereanEmbed.bereanEmbedChapters;
+exports.bereanPopulateCrossRefs = bereanEmbed.bereanPopulateCrossRefs;
+exports.bereanPopulateStrongs = bereanEmbed.bereanPopulateStrongs;
+exports.bereanPopulateCommentary = bereanEmbed.bereanPopulateCommentary;
+exports.bereanInitCollections = bereanEmbed.bereanInitCollections;
+
+// ============================================================================
 // GENKIT-STYLE AI FLOWS — daily verse, notification text, digest
 // Replaces the external Genkit Cloud Run service (never deployed).
 // DailyVerseGenkitService and NotificationGenkitService call these instead.

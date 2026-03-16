@@ -2155,6 +2155,80 @@ service cloud.firestore {
     }
 
     // ============================================================================
+    // BEREAN AI: KNOWLEDGE BASE COLLECTIONS
+    // Public read for reference data, write restricted to Cloud Functions (admin)
+    // ============================================================================
+
+    // Bible chapter embeddings (vector index)
+    match /berean_embeddings/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if false; // Cloud Functions only (admin)
+    }
+
+    // Treasury of Scripture Knowledge cross-references
+    match /berean_cross_references/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if false; // Cloud Functions only (admin)
+    }
+
+    // Strong's Concordance word studies
+    match /berean_word_studies/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if false; // Cloud Functions only (admin)
+    }
+
+    // Public domain commentaries (Matthew Henry, etc.)
+    match /berean_commentaries/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if false; // Cloud Functions only (admin)
+    }
+
+    // ============================================================================
+    // BEREAN AI: COMMUNITY LEARNING COLLECTIONS
+    // Users can read and submit feedback; quality scores are Cloud Function managed
+    // ============================================================================
+
+    // Answer feedback (upvote/downvote)
+    match /berean_feedback/{docId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.keys().hasAll(['answerId', 'userId', 'rating', 'timestamp', 'queryTopic', 'answerType'])
+        && request.resource.data.rating in ['helpful', 'not_helpful', 'incorrect'];
+      allow update, delete: if false;
+    }
+
+    // Popular questions (read-only for clients, updated by Cloud Functions)
+    match /berean_popular_questions/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if false; // Cloud Functions only (transaction-based)
+    }
+
+    // Answer quality scores (read-only for clients, updated by Cloud Functions)
+    match /berean_quality_scores/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if false; // Cloud Functions only (transaction-based)
+    }
+
+    // Pastor flags for theological corrections
+    match /berean_pastor_flags/{docId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+        && request.resource.data.pastorId == request.auth.uid
+        && request.resource.data.keys().hasAll(['answerId', 'pastorId', 'flagType', 'correction', 'timestamp', 'resolved']);
+      allow update, delete: if false;
+    }
+
+    // ============================================================================
+    // BEREAN AI: USER MEMORY (Private per-user data)
+    // Only the owning user can read/write their own Berean memory
+    // ============================================================================
+
+    match /users/{userId}/berean_memory/{docId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // ============================================================================
     // DEFAULT DENY ALL OTHER COLLECTIONS
     // ============================================================================
 
