@@ -23,6 +23,8 @@ struct AMENDiscoveryView: View {
     @State private var scrollOffset: CGFloat = 0
     @State private var showClearAllConfirm = false
     @State private var showBereanAI = false
+    @AppStorage("hasSeenAISearchHint") private var hasSeenAISearchHint = false
+    @State private var showAISearchHint = false
 
     // Navigation
     @State private var selectedTopic: DiscoveryTopic? = nil
@@ -122,23 +124,54 @@ struct AMENDiscoveryView: View {
                     .fill(Color.primary.opacity(0.06))
             )
 
-            // Berean AI button — always visible in search bar
+            // Berean AI button — labeled capsule so users know what it does
             if !isSearchFocused && searchText.isEmpty {
                 Button {
                     HapticManager.impact(style: .medium)
                     showBereanAI = true
                 } label: {
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 17, weight: .medium))
-                        .foregroundStyle(.purple)
-                        .frame(width: 38, height: 38)
-                        .background(
-                            Circle()
-                                .fill(Color.purple.opacity(0.1))
-                        )
+                    HStack(spacing: 4) {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 13, weight: .semibold))
+                        Text("Ask AI")
+                            .font(.custom("OpenSans-SemiBold", size: 12))
+                    }
+                    .foregroundStyle(.purple)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .background(
+                        Capsule()
+                            .fill(Color.purple.opacity(0.1))
+                    )
                 }
                 .buttonStyle(.plain)
                 .transition(.scale.combined(with: .opacity))
+                .overlay(alignment: .bottom) {
+                    if showAISearchHint {
+                        Text("Ask Berean anything")
+                            .font(.custom("OpenSans-Regular", size: 11))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .background(Capsule().fill(Color.purple.opacity(0.85)))
+                            .offset(y: 36)
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                    }
+                }
+                .onAppear {
+                    guard !hasSeenAISearchHint else { return }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                            showAISearchHint = true
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 3.5) {
+                            withAnimation(.easeOut(duration: 0.3)) {
+                                showAISearchHint = false
+                                hasSeenAISearchHint = true
+                            }
+                        }
+                    }
+                }
             }
 
             if isSearchFocused || !searchText.isEmpty {
@@ -159,12 +192,7 @@ struct AMENDiscoveryView: View {
     }
 
     private var searchPlaceholder: String {
-        let options = [
-            "Search people, topics, churches…",
-            "Search AMEN",
-            "Search posts, prayer, sermons…",
-        ]
-        return options[0]
+        "Search or ask Berean AI…"
     }
 
     // MARK: - Content Area
@@ -448,7 +476,7 @@ struct AMENDiscoveryView: View {
                 GridItem(.flexible(), spacing: 10),
                 GridItem(.flexible(), spacing: 10)
             ], spacing: 10) {
-                ForEach(Array(service.popularTopics.prefix(8))) { topic in
+                ForEach(service.popularTopics) { topic in
                     DiscoveryTopicGridCard(topic: topic) {
                         selectedTopic = topic
                         service.selectTopic(topic)
