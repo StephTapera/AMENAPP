@@ -1776,7 +1776,7 @@ struct CompactTabBar: View {
                 .font(.system(size: 22, weight: .bold))
                 .foregroundStyle(.white)
         }
-        .offset(y: -12) // Lifts above the tab bar
+        .offset(y: 0) // Inline with other tab bar buttons
         .scaleEffect(createButtonScale)
         .animation(.spring(response: 0.3, dampingFraction: 0.6), value: createButtonScale)
         .contentShape(Circle())
