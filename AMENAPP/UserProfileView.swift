@@ -2140,7 +2140,7 @@ struct UserProfileView: View {
                                 .transition(.scale.combined(with: .opacity))
                                 
                                 // Message Button — disabled with rationale if private + not following
-                                let messageBlocked = profileData?.isPrivateAccount == true && !isFollowing
+                                let messageBlocked = profileData.isPrivateAccount && !isFollowing
                                 Button {
                                     if messageBlocked {
                                         HapticManager.notification(type: .warning)
@@ -2150,15 +2150,18 @@ struct UserProfileView: View {
                                 } label: {
                                     Text(messageBlocked ? "Follow to message" : "Message")
                                         .font(.custom("OpenSans-Bold", size: 15))
-                                        .foregroundStyle(messageBlocked ? .secondary : .black)
+                                        .foregroundColor(messageBlocked ? Color.secondary : Color.black)
                                         .frame(maxWidth: .infinity)
                                         .padding(.vertical, 12)
-                                        .background(messageBlocked
-                                            ? AnyShapeStyle(Color(.systemGray5))
-                                            : AnyShapeStyle(messageButtonBackground))
+                                        .background(
+                                            messageBlocked
+                                                ? Color(.systemGray5)
+                                                : Color(.systemGray6)
+                                        )
+                                        .cornerRadius(10)
                                 }
                                 .disabled(messageBlocked)
-                                .accessibilityLabel(messageBlocked ? "Follow to send a message" : "Send message to \(profileData?.name ?? "user")")
+                                .accessibilityLabel(messageBlocked ? "Follow to send a message" : "Send message to \(profileData.name)")
                                 .accessibilityHint(messageBlocked ? "You must follow this person first" : "Double tap to open a conversation")
                                 .transition(.scale.combined(with: .opacity))
                             }
@@ -3435,7 +3438,7 @@ struct UserListRow: View {
                 }
                 .disabled(isLoading)
                 .buttonStyle(PlainButtonStyle())
-                .accessibilityLabel(isFollowing ? "Unfollow \(profileData?.name ?? "user")" : "Follow \(profileData?.name ?? "user")")
+                .accessibilityLabel(isFollowing ? "Unfollow \(user.name)" : "Follow \(user.name)")
                 .accessibilityHint(isFollowing ? "Double tap to unfollow" : "Double tap to follow this person")
             }
         }

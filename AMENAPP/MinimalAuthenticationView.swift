@@ -613,9 +613,11 @@ private class MinimalAppleSignInCoordinator: NSObject,
         if let scene = windowScene {
             return scene.windows.first(where: { $0.isKeyWindow }) ?? scene.windows.first ?? UIWindow(windowScene: scene)
         }
-        // Last-resort fallback: create a detached window. This avoids a force-unwrap crash
-        // in the rare case where connectedScenes is empty during state restoration.
-        return UIWindow(frame: UIScreen.main.bounds)
+        // Last-resort fallback — should never reach here in a normal app lifecycle.
+        // Use the screen bounds from any available UIWindowScene to avoid UIScreen.main deprecation.
+        let fallbackScene = UIApplication.shared.connectedScenes.first as? UIWindowScene
+        let bounds = fallbackScene?.screen.bounds ?? CGRect(x: 0, y: 0, width: 390, height: 844)
+        return UIWindow(frame: bounds)
     }
 }
 

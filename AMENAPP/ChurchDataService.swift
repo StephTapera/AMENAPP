@@ -133,16 +133,21 @@ class ChurchDataService {
             guard distanceMiles <= radius else { return nil }
             
             let address: String
+            let city: String
+            let countryCode: String
             if #available(iOS 26, *) {
                 address = item.addressRepresentations?.fullAddress(includingRegion: false, singleLine: true) ?? ""
+                city = item.addressRepresentations?.cityName ?? ""
+                countryCode = item.addressRepresentations?.region?.identifier ?? ""
             } else {
                 address = [item.placemark.subThoroughfare, item.placemark.thoroughfare]
                     .compactMap { $0 }.joined(separator: " ")
+                city = item.placemark.locality ?? ""
+                countryCode = item.placemark.countryCode ?? ""
             }
-            let city = item.placemark.locality ?? ""
             
             // Build a lightweight ChurchEntity from the Maps result (no Firestore ID yet)
-            let churchId = "maps_\(item.placemark.countryCode ?? "")_\(name.replacingOccurrences(of: " ", with: "_").lowercased())"
+            let churchId = "maps_\(countryCode)_\(name.replacingOccurrences(of: " ", with: "_").lowercased())"
             return ChurchSearchResult(
                 id: churchId,
                 church: nil,
@@ -181,11 +186,23 @@ class ChurchDataService {
         
         // Not found — create a new ChurchEntity from the MapItem
         let address: String
+        let city: String
+        let state: String?
+        let zipCode: String?
+        let country: String
         if #available(iOS 26, *) {
             address = item.addressRepresentations?.fullAddress(includingRegion: false, singleLine: true) ?? ""
+            city = item.addressRepresentations?.cityName ?? ""
+            state = nil   // Not directly available via MKAddressRepresentations
+            zipCode = nil
+            country = item.addressRepresentations?.region?.identifier ?? "US"
         } else {
             address = [item.placemark.subThoroughfare, item.placemark.thoroughfare]
                 .compactMap { $0 }.joined(separator: " ")
+            city = item.placemark.locality ?? ""
+            state = item.placemark.administrativeArea
+            zipCode = item.placemark.postalCode
+            country = item.placemark.countryCode ?? "US"
         }
         
         let newId = UUID().uuidString
@@ -194,10 +211,10 @@ class ChurchDataService {
             placeId: nil,
             name: name,
             address: address,
-            city: item.placemark.locality ?? "",
-            state: item.placemark.administrativeArea,
-            zipCode: item.placemark.postalCode,
-            country: item.placemark.countryCode ?? "US",
+            city: city,
+            state: state,
+            zipCode: zipCode,
+            country: country,
             coordinate: ChurchEntity.GeoPoint(
                 latitude: coord.latitude,
                 longitude: coord.longitude

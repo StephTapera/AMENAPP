@@ -445,7 +445,7 @@ final class StudioDataService: ObservableObject {
             "createdAt": FieldValue.serverTimestamp()
         ]
         if let relatedId = relatedId { data["relatedId"] = relatedId }
-        try? await db.collection("studioNotifications").addDocument(data: data)
+        _ = try? await db.collection("studioNotifications").addDocument(data: data)
     }
 
     // MARK: - Earnings

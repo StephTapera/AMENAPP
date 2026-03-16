@@ -7,8 +7,7 @@
 //  ✅ TASKS COMPLETED:
 //  - TASK 2: Fixed posts staying after creation with enhanced real-time updates
 //  - TASK 3: Fixed replies not showing with 10-second refresh interval
-//  - TASK 4: Fixed saved posts not s
-howing with proper observer & listener
+//  - TASK 4: Fixed saved posts not showing with proper observer & listener
 //  - TASK 5: Fixed reposts not showing with proper observer & listener
 //
 //  Key improvements:

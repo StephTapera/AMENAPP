@@ -1278,12 +1278,14 @@ class AuthenticationViewModel: ObservableObject {
         do {
             let functions = Functions.functions()
             let callable = functions.httpsCallable("checkPhoneVerificationRateLimit")
+            // Extract the Sendable data dict inside the task to avoid transferring non-Sendable HTTPSCallableResult
             let callTask = Task.detached {
-                try await callable.call(["phoneNumber": phoneNumber, "action": "send"])
+                let result = try await callable.call(["phoneNumber": phoneNumber, "action": "send"])
+                return result.data as? [String: Any]
             }
-            let result = try await callTask.value
+            let data = try await callTask.value
 
-            if let data = result.data as? [String: Any],
+            if let data,
                let allowed = data["allowed"] as? Bool {
 
                 if !allowed {

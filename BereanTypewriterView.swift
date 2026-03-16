@@ -61,9 +61,9 @@ struct BereanStreamingTextView: View {
     var body: some View {
         ZStack(alignment: .topLeading) {
             // Stable committed text + in-flight chunk + cursor in one layout pass.
-            // Using a single Text concatenation keeps line-wrapping consistent and
-            // prevents layout jank from a multi-view stack that recalculates on each chunk.
-            (stableTextView + pendingChunkView + cursorView)
+            // Built via AttributedString to keep line-wrapping consistent and
+            // prevent layout jank from a multi-view stack that recalculates on each chunk.
+            composedTextView
                 .font(font)
                 .foregroundColor(textColor)
                 .lineSpacing(lineSpacing)
@@ -92,19 +92,26 @@ struct BereanStreamingTextView: View {
 
     // MARK: - Text assembly
 
-    private var stableTextView: Text {
-        Text(stableText)
-    }
+    /// Builds a single Text from stable + pending-chunk + cursor segments using
+    /// AttributedString composition, avoiding the deprecated Text.+ operator (iOS 26).
+    private var composedTextView: Text {
+        var result = AttributedString(stableText)
 
-    private var pendingChunkView: Text {
-        Text(pendingChunk)
-            .foregroundColor(textColor.opacity(pendingOpacity))
-    }
+        // Pending chunk with fade-in opacity
+        if !pendingChunk.isEmpty {
+            var chunk = AttributedString(pendingChunk)
+            chunk.foregroundColor = UIColor(textColor.opacity(pendingOpacity))
+            result.append(chunk)
+        }
 
-    private var cursorView: Text {
-        guard isStreaming || isAnimating else { return Text("") }
-        return Text("▊")
-            .foregroundColor(textColor.opacity(cursorOpacity * 0.55))
+        // Blinking cursor
+        if isStreaming || isAnimating {
+            var cursor = AttributedString("▊")
+            cursor.foregroundColor = UIColor(textColor.opacity(cursorOpacity * 0.55))
+            result.append(cursor)
+        }
+
+        return Text(result)
     }
 
     // MARK: - Stream processing

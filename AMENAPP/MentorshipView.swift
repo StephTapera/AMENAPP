@@ -153,11 +153,14 @@ final class MentorshipStore: ObservableObject {
             .whereField("acceptingMentees", isEqualTo: true)
             .limit(to: 20)
             .getDocuments { [weak self] snap, _ in
-                guard let self, let docs = snap?.documents else { return }
-                self.featuredMentors = docs.compactMap {
+                let mentors = snap?.documents.compactMap {
                     try? Firestore.Decoder().decode(MentorProfile.self, from: $0.data())
+                } ?? []
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    self.featuredMentors = mentors
+                    self.isLoaded = true
                 }
-                self.isLoaded = true
             }
     }
 
@@ -165,9 +168,11 @@ final class MentorshipStore: ObservableObject {
         let listener = db.collection("accountabilityCircles")
             .whereField("memberUIDs", arrayContains: uid)
             .addSnapshotListener { [weak self] snap, _ in
-                guard let self, let docs = snap?.documents else { return }
-                self.myCircles = docs.compactMap {
+                let circles = snap?.documents.compactMap {
                     try? Firestore.Decoder().decode(AccountabilityCircle.self, from: $0.data())
+                } ?? []
+                Task { @MainActor [weak self] in
+                    self?.myCircles = circles
                 }
             }
         listeners.append(listener)
@@ -175,8 +180,11 @@ final class MentorshipStore: ObservableObject {
 
     private func loadMentorProfile(uid: String) {
         db.collection("mentorProfiles").document(uid).getDocument { [weak self] snap, _ in
-            guard let self, let data = snap?.data() else { return }
-            self.myMentorProfile = try? Firestore.Decoder().decode(MentorProfile.self, from: data)
+            guard let data = snap?.data() else { return }
+            let profile = try? Firestore.Decoder().decode(MentorProfile.self, from: data)
+            Task { @MainActor [weak self] in
+                self?.myMentorProfile = profile
+            }
         }
     }
 

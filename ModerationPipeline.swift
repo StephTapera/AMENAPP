@@ -444,7 +444,7 @@ final class ModerationPipeline: ObservableObject {
             "riskScore": riskScore, "action": action,
             "timestamp": FieldValue.serverTimestamp()
         ]
-        try? await db.collection("safetyAuditLog").document(uid).collection("events").addDocument(data: data)
+        _ = try? await db.collection("safetyAuditLog").document(uid).collection("events").addDocument(data: data)
     }
 
     private func queueForHumanReview(
@@ -456,7 +456,7 @@ final class ModerationPipeline: ObservableObject {
             "signals": signals, "reportedUserId": userId ?? "",
             "status": "pending", "timestamp": FieldValue.serverTimestamp()
         ]
-        try? await db.collection("moderationQueue").addDocument(data: data)
+        _ = try? await db.collection("moderationQueue").addDocument(data: data)
     }
 }
 
@@ -590,7 +590,7 @@ final class TrustScoreService {
     func updateTrustEvent(userId: String, event: TrustEvent) async {
         guard flags.trustScoringEnabled else { return }
         let data: [String: Any] = ["event": event.rawValue, "timestamp": FieldValue.serverTimestamp()]
-        try? await db.collection("userTrustScores").document(userId).collection("events").addDocument(data: data)
+        _ = try? await db.collection("userTrustScores").document(userId).collection("events").addDocument(data: data)
         cachedLevel.removeValue(forKey: userId)
     }
 }

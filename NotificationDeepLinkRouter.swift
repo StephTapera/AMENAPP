@@ -417,6 +417,15 @@ struct NotificationNavigationHandler: ViewModifier {
                 case .prayer, .churchNote:
                     // Routed to Resources tab which contains Prayer and Church Notes
                     selectedTab = 3
+                case .job:
+                    // Jobs are accessible via AMEN Connect (Resources tab)
+                    selectedTab = 3
+                case .event:
+                    // Events are accessible via Resources tab
+                    selectedTab = 3
+                case .studioProfile:
+                    // Studio profiles are accessible via Resources tab
+                    selectedTab = 3
                 }
 
                 // Clear destination after handling

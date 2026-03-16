@@ -341,8 +341,8 @@ final class AMENSecureMessagingService: ObservableObject {
                 )])
         }
 
-        // Init ratchet state as sender
-        var ratchetState = try encryption.initRatchetAsSender(
+        // Init ratchet state as sender (stored for future message encryption use)
+        _ = try encryption.initRatchetAsSender(
             masterSecret: masterSecret,
             recipientRatchetPublic: keyBundle.signedPreKeyPublic
         )
@@ -376,7 +376,7 @@ final class AMENSecureMessagingService: ObservableObject {
             recipientBundle: myBundle
         )
 
-        let ratchetState = try encryption.initRatchetAsRecipient(
+        _ = try encryption.initRatchetAsRecipient(
             masterSecret: masterSecret,
             senderRatchetPublic: senderRatchetKey
         )

@@ -100,7 +100,7 @@ class ReEngagementNotificationService {
             // Schedule for 2 hours from now
             await scheduleReEngagementNotification(
                 userName: userName,
-                lastActivity: AppUsageTracker.shared.lastViewedScreen,
+                lastActivity: nil, // App usage tracking doesn't expose last screen
                 timeAway: "2 hours",
                 verseOfTheDay: lastVerse,
                 delaySeconds: 2 * 3600

@@ -199,7 +199,7 @@ class FirstVisitCompanionViewModel: ObservableObject {
                 visitPlanId: planId
             )
 
-            let notesService = ChurchNotesService.shared
+            let notesService = ChurchNotesService()
             try await notesService.createNote(note)
 
             // 2. Mark the plan visited with the note ID

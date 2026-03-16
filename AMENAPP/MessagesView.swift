@@ -702,6 +702,7 @@ struct MessagesView: View {
     }
     
     // ✅ Modern search bar (glass pill, like reference)
+    @ViewBuilder
     private var modernSearchBar: some View {
         VStack(spacing: 8) {
             HStack(spacing: 12) {

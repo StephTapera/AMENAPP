@@ -190,6 +190,9 @@ final class TranslationService: ObservableObject {
     /// Detect language for a piece of text. Returns a reliable result or .notNeeded.
     /// Used at post-write time to store detectedLanguage on the document.
     func detectLanguage(_ text: String) async -> LanguageDetectionResult {
+        // Capture constants before entering the detached (nonisolated) task
+        let minConfidence = TranslationPreservationRules.minimumDetectionConfidence
+        let minChars = TranslationPreservationRules.minimumCharCount
         return await Task.detached(priority: .userInitiated) {
             let recognizer = NLLanguageRecognizer()
             recognizer.processString(text)
@@ -208,8 +211,8 @@ final class TranslationService: ObservableObject {
             let base = raw.components(separatedBy: "-").first ?? raw
             let code = base.lowercased()
 
-            let isReliable = confidence >= TranslationPreservationRules.minimumDetectionConfidence
-                && text.count >= TranslationPreservationRules.minimumCharCount
+            let isReliable = confidence >= minConfidence
+                && text.count >= minChars
 
             return LanguageDetectionResult(
                 languageCode: code,
@@ -330,7 +333,7 @@ final class TranslationService: ObservableObject {
         surface: TranslationSurface,
         isPublicContent: Bool
     ) async throws -> String {
-        guard let uid = Auth.auth().currentUser?.uid else {
+        guard Auth.auth().currentUser?.uid != nil else {
             throw TranslationErrorResponse(
                 requestId: UUID().uuidString,
                 errorCode: .contentRestricted,

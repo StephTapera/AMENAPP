@@ -117,8 +117,10 @@ final class EventsStore: ObservableObject {
             db.collection("faithEvents")
                 .whereField("rsvpUIDs", arrayContains: uid)
                 .getDocuments { [weak self] snap, _ in
-                    guard let self else { return }
-                    self.myRSVPs = snap?.documents.compactMap { $0.documentID } ?? []
+                    let ids = snap?.documents.compactMap { $0.documentID } ?? []
+                    Task { @MainActor [weak self] in
+                        self?.myRSVPs = ids
+                    }
                 }
         }
     }

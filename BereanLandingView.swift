@@ -56,7 +56,6 @@ struct BereanLandingView: View {
 
     // Animation orchestration
     @State private var heroComplete = false
-    @State private var cardsVisible = false
     @State private var statusCardVisible = false
 
     // Input state
@@ -77,10 +76,10 @@ struct BereanLandingView: View {
             GeometryReader { geo in
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: 0) {
-                        // Center hero vertically in the upper half of the screen
-                        // so "How can I help you" sits at the visual midpoint.
-                        // ~38% down from top feels balanced above the input bar.
-                        Spacer().frame(height: max(24, geo.size.height * 0.30))
+                        // Push hero to true vertical center of the visible area.
+                        // With no cards below, ~38% from top sits it at the
+                        // optical midpoint above the floating input bar.
+                        Spacer().frame(height: max(24, geo.size.height * 0.38))
 
                         // Hero greeting
                         BereanHeroGreetingView(
@@ -88,7 +87,6 @@ struct BereanLandingView: View {
                             shouldAnimate: !hasAnimatedThisSession,
                             onSequenceComplete: {
                                 hasAnimatedThisSession = true
-                                revealCards()
                             }
                         )
 
@@ -100,17 +98,6 @@ struct BereanLandingView: View {
                                 .opacity(statusCardVisible ? 1 : 0)
                                 .offset(y: statusCardVisible ? 0 : 12)
                         }
-
-                        // Quick action cards
-                        BereanQuickActionSection(
-                            actions: BereanQuickAction.defaults,
-                            isVisible: cardsVisible,
-                            onActionTap: { action in
-                                inputText = action.prompt
-                                inputFocused = true
-                            }
-                        )
-                        .padding(.top, 28)
 
                         // Bottom padding for input bar clearance
                         Spacer().frame(height: 110)
@@ -134,10 +121,8 @@ struct BereanLandingView: View {
         }
         .onAppear {
             greeting = BereanGreetingManager.greeting()
-            // If reduce motion, skip animation gating
             if reduceMotion {
                 hasAnimatedThisSession = true
-                cardsVisible = true
                 statusCardVisible = true
             }
         }
@@ -147,9 +132,6 @@ struct BereanLandingView: View {
         guard !reduceMotion else { return }
         withAnimation(.spring(response: 0.55, dampingFraction: 0.82).delay(0.05)) {
             statusCardVisible = true
-        }
-        withAnimation(.spring(response: 0.55, dampingFraction: 0.82).delay(0.08)) {
-            cardsVisible = true
         }
     }
 }
@@ -551,10 +533,7 @@ struct BereanInsightCard: View {
 struct BereanLandingEmbedded: View {
     var onActionTap: (String) -> Void = { _ in }
 
-    @State private var cardsVisible = false
-    @State private var statusCardVisible = false
     @State private var hasAnimatedThisSession = false
-
     @State private var greeting: BereanGreeting = BereanGreetingManager.greeting()
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -562,24 +541,16 @@ struct BereanLandingEmbedded: View {
     var body: some View {
         GeometryReader { geo in
             VStack(spacing: 0) {
-                // Push hero to visual center of the available space
-                Spacer().frame(height: max(32, geo.size.height * 0.28))
+                // Push hero to true vertical center of the available space.
+                Spacer().frame(height: max(32, geo.size.height * 0.38))
 
                 BereanHeroGreetingView(
                     greeting: greeting,
                     shouldAnimate: !hasAnimatedThisSession,
                     onSequenceComplete: {
                         hasAnimatedThisSession = true
-                        revealCards()
                     }
                 )
-
-                BereanQuickActionSection(
-                    actions: BereanQuickAction.defaults,
-                    isVisible: cardsVisible,
-                    onActionTap: { action in onActionTap(action.prompt) }
-                )
-                .padding(.top, 28)
 
                 Spacer().frame(height: 40)
             }
@@ -589,17 +560,10 @@ struct BereanLandingEmbedded: View {
             greeting = BereanGreetingManager.greeting()
             if reduceMotion {
                 hasAnimatedThisSession = true
-                cardsVisible = true
             }
         }
     }
 
-    private func revealCards() {
-        guard !reduceMotion else { return }
-        withAnimation(.spring(response: 0.55, dampingFraction: 0.82).delay(0.06)) {
-            cardsVisible = true
-        }
-    }
 }
 
 #if DEBUG

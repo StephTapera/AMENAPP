@@ -1168,36 +1168,44 @@ struct GroupedNotificationRow: View {
         let names = group.actorNames
         let others = group.otherCount
 
-        func boldText(_ s: String) -> Text {
-            Text(s).fontWeight(.semibold).foregroundStyle(Color(uiColor: .label))
+        func boldAttr(_ s: String) -> AttributedString {
+            var a = AttributedString(s)
+            a.font = .system(size: 15, weight: .semibold)
+            a.foregroundColor = .label
+            return a
         }
-        func plainText(_ s: String) -> Text {
-            Text(s).foregroundStyle(Color(uiColor: .secondaryLabel))
+        func plainAttr(_ s: String) -> AttributedString {
+            var a = AttributedString(s)
+            a.foregroundColor = .secondaryLabel
+            return a
         }
 
-        guard !names.isEmpty else {
-            return plainText(action)
-        }
+        var result = AttributedString()
 
-        if !group.isGrouped {
+        if names.isEmpty {
+            result.append(plainAttr(action))
+        } else if !group.isGrouped {
             // Single actor
-            let name = names[0]
-            return boldText(name) + plainText(" \(action)")
-        }
-
-        if names.count == 1 && others == 0 {
-            // Grouped but only one distinct actor name (server-side count = 1, still show bold)
-            return boldText(names[0]) + plainText(" \(action)")
-        }
-
-        if names.count >= 2 && others == 0 {
+            result.append(boldAttr(names[0]))
+            result.append(plainAttr(" \(action)"))
+        } else if names.count == 1 && others == 0 {
+            // Grouped but only one distinct actor name
+            result.append(boldAttr(names[0]))
+            result.append(plainAttr(" \(action)"))
+        } else if names.count >= 2 && others == 0 {
             // Exactly 2 actors: "Name and Name2 action"
-            return boldText(names[0]) + plainText(" and ") + boldText(names[1]) + plainText(" \(action)")
+            result.append(boldAttr(names[0]))
+            result.append(plainAttr(" and "))
+            result.append(boldAttr(names[1]))
+            result.append(plainAttr(" \(action)"))
+        } else {
+            // 3+ actors: "Name and N others action"
+            let othersLabel = others == 1 ? "1 other" : "\(others) others"
+            result.append(boldAttr(names[0]))
+            result.append(plainAttr(" and \(othersLabel) \(action)"))
         }
 
-        // 3+ actors: "Name and N others action"
-        let othersLabel = others == 1 ? "1 other" : "\(others) others"
-        return boldText(names[0]) + plainText(" and \(othersLabel) \(action)")
+        return Text(result)
     }
 
     // MARK: - Trailing view: Follow Back button or post thumbnail
