@@ -3052,24 +3052,75 @@ struct CreateGroupView: View {
             Text("Group Name")
                 .font(.custom("OpenSans-Bold", size: 14))
                 .foregroundStyle(.secondary)
-            
+
             TextField("Enter group name", text: $groupName)
                 .font(.custom("OpenSans-Regular", size: 17))
                 .padding()
                 .background(Color(.systemGray6))
                 .cornerRadius(12)
                 .onChange(of: groupName) { _, newValue in
-                    // Enforce character limit in real-time
                     if newValue.count > nameCharLimit {
                         groupName = String(newValue.prefix(nameCharLimit))
                     }
                 }
-            
-            Text("\(groupName.count)/\(nameCharLimit)")
-                .font(.custom("OpenSans-Regular", size: 12))
-                .foregroundStyle(.secondary)
+
+            HStack {
+                // Helper text
+                if groupName.isEmpty {
+                    Text("Tip: Short, descriptive names work best")
+                        .font(.custom("OpenSans-Regular", size: 12))
+                        .foregroundStyle(.tertiary)
+                        .transition(.opacity)
+                }
+
+                Spacer()
+
+                Text("\(groupName.count)/\(nameCharLimit)")
+                    .font(.custom("OpenSans-Regular", size: 12))
+                    .foregroundStyle(
+                        groupName.isEmpty ? .secondary :
+                        groupName.count > 45 ? .orange :
+                        .green.opacity(0.7)
+                    )
+            }
+            .animation(.easeOut(duration: 0.2), value: groupName.isEmpty)
+
+            // Group preview line
+            HStack(spacing: 6) {
+                Text("Members: \(selectedUsers.count)")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.tertiary)
+            }
+
+            // Inline validation checklist (shows when Create is disabled)
+            if !canCreate && (groupName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || selectedUsers.isEmpty) {
+                VStack(alignment: .leading, spacing: 4) {
+                    checklistItem(
+                        text: "Add a group name",
+                        satisfied: !groupName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    )
+                    checklistItem(
+                        text: "Add at least 1 member",
+                        satisfied: !selectedUsers.isEmpty
+                    )
+                }
+                .padding(.top, 4)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+                .animation(.easeOut(duration: 0.25), value: canCreate)
+            }
         }
         .padding()
+    }
+
+    private func checklistItem(text: String, satisfied: Bool) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: satisfied ? "checkmark.circle.fill" : "circle")
+                .font(.system(size: 12))
+                .foregroundStyle(satisfied ? .green : .tertiary)
+            Text(text)
+                .font(.custom("OpenSans-Regular", size: 12))
+                .foregroundStyle(satisfied ? .green : .tertiary)
+        }
     }
     
     private var memberSelectionSection: some View {
@@ -3277,9 +3328,14 @@ struct CreateGroupView: View {
                     .font(.system(size: 22))
                     .foregroundStyle(.blue)
             } else if selectedUsers.count >= maxMembers {
-                Image(systemName: "exclamationmark.circle")
-                    .font(.system(size: 22))
-                    .foregroundStyle(.orange)
+                VStack(spacing: 2) {
+                    Image(systemName: "exclamationmark.circle")
+                        .font(.system(size: 22))
+                        .foregroundStyle(.orange)
+                    Text("Limit")
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundStyle(.orange)
+                }
             } else {
                 Image(systemName: "circle")
                     .font(.system(size: 22))
@@ -3390,13 +3446,15 @@ struct CreateGroupView: View {
                 
                 await MainActor.run {
                     // Success haptic
-                    let haptic = UINotificationFeedbackGenerator()
-                    haptic.notificationOccurred(.success)
-                    
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
                     isCreating = false
-                    
+                }
+
+                // Brief delay so the button press feels acknowledged before navigation
+                try? await Task.sleep(nanoseconds: 200_000_000) // 200ms
+
+                await MainActor.run {
                     dismiss()
-                    
                     dlog("📬 Opening new group conversation: \(conversationId)")
                     MessagingCoordinator.shared.openConversation(conversationId)
                 }
