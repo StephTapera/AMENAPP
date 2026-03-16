@@ -51,6 +51,7 @@ struct ChatIdentityCard: View {
     let isFollowLoading: Bool
     let onViewProfile: () -> Void
     let onFollow: () -> Void   // nil-safe: only active when follow action is available
+    var onSendPrayer: (() -> Void)? = nil  // Quick prayer action
     var overridePhotoURL: String? = nil  // Live-fetched photo, takes precedence over stale conversation doc
 
     // Computed follow button label
@@ -235,6 +236,27 @@ struct ChatIdentityCard: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(isFollowLoading)
+            }
+
+            // Send Prayer — AMEN's differentiator
+            if let onSendPrayer {
+                Button(action: onSendPrayer) {
+                    VStack(spacing: 5) {
+                        Image(systemName: "hands.sparkles.fill")
+                            .font(.system(size: 20, weight: .regular))
+                            .foregroundStyle(.primary.opacity(0.75))
+                            .frame(width: 44, height: 44)
+                            .background(
+                                Circle()
+                                    .fill(.ultraThinMaterial)
+                                    .overlay(Circle().strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.8))
+                            )
+                        Text("Send Prayer")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .buttonStyle(.plain)
             }
         }
     }
@@ -550,27 +572,71 @@ struct ChatOutgoingPendingBanner: View {
 struct ChatEmptyState: View {
     let conversation: ChatConversation
     let followRelationship: ChatFollowRelationship
+    var onStarterTapped: ((String) -> Void)? = nil
+
+    private var firstName: String {
+        conversation.name.components(separatedBy: " ").first ?? "them"
+    }
 
     private var emptyPrompt: String {
         switch followRelationship {
         case .mutual:
-            return "Start the conversation."
+            return "You follow each other — start the conversation."
         case .theyFollowYou:
-            return "They follow you. Say hello."
+            return "\(firstName) follows you. Say hello!"
         case .youFollowThem:
-            return "You follow \(conversation.name.components(separatedBy: " ").first ?? "them"). Break the ice."
+            return "You follow \(firstName). Break the ice."
         case .noFollowRelationship, .loading:
-            return "Send a message request to \(conversation.name.components(separatedBy: " ").first ?? "them")."
+            return "Send \(firstName) a message."
         }
     }
 
+    private var conversationStarters: [(emoji: String, text: String)] {
+        [
+            ("🙏", "I'll be praying for you"),
+            ("✝️", "Share a verse with \(firstName)"),
+            ("💬", "What are you believing God for?"),
+        ]
+    }
+
     var body: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 16) {
+            // Subtle cross watermark
+            Image(systemName: "cross.fill")
+                .font(.system(size: 40, weight: .ultraLight))
+                .foregroundStyle(.primary.opacity(0.04))
+                .padding(.bottom, 4)
+
             Text(emptyPrompt)
                 .font(.system(size: 14, weight: .regular))
                 .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
+
+            // Faith-based conversation starters
+            VStack(spacing: 8) {
+                ForEach(conversationStarters, id: \.text) { starter in
+                    Button {
+                        onStarterTapped?("\(starter.emoji) \(starter.text)")
+                    } label: {
+                        HStack(spacing: 8) {
+                            Text(starter.emoji)
+                                .font(.system(size: 14))
+                            Text(starter.text)
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(.primary.opacity(0.6))
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(
+                            Capsule()
+                                .fill(.ultraThinMaterial)
+                                .overlay(Capsule().strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.8))
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 24)
