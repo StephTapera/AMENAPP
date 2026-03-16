@@ -7,7 +7,8 @@
 //  ✅ TASKS COMPLETED:
 //  - TASK 2: Fixed posts staying after creation with enhanced real-time updates
 //  - TASK 3: Fixed replies not showing with 10-second refresh interval
-//  - TASK 4: Fixed saved posts not showing with proper observer & listener
+//  - TASK 4: Fixed saved posts not s
+howing with proper observer & listener
 //  - TASK 5: Fixed reposts not showing with proper observer & listener
 //
 //  Key improvements:
@@ -219,9 +220,11 @@ struct ProfileView: View {
             .toolbar {
                 // CENTER: Animated Username Title (without @)
                 ToolbarItem(placement: .principal) {
-                    Text("@\(profileData.username)")
-                        .font(.custom("OpenSans-Bold", size: 17))
-                        .foregroundStyle(.black)
+                    if !profileData.username.isEmpty {
+                        Text("@\(profileData.username)")
+                            .font(.custom("OpenSans-Bold", size: 17))
+                            .foregroundStyle(.black)
+                    }
                 }
                 
                 // TOP LEFT: Compact Profile Header (shows when scrolled)
@@ -412,10 +415,7 @@ struct ProfileView: View {
                     isToolbarExpanded.toggle()
                 }
                 
-                // Enhanced haptic feedback
-                // haptic
-                
-                haptic.impactOccurred(intensity: 0.7)
+                HapticManager.impact(style: .medium)
             } label: {
                 // Icon morphs between ellipsis ↔ xmark with liquid dissolve-reform
                 Image(systemName: isToolbarExpanded ? "xmark" : "ellipsis")
@@ -848,65 +848,7 @@ struct ProfileView: View {
         dlog("   Reposts: \(reposts.count)")
     }
     
-    // 🎯 NEW: Enhanced Refresh with Smart Logic & Haptics
-    @MainActor
-    private func enhancedRefreshProfile() async {
-        // Trigger haptic at start
-        // haptic
-        HapticManager.impact(style: .medium)
-        
-        // Smart refresh: Only fetch if data is older than 5 minutes
-        let shouldSkip: Bool
-        if let lastRefresh = lastRefreshDate {
-            let timeSinceRefresh = Date().timeIntervalSince(lastRefresh)
-            shouldSkip = timeSinceRefresh < 300 // 5 minutes
-            
-            if shouldSkip {
-                dlog("⏭️ Skipping refresh - data is fresh (last refresh: \(Int(timeSinceRefresh))s ago)")
-                
-                // Light success haptic
-                // haptic
-                HapticManager.notification(type: .success)
-                return
-            }
-        } else {
-            shouldSkip = false
-        }
-        
-        dlog("🔄 Enhanced refresh starting...")
-        let previousPostsCount = userPosts.count
-        
-        // Perform refresh
-        await refreshProfile()
-        
-        // Calculate new posts
-        newPostsCount = max(0, userPosts.count - previousPostsCount)
-        lastRefreshDate = Date()
-        
-        // Show toast if there are new posts
-        if newPostsCount > 0 {
-            showRefreshToast = true
-            
-            // Success haptic with notification
-            // haptic
-            HapticManager.notification(type: .success)
-            
-            // Hide toast after 2 seconds
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                withAnimation {
-                    showRefreshToast = false
-                }
-            }
-        } else {
-            // Light success haptic for "no new posts"
-            // haptic
-            HapticManager.impact(style: .light)
-        }
-        
-        dlog("✅ Enhanced refresh complete - \(newPostsCount) new posts")
-    }
-    
-    // 🎯 NEW: Fast Real-Time Refresh (No Cache Delay)
+    // MARK: - Fast Real-Time Refresh (No Cache Delay)
     @MainActor
     private func fastRefreshProfile() async {
         // Trigger haptic at start
@@ -1136,33 +1078,6 @@ struct ProfileView: View {
     
     // MARK: - Debug Realtime Database
     
-    private func testRealtimeDatabaseConnection() async {
-        dlog("🧪 Testing Realtime Database connection...")
-        
-        do {
-            // Try to read from Realtime Database
-            let testRef = FirebaseDatabase.Database.database().reference()
-            let snapshot = try await testRef.child("test").getData()
-            
-            if snapshot.exists() {
-                dlog("✅ Realtime Database connected and readable")
-            } else {
-                dlog("⚠️ Realtime Database connected but no test data")
-            }
-            
-            // Try to write
-            try await testRef.child("test").child("connection").setValue([
-                "timestamp": Date().timeIntervalSince1970,
-                "user": Auth.auth().currentUser?.uid ?? "unknown"
-            ])
-            dlog("✅ Realtime Database write successful")
-            
-        } catch {
-            dlog("❌ Realtime Database error: \(error.localizedDescription)")
-            dlog("   Error details: \(error)")
-        }
-    }
-    
     // MARK: - Share Profile Function
     
     private func shareProfile() {
@@ -1379,59 +1294,19 @@ struct ProfileView: View {
         dlog("      Reposts: \(reposts.count)")
     }
     
-    /// Remove all Realtime Database listeners
-    @MainActor
-    private func removeRealtimeDatabaseListeners() {
-        // Note: We're NOT actually removing listeners here
-        // They stay active to keep receiving real-time updates
-        // This is intentional to keep data persistent across tab switches
-        dlog("🔇 Keeping Realtime Database listeners active (not removing)")
+    // MARK: - Tab Helpers
+
+    private func countForTab(_ tab: ProfileTab) -> Int {
+        switch tab {
+        case .posts: return userPosts.count
+        case .replies: return 0
+        case .saved: return savedPosts.count
+        case .reposts: return reposts.count
+        }
     }
-    
+
     // MARK: - View Helpers
-    
-    /// Calculate dynamic header height based on content
-    private func calculateHeaderHeight() -> CGFloat {
-        // Base height for profile info
-        var baseHeight: CGFloat = 380
-        
-        // Add height for bio (approx 20pt per line, max 3 lines)
-        let bioLines = min(3, max(1, profileData.bio.count / 40))
-        baseHeight += CGFloat(bioLines * 20)
-        
-        // Add height for interests if present
-        if !profileData.interests.isEmpty {
-            baseHeight += 50
-        }
-        
-        // Add height for social links
-        baseHeight += CGFloat(profileData.socialLinks.count * 44)
-        
-        // Add achievement badges height if any exist
-        if userPosts.count >= 10 || followService.currentUserFollowersCount >= 10 {
-            baseHeight += 80
-        }
-        
-        // P0 FIX: Validate baseHeight is finite and within safe bounds
-        guard baseHeight.isFinite && baseHeight >= 200 else {
-            dlog("⚠️ [ProfileView] Invalid baseHeight: \(baseHeight), using safe fallback")
-            return 200
-        }
-        
-        // ✨ INTERACTIVE COLLAPSE: Shrink header as user scrolls down
-        // Maps scroll offset to header reduction (0 to -150 pixels)
-        let collapseAmount = min(150, max(0, -scrollOffset))
-        let dynamicHeight = max(200, baseHeight - collapseAmount)
-        
-        // P0 FIX: Validate final height is finite
-        guard dynamicHeight.isFinite else {
-            dlog("⚠️ [ProfileView] Non-finite dynamicHeight, using safe fallback")
-            return 200
-        }
-        
-        return dynamicHeight
-    }
-    
+
     private func liquidGlassButtonLabel(text: String) -> some View {
         Text(text)
             .font(.custom("OpenSans-Bold", size: 15))
@@ -1595,7 +1470,7 @@ struct ProfileView: View {
                             .foregroundStyle(selectedTab == tab ? .white : .black.opacity(0.6))
                         
                         if selectedTab == tab {
-                            Text(tab.rawValue)
+                            Text("\(tab.rawValue) (\(countForTab(tab)))")
                                 .font(.custom("OpenSans-Bold", size: 14))
                                 .foregroundStyle(.white)
                                 .transition(.scale(scale: 0.8).combined(with: .opacity))
@@ -1665,13 +1540,12 @@ struct ProfileView: View {
                     withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
                         avatarPressed = true
                     }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                    Task { @MainActor in
+                        try? await Task.sleep(nanoseconds: 150_000_000)
                         withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
                             avatarPressed = false
                         }
-                    }
-                    // Show full screen avatar after animation
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                        try? await Task.sleep(nanoseconds: 50_000_000)
                         showFullScreenAvatar = true
                     }
                 } label: {
@@ -1693,7 +1567,7 @@ struct ProfileView: View {
                             .font(.system(size: 11, weight: .semibold))
                             .foregroundStyle(.black)
 
-                        Text(bioURL.replacingOccurrences(of: "https://", with: "")
+                        Text(bioURL.replacingOccurrences(of: "https://", with: "").replacingOccurrences(of: "http://", with: "").trimmingCharacters(in: CharacterSet(charactersIn: "/"))
                                 .replacingOccurrences(of: "http://", with: ""))
                             .font(.custom("OpenSans-SemiBold", size: 11))
                             .foregroundStyle(.black)
