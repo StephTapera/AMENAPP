@@ -1117,6 +1117,12 @@ struct PostCard: View {
             .sheet(isPresented: $showBereanSheet) {
                 BereanAIAssistantView(initialQuery: bereanInitialQuery)
             }
+            .sheet(isPresented: Binding(
+                get: { BereanLiveActivityService.shared.showFallbackSheet },
+                set: { BereanLiveActivityService.shared.showFallbackSheet = $0 }
+            )) {
+                BereanFallbackSheet()
+            }
             .task(id: content) {
                 await detectAndTranslatePost()
             }
@@ -1707,7 +1713,12 @@ struct PostCard: View {
             if category == .testimonies || category == .openTable || category == .prayer {
                 AISparkleSearchButton {
                     HapticManager.impact(style: .light)
-                    showBereanSheet = true
+                    // Launch Berean Live Activity (Dynamic Island) or fallback sheet
+                    if let post = post {
+                        BereanLiveActivityService.shared.startActivity(for: post)
+                    } else {
+                        showBereanSheet = true
+                    }
                 }
                 .frame(width: 20, height: 20)
             }
