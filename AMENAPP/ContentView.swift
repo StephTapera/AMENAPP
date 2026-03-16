@@ -1765,14 +1765,23 @@ struct CompactTabBar: View {
     @State private var isLongPressing = false
     
     private var createButton: some View {
-        // Bare pen icon — no circle background, intentionally larger than other tab icons
-        BallpointPenIcon(size: 36, color: Color.primary)
-            .frame(width: 44, height: 44)
-            .scaleEffect(createButtonScale)
-            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: createButtonScale)
-            .contentShape(Rectangle())
-            .accessibilityLabel("Create post")
-            .accessibilityHint("Tap to compose a new post. Long press for quick options.")
+        // Black circle with white plus — elevated above the tab bar
+        ZStack {
+            Circle()
+                .fill(Color.black)
+                .frame(width: 48, height: 48)
+                .shadow(color: .black.opacity(0.25), radius: 8, x: 0, y: 4)
+
+            Image(systemName: "plus")
+                .font(.system(size: 22, weight: .bold))
+                .foregroundStyle(.white)
+        }
+        .offset(y: -12) // Lifts above the tab bar
+        .scaleEffect(createButtonScale)
+        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: createButtonScale)
+        .contentShape(Circle())
+        .accessibilityLabel("Create post")
+        .accessibilityHint("Tap to compose a new post. Long press for quick options.")
         .onTapGesture {
             // Regular tap - open create post immediately
             
