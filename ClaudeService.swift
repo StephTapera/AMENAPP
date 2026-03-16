@@ -7,18 +7,19 @@
 //  same streaming API, same cache structure — routes to Anthropic Messages API
 //  with BereanMode-driven model tiering (Haiku for real-time, Sonnet for deep work).
 //
-//  Model tiering:
-//    • Haiku  (claude-haiku-4-5)  — every real-time user interaction
-//    • Sonnet (claude-sonnet-4-5) — multi-chapter study, devotional, enforcement drafts
+//  Model tiering (3-tier):
+//    • Haiku  (claude-haiku-4-5)  — fast-path: typing indicators, quick lookups, verse fetches
+//    • Sonnet (claude-sonnet-4-6) — standard: all real-time user interactions, pastoral, business
+//    • Opus   (claude-opus-4-6)   — deep: scholar/debater, multi-perspective theology, study plans
 //
 //  BereanMode → tier:
-//    scholar   → Sonnet  (precise theological analysis, cross-references, multi-step study)
-//    debater   → Sonnet  (steelmanning arguments requires deeper reasoning)
-//    strategist→ Haiku   (fast business/ops answers)
-//    shepherd  → Haiku   (pastoral warmth, light-weight)
-//    builder   → Haiku   (code/systems, concise)
-//    creator   → Haiku   (generative, fast)
-//    coach     → Haiku   (action-oriented, concise)
+//    scholar   → Opus    (precise theological analysis, cross-references, multi-step study)
+//    debater   → Opus    (steelmanning arguments requires deepest reasoning)
+//    strategist→ Sonnet  (business/ops answers with quality)
+//    shepherd  → Sonnet  (pastoral warmth, good quality)
+//    builder   → Sonnet  (code/systems, precise)
+//    creator   → Sonnet  (generative, quality)
+//    coach     → Sonnet  (action-oriented, thoughtful)
 //
 //  Async Genkit helpers (generateDevotional, generateStudyPlan, analyzeScripture):
 //    These are called with mode: .scholar and will automatically route to Sonnet.
@@ -32,18 +33,24 @@ import Combine
 private enum ClaudeModel {
     /// Fast, cost-efficient — used for all real-time Berean interactions.
     static let haiku  = "claude-haiku-4-5"
-    /// Higher quality — used for scholar/debater modes and async deep-work helpers.
-    static let sonnet = "claude-sonnet-4-5"
+    /// Higher quality — used for standard theological Q&A and structured output.
+    static let sonnet = "claude-sonnet-4-6"
+    /// Highest quality — used for deep theological reasoning and multi-perspective analysis.
+    static let opus   = "claude-opus-4-6"
 
     /// Map a BereanMode to the appropriate Claude model.
+    /// Tiering: Haiku (fast chat) → Sonnet (standard Q&A) → Opus (deep reasoning)
     static func forMode(_ mode: BereanMode) -> String {
         switch mode {
         case .scholar, .debater:
-            return sonnet
+            return opus
         case .shepherd, .builder, .strategist, .creator, .coach:
-            return haiku
+            return sonnet
         }
     }
+
+    /// Explicit model for fast-path interactions (typing indicators, quick lookups)
+    static func fast() -> String { haiku }
 }
 
 // MARK: - Codable Request / Response Models (Anthropic Messages API)
@@ -342,6 +349,12 @@ final class ClaudeService: ObservableObject {
 
         if let suffix, !suffix.isEmpty {
             prompt += "\n\nAdditional style instruction: \(suffix)"
+        }
+
+        // Inject conversational memory context if available
+        let memoryContext = BereanMemory.shared.generateContextSummary()
+        if !memoryContext.isEmpty {
+            prompt += "\n\n\(memoryContext)"
         }
 
         return prompt

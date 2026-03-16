@@ -33,6 +33,7 @@ struct RoutingDecision {
 /// Available Berean tools
 enum BereanTool {
     case ragExegesis           // Cited verse explanation
+    case deepThink             // Chain-of-thought multi-perspective theological reasoning
     case prayerDrafting        // Gentle prayer composition
     case notesSummarizer       // Sermon/notes summary
     case safetyChecker         // Content moderation
@@ -527,6 +528,25 @@ class BereanIntentRouter: ObservableObject {
     }
     
     private func routeChatIntent(input: String) -> RoutingDecision {
+        // Deep theological questions → deep think mode (uses Opus for reasoning)
+        let deepThinkTriggers = [
+            "is baptism required", "predestination", "free will",
+            "once saved always saved", "speaking in tongues",
+            "trinity", "problem of evil", "why does god allow",
+            "different denominations", "catholic vs protestant",
+            "compare perspectives", "deep dive", "analyze deeply",
+            "theological debate", "what do different", "calvinist",
+            "arminian", "both sides"
+        ]
+        if deepThinkTriggers.contains(where: { input.contains($0) }) {
+            return RoutingDecision(
+                tool: .deepThink,
+                priority: .background,
+                policyChecks: [],
+                estimatedLatency: 8.0
+            )
+        }
+
         if input.contains("explain") || input.contains("what does") || input.contains("mean") {
             return RoutingDecision(
                 tool: .ragExegesis,
@@ -535,7 +555,7 @@ class BereanIntentRouter: ObservableObject {
                 estimatedLatency: 1.5
             )
         }
-        
+
         if input.contains("encourage") || input.contains("message") {
             return RoutingDecision(
                 tool: .encouragementWriter,
@@ -544,7 +564,7 @@ class BereanIntentRouter: ObservableObject {
                 estimatedLatency: 0.5
             )
         }
-        
+
         // Default: RAG
         return RoutingDecision(
             tool: .ragExegesis,
@@ -566,7 +586,10 @@ class BereanIntentRouter: ObservableObject {
         switch tool {
         case .ragExegesis:
             return await executeRAGExegesis(input: input, context: context)
-            
+
+        case .deepThink:
+            return await executeDeepThink(input: input, context: context)
+
         case .prayerDrafting:
             return await executePrayerDrafting(input: input, context: context)
             
@@ -596,6 +619,43 @@ class BereanIntentRouter: ObservableObject {
         }
     }
     
+    private func executeDeepThink(input: String, context: BereanContext) async -> BereanResponse {
+        do {
+            let result = try await BereanDeepThink.shared.think(query: input)
+
+            // Format the deep think result into a rich response
+            var content = result.synthesis
+
+            // Append perspectives section
+            if !result.perspectives.isEmpty {
+                content += "\n\nPerspectives explored:"
+                for perspective in result.perspectives {
+                    let consensusTag = perspective.isConsensus ? " (broad consensus)" : ""
+                    content += "\n\n\(perspective.tradition)\(consensusTag): \(perspective.position)"
+                    if !perspective.supportingScripture.isEmpty {
+                        content += "\nScripture: \(perspective.supportingScripture.joined(separator: ", "))"
+                    }
+                }
+            }
+
+            return BereanResponse(
+                content: content,
+                answer: nil,
+                tool: .deepThink,
+                confidence: result.confidence,
+                warnings: []
+            )
+        } catch {
+            return BereanResponse(
+                content: "I encountered an issue with deep analysis. Let me give a simpler answer.",
+                answer: nil,
+                tool: .deepThink,
+                confidence: 0.0,
+                warnings: [error.localizedDescription]
+            )
+        }
+    }
+
     private func executeRAGExegesis(input: String, context: BereanContext) async -> BereanResponse {
         do {
             let answer = try await answerEngine.answer(query: input, context: context)
