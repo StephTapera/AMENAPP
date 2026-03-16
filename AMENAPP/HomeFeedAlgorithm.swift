@@ -620,20 +620,24 @@ class HomeFeedAlgorithm: ObservableObject {
         }
     }
     
+    private static let interestsDecoder = JSONDecoder()
+    private var interestsLoaded = false
+
     func loadInterests() {
+        // Skip redundant loads on tab switches
+        guard !interestsLoaded else { return }
+
         guard let data = UserDefaults.standard.data(forKey: "userInterests_v1") else {
-            dlog("ℹ️ No saved interests found")
-            // Still try to load goals from Firestore
+            interestsLoaded = true
             Task { await loadGoalsFromFirestore() }
             return
         }
-        
+
         do {
-            let decoder = JSONDecoder()
-            userInterests = try decoder.decode(UserInterests.self, from: data)
-            dlog("✅ Loaded user interests: \(userInterests.engagedTopics.count) topics, \(userInterests.engagedAuthors.count) authors")
-            
-            // Also load goals from Firestore to ensure they're up to date
+            userInterests = try Self.interestsDecoder.decode(UserInterests.self, from: data)
+            interestsLoaded = true
+
+            // Load goals from Firestore (once)
             Task { await loadGoalsFromFirestore() }
         } catch {
             dlog("❌ Failed to load interests: \(error)")

@@ -271,18 +271,23 @@ class PrayerAlgorithm: ObservableObject {
         }
     }
 
+    private static let historyDecoder = JSONDecoder()
+    private var historyLoaded = false
+
     func loadHistory() {
+        // Skip if already loaded this session
+        guard !historyLoaded else { return }
+
         guard let data = UserDefaults.standard.data(forKey: "prayerHistory_v1") else {
-            print("ℹ️ No saved prayer history found")
+            historyLoaded = true
             return
         }
 
         do {
-            let decoder = JSONDecoder()
-            userPrayerHistory = try decoder.decode(PrayerHistory.self, from: data)
-            print("✅ Loaded prayer history: \(userPrayerHistory.prayedForAuthors.count) people prayed for")
+            userPrayerHistory = try Self.historyDecoder.decode(PrayerHistory.self, from: data)
+            historyLoaded = true
         } catch {
-            print("❌ Failed to load prayer history: \(error)")
+            dlog("❌ Failed to load prayer history: \(error)")
         }
     }
 
