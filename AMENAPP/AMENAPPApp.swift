@@ -527,6 +527,23 @@ struct AMENAPPApp: App {
                 Task { await LiveActivityManager.shared.endMusicActivity() }
             }
 
+        case "berean":
+            // Berean Live Activity → end activity and navigate to full Berean UI
+            let postID = queryItems.first(where: { $0.name == "postID" })?.value
+            Task {
+                await BereanLiveActivityService.shared.endActivity()
+                if let postID {
+                    // Navigate to Berean with context from the post
+                    await MainActor.run {
+                        NotificationCenter.default.post(
+                            name: .openBereanFromLiveActivity,
+                            object: nil,
+                            userInfo: ["postID": postID]
+                        )
+                    }
+                }
+            }
+
         default:
             break
         }

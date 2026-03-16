@@ -13,6 +13,10 @@ extension Notification.Name {
     /// Posted when a conversation should be opened
     /// UserInfo should contain: ["conversationId": String]
     static let openConversation = Notification.Name("openConversation")
+
+    /// Posted when the Berean Live Activity "Go Deeper" button is tapped
+    /// UserInfo: ["postID": String]
+    static let openBereanFromLiveActivity = Notification.Name("openBereanFromLiveActivity")
     
     /// Posted when a new message request is received
     static let messageRequestReceived = Notification.Name("messageRequestReceived")

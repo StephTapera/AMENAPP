@@ -19,5 +19,7 @@ struct AMENWidgetExtensionBundle: WidgetBundle {
         DailyVerseWidget()
         PrayerCountWidget()
         QuickActionsWidget()
+        // Dynamic Island — Berean AI Live Activity
+        BereanLiveActivityWidget()
     }
 }
