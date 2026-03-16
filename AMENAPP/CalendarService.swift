@@ -50,8 +50,8 @@ final class CalendarService: NSObject, ObservableObject {
     func requestCalendarPermission() async -> Bool {
         let status = EKEventStore.authorizationStatus(for: .event)
 
-        // If already decided, return immediately
-        if status == .authorized || status == .fullAccess {
+        // If already decided, return immediately (.authorized is the pre-iOS-17 name for .fullAccess)
+        if status == .fullAccess || status == .authorized {
             permissionState = .authorized
             return true
         }
@@ -306,6 +306,63 @@ final class CalendarService: NSObject, ObservableObject {
         return snap.documents.compactMap { try? $0.data(as: AMENSavedCalendarEvent.self) }
     }
 
+    // MARK: - Create Event (Firestore)
+
+    /// Create a new event in Firestore. Returns the document ID.
+    func createEvent(
+        title: String,
+        description: String = "",
+        type: AMENEventType,
+        startDate: Date,
+        endDate: Date? = nil,
+        location: String? = nil,
+        onlineURL: String? = nil,
+        isPublic: Bool = true,
+        capacity: Int? = nil,
+        requiresApproval: Bool = false
+    ) async throws -> String {
+        guard let userId = Auth.auth().currentUser?.uid else {
+            throw NSError(domain: "CalendarService", code: 401,
+                          userInfo: [NSLocalizedDescriptionKey: "Not authenticated"])
+        }
+
+        let user = UserService.shared.currentUser
+        let eventData: [String: Any] = [
+            "title": title,
+            "description": description,
+            "type": type.rawValue,
+            "startDate": Timestamp(date: startDate),
+            "endDate": Timestamp(date: endDate ?? startDate.addingTimeInterval(3600)),
+            "location": location as Any,
+            "onlineURL": onlineURL as Any,
+            "isPublic": isPublic,
+            "capacity": capacity as Any,
+            "requiresApproval": requiresApproval,
+            "organizerId": userId,
+            "organizerName": user?.displayName ?? "Unknown",
+            "organizerProfileImageURL": user?.profileImageURL as Any,
+            "rsvpCount": 0,
+            "isFeatured": false,
+            "createdAt": FieldValue.serverTimestamp(),
+            "updatedAt": FieldValue.serverTimestamp(),
+        ]
+
+        let docRef = try await db.collection(CalendarCollections.events).addDocument(data: eventData)
+        return docRef.documentID
+    }
+
+    /// Update an existing event (organizer only).
+    func updateEvent(eventId: String, fields: [String: Any]) async throws {
+        var updateFields = fields
+        updateFields["updatedAt"] = FieldValue.serverTimestamp()
+        try await db.collection(CalendarCollections.events).document(eventId).updateData(updateFields)
+    }
+
+    /// Delete an event (organizer only).
+    func deleteEvent(eventId: String) async throws {
+        try await db.collection(CalendarCollections.events).document(eventId).delete()
+    }
+
     // MARK: - Duplicate Prevention
 
     func isAlreadySaved(_ event: AMENEvent) -> Bool {
@@ -342,6 +399,8 @@ extension CalendarService: EKEventEditViewDelegate {
         _ controller: EKEventEditViewController,
         didCompleteWith action: EKEventEditViewAction
     ) {
-        controller.dismiss(animated: true)
+        Task { @MainActor in
+            controller.dismiss(animated: true)
+        }
     }
 }

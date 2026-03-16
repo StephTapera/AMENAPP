@@ -32,7 +32,10 @@ final class NotificationDeepLinkRouter: ObservableObject {
         case messages
         case prayer(prayerId: String)
         case churchNote(noteId: String)
-        
+        case job(jobId: String)
+        case event(eventId: String)
+        case studioProfile(creatorId: String)
+
         static func == (lhs: NavigationDestination, rhs: NavigationDestination) -> Bool {
             switch (lhs, rhs) {
             case (.post(let id1, let comment1), .post(let id2, let comment2)):
@@ -46,6 +49,12 @@ final class NotificationDeepLinkRouter: ObservableObject {
             case (.prayer(let id1), .prayer(let id2)):
                 return id1 == id2
             case (.churchNote(let id1), .churchNote(let id2)):
+                return id1 == id2
+            case (.job(let id1), .job(let id2)):
+                return id1 == id2
+            case (.event(let id1), .event(let id2)):
+                return id1 == id2
+            case (.studioProfile(let id1), .studioProfile(let id2)):
                 return id1 == id2
             default:
                 return false
