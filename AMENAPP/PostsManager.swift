@@ -832,25 +832,35 @@ class PostsManager: ObservableObject {
     
     /// P0 FIX: Replace N+1 real-time listeners with periodic batch updates
     /// Instead of 50-100 listeners, use a single timer to refresh profile images every 5 minutes
+    private var hasStartedProfileRefresh = false
+
     private func startListeningForProfileUpdates() async {
+        // Guard: only start once
+        guard !hasStartedProfileRefresh else {
+            dlog("⏭️ Profile refresh timer already running — skipping")
+            return
+        }
+        hasStartedProfileRefresh = true
+
         dlog("👂 [PERF FIX] Using batch profile updates instead of individual listeners")
-        
-        // Start a timer to refresh profile images every 5 minutes.
-        // Stored so it can be cancelled when the manager is done.
+
         profileRefreshTask?.cancel()
         profileRefreshTask = Task {
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 300_000_000_000) // 5 minutes
                 guard !Task.isCancelled else { break }
+                guard Auth.auth().currentUser != nil else { break } // Stop if signed out
                 await refreshProfileImages()
             }
         }
-        
+
         dlog("✅ Batch profile update timer started (5 min intervals)")
     }
     
     /// Batch refresh profile images for all unique authors
     private func refreshProfileImages() async {
+        // Don't fetch if user is signed out
+        guard Auth.auth().currentUser != nil else { return }
         let db = Firestore.firestore()
         
         // Get unique author IDs

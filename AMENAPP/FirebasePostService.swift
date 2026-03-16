@@ -1074,17 +1074,16 @@ class FirebasePostService: ObservableObject {
 
             // P1-2: Handle errors immediately (no debounce needed for error path)
             if let error = error {
+                let nsError = error as NSError
+                // Suppress permission errors when signed out — expected during auth transition
+                if nsError.code == 7 && Auth.auth().currentUser == nil {
+                    dlog("⏭️ Suppressed permission error (user signed out)")
+                    return
+                }
                 Task { @MainActor [weak self] in
                     guard let self = self else { return }
-                    let nsError = error as NSError
                     dlog("❌ Firestore listener error: \(error.localizedDescription)")
-                    dlog("   Error code: \(nsError.code), domain: \(nsError.domain)")
-                    if nsError.code == 7 { // Permission denied
-                        self.error = "Missing or insufficient permissions. Please check Firestore security rules."
-                        dlog("⚠️ PERMISSION DENIED: Update your Firestore security rules to allow read access to the posts collection")
-                    } else {
-                        self.error = error.localizedDescription
-                    }
+                    self.error = error.localizedDescription
                 }
                 return
             }

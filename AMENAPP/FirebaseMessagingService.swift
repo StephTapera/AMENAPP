@@ -256,6 +256,12 @@ public class FirebaseMessagingService: ObservableObject {
                         ListenerCounter.shared.detach("messaging-conversations")
                         #endif
 
+                        // Don't retry if user is signed out — permission error is expected
+                        guard Auth.auth().currentUser != nil else {
+                            dlog("⏭️ Suppressed conversation retry (user signed out)")
+                            return
+                        }
+
                         if self.conversationsPermissionRetryCount < 3 {
                             self.conversationsPermissionRetryCount += 1
                             let delay = UInt64(self.conversationsPermissionRetryCount) * 2_000_000_000
