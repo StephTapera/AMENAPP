@@ -1108,8 +1108,17 @@ struct TestimonyPostCard: View {
             // Engagement Actions - Prayer UI Style
             engagementActionsView
             
-            // Comment Section - Inline Preview (showing first comment only)
+            // Comment Section - Thread connector + inline preview
             if showComments {
+                // Threads-style connector line
+                HStack(spacing: 0) {
+                    Rectangle()
+                        .fill(Color.primary.opacity(0.12))
+                        .frame(width: 2, height: 24)
+                        .padding(.leading, 20)
+                    Spacer()
+                }
+
                 TestimonyCommentSection(
                     post: post,
                     commentCount: $commentCount,

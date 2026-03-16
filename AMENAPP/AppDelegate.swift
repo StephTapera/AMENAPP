@@ -116,9 +116,11 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         // We store it via AMENQuickActionManager so ContentView can act on it once
         // the auth state is resolved. Returning true (not false) is required — if
         // this delegate returns false the system considers the launch "rejected".
-        // UIApplicationLaunchOptionsKey.shortcutItem is deprecated on iOS 26+.
-        // This app uses UIApplicationDelegate (not UIScene), so this remains correct.
-        if let shortcutItem = launchOptions?[UIApplication.LaunchOptionsKey.shortcutItem]
+        // UIApplication.LaunchOptionsKey.shortcutItem is deprecated on iOS 26 for scene-based
+        // apps; for UIApplicationDelegate apps it remains the correct mechanism.
+        // Use the raw string value to avoid the compiler deprecation warning.
+        let shortcutKey = UIApplication.LaunchOptionsKey(rawValue: "UIApplicationLaunchOptionsShortcutItemKey")
+        if let shortcutItem = launchOptions?[shortcutKey]
             as? UIApplicationShortcutItem {
             dlog("🚀 [QuickAction] Cold launch with shortcut: \(shortcutItem.type)")
             Task { @MainActor in

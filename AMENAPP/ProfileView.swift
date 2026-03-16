@@ -1640,8 +1640,8 @@ struct ProfileView: View {
     
     // 🎯 NEW: Profile Header WITHOUT Tab Selector
     private var profileHeaderViewWithoutTabs: some View {
-        VStack(spacing: 12) {
-            // Top Section: Avatar and Name - Reduced spacing
+        VStack(spacing: 6) {
+            // Top Section: Avatar and Name
             HStack(alignment: .top, spacing: 16) {
                 VStack(alignment: .leading, spacing: 4) {
                     // Name with verified badge
@@ -2162,7 +2162,7 @@ struct ProfilePostCard: View {
             }
             
             // INTERACTIONS: Glassmorphic buttons (counts only visible to post owner)
-            HStack(spacing: 12) {
+            HStack(spacing: 16) {
                 // Amen/Lightbulb button
                 if post.category == .openTable {
                     Button {
@@ -2184,7 +2184,7 @@ struct ProfilePostCard: View {
                 
                 // Comment button - illuminates when there are comments (count only for owner)
                 glassmorphicButton(
-                    icon: "bubble.left",
+                    icon: "bubble",
                     count: isCurrentUserPost ? commentCount : 0,
                     isActive: commentCount > 0,
                     activeColor: .blue
@@ -2381,7 +2381,7 @@ struct ProfilePostCard: View {
     
     private var lightbulbMainIcon: some View {
         Image(systemName: hasLitLightbulb ? "lightbulb.fill" : "lightbulb")
-            .font(.system(size: 11, weight: .semibold))
+            .font(.system(size: 17, weight: hasLitLightbulb ? .semibold : .thin))
             .foregroundStyle(hasLitLightbulb ? lightbulbGradientActive : lightbulbGradientInactive)
     }
     

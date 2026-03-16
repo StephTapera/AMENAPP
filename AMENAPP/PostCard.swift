@@ -1289,7 +1289,7 @@ struct PostCard: View {
                             .foregroundStyle(.orange)
                         Spacer()
                     }
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, 16)
                     .padding(.vertical, 6)
                     .background(Color.orange.opacity(0.08))
                 } else if post.removed {
@@ -1302,7 +1302,7 @@ struct PostCard: View {
                             .foregroundStyle(.red)
                         Spacer()
                     }
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, 16)
                     .padding(.vertical, 6)
                     .background(Color.red.opacity(0.08))
                 }
@@ -1310,8 +1310,8 @@ struct PostCard: View {
 
             // Header with author info and menu
             headerView
-                .padding(.horizontal, 20)
-                .padding(.top, 20)
+                .padding(.horizontal, 16)
+                .padding(.top, 14)
                 .contentShape(Rectangle())
                 .onTapGesture {
                     // Tap on header opens post detail — C) tap-guard
@@ -1360,28 +1360,28 @@ struct PostCard: View {
                     }
                 }
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 16)
-            
+            .padding(.horizontal, 16)
+            .padding(.top, 10)
+
             // Translation affordance — driven by translationUIState state machine
             // Shows: "See Translation" | loading chip | "Translated from X / View original" | error
             if shouldShowTranslationAffordance {
                 translationToggleButton
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, 16)
                     .padding(.top, 8)
             }
             
             // ✅ Display post images if available
             if let post = post, let imageURLs = post.imageURLs, !imageURLs.isEmpty {
                 PostImagesView(imageURLs: imageURLs)
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, 16)
                     .padding(.top, 16)
             }
 
             // ✅ Church Note Preview (if post contains a church note)
             if let post = post, let churchNoteId = post.churchNoteId {
                 churchNotePreview(churchNoteId: churchNoteId)
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, 16)
                     .padding(.top, 16)
             }
 
@@ -1403,7 +1403,7 @@ struct PostCard: View {
                     verseText: post.verseText
                 )
                 FeedLinkPreviewCard(url: linkURL, metadata: meta)
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, 16)
                     .padding(.top, 12)
             }
             
@@ -1412,15 +1412,15 @@ struct PostCard: View {
             if let post = post, post.isRepost {
                 let originalAuthor = post.originalAuthorName ?? post.authorName
                 repostIndicator(originalAuthor: originalAuthor)
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, 16)
                     .padding(.top, 12)
             }
             
             // Interaction buttons (no divider)
             interactionButtons
-                .padding(.horizontal, 20)
-                .padding(.top, 20)
-                .padding(.bottom, 20)
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+                .padding(.bottom, 14)
         }
         .background(
             ZStack {
@@ -2550,7 +2550,7 @@ struct ReportPostSheet: View {
                             .foregroundStyle(.secondary)
                             .lineSpacing(4)
                     }
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, 16)
                     .padding(.top, 8)
                     
                     // Report Reasons
@@ -2565,7 +2565,7 @@ struct ReportPostSheet: View {
                             }
                         }
                     }
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, 16)
                     
                     // Additional Details (optional)
                     if selectedReason != nil {
@@ -2604,7 +2604,7 @@ struct ReportPostSheet: View {
                                 .font(.custom("OpenSans-Regular", size: 12))
                                 .foregroundStyle(additionalDetails.count > 500 ? .red : .secondary)
                         }
-                        .padding(.horizontal, 20)
+                        .padding(.horizontal, 16)
                         .transition(.opacity.combined(with: .move(edge: .top)).animation(.easeOut(duration: 0.2)))
                     }
                     
@@ -2630,7 +2630,7 @@ struct ReportPostSheet: View {
                         RoundedRectangle(cornerRadius: 12)
                             .fill(Color.blue.opacity(0.08))
                     )
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, 16)
                     
                     Spacer(minLength: 100)
                 }
@@ -2664,7 +2664,7 @@ struct ReportPostSheet: View {
                     )
                 }
                 .disabled(selectedReason == nil)
-                .padding(.horizontal, 20)
+                .padding(.horizontal, 16)
                 .padding(.vertical, 12)
                 .background(Color(.systemBackground))
                 .shadow(color: .black.opacity(0.1), radius: 10, y: -5)
@@ -3237,7 +3237,7 @@ struct EditCommentSheet: View {
                     
                     Spacer()
                 }
-                .padding(.horizontal, 20)
+                .padding(.horizontal, 16)
                 .padding(.vertical, 12)
                 .background(Color(.systemBackground))
             }
