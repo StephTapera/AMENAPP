@@ -173,6 +173,81 @@ class FirstVisitCompanionViewModel: ObservableObject {
         }
     }
     
+    // MARK: - Mark Visited With Note
+
+    /// Creates a church note linked to the visit plan, then marks the plan as visited.
+    /// Preserves bidirectional link: plan.noteId ↔ note.visitPlanId.
+    func markVisitedWithNote() async {
+        guard let plan = visitPlan, let planId = plan.id else {
+            errorMessage = "No visit plan found"
+            return
+        }
+
+        isLoading = true
+        errorMessage = nil
+
+        do {
+            // 1. Create the note first, linked to the visit plan
+            let note = ChurchNote(
+                userId: plan.userId,
+                title: "\(plan.churchName) — \(plan.serviceType ?? "Service")",
+                churchName: plan.churchName,
+                churchId: plan.churchId,
+                pastor: nil,
+                date: plan.serviceDate.dateValue(),
+                content: "",
+                visitPlanId: planId
+            )
+
+            let notesService = ChurchNotesService.shared
+            try await notesService.createNote(note)
+
+            // 2. Mark the plan visited with the note ID
+            try await visitPlanService.markVisited(
+                visitPlanId: planId,
+                noteId: note.id
+            )
+
+            // 3. Refresh the plan
+            if let church = selectedChurch {
+                visitPlan = try await visitPlanService.getVisitPlan(
+                    userId: plan.userId,
+                    churchId: plan.churchId,
+                    serviceDate: plan.serviceDate.dateValue()
+                )
+            }
+
+            isLoading = false
+            HapticManager.notification(type: .success)
+        } catch {
+            isLoading = false
+            errorMessage = "Failed to create note: \(error.localizedDescription)"
+            HapticManager.notification(type: .error)
+        }
+    }
+
+    /// Mark visited without creating a note.
+    func markVisitedWithoutNote() async {
+        guard let planId = visitPlan?.id else { return }
+
+        isLoading = true
+        do {
+            try await visitPlanService.markVisited(visitPlanId: planId, noteId: nil)
+            if let church = selectedChurch, let plan = visitPlan {
+                visitPlan = try await visitPlanService.getVisitPlan(
+                    userId: plan.userId,
+                    churchId: plan.churchId,
+                    serviceDate: plan.serviceDate.dateValue()
+                )
+            }
+            isLoading = false
+            HapticManager.notification(type: .success)
+        } catch {
+            isLoading = false
+            errorMessage = "Failed to mark visit: \(error.localizedDescription)"
+        }
+    }
+
     // MARK: - Cancel Visit Plan
     
     func cancelVisitPlan() async {

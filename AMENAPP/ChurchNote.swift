@@ -53,6 +53,7 @@ struct ChurchNote: Identifiable, Codable, Hashable {
     var title: String
     var sermonTitle: String?
     var churchName: String?
+    var churchId: String?  // Firestore church document ID for querying
     var pastor: String?
     var date: Date
     var content: String
@@ -73,7 +74,8 @@ struct ChurchNote: Identifiable, Codable, Hashable {
     var scriptureReferences: [String] // Array of scripture references
     var shareLinkId: String? // Unique ID for deep linking and sharing
     var worshipSongs: [WorshipSongReference] // Songs linked to this note
-    
+    var visitPlanId: String? // Link back to visit plan (bidirectional)
+
     // Coding keys for Firestore
     enum CodingKeys: String, CodingKey {
         case id
@@ -81,6 +83,7 @@ struct ChurchNote: Identifiable, Codable, Hashable {
         case title
         case sermonTitle
         case churchName
+        case churchId
         case pastor
         case date
         case content
@@ -97,6 +100,7 @@ struct ChurchNote: Identifiable, Codable, Hashable {
         case scriptureReferences
         case shareLinkId
         case worshipSongs
+        case visitPlanId
     }
     
     // Initializer with defaults
@@ -106,6 +110,7 @@ struct ChurchNote: Identifiable, Codable, Hashable {
         title: String,
         sermonTitle: String? = nil,
         churchName: String? = nil,
+        churchId: String? = nil,
         pastor: String? = nil,
         date: Date = Date(),
         content: String,
@@ -121,13 +126,15 @@ struct ChurchNote: Identifiable, Codable, Hashable {
         sharedWith: [String] = [],
         scriptureReferences: [String] = [],
         shareLinkId: String? = nil,
-        worshipSongs: [WorshipSongReference] = []
+        worshipSongs: [WorshipSongReference] = [],
+        visitPlanId: String? = nil
     ) {
         self.id = id
         self.userId = userId
         self.title = title
         self.sermonTitle = sermonTitle
         self.churchName = churchName
+        self.churchId = churchId
         self.pastor = pastor
         self.date = date
         self.content = content
@@ -145,6 +152,7 @@ struct ChurchNote: Identifiable, Codable, Hashable {
         // Generate share link ID if not provided
         self.shareLinkId = shareLinkId ?? UUID().uuidString
         self.worshipSongs = worshipSongs
+        self.visitPlanId = visitPlanId
     }
     
     // Custom Decodable init to handle older Firestore documents that were created
@@ -157,6 +165,7 @@ struct ChurchNote: Identifiable, Codable, Hashable {
         title              = try c.decode(String.self, forKey: .title)
         sermonTitle        = try c.decodeIfPresent(String.self, forKey: .sermonTitle)
         churchName         = try c.decodeIfPresent(String.self, forKey: .churchName)
+        churchId           = try c.decodeIfPresent(String.self, forKey: .churchId)
         pastor             = try c.decodeIfPresent(String.self, forKey: .pastor)
         date               = try c.decodeIfPresent(Date.self, forKey: .date) ?? Date()
         content            = try c.decodeIfPresent(String.self, forKey: .content) ?? ""
@@ -173,6 +182,7 @@ struct ChurchNote: Identifiable, Codable, Hashable {
         scriptureReferences = try c.decodeIfPresent([String].self, forKey: .scriptureReferences) ?? []
         shareLinkId        = try c.decodeIfPresent(String.self, forKey: .shareLinkId) ?? UUID().uuidString
         worshipSongs       = try c.decodeIfPresent([WorshipSongReference].self, forKey: .worshipSongs) ?? []
+        visitPlanId        = try c.decodeIfPresent(String.self, forKey: .visitPlanId)
     }
 
     // Hashable conformance
