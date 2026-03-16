@@ -1905,14 +1905,12 @@ struct DeleteAccountView: View {
     
     private func deleteAccount() {
         isLoading = true
-        
+
         Task {
             do {
-                // Pass password only for email users, nil for Apple/Google users
                 let passwordToPass = isPasswordlessUser ? nil : password
                 try await authViewModel.deleteAccount(password: passwordToPass)
-                
-                // Account deleted, user will be signed out automatically
+
                 await MainActor.run {
                     isLoading = false
                     dismiss()
@@ -1920,7 +1918,13 @@ struct DeleteAccountView: View {
             } catch {
                 await MainActor.run {
                     isLoading = false
-                    errorMessage = error.localizedDescription
+                    let nsError = error as NSError
+                    // P0 FIX: Handle requiresRecentLogin for Apple/Google users
+                    if nsError.code == 17014 || error.localizedDescription.contains("recent") {
+                        errorMessage = "For security, please sign out and sign back in, then try deleting your account again."
+                    } else {
+                        errorMessage = error.localizedDescription
+                    }
                     showError = true
                 }
             }

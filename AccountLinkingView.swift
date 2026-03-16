@@ -586,13 +586,17 @@ struct PhoneVerificationSheet: View {
         }
     }
 
+    @State private var resendTimerInstance: Timer?
+
     private func startResendTimer() {
-        Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { timer in
+        resendTimerInstance?.invalidate()
+        resendTimerInstance = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [self] timer in
             if resendTimer > 0 {
                 resendTimer -= 1
             } else {
                 canResend = true
                 timer.invalidate()
+                resendTimerInstance = nil
             }
         }
     }
