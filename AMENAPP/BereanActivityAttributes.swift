@@ -5,22 +5,14 @@
 //  Data model for the Berean AI Dynamic Island Live Activity.
 //  Shared between the main app target and the widget extension target.
 //
-//  When user taps the Berean sparkle button on a post, a Live Activity
-//  launches showing the AI response in the Dynamic Island. On devices
-//  without Dynamic Island, falls back to a bottom sheet.
-//
 
 import Foundation
-#if canImport(ActivityKit)
 import ActivityKit
-#endif
 
-// MARK: - Berean AI Live Activity Attributes
-
-struct BereanActivityAttributes: Codable, Hashable {
+struct BereanActivityAttributes: ActivityAttributes {
     let postID: String
     let postAuthor: String
-    let postPreview: String // First 60 chars of the post
+    let postPreview: String
 
     struct ContentState: Codable, Hashable {
         var phase: BereanPhase
@@ -30,17 +22,11 @@ struct BereanActivityAttributes: Codable, Hashable {
     }
 }
 
-#if canImport(ActivityKit)
-extension BereanActivityAttributes: ActivityAttributes {}
-#endif
-
-// MARK: - Phase Enum
-
 enum BereanPhase: String, Codable, Hashable {
-    case loading    // "Searching scriptures..."
-    case responding // Streaming response text
-    case complete   // Full response ready
-    case error      // Something went wrong
+    case loading
+    case responding
+    case complete
+    case error
 
     var statusText: String {
         switch self {
