@@ -260,30 +260,95 @@ struct CreatePostView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color(.systemGroupedBackground).ignoresSafeArea()
-                
+                Color(.systemBackground).ignoresSafeArea()
+
                 VStack(spacing: 0) {
-                    categorySelectorView
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 12)
-                    
-                    contentScroll
+                    // ── Threads-style compose layout ────────────────────────
+                    ScrollView(showsIndicators: false) {
+                        VStack(alignment: .leading, spacing: 0) {
+                            // User row with avatar + category selector
+                            threadsUserRow
+                                .padding(.horizontal, 16)
+                                .padding(.top, 12)
+
+                            // Compose area with thread connector
+                            HStack(alignment: .top, spacing: 12) {
+                                // Thread connector line
+                                VStack(spacing: 0) {
+                                    Rectangle()
+                                        .fill(Color.primary.opacity(0.1))
+                                        .frame(width: 1)
+                                }
+                                .frame(width: 44) // aligned under avatar
+                                .padding(.top, 4)
+
+                                // Text input — clean, no borders
+                                VStack(alignment: .leading, spacing: 12) {
+                                    // TRUST & SAFETY: Show personalize nudge banner
+                                    if showModerationNudge {
+                                        PersonalizeNudgeBanner(
+                                            message: moderationNudgeMessage,
+                                            isVisible: $showModerationNudge
+                                        )
+                                        .transition(.move(edge: .top).combined(with: .opacity))
+                                    }
+
+                                    textEditorView
+
+                                    // Camera photo preview
+                                    if let capturedImage = cameraImage {
+                                        CameraAttachmentPreview(image: capturedImage) {
+                                            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                                                cameraImage = nil
+                                            }
+                                        }
+                                        .transition(.scale(scale: 0.92).combined(with: .opacity))
+                                    }
+
+                                    // Library photo grid
+                                    if !selectedImageData.isEmpty {
+                                        ImagePreviewGrid(images: $selectedImageData)
+                                    }
+
+                                    // Poll composer
+                                    if showingPoll {
+                                        PollComposerCard(
+                                            options: $pollOptions,
+                                            duration: $pollDuration,
+                                            onRemove: {
+                                                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                                                    showingPoll = false
+                                                    pollOptions = ["", ""]
+                                                    pollDuration = .oneDay
+                                                }
+                                            }
+                                        )
+                                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                                    }
+
+                                    ComposerLinkPreview(controller: linkController)
+                                        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: linkController.activeURL)
+
+                                    // Inline toolbar — simple gray icons
+                                    threadsAttachmentBar
+                                        .padding(.top, 8)
+                                }
+                            }
+                            .padding(.horizontal, 16)
+                        }
+                    }
                 }
-                
+
                 // Upload progress overlay
                 if isUploadingImages {
                     VStack {
                         Spacer()
-                        
                         VStack(spacing: 16) {
                             ProgressView(value: uploadProgress, total: 1.0)
                                 .progressViewStyle(.linear)
                                 .tint(.blue)
-                            
                             HStack(spacing: 12) {
-                                ProgressView()
-                                    .tint(.blue)
-                                
+                                ProgressView().tint(.blue)
                                 Text("Uploading images... \(Int(uploadProgress * 100))%")
                                     .font(.custom("OpenSans-SemiBold", size: 14))
                                     .foregroundStyle(.primary)
@@ -300,35 +365,8 @@ struct CreatePostView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .animation(.easeOut(duration: 0.2), value: isUploadingImages)
                 }
-                
-                // Draft saved notification
-                if showingDraftSavedNotice {
-                    VStack {
-                        Spacer()
-                        
-                        HStack(spacing: 12) {
-                            Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 20))
-                                .foregroundStyle(.green)
-                            
-                            Text("Draft saved successfully")
-                                .font(.custom("OpenSans-SemiBold", size: 15))
-                                .foregroundStyle(.primary)
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 14)
-                        .background(
-                            Capsule()
-                                .fill(Color(.systemBackground))
-                                .shadow(color: .black.opacity(0.15), radius: 12, y: 4)
-                        )
-                        .padding(.bottom, 100)
-                    }
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .animation(.easeOut(duration: 0.2), value: showingDraftSavedNotice)
-                }
-                
-                // Success notification — Dynamic Island–style black pill
+
+                // Success notification
                 if showingSuccessNotice {
                     VStack {
                         Spacer()
@@ -339,48 +377,42 @@ struct CreatePostView: View {
                     .animation(.spring(response: 0.45, dampingFraction: 0.72), value: showingSuccessNotice)
                 }
             }
-            .navigationTitle("Create Post")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                // Drafts button (leading)
                 ToolbarItem(placement: .navigationBarLeading) {
-                    if !draftsManager.drafts.isEmpty {
-                        Button {
-                            isTextFieldFocused = false
-                            showDraftsSheet = true
-                        } label: {
-                            HStack(spacing: 6) {
-                                Image(systemName: "doc.text")
-                                    .font(.system(size: 14))
-                                
-                                Text("\(draftsManager.drafts.count)")
-                                    .font(.custom("OpenSans-Bold", size: 11))
-                                    .foregroundStyle(.white)
-                                    .padding(.horizontal, 5)
-                                    .padding(.vertical, 2)
-                                    .background(
-                                        Capsule()
-                                            .fill(Color.blue)
-                                    )
-                            }
-                            .foregroundStyle(.primary)
-                        }
-                        .accessibilityLabel("View drafts")
-                        .accessibilityValue("\(draftsManager.drafts.count) drafts available")
+                    Button("Cancel") {
+                        isTextFieldFocused = false
+                        if !postText.isEmpty { saveDraft() }
+                        dismiss()
                     }
+                    .font(.system(size: 16, weight: .regular))
+                    .foregroundStyle(.primary)
                 }
-                
-                // Berean AI tone assist — black/white pill button
+
+                ToolbarItem(placement: .principal) {
+                    Text("New post")
+                        .font(.system(size: 16, weight: .semibold))
+                }
+
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    if !postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isPublishing {
-                        BereanToneButton(isLoading: isLoadingBereanTone) {
-                            requestBereanToneAssist()
-                        }
+                    Button {
+                        publishPost()
+                    } label: {
+                        Text("Post")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(canPublish ? .white : .white.opacity(0.5))
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 7)
+                            .background(
+                                Capsule()
+                                    .fill(canPublish ? Color.black : Color.black.opacity(0.3))
+                            )
                     }
+                    .disabled(!canPublish || isPublishing)
                 }
             }
             .safeAreaInset(edge: .bottom) {
-                bottomToolbar
+                threadsBottomBar
             }
             // Photo picker — uses the system modifier (not a sheet wrapper) so
             // onChange fires in the main view scope and selectedImageData is updated.
@@ -807,6 +839,151 @@ struct CreatePostView: View {
         })
     }
     
+    // MARK: - Threads-Style Compose Components
+
+    private var canPublish: Bool {
+        !postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        || !selectedImageData.isEmpty
+        || cameraImage != nil
+    }
+
+    /// User row: avatar + name + category picker (Threads-style)
+    private var threadsUserRow: some View {
+        HStack(spacing: 12) {
+            // Profile photo
+            if let photoURL = UserService.shared.currentUser?.profileImageURL,
+               !photoURL.isEmpty,
+               let url = URL(string: photoURL) {
+                CachedAsyncImage(url: url) { image in
+                    image.resizable().scaledToFill()
+                        .frame(width: 44, height: 44)
+                        .clipShape(Circle())
+                } placeholder: {
+                    Circle()
+                        .fill(Color.primary.opacity(0.08))
+                        .frame(width: 44, height: 44)
+                        .overlay(
+                            Text(UserService.shared.currentUser?.displayName?.prefix(1).uppercased() ?? "A")
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                        )
+                }
+            } else {
+                Circle()
+                    .fill(Color.primary.opacity(0.08))
+                    .frame(width: 44, height: 44)
+                    .overlay(
+                        Text(UserService.shared.currentUser?.displayName?.prefix(1).uppercased() ?? "A")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                    )
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 4) {
+                    Text(UserService.shared.currentUser?.displayName ?? "You")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(.primary)
+
+                    if let uid = Auth.auth().currentUser?.uid,
+                       VerifiedBadgeHelper.isVerified(userId: uid) {
+                        VerifiedBadge(size: 14)
+                    }
+                }
+
+                // Category selector as inline tap target
+                Button {
+                    showingTopicTagSheet = true
+                } label: {
+                    HStack(spacing: 4) {
+                        Text(selectedCategory.displayName)
+                            .font(.system(size: 13, weight: .regular))
+                            .foregroundStyle(.secondary)
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+
+            Spacer()
+        }
+    }
+
+    /// Inline attachment icons (Threads-style: simple gray icons in a row)
+    private var threadsAttachmentBar: some View {
+        HStack(spacing: 20) {
+            Button { showingImagePicker = true } label: {
+                Image(systemName: "photo")
+                    .font(.system(size: 18, weight: .light))
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+
+            Button { showingCamera = true } label: {
+                Image(systemName: "camera")
+                    .font(.system(size: 18, weight: .light))
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+
+            Button {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                    showingPoll.toggle()
+                }
+            } label: {
+                Image(systemName: "chart.bar.xaxis")
+                    .font(.system(size: 18, weight: .light))
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+
+            Button { showingVersePickerSheet = true } label: {
+                Image(systemName: "text.book.closed")
+                    .font(.system(size: 18, weight: .light))
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+
+            Button { showingLinkSheet = true } label: {
+                Image(systemName: "link")
+                    .font(.system(size: 18, weight: .light))
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+
+            Spacer()
+        }
+    }
+
+    /// Bottom bar: reply options + character count
+    private var threadsBottomBar: some View {
+        HStack {
+            // Reply options
+            Button {
+                showCommentControls = true
+            } label: {
+                Text(commentPermission == .everyone ? "Anyone can reply" : commentPermission.rawValue)
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+
+            Spacer()
+
+            // Character count (only near limit)
+            if postText.count > 400 {
+                Text("\(postText.count)/500")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(postText.count > 480 ? .red : .secondary)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(Color(.systemBackground))
+    }
+
     private var bottomToolbar: some View {
         VStack(spacing: 0) {
             // Character count indicator above toolbar (only when approaching limit)
