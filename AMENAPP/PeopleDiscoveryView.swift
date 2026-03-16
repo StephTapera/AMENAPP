@@ -544,7 +544,7 @@ struct PeopleDiscoveryViewNew: View {
     @State private var isTabBarHidden = false
     @State private var lastDragValue: CGFloat = 0
     @State private var selectedTopic: TrendingTopic? = nil
-    private let scopeHaptic = UIImpactFeedbackGenerator(style: .light)
+    // scopeHaptic replaced by HapticManager
 
     var body: some View {
         NavigationStack {
@@ -616,7 +616,7 @@ struct PeopleDiscoveryViewNew: View {
                 }
             }
             .task {
-                scopeHaptic.prepare()
+                // HapticManager handles preparation
                 // Use withTaskGroup instead of async let to avoid swift_task_dealloc
                 // crash when the view disappears mid-fetch and the task is cancelled.
                 await withTaskGroup(of: Void.self) { group in
@@ -701,7 +701,7 @@ struct PeopleDiscoveryViewNew: View {
                 ForEach(DiscoveryScope.allCases, id: \.self) { s in
                     ScopeTabButton(scope: s, isSelected: vm.scope == s) {
                         vm.scope = s
-                        scopeHaptic.impactOccurred()
+                        HapticManager.impact(style: .light)
                     }
                 }
             }
@@ -735,7 +735,7 @@ struct PeopleDiscoveryViewNew: View {
                     withAnimation(.easeOut(duration: 0.2)) {
                         vm.clearRecentSearches()
                     }
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    HapticManager.impact(style: .light)
                 }
                 .font(.custom("OpenSans-Medium", size: 14))
                 .foregroundStyle(.blue)
@@ -829,7 +829,7 @@ struct PeopleDiscoveryViewNew: View {
                 VStack(spacing: 0) {
                     ForEach(vm.trendingTopics) { topic in
                         Button {
-                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            HapticManager.impact(style: .light)
                             vm.addRecentSearch(topic.title)
                             selectedTopic = topic
                         } label: {
@@ -1012,7 +1012,7 @@ struct PeopleDiscoveryViewNew: View {
                     .multilineTextAlignment(.center)
                 Button {
                     vm.search(query: searchText)
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    HapticManager.impact(style: .light)
                 } label: {
                     Text("Retry")
                         .font(.custom("OpenSans-SemiBold", size: 15))
@@ -1247,7 +1247,7 @@ struct DiscoveryPersonRow: View {
 
             // Follow button — uses localIsFollowing for instant feedback
             Button {
-                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                HapticManager.impact(style: .medium)
                 // Toggle local state immediately so button reflects new state
                 // even before the parent ForEach re-renders via FollowService.
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.65)) {
@@ -1349,7 +1349,7 @@ struct DiscoveryPostRow: View {
 
     var body: some View {
         Button {
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            HapticManager.impact(style: .light)
             navigateToPost = true
         } label: {
             HStack(alignment: .top, spacing: 12) {
@@ -1499,7 +1499,7 @@ struct DiscoveryChurchRow: View {
 
     var body: some View {
         Button {
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            HapticManager.impact(style: .light)
             showProfile = true
         } label: {
             HStack(spacing: 12) {
