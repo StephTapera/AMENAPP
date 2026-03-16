@@ -295,6 +295,38 @@ struct CreatePostView: View {
 
                                     textEditorView
 
+                                    // Topic tag selector (required for OpenTable/Prayer)
+                                    if selectedCategory == .openTable || selectedCategory == .prayer || selectedCategory == .testimonies {
+                                        Button {
+                                            showingTopicTagSheet = true
+                                        } label: {
+                                            HStack(spacing: 6) {
+                                                Image(systemName: "tag")
+                                                    .font(.system(size: 12, weight: .medium))
+                                                Text(selectedTopicTag.isEmpty
+                                                     ? (selectedCategory == .testimonies ? "Add category" : "Add topic tag")
+                                                     : selectedTopicTag)
+                                                    .font(.system(size: 13, weight: .medium))
+                                                if selectedTopicTag.isEmpty && selectedCategory != .testimonies {
+                                                    Text("Required")
+                                                        .font(.system(size: 10, weight: .medium))
+                                                        .foregroundStyle(.secondary.opacity(0.7))
+                                                        .padding(.horizontal, 5)
+                                                        .padding(.vertical, 2)
+                                                        .background(Capsule().fill(Color.primary.opacity(0.06)))
+                                                }
+                                            }
+                                            .foregroundStyle(selectedTopicTag.isEmpty ? .secondary : .primary)
+                                            .padding(.horizontal, 12)
+                                            .padding(.vertical, 8)
+                                            .background(
+                                                Capsule()
+                                                    .fill(selectedTopicTag.isEmpty ? Color(.systemGray6) : Color.primary.opacity(0.08))
+                                            )
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+
                                     // Camera photo preview
                                     if let capturedImage = cameraImage {
                                         CameraAttachmentPreview(image: capturedImage) {
