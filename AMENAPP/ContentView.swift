@@ -1703,7 +1703,7 @@ struct CompactTabBar: View {
                !photoURL.isEmpty,
                let url = URL(string: photoURL) {
                 // User has profile photo - show it
-                AsyncImage(url: url) { phase in
+                CachedAsyncImage(url: url) { phase in
                     switch phase {
                     case .success(let image):
                         image
@@ -4016,7 +4016,7 @@ struct CommentThreadCard: View {
                     
                     // GIF if present
                     if let gifURL = comment.gifURL {
-                        AsyncImage(url: URL(string: gifURL)) { image in
+                        CachedAsyncImage(url: URL(string: gifURL)) { image in
                             image
                                 .resizable()
                                 .aspectRatio(contentMode: .fit)
@@ -4144,7 +4144,7 @@ struct GIFPickerView: View {
                                 
                                 HapticManager.impact(style: .light)
                             } label: {
-                                AsyncImage(url: URL(string: gifURL)) { image in
+                                CachedAsyncImage(url: URL(string: gifURL)) { image in
                                     image
                                         .resizable()
                                         .aspectRatio(contentMode: .fill)

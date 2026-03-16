@@ -4421,7 +4421,7 @@ struct ElegantChurchNoteReadView: View {
                         // Author info
                         HStack(spacing: 12) {
                             if let profileImageURL = post.authorProfileImageURL, !profileImageURL.isEmpty {
-                                AsyncImage(url: URL(string: profileImageURL)) { image in
+                                CachedAsyncImage(url: URL(string: profileImageURL)) { image in
                                     image
                                         .resizable()
                                         .scaledToFill()
@@ -4728,7 +4728,7 @@ private struct ElegantWorshipSongRow: View {
                     .fill(Color.purple.opacity(0.10))
                     .frame(width: 42, height: 42)
                 if let urlStr = song.albumArtURL, let url = URL(string: urlStr) {
-                    AsyncImage(url: url) { phase in
+                    CachedAsyncImage(url: url) { phase in
                         if case .success(let img) = phase {
                             img.resizable().scaledToFill()
                                 .frame(width: 42, height: 42)
@@ -5116,7 +5116,7 @@ struct FriendSelectionRow: View {
                         .frame(width: 52, height: 52)
                     
                     if let imageURL = friend.profileImageURL, !imageURL.isEmpty {
-                        AsyncImage(url: URL(string: imageURL)) { image in
+                        CachedAsyncImage(url: URL(string: imageURL)) { image in
                             image
                                 .resizable()
                                 .scaledToFill()

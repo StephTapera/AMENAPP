@@ -358,7 +358,7 @@ struct MessagingUserRow: View {
                     .frame(width: 56, height: 56)
                 
                 if let avatarUrl = user.profileImageURL, let url = URL(string: avatarUrl) {
-                    AsyncImage(url: url) { image in
+                    CachedAsyncImage(url: url) { image in
                         image
                             .resizable()
                             .scaledToFill()

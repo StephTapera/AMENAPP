@@ -746,7 +746,7 @@ struct DiscoveryTrendCard: View {
                 Spacer()
 
                 if let thumb = trend.thumbnailURL {
-                    AsyncImage(url: URL(string: thumb)) { img in
+                    CachedAsyncImage(url: URL(string: thumb)) { img in
                         img.resizable().scaledToFill()
                     } placeholder: {
                         RoundedRectangle(cornerRadius: 8).fill(Color.secondary.opacity(0.1))

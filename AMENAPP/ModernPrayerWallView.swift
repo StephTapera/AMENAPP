@@ -218,7 +218,7 @@ private struct ModernPrayerCard: View {
                                 .foregroundStyle(prayer.category.color)
                         )
                 } else if let imageURL = prayer.authorProfileImage {
-                    AsyncImage(url: URL(string: imageURL)) { image in
+                    CachedAsyncImage(url: URL(string: imageURL)) { image in
                         image.resizable().scaledToFill()
                     } placeholder: {
                         Circle().fill(Color(.tertiarySystemFill))

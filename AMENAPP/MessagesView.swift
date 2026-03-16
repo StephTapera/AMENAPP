@@ -3370,7 +3370,7 @@ struct CreateGroupView: View {
         HStack(spacing: 12) {
             // Avatar
             if let profileImageURL = user.profileImageURL, let url = URL(string: profileImageURL) {
-                AsyncImage(url: url) { image in
+                CachedAsyncImage(url: url) { image in
                     image
                         .resizable()
                         .scaledToFill()
@@ -3587,7 +3587,7 @@ struct SelectedUserChip: View {
         HStack(spacing: 6) {
             // Avatar
             if let profileImageURL = user.profileImageURL, let url = URL(string: profileImageURL) {
-                AsyncImage(url: url) { image in
+                CachedAsyncImage(url: url) { image in
                     image
                         .resizable()
                         .scaledToFill()
@@ -3990,7 +3990,7 @@ struct ProductionUserRow: View {
                     .frame(width: 56, height: 56)
                 
                 if let avatarUrl = user.avatarUrl, let url = URL(string: avatarUrl) {
-                    AsyncImage(url: url) { image in
+                    CachedAsyncImage(url: url) { image in
                         image
                             .resizable()
                             .scaledToFill()

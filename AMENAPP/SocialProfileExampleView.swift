@@ -39,7 +39,7 @@ struct SocialProfileExampleView: View {
                             ZStack(alignment: .bottomTrailing) {
                                 if let imageURL = userService.currentUser?.profileImageURL,
                                    let url = URL(string: imageURL) {
-                                    AsyncImage(url: url) { image in
+                                    CachedAsyncImage(url: url) { image in
                                         image
                                             .resizable()
                                             .scaledToFill()

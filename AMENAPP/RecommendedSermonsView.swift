@@ -184,7 +184,7 @@ struct ForYouSermonCard: View {
                 ZStack {
                     // Video thumbnail
                     if let youtubeID = sermon.youtubeID {
-                        AsyncImage(url: URL(string: "https://img.youtube.com/vi/\(youtubeID)/maxresdefault.jpg")) { image in
+                        CachedAsyncImage(url: URL(string: "https://img.youtube.com/vi/\(youtubeID)/maxresdefault.jpg")) { image in
                             image
                                 .resizable()
                                 .aspectRatio(contentMode: .fill)
@@ -259,7 +259,7 @@ struct EnhancedSermonCard: View {
                 // Video thumbnail
                 ZStack {
                     if let youtubeID = sermon.youtubeID {
-                        AsyncImage(url: URL(string: "https://img.youtube.com/vi/\(youtubeID)/maxresdefault.jpg")) { image in
+                        CachedAsyncImage(url: URL(string: "https://img.youtube.com/vi/\(youtubeID)/maxresdefault.jpg")) { image in
                             image
                                 .resizable()
                                 .aspectRatio(contentMode: .fill)

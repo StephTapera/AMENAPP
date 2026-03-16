@@ -28,7 +28,7 @@ struct SearchSuggestionsView: View {
                             
                             if let profileImageURL = suggestion.profileImageURL,
                                let url = URL(string: profileImageURL) {
-                                AsyncImage(url: url) { phase in
+                                CachedAsyncImage(url: url) { phase in
                                     switch phase {
                                     case .success(let image):
                                         image

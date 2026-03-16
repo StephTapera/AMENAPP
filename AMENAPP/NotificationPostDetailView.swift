@@ -400,7 +400,7 @@ struct NotificationCommentRow: View {
         HStack(alignment: .top, spacing: 12) {
             // Avatar
             if let imageURL = comment.authorProfileImageURL {
-                AsyncImage(url: URL(string: imageURL)) { image in
+                CachedAsyncImage(url: URL(string: imageURL)) { image in
                     image
                         .resizable()
                         .scaledToFill()
