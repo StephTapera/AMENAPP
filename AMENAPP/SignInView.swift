@@ -799,25 +799,23 @@ struct SignInView: View {
         print("🔍 Username lookup: @\(cleanUsername)")
 
         do {
-            // Call the Cloud Function — resolves username → uid → email server-side.
-            // Email is never stored in public Firestore; Admin SDK does the uid→email step.
+            // P0 CRASH FIX: Firebase HTTPSCallable.call() uses async let internally.
+            // If the parent Task is cancelled (e.g. view dismissed mid-sign-in),
+            // Swift tries to deallocate the child task → SIGABRT in asyncLet_finish.
+            // Fix: use Task.detached so the callable doesn't inherit cancellation.
             let functions = Functions.functions()
-            let callable = functions.httpsCallable("resolveUsernameToEmail")
-            let result = try await callable.call(["username": cleanUsername])
-
-            guard let data = result.data as? [String: Any],
-                  let email = data["email"] as? String, !email.isEmpty else {
-                print("⚠️ resolveUsernameToEmail: unexpected response format")
-                await MainActor.run {
-                    viewModel.errorMessage = "Incorrect username or password."
-                    viewModel.showError = true
+            let resolvedEmail: String = try await Task.detached {
+                let callable = functions.httpsCallable("resolveUsernameToEmail")
+                let result = try await callable.call(["username": cleanUsername])
+                guard let data = result.data as? [String: Any],
+                      let email = data["email"] as? String, !email.isEmpty else {
+                    throw NSError(domain: "SignIn", code: 0, userInfo: [NSLocalizedDescriptionKey: "Username not found"])
                 }
-                return
-            }
+                return email
+            }.value
 
             print("✅ @\(cleanUsername) resolved — proceeding with sign-in")
-            // Sign in with the resolved email + the password the user typed
-            await viewModel.signIn(email: email, password: password)
+            await viewModel.signIn(email: resolvedEmail, password: password)
 
         } catch let error as NSError {
             print("❌ resolveUsernameToEmail: domain=\(error.domain) code=\(error.code) — \(error.localizedDescription)")
