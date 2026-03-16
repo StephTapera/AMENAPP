@@ -824,3 +824,15 @@ exports.sendPostEventFollowUp = sendPostEventFollowUp;
 // ============================================================================
 const {translateText} = require("./translationFunctions");
 exports.translateText = translateText;
+
+// ============================================================================
+// SCHEDULED POSTS — publishes pending posts every 5 minutes
+// ============================================================================
+const {executeScheduledPosts} = require("./scheduledPostsFunctions");
+exports.executeScheduledPosts = executeScheduledPosts;
+
+// ============================================================================
+// GDPR DATA EXPORT — "Download My Data" callable
+// ============================================================================
+const {exportUserData} = require("./dataExport");
+exports.exportUserData = exportUserData;

@@ -384,14 +384,33 @@ exports.send2FASMS = onDocumentCreated(
 
         const {otp, destination} = otpData;
 
-        // Use Firebase Auth's built-in SMS sending
-        // Note: This requires Firebase Auth SMS configuration
         const message = `Your AMEN verification code is: ${otp}. ` +
                        `This code will expire in ${OTP_EXPIRY_MINUTES} minutes.`;
 
-        // TODO: Implement SMS sending via Twilio or Firebase Auth
-        // For now, we'll use a placeholder
-        logger.info(`SMS would be sent to ${destination}: ${message}`);
+        // Send SMS via Twilio
+        // Credentials stored in Firebase Secrets:
+        //   firebase functions:secrets:set TWILIO_ACCOUNT_SID
+        //   firebase functions:secrets:set TWILIO_AUTH_TOKEN
+        //   firebase functions:secrets:set TWILIO_PHONE_NUMBER
+        const accountSid = process.env.TWILIO_ACCOUNT_SID;
+        const authToken = process.env.TWILIO_AUTH_TOKEN;
+        const fromNumber = process.env.TWILIO_PHONE_NUMBER;
+
+        if (!accountSid || !authToken || !fromNumber) {
+          logger.warn("Twilio credentials not configured — SMS not sent. Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER via firebase functions:secrets:set");
+          await snapshot.ref.update({
+            sent: false,
+            sendError: "SMS provider not configured",
+          });
+          return null;
+        }
+
+        const twilio = require("twilio")(accountSid, authToken);
+        await twilio.messages.create({
+          body: message,
+          from: fromNumber,
+          to: destination,
+        });
 
         // Mark as sent
         await snapshot.ref.update({

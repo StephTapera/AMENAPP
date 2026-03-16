@@ -891,20 +891,25 @@ struct CreatePostView: View {
                     }
                 }
 
-                // Category selector as inline tap target
-                Button {
-                    showingTopicTagSheet = true
+                // Category selector as inline menu
+                Menu {
+                    ForEach(PostCategory.allCases.filter { $0 != .tip && $0 != .funFact }, id: \.self) { category in
+                        Button {
+                            handleCategorySelection(category)
+                        } label: {
+                            Label(category.displayName, systemImage: category.icon)
+                        }
+                    }
                 } label: {
                     HStack(spacing: 4) {
                         Text(selectedCategory.displayName)
                             .font(.system(size: 13, weight: .regular))
                             .foregroundStyle(.secondary)
-                        Image(systemName: "chevron.right")
+                        Image(systemName: "chevron.down")
                             .font(.system(size: 9, weight: .semibold))
                             .foregroundStyle(.tertiary)
                     }
                 }
-                .buttonStyle(.plain)
             }
 
             Spacer()
