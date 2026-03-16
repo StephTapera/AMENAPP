@@ -863,7 +863,7 @@ struct CreatePostView: View {
                         .fill(Color.primary.opacity(0.08))
                         .frame(width: 44, height: 44)
                         .overlay(
-                            Text(UserService.shared.currentUser?.displayName?.prefix(1).uppercased() ?? "A")
+                            Text(String(UserService.shared.currentUser?.displayName.prefix(1) ?? "A").uppercased())
                                 .font(.system(size: 18, weight: .semibold))
                                 .foregroundStyle(.secondary)
                         )
@@ -873,7 +873,7 @@ struct CreatePostView: View {
                     .fill(Color.primary.opacity(0.08))
                     .frame(width: 44, height: 44)
                     .overlay(
-                        Text(UserService.shared.currentUser?.displayName?.prefix(1).uppercased() ?? "A")
+                        Text(String(UserService.shared.currentUser?.displayName.prefix(1) ?? "A").uppercased())
                             .font(.system(size: 18, weight: .semibold))
                             .foregroundStyle(.secondary)
                     )
