@@ -390,7 +390,6 @@ final class AMENEncryptionService {
                       salt: Data? = nil,
                       info: Data,
                       outputLength: Int) -> Data {
-        let ikm = SymmetricKey(data: inputKeyMaterial)
         let prk: SymmetricKey
         if let salt = salt {
             prk = HMAC<SHA256>.authenticationCode(for: inputKeyMaterial,
@@ -406,7 +405,7 @@ final class AMENEncryptionService {
         var prev = Data()
         var counter: UInt8 = 1
         while output.count < outputLength {
-            var input = prev + info + Data([counter])
+            let input = prev + info + Data([counter])
             let block = HMAC<SHA256>.authenticationCode(for: input, using: prk)
                 .withUnsafeBytes { Data($0) }
             output += block
@@ -536,7 +535,8 @@ private extension DataProtocol {
 
 private extension Data {
     subscript(range: PartialRangeFrom<Index>) -> Data {
-        Data(self[range.lowerBound...])
+        // Use subdata(in:) to avoid infinite recursion that would occur with Data(self[...])
+        subdata(in: range.lowerBound ..< endIndex)
     }
 }
 

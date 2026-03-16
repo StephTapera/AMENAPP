@@ -91,7 +91,11 @@ final class FeedDrawerState: ObservableObject {
     @Published var dragOffset: CGFloat = 0
     @Published var activeFeedMode: DrawerFeedMode = .forYou
 
-    static let drawerWidth: CGFloat = UIScreen.main.bounds.width * 0.82
+    static var drawerWidth: CGFloat {
+        let screen = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }.first?.screen ?? UIScreen.main
+        return screen.bounds.width * 0.82
+    }
 
     /// Progress 0→1 as drawer opens (used for parallax / dimming)
     var progress: CGFloat {

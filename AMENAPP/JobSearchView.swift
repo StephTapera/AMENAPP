@@ -169,7 +169,7 @@ struct JobSearchView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .onChange(of: searchText) { newValue in
+        .onChange(of: searchText) { _, newValue in
             if newValue.isEmpty { service.searchResults = [] }
         }
     }

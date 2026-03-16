@@ -10,7 +10,7 @@
 import SwiftUI
 import FirebaseAuth
 import FirebaseFirestore
-// Combine removed — all patterns use async/await or NotificationCenter
+import Combine  // Required for Timer.publish().autoconnect()
 import PhotosUI
 import Vision
 

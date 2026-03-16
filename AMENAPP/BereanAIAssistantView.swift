@@ -3388,7 +3388,7 @@ struct BereanSendButton: View {
 // MARK: - Berean Message Model
 
 // ✅ P1-3: Equatable conformance for efficient diffing
-struct BereanMessage: Identifiable, Codable, Equatable {
+struct BereanMessage: Identifiable, Codable, Equatable, Sendable {
     let id: UUID
     let content: String
     let role: MessageRole
@@ -3617,6 +3617,7 @@ struct SmartFeatureButton: View {
 
 // MARK: - Berean ViewModel
 
+@MainActor
 class BereanViewModel: ObservableObject {
     @Published var messages: [BereanMessage] = []
     @Published var selectedTranslation: String = "ESV"  // ✅ Default translation
@@ -3871,7 +3872,9 @@ class BereanViewModel: ObservableObject {
     /// field to avoid Firestore's 1 MiB document limit issues with deeply nested arrays.
     private func syncConversationsToFirestore() {
         guard let col = firestoreCollection else { return }
-        let toSync = savedConversations.prefix(maxSavedConversations)
+        // Snapshot on MainActor before handing off to detached task —
+        // avoids "MainActor-isolated conformance used in nonisolated context" warnings.
+        let toSync = Array(savedConversations.prefix(maxSavedConversations))
         Task.detached(priority: .background) {
             for conversation in toSync {
                 guard let encoded = try? JSONEncoder().encode(conversation),
@@ -3911,11 +3914,14 @@ class BereanViewModel: ObservableObject {
                 cloudConversations.append(conv)
             }
 
+            // Snapshot into a `let` before crossing into MainActor to avoid
+            // "captured var in concurrently-executing code" warnings.
+            let fetchedConversations = cloudConversations
             await MainActor.run {
-                guard !cloudConversations.isEmpty else { return }
+                guard !fetchedConversations.isEmpty else { return }
                 // Merge: keep local + add any cloud-only conversations
                 let localIds = Set(self.savedConversations.map { $0.id })
-                let newFromCloud = cloudConversations.filter { !localIds.contains($0.id) }
+                let newFromCloud = fetchedConversations.filter { !localIds.contains($0.id) }
                 if !newFromCloud.isEmpty {
                     self.savedConversations.append(contentsOf: newFromCloud)
                     self.savedConversations.sort {
@@ -5113,7 +5119,7 @@ struct PremiumFeatureCard: View {
 
 // MARK: - SavedConversation Model
 
-struct SavedConversation: Identifiable, Codable {
+struct SavedConversation: Identifiable, Codable, Sendable {
     let id: UUID
     var title: String
     let messages: [BereanMessage]
@@ -6115,7 +6121,12 @@ struct BereanConversationDrawer: View {
         return named + (untagged.map { [$0] } ?? [])
     }
 
-    private let drawerWidth: CGFloat = min(UIScreen.main.bounds.width * 0.82, 340)
+    private var drawerWidth: CGFloat {
+        let screenWidth = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first?.screen.bounds.width ?? 390
+        return min(screenWidth * 0.82, 340)
+    }
 
     var body: some View {
         ZStack(alignment: .trailing) {
@@ -6896,65 +6907,37 @@ struct BereanPremiumLandingView: View {
     let onQuickAction: (String) -> Void
 
     @State private var heroVisible = false
-    @State private var cardsVisible = false
-    @State private var promptsVisible = false
 
     @Environment(\.accessibilityReduceMotion) private var shouldReduceMotion
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        GeometryReader { geo in
+            VStack(spacing: 0) {
+                // Push hero to optical center — ~38% down from top sits it
+                // visually centered above the floating input bar.
+                Spacer().frame(height: max(24, geo.size.height * 0.38))
 
-            // ── Hero greeting section ─────────────────────────────────────────
-            BereanTypographyHero()
-                .opacity(heroVisible ? 1 : 0)
-                .offset(y: heroVisible ? 0 : (shouldReduceMotion ? 0 : 14))
-                .animation(
-                    shouldReduceMotion
-                        ? .none
-                        : .spring(response: 0.60, dampingFraction: 0.80),
-                    value: heroVisible
-                )
-                .padding(.horizontal, BereanDesign.pagePad)
-                .padding(.top, 24)
-                .padding(.bottom, 28)
+                // ── Hero greeting ─────────────────────────────────────────────
+                BereanTypographyHero()
+                    .opacity(heroVisible ? 1 : 0)
+                    .offset(y: heroVisible ? 0 : (shouldReduceMotion ? 0 : 14))
+                    .animation(
+                        shouldReduceMotion
+                            ? .none
+                            : .spring(response: 0.60, dampingFraction: 0.80),
+                        value: heroVisible
+                    )
+                    .padding(.horizontal, BereanDesign.pagePad)
 
-            // ── Quick action 2-column grid ────────────────────────────────────
-            BereanLandingQuickGrid(onTap: onQuickAction)
-                .opacity(cardsVisible ? 1 : 0)
-                .offset(y: cardsVisible ? 0 : (shouldReduceMotion ? 0 : 12))
-                .animation(
-                    shouldReduceMotion
-                        ? .none
-                        : .spring(response: 0.55, dampingFraction: 0.82).delay(0.12),
-                    value: cardsVisible
-                )
-
-            // ── Suggested prompts card ────────────────────────────────────────
-            BereanLandingSuggestedPrompts(onTap: onQuickAction)
-                .opacity(promptsVisible ? 1 : 0)
-                .offset(y: promptsVisible ? 0 : (shouldReduceMotion ? 0 : 12))
-                .animation(
-                    shouldReduceMotion
-                        ? .none
-                        : .spring(response: 0.55, dampingFraction: 0.82).delay(0.22),
-                    value: promptsVisible
-                )
-                .padding(.top, 20)
+                Spacer()
+            }
+            .frame(maxWidth: .infinity)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
         .onAppear {
             heroVisible = true
-            DispatchQueue.main.asyncAfter(deadline: .now() + (shouldReduceMotion ? 0 : 0.20)) {
-                cardsVisible = true
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + (shouldReduceMotion ? 0 : 0.32)) {
-                promptsVisible = true
-            }
         }
         .onDisappear {
             heroVisible = false
-            cardsVisible = false
-            promptsVisible = false
         }
     }
 }
@@ -6988,7 +6971,6 @@ struct BereanTypographyHero: View {
     @State private var greetingText = ""
     @State private var followUpText = ""
     @State private var showFollowUp = false
-    @State private var showSubtext = false
     @State private var cursorVisible = true
     @State private var typingDone = false
 
@@ -7035,25 +7017,15 @@ struct BereanTypographyHero: View {
                     .transition(.opacity.animation(.easeIn(duration: 0.25)))
             }
 
-            // Subtext caption
-            if showSubtext {
-                Text("Biblical wisdom for life, work, and understanding.")
-                    .font(.system(size: 13, weight: .regular))
-                    .foregroundStyle(Color(white: 0.58))
-                    .tracking(0)
-                    .padding(.top, 2)
-                    .transition(.opacity.animation(.easeIn(duration: 0.30)))
-            }
+
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .onAppear {
             cursorVisible = true
             if reduceMotion {
-                // Skip animation — show full text immediately
                 greetingText = greeting
                 followUpText = followUp
                 showFollowUp = true
-                showSubtext = true
                 typingDone = true
             } else {
                 typewriterSequence()
@@ -7085,13 +7057,6 @@ struct BereanTypographyHero: View {
                 DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * followInterval) {
                     followUpText.append(char)
                 }
-            }
-
-            let followDuration = Double(followChars.count) * followInterval
-
-            // Phase 3: subtext after follow-up finishes
-            DispatchQueue.main.asyncAfter(deadline: .now() + followDuration + 0.20) {
-                withAnimation { showSubtext = true }
             }
         }
     }

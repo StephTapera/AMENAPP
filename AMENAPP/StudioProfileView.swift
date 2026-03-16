@@ -482,7 +482,7 @@ struct StudioProfileView: View {
         commissionProfile = c
         isLoading = false
 
-        if let p = p {
+        if p != nil {
             service.logView(creatorId: userId, targetId: userId, targetType: "profile", surface: "profile")
         }
     }

@@ -449,7 +449,7 @@ final class SpiritualCheckInService: ObservableObject {
         // Only log tier + timestamp — no behavioral data
         Task.detached(priority: .background) { [weak self] in
             let db = Firestore.firestore()
-            try? await db
+            _ = try? await db
                 .collection("users").document(uid)
                 .collection("wellnessEvents")
                 .addDocument(data: [

@@ -26,6 +26,7 @@
 //  ```
 
 import Foundation
+import Combine
 import AVFoundation
 import Speech
 import FirebaseAuth
@@ -333,10 +334,10 @@ actor WhisperVoiceService {
         }
 
         // Extract confidence from verbose_json (avg_logprob → approximate confidence)
-        let segments = json["segments"] as? [[String: Any]]
-        let avgLogprob = segments?.compactMap { $0["avg_logprob"] as? Double }.reduce(0, +)
-            .flatMap { total in segments.map { Double(total) / Double($0.count) } } ?? -0.5
-        let confidence = max(0, min(1, 1.0 + (avgLogprob ?? -0.5))) // logprob is negative; -0 = perfect
+        let segments = json["segments"] as? [[String: Any]] ?? []
+        let logprobs = segments.compactMap { $0["avg_logprob"] as? Double }
+        let avgLogprob: Double = logprobs.isEmpty ? -0.5 : logprobs.reduce(0, +) / Double(logprobs.count)
+        let confidence = max(0, min(1, 1.0 + avgLogprob)) // logprob is negative; -0 = perfect
 
         let detectedLang = json["language"] as? String ?? languageCode
 

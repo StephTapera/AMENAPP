@@ -119,14 +119,14 @@ final class ChurchToolsStore: ObservableObject {
             .order(by: "weekOf", descending: true)
             .limit(to: 1)
             .getDocuments { [weak self] snap, _ in
-                guard let self else { return }
-                if let doc = snap?.documents.first {
-                    self.currentBulletin = try? Firestore.Decoder().decode(ChurchBulletin.self, from: doc.data())
-                } else {
-                    // Use demo bulletin
-                    self.currentBulletin = Self.demoBulletin
+                let bulletin = snap?.documents.first.flatMap {
+                    try? Firestore.Decoder().decode(ChurchBulletin.self, from: $0.data())
                 }
-                self.isLoaded = true
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    self.currentBulletin = bulletin ?? Self.demoBulletin
+                    self.isLoaded = true
+                }
             }
     }
 
@@ -135,11 +135,13 @@ final class ChurchToolsStore: ObservableObject {
             .order(by: "createdAt", descending: false)
             .limit(to: 30)
             .getDocuments { [weak self] snap, _ in
-                guard let self else { return }
                 let loaded = snap?.documents.compactMap {
                     try? Firestore.Decoder().decode(SmallGroup.self, from: $0.data())
                 } ?? []
-                self.smallGroups = loaded.isEmpty ? Self.demoGroups : loaded
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    self.smallGroups = loaded.isEmpty ? Self.demoGroups : loaded
+                }
             }
     }
 
@@ -148,11 +150,13 @@ final class ChurchToolsStore: ObservableObject {
             .order(by: "isUrgent", descending: true)
             .limit(to: 20)
             .getDocuments { [weak self] snap, _ in
-                guard let self else { return }
                 let loaded = snap?.documents.compactMap {
                     try? Firestore.Decoder().decode(ServingRole.self, from: $0.data())
                 } ?? []
-                self.servingRoles = loaded.isEmpty ? Self.demoRoles : loaded
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    self.servingRoles = loaded.isEmpty ? Self.demoRoles : loaded
+                }
             }
     }
 
