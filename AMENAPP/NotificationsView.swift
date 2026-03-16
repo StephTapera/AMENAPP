@@ -899,12 +899,15 @@ struct NotificationsView: View {
         Task {
             guard let id = notification.id else { return }
             try? await notificationService.markAsRead(id)
+            // Update badge count immediately after marking individual notification as read
+            await BadgeCountManager.shared.immediateUpdate()
         }
     }
     
     private func removeNotification(_ notification: AppNotification) async {
         guard let id = notification.id else { return }
         try? await notificationService.deleteNotification(id)
+        await BadgeCountManager.shared.immediateUpdate()
     }
     
     // MARK: - Badge Management

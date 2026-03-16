@@ -3046,10 +3046,10 @@ private struct PostCardInteractionsModifier: ViewModifier {
                     let reposts = await interactionsService.getRepostCount(postId: stableId)
                     
                     await MainActor.run {
-                        // Only apply the fetched saved status if no save/unsave is currently
-                        // in-flight. Overwriting while in-flight would clobber the optimistic
-                        // toggle the user just tapped and cause the button to snap back.
-                        if !isSaveInFlight {
+                        // Only apply saved status on the FIRST load. After that, the user's
+                        // taps and the real-time listener own the state. Re-applying on every
+                        // scroll-triggered task re-run caused the bookmark to flip by itself.
+                        if !hasCompletedInitialLoad && !isSaveInFlight {
                             isSaved = savedStatus
                         }
                         lightbulbCount = lightbulbs

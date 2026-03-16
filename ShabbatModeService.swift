@@ -77,8 +77,8 @@ final class ShabbatModeService: ObservableObject {
 
     /// True when it is Sunday in the user's local timezone.
     @Published private(set) var isSunday: Bool = false
-    /// The user-controlled master toggle. Default = ON.
-    @Published private(set) var isEnabled: Bool = true
+    /// The user-controlled master toggle. Default = OFF (opt-in).
+    @Published private(set) var isEnabled: Bool = false
     /// True when restrictions are actively applied (isSunday && isEnabled).
     @Published private(set) var isShabbatActive: Bool = false
 
@@ -152,10 +152,9 @@ final class ShabbatModeService: ObservableObject {
     // MARK: - Private helpers
 
     private func loadLocalPreference() {
-        // Default ON: if key is absent, treat as true
+        // Default OFF: user must opt in via Settings → Sunday Church Focus
         if UserDefaults.standard.object(forKey: enabledKey) == nil {
-            isEnabled = true
-            UserDefaults.standard.set(true, forKey: enabledKey)
+            isEnabled = false
         } else {
             isEnabled = UserDefaults.standard.bool(forKey: enabledKey)
         }
