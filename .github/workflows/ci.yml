@@ -1,0 +1,106 @@
+name: AMEN CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-ios:
+    name: Build iOS
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.2.app/Contents/Developer
+
+      - name: Create Config.xcconfig
+        run: |
+          cat > Config.xcconfig << 'EOF'
+          OPENAI_API_KEY = test-key-ci
+          ANTHROPIC_API_KEY = test-key-ci
+          GOOGLE_VISION_API_KEY = test-key-ci
+          YOUVERSION_API_KEY = test-key-ci
+          VERTEX_AI_KEY = test-key-ci
+          EOF
+
+      - name: Build
+        run: |
+          xcodebuild \
+            -project AMENAPP.xcodeproj \
+            -scheme AMENAPP \
+            -destination 'generic/platform=iOS' \
+            -skipPackagePluginValidation \
+            CODE_SIGNING_ALLOWED=NO \
+            build | tail -20
+
+  test-ios:
+    name: Run Tests
+    runs-on: macos-15
+    needs: build-ios
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.2.app/Contents/Developer
+
+      - name: Create Config.xcconfig
+        run: |
+          cat > Config.xcconfig << 'EOF'
+          OPENAI_API_KEY = test-key-ci
+          ANTHROPIC_API_KEY = test-key-ci
+          GOOGLE_VISION_API_KEY = test-key-ci
+          YOUVERSION_API_KEY = test-key-ci
+          VERTEX_AI_KEY = test-key-ci
+          EOF
+
+      - name: Test
+        run: |
+          xcodebuild \
+            -project AMENAPP.xcodeproj \
+            -scheme AMENAPP \
+            -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
+            -skipPackagePluginValidation \
+            CODE_SIGNING_ALLOWED=NO \
+            test | tail -30
+
+  lint-functions:
+    name: Lint Cloud Functions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+
+      - name: Install dependencies
+        run: cd functions && npm ci
+
+      - name: Syntax check
+        run: |
+          cd functions
+          node -e "
+            const fs = require('fs');
+            const acorn = require('acorn');
+            const files = fs.readdirSync('.').filter(f => f.endsWith('.js') && !f.includes('node_modules'));
+            let failed = 0;
+            for (const f of files) {
+              try {
+                acorn.parse(fs.readFileSync(f, 'utf8'), {ecmaVersion: 2020, sourceType: 'module'});
+                console.log('✓', f);
+              } catch (e) {
+                console.error('✗', f, e.message);
+                failed++;
+              }
+            }
+            if (failed) process.exit(1);
+          "

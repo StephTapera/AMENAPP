@@ -19,7 +19,8 @@
     "@google-cloud/vertexai": "^1.10.0",
     "@google-cloud/vision": "^4.3.3",
     "firebase-admin": "^13.6.1",
-    "firebase-functions": "^7.0.6"
+    "firebase-functions": "^7.0.6",
+    "twilio": "^5.0.0"
   },
   "devDependencies": {
     "eslint": "^8.57.1",
