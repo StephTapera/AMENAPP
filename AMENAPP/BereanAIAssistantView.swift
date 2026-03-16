@@ -6911,28 +6911,24 @@ struct BereanPremiumLandingView: View {
     @Environment(\.accessibilityReduceMotion) private var shouldReduceMotion
 
     var body: some View {
-        GeometryReader { geo in
-            VStack(spacing: 0) {
-                // Push hero to optical center — ~38% down from top sits it
-                // visually centered above the floating input bar.
-                Spacer().frame(height: max(24, geo.size.height * 0.38))
+        VStack(spacing: 0) {
+            Spacer()
 
-                // ── Hero greeting ─────────────────────────────────────────────
-                BereanTypographyHero()
-                    .opacity(heroVisible ? 1 : 0)
-                    .offset(y: heroVisible ? 0 : (shouldReduceMotion ? 0 : 14))
-                    .animation(
-                        shouldReduceMotion
-                            ? .none
-                            : .spring(response: 0.60, dampingFraction: 0.80),
-                        value: heroVisible
-                    )
-                    .padding(.horizontal, BereanDesign.pagePad)
+            // ── Hero greeting (vertically centered like ChatGPT/Claude) ───
+            BereanTypographyHero()
+                .opacity(heroVisible ? 1 : 0)
+                .offset(y: heroVisible ? 0 : (shouldReduceMotion ? 0 : 14))
+                .animation(
+                    shouldReduceMotion
+                        ? .none
+                        : .spring(response: 0.60, dampingFraction: 0.80),
+                    value: heroVisible
+                )
+                .padding(.horizontal, BereanDesign.pagePad)
 
-                Spacer()
-            }
-            .frame(maxWidth: .infinity)
+            Spacer()
         }
+        .frame(maxWidth: .infinity)
         .onAppear {
             heroVisible = true
         }
