@@ -49,7 +49,7 @@ class BadgeCountManager: ObservableObject {
     // badge back from 0 to the old count (0→8 race).  We suppress
     // requestBadgeUpdate() for 3 seconds after a clear to let the writes land.
     private var notificationsClearTime: Date?
-    private let notificationsClearSuppressionInterval: TimeInterval = 3.0
+    private let notificationsClearSuppressionInterval: TimeInterval = 5.0
 
     // Auth state listener — clears badge on sign-out, starts updates on sign-in
     private var authStateListener: AuthStateDidChangeListenerHandle?
@@ -154,8 +154,8 @@ class BadgeCountManager: ObservableObject {
     func clearMessages() {
         unreadMessages = 0
         totalBadgeCount = unreadNotifications
-        cachedBadgeCount = nil
-        cacheTimestamp = nil
+        cachedBadgeCount = unreadNotifications
+        cacheTimestamp = Date()
         applyBadgeCount(unreadNotifications)
         print("🧹 Messages badge cleared")
 
@@ -198,10 +198,10 @@ class BadgeCountManager: ObservableObject {
     func clearNotifications() {
         unreadNotifications = 0
         totalBadgeCount = unreadMessages
-        cachedBadgeCount = nil
-        cacheTimestamp = nil
-        // Record clear time so requestBadgeUpdate() suppresses the listener's
-        // stale-data callback for 3 seconds, preventing the 0→8 badge race.
+        // Cache the zero so any requestBadgeUpdate() during the suppression
+        // window returns 0 from cache instead of querying stale Firestore data.
+        cachedBadgeCount = unreadMessages
+        cacheTimestamp = Date()
         notificationsClearTime = Date()
         applyBadgeCount(unreadMessages)
         print("🧹 Notifications badge cleared")

@@ -524,23 +524,20 @@ struct NotificationsView: View {
             markAsRead(notification)
         }
         
-        let haptic = UIImpactFeedbackGenerator(style: .medium)
-        haptic.impactOccurred()
-        
-        // Navigate to relevant content
+        HapticManager.impact(style: .medium)
+
+        // Navigate to relevant content (Threads-style: tap row → content, tap avatar → profile)
         if let firstNotification = group.notifications.first {
             switch firstNotification.type {
-            case .follow:
+            case .follow, .followRequestAccepted:
+                // Follow notifications → open actor's profile
                 if let actorId = firstNotification.actorId, !actorId.isEmpty {
                     navigationPath.append(NotificationNavigationDestinations.NotificationDestination.profile(userId: actorId))
                 }
             case .amen, .comment, .mention, .reply, .repost:
+                // Engagement notifications → open the post
                 if let postId = firstNotification.postId, !postId.isEmpty {
                     navigationPath.append(NotificationNavigationDestinations.NotificationDestination.post(postId: postId))
-                }
-            case .followRequestAccepted:
-                if let actorId = firstNotification.actorId, !actorId.isEmpty {
-                    navigationPath.append(NotificationNavigationDestinations.NotificationDestination.profile(userId: actorId))
                 }
             case .messageRequestAccepted:
                 if let conversationId = firstNotification.conversationId, !conversationId.isEmpty {
@@ -555,7 +552,10 @@ struct NotificationsView: View {
                     navigationPath.append(NotificationNavigationDestinations.NotificationDestination.churchNote(noteId: noteId))
                 }
             default:
-                break
+                // For any unhandled type, navigate to actor's profile (like Threads)
+                if let actorId = firstNotification.actorId, !actorId.isEmpty {
+                    navigationPath.append(NotificationNavigationDestinations.NotificationDestination.profile(userId: actorId))
+                }
             }
         }
     }
@@ -564,9 +564,7 @@ struct NotificationsView: View {
         guard let first = group.notifications.first else { return }
         quickActionNotification = first
         showQuickActions = true
-        
-        let haptic = UIImpactFeedbackGenerator(style: .medium)
-        haptic.impactOccurred()
+        HapticManager.impact(style: .medium)
     }
     
     private func handleQuickReply(_ notification: AppNotification) {
