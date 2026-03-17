@@ -89,7 +89,7 @@ class SundayChurchFocusManager: ObservableObject {
         } else {
             UserDefaults.standard.removeObject(forKey: optOutDateKey)
         }
-        print("🕊️ Shabbat Mode opt-out (today): \(optOut)")
+        dlog("🕊️ Shabbat Mode opt-out (today): \(optOut)")
     }
 
     // MARK: - AllowedFeature (kept for backwards-compat)

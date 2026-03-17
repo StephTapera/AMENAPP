@@ -546,7 +546,7 @@ class OpenAIService: ObservableObject {
         for pattern in BereanSafetyPolicy.jailbreakPatterns {
             if lower.contains(pattern) {
                 // Log to analytics but don't expose internal reason to caller
-                print("🔒 [Berean] Jailbreak attempt blocked: \(pattern)")
+                dlog("🔒 [Berean] Jailbreak attempt blocked: \(pattern)")
                 throw OpenAIServiceError.contentBlocked
             }
         }
@@ -556,7 +556,7 @@ class OpenAIService: ObservableObject {
             guard let re = try? NSRegularExpression(pattern: pattern) else { continue }
             let range = NSRange(trimmed.startIndex..., in: trimmed)
             if re.firstMatch(in: trimmed, range: range) != nil {
-                print("🔒 [Berean] PII detected before API send: \(label)")
+                dlog("🔒 [Berean] PII detected before API send: \(label)")
                 // Throw a content-blocked error so the UI shows a helpful message
                 throw OpenAIServiceError.contentBlocked
             }

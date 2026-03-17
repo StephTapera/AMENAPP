@@ -318,7 +318,7 @@ struct MessagingUserSearchView: View {
                 }
             } catch {
                 await MainActor.run {
-                    print("❌ Error searching users: \(error)")
+                    dlog("❌ Error searching users: \(error)")
                     errorMessage = "Unable to search users. Please check your connection and try again."
                     searchResults = []
                     isSearching = false
@@ -402,6 +402,6 @@ struct MessagingUserRow: View {
 
 #Preview {
     MessagingUserSearchView { user in
-        print("Selected user: \(user.displayName)")
+        dlog("Selected user: \(user.displayName)")
     }
 }

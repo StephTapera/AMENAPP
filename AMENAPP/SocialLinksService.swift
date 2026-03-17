@@ -73,7 +73,7 @@ class SocialLinksService: ObservableObject {
     
     /// Save or update user's social links
     func updateSocialLinks(_ links: [SocialLinkData]) async throws {
-        print("💾 Updating social links...")
+        dlog("💾 Updating social links...")
         
         guard let userId = firebaseManager.currentUser?.uid else {
             throw FirebaseError.unauthorized
@@ -95,7 +95,7 @@ class SocialLinksService: ObservableObject {
                 "updatedAt": Date()
             ])
         
-        print("✅ Social links updated successfully")
+        dlog("✅ Social links updated successfully")
         
         // Update local state
         socialLinks = links
@@ -109,7 +109,7 @@ class SocialLinksService: ObservableObject {
     
     /// Add a new social link
     func addSocialLink(platform: String, username: String) async throws {
-        print("➕ Adding social link: \(platform)")
+        dlog("➕ Adding social link: \(platform)")
         
         // Create new link
         let newLink = SocialLinkData(platform: platform, username: username)
@@ -126,14 +126,14 @@ class SocialLinksService: ObservableObject {
         // Update Firestore
         try await updateSocialLinks(updatedLinks)
         
-        print("✅ Social link added")
+        dlog("✅ Social link added")
     }
     
     // MARK: - Remove Social Link
     
     /// Remove a social link
     func removeSocialLink(platform: String) async throws {
-        print("➖ Removing social link: \(platform)")
+        dlog("➖ Removing social link: \(platform)")
         
         // Remove from array
         var updatedLinks = socialLinks
@@ -142,14 +142,14 @@ class SocialLinksService: ObservableObject {
         // Update Firestore
         try await updateSocialLinks(updatedLinks)
         
-        print("✅ Social link removed")
+        dlog("✅ Social link removed")
     }
     
     // MARK: - Fetch Social Links
     
     /// Fetch user's social links from Firestore
     func fetchSocialLinks(userId: String? = nil) async throws -> [SocialLinkData] {
-        print("📥 Fetching social links...")
+        dlog("📥 Fetching social links...")
         
         let targetUserId = userId ?? firebaseManager.currentUser?.uid
         
@@ -165,7 +165,7 @@ class SocialLinksService: ObservableObject {
             .getDocument()
         
         guard let linksData = userDoc.data()?["socialLinks"] as? [[String: Any]] else {
-            print("⚠️ No social links found")
+            dlog("⚠️ No social links found")
             return []
         }
         
@@ -178,7 +178,7 @@ class SocialLinksService: ObservableObject {
             return SocialLinkData(platform: platform, username: username)
         }
         
-        print("✅ Fetched \(links.count) social links")
+        dlog("✅ Fetched \(links.count) social links")
         
         // Update local state if fetching for current user
         if userId == nil {

@@ -228,7 +228,7 @@ struct TwoFactorVerificationView: View {
             deliveryMethod: "email",
             maskedDestination: "st***@gmail.com"
         ) { _ in
-            print("Verified!")
+            dlog("Verified!")
         }
     }
 }

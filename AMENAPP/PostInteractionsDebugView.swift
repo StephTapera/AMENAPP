@@ -450,12 +450,12 @@ struct PostInteractionsDebugView: View {
         
         isRefreshing = false
         
-        print("🔄 Debug view refreshed")
-        print("   - Lightbulbs: \(interactionsService.postLightbulbs.count)")
-        print("   - Amens: \(interactionsService.postAmens.count)")
-        print("   - Comments: \(interactionsService.postComments.count)")
-        print("   - Reposts: \(interactionsService.postReposts.count)")
-        print("   - Saved: \(savedPostsService.savedPostIds.count)")
+        dlog("🔄 Debug view refreshed")
+        dlog("   - Lightbulbs: \(interactionsService.postLightbulbs.count)")
+        dlog("   - Amens: \(interactionsService.postAmens.count)")
+        dlog("   - Comments: \(interactionsService.postComments.count)")
+        dlog("   - Reposts: \(interactionsService.postReposts.count)")
+        dlog("   - Saved: \(savedPostsService.savedPostIds.count)")
     }
 }
 

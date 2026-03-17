@@ -316,7 +316,7 @@ struct LiquidGlassExampleView: View {
         VStack(spacing: 30) {
             // Example: Elastic Press Button
             Button("Tap Me") {
-                print("Tapped!")
+                dlog("Tapped!")
             }
             .padding(.horizontal, 24)
             .padding(.vertical, 12)
@@ -327,15 +327,15 @@ struct LiquidGlassExampleView: View {
             // Example: Floating Action Bubbles
             HStack(spacing: 20) {
                 FloatingActionBubble(icon: "heart.fill", color: .red) {
-                    print("Heart tapped")
+                    dlog("Heart tapped")
                 }
                 
                 FloatingActionBubble(icon: "message.fill", color: .blue) {
-                    print("Message tapped")
+                    dlog("Message tapped")
                 }
                 
                 FloatingActionBubble(icon: "paperplane.fill", color: .green) {
-                    print("Share tapped")
+                    dlog("Share tapped")
                 }
             }
             

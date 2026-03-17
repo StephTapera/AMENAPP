@@ -258,7 +258,7 @@ struct NotificationGroupingDebugView: View {
     // MARK: - Test Functions
     
     private func testFollowDeduplication() async {
-        print("🧪 Testing follow deduplication...")
+        dlog("🧪 Testing follow deduplication...")
         
         // This test verifies that the Cloud Function creates deterministic notification IDs
         // In a real scenario, you'd trigger follow actions and verify only one notification exists
@@ -269,11 +269,11 @@ struct NotificationGroupingDebugView: View {
             message: "Cloud Function configured with deterministic ID: follow_{followerId}_{followingId}"
         )
         
-        print("✅ Follow deduplication test completed")
+        dlog("✅ Follow deduplication test completed")
     }
     
     private func testAmenGrouping() async {
-        print("🧪 Testing Amen grouping...")
+        dlog("🧪 Testing Amen grouping...")
         
         guard Auth.auth().currentUser?.uid != nil else {
             addTestResult(
@@ -304,11 +304,11 @@ struct NotificationGroupingDebugView: View {
             )
         }
         
-        print("✅ Amen grouping test completed")
+        dlog("✅ Amen grouping test completed")
     }
     
     private func testCommentDeduplication() async {
-        print("🧪 Testing comment deduplication...")
+        dlog("🧪 Testing comment deduplication...")
         
         addTestResult(
             testName: "Comment Deduplication",
@@ -316,11 +316,11 @@ struct NotificationGroupingDebugView: View {
             message: "Cloud Function configured with deterministic ID: comment_{authorId}_{postId}"
         )
         
-        print("✅ Comment deduplication test completed")
+        dlog("✅ Comment deduplication test completed")
     }
     
     private func viewNotifications() async {
-        print("📱 Viewing notifications...")
+        dlog("📱 Viewing notifications...")
         
         let total = notificationService.notifications.count
         let grouped = notificationService.notifications.filter { ($0.actorCount ?? 0) > 1 }.count

@@ -40,17 +40,17 @@ class AIScriptureCrossRefService {
     /// - Returns: Array of related scripture references with descriptions
     func findRelatedVerses(for verse: String) async throws -> [ScriptureReference] {
         
-        print("📖 [AI SCRIPTURE] Finding related verses for: \(verse)")
+        dlog("📖 [AI SCRIPTURE] Finding related verses for: \(verse)")
         
         // Check cache first
         if let cached = cache[verse] {
-            print("✅ [AI SCRIPTURE] Returning cached results for \(verse)")
+            dlog("✅ [AI SCRIPTURE] Returning cached results for \(verse)")
             return cached
         }
         
         // Send to Cloud Function
         guard let userId = Auth.auth().currentUser?.uid else {
-            print("⚠️ [AI SCRIPTURE] No authenticated user — skipping")
+            dlog("⚠️ [AI SCRIPTURE] No authenticated user — skipping")
             return []
         }
 
@@ -61,11 +61,11 @@ class AIScriptureCrossRefService {
         ]
 
         do {
-            print("📤 [AI SCRIPTURE] Sending request to Cloud Function...")
+            dlog("📤 [AI SCRIPTURE] Sending request to Cloud Function...")
             let result = try await db.collection("scriptureReferenceRequests")
                 .addDocument(data: requestData)
             
-            print("⏳ [AI SCRIPTURE] Waiting for AI response...")
+            dlog("⏳ [AI SCRIPTURE] Waiting for AI response...")
             
             // Wait for AI response (max 4 seconds)
             let references = try await waitForReferences(requestId: result.documentID)
@@ -73,15 +73,15 @@ class AIScriptureCrossRefService {
             // Cache the result
             cache[verse] = references
             
-            print("✅ [AI SCRIPTURE] Found \(references.count) related verses")
+            dlog("✅ [AI SCRIPTURE] Found \(references.count) related verses")
             return references
             
         } catch let error as NSError where error.code == 408 {
             // Timeout error - return empty array instead of throwing
-            print("⚠️ [AI SCRIPTURE] Timeout - Cloud Function may not be deployed. Returning empty results.")
+            dlog("⚠️ [AI SCRIPTURE] Timeout - Cloud Function may not be deployed. Returning empty results.")
             return []
         } catch {
-            print("❌ [AI SCRIPTURE] Error: \(error)")
+            dlog("❌ [AI SCRIPTURE] Error: \(error)")
             // Return empty array for other errors too (graceful degradation)
             return []
         }
@@ -146,12 +146,12 @@ class AIScriptureCrossRefService {
     /// Clear cache (e.g., when user logs out)
     func clearCache() {
         cache.removeAll()
-        print("🗑️ [AI SCRIPTURE] Cache cleared")
+        dlog("🗑️ [AI SCRIPTURE] Cache cleared")
     }
     
     /// Clear cache for a specific verse
     func clearCache(for verse: String) {
         cache.removeValue(forKey: verse)
-        print("🗑️ [AI SCRIPTURE] Cleared cache for: \(verse)")
+        dlog("🗑️ [AI SCRIPTURE] Cleared cache for: \(verse)")
     }
 }

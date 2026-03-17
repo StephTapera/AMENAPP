@@ -237,10 +237,10 @@ class EnhancedCrisisSupportService {
         
         #if DEBUG
         if riskLevel != .none {
-            print("🚨 [CRISIS] Risk detected: \(riskLevel.rawValue) (score: \(String(format: "%.2f", score)))")
-            print("   Reasons: \(reasonCodes.map { $0.displayName }.joined(separator: ", "))")
+            dlog("🚨 [CRISIS] Risk detected: \(riskLevel.rawValue) (score: \(String(format: "%.2f", score)))")
+            dlog("   Reasons: \(reasonCodes.map { $0.displayName }.joined(separator: ", "))")
             if !falsePositiveFilters.isEmpty {
-                print("   False positives filtered: \(falsePositiveFilters.joined(separator: ", "))")
+                dlog("   False positives filtered: \(falsePositiveFilters.joined(separator: ", "))")
             }
         }
         #endif
@@ -372,7 +372,7 @@ class EnhancedCrisisSupportService {
         // crisisAlertLogs is a server-only collection (Firestore rules deny all client writes).
         // The Cloud Function triggered on the trusted circle notification write handles server logging.
         #if DEBUG
-        print("🧠 [CRISIS ALERT] Would log alert \(alertLog.id) for user \(userId), risk=\(riskLevel.rawValue)")
+        dlog("🧠 [CRISIS ALERT] Would log alert \(alertLog.id) for user \(userId), risk=\(riskLevel.rawValue)")
         #endif
         
         // Send notifications to trusted contacts
@@ -394,8 +394,8 @@ class EnhancedCrisisSupportService {
         let message = "AMEN is concerned about \(userName). Please check in when you can."
         
         #if DEBUG
-        print("🚨 [TRUSTED CIRCLE] Would notify: \(contact.name)")
-        print("   Message: \(message)")
+        dlog("🚨 [TRUSTED CIRCLE] Would notify: \(contact.name)")
+        dlog("   Message: \(message)")
         #endif
         
         // If contact is an AMEN user, send in-app notification

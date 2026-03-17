@@ -507,7 +507,7 @@ struct ConversationContextBuilder {
                 .getDocuments()
             return (snapshot.documents.count, true)
         } catch {
-            print("⚠️ [ConversationRisk] Could not fetch prior safety events for \(senderId): \(error.localizedDescription)")
+            dlog("⚠️ [ConversationRisk] Could not fetch prior safety events for \(senderId): \(error.localizedDescription)")
             return (0, false)
         }
     }
@@ -523,7 +523,7 @@ struct ConversationContextBuilder {
             let count = snapshot.data()?["reportCount"] as? Int ?? 0
             return (count, true)
         } catch {
-            print("⚠️ [ConversationRisk] Could not fetch report count for \(senderId): \(error.localizedDescription)")
+            dlog("⚠️ [ConversationRisk] Could not fetch report count for \(senderId): \(error.localizedDescription)")
             return (0, false)
         }
     }
@@ -547,7 +547,7 @@ struct ConversationContextBuilder {
             })
             return (max(1, uniqueRecipients.count), true)
         } catch {
-            print("⚠️ [ConversationRisk] Could not fetch unique recipients for \(senderId): \(error.localizedDescription)")
+            dlog("⚠️ [ConversationRisk] Could not fetch unique recipients for \(senderId): \(error.localizedDescription)")
             return (1, false)
         }
     }

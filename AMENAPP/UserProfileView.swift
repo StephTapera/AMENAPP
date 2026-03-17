@@ -545,7 +545,7 @@ struct UserProfileView: View {
     /// Set up real-time listener for follower/following counts on viewed profile
     @MainActor
     private func setupFollowerCountListener() {
-        print("🔊 Setting up real-time listener for user \(userId)'s follower counts...")
+        dlog("🔊 Setting up real-time listener for user \(userId)'s follower counts...")
         
         // P1-5: Use global registry to prevent duplicate listeners
         let listenerKey = ListenerRegistry.shared.followerCountListenerKey(userId: userId)
@@ -560,12 +560,12 @@ struct UserProfileView: View {
             db.collection("users").document(userId)
                 .addSnapshotListener { snapshot, error in
                 if let error = error {
-                    print("❌ Follower count listener error: \(error)")
+                    dlog("❌ Follower count listener error: \(error)")
                     return
                 }
                 
                 guard let snapshot = snapshot, snapshot.exists, let data = snapshot.data() else {
-                    print("⚠️ User document not found or has no data")
+                    dlog("⚠️ User document not found or has no data")
                     return
                 }
                 
@@ -575,12 +575,12 @@ struct UserProfileView: View {
                 
                 // Defensive programming: clamp negative values to 0
                 if followersCount < 0 {
-                    print("⚠️ WARNING: Negative followersCount in real-time update (\(followersCount)), clamping to 0")
+                    dlog("⚠️ WARNING: Negative followersCount in real-time update (\(followersCount)), clamping to 0")
                     followersCount = 0
                 }
                 
                 if followingCount < 0 {
-                    print("⚠️ WARNING: Negative followingCount in real-time update (\(followingCount)), clamping to 0")
+                    dlog("⚠️ WARNING: Negative followingCount in real-time update (\(followingCount)), clamping to 0")
                     followingCount = 0
                 }
                 
@@ -591,7 +591,7 @@ struct UserProfileView: View {
                         profile.followingCount = followingCount
                         self.profileData = profile
                         
-                        print("✅ Real-time follower count update: \(followersCount) followers, \(followingCount) following")
+                        dlog("✅ Real-time follower count update: \(followersCount) followers, \(followingCount) following")
                     }
                 }
                 }
@@ -607,7 +607,7 @@ struct UserProfileView: View {
         
         followerCountListener?.remove()
         followerCountListener = nil
-        print("🔇 Removed follower count listener")
+        dlog("🔇 Removed follower count listener")
     }
     
     /// P0-2: Remove all real-time listeners to prevent memory leaks
@@ -632,13 +632,13 @@ struct UserProfileView: View {
             repostObserver = nil
         }
         
-        print("🔇 Removed all real-time listeners (posts + observers)")
+        dlog("🔇 Removed all real-time listeners (posts + observers)")
     }
     
     // ✅ NEW: Set up real-time listeners for posts and reposts (Threads-like instant updates)
     @MainActor
     private func setupRealtimeListeners() {
-        print("🔊 Setting up real-time listeners for posts and reposts...")
+        dlog("🔊 Setting up real-time listeners for posts and reposts...")
         
         // P1-5: Use global registry for posts listener
         let postsKey = ListenerRegistry.shared.postsListenerKey(userId: userId)
@@ -651,13 +651,13 @@ struct UserProfileView: View {
                 .order(by: "createdAt", descending: true)
                 .addSnapshotListener { querySnapshot, error in
                 if let error = error {
-                    print("❌ Firestore listener error: \(error)")
+                    dlog("❌ Firestore listener error: \(error)")
                     return
                 }
                 
                 guard let documents = querySnapshot?.documents else { return }
                 
-                print("🔄 Real-time: Posts updated for user \(self.userId)")
+                dlog("🔄 Real-time: Posts updated for user \(self.userId)")
                 
                 // Parse posts from Firestore
                 let updatedPosts = documents.compactMap { doc -> ProfilePost? in
@@ -705,7 +705,7 @@ struct UserProfileView: View {
                   let post = userInfo["post"] as? Post,
                   post.authorId == self.userId else { return }
             
-            print("✅ Real-time: Optimistic post detected for user \(self.userId)")
+            dlog("✅ Real-time: Optimistic post detected for user \(self.userId)")
             // Firestore listener will handle the update
         }
         
@@ -720,7 +720,7 @@ struct UserProfileView: View {
                   let reposterId = userInfo["userId"] as? String,
                   reposterId == self.userId else { return }
             
-            print("✅ Real-time: New repost detected for user \(self.userId)")
+            dlog("✅ Real-time: New repost detected for user \(self.userId)")
             
             // Convert and add to reposts array
             let repost = UserProfileRepost(
@@ -738,13 +738,13 @@ struct UserProfileView: View {
             Task { @MainActor in self.buildUnifiedFeed() }
         }
         
-        print("✅ Real-time listeners set up successfully")
+        dlog("✅ Real-time listeners set up successfully")
     }
     
     /// Fix corrupted follower counts by recalculating from actual follow relationships
     @MainActor
     private func fixFollowerCounts(userId: String) async {
-        print("🔧 Attempting to fix follower counts for user: \(userId)")
+        dlog("🔧 Attempting to fix follower counts for user: \(userId)")
         
         do {
             let db = Firestore.firestore()
@@ -768,9 +768,9 @@ struct UserProfileView: View {
                 "updatedAt": Date()
             ])
             
-            print("✅ Fixed follower counts:")
-            print("   - Followers: \(actualFollowersCount)")
-            print("   - Following: \(actualFollowingCount)")
+            dlog("✅ Fixed follower counts:")
+            dlog("   - Followers: \(actualFollowersCount)")
+            dlog("   - Following: \(actualFollowingCount)")
             
             // Update local state
             if var profile = profileData {
@@ -780,7 +780,7 @@ struct UserProfileView: View {
             }
             
         } catch {
-            print("❌ Error fixing follower counts: \(error)")
+            dlog("❌ Error fixing follower counts: \(error)")
         }
     }
     
@@ -808,7 +808,7 @@ struct UserProfileView: View {
         if let cachedAt = profileCachedAt,
            profileData != nil,
            Date().timeIntervalSince(cachedAt) < 300 { // 5 minutes
-            print("✅ Using cached profile data (age: \(Int(Date().timeIntervalSince(cachedAt)))s)")
+            dlog("✅ Using cached profile data (age: \(Int(Date().timeIntervalSince(cachedAt)))s)")
             return
         }
         
@@ -816,11 +816,11 @@ struct UserProfileView: View {
         errorMessage = ""
         
         do {
-            print("👤 Loading profile data for user ID: \(userId)")
+            dlog("👤 Loading profile data for user ID: \(userId)")
             
             // Validate userId is not empty
             guard !userId.isEmpty else {
-                print("❌ User ID is empty!")
+                dlog("❌ User ID is empty!")
                 throw NSError(domain: "UserProfileView", code: 400, userInfo: [
                     NSLocalizedDescriptionKey: "Invalid user ID. Please try again."
                 ])
@@ -829,30 +829,30 @@ struct UserProfileView: View {
             // Fetch user profile directly from Firestore
             let db = Firestore.firestore()
             
-            print("📡 Attempting to fetch document from Firestore...")
+            dlog("📡 Attempting to fetch document from Firestore...")
             let userDoc = try await db.collection("users").document(userId).getDocument()
             
-            print("📄 Document fetch completed. Exists: \(userDoc.exists)")
+            dlog("📄 Document fetch completed. Exists: \(userDoc.exists)")
             
             guard userDoc.exists else {
-                print("❌ User document does not exist for ID: \(userId)")
-                print("   This could mean:")
-                print("   1. The user was deleted")
-                print("   2. The userId is incorrect")
-                print("   3. The document path is wrong")
+                dlog("❌ User document does not exist for ID: \(userId)")
+                dlog("   This could mean:")
+                dlog("   1. The user was deleted")
+                dlog("   2. The userId is incorrect")
+                dlog("   3. The document path is wrong")
                 throw NSError(domain: "UserProfileView", code: 404, userInfo: [
                     NSLocalizedDescriptionKey: "User not found. This profile may no longer exist."
                 ])
             }
             
             guard let data = userDoc.data() else {
-                print("❌ User document exists but has no data for ID: \(userId)")
+                dlog("❌ User document exists but has no data for ID: \(userId)")
                 throw NSError(domain: "UserProfileView", code: 500, userInfo: [
                     NSLocalizedDescriptionKey: "User data could not be loaded. Please try again later."
                 ])
             }
             
-            print("✅ Found user document with data: \(data.keys)")
+            dlog("✅ Found user document with data: \(data.keys)")
             
             // Extract user data with detailed logging
             let displayName = data["displayName"] as? String ?? "Unknown User"
@@ -870,12 +870,12 @@ struct UserProfileView: View {
             let hasNegativeCounts = followersCount < 0 || followingCount < 0
             
             if followersCount < 0 {
-                print("⚠️ WARNING: Negative followersCount detected (\(followersCount)), will recalculate")
+                dlog("⚠️ WARNING: Negative followersCount detected (\(followersCount)), will recalculate")
                 followersCount = 0
             }
             
             if followingCount < 0 {
-                print("⚠️ WARNING: Negative followingCount detected (\(followingCount)), will recalculate")
+                dlog("⚠️ WARNING: Negative followingCount detected (\(followingCount)), will recalculate")
                 followingCount = 0
             }
             
@@ -892,19 +892,19 @@ struct UserProfileView: View {
             let showFollowersList = data["showFollowersList"] as? Bool ?? true
             let showFollowingList = data["showFollowingList"] as? Bool ?? true
             
-            print("📋 User data extracted:")
-            print("   - displayName: \(displayName)")
-            print("   - username: \(username)")
-            print("   - bio length: \(bio.count)")
-            print("   - followersCount: \(followersCount)")
-            print("   - followingCount: \(followingCount)")
-            print("   - isPrivateAccount: \(isPrivateAccount)")
+            dlog("📋 User data extracted:")
+            dlog("   - displayName: \(displayName)")
+            dlog("   - username: \(username)")
+            dlog("   - bio length: \(bio.count)")
+            dlog("   - followersCount: \(followersCount)")
+            dlog("   - followingCount: \(followingCount)")
+            dlog("   - isPrivateAccount: \(isPrivateAccount)")
             
             // Generate initials
             let names = displayName.components(separatedBy: " ")
             let initials = names.compactMap { $0.first }.map { String($0) }.joined().prefix(2).uppercased()
             
-            print("✅ Fetched user: \(displayName) (@\(username))")
+            dlog("✅ Fetched user: \(displayName) (@\(username))")
             
             // Convert to UserProfile
             profileData = UserProfile(
@@ -929,7 +929,7 @@ struct UserProfileView: View {
             // P1-3: Set cache timestamp
             profileCachedAt = Date()
             
-            print("✅ Profile data converted successfully (cached at \(Date()))")
+            dlog("✅ Profile data converted successfully (cached at \(Date()))")
 
             // Phase 2 fix: Show profile header immediately — don't wait for posts/reposts.
             isLoading = false
@@ -944,12 +944,12 @@ struct UserProfileView: View {
                 isFollowing = false
                 // No block/mute/privacy checks needed for self
                 viewerRelationship = .ownProfile  // Always show own content
-                print("✅ Own profile detected — skipping follow & privacy checks")
+                dlog("✅ Own profile detected — skipping follow & privacy checks")
             } else {
                 // External profile: fetch follow status and privacy status before gating content
                 // P0-C FIX: async let tuple-await causes swift_task_dealloc on task cancellation.
                 // Run sequentially — these are fast Firestore reads so the performance difference is negligible.
-                print("📥 Fetching follow status and privacy status before content...")
+                dlog("📥 Fetching follow status and privacy status before content...")
                 isFollowing = try await checkFollowStatus()
                 await checkPrivacyStatus()
                 // Load the canonical viewer relationship (used to gate private content)
@@ -959,7 +959,7 @@ struct UserProfileView: View {
             // Fetch user's content — posts are gated by privacy, reposts run in parallel.
             // P0-C FIX: Use withThrowingTaskGroup instead of async let tuple-await to avoid
             // swift_task_dealloc crash when the parent .task {} is cancelled on view disappear.
-            print("📥 Starting parallel fetch for posts and reposts...")
+            dlog("📥 Starting parallel fetch for posts and reposts...")
             try await withThrowingTaskGroup(of: Void.self) { group in
                 group.addTask { [self, forceServerFetch] in
                     let fetched = try await fetchUserPosts(page: 1, forceServerFetch: forceServerFetch)
@@ -972,10 +972,10 @@ struct UserProfileView: View {
                 try await group.waitForAll()
             }
             
-            print("✅ Parallel fetch completed:")
-            print("   - Posts: \(posts.count)")
-            print("   - Reposts: \(reposts.count)")
-            print("   - Following: \(isFollowing)")
+            dlog("✅ Parallel fetch completed:")
+            dlog("   - Posts: \(posts.count)")
+            dlog("   - Reposts: \(reposts.count)")
+            dlog("   - Following: \(isFollowing)")
             
             // ✅ NEW: Build unified Threads-like feed
             buildUnifiedFeed()
@@ -990,10 +990,10 @@ struct UserProfileView: View {
             hasMorePosts = posts.count >= 20
             
         } catch {
-            print("❌ Error in loadProfileData:")
-            print("   - Error type: \(type(of: error))")
-            print("   - Error description: \(error.localizedDescription)")
-            print("   - Error: \(error)")
+            dlog("❌ Error in loadProfileData:")
+            dlog("   - Error type: \(type(of: error))")
+            dlog("   - Error description: \(error.localizedDescription)")
+            dlog("   - Error: \(error)")
             
             // 🔌 OFFLINE HANDLING: Check if error is network-related
             let isOfflineError = error.localizedDescription.contains("offline") ||
@@ -1003,7 +1003,7 @@ struct UserProfileView: View {
             
             if isOfflineError {
                 // Handle offline gracefully with user-friendly message
-                print("📵 Device appears to be offline. Using cached data if available.")
+                dlog("📵 Device appears to be offline. Using cached data if available.")
                 errorMessage = "You're offline. Showing cached data."
                 inlineErrorMessage = "No internet connection. Some content may be outdated."
                 withAnimation {
@@ -1038,13 +1038,13 @@ struct UserProfileView: View {
     // MARK: - Network Calls
     
     private func fetchUserPosts(page: Int, forceServerFetch: Bool = false) async throws -> [ProfilePost] {
-        print("📥 Fetching posts for user: \(userId) (page: \(page))")
+        dlog("📥 Fetching posts for user: \(userId) (page: \(page))")
 
         // Privacy gate: non-followers cannot see posts on private accounts
         if let profile = profileData, profile.isPrivateAccount {
             let rel = await PrivacyAccessControl.shared.relationship(to: userId)
             guard rel.canViewPrivateContent else {
-                print("🔒 Privacy gate: viewer (\(rel)) cannot see posts for private account \(userId)")
+                dlog("🔒 Privacy gate: viewer (\(rel)) cannot see posts for private account \(userId)")
                 return []
             }
         }
@@ -1053,7 +1053,7 @@ struct UserProfileView: View {
         let postService = FirebasePostService.shared
         let userPosts = try await postService.fetchUserPosts(userId: userId, forceServerFetch: forceServerFetch)
         
-        print("✅ Fetched \(userPosts.count) posts from Firestore for user")
+        dlog("✅ Fetched \(userPosts.count) posts from Firestore for user")
         
         // Convert Post to ProfilePost with real IDs and post types
         return userPosts.map { post in
@@ -1132,23 +1132,23 @@ struct UserProfileView: View {
         // Sort chronologically (newest first) like Threads
         feedItems = items.sorted { $0.createdAt > $1.createdAt }
         
-        print("✅ Built unified feed: \(feedItems.count) items (\(posts.count) posts + \(reposts.count) reposts)")
+        dlog("✅ Built unified feed: \(feedItems.count) items (\(posts.count) posts + \(reposts.count) reposts)")
     }
     
     private func fetchUserReplies() async throws -> [Reply] {
         // Replies are now private - not shown on public profile
-        print("📥 Replies are hidden from public profiles")
+        dlog("📥 Replies are hidden from public profiles")
         return []
     }
     
     private func fetchUserReposts() async throws -> [UserProfileRepost] {
-        print("📥 Fetching reposts for user: \(userId)")
+        dlog("📥 Fetching reposts for user: \(userId)")
         
         // ✅ FIX: Use Realtime Database instead of Firestore for consistency
         let realtimeRepostsService = RealtimeRepostsService.shared
         let userReposts = try await realtimeRepostsService.fetchUserReposts(userId: userId)
         
-        print("✅ Fetched \(userReposts.count) reposts from Realtime DB for user")
+        dlog("✅ Fetched \(userReposts.count) reposts from Realtime DB for user")
         
         // Convert Post to UserProfileRepost
         return userReposts.map { post in
@@ -1167,7 +1167,7 @@ struct UserProfileView: View {
         let followService = FollowService.shared
         let isFollowing = await followService.isFollowing(userId: userId)
         
-        print("✅ Follow status for \(userId): \(isFollowing ? "following" : "not following")")
+        dlog("✅ Follow status for \(userId): \(isFollowing ? "following" : "not following")")
         
         // Check if this user follows the current user (for "Follow Back" button)
         if let currentUserId = Auth.auth().currentUser?.uid {
@@ -1200,7 +1200,7 @@ struct UserProfileView: View {
         followRequestPending = await followRequestService.hasPendingRequest(toUserId: userId)
         
         if followRequestPending {
-            print("✅ Follow request pending for user: \(userId)")
+            dlog("✅ Follow request pending for user: \(userId)")
         }
     }
     
@@ -1222,11 +1222,11 @@ struct UserProfileView: View {
         // Check if profile is hidden from this user
         isHidden = await moderationService.isHiddenFrom(userId: userId)
         
-        print("✅ Privacy status loaded:")
-        print("   - Blocked (you blocked them): \(isBlocked)")
-        print("   - Blocked By (they blocked you): \(isBlockedBy)")
-        print("   - Muted: \(isMuted)")
-        print("   - Hidden: \(isHidden)")
+        dlog("✅ Privacy status loaded:")
+        dlog("   - Blocked (you blocked them): \(isBlocked)")
+        dlog("   - Blocked By (they blocked you): \(isBlockedBy)")
+        dlog("   - Muted: \(isMuted)")
+        dlog("   - Hidden: \(isHidden)")
     }
     
     private func loadMorePosts() async {
@@ -1252,14 +1252,14 @@ struct UserProfileView: View {
     }
     
     private func handleError(_ error: Error) -> String {
-        print("🔍 Analyzing error in UserProfileView:")
-        print("   - Error type: \(type(of: error))")
-        print("   - Localized description: \(error.localizedDescription)")
+        dlog("🔍 Analyzing error in UserProfileView:")
+        dlog("   - Error type: \(type(of: error))")
+        dlog("   - Localized description: \(error.localizedDescription)")
         
         // Handle Firestore errors
         if let firestoreError = error as NSError? {
-            print("   - Error code: \(firestoreError.code)")
-            print("   - Error domain: \(firestoreError.domain)")
+            dlog("   - Error code: \(firestoreError.code)")
+            dlog("   - Error domain: \(firestoreError.domain)")
             
             // Check for specific Firestore error codes
             if firestoreError.domain == "FIRFirestoreErrorDomain" {
@@ -1280,7 +1280,7 @@ struct UserProfileView: View {
                     return "A server error occurred. Please try again later."
                 default:
                     // Don't treat unknown errors as permission errors
-                    print("   ⚠️ Unknown Firestore error code: \(firestoreError.code)")
+                    dlog("   ⚠️ Unknown Firestore error code: \(firestoreError.code)")
                     break
                 }
             }
@@ -1310,7 +1310,7 @@ struct UserProfileView: View {
         }
         
         // Log the full error for debugging
-        print("⚠️ Unhandled error type: \(error)")
+        dlog("⚠️ Unhandled error type: \(error)")
         
         // Check error description for common patterns
         let errorString = error.localizedDescription.lowercased()
@@ -1356,7 +1356,7 @@ struct UserProfileView: View {
         // P0-3: Actor-isolated guard prevents TOCTOU race conditions
         // Check if operation is already in progress using the actor guard
         guard await FollowOperationGuard.shared.actor.startOperation(for: userId) else {
-            print("⚠️ Follow operation blocked by actor guard - duplicate tap prevented")
+            dlog("⚠️ Follow operation blocked by actor guard - duplicate tap prevented")
             return
         }
         
@@ -1369,7 +1369,7 @@ struct UserProfileView: View {
         
         // Double-check state flag
         guard !isFollowActionInProgress else {
-            print("⚠️ Follow action already in progress, ignoring duplicate tap")
+            dlog("⚠️ Follow action already in progress, ignoring duplicate tap")
             return
         }
         
@@ -1398,7 +1398,7 @@ struct UserProfileView: View {
             let followService = FollowService.shared
             try await followService.toggleFollow(userId: userId)
             
-            print("✅ Successfully \(isFollowing ? "followed" : "unfollowed") user: \(userId)")
+            dlog("✅ Successfully \(isFollowing ? "followed" : "unfollowed") user: \(userId)")
 
             // Refresh canonical relationship so content view updates immediately
             viewerRelationship = await PrivacyAccessControl.shared.relationship(to: userId)
@@ -1420,9 +1420,9 @@ struct UserProfileView: View {
             
             // Provide more specific error message
             if let nsError = error as NSError? {
-                print("❌ Failed to toggle follow: \(nsError)")
-                print("   Domain: \(nsError.domain), Code: \(nsError.code)")
-                print("   Description: \(nsError.localizedDescription)")
+                dlog("❌ Failed to toggle follow: \(nsError)")
+                dlog("   Domain: \(nsError.domain), Code: \(nsError.code)")
+                dlog("   Description: \(nsError.localizedDescription)")
                 
                 // Show more helpful error based on error type
                 if nsError.domain == NSURLErrorDomain {
@@ -1434,7 +1434,7 @@ struct UserProfileView: View {
                 }
             } else {
                 errorMessage = "Failed to \(previousState ? "unfollow" : "follow") user. Please try again."
-                print("❌ Failed to toggle follow: \(error)")
+                dlog("❌ Failed to toggle follow: \(error)")
             }
             
             showErrorAlert = true
@@ -1455,7 +1455,7 @@ struct UserProfileView: View {
                 }
                 
                 try await followRequestService.cancelFollowRequest(toUserId: userId)
-                print("✅ Cancelled follow request to user: \(userId)")
+                dlog("✅ Cancelled follow request to user: \(userId)")
                 
             } else {
                 // Send new follow request
@@ -1464,7 +1464,7 @@ struct UserProfileView: View {
                 }
                 
                 try await followRequestService.sendFollowRequest(toUserId: userId)
-                print("✅ Sent follow request to user: \(userId)")
+                dlog("✅ Sent follow request to user: \(userId)")
             }
             
             let haptic = UINotificationFeedbackGenerator()
@@ -1474,7 +1474,7 @@ struct UserProfileView: View {
             // Rollback on error
             followRequestPending = previousRequestState
             
-            print("❌ Failed to handle follow request: \(error)")
+            dlog("❌ Failed to handle follow request: \(error)")
             errorMessage = "Failed to send follow request. Please try again."
             showErrorAlert = true
         }
@@ -1499,9 +1499,9 @@ struct UserProfileView: View {
                 profileData = profile
             }
             
-            print("✅ Refreshed follower count: \(followersCount)")
+            dlog("✅ Refreshed follower count: \(followersCount)")
         } catch {
-            print("⚠️ Failed to refresh follower count: \(error)")
+            dlog("⚠️ Failed to refresh follower count: \(error)")
             // Don't show error to user, counts will update on next refresh
         }
     }
@@ -1560,7 +1560,7 @@ struct UserProfileView: View {
                     additionalDetails: description
                 )
                 
-                print("✅ Successfully reported user: \(userId) for: \(reason.rawValue)")
+                dlog("✅ Successfully reported user: \(userId) for: \(reason.rawValue)")
                 
                 // Show confirmation
                 await MainActor.run {
@@ -1569,7 +1569,7 @@ struct UserProfileView: View {
                 }
                 
             } catch {
-                print("❌ Failed to report user: \(error)")
+                dlog("❌ Failed to report user: \(error)")
                 await MainActor.run {
                     errorMessage = "Failed to submit report. Please try again."
                     showErrorAlert = true
@@ -1621,10 +1621,10 @@ struct UserProfileView: View {
             let moderationService = ModerationService.shared
             if isBlocked {
                 try await moderationService.blockUser(userId: userId)
-                print("✅ Successfully blocked user: \(userId)")
+                dlog("✅ Successfully blocked user: \(userId)")
             } else {
                 try await moderationService.unblockUser(userId: userId)
-                print("✅ Successfully unblocked user: \(userId)")
+                dlog("✅ Successfully unblocked user: \(userId)")
             }
             
         } catch {
@@ -1634,7 +1634,7 @@ struct UserProfileView: View {
                 errorMessage = "Failed to \(previousState ? "unblock" : "block") user. Please try again."
                 showErrorAlert = true
             }
-            print("❌ Failed to toggle block: \(error)")
+            dlog("❌ Failed to toggle block: \(error)")
         }
     }
     
@@ -1685,10 +1685,10 @@ struct UserProfileView: View {
             let moderationService = ModerationService.shared
             if isMuted {
                 try await moderationService.muteUser(userId: userId)
-                print("✅ Successfully muted user: \(userId)")
+                dlog("✅ Successfully muted user: \(userId)")
             } else {
                 try await moderationService.unmuteUser(userId: userId)
-                print("✅ Successfully unmuted user: \(userId)")
+                dlog("✅ Successfully unmuted user: \(userId)")
             }
             
         } catch {
@@ -1698,7 +1698,7 @@ struct UserProfileView: View {
                 errorMessage = "Failed to \(previousState ? "unmute" : "mute") user. Please try again."
                 showErrorAlert = true
             }
-            print("❌ Failed to toggle mute: \(error)")
+            dlog("❌ Failed to toggle mute: \(error)")
         }
     }
     
@@ -1724,11 +1724,11 @@ struct UserProfileView: View {
             if isHidden {
                 // Hide your profile from this user
                 try await moderationService.hideProfileFromUser(userId: userId)
-                print("✅ Successfully hid profile from user: \(userId)")
+                dlog("✅ Successfully hid profile from user: \(userId)")
             } else {
                 // Unhide your profile from this user
                 try await moderationService.unhideProfileFromUser(userId: userId)
-                print("✅ Successfully unhid profile from user: \(userId)")
+                dlog("✅ Successfully unhid profile from user: \(userId)")
             }
             
         } catch {
@@ -1738,7 +1738,7 @@ struct UserProfileView: View {
                 errorMessage = "Failed to \(previousState ? "unhide from" : "hide from") user. Please try again."
                 showErrorAlert = true
             }
-            print("❌ Failed to toggle hide: \(error)")
+            dlog("❌ Failed to toggle hide: \(error)")
         }
     }
     
@@ -1746,7 +1746,7 @@ struct UserProfileView: View {
     
     private func handleDeepLink(_ url: URL) {
         // Handle deep links like amenapp://user/username or https://amenapp.com/user/username
-        print("Handling deep link: \(url)")
+        dlog("Handling deep link: \(url)")
         
         // TODO: Parse URL and navigate accordingly
         // if url.pathComponents.contains("user") {
@@ -2109,7 +2109,7 @@ struct UserProfileView: View {
                             if !shouldShowToolbarButtons {
                                 Button {
                                     guard !isFollowActionInProgress else {
-                                        print("⏳ Follow action already in progress")
+                                        dlog("⏳ Follow action already in progress")
                                         return
                                     }
                                     toggleFollow()
@@ -2459,7 +2459,7 @@ struct UserPostsContentView: View {
             // Real API call using PostInteractionsService
             let interactionsService = PostInteractionsService.shared
             try await interactionsService.toggleAmen(postId: postId)
-            print("✅ Toggled amen on post: \(postId)")
+            dlog("✅ Toggled amen on post: \(postId)")
         } catch {
             // Rollback on error
             await MainActor.run {
@@ -2469,7 +2469,7 @@ struct UserPostsContentView: View {
                     likedPosts.remove(postId)
                 }
             }
-            print("❌ Failed to toggle amen: \(error)")
+            dlog("❌ Failed to toggle amen: \(error)")
         }
     }
     
@@ -2488,28 +2488,28 @@ struct UserPostsContentView: View {
     }
     
     private func handleReply(postId: String) {
-        print("💬 handleReply called for postId: \(postId)")
+        dlog("💬 handleReply called for postId: \(postId)")
         let haptic = UIImpactFeedbackGenerator(style: .light)
         haptic.impactOccurred()
         
         // Fetch full post and show comments
         Task {
             do {
-                print("📥 Fetching post by ID: \(postId)")
+                dlog("📥 Fetching post by ID: \(postId)")
                 let firebasePostService = FirebasePostService.shared
                 // Fetch the full post object by ID
                 if let post = try await firebasePostService.fetchPostById(postId: postId) {
-                    print("✅ Fetched post: \(postId)")
+                    dlog("✅ Fetched post: \(postId)")
                     await MainActor.run {
                         selectedPostForComments = post
                         showCommentsSheet = true
-                        print("📱 Comments sheet should now be visible")
+                        dlog("📱 Comments sheet should now be visible")
                     }
                 } else {
-                    print("⚠️ Post not found: \(postId)")
+                    dlog("⚠️ Post not found: \(postId)")
                 }
             } catch {
-                print("❌ Failed to fetch post for comments: \(error)")
+                dlog("❌ Failed to fetch post for comments: \(error)")
             }
         }
     }
@@ -2668,27 +2668,27 @@ struct UnifiedFeedContentView: View {
     }
     
     private func handleReply(itemId: String) {
-        print("💬 handleReply called for itemId: \(itemId)")
+        dlog("💬 handleReply called for itemId: \(itemId)")
         let haptic = UIImpactFeedbackGenerator(style: .light)
         haptic.impactOccurred()
         
         // Fetch full post and show comments
         Task {
             do {
-                print("📥 Fetching post by ID: \(itemId)")
+                dlog("📥 Fetching post by ID: \(itemId)")
                 let firebasePostService = FirebasePostService.shared
                 if let post = try await firebasePostService.fetchPostById(postId: itemId) {
-                    print("✅ Fetched post: \(itemId)")
+                    dlog("✅ Fetched post: \(itemId)")
                     await MainActor.run {
                         selectedPostForComments = post
                         showCommentsSheet = true
-                        print("📱 Comments sheet should now be visible")
+                        dlog("📱 Comments sheet should now be visible")
                     }
                 } else {
-                    print("⚠️ Post not found: \(itemId)")
+                    dlog("⚠️ Post not found: \(itemId)")
                 }
             } catch {
-                print("❌ Failed to fetch post for comments: \(error)")
+                dlog("❌ Failed to fetch post for comments: \(error)")
             }
         }
     }
@@ -3344,7 +3344,7 @@ struct FollowersListView: View {
                 followUserProfiles = try await followService.fetchFollowing(userId: userId)
             }
             
-            print("✅ Loaded \(followUserProfiles.count) \(type.title)")
+            dlog("✅ Loaded \(followUserProfiles.count) \(type.title)")
             
             // Convert FollowUserProfile to UserProfile
             users = followUserProfiles.map { followUser in
@@ -3364,7 +3364,7 @@ struct FollowersListView: View {
             }
             
         } catch {
-            print("❌ Failed to load \(type.title): \(error)")
+            dlog("❌ Failed to load \(type.title): \(error)")
             users = []
         }
         
@@ -3469,7 +3469,7 @@ struct UserListRow: View {
         do {
             // Real backend call using FollowService
             try await FollowService.shared.toggleFollow(userId: user.userId)
-            print("✅ Successfully \(isFollowing ? "followed" : "unfollowed") \(user.name)")
+            dlog("✅ Successfully \(isFollowing ? "followed" : "unfollowed") \(user.name)")
         } catch {
             // Rollback on error
             await MainActor.run {
@@ -3477,7 +3477,7 @@ struct UserListRow: View {
                     isFollowing = previousState
                 }
             }
-            print("❌ Failed to toggle follow: \(error)")
+            dlog("❌ Failed to toggle follow: \(error)")
             
             let haptic = UINotificationFeedbackGenerator()
             haptic.notificationOccurred(.error)
@@ -4470,7 +4470,7 @@ struct ScrollViewWithOffset<Content: View>: View {
         }
         .coordinateSpace(name: "scroll")
         .onPreferenceChange(ProfileScrollOffsetPreferenceKey.self) { value in
-            print("🔍 ScrollViewWithOffset raw value: \(value), converted: \(-value)")
+            dlog("🔍 ScrollViewWithOffset raw value: \(value), converted: \(-value)")
             offset = -value  // Negative because scroll offset is inverted
         }
     }
@@ -4659,19 +4659,19 @@ struct ChatConversationLoader: View {
     @MainActor
     private func loadConversation() async {
         do {
-            print("📱 Getting or creating conversation with user: \(userName) (ID: \(userId))")
+            dlog("📱 Getting or creating conversation with user: \(userName) (ID: \(userId))")
             
             let convId = try await messagingService.getOrCreateDirectConversation(
                 withUserId: userId,
                 userName: userName
             )
             
-            print("✅ Got conversation ID: \(convId)")
+            dlog("✅ Got conversation ID: \(convId)")
             // Setting conversationId immediately transitions the view to UnifiedChatView
             conversationId = convId
             
         } catch let error as FirebaseMessagingError {
-            print("❌ FirebaseMessagingError: \(error)")
+            dlog("❌ FirebaseMessagingError: \(error)")
             
             // Handle specific error cases
             switch error {
@@ -4701,9 +4701,9 @@ struct ChatConversationLoader: View {
             
             showError = true
         } catch {
-            print("❌ Unexpected error: \(error)")
-            print("   Error type: \(type(of: error))")
-            print("   Error description: \(error.localizedDescription)")
+            dlog("❌ Unexpected error: \(error)")
+            dlog("   Error type: \(type(of: error))")
+            dlog("   Error description: \(error.localizedDescription)")
             
             // Check for common Firestore errors
             let errorString = error.localizedDescription.lowercased()
@@ -4741,7 +4741,7 @@ extension UserProfileView {
         
         // TODO: Implement notification service
         // await NotificationService.shared.toggleUserNotifications(userId: userId, enabled: notificationsEnabled)
-        print("✅ \(notificationsEnabled ? "Enabled" : "Disabled") notifications for user: \(userId)")
+        dlog("✅ \(notificationsEnabled ? "Enabled" : "Disabled") notifications for user: \(userId)")
     }
 }
 
@@ -4758,7 +4758,7 @@ extension UserProfileView {
         // ✅ FIXED: Safe URL creation with proper encoding and validation
         guard let encodedUsername = profileData.username.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
               let shareURL = URL(string: "https://amenapp.com/\(encodedUsername)") else {
-            print("❌ Failed to create share URL for username: \(profileData.username)")
+            dlog("❌ Failed to create share URL for username: \(profileData.username)")
             // Fallback to text-only sharing
             shareItems = [shareText]
             showShareSheet = true
@@ -4840,7 +4840,7 @@ extension UserProfileView {
         // - Profile views count
         // - Most viewed post
         // - Follower growth
-        print("📊 Analytics feature - implement when needed")
+        dlog("📊 Analytics feature - implement when needed")
     }
 }
 
@@ -4853,7 +4853,7 @@ extension UserProfileView {
         
         // TODO: Implement UserDefaults or CoreData caching
         // UserDefaults.standard.set(encodedProfile, forKey: "cached_profile_\(userId)")
-        print("💾 Caching profile data for offline support")
+        dlog("💾 Caching profile data for offline support")
     }
     
     /// Load cached profile data
@@ -4887,7 +4887,7 @@ extension UserProfileView {
     /// Track profile load performance
     private func trackLoadPerformance(startTime: Date) {
         let loadTime = Date().timeIntervalSince(startTime)
-        print("⏱️ Profile loaded in \(String(format: "%.2f", loadTime))s")
+        dlog("⏱️ Profile loaded in \(String(format: "%.2f", loadTime))s")
         
         // TODO: Send to analytics service
         // Analytics.track("profile_load_time", properties: ["duration": loadTime, "userId": userId])

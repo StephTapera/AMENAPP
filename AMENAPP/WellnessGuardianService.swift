@@ -74,7 +74,7 @@ class WellnessGuardianService: ObservableObject {
         // Bedtime is checked in checkIfBreakNeeded() after the user
         // has been actively using the app for bedtimeMinActiveMinutes.
 
-        print("💚 Wellness Guardian: Session started")
+        dlog("💚 Wellness Guardian: Session started")
     }
     
     func trackSessionEnd() {
@@ -91,7 +91,7 @@ class WellnessGuardianService: ObservableObject {
         breakCheckTimer?.invalidate()
         breakCheckTimer = nil
 
-        print("💚 Wellness Guardian: Session ended (\(Int(duration/60)) minutes)")
+        dlog("💚 Wellness Guardian: Session ended (\(Int(duration/60)) minutes)")
     }
     
     func trackScroll() {
@@ -114,7 +114,7 @@ class WellnessGuardianService: ObservableObject {
             }
         }
         
-        print("💚 Wellness Guardian: Smart breaks enabled (scroll: \(scrollThreshold), time: \(timeThreshold)min)")
+        dlog("💚 Wellness Guardian: Smart breaks enabled (scroll: \(scrollThreshold), time: \(timeThreshold)min)")
     }
     
     private func checkIfBreakNeeded() {
@@ -178,7 +178,7 @@ class WellnessGuardianService: ObservableObject {
             self?.dismissBreakReminder()
         }
         
-        print("💚 Wellness Guardian: Break reminder shown (\(type))")
+        dlog("💚 Wellness Guardian: Break reminder shown (\(type))")
     }
     
     func dismissBreakReminder() {
@@ -199,7 +199,7 @@ class WellnessGuardianService: ObservableObject {
             try? await logBreakTaken()
         }
         
-        print("💚 Wellness Guardian: Break taken, counters reset")
+        dlog("💚 Wellness Guardian: Break taken, counters reset")
     }
     
     // MARK: - Bedtime Mode
@@ -237,10 +237,10 @@ class WellnessGuardianService: ObservableObject {
                 }
                 
                 dailyUsageMinutes = totalMinutes
-                print("💚 Wellness Guardian: Today's usage - \(totalMinutes) minutes")
+                dlog("💚 Wellness Guardian: Today's usage - \(totalMinutes) minutes")
                 
             } catch {
-                print("❌ Failed to load usage stats: \(error)")
+                dlog("❌ Failed to load usage stats: \(error)")
             }
         }
     }
@@ -281,7 +281,7 @@ class WellnessGuardianService: ObservableObject {
             )
             
         } catch {
-            print("❌ Failed to get weekly stats: \(error)")
+            dlog("❌ Failed to get weekly stats: \(error)")
             return WellnessStats(todayMinutes: 0, weekMinutes: 0, longestStreak: 0, breaksTaken: 0, averageDailyMinutes: 0)
         }
     }

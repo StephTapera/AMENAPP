@@ -20,11 +20,11 @@ class ProfilePictureUpdateHandler {
     /// Call this when a user changes their profile picture
     func updateProfilePicture(newImageURL: String?) async throws {
         guard let userId = Auth.auth().currentUser?.uid else {
-            print("❌ No authenticated user")
+            dlog("❌ No authenticated user")
             throw NSError(domain: "ProfilePictureUpdate", code: 401, userInfo: [NSLocalizedDescriptionKey: "Not authenticated"])
         }
         
-        print("🖼️ Updating profile picture for user: \(userId)")
+        dlog("🖼️ Updating profile picture for user: \(userId)")
         
         // 1. Update user document in Firestore
         let updateData: [String: Any] = [
@@ -33,19 +33,19 @@ class ProfilePictureUpdateHandler {
         ]
         
         try await db.collection("users").document(userId).updateData(updateData)
-        print("✅ Updated user document with new profile image")
+        dlog("✅ Updated user document with new profile image")
         
         // 2. Update UserDefaults cache
         UserProfileImageCache.shared.updateCachedProfileImage(url: newImageURL)
-        print("✅ Updated cached profile image URL")
+        dlog("✅ Updated cached profile image URL")
         
         // 3. Update all user's posts with new profile image URL (background task)
         Task.detached(priority: .utility) {
             do {
                 try await PostProfileImageMigration.shared.migratePostsForUser(userId: userId)
-                print("✅ Updated all posts with new profile image")
+                dlog("✅ Updated all posts with new profile image")
             } catch {
-                print("⚠️ Failed to update posts with new profile image: \(error)")
+                dlog("⚠️ Failed to update posts with new profile image: \(error)")
                 // Non-critical error - posts will be updated on next app launch
             }
         }
@@ -59,7 +59,7 @@ class ProfilePictureUpdateHandler {
             )
         }
         
-        print("🎉 Profile picture update complete!")
+        dlog("🎉 Profile picture update complete!")
     }
     
     /// Remove user's profile picture

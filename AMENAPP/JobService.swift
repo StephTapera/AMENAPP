@@ -257,6 +257,12 @@ final class JobService: ObservableObject {
         // Build search keywords
         newListing.searchKeywords = buildJobKeywords(listing)
 
+        // P1 #7: Compute and store geohash if coordinates are provided so proximity
+        // queries can use a Firestore range index instead of fetching the full collection.
+        if let lat = newListing.latitude, let lon = newListing.longitude {
+            newListing.geohash = JobService.geohash(lat: lat, lon: lon)
+        }
+
         let encoded = try Firestore.Encoder().encode(newListing)
         try await db.collection(JobCollections.jobListings).addDocument(data: encoded)
     }
@@ -637,6 +643,73 @@ final class JobService: ObservableObject {
         ]
         if let relatedId = relatedId { data["relatedId"] = relatedId }
         try? await db.collection(JobCollections.notifications).addDocument(data: data)
+    }
+
+    // MARK: - Proximity Search (Geohash)
+
+    /// P1 #7: Fetch jobs near a coordinate using a Firestore geohash range query.
+    /// Instead of loading the full collection client-side (O(n)), we query only documents
+    /// whose geohash prefix matches the caller's 4-char prefix (~40 km bounding box),
+    /// then filter the smaller result set for exact radius.
+    ///
+    /// TODO: Deploy Firestore composite index: jobs(geohash ASC, isActive ASC)
+    func fetchJobsNear(lat: Double, lon: Double, radiusKm: Double = 50) async throws -> [JobListing] {
+        let prefix = String(JobService.geohash(lat: lat, lon: lon, precision: 4).prefix(4))
+        let snapshot = try await db.collection(JobCollections.jobListings)
+            .whereField("geohash", isGreaterThanOrEqualTo: prefix)
+            .whereField("geohash", isLessThan: prefix + "~")
+            .whereField("isActive", isEqualTo: true)
+            .limit(to: 50)
+            .getDocuments()
+        return snapshot.documents
+            .compactMap { try? $0.data(as: JobListing.self) }
+            .filter { job in
+                guard let jobLat = job.latitude, let jobLon = job.longitude else { return true }
+                return Self.haversineDistanceKm(lat1: lat, lon1: lon, lat2: jobLat, lon2: jobLon) <= radiusKm
+            }
+    }
+
+    // MARK: - Geohash Helpers
+
+    /// Encode a coordinate into a geohash string at the requested character precision.
+    /// Precision 5 ≈ ±2.4 km; precision 4 ≈ ±20 km (suitable for bounding-box queries).
+    static func geohash(lat: Double, lon: Double, precision: Int = 5) -> String {
+        let base32 = Array("0123456789bcdefghjkmnpqrstuvwxyz")
+        var minLat = -90.0,  maxLat = 90.0
+        var minLon = -180.0, maxLon = 180.0
+        var hash = ""
+        var isLon = true
+        var bit = 0
+        var charIndex = 0
+        while hash.count < precision {
+            if isLon {
+                let mid = (minLon + maxLon) / 2
+                if lon >= mid { charIndex = charIndex * 2 + 1; minLon = mid }
+                else          { charIndex = charIndex * 2;     maxLon = mid }
+            } else {
+                let mid = (minLat + maxLat) / 2
+                if lat >= mid { charIndex = charIndex * 2 + 1; minLat = mid }
+                else          { charIndex = charIndex * 2;     maxLat = mid }
+            }
+            isLon.toggle()
+            bit += 1
+            if bit == 5 {
+                hash.append(base32[charIndex])
+                bit = 0; charIndex = 0
+            }
+        }
+        return hash
+    }
+
+    /// Haversine great-circle distance between two coordinates, in kilometres.
+    static func haversineDistanceKm(lat1: Double, lon1: Double, lat2: Double, lon2: Double) -> Double {
+        let R = 6371.0
+        let dLat = (lat2 - lat1) * .pi / 180
+        let dLon = (lon2 - lon1) * .pi / 180
+        let a = sin(dLat / 2) * sin(dLat / 2)
+            + cos(lat1 * .pi / 180) * cos(lat2 * .pi / 180)
+            * sin(dLon / 2) * sin(dLon / 2)
+        return R * 2 * atan2(sqrt(a), sqrt(1 - a))
     }
 }
 

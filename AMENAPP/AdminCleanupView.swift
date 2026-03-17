@@ -275,10 +275,10 @@ struct AdminCleanupView: View {
                     haptic.notificationOccurred(.success)
                 }
                 
-                print("✅ Cleanup complete! Deleted \(deletedCount) fake posts")
+                dlog("✅ Cleanup complete! Deleted \(deletedCount) fake posts")
                 
             } catch {
-                print("❌ Error deleting fake posts: \(error)")
+                dlog("❌ Error deleting fake posts: \(error)")
                 await MainActor.run {
                     isDeleting = false
                 }
@@ -295,7 +295,7 @@ struct AdminCleanupView: View {
         
         Task {
             do {
-                print("🤖 Starting AI content scan...")
+                dlog("🤖 Starting AI content scan...")
                 
                 // Scan posts in batches
                 let result = try await AIContentDetectionService.shared.scanExistingPosts(batchSize: 50)
@@ -308,13 +308,13 @@ struct AdminCleanupView: View {
                     isScanningAI = false
                 }
                 
-                print("✅ AI scan complete:")
-                print("   - Scanned: \(result.totalScanned)")
-                print("   - Flagged: \(result.flaggedCount)")
-                print("   - Deleted: \(result.deletedCount)")
+                dlog("✅ AI scan complete:")
+                dlog("   - Scanned: \(result.totalScanned)")
+                dlog("   - Flagged: \(result.flaggedCount)")
+                dlog("   - Deleted: \(result.deletedCount)")
                 
             } catch {
-                print("❌ Error scanning for AI content: \(error)")
+                dlog("❌ Error scanning for AI content: \(error)")
                 await MainActor.run {
                     isScanningAI = false
                 }
@@ -332,7 +332,7 @@ struct AdminCleanupView: View {
                 let currentUserId = FirebaseMessagingService.shared.currentUserId
                 
                 guard FirebaseMessagingService.shared.isAuthenticated else {
-                    print("❌ User not authenticated")
+                    dlog("❌ User not authenticated")
                     await MainActor.run { isCleaningConversations = false }
                     return
                 }
@@ -343,7 +343,7 @@ struct AdminCleanupView: View {
                     .whereField("isGroup", isEqualTo: false)
                     .getDocuments()
                 
-                print("📊 Found \(snapshot.documents.count) total 1-on-1 conversations")
+                dlog("📊 Found \(snapshot.documents.count) total 1-on-1 conversations")
                 
                 // Group conversations by the other participant
                 var conversationsByUser: [String: [(id: String, updatedAt: Date)]] = [:]
@@ -384,12 +384,12 @@ struct AdminCleanupView: View {
                         // Sort by updatedAt descending (most recent first)
                         let sorted = conversations.sorted { $0.updatedAt > $1.updatedAt }
                         
-                        print("🔍 Found \(conversations.count) conversations with user \(userId)")
-                        print("   Keeping: \(sorted[0].id) (most recent)")
+                        dlog("🔍 Found \(conversations.count) conversations with user \(userId)")
+                        dlog("   Keeping: \(sorted[0].id) (most recent)")
                         
                         // Mark all except the first (most recent) for deletion
                         for conv in sorted.dropFirst() {
-                            print("   Deleting: \(conv.id)")
+                            dlog("   Deleting: \(conv.id)")
                             duplicatesToDelete.append(conv.id)
                         }
                     }
@@ -410,10 +410,10 @@ struct AdminCleanupView: View {
                     haptic.notificationOccurred(.success)
                 }
                 
-                print("✅ Cleanup complete! Removed \(duplicatesToDelete.count) duplicate conversations")
+                dlog("✅ Cleanup complete! Removed \(duplicatesToDelete.count) duplicate conversations")
                 
             } catch {
-                print("❌ Error cleaning up conversations: \(error)")
+                dlog("❌ Error cleaning up conversations: \(error)")
                 await MainActor.run {
                     isCleaningConversations = false
                 }

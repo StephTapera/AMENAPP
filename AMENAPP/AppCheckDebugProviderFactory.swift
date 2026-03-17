@@ -30,12 +30,12 @@ extension FirebaseApp {
     static func configureAppCheck() {
         #if targetEnvironment(simulator)
         // Simulator: use debug provider (requires registered debug token in Firebase Console)
-        print("🔧 Configuring App Check with DEBUG provider (simulator)")
+        dlog("🔧 Configuring App Check with DEBUG provider (simulator)")
         let providerFactory = AppCheckDebugProviderFactory()
         AppCheck.setAppCheckProviderFactory(providerFactory)
         #else
         // Real device: use App Attest
-        print("🔧 Configuring App Check with App Attest provider (real device)")
+        dlog("🔧 Configuring App Check with App Attest provider (real device)")
         let providerFactory = AppCheckAppAttestProviderFactory()
         AppCheck.setAppCheckProviderFactory(providerFactory)
         #endif

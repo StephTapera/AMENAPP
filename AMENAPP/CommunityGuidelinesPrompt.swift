@@ -182,6 +182,6 @@ struct CommunityGuidelinesPrompt: View {
 
 #Preview {
     CommunityGuidelinesPrompt {
-        print("Continued")
+        dlog("Continued")
     }
 }

@@ -476,7 +476,7 @@ struct PrayerReminderSettingsView: View {
             let haptic = UINotificationFeedbackGenerator()
             haptic.notificationOccurred(.success)
             
-            print("✅ Reminder style changed to: \(style.rawValue)")
+            dlog("✅ Reminder style changed to: \(style.rawValue)")
         }
     }
     

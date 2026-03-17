@@ -107,7 +107,7 @@ final class TranslationFeatureFlags: ObservableObject {
             }
         } catch {
             // Non-fatal: hardcoded defaults above remain in effect
-            print("[TranslationFlags] Remote config fetch failed, using defaults: \(error)")
+            dlog("[TranslationFlags] Remote config fetch failed, using defaults: \(error)")
         }
     }
 

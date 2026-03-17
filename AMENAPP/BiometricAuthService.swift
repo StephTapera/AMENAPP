@@ -68,12 +68,12 @@ class BiometricAuthService: ObservableObject {
                 biometricType = .none
             }
             
-            print("✅ BiometricAuth: \(biometricType.displayName) available")
+            dlog("✅ BiometricAuth: \(biometricType.displayName) available")
         } else {
             biometricType = .none
             
             if let error = error {
-                print("⚠️ BiometricAuth: Not available - \(error.localizedDescription)")
+                dlog("⚠️ BiometricAuth: Not available - \(error.localizedDescription)")
             }
         }
     }
@@ -83,7 +83,7 @@ class BiometricAuthService: ObservableObject {
     func authenticate(reason: String = "Sign in to AMEN") async -> Bool {
         // Check if biometric is enabled in settings
         guard isBiometricEnabled else {
-            print("⚠️ BiometricAuth: Disabled in settings")
+            dlog("⚠️ BiometricAuth: Disabled in settings")
             return false
         }
         
@@ -92,7 +92,7 @@ class BiometricAuthService: ObservableObject {
         
         // Check if biometric authentication is available
         guard context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) else {
-            print("⚠️ BiometricAuth: Not available - \(error?.localizedDescription ?? "unknown")")
+            dlog("⚠️ BiometricAuth: Not available - \(error?.localizedDescription ?? "unknown")")
             return false
         }
         
@@ -103,7 +103,7 @@ class BiometricAuthService: ObservableObject {
             )
             
             if success {
-                print("✅ BiometricAuth: Authentication successful")
+                dlog("✅ BiometricAuth: Authentication successful")
                 
                 // Success haptic
                 await MainActor.run {
@@ -115,7 +115,7 @@ class BiometricAuthService: ObservableObject {
             return success
             
         } catch let error as LAError {
-            print("❌ BiometricAuth: Failed - \(error.localizedDescription)")
+            dlog("❌ BiometricAuth: Failed - \(error.localizedDescription)")
             
             // Error haptic
             await MainActor.run {
@@ -126,23 +126,23 @@ class BiometricAuthService: ObservableObject {
             // Handle specific errors
             switch error.code {
             case .userCancel:
-                print("   User cancelled biometric authentication")
+                dlog("   User cancelled biometric authentication")
             case .userFallback:
-                print("   User chose fallback (password)")
+                dlog("   User chose fallback (password)")
             case .biometryNotEnrolled:
-                print("   Biometry not enrolled")
+                dlog("   Biometry not enrolled")
             case .biometryLockout:
-                print("   Biometry locked out (too many failed attempts)")
+                dlog("   Biometry locked out (too many failed attempts)")
             case .authenticationFailed:
-                print("   Authentication failed")
+                dlog("   Authentication failed")
             default:
-                print("   Error code: \(error.code.rawValue)")
+                dlog("   Error code: \(error.code.rawValue)")
             }
             
             return false
         } catch {
             // Catch any other errors
-            print("❌ BiometricAuth: Unexpected error - \(error.localizedDescription)")
+            dlog("❌ BiometricAuth: Unexpected error - \(error.localizedDescription)")
             return false
         }
     }
@@ -152,18 +152,18 @@ class BiometricAuthService: ObservableObject {
     func enableBiometric() {
         isBiometricEnabled = true
         UserDefaults.standard.set(true, forKey: userDefaultsKey)
-        print("✅ BiometricAuth: Enabled")
+        dlog("✅ BiometricAuth: Enabled")
     }
     
     func disableBiometric() {
         isBiometricEnabled = false
         UserDefaults.standard.set(false, forKey: userDefaultsKey)
-        print("⚠️ BiometricAuth: Disabled")
+        dlog("⚠️ BiometricAuth: Disabled")
     }
     
     private func loadBiometricPreference() {
         isBiometricEnabled = UserDefaults.standard.bool(forKey: userDefaultsKey)
-        print("📱 BiometricAuth: Loaded preference - enabled: \(isBiometricEnabled)")
+        dlog("📱 BiometricAuth: Loaded preference - enabled: \(isBiometricEnabled)")
     }
     
     // MARK: - Check if Available
@@ -182,7 +182,7 @@ class BiometricAuthService: ObservableObject {
         context.localizedFallbackTitle = "Use Passcode"
         
         guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) else {
-            print("⚠️ BiometricAuth: Device authentication not available - \(error?.localizedDescription ?? "unknown")")
+            dlog("⚠️ BiometricAuth: Device authentication not available - \(error?.localizedDescription ?? "unknown")")
             return false
         }
         
@@ -193,7 +193,7 @@ class BiometricAuthService: ObservableObject {
             )
             
             if success {
-                print("✅ BiometricAuth: Authentication successful (with passcode fallback)")
+                dlog("✅ BiometricAuth: Authentication successful (with passcode fallback)")
                 
                 await MainActor.run {
                     let haptic = UINotificationFeedbackGenerator()
@@ -204,7 +204,7 @@ class BiometricAuthService: ObservableObject {
             return success
             
         } catch {
-            print("❌ BiometricAuth: Failed - \(error.localizedDescription)")
+            dlog("❌ BiometricAuth: Failed - \(error.localizedDescription)")
             
             await MainActor.run {
                 let haptic = UINotificationFeedbackGenerator()

@@ -35,7 +35,7 @@ class RepostService: ObservableObject {
     
     /// Repost a post to user's profile (with optional comment)
     func repost(postId: String, withComment comment: String? = nil) async throws {
-        print("🔄 Reposting post: \(postId)")
+        dlog("🔄 Reposting post: \(postId)")
         
         guard let userId = firebaseManager.currentUser?.uid else {
             throw FirebaseError.unauthorized
@@ -43,7 +43,7 @@ class RepostService: ObservableObject {
         
         // Check if already reposted
         if await hasReposted(postId: postId) {
-            print("⚠️ Already reposted this post")
+            dlog("⚠️ Already reposted this post")
             throw NSError(domain: "RepostService", code: 409, userInfo: [
                 NSLocalizedDescriptionKey: "You have already reposted this post"
             ])
@@ -127,7 +127,7 @@ class RepostService: ObservableObject {
         // Commit batch
         try await batch.commit()
         
-        print("✅ Post reposted successfully")
+        dlog("✅ Post reposted successfully")
         
         // Update local cache
         var repostWithId = repost
@@ -151,7 +151,7 @@ class RepostService: ObservableObject {
     
     /// Unrepost (remove repost)
     func unrepost(postId: String) async throws {
-        print("🗑️ Unreposting post: \(postId)")
+        dlog("🗑️ Unreposting post: \(postId)")
         
         guard let userId = firebaseManager.currentUser?.uid else {
             throw FirebaseError.unauthorized
@@ -206,7 +206,7 @@ class RepostService: ObservableObject {
         // Commit batch
         try await batch.commit()
         
-        print("✅ Repost removed")
+        dlog("✅ Repost removed")
         
         // Update local cache
         reposts.removeAll { $0.originalPostId == postId }
@@ -230,7 +230,7 @@ class RepostService: ObservableObject {
     
     /// Fetch all reposts by current user
     func fetchUserReposts() async throws -> [Repost] {
-        print("📥 Fetching user's reposts...")
+        dlog("📥 Fetching user's reposts...")
         
         guard let userId = firebaseManager.currentUser?.uid else {
             throw FirebaseError.unauthorized
@@ -248,7 +248,7 @@ class RepostService: ObservableObject {
             try doc.data(as: Repost.self)
         }
         
-        print("✅ Fetched \(fetchedReposts.count) reposts")
+        dlog("✅ Fetched \(fetchedReposts.count) reposts")
         
         // Update local cache
         reposts = fetchedReposts
@@ -259,7 +259,7 @@ class RepostService: ObservableObject {
     
     /// Fetch all users who reposted a specific post
     func fetchRepostsForPost(postId: String) async throws -> [Repost] {
-        print("📥 Fetching reposts for post: \(postId)")
+        dlog("📥 Fetching reposts for post: \(postId)")
         
         let snapshot = try await db.collection(FirebaseManager.CollectionPath.reposts)
             .whereField("originalPostId", isEqualTo: postId)
@@ -270,7 +270,7 @@ class RepostService: ObservableObject {
             try doc.data(as: Repost.self)
         }
         
-        print("✅ Fetched \(fetchedReposts.count) reposts for post")
+        dlog("✅ Fetched \(fetchedReposts.count) reposts for post")
         
         return fetchedReposts
     }
@@ -302,7 +302,7 @@ class RepostService: ObservableObject {
             
             return hasReposted
         } catch {
-            print("❌ Error checking repost status: \(error)")
+            dlog("❌ Error checking repost status: \(error)")
             return false
         }
     }
@@ -325,11 +325,11 @@ class RepostService: ObservableObject {
     /// Start listening to user's reposts
     func startListening() {
         guard let userId = firebaseManager.currentUser?.uid else {
-            print("⚠️ No user ID for listener")
+            dlog("⚠️ No user ID for listener")
             return
         }
         
-        print("🔊 Starting real-time listener for reposts...")
+        dlog("🔊 Starting real-time listener for reposts...")
         
         let listener = db.collection(FirebaseManager.CollectionPath.reposts)
             .whereField("userId", isEqualTo: userId)
@@ -338,7 +338,7 @@ class RepostService: ObservableObject {
                 guard let self = self else { return }
                 
                 if let error = error {
-                    print("❌ Reposts listener error: \(error)")
+                    dlog("❌ Reposts listener error: \(error)")
                     return
                 }
                 
@@ -351,7 +351,7 @@ class RepostService: ObservableObject {
                 self.reposts = fetchedReposts
                 self.repostedPostIds = Set(fetchedReposts.map { $0.originalPostId })
                 
-                print("✅ Real-time update: \(fetchedReposts.count) reposts")
+                dlog("✅ Real-time update: \(fetchedReposts.count) reposts")
             }
         
         listeners.append(listener)
@@ -359,7 +359,7 @@ class RepostService: ObservableObject {
     
     /// Stop all listeners
     func stopListening() {
-        print("🔇 Stopping repost listeners...")
+        dlog("🔇 Stopping repost listeners...")
         listeners.forEach { $0.remove() }
         listeners.removeAll()
     }

@@ -269,7 +269,7 @@ struct UsernameSelectionView: View {
                 }
                 
             } catch {
-                print("❌ Error checking username: \(error.localizedDescription)")
+                dlog("❌ Error checking username: \(error.localizedDescription)")
                 await MainActor.run {
                     usernameAvailable = nil  // Allow nil state on error
                     isCheckingUsername = false
@@ -311,7 +311,7 @@ struct UsernameSelectionView: View {
                     "usernameUpdatedAt": Timestamp(date: Date())
                 ])
                 
-                print("✅ Username and display name updated successfully")
+                dlog("✅ Username and display name updated successfully")
                 
                 // Mark selection complete
                 await MainActor.run {
@@ -320,7 +320,7 @@ struct UsernameSelectionView: View {
                 }
                 
             } catch {
-                print("❌ Failed to save username: \(error.localizedDescription)")
+                dlog("❌ Failed to save username: \(error.localizedDescription)")
                 await MainActor.run {
                     isSaving = false
                     errorMessage = "Failed to save username. Please try again."

@@ -61,7 +61,7 @@ extension FirebaseMessagingService {
         
         try await batch.commit()
         
-        print("💥 Conversation permanently deleted: \(conversationId)")
+        dlog("💥 Conversation permanently deleted: \(conversationId)")
     }
     
     // MARK: - Delete Messages
@@ -103,7 +103,7 @@ extension FirebaseMessagingService {
                 "updatedAt": Timestamp(date: Date())
             ])
             
-            print("💥 Message deleted for everyone: \(messageId)")
+            dlog("💥 Message deleted for everyone: \(messageId)")
         } else {
             // Soft delete - marks as deleted only for current user
             try await messageRef.updateData([
@@ -111,7 +111,7 @@ extension FirebaseMessagingService {
                 "deletedAt.\(currentUserId)": Timestamp(date: Date())
             ])
             
-            print("🗑️ Message deleted for current user: \(messageId)")
+            dlog("🗑️ Message deleted for current user: \(messageId)")
         }
         
         // Update last message in conversation if this was the last message
@@ -150,7 +150,7 @@ extension FirebaseMessagingService {
             try await group.waitForAll()
         }
         
-        print("🗑️ Deleted \(messageIds.count) messages")
+        dlog("🗑️ Deleted \(messageIds.count) messages")
     }
     
     /// Clear all messages in a conversation (for current user only)
@@ -177,7 +177,7 @@ extension FirebaseMessagingService {
         
         try await batch.commit()
         
-        print("🧹 Cleared conversation history: \(conversationId)")
+        dlog("🧹 Cleared conversation history: \(conversationId)")
     }
     
     // MARK: - Delete Conversations with User
@@ -266,7 +266,7 @@ extension FirebaseMessagingService {
             try await group.waitForAll()
         }
         
-        print("📦 Archived \(conversationIds.count) conversations")
+        dlog("📦 Archived \(conversationIds.count) conversations")
     }
     
     /// Delete multiple conversations at once
@@ -280,7 +280,7 @@ extension FirebaseMessagingService {
             try await group.waitForAll()
         }
         
-        print("🗑️ Deleted \(conversationIds.count) conversations")
+        dlog("🗑️ Deleted \(conversationIds.count) conversations")
     }
     
     // MARK: - Message Requests Helpers

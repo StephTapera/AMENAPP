@@ -52,7 +52,7 @@ class OfflineMessageQueue: ObservableObject {
         saveQueue(queue)
         updateCount()
         
-        print("📥 Queued message offline: \(message.id)")
+        dlog("📥 Queued message offline: \(message.id)")
         
         return message.id
     }
@@ -61,11 +61,11 @@ class OfflineMessageQueue: ObservableObject {
         let queue = getQueue()
         
         guard !queue.isEmpty else {
-            print("✅ No queued messages to process")
+            dlog("✅ No queued messages to process")
             return
         }
         
-        print("🔄 Processing \(queue.count) queued messages...")
+        dlog("🔄 Processing \(queue.count) queued messages...")
         
         for message in queue {
             do {
@@ -76,10 +76,10 @@ class OfflineMessageQueue: ObservableObject {
                 )
                 
                 removeFromQueue(message.id)
-                print("✅ Sent queued message: \(message.id)")
+                dlog("✅ Sent queued message: \(message.id)")
                 
             } catch {
-                print("❌ Failed to send queued message \(message.id): \(error)")
+                dlog("❌ Failed to send queued message \(message.id): \(error)")
                 
                 // Increment retry count
                 var updatedQueue = getQueue()
@@ -88,7 +88,7 @@ class OfflineMessageQueue: ObservableObject {
                     
                     // Remove if too many retries (max 5)
                     if updatedQueue[index].retryCount >= 5 {
-                        print("⚠️ Max retries reached for message: \(message.id)")
+                        dlog("⚠️ Max retries reached for message: \(message.id)")
                         updatedQueue.remove(at: index)
                     }
                     
@@ -103,7 +103,7 @@ class OfflineMessageQueue: ObservableObject {
     func clearQueue() {
         saveQueue([])
         updateCount()
-        print("🗑️ Cleared offline message queue")
+        dlog("🗑️ Cleared offline message queue")
     }
     
     // MARK: - Private Helpers

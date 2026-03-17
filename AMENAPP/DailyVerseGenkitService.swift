@@ -38,7 +38,7 @@ class DailyVerseGenkitService: ObservableObject {
     nonisolated private let cacheDate = "cachedVerseDate"
     
     init() {
-        print("✅ DailyVerseGenkitService initialized with Firebase Cloud Functions")
+        dlog("✅ DailyVerseGenkitService initialized with Firebase Cloud Functions")
     }
     
     // MARK: - Generate Personalized Daily Verse
@@ -56,7 +56,7 @@ class DailyVerseGenkitService: ObservableObject {
         
         // Check cache first (only fetch once per day)
         if !forceRefresh, let cached = todayVerse, isSameDay(cached.date, Date()) {
-            print("📖 Using cached daily verse")
+            dlog("📖 Using cached daily verse")
             return cached
         }
 
@@ -91,7 +91,7 @@ class DailyVerseGenkitService: ObservableObject {
         isGenerating = true
         defer { isGenerating = false }
         
-        print("🤖 Generating personalized daily verse via Genkit...")
+        dlog("🤖 Generating personalized daily verse via Genkit...")
 
         // Fetch user context for personalization
         var context = userContext
@@ -125,12 +125,12 @@ class DailyVerseGenkitService: ObservableObject {
 
             self.todayVerse = verse
             cacheVerse(verse)
-            print("✅ Cloud Function verse: \(verse.reference) — \(verse.theme)")
+            dlog("✅ Cloud Function verse: \(verse.reference) — \(verse.theme)")
             return verse
 
         } catch {
             // Cloud Function unavailable — use curated fallback rotation
-            print("⚠️ Cloud Function unavailable (\(error.localizedDescription)) — using fallback verse")
+            dlog("⚠️ Cloud Function unavailable (\(error.localizedDescription)) — using fallback verse")
             let fallbackData = createFallbackVerse()
             let verse = PersonalizedDailyVerse(
                 reference: fallbackData["reference"] as? String ?? "Romans 8:28",
@@ -157,7 +157,7 @@ class DailyVerseGenkitService: ObservableObject {
         isGenerating = true
         defer { isGenerating = false }
         
-        print("🤖 Generating verse for theme: \(theme.rawValue)")
+        dlog("🤖 Generating verse for theme: \(theme.rawValue)")
         
         // Use fallback themed verses
         let fallbackData = createThemedFallbackVerse(theme: theme)
@@ -174,7 +174,7 @@ class DailyVerseGenkitService: ObservableObject {
             date: Date()
         )
         
-        print("✅ Themed verse generated: \(verse.reference)")
+        dlog("✅ Themed verse generated: \(verse.reference)")
         
         return verse
     }
@@ -191,7 +191,7 @@ class DailyVerseGenkitService: ObservableObject {
         isGenerating = true
         defer { isGenerating = false }
         
-        print("🤖 Generating reflection for: \(reference)")
+        dlog("🤖 Generating reflection for: \(reference)")
         
         let callable = functions.httpsCallable("generateVerseReflection")
         let result = try await callable.call(["reference": reference, "verseText": verse])
@@ -299,7 +299,7 @@ class DailyVerseGenkitService: ObservableObject {
         ]
         
         let selectedVerse = fallbackVerses.randomElement() ?? fallbackVerses[0]
-        print("📖 Selected fallback verse: \(selectedVerse["reference"] ?? "Unknown")")
+        dlog("📖 Selected fallback verse: \(selectedVerse["reference"] ?? "Unknown")")
         return selectedVerse
     }
     
@@ -451,7 +451,7 @@ class DailyVerseGenkitService: ObservableObject {
         
         await MainActor.run {
             self.todayVerse = verse
-            print("📖 Loaded cached verse: \(verse.reference)")
+            dlog("📖 Loaded cached verse: \(verse.reference)")
         }
     }
 }

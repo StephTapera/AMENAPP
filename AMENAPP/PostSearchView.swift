@@ -332,12 +332,12 @@ class PostSearchViewModel: ObservableObject {
             posts = try await searchService.searchPosts(query: query, limit: 30)
             
             #if DEBUG
-            print("✅ Found \(posts.count) posts for query: \(query)")
+            dlog("✅ Found \(posts.count) posts for query: \(query)")
             #endif
         } catch {
             self.error = "Search failed. Please try again."
             #if DEBUG
-            print("❌ Post search failed: \(error)")
+            dlog("❌ Post search failed: \(error)")
             #endif
         }
         

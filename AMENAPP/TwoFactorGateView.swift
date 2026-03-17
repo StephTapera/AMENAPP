@@ -223,7 +223,7 @@ struct TwoFactorGateView: View {
         do {
             let phone = try await twoFactorService.get2FAPhone(userId: userId)
             _ = try await twoFactorService.send2FACode(phoneNumber: phone)
-            print("✅ Initial 2FA code sent")
+            dlog("✅ Initial 2FA code sent")
         } catch {
             errorMessage = error.localizedDescription
             showError = true
@@ -247,7 +247,7 @@ struct TwoFactorGateView: View {
                 let haptic = UINotificationFeedbackGenerator()
                 haptic.notificationOccurred(.success)
                 
-                print("✅ 2FA verification successful - user authenticated")
+                dlog("✅ 2FA verification successful - user authenticated")
             }
             
         } catch {
@@ -278,7 +278,7 @@ struct TwoFactorGateView: View {
                 let haptic = UINotificationFeedbackGenerator()
                 haptic.notificationOccurred(.success)
                 
-                print("✅ Backup code verified - user authenticated")
+                dlog("✅ Backup code verified - user authenticated")
             }
             
         } catch {

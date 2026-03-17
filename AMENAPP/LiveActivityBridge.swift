@@ -73,7 +73,7 @@ final class LiveActivityBridge {
             )
             return activity.id
         } catch {
-            print("[LiveActivity] Failed to start church service activity: \(error.localizedDescription)")
+            dlog("[LiveActivity] Failed to start church service activity: \(error.localizedDescription)")
             return nil
         }
     }
@@ -121,7 +121,7 @@ final class LiveActivityBridge {
             )
             return activity.id
         } catch {
-            print("[LiveActivity] Failed to start prayer activity: \(error.localizedDescription)")
+            dlog("[LiveActivity] Failed to start prayer activity: \(error.localizedDescription)")
             return nil
         }
     }
@@ -193,7 +193,7 @@ final class LiveActivityBridge {
             )
             return activity.id
         } catch {
-            print("[LiveActivity] Failed to start music activity: \(error.localizedDescription)")
+            dlog("[LiveActivity] Failed to start music activity: \(error.localizedDescription)")
             return nil
         }
     }
@@ -251,7 +251,7 @@ final class LiveActivityBridge {
             )
             return activity.id
         } catch {
-            print("[LiveActivity] Failed to start reply activity: \(error.localizedDescription)")
+            dlog("[LiveActivity] Failed to start reply activity: \(error.localizedDescription)")
             return nil
         }
     }
@@ -291,6 +291,20 @@ final class LiveActivityBridge {
         let reply  = ActivityKit.Activity<ReplyActivityAttributes>.activities.first?.id
         return RestoredActivityIds(church: church, prayer: prayer, music: music, reply: reply)
     }
+
+    // MARK: - Badge Count Sync
+
+    /// P2 FIX: Notify all active Live Activities of the updated badge count.
+    /// The OS app icon badge is set separately via UNUserNotificationCenter;
+    /// this call propagates the count into any activity that surfaces a badge in
+    /// its Lock Screen or Dynamic Island widget content state.
+    /// Currently a no-op because none of the content states carry a badgeCount field.
+    /// Add `var badgeCount: Int` to the relevant ContentState structs and update here
+    /// when Lock Screen badge display is added to the widget UI.
+    func updateBadgeCount(_ count: Int) async {
+        // Reserved for future content-state badge propagation.
+        // The OS-level badge is already set by UNUserNotificationCenter in BadgeCountManager.
+    }
 }
 
 #else
@@ -318,6 +332,7 @@ final class LiveActivityBridge {
     func updateReplyActivity(id: String, suggestion1: String, suggestion2: String, suggestion3: String, privacyLevel: ReplyActivityAttributes.PrivacyLevel, contextSnippet: String?) async {}
     func endReplyActivity(id: String, animated: Bool) async {}
     func restoreActiveIds() async -> RestoredActivityIds { RestoredActivityIds() }
+    func updateBadgeCount(_ count: Int) async {}
 }
 
 #endif

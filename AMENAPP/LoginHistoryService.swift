@@ -92,7 +92,7 @@ class LoginHistoryService: ObservableObject {
             }
         }
         
-        print("✅ Login session tracked: \(sessionId)")
+        dlog("✅ Login session tracked: \(sessionId)")
         
         // Store session ID locally
         UserDefaults.standard.set(sessionId, forKey: "currentLoginSessionId")
@@ -114,7 +114,7 @@ class LoginHistoryService: ObservableObject {
         do {
             try await sessionRef.setValue(Date().timeIntervalSince1970)
         } catch {
-            print("⚠️ Failed to update last active: \(error)")
+            dlog("⚠️ Failed to update last active: \(error)")
         }
     }
     
@@ -137,7 +137,7 @@ class LoginHistoryService: ObservableObject {
         let snapshot = try await historyRef.getData()
         
         guard snapshot.exists(), let sessionsData = snapshot.value as? [String: Any] else {
-            print("📭 No login history found")
+            dlog("📭 No login history found")
             return []
         }
         
@@ -154,7 +154,7 @@ class LoginHistoryService: ObservableObject {
         // Sort by timestamp (most recent first)
         sessions.sort { $0.timestamp > $1.timestamp }
         
-        print("✅ Fetched \(sessions.count) login sessions")
+        dlog("✅ Fetched \(sessions.count) login sessions")
         
         self.loginSessions = sessions
         
@@ -176,7 +176,7 @@ class LoginHistoryService: ObservableObject {
         
         try await sessionRef.removeValue()
         
-        print("✅ Signed out from session: \(sessionId)")
+        dlog("✅ Signed out from session: \(sessionId)")
         
         // Refresh login history
         _ = try await fetchLoginHistory()
@@ -205,7 +205,7 @@ class LoginHistoryService: ObservableObject {
             try await historyRef.child(sessionId).removeValue()
         }
         
-        print("✅ Signed out from all other devices")
+        dlog("✅ Signed out from all other devices")
         
         // Refresh login history
         _ = try await fetchLoginHistory()
@@ -223,7 +223,7 @@ class LoginHistoryService: ObservableObject {
         
         try await historyRef.removeValue()
         
-        print("✅ Signed out from all devices")
+        dlog("✅ Signed out from all devices")
         
         // Sign out from Firebase Auth
         try Auth.auth().signOut()

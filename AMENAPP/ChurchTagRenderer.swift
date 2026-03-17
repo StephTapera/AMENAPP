@@ -87,7 +87,7 @@ extension Post {
                 contextId: postId
             )
         } catch {
-            print("⚠️ Failed to load church tags: \(error)")
+            dlog("⚠️ Failed to load church tags: \(error)")
             return []
         }
     }
@@ -142,7 +142,7 @@ class ChurchTagSaver {
         }
         
         #if DEBUG
-        print("✅ Saved \(churches.count) church tags for \(context.rawValue): \(postId)")
+        dlog("✅ Saved \(churches.count) church tags for \(context.rawValue): \(postId)")
         #endif
     }
 }

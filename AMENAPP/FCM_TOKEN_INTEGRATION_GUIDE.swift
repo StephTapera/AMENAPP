@@ -25,13 +25,13 @@ extension SignInView {
     
     /// Call this after successful login to setup FCM
     private func setupFCMAfterLogin() async {
-        print("🔐 User logged in, setting up FCM...")
+        dlog("🔐 User logged in, setting up FCM...")
         
         // 1. Request notification permissions
         let granted = await PushNotificationManager.shared.requestNotificationPermissions()
         
         if granted {
-            print("✅ Notification permission granted")
+            dlog("✅ Notification permission granted")
             
             // 2. Setup FCM token (this will automatically save to Firestore)
             PushNotificationManager.shared.setupFCMToken()
@@ -39,7 +39,7 @@ extension SignInView {
             // 3. Optional: Schedule daily reminders
             await PushNotificationManager.shared.scheduleDailyReminders()
         } else {
-            print("⚠️ Notification permission denied")
+            dlog("⚠️ Notification permission denied")
             // You can still use the app, but no push notifications
         }
     }
@@ -57,7 +57,7 @@ extension ContentView {
     private func setupFCMOnAppear() {
         // Only setup if user is already authenticated
         guard Auth.auth().currentUser != nil else {
-            print("⚠️ No authenticated user, skipping FCM setup")
+            dlog("⚠️ No authenticated user, skipping FCM setup")
             return
         }
         
@@ -68,10 +68,10 @@ extension ContentView {
             if hasPermission {
                 // We have permission, setup FCM
                 PushNotificationManager.shared.setupFCMToken()
-                print("✅ FCM setup on app launch")
+                dlog("✅ FCM setup on app launch")
             } else {
                 // No permission yet, you can prompt user or wait for login flow
-                print("⚠️ No notification permission on app launch")
+                dlog("⚠️ No notification permission on app launch")
             }
         }
     }
@@ -123,13 +123,13 @@ struct CompleteLoginExample: View {
                 password: password
             )
             
-            print("✅ User signed in: \(authResult.user.uid)")
+            dlog("✅ User signed in: \(authResult.user.uid)")
             
             // 2. Request notification permissions
             let granted = await PushNotificationManager.shared.requestNotificationPermissions()
             
             if granted {
-                print("✅ Notification permission granted")
+                dlog("✅ Notification permission granted")
                 
                 // 3. Setup FCM token (this automatically saves to Firestore)
                 PushNotificationManager.shared.setupFCMToken()
@@ -137,7 +137,7 @@ struct CompleteLoginExample: View {
                 // 4. Optional: Setup daily reminders
                 await PushNotificationManager.shared.scheduleDailyReminders()
             } else {
-                print("⚠️ Notification permission denied by user")
+                dlog("⚠️ Notification permission denied by user")
             }
             
             // 5. Navigate to main app
@@ -151,7 +151,7 @@ struct CompleteLoginExample: View {
                 errorMessage = error.localizedDescription
                 isLoading = false
             }
-            print("❌ Login failed: \(error)")
+            dlog("❌ Login failed: \(error)")
         }
     }
 }
@@ -186,7 +186,7 @@ extension AuthenticationService {
         // 4. Sign out from Firebase Auth
         try Auth.auth().signOut()
         
-        print("✅ User logged out and FCM token removed")
+        dlog("✅ User logged out and FCM token removed")
     }
 }
 
@@ -197,7 +197,7 @@ extension AuthenticationService {
 /// Helper function to check if FCM token is saved in Firestore
 func verifyFCMTokenInFirestore() async {
     guard let userId = Auth.auth().currentUser?.uid else {
-        print("⚠️ No authenticated user")
+        dlog("⚠️ No authenticated user")
         return
     }
     
@@ -206,20 +206,20 @@ func verifyFCMTokenInFirestore() async {
         let userDoc = try await db.collection("users").document(userId).getDocument()
         
         if let fcmToken = userDoc.data()?["fcmToken"] as? String {
-            print("✅ FCM token stored in Firestore: \(fcmToken)")
+            dlog("✅ FCM token stored in Firestore: \(fcmToken)")
         } else {
-            print("❌ No FCM token found in Firestore")
+            dlog("❌ No FCM token found in Firestore")
         }
         
         if let updatedAt = userDoc.data()?["fcmTokenUpdatedAt"] as? Timestamp {
-            print("📅 Token last updated: \(updatedAt.dateValue())")
+            dlog("📅 Token last updated: \(updatedAt.dateValue())")
         }
         
         if let platform = userDoc.data()?["platform"] as? String {
-            print("📱 Platform: \(platform)")
+            dlog("📱 Platform: \(platform)")
         }
     } catch {
-        print("❌ Error verifying FCM token: \(error)")
+        dlog("❌ Error verifying FCM token: \(error)")
     }
 }
 
@@ -229,29 +229,29 @@ func verifyFCMTokenInFirestore() async {
 
 /// Test function to verify everything is working
 func testPushNotificationSetup() async {
-    print("🧪 Testing push notification setup...")
+    dlog("🧪 Testing push notification setup...")
     
     // 1. Check authentication
     guard let userId = Auth.auth().currentUser?.uid else {
-        print("❌ Not authenticated")
+        dlog("❌ Not authenticated")
         return
     }
-    print("✅ User authenticated: \(userId)")
+    dlog("✅ User authenticated: \(userId)")
     
     // 2. Check notification permission
     let hasPermission = await PushNotificationManager.shared.checkNotificationPermissions()
     if hasPermission {
-        print("✅ Notification permission granted")
+        dlog("✅ Notification permission granted")
     } else {
-        print("❌ Notification permission not granted")
+        dlog("❌ Notification permission not granted")
         return
     }
     
     // 3. Check FCM token
     if let fcmToken = PushNotificationManager.shared.fcmToken {
-        print("✅ FCM token available: \(fcmToken)")
+        dlog("✅ FCM token available: \(fcmToken)")
     } else {
-        print("⚠️ FCM token not available yet (may still be loading)")
+        dlog("⚠️ FCM token not available yet (may still be loading)")
     }
     
     // 4. Verify token in Firestore
@@ -259,9 +259,9 @@ func testPushNotificationSetup() async {
     
     // 5. Schedule test notification
     await PushNotificationManager.shared.scheduleTestNotification()
-    print("✅ Test notification scheduled (should appear in 5 seconds)")
+    dlog("✅ Test notification scheduled (should appear in 5 seconds)")
     
-    print("🧪 Test complete!")
+    dlog("🧪 Test complete!")
 }
 
 // ============================================================================
@@ -329,7 +329,7 @@ func testPushNotificationSetup() async {
             
             // Navigate to main app
         } catch {
-            print("Login error: \(error)")
+            dlog("Login error: \(error)")
         }
     }
  
@@ -417,7 +417,7 @@ class AuthenticationViewModelFCMGuide: ObservableObject {
         do {
             // 1. Sign in with Firebase Auth
             let result = try await Auth.auth().signIn(withEmail: email, password: password)
-            print("✅ Signed in: \(result.user.uid)")
+            dlog("✅ Signed in: \(result.user.uid)")
             
             // 2. Setup FCM (CRITICAL FOR PUSH NOTIFICATIONS)
             await setupFCMForUser()
@@ -438,7 +438,7 @@ class AuthenticationViewModelFCMGuide: ObservableObject {
         do {
             // 1. Create account
             let result = try await Auth.auth().createUser(withEmail: email, password: password)
-            print("✅ Account created: \(result.user.uid)")
+            dlog("✅ Account created: \(result.user.uid)")
             
             // 2. Create user document in Firestore
             let db = Firestore.firestore()
@@ -481,7 +481,7 @@ class AuthenticationViewModelFCMGuide: ObservableObject {
                 isAuthenticated = false
             }
             
-            print("✅ Signed out successfully")
+            dlog("✅ Signed out successfully")
             
         } catch {
             await MainActor.run {
@@ -496,7 +496,7 @@ class AuthenticationViewModelFCMGuide: ObservableObject {
         let granted = await PushNotificationManager.shared.requestNotificationPermissions()
         
         if granted {
-            print("✅ Notification permission granted")
+            dlog("✅ Notification permission granted")
             
             // 2. Setup FCM token (automatically saves to Firestore)
             PushNotificationManager.shared.setupFCMToken()
@@ -504,9 +504,9 @@ class AuthenticationViewModelFCMGuide: ObservableObject {
             // 3. Schedule daily reminders (optional)
             await PushNotificationManager.shared.scheduleDailyReminders()
             
-            print("✅ FCM setup complete")
+            dlog("✅ FCM setup complete")
         } else {
-            print("⚠️ User denied notification permission")
+            dlog("⚠️ User denied notification permission")
             // App still works, but no push notifications
         }
     }

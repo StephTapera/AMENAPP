@@ -114,8 +114,8 @@ struct MessagesView: View {
         case .chat(let conversation):
             ModernConversationDetailView(conversation: conversation)
                 .onAppear {
-                    print("\n🎬 SHEET PRESENTING: Chat")
-                    print("   - Conversation: \(conversation.name)")
+                    dlog("\n🎬 SHEET PRESENTING: Chat")
+                    dlog("   - Conversation: \(conversation.name)")
                 }
         
         case .newMessage:
@@ -126,19 +126,19 @@ struct MessagesView: View {
                 }
             }
             .onAppear {
-                print("\n🎬 SHEET PRESENTING: New Message")
+                dlog("\n🎬 SHEET PRESENTING: New Message")
             }
         
         case .createGroup:
             CreateGroupView()
                 .onAppear {
-                    print("\n🎬 SHEET PRESENTING: Create Group")
+                    dlog("\n🎬 SHEET PRESENTING: Create Group")
                 }
         
         case .settings:
             MessageSettingsView()
                 .onAppear {
-                    print("\n🎬 SHEET PRESENTING: Settings")
+                    dlog("\n🎬 SHEET PRESENTING: Settings")
                 }
         }
     }
@@ -154,21 +154,21 @@ struct MessagesView: View {
     
     /// Open chat with conversation
     private func openChat(with conversation: ChatConversation) {
-        print("\n💬 OPENING CHAT")
-        print("   - Conversation: \(conversation.name)")
-        print("   - ID: \(conversation.id)")
+        dlog("\n💬 OPENING CHAT")
+        dlog("   - Conversation: \(conversation.name)")
+        dlog("   - ID: \(conversation.id)")
         
         // Set the sheet to show chat
         activeSheet = .chat(conversation)
         
-        print("   - activeSheet set to: \(activeSheet?.id ?? "nil")")
+        dlog("   - activeSheet set to: \(activeSheet?.id ?? "nil")")
     }
     
     /// Start a new conversation with a user
     private func startConversation(with user: SearchableUser) async {
-        print("\n🚀 START CONVERSATION")
-        print("   - User: \(user.displayName)")
-        print("   - ID: \(user.id)")
+        dlog("\n🚀 START CONVERSATION")
+        dlog("   - User: \(user.displayName)")
+        dlog("   - ID: \(user.id)")
         
         do {
             let conversationId = try await messagingService.getOrCreateDirectConversation(
@@ -176,7 +176,7 @@ struct MessagesView: View {
                 userName: user.displayName
             )
             
-            print("✅ Got conversation ID: \(conversationId)")
+            dlog("✅ Got conversation ID: \(conversationId)")
             
             // Dismiss search sheet
             await MainActor.run {
@@ -188,12 +188,12 @@ struct MessagesView: View {
             
             // Find or create conversation object
             if let conversation = messagingService.conversations.first(where: { $0.id == conversationId }) {
-                print("✅ Found conversation in list")
+                dlog("✅ Found conversation in list")
                 await MainActor.run {
                     activeSheet = .chat(conversation)
                 }
             } else {
-                print("⚠️ Creating temp conversation")
+                dlog("⚠️ Creating temp conversation")
                 let tempConversation = ChatConversation(
                     id: conversationId,
                     name: user.displayName,
@@ -209,10 +209,10 @@ struct MessagesView: View {
                 }
             }
             
-            print("✅ CONVERSATION OPENED")
+            dlog("✅ CONVERSATION OPENED")
             
         } catch {
-            print("❌ ERROR: \(error)")
+            dlog("❌ ERROR: \(error)")
             await MainActor.run {
                 activeSheet = nil
             }
@@ -221,14 +221,14 @@ struct MessagesView: View {
     
     /// Handle coordinator request to open conversation
     private func handleCoordinatorRequest(conversationId: String) {
-        print("\n📞 COORDINATOR REQUEST")
-        print("   - Conversation ID: \(conversationId)")
+        dlog("\n📞 COORDINATOR REQUEST")
+        dlog("   - Conversation ID: \(conversationId)")
         
         if let conversation = messagingService.conversations.first(where: { $0.id == conversationId }) {
-            print("✅ Found conversation")
+            dlog("✅ Found conversation")
             openChat(with: conversation)
         } else {
-            print("⚠️ Conversation not found in list")
+            dlog("⚠️ Conversation not found in list")
         }
         
         // Clear the request
@@ -344,7 +344,7 @@ STEP 10: Clean build and test!
 Add this test button to verify sheets work:
 
 Button("🧪 TEST SHEETS") {
-    print("🧪 Testing sheet presentation...")
+    dlog("🧪 Testing sheet presentation...")
     
     let testConversation = ChatConversation(
         id: "test123",
@@ -358,7 +358,7 @@ Button("🧪 TEST SHEETS") {
     
     activeSheet = .chat(testConversation)
     
-    print("🧪 activeSheet set to: \(activeSheet?.id ?? "nil")")
+    dlog("🧪 activeSheet set to: \(activeSheet?.id ?? "nil")")
 }
 .padding()
 .background(Color.green.opacity(0.3))
@@ -409,8 +409,8 @@ extension MessageSheetType {
 // Add to body:
 /*
 .onChange(of: activeSheet) { oldValue, newValue in
-    print("\n🔄 activeSheet CHANGED")
-    print("   - Old: \(oldValue?.debugDescription ?? "nil")")
-    print("   - New: \(newValue?.debugDescription ?? "nil")")
+    dlog("\n🔄 activeSheet CHANGED")
+    dlog("   - Old: \(oldValue?.debugDescription ?? "nil")")
+    dlog("   - New: \(newValue?.debugDescription ?? "nil")")
 }
 */

@@ -185,7 +185,7 @@ struct PrivacyControlsSettingsView: View {
             settings = trustService.userSettings
             isLoading = false
         } catch {
-            print("❌ Error loading privacy settings: \(error)")
+            dlog("❌ Error loading privacy settings: \(error)")
             isLoading = false
         }
     }
@@ -196,9 +196,9 @@ struct PrivacyControlsSettingsView: View {
         Task {
             do {
                 try await trustService.savePrivacySettings(settings)
-                print("✅ Privacy settings saved")
+                dlog("✅ Privacy settings saved")
             } catch {
-                print("❌ Error saving privacy settings: \(error)")
+                dlog("❌ Error saving privacy settings: \(error)")
             }
         }
     }

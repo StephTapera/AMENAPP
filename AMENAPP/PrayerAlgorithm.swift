@@ -229,7 +229,7 @@ class PrayerAlgorithm: ObservableObject {
         saveHistory()
 
         #if DEBUG
-        print("🙏 Prayer recorded: Author=\(post.authorId), Topic=\(post.topicTag ?? "none")")
+        dlog("🙏 Prayer recorded: Author=\(post.authorId), Topic=\(post.topicTag ?? "none")")
         #endif
     }
 
@@ -267,7 +267,7 @@ class PrayerAlgorithm: ObservableObject {
             let data = try encoder.encode(userPrayerHistory)
             UserDefaults.standard.set(data, forKey: "prayerHistory_v1")
         } catch {
-            print("❌ Failed to save prayer history: \(error)")
+            dlog("❌ Failed to save prayer history: \(error)")
         }
     }
 

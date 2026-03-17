@@ -344,7 +344,7 @@ final class ChurchDiscoveryService: ObservableObject {
             nearbyChurches = churches.filter { $0.isNearby }
 
         } catch {
-            print("[ChurchDiscovery] Failed to fetch churches: \(error)")
+            dlog("[ChurchDiscovery] Failed to fetch churches: \(error)")
         }
     }
 
@@ -419,7 +419,7 @@ final class ChurchDiscoveryService: ObservableObject {
         guard flags.churchServiceRemindersEnabled else { return }
         // Integration point for UNUserNotificationCenter
         // Notification content would be: "Your saved church — \(church.name) — has a service today at \(church.primaryServiceTime)"
-        print("[ChurchDiscovery] Service reminder scheduled for \(church.name)")
+        dlog("[ChurchDiscovery] Service reminder scheduled for \(church.name)")
     }
 
     // MARK: - Preferences

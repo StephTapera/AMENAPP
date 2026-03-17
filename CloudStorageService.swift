@@ -45,7 +45,7 @@ class CloudStorageService {
         let fileName = "\(UUID().uuidString).\(type.fileExtension)"
         let path = "posts/\(userId)/\(type.folder)/\(fileName)"
         
-        print("📤 [CLOUD STORAGE] Uploading \(type.folder) to: \(path)")
+        dlog("📤 [CLOUD STORAGE] Uploading \(type.folder) to: \(path)")
         
         let storageRef = storage.reference().child(path)
         
@@ -62,14 +62,14 @@ class CloudStorageService {
                 guard let progress = snapshot.progress else { return }
                 let percentComplete = Double(progress.completedUnitCount) / Double(progress.totalUnitCount)
                 progressHandler?(percentComplete)
-                print("📊 Upload progress: \(Int(percentComplete * 100))%")
+                dlog("📊 Upload progress: \(Int(percentComplete * 100))%")
             }
             
             // Handle completion
             uploadTask.observe(.success) { _ in
                 storageRef.downloadURL { url, error in
                     if let error = error {
-                        print("❌ [CLOUD STORAGE] Failed to get download URL: \(error)")
+                        dlog("❌ [CLOUD STORAGE] Failed to get download URL: \(error)")
                         continuation.resume(throwing: error)
                         return
                     }
@@ -80,14 +80,14 @@ class CloudStorageService {
                         return
                     }
                     
-                    print("✅ [CLOUD STORAGE] Upload successful: \(downloadURL)")
+                    dlog("✅ [CLOUD STORAGE] Upload successful: \(downloadURL)")
                     continuation.resume(returning: downloadURL)
                 }
             }
             
             uploadTask.observe(.failure) { snapshot in
                 if let error = snapshot.error {
-                    print("❌ [CLOUD STORAGE] Upload failed: \(error)")
+                    dlog("❌ [CLOUD STORAGE] Upload failed: \(error)")
                     continuation.resume(throwing: error)
                 }
             }
@@ -121,7 +121,7 @@ class CloudStorageService {
         }
         
         try await storageRef.delete()
-        print("✅ [CLOUD STORAGE] File deleted: \(url)")
+        dlog("✅ [CLOUD STORAGE] File deleted: \(url)")
     }
     
     /// Get file size from Cloud Storage

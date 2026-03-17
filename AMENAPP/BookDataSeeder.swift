@@ -21,7 +21,7 @@ class BookDataSeeder {
     /// Seed the database with sample Christian books
     @MainActor
     func seedBooks() async throws {
-        print("🌱 Starting to seed books database...")
+        dlog("🌱 Starting to seed books database...")
         
         let books = createSampleBooks()
         
@@ -29,14 +29,14 @@ class BookDataSeeder {
         for book in books {
             do {
                 let bookId = try await service.addBook(book)
-                print("✅ Added book: \(book.title) (ID: \(bookId))")
+                dlog("✅ Added book: \(book.title) (ID: \(bookId))")
                 addedCount += 1
             } catch {
-                print("❌ Failed to add book '\(book.title)': \(error)")
+                dlog("❌ Failed to add book '\(book.title)': \(error)")
             }
         }
         
-        print("🎉 Seeding complete! Added \(addedCount) out of \(books.count) books.")
+        dlog("🎉 Seeding complete! Added \(addedCount) out of \(books.count) books.")
     }
     
     /// Create sample books for each category
@@ -331,18 +331,18 @@ class BookDataSeeder {
     /// Delete all books (USE WITH CAUTION!)
     @MainActor
     func clearAllBooks() async throws {
-        print("🗑️ WARNING: Deleting all books from database...")
+        dlog("🗑️ WARNING: Deleting all books from database...")
         
         let books = try await service.fetchAllBooks()
         
         for book in books {
             if let bookId = book.id {
                 try await service.deleteBook(id: bookId)
-                print("🗑️ Deleted: \(book.title)")
+                dlog("🗑️ Deleted: \(book.title)")
             }
         }
         
-        print("✅ All books deleted")
+        dlog("✅ All books deleted")
     }
 }
 
@@ -357,7 +357,7 @@ class BookDataSeeder {
      do {
          try await BookDataSeeder.shared.seedBooks()
      } catch {
-         print("❌ Error seeding books: \(error)")
+         dlog("❌ Error seeding books: \(error)")
      }
  }
  ```
@@ -373,7 +373,7 @@ class BookDataSeeder {
      do {
          try await BookDataSeeder.shared.clearAllBooks()
      } catch {
-         print("❌ Error clearing books: \(error)")
+         dlog("❌ Error clearing books: \(error)")
      }
  }
  ```

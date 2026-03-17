@@ -361,7 +361,7 @@ class PostViewController: UIViewController {
         addComment(postId: postId, text: text) { commentId in
             if commentId != nil {
                 self.commentTextField.text = ""
-                print("Comment added successfully!")
+                dlog("Comment added successfully!")
             }
         }
     }

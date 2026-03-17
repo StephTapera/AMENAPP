@@ -358,7 +358,7 @@ struct AccountLinkingView: View {
         let errorCode = SecRandomCopyBytes(kSecRandomDefault, randomBytes.count, &randomBytes)
         if errorCode != errSecSuccess {
             // Fallback: use UUID-based entropy if SecRandomCopyBytes fails (should never happen on-device)
-            print("⚠️ SecRandomCopyBytes failed (\(errorCode)), using UUID fallback for nonce")
+            dlog("⚠️ SecRandomCopyBytes failed (\(errorCode)), using UUID fallback for nonce")
             return UUID().uuidString.replacingOccurrences(of: "-", with: "") + UUID().uuidString.replacingOccurrences(of: "-", with: "")
         }
         
@@ -399,7 +399,7 @@ class AppleLinkingCoordinator: NSObject, ASAuthorizationControllerDelegate {
             guard let appleIDCredential = authorization.credential as? ASAuthorizationAppleIDCredential,
                   let appleIDToken = appleIDCredential.identityToken,
                   let idTokenString = String(data: appleIDToken, encoding: .utf8) else {
-                print("❌ Apple Sign In failed: Unable to fetch identity token")
+                dlog("❌ Apple Sign In failed: Unable to fetch identity token")
                 return
             }
             
@@ -414,7 +414,7 @@ class AppleLinkingCoordinator: NSObject, ASAuthorizationControllerDelegate {
     }
     
     func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
-        print("❌ Apple linking error: \(error.localizedDescription)")
+        dlog("❌ Apple linking error: \(error.localizedDescription)")
     }
 }
 

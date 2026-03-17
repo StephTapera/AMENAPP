@@ -242,9 +242,9 @@ class NewAccountRestrictionService: ObservableObject {
             // Update local state
             await updateLocalCounts(userId: userId)
             
-            print("✅ Recorded \(actionType.displayName) action for user \(userId)")
+            dlog("✅ Recorded \(actionType.displayName) action for user \(userId)")
         } catch {
-            print("❌ Failed to record action: \(error.localizedDescription)")
+            dlog("❌ Failed to record action: \(error.localizedDescription)")
         }
     }
     
@@ -347,7 +347,7 @@ class NewAccountRestrictionService: ObservableObject {
             return TimeInterval(90 * 86400) // 90 days
             
         } catch {
-            print("⚠️ Could not fetch account age: \(error.localizedDescription)")
+            dlog("⚠️ Could not fetch account age: \(error.localizedDescription)")
             return TimeInterval(90 * 86400) // Default to mature on error (fail open)
         }
     }
@@ -369,7 +369,7 @@ class NewAccountRestrictionService: ObservableObject {
             return data[actionKey] as? Int ?? 0
             
         } catch {
-            print("⚠️ Could not fetch usage count: \(error.localizedDescription)")
+            dlog("⚠️ Could not fetch usage count: \(error.localizedDescription)")
             return 0 // Fail open
         }
     }
@@ -470,7 +470,7 @@ class NewAccountRestrictionService: ObservableObject {
             dailyDMCount = data["messaging"] as? Int ?? 0
             
         } catch {
-            print("⚠️ Could not update local counts: \(error.localizedDescription)")
+            dlog("⚠️ Could not update local counts: \(error.localizedDescription)")
         }
     }
     
@@ -485,7 +485,7 @@ class NewAccountRestrictionService: ObservableObject {
         
         await updateLocalCounts(userId: userId)
         
-        print("✅ User account tier: \(currentUserTier.displayName)")
+        dlog("✅ User account tier: \(currentUserTier.displayName)")
     }
 }
 

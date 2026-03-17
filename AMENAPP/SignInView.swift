@@ -640,7 +640,7 @@ struct SignInView: View {
         
         authTask = Task {
             guard !Task.isCancelled else {
-                print("⚠️ Auth request cancelled before starting")
+                dlog("⚠️ Auth request cancelled before starting")
                 return
             }
 
@@ -675,7 +675,7 @@ struct SignInView: View {
                 } else {
                     // Email+password login
                     let loginIdentifier = email.trimmingCharacters(in: .whitespaces).lowercased()
-                    print("📧 Email login with: \(loginIdentifier)")
+                    dlog("📧 Email login with: \(loginIdentifier)")
 
                     if loginIdentifier.hasPrefix("@") {
                         // Username login
@@ -743,26 +743,26 @@ struct SignInView: View {
         authTask = Task {
             // Early exit if already cancelled
             guard !Task.isCancelled else {
-                print("⚠️ Auth request cancelled before starting")
+                dlog("⚠️ Auth request cancelled before starting")
                 return
             }
             if isLogin {
                 // Check if user entered @username instead of email
                 let loginIdentifier = email.trimmingCharacters(in: .whitespaces).lowercased()
                 
-                print("📧 Sign-in attempt with: \(loginIdentifier.contains("@") && !loginIdentifier.hasPrefix("@") ? "email" : "username")")
+                dlog("📧 Sign-in attempt with: \(loginIdentifier.contains("@") && !loginIdentifier.hasPrefix("@") ? "email" : "username")")
                 
                 if loginIdentifier.hasPrefix("@") {
                     // User entered @username - need to look up email
-                    print("🔍 Looking up email for username: \(loginIdentifier)")
+                    dlog("🔍 Looking up email for username: \(loginIdentifier)")
                     await signInWithUsername(loginIdentifier)
                 } else if loginIdentifier.contains("@") {
                     // Regular email sign-in
-                    print("📧 Email sign-in")
+                    dlog("📧 Email sign-in")
                     await viewModel.signIn(email: loginIdentifier, password: password)
                 } else {
                     // Assume it's username without @ prefix
-                    print("🔍 Looking up email for username: @\(loginIdentifier)")
+                    dlog("🔍 Looking up email for username: @\(loginIdentifier)")
                     await signInWithUsername("@\(loginIdentifier)")
                 }
 
@@ -777,7 +777,7 @@ struct SignInView: View {
                 // ✅ Cache user name for messaging after successful login
                 if viewModel.isAuthenticated {
                     await FirebaseMessagingService.shared.fetchAndCacheCurrentUserName()
-                    print("✅ User name cached for messaging")
+                    dlog("✅ User name cached for messaging")
                 }
             } else {
                 dlog("📝 Sign-up attempt")
@@ -793,7 +793,7 @@ struct SignInView: View {
                 // ✅ Cache user name after successful signup
                 if viewModel.isAuthenticated {
                     await FirebaseMessagingService.shared.fetchAndCacheCurrentUserName()
-                    print("✅ User name cached for messaging")
+                    dlog("✅ User name cached for messaging")
                 }
             }
             
@@ -811,7 +811,7 @@ struct SignInView: View {
             .lowercased()
             .replacingOccurrences(of: "@", with: "")
 
-        print("🔍 Username lookup: @\(cleanUsername)")
+        dlog("🔍 Username lookup: @\(cleanUsername)")
 
         do {
             // P0 CRASH FIX: Firebase HTTPSCallable.call() uses async let internally.
@@ -829,11 +829,11 @@ struct SignInView: View {
                 return email
             }.value
 
-            print("✅ @\(cleanUsername) resolved — proceeding with sign-in")
+            dlog("✅ @\(cleanUsername) resolved — proceeding with sign-in")
             await viewModel.signIn(email: resolvedEmail, password: password)
 
         } catch let error as NSError {
-            print("❌ resolveUsernameToEmail: domain=\(error.domain) code=\(error.code) — \(error.localizedDescription)")
+            dlog("❌ resolveUsernameToEmail: domain=\(error.domain) code=\(error.code) — \(error.localizedDescription)")
 
             let functionsCode = FunctionsErrorCode(rawValue: error.code)
             let message: String
@@ -861,7 +861,7 @@ struct SignInView: View {
     
     /// P0 FIX: Improved OTP verification with proper error handling and state management
     private func verifyOTP() async {
-        print("🔐 Verifying OTP: \(otpCode)")
+        dlog("🔐 Verifying OTP: \(otpCode)")
         
         // Validate OTP format (6 digits)
         guard otpCode.count == 6, otpCode.allSatisfy({ $0.isNumber }) else {
@@ -918,7 +918,7 @@ struct SignInView: View {
         
         // Check if verification was successful
         if viewModel.isAuthenticated {
-            print("✅ Phone verification successful - closing OTP sheet")
+            dlog("✅ Phone verification successful - closing OTP sheet")
             
             // Close OTP sheet and clean up state
             await MainActor.run {
@@ -928,7 +928,7 @@ struct SignInView: View {
                 // Cache user name for messaging
                 Task {
                     await FirebaseMessagingService.shared.fetchAndCacheCurrentUserName()
-                    print("✅ User authenticated and name cached")
+                    dlog("✅ User authenticated and name cached")
                 }
             }
         } else {
@@ -948,7 +948,7 @@ struct SignInView: View {
     private func resendOTP() async {
         // P0: Prevent duplicate resends
         guard canResendOTP else {
-            print("⚠️ Cannot resend yet - timer still active")
+            dlog("⚠️ Cannot resend yet - timer still active")
             return
         }
         
@@ -979,7 +979,7 @@ struct SignInView: View {
         // Clean up view model state
         viewModel.cleanupPhoneAuthState()
         
-        print("🧹 OTP state cleaned up")
+        dlog("🧹 OTP state cleaned up")
     }
     
     private func startOTPTimer() {
@@ -1076,7 +1076,7 @@ struct SignInView: View {
                     viewModel.isLoading = false
                 }
                 
-                print("❌ Biometric sign-in failed: \(error.localizedDescription)")
+                dlog("❌ Biometric sign-in failed: \(error.localizedDescription)")
             }
         }
     }
@@ -1134,8 +1134,8 @@ struct SignInView: View {
                     isCheckingUsername = false
                 }
             } catch {
-                print("❌ Username availability check error: \(error)")
-                print("   Error details: \(error.localizedDescription)")
+                dlog("❌ Username availability check error: \(error)")
+                dlog("   Error details: \(error.localizedDescription)")
                 await MainActor.run {
                     // On error, assume available to not block signup
                     // The backend will do final validation anyway
@@ -1176,7 +1176,7 @@ struct SignInView: View {
             return (displayName, username)
             
         } catch {
-            print("❌ Phone lookup failed: \(error.localizedDescription)")
+            dlog("❌ Phone lookup failed: \(error.localizedDescription)")
             return nil
         }
     }
@@ -1203,11 +1203,11 @@ struct SignInView: View {
         Task {
             do {
                 viewModel.isLoading = true
-                print("🔵 Google Sign-In initiated")
+                dlog("🔵 Google Sign-In initiated")
                 
                 let _ = try await FirebaseManager.shared.signInWithGoogle()
                 
-                print("✅ Google Sign-In successful")
+                dlog("✅ Google Sign-In successful")
                 
                 await MainActor.run {
                     viewModel.isAuthenticated = true
@@ -1217,14 +1217,14 @@ struct SignInView: View {
                 
                 // Cache user name for messaging
                 await FirebaseMessagingService.shared.fetchAndCacheCurrentUserName()
-                print("✅ User name cached for messaging")
+                dlog("✅ User name cached for messaging")
                 
             } catch {
                 let nsError = error as NSError
-                print("❌ Google Sign-In failed")
-                print("   Error domain: \(nsError.domain)")
-                print("   Error code: \(nsError.code)")
-                print("   Description: \(error.localizedDescription)")
+                dlog("❌ Google Sign-In failed")
+                dlog("   Error domain: \(nsError.domain)")
+                dlog("   Error code: \(nsError.code)")
+                dlog("   Description: \(error.localizedDescription)")
                 
                 await MainActor.run {
                     // Provide more specific error messages
@@ -1240,7 +1240,7 @@ struct SignInView: View {
                             viewModel.errorMessage = "Google Sign-In failed: \(error.localizedDescription)"
                         }
                     } else if nsError.code == -5 { // User cancelled
-                        print("ℹ️ User cancelled Google Sign-In")
+                        dlog("ℹ️ User cancelled Google Sign-In")
                         // Don't show error for cancellation
                     } else {
                         viewModel.errorMessage = "Google Sign-In failed: \(error.localizedDescription)"
@@ -1261,7 +1261,7 @@ struct SignInView: View {
         let nonce = randomNonceString()
         currentNonce = nonce
         nonceGeneratedAt = Date()
-        print("🍎 Apple nonce pre-generated: \(nonce.prefix(10))... (length: \(nonce.count))")
+        dlog("🍎 Apple nonce pre-generated: \(nonce.prefix(10))... (length: \(nonce.count))")
     }
     
     private func handleAppleSignIn() {
@@ -1270,16 +1270,16 @@ struct SignInView: View {
         currentNonce = nonce
         nonceGeneratedAt = Date()
         
-        print("🍎 Apple Sign-In initiated")
-        print("📋 Nonce generated: \(nonce.prefix(10))... (length: \(nonce.count))")
-        print("⏰ Timestamp: \(Date())")
+        dlog("🍎 Apple Sign-In initiated")
+        dlog("📋 Nonce generated: \(nonce.prefix(10))... (length: \(nonce.count))")
+        dlog("⏰ Timestamp: \(Date())")
         
         let appleIDProvider = ASAuthorizationAppleIDProvider()
         let request = appleIDProvider.createRequest()
         request.requestedScopes = [.fullName, .email]
         request.nonce = sha256(nonce)
         
-        print("🔐 SHA256 nonce: \(sha256(nonce).prefix(10))...")
+        dlog("🔐 SHA256 nonce: \(sha256(nonce).prefix(10))...")
         
         let authorizationController = ASAuthorizationController(authorizationRequests: [request])
         let coordinator = AppleSignInCoordinator(onCompletion: { result in
@@ -1301,10 +1301,10 @@ struct SignInView: View {
             // Check if nonce has expired (5 minute timeout)
             if let timestamp = nonceGeneratedAt {
                 let elapsed = Date().timeIntervalSince(timestamp)
-                print("⏱️ Time elapsed since nonce generation: \(elapsed) seconds")
+                dlog("⏱️ Time elapsed since nonce generation: \(elapsed) seconds")
                 
                 if elapsed > 300 { // 5 minutes
-                    print("❌ Nonce expired (>5 minutes old)")
+                    dlog("❌ Nonce expired (>5 minutes old)")
                     Task { @MainActor in
                         viewModel.errorMessage = "Sign-in session expired. Please try again."
                         viewModel.showError = true
@@ -1319,7 +1319,7 @@ struct SignInView: View {
             
             // Check if nonce still exists
             guard currentNonce != nil else {
-                print("❌ No nonce available - session may have expired")
+                dlog("❌ No nonce available - session may have expired")
                 Task { @MainActor in
                     viewModel.errorMessage = "Sign-in session expired. Please try again."
                     viewModel.showError = true
@@ -1333,14 +1333,14 @@ struct SignInView: View {
             let nsError = error as NSError
             let errorCode = nsError.code
             
-            print("❌ Apple Sign-In failed with code: \(errorCode)")
-            print("   Error domain: \(nsError.domain)")
-            print("   Description: \(error.localizedDescription)")
+            dlog("❌ Apple Sign-In failed with code: \(errorCode)")
+            dlog("   Error domain: \(nsError.domain)")
+            dlog("   Description: \(error.localizedDescription)")
             
             Task { @MainActor in
                 // Don't show error for user cancellation
                 if errorCode == 1001 { // ASAuthorizationError.canceled
-                    print("ℹ️ User cancelled Apple Sign-In")
+                    dlog("ℹ️ User cancelled Apple Sign-In")
                     return
                 }
                 
@@ -1356,7 +1356,7 @@ struct SignInView: View {
     
     private func handleAppleSignIn(_ authorization: ASAuthorization) {
         guard let appleIDCredential = authorization.credential as? ASAuthorizationAppleIDCredential else {
-            print("❌ Failed to get ASAuthorizationAppleIDCredential")
+            dlog("❌ Failed to get ASAuthorizationAppleIDCredential")
             Task { @MainActor in
                 viewModel.errorMessage = "Unable to process Apple Sign-In credentials"
                 viewModel.showError = true
@@ -1365,7 +1365,7 @@ struct SignInView: View {
         }
         
         guard let nonce = currentNonce else {
-            print("❌ No nonce available")
+            dlog("❌ No nonce available")
             Task { @MainActor in
                 viewModel.errorMessage = "Sign-in session expired. Please try again."
                 viewModel.showError = true
@@ -1374,7 +1374,7 @@ struct SignInView: View {
         }
         
         guard let appleIDToken = appleIDCredential.identityToken else {
-            print("❌ No identity token in credential")
+            dlog("❌ No identity token in credential")
             Task { @MainActor in
                 viewModel.errorMessage = "Unable to get identity token from Apple"
                 viewModel.showError = true
@@ -1383,7 +1383,7 @@ struct SignInView: View {
         }
         
         guard let idTokenString = String(data: appleIDToken, encoding: .utf8) else {
-            print("❌ Failed to convert token data to string")
+            dlog("❌ Failed to convert token data to string")
             Task { @MainActor in
                 viewModel.errorMessage = "Invalid token format"
                 viewModel.showError = true
@@ -1393,7 +1393,7 @@ struct SignInView: View {
         
         // Validate token and nonce
         guard !idTokenString.isEmpty, idTokenString.count > 100 else {
-            print("❌ Token string too short or empty (length: \(idTokenString.count))")
+            dlog("❌ Token string too short or empty (length: \(idTokenString.count))")
             Task { @MainActor in
                 viewModel.errorMessage = "Invalid authentication token"
                 viewModel.showError = true
@@ -1402,7 +1402,7 @@ struct SignInView: View {
         }
         
         guard nonce.count == 32 else {
-            print("❌ Nonce has invalid length: \(nonce.count) (expected 32)")
+            dlog("❌ Nonce has invalid length: \(nonce.count) (expected 32)")
             Task { @MainActor in
                 viewModel.errorMessage = "Invalid authentication session"
                 viewModel.showError = true
@@ -1410,23 +1410,23 @@ struct SignInView: View {
             return
         }
         
-        print("✅ Apple Sign-In credentials validated")
-        print("📋 User ID: \(appleIDCredential.user)")
-        print("📋 Token length: \(idTokenString.count)")
-        print("📋 Nonce length: \(nonce.count)")
-        print("📧 Email: \(appleIDCredential.email ?? "none")")
-        print("👤 Full name: \(appleIDCredential.fullName?.givenName ?? "none") \(appleIDCredential.fullName?.familyName ?? "")")
+        dlog("✅ Apple Sign-In credentials validated")
+        dlog("📋 User ID: \(appleIDCredential.user)")
+        dlog("📋 Token length: \(idTokenString.count)")
+        dlog("📋 Nonce length: \(nonce.count)")
+        dlog("📧 Email: \(appleIDCredential.email ?? "none")")
+        dlog("👤 Full name: \(appleIDCredential.fullName?.givenName ?? "none") \(appleIDCredential.fullName?.familyName ?? "")")
         
         Task {
             do {
-                print("🔄 Attempting Firebase authentication...")
+                dlog("🔄 Attempting Firebase authentication...")
                 let _ = try await FirebaseManager.shared.signInWithApple(
                     idToken: idTokenString,
                     nonce: nonce,
                     fullName: appleIDCredential.fullName
                 )
                 
-                print("✅ Firebase authentication successful")
+                dlog("✅ Firebase authentication successful")
                 
                 await MainActor.run {
                     viewModel.isAuthenticated = true
@@ -1439,15 +1439,15 @@ struct SignInView: View {
                 
                 // Cache user name for messaging
                 await FirebaseMessagingService.shared.fetchAndCacheCurrentUserName()
-                print("✅ User name cached for messaging")
+                dlog("✅ User name cached for messaging")
                 
             } catch {
                 let nsError = error as NSError
-                print("❌ Firebase authentication failed")
-                print("   Error domain: \(nsError.domain)")
-                print("   Error code: \(nsError.code)")
-                print("   Description: \(error.localizedDescription)")
-                print("   User info: \(nsError.userInfo)")
+                dlog("❌ Firebase authentication failed")
+                dlog("   Error domain: \(nsError.domain)")
+                dlog("   Error code: \(nsError.code)")
+                dlog("   Description: \(error.localizedDescription)")
+                dlog("   User info: \(nsError.userInfo)")
                 
                 await MainActor.run {
                     // Clear nonce on failure
@@ -1482,7 +1482,7 @@ struct SignInView: View {
         let errorCode = SecRandomCopyBytes(kSecRandomDefault, randomBytes.count, &randomBytes)
         if errorCode != errSecSuccess {
             // Fallback: use UUID-based entropy if SecRandomCopyBytes fails (should never happen on-device)
-            print("⚠️ SecRandomCopyBytes failed (\(errorCode)), using UUID fallback for nonce")
+            dlog("⚠️ SecRandomCopyBytes failed (\(errorCode)), using UUID fallback for nonce")
             return UUID().uuidString.replacingOccurrences(of: "-", with: "") + UUID().uuidString.replacingOccurrences(of: "-", with: "")
         }
         
@@ -1687,7 +1687,7 @@ struct SignInLifecycleModifier: ViewModifier {
                    let timestamp = nonceGeneratedAt {
                     let elapsed = Date().timeIntervalSince(timestamp)
                     if elapsed > 300 {
-                        print("🔄 Regenerating expired Apple nonce")
+                        dlog("🔄 Regenerating expired Apple nonce")
                         generateAppleNonce()
                     }
                 }
@@ -2207,7 +2207,7 @@ class AppleSignInCoordinator: NSObject, ASAuthorizationControllerDelegate, ASAut
             return window
         }
         // Last resort: attach to first available window scene
-        print("⚠️ Apple Sign-In: no window found, using fallback UIWindow")
+        dlog("⚠️ Apple Sign-In: no window found, using fallback UIWindow")
         let anyWindowScene = UIApplication.shared.connectedScenes
             .compactMap { $0 as? UIWindowScene }
             .first

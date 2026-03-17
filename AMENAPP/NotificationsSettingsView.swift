@@ -406,7 +406,7 @@ struct NotificationsSettingsView: View {
             await MainActor.run {
                 isLoading = false
             }
-            print("❌ Error loading notification settings: \(error.localizedDescription)")
+            dlog("❌ Error loading notification settings: \(error.localizedDescription)")
         }
     }
     
@@ -443,12 +443,12 @@ struct NotificationsSettingsView: View {
                 isSaving = false
             }
             
-            print("✅ Notification settings saved successfully")
+            dlog("✅ Notification settings saved successfully")
         } catch {
             await MainActor.run {
                 isSaving = false
             }
-            print("❌ Error saving notification settings: \(error.localizedDescription)")
+            dlog("❌ Error saving notification settings: \(error.localizedDescription)")
         }
     }
 }

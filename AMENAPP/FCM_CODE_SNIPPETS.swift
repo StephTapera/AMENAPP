@@ -22,13 +22,13 @@ import UserNotifications
 */
 
 private func setupFCMAfterLogin() async {
-    print("🔐 Setting up FCM after login...")
+    dlog("🔐 Setting up FCM after login...")
     
     // Request notification permissions
     let granted = await PushNotificationManager.shared.requestNotificationPermissions()
     
     if granted {
-        print("✅ Notification permission granted")
+        dlog("✅ Notification permission granted")
         
         // Setup FCM token (automatically saves to Firestore)
         PushNotificationManager.shared.setupFCMToken()
@@ -36,7 +36,7 @@ private func setupFCMAfterLogin() async {
         // Optional: Schedule daily reminders
         await PushNotificationManager.shared.scheduleDailyReminders()
     } else {
-        print("⚠️ User denied notification permission")
+        dlog("⚠️ User denied notification permission")
         // App still works, just no push notifications
     }
 }
@@ -83,12 +83,12 @@ private func setupFCMAfterLogin() async {
 private func setupFCMIfAlreadyLoggedIn() {
     // Only setup if user is already authenticated
     guard Auth.auth().currentUser != nil else {
-        print("⚠️ No authenticated user, skipping FCM setup")
+        dlog("⚠️ No authenticated user, skipping FCM setup")
         return
     }
     
     Task {
-        print("🚀 User already logged in, setting up FCM...")
+        dlog("🚀 User already logged in, setting up FCM...")
         
         // Check if we already have notification permission
         let hasPermission = await PushNotificationManager.shared.checkNotificationPermissions()
@@ -96,9 +96,9 @@ private func setupFCMIfAlreadyLoggedIn() {
         if hasPermission {
             // We have permission, setup FCM token
             PushNotificationManager.shared.setupFCMToken()
-            print("✅ FCM setup complete on app launch")
+            dlog("✅ FCM setup complete on app launch")
         } else {
-            print("⚠️ No notification permission (user hasn't granted yet)")
+            dlog("⚠️ No notification permission (user hasn't granted yet)")
             // Don't show permission prompt on launch
             // Wait for user to login/trigger it manually
         }
@@ -115,7 +115,7 @@ private func setupFCMIfAlreadyLoggedIn() {
 */
 
 func logout() async {
-    print("🚪 Logging out...")
+    dlog("🚪 Logging out...")
     
     // ✅ ADD THESE LINES FIRST:
     // Remove FCM token from Firestore
@@ -132,9 +132,9 @@ func logout() async {
     // Then your existing sign out code:
     do {
         try Auth.auth().signOut()
-        print("✅ Signed out successfully")
+        dlog("✅ Signed out successfully")
     } catch {
-        print("❌ Sign out error: \(error)")
+        dlog("❌ Sign out error: \(error)")
     }
 }
 
@@ -447,13 +447,13 @@ struct CompleteSignInExample: View {
         do {
             // 1. Sign in with Firebase Auth
             try await Auth.auth().signIn(withEmail: email, password: password)
-            print("✅ Sign in successful")
+            dlog("✅ Sign in successful")
             
             // 2. Setup FCM for push notifications
             let granted = await PushNotificationManager.shared.requestNotificationPermissions()
             
             if granted {
-                print("✅ Notification permission granted")
+                dlog("✅ Notification permission granted")
                 
                 // Setup FCM token (saves to Firestore automatically)
                 PushNotificationManager.shared.setupFCMToken()
@@ -461,7 +461,7 @@ struct CompleteSignInExample: View {
                 // Optional: Schedule daily reminders
                 await PushNotificationManager.shared.scheduleDailyReminders()
             } else {
-                print("⚠️ Notification permission denied")
+                dlog("⚠️ Notification permission denied")
             }
             
             // 3. Update UI
@@ -475,7 +475,7 @@ struct CompleteSignInExample: View {
                 errorMessage = error.localizedDescription
                 isLoading = false
             }
-            print("❌ Sign in failed: \(error)")
+            dlog("❌ Sign in failed: \(error)")
         }
     }
 }

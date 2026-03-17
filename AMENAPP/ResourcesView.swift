@@ -1948,7 +1948,7 @@ struct LiquidGlassSegmentedControl: View {
                         }
                     }
                 )
-                .animation(.spring(response: 0.22, dampingFraction: 0.8), value: isSelected)
+                .animation(.spring(response: 0.38, dampingFraction: 0.72), value: selection)
         }
         .buttonStyle(ResourcesSegmentButtonStyle())
     }
@@ -2817,7 +2817,7 @@ struct SafeAIDailyVerseCard: View {
             // Monitor for crashes with timeout
             try? await Task.sleep(nanoseconds: 3_000_000_000) // 3 seconds
             if isLoading {
-                print("⚠️ AIDailyVerseCard taking too long, using fallback")
+                dlog("⚠️ AIDailyVerseCard taking too long, using fallback")
                 loadFailed = true
             }
         }

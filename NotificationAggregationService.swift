@@ -71,7 +71,7 @@ final class NotificationAggregationService: ObservableObject {
             activeProfileUserId = nil
         }
         
-        print("📱 Current screen updated: \(screen)")
+        dlog("📱 Current screen updated: \(screen)")
     }
     
     /// Check if notification should be suppressed based on current screen
@@ -82,7 +82,7 @@ final class NotificationAggregationService: ObservableObject {
         case .post(let postId):
             // Suppress notifications about this post
             if notification.postId == postId {
-                print("🔕 Suppressing notification: user viewing post \(postId)")
+                dlog("🔕 Suppressing notification: user viewing post \(postId)")
                 return true
             }
             
@@ -90,7 +90,7 @@ final class NotificationAggregationService: ObservableObject {
             // Suppress message notifications for this conversation
             if (notification.type == .message || notification.type == .messageRequest)
                 && notification.conversationId == conversationId {
-                print("🔕 Suppressing message notification: user in active conversation \(conversationId)")
+                dlog("🔕 Suppressing message notification: user in active conversation \(conversationId)")
                 return true
             }
             
@@ -101,14 +101,14 @@ final class NotificationAggregationService: ObservableObject {
         case .messages:
             // Suppress ALL message notifications when in messages view
             if notification.type == .message || notification.type == .messageRequest {
-                print("🔕 Suppressing message notification: user in messages view")
+                dlog("🔕 Suppressing message notification: user in messages view")
                 return true
             }
             
         case .profile(let userId):
             // Suppress notifications from this user's actions
             if notification.actorId == userId {
-                print("🔕 Suppressing notification: user viewing profile of actor")
+                dlog("🔕 Suppressing notification: user viewing profile of actor")
                 return true
             }
             
@@ -125,7 +125,7 @@ final class NotificationAggregationService: ObservableObject {
         
         // ✅ SUPPRESS ALL SELF-GENERATED NOTIFICATIONS
         if notification.actorId == currentUserId {
-            print("🔕 Suppressing self-action notification: \(notification.type.rawValue)")
+            dlog("🔕 Suppressing self-action notification: \(notification.type.rawValue)")
             return true
         }
         
@@ -149,7 +149,7 @@ final class NotificationAggregationService: ObservableObject {
                 .getDocument()
             
             if blockedDoc.exists {
-                print("🚫 Blocking notification from blocked user: \(actorId)")
+                dlog("🚫 Blocking notification from blocked user: \(actorId)")
                 return true
             }
             
@@ -161,12 +161,12 @@ final class NotificationAggregationService: ObservableObject {
                 .getDocument()
             
             if blockedByDoc.exists {
-                print("🚫 Blocking notification from user who blocked you: \(actorId)")
+                dlog("🚫 Blocking notification from user who blocked you: \(actorId)")
                 return true
             }
             
         } catch {
-            print("⚠️ Error checking block status: \(error)")
+            dlog("⚠️ Error checking block status: \(error)")
             // Don't block on error - fail open
         }
         
@@ -206,7 +206,7 @@ final class NotificationAggregationService: ObservableObject {
         for existingNotif in recentOfType {
             let timeSinceNotification = now.timeIntervalSince(existingNotif.createdAt.dateValue())
             if timeSinceNotification <= aggregationWindow {
-                print("📊 Aggregation opportunity: \(aggregationKey) within \(Int(timeSinceNotification))s")
+                dlog("📊 Aggregation opportunity: \(aggregationKey) within \(Int(timeSinceNotification))s")
                 return aggregationKey
             }
         }
@@ -256,7 +256,7 @@ final class NotificationAggregationService: ObservableObject {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            print("🔆 App entering foreground")
+            dlog("🔆 App entering foreground")
             // Reset screen tracking
             Task { @MainActor [weak self] in self?.currentScreen = .none }
         }
@@ -266,7 +266,7 @@ final class NotificationAggregationService: ObservableObject {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            print("🌙 App entering background")
+            dlog("🌙 App entering background")
             Task { @MainActor [weak self] in self?.currentScreen = .none }
         }
     }

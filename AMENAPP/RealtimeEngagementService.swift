@@ -55,7 +55,7 @@ class RealtimeEngagementService: ObservableObject {
         
         if hasAmen {
             // Remove amen
-            print("🙏 Removing amen from post: \(postId)")
+            dlog("🙏 Removing amen from post: \(postId)")
             
             let updates: [String: Any?] = [
                 interactionPath: nil
@@ -72,12 +72,12 @@ class RealtimeEngagementService: ObservableObject {
                 return TransactionResult.success(withValue: currentData)
             }
             
-            print("✅ Amen removed successfully")
+            dlog("✅ Amen removed successfully")
             return false
             
         } else {
             // Add amen
-            print("🙏 Adding amen to post: \(postId)")
+            dlog("🙏 Adding amen to post: \(postId)")
             
             let updates: [String: Any] = [
                 interactionPath: Date().timeIntervalSince1970
@@ -93,7 +93,7 @@ class RealtimeEngagementService: ObservableObject {
                 return TransactionResult.success(withValue: currentData)
             }
             
-            print("✅ Amen added successfully")
+            dlog("✅ Amen added successfully")
             return true
         }
     }
@@ -114,7 +114,7 @@ class RealtimeEngagementService: ObservableObject {
         
         if hasLightbulb {
             // Remove lightbulb
-            print("💡 Removing lightbulb from post: \(postId)")
+            dlog("💡 Removing lightbulb from post: \(postId)")
             
             let updates: [String: Any?] = [
                 interactionPath: nil
@@ -131,12 +131,12 @@ class RealtimeEngagementService: ObservableObject {
                 return TransactionResult.success(withValue: currentData)
             }
             
-            print("✅ Lightbulb removed successfully")
+            dlog("✅ Lightbulb removed successfully")
             return false
             
         } else {
             // Add lightbulb
-            print("💡 Adding lightbulb to post: \(postId)")
+            dlog("💡 Adding lightbulb to post: \(postId)")
             
             let updates: [String: Any] = [
                 interactionPath: Date().timeIntervalSince1970
@@ -152,7 +152,7 @@ class RealtimeEngagementService: ObservableObject {
                 return TransactionResult.success(withValue: currentData)
             }
             
-            print("✅ Lightbulb added successfully")
+            dlog("✅ Lightbulb added successfully")
             return true
         }
     }
@@ -182,7 +182,7 @@ class RealtimeEngagementService: ObservableObject {
     // MARK: - Increment Comment Count
     
     func incrementCommentCount(postId: String) async throws {
-        print("💬 Incrementing comment count for post: \(postId)")
+        dlog("💬 Incrementing comment count for post: \(postId)")
         
         try await database.child("post_stats").child(postId).child("commentCount").runTransactionBlock { currentData in
             var count = currentData.value as? Int ?? 0
@@ -191,11 +191,11 @@ class RealtimeEngagementService: ObservableObject {
             return TransactionResult.success(withValue: currentData)
         }
         
-        print("✅ Comment count incremented")
+        dlog("✅ Comment count incremented")
     }
     
     func decrementCommentCount(postId: String) async throws {
-        print("💬 Decrementing comment count for post: \(postId)")
+        dlog("💬 Decrementing comment count for post: \(postId)")
         
         try await database.child("post_stats").child(postId).child("commentCount").runTransactionBlock { currentData in
             if var count = currentData.value as? Int, count > 0 {
@@ -205,13 +205,13 @@ class RealtimeEngagementService: ObservableObject {
             return TransactionResult.success(withValue: currentData)
         }
         
-        print("✅ Comment count decremented")
+        dlog("✅ Comment count decremented")
     }
     
     // MARK: - Increment Repost Count
     
     func incrementRepostCount(postId: String) async throws {
-        print("🔄 Incrementing repost count for post: \(postId)")
+        dlog("🔄 Incrementing repost count for post: \(postId)")
         
         guard let currentUser = Auth.auth().currentUser else {
             throw NSError(domain: "RealtimeEngagementService", code: 401, userInfo: [NSLocalizedDescriptionKey: "Not authenticated"])
@@ -234,7 +234,7 @@ class RealtimeEngagementService: ObservableObject {
             return TransactionResult.success(withValue: currentData)
         }
         
-        print("✅ Repost count incremented")
+        dlog("✅ Repost count incremented")
     }
     
     // MARK: - Fetch Post Stats
@@ -258,7 +258,7 @@ class RealtimeEngagementService: ObservableObject {
     // MARK: - Real-time Stats Listener
     
     func observePostStats(postId: String, completion: @escaping (PostStats) -> Void) {
-        print("👂 Setting up real-time stats listener for post: \(postId)")
+        dlog("👂 Setting up real-time stats listener for post: \(postId)")
         
         let handle = database.child("post_stats").child(postId).observe(.value) { snapshot in
             guard snapshot.exists(), let data = snapshot.value as? [String: Any] else {
@@ -286,7 +286,7 @@ class RealtimeEngagementService: ObservableObject {
         if let handle = statsListeners[postId] {
             database.child("post_stats").child(postId).removeObserver(withHandle: handle)
             statsListeners.removeValue(forKey: postId)
-            print("🔇 Removed stats listener for post: \(postId)")
+            dlog("🔇 Removed stats listener for post: \(postId)")
         }
     }
     
@@ -296,7 +296,7 @@ class RealtimeEngagementService: ObservableObject {
                 database.child("post_stats").child(postId).removeObserver(withHandle: handle)
             }
             statsListeners.removeAll()
-            print("🔇 All stats listeners removed")
+            dlog("🔇 All stats listeners removed")
         }
     }
 }

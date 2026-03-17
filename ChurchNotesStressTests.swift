@@ -404,7 +404,7 @@ class ChurchNotesStressTests: ObservableObject {
                 error: nil
             ))
             
-            print("✅ \(name): PASSED (\(String(format: "%.2f", duration))s)")
+            dlog("✅ \(name): PASSED (\(String(format: "%.2f", duration))s)")
         } catch {
             let duration = Date().timeIntervalSince(startTime)
             
@@ -416,7 +416,7 @@ class ChurchNotesStressTests: ObservableObject {
                 error: error
             ))
             
-            print("❌ \(name): FAILED - \(error.localizedDescription)")
+            dlog("❌ \(name): FAILED - \(error.localizedDescription)")
         }
     }
     
@@ -434,20 +434,20 @@ class ChurchNotesStressTests: ObservableObject {
     }
     
     private func printSummary() {
-        print("\n" + String(repeating: "=", count: 50))
-        print("CHURCH NOTES STRESS TEST SUMMARY")
-        print(String(repeating: "=", count: 50))
+        dlog("\n" + String(repeating: "=", count: 50))
+        dlog("CHURCH NOTES STRESS TEST SUMMARY")
+        dlog(String(repeating: "=", count: 50))
         
         let passed = results.filter { $0.status == .passed }.count
         let failed = results.filter { $0.status == .failed }.count
         let totalDuration = results.reduce(0.0) { $0 + $1.duration }
         
-        print("\nResults:")
-        print("  ✅ Passed: \(passed)")
-        print("  ❌ Failed: \(failed)")
-        print("  ⏱️  Total Duration: \(String(format: "%.2f", totalDuration))s")
-        print("\nOverall Status: \(overallStatus == .passed ? "✅ PASS" : "❌ FAIL")")
-        print(String(repeating: "=", count: 50) + "\n")
+        dlog("\nResults:")
+        dlog("  ✅ Passed: \(passed)")
+        dlog("  ❌ Failed: \(failed)")
+        dlog("  ⏱️  Total Duration: \(String(format: "%.2f", totalDuration))s")
+        dlog("\nOverall Status: \(overallStatus == .passed ? "✅ PASS" : "❌ FAIL")")
+        dlog(String(repeating: "=", count: 50) + "\n")
     }
 }
 

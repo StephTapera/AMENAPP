@@ -95,17 +95,17 @@ class ContentSafetyShieldService: ObservableObject {
         self.autoHideContent = autoHide
         self.isAutoModerationEnabled = true
         
-        print("🛡️ Content Safety Shield ENABLED")
-        print("   - Bullying Detection: \(detectBullying)")
-        print("   - Sexual Content: \(detectSexualContent)")
-        print("   - Violence Detection: \(detectViolence)")
-        print("   - Harassment Detection: \(detectHarassment)")
-        print("   - Auto-Hide: \(autoHide)")
+        dlog("🛡️ Content Safety Shield ENABLED")
+        dlog("   - Bullying Detection: \(detectBullying)")
+        dlog("   - Sexual Content: \(detectSexualContent)")
+        dlog("   - Violence Detection: \(detectViolence)")
+        dlog("   - Harassment Detection: \(detectHarassment)")
+        dlog("   - Auto-Hide: \(autoHide)")
     }
     
     func disableAutoModeration() {
         isAutoModerationEnabled = false
-        print("🛡️ Content Safety Shield DISABLED")
+        dlog("🛡️ Content Safety Shield DISABLED")
     }
     
     // MARK: - Content Screening
@@ -214,7 +214,7 @@ class ContentSafetyShieldService: ObservableObject {
         
         let warningMessage = generateWarningMessage(for: threatLevel, reasons: reasons)
         
-        print("🛡️ Content Screened: Score=\(threatScore), Level=\(threatLevel.description), Blur=\(shouldBlur)")
+        dlog("🛡️ Content Screened: Score=\(threatScore), Level=\(threatLevel.description), Blur=\(shouldBlur)")
         
         return ContentSafetyResult(
             isAllowed: isAllowed,
@@ -263,7 +263,7 @@ class ContentSafetyShieldService: ObservableObject {
             "createdAt": FieldValue.serverTimestamp()
         ])
         
-        print("🛡️ Appeal submitted for post: \(postId)")
+        dlog("🛡️ Appeal submitted for post: \(postId)")
     }
     
     // MARK: - Statistics

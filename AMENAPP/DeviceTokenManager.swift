@@ -71,7 +71,7 @@ final class DeviceTokenManager: ObservableObject {
         let deviceId = await getDeviceIdentifier()
         let deviceInfo = await getDeviceInfo()
         
-        print("📱 Registering device token: \(token.prefix(20))... for device: \(deviceId)")
+        dlog("📱 Registering device token: \(token.prefix(20))... for device: \(deviceId)")
         
         // Save to Firestore with device-specific document
         let tokenData: [String: Any] = [
@@ -103,13 +103,13 @@ final class DeviceTokenManager: ObservableObject {
             isTokenRegistered = true
             lastTokenRefresh = Date()
             
-            print("✅ Device token registered successfully")
+            dlog("✅ Device token registered successfully")
             
             // Cleanup old/invalid tokens
             await cleanupInvalidTokens(userId: userId)
             
         } catch {
-            print("❌ Error registering device token: \(error)")
+            dlog("❌ Error registering device token: \(error)")
             throw DeviceTokenError.registrationFailed(error.localizedDescription)
         }
     }
@@ -122,7 +122,7 @@ final class DeviceTokenManager: ObservableObject {
         
         let deviceId = await getDeviceIdentifier()
         
-        print("🔄 Updating device token for device: \(deviceId)")
+        dlog("🔄 Updating device token for device: \(deviceId)")
         
         do {
             try await db.collection("users")
@@ -142,10 +142,10 @@ final class DeviceTokenManager: ObservableObject {
             
             lastTokenRefresh = Date()
             
-            print("✅ Device token updated successfully")
+            dlog("✅ Device token updated successfully")
             
         } catch {
-            print("❌ Error updating device token: \(error)")
+            dlog("❌ Error updating device token: \(error)")
         }
     }
     
@@ -155,7 +155,7 @@ final class DeviceTokenManager: ObservableObject {
         
         let deviceId = await getDeviceIdentifier()
         
-        print("📱 Unregistering device token for device: \(deviceId)")
+        dlog("📱 Unregistering device token for device: \(deviceId)")
         
         do {
             // Mark device as inactive instead of deleting (for audit trail)
@@ -171,10 +171,10 @@ final class DeviceTokenManager: ObservableObject {
             isTokenRegistered = false
             currentToken = nil
             
-            print("✅ Device token unregistered successfully")
+            dlog("✅ Device token unregistered successfully")
             
         } catch {
-            print("❌ Error unregistering device token: \(error)")
+            dlog("❌ Error unregistering device token: \(error)")
         }
     }
     
@@ -188,7 +188,7 @@ final class DeviceTokenManager: ObservableObject {
                 .collection("devices")
                 .getDocuments()
             
-            print("🧹 Checking \(snapshot.documents.count) device tokens for cleanup")
+            dlog("🧹 Checking \(snapshot.documents.count) device tokens for cleanup")
             
             var inactiveCount = 0
             var oldCount = 0
@@ -204,7 +204,7 @@ final class DeviceTokenManager: ObservableObject {
                         if daysSinceUnregistered > 30 {
                             try await doc.reference.delete()
                             inactiveCount += 1
-                            print("   🗑️ Deleted inactive token (inactive for \(Int(daysSinceUnregistered)) days)")
+                            dlog("   🗑️ Deleted inactive token (inactive for \(Int(daysSinceUnregistered)) days)")
                         }
                     }
                 } else {
@@ -214,21 +214,21 @@ final class DeviceTokenManager: ObservableObject {
                         if daysSinceRefresh > 90 {  // 90 days = likely abandoned device
                             try await doc.reference.delete()
                             oldCount += 1
-                            print("   🗑️ Deleted stale token (not refreshed for \(Int(daysSinceRefresh)) days)")
+                            dlog("   🗑️ Deleted stale token (not refreshed for \(Int(daysSinceRefresh)) days)")
                         }
                     }
                 }
             }
             
             if inactiveCount > 0 || oldCount > 0 {
-                print("✅ Cleaned up \(inactiveCount) inactive and \(oldCount) stale tokens")
+                dlog("✅ Cleaned up \(inactiveCount) inactive and \(oldCount) stale tokens")
             }
             
             // Enforce max devices limit
             await enforceDeviceLimit(userId: userId)
             
         } catch {
-            print("❌ Error cleaning up tokens: \(error)")
+            dlog("❌ Error cleaning up tokens: \(error)")
         }
     }
     
@@ -246,19 +246,19 @@ final class DeviceTokenManager: ObservableObject {
             
             if activeDevices.count > maxDevicesPerUser {
                 let excessCount = activeDevices.count - maxDevicesPerUser
-                print("⚠️ User has \(activeDevices.count) devices, removing \(excessCount) oldest")
+                dlog("⚠️ User has \(activeDevices.count) devices, removing \(excessCount) oldest")
                 
                 // Remove oldest devices
                 for i in 0..<excessCount {
                     try await activeDevices[i].reference.delete()
-                    print("   🗑️ Deleted oldest device: \(activeDevices[i].documentID)")
+                    dlog("   🗑️ Deleted oldest device: \(activeDevices[i].documentID)")
                 }
                 
-                print("✅ Enforced device limit: kept newest \(maxDevicesPerUser) devices")
+                dlog("✅ Enforced device limit: kept newest \(maxDevicesPerUser) devices")
             }
             
         } catch {
-            print("❌ Error enforcing device limit: \(error)")
+            dlog("❌ Error enforcing device limit: \(error)")
         }
     }
     
@@ -275,7 +275,7 @@ final class DeviceTokenManager: ObservableObject {
         let timeSinceRefresh = Date().timeIntervalSince(lastRefresh)
         
         if timeSinceRefresh > tokenRefreshInterval {
-            print("🔄 Token refresh needed (last refresh: \(Int(timeSinceRefresh / 3600)) hours ago)")
+            dlog("🔄 Token refresh needed (last refresh: \(Int(timeSinceRefresh / 3600)) hours ago)")
             try? await registerDeviceToken()
         }
     }

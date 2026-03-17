@@ -10,6 +10,7 @@
 
 import SwiftUI
 import FirebaseAuth
+import PhotosUI
 
 // MARK: - Design Tokens
 
@@ -35,6 +36,8 @@ struct SettingsView: View {
     @State private var showSignOutConfirmation = false
     @State private var navigateToAccountSettings = false
     @State private var groupsVisible = false     // drives stagger entrance
+    @State private var photoItem: PhotosPickerItem? = nil
+    @State private var isUploadingPhoto = false
 
     var body: some View {
         NavigationStack {
@@ -52,15 +55,15 @@ struct SettingsView: View {
 
                         // ── Group 1: Account ────────────────────────────────
                         SDGroup {
-                            SDNavRow(icon: "person",          label: "Edit Profile")    { AccountSettingsView() }
+                            SDNavRow(icon: "person", label: "Edit Profile", subtitle: "Name, bio, links", iconBg: .blue) { AccountSettingsView() }
                             SDDivider()
-                            SDNavRow(icon: "at",              label: "Account")          { AccountSettingsView() }
+                            SDNavRow(icon: "at", label: "Account", subtitle: "Email, username, password", iconBg: .gray) { AccountSettingsView() }
                             SDDivider()
-                            SDNavRow(icon: "bell",            label: "Notifications")    { NotificationSettingsView() }
+                            SDNavRow(icon: "bell", label: "Notifications", subtitle: "Push, email, in-app", iconBg: .red) { NotificationSettingsView() }
                             SDDivider()
-                            SDNavRow(icon: "lock",            label: "Privacy & Safety") { PrivacySettingsView() }
+                            SDNavRow(icon: "lock", label: "Privacy & Safety", subtitle: "Who can see your content", iconBg: .green) { PrivacySettingsView() }
                             SDDivider()
-                            SDNavRow(icon: "shield",          label: "Security")         { SecurityGroupView() }
+                            SDNavRow(icon: "shield", label: "Security", subtitle: "2FA, active sessions", iconBg: .yellow) { SecurityGroupView() }
                         }
                         .opacity(groupsVisible ? 1 : 0)
                         .offset(y: groupsVisible ? 0 : 18)
@@ -68,13 +71,13 @@ struct SettingsView: View {
 
                         // ── Group 2: Preferences ────────────────────────────
                         SDGroup {
-                            SDNavRow(icon: "sparkles",        label: "Berean AI")        { BereanAISettingsView() }
+                            SDNavRow(icon: "sparkles", label: "Berean AI", subtitle: "AI settings, Scripture sources", iconBg: .purple) { BereanAISettingsView() }
                             SDDivider()
-                            SDNavRow(icon: "slider.horizontal.3", label: "Feed & Content") { ContentFeedGroupView() }
+                            SDNavRow(icon: "slider.horizontal.3", label: "Feed & Content", subtitle: "What you see and when", iconBg: .orange) { ContentFeedGroupView() }
                             SDDivider()
-                            SDNavRow(icon: "heart.text.square",   label: "Wellbeing")    { WellbeingGroupView() }
+                            SDNavRow(icon: "heart.text.square", label: "Wellbeing", subtitle: "Screen time, daily limits", iconBg: .teal) { WellbeingGroupView() }
                             SDDivider()
-                            SDNavRow(icon: "character.bubble",    label: "Language")     { TranslationSettingsView() }
+                            SDNavRow(icon: "character.bubble", label: "Language", subtitle: "Translation preferences", iconBg: .indigo) { TranslationSettingsView() }
                         }
                         .opacity(groupsVisible ? 1 : 0)
                         .offset(y: groupsVisible ? 0 : 18)
@@ -82,9 +85,9 @@ struct SettingsView: View {
 
                         // ── Group 3: Tools & Data ───────────────────────────
                         SDGroup {
-                            SDNavRow(icon: "chart.line.uptrend.xyaxis", label: "Creator & Insights") { CreatorGroupView() }
+                            SDNavRow(icon: "chart.line.uptrend.xyaxis", label: "Creator & Insights", subtitle: "Analytics, reach, growth", iconBg: Color(.darkGray)) { CreatorGroupView() }
                             SDDivider()
-                            SDNavRow(icon: "square.and.arrow.down.on.square", label: "Import Content") { ImportLauncherView() }
+                            SDNavRow(icon: "square.and.arrow.down.on.square", label: "Import Content", subtitle: "Bring in from other platforms", iconBg: Color(.darkGray)) { ImportLauncherView() }
                         }
                         .opacity(groupsVisible ? 1 : 0)
                         .offset(y: groupsVisible ? 0 : 18)
@@ -92,11 +95,11 @@ struct SettingsView: View {
 
                         // ── Group 4: Help & Legal ───────────────────────────
                         SDGroup {
-                            SDNavRow(icon: "questionmark.circle", label: "Help & Support")       { HelpSupportView() }
+                            SDNavRow(icon: "questionmark.circle", label: "Help & Support", subtitle: "FAQs, contact us") { HelpSupportView() }
                             SDDivider()
-                            SDNavRow(icon: "flag",                label: "Report a Problem")     { ReportProblemView() }
+                            SDNavRow(icon: "flag", label: "Report a Problem", subtitle: "Bugs, feedback") { ReportProblemView() }
                             SDDivider()
-                            SDNavRow(icon: "info.circle",         label: "About AMEN")           { AboutAmenView() }
+                            SDNavRow(icon: "info.circle", label: "About AMEN", subtitle: "v\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")") { AboutAmenView() }
                         }
                         .opacity(groupsVisible ? 1 : 0)
                         .offset(y: groupsVisible ? 0 : 18)
@@ -181,19 +184,59 @@ struct SettingsView: View {
     // MARK: - Profile Header
 
     private var profileHeader: some View {
-        NavigationLink(destination: AccountSettingsView()) {
-            HStack(spacing: 14) {
-                // Avatar placeholder
-                ZStack {
-                    Circle()
-                        .fill(SD.panel)
-                        .frame(width: 52, height: 52)
-                        .overlay(Circle().stroke(SD.panelEdge, lineWidth: 1))
-                    Image(systemName: "person.fill")
-                        .font(.system(size: 22))
-                        .foregroundStyle(SD.secondary)
-                }
+        HStack(spacing: 14) {
+            // Avatar: real profile photo with camera badge + photo picker
+            PhotosPicker(selection: $photoItem, matching: .images, photoLibrary: .shared()) {
+                ZStack(alignment: .bottomTrailing) {
+                    // Profile photo or fallback
+                    if let photoURL = Auth.auth().currentUser?.photoURL {
+                        AsyncImage(url: photoURL) { phase in
+                            switch phase {
+                            case .success(let img):
+                                img.resizable().scaledToFill()
+                                    .frame(width: 52, height: 52)
+                                    .clipShape(Circle())
+                            default:
+                                avatarFallback
+                            }
+                        }
+                    } else {
+                        avatarFallback
+                    }
 
+                    // Camera badge
+                    Circle()
+                        .fill(Color.black)
+                        .frame(width: 20, height: 20)
+                        .overlay(
+                            Image(systemName: isUploadingPhoto ? "arrow.triangle.2.circlepath" : "camera.fill")
+                                .font(.system(size: 9, weight: .semibold))
+                                .foregroundStyle(.white)
+                        )
+                        .overlay(Circle().stroke(SD.bg, lineWidth: 1.5))
+                }
+            }
+            .buttonStyle(.plain)
+            .onChange(of: photoItem) { _, newItem in
+                guard let newItem else { return }
+                Task {
+                    isUploadingPhoto = true
+                    if let data = try? await newItem.loadTransferable(type: Data.self),
+                       let image = UIImage(data: data) {
+                        let compressed = image.jpegData(compressionQuality: 0.85).flatMap { UIImage(data: $0) } ?? image
+                        await withCheckedContinuation { continuation in
+                            ProfilePhotoService.shared.uploadProfilePhoto(image: compressed) { _ in
+                                continuation.resume()
+                            }
+                        }
+                    }
+                    isUploadingPhoto = false
+                    photoItem = nil
+                }
+            }
+
+            // Name + email — navigates to AccountSettingsView on text tap
+            NavigationLink(destination: AccountSettingsView()) {
                 VStack(alignment: .leading, spacing: 3) {
                     if let user = Auth.auth().currentUser {
                         Text(user.displayName ?? "Your Account")
@@ -212,25 +255,47 @@ struct SettingsView: View {
                             .foregroundStyle(SD.secondary)
                     }
                 }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(SD.chevron)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
-            .background(
-                RoundedRectangle(cornerRadius: SD.radius, style: .continuous)
-                    .fill(SD.panel)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: SD.radius, style: .continuous)
-                            .stroke(SD.panelEdge, lineWidth: 1)
-                    )
-            )
+            .buttonStyle(SDPressStyle())
+
+            Spacer()
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(SD.chevron)
         }
-        .buttonStyle(SDPressStyle())
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .background(
+            RoundedRectangle(cornerRadius: SD.radius, style: .continuous)
+                .fill(SD.panel)
+                .overlay(
+                    RoundedRectangle(cornerRadius: SD.radius, style: .continuous)
+                        .stroke(SD.panelEdge, lineWidth: 1)
+                )
+        )
+    }
+
+    private var avatarFallback: some View {
+        let initials: String = {
+            let name = Auth.auth().currentUser?.displayName ?? ""
+            let parts = name.split(separator: " ")
+            if parts.count >= 2 {
+                return "\(parts[0].prefix(1))\(parts[1].prefix(1))".uppercased()
+            } else if let first = parts.first {
+                return String(first.prefix(2)).uppercased()
+            }
+            return "A"
+        }()
+        return ZStack {
+            Circle()
+                .fill(SD.panel)
+                .frame(width: 52, height: 52)
+                .overlay(Circle().stroke(SD.panelEdge, lineWidth: 1))
+            Text(initials)
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(SD.label)
+        }
     }
 
     // MARK: - Sign Out Logic
@@ -272,6 +337,8 @@ struct SDGroup<Content: View>: View {
 struct SDNavRow<Destination: View>: View {
     let icon: String
     let label: String
+    var subtitle: String? = nil
+    var iconBg: Color? = nil
     @ViewBuilder let destination: () -> Destination
     @State private var isPressed = false
 
@@ -285,14 +352,32 @@ struct SDNavRow<Destination: View>: View {
     @ViewBuilder
     private func rowBody(showChevron: Bool) -> some View {
         HStack(spacing: 13) {
-            Image(systemName: icon)
-                .font(.system(size: 16, weight: .regular))
-                .foregroundStyle(SD.label)
-                .frame(width: 22, alignment: .center)
+            if let bg = iconBg {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(bg)
+                    .frame(width: 30, height: 30)
+                    .overlay(
+                        Image(systemName: icon)
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(.white)
+                    )
+            } else {
+                Image(systemName: icon)
+                    .font(.system(size: 16, weight: .regular))
+                    .foregroundStyle(SD.label)
+                    .frame(width: 22, alignment: .center)
+            }
 
-            Text(label)
-                .font(.system(size: 15, weight: .regular))
-                .foregroundStyle(SD.label)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(label)
+                    .font(.system(size: 15, weight: .regular))
+                    .foregroundStyle(SD.label)
+                if let sub = subtitle {
+                    Text(sub)
+                        .font(.system(size: 12))
+                        .foregroundStyle(SD.label.opacity(0.45))
+                }
+            }
 
             Spacer()
 
@@ -303,7 +388,7 @@ struct SDNavRow<Destination: View>: View {
             }
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 13)
+        .padding(.vertical, subtitle != nil ? 10 : 13)
         .contentShape(Rectangle())
     }
 }

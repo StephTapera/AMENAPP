@@ -531,7 +531,7 @@ struct ReflectSheet: View {
                     isSubmitting = false
                     let errHaptic = UINotificationFeedbackGenerator()
                     errHaptic.notificationOccurred(.error)
-                    print("❌ Failed to submit reflect/ask: \(error)")
+                    dlog("❌ Failed to submit reflect/ask: \(error)")
                 }
             }
         }

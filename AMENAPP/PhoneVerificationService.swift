@@ -54,7 +54,7 @@ class PhoneVerificationService: ObservableObject {
     /// - Parameter phoneNumber: Phone number in E.164 format (e.g., +1234567890)
     func sendVerificationCode(to phoneNumber: String) async throws {
         #if DEBUG
-        print("📱 Sending verification code to: \(phoneNumber)")
+        dlog("📱 Sending verification code to: \(phoneNumber)")
         #endif
         
         // Validate phone number format
@@ -77,7 +77,7 @@ class PhoneVerificationService: ObservableObject {
             dlog("   Verification ID: [REDACTED]")
             
         } catch {
-            print("❌ Failed to send verification code: \(error.localizedDescription)")
+            dlog("❌ Failed to send verification code: \(error.localizedDescription)")
             verificationStatus = .failed(error)
             throw error
         }
@@ -88,7 +88,7 @@ class PhoneVerificationService: ObservableObject {
     /// Verify SMS code entered by user
     /// - Parameter code: 6-digit SMS verification code
     func verifyCode(_ code: String) async throws {
-        print("🔐 Verifying code: \(code)")
+        dlog("🔐 Verifying code: \(code)")
         
         guard let verificationID = verificationID else {
             throw PhoneVerificationError.noVerificationID
@@ -111,11 +111,11 @@ class PhoneVerificationService: ObservableObject {
             if let currentUser = Auth.auth().currentUser {
                 // Link phone number to existing account
                 try await currentUser.link(with: credential)
-                print("✅ Phone number linked to account")
+                dlog("✅ Phone number linked to account")
             } else {
                 // Sign in with phone credential (new user)
                 try await Auth.auth().signIn(with: credential)
-                print("✅ Signed in with phone number")
+                dlog("✅ Signed in with phone number")
             }
             
             // Mark as verified in Firestore
@@ -124,10 +124,10 @@ class PhoneVerificationService: ObservableObject {
             verificationStatus = .verified
             isPhoneVerified = true
             
-            print("✅ Phone verification complete!")
+            dlog("✅ Phone verification complete!")
             
         } catch {
-            print("❌ Verification failed: \(error.localizedDescription)")
+            dlog("❌ Verification failed: \(error.localizedDescription)")
             verificationStatus = .failed(error)
             throw error
         }
@@ -151,13 +151,13 @@ class PhoneVerificationService: ObservableObject {
             "updatedAt": FieldValue.serverTimestamp()
         ])
         
-        print("✅ User document updated with phone verification")
+        dlog("✅ User document updated with phone verification")
     }
     
     /// Load verification status from Firestore
     func loadVerificationStatus() async {
         guard let userId = Auth.auth().currentUser?.uid else {
-            print("⚠️ Not authenticated - cannot load verification status")
+            dlog("⚠️ Not authenticated - cannot load verification status")
             return
         }
         
@@ -174,11 +174,11 @@ class PhoneVerificationService: ObservableObject {
                     verificationStatus = phoneVerified ? .verified : .notStarted
                 }
                 
-                print("✅ Loaded phone verification status: \(phoneVerified)")
+                dlog("✅ Loaded phone verification status: \(phoneVerified)")
             }
             
         } catch {
-            print("⚠️ Could not load verification status: \(error.localizedDescription)")
+            dlog("⚠️ Could not load verification status: \(error.localizedDescription)")
         }
     }
     

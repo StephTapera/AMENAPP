@@ -119,7 +119,7 @@ class CloudKitSyncService: ObservableObject {
         } catch {
             // Subscription may already exist — that's fine
             #if DEBUG
-            print("CloudKit subscription setup: \(error.localizedDescription)")
+            dlog("CloudKit subscription setup: \(error.localizedDescription)")
             #endif
         }
     }

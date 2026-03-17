@@ -538,7 +538,7 @@ struct FruitOfSpiritBannerView: View {
                     withAnimation(BannerTokens.expandSpring) { isExpanded.toggle() }
                     DispatchQueue.main.async {
                         let ms = Date().timeIntervalSince(t0) * 1000
-                        print("🌿 [FruitBanner] Tap → expand=\(isExpanded) settled in \(String(format: "%.1f", ms))ms")
+                        dlog("🌿 [FruitBanner] Tap → expand=\(isExpanded) settled in \(String(format: "%.1f", ms))ms")
                     }
                 }
             )
@@ -639,7 +639,7 @@ struct FruitOfSpiritBannerView: View {
                     showSheet = true
                     DispatchQueue.main.async {
                         let ms = Date().timeIntervalSince(t0) * 1000
-                        print("🌿 [FruitBanner] EXPLORE tapped → sheet presenting in \(String(format: "%.1f", ms))ms")
+                        dlog("🌿 [FruitBanner] EXPLORE tapped → sheet presenting in \(String(format: "%.1f", ms))ms")
                     }
                 } label: {
                     Text("EXPLORE")

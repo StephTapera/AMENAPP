@@ -88,7 +88,7 @@ final class AMENFeatureFlags: ObservableObject {
             }
         } catch {
             // Non-fatal — local defaults above remain in effect
-            print("[AMENFeatureFlags] Remote config fetch failed, using defaults: \(error)")
+            dlog("[AMENFeatureFlags] Remote config fetch failed, using defaults: \(error)")
         }
     }
 

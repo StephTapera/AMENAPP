@@ -33,7 +33,7 @@ final class NotificationImageCache: ObservableObject {
     private var waitingHandlers: [String: [(UIImage?) -> Void]] = [:]
     
     private init() {
-        print("✅ NotificationImageCache initialized")
+        dlog("✅ NotificationImageCache initialized")
     }
     
     // MARK: - Load Image
@@ -155,7 +155,7 @@ final class NotificationImageCache: ObservableObject {
             return image
             
         } catch {
-            print("⚠️ Failed to download notification image: \(error.localizedDescription)")
+            dlog("⚠️ Failed to download notification image: \(error.localizedDescription)")
             loadingURLs.remove(urlString)
             notifyWaitingHandlers(for: urlString, with: nil)
             return nil
@@ -191,7 +191,7 @@ final class NotificationImageCache: ObservableObject {
     /// Clear memory cache (useful when memory warning)
     func clearMemoryCache() {
         memoryCache.removeAllObjects()
-        print("🧹 Cleared notification image memory cache")
+        dlog("🧹 Cleared notification image memory cache")
     }
     
     /// Clear disk cache (useful for debugging or settings)
@@ -206,7 +206,7 @@ final class NotificationImageCache: ObservableObject {
             try? FileManager.default.removeItem(at: notificationImagesDir)
         }.value
         
-        print("🧹 Cleared notification image disk cache")
+        dlog("🧹 Cleared notification image disk cache")
     }
     
     /// Get cache size (for settings display)

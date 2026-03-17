@@ -75,7 +75,7 @@ class ReEngagementNotificationService {
                   let text = dict["text"] as? String,
                   let jsonData = text.data(using: .utf8),
                   let notification = try? JSONDecoder().decode(NotificationCopy.self, from: jsonData) else {
-                print("Failed to parse re-engagement notification response")
+                dlog("Failed to parse re-engagement notification response")
                 return
             }
 
@@ -87,7 +87,7 @@ class ReEngagementNotificationService {
             )
 
         } catch {
-            print("Re-engagement notification generation failed: \(error.localizedDescription)")
+            dlog("Re-engagement notification generation failed: \(error.localizedDescription)")
         }
     }
 
@@ -130,9 +130,9 @@ class ReEngagementNotificationService {
 
         do {
             try await UNUserNotificationCenter.current().add(request)
-            print("Re-engagement notification scheduled: \"\(title)\" in \(Int(delaySeconds))s")
+            dlog("Re-engagement notification scheduled: \"\(title)\" in \(Int(delaySeconds))s")
         } catch {
-            print("Failed to schedule re-engagement notification: \(error)")
+            dlog("Failed to schedule re-engagement notification: \(error)")
         }
     }
 

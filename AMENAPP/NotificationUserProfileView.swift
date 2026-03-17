@@ -189,7 +189,7 @@ struct ProfileContentView: View {
                 }
                 isFollowing.toggle()
             } catch {
-                print("❌ Failed to toggle follow: \(error)")
+                dlog("❌ Failed to toggle follow: \(error)")
             }
             isProcessing = false
         }
@@ -249,7 +249,7 @@ class NotificationProfileViewModel: ObservableObject {
             )
         } catch {
             self.error = error
-            print("❌ Failed to load profile: \(error)")
+            dlog("❌ Failed to load profile: \(error)")
         }
     }
 }

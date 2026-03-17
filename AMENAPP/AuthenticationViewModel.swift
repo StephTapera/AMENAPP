@@ -382,6 +382,20 @@ class AuthenticationViewModel: ObservableObject {
                 return  // defer clears is2FAInProgress
             }
 
+            // P0 FIX: Enforce 30-minute session TTL on the client.
+            // session2FAExpiresAt is written by verify2FAOTP (admin SDK) and cannot be
+            // forged by the client. If it has passed, the session is expired — reject it
+            // even if the scheduled expire2FASessions function hasn't cleared the flag yet.
+            if let expiresAt = securityDoc.data()?["session2FAExpiresAt"] as? Timestamp,
+               expiresAt.dateValue() < Date() {
+                dlog("⚠️ complete2FASignIn: 2FA session expired at \(expiresAt.dateValue())")
+                try? Auth.auth().signOut()
+                errorMessage = "Your verification session has expired. Please sign in again."
+                showError = true
+                needs2FAVerification = false
+                return  // defer clears is2FAInProgress
+            }
+
             // All checks passed — clear 2FA pending state and admit the user.
             pending2FAUserId = nil
             pending2FAEmail = nil
@@ -775,6 +789,17 @@ class AuthenticationViewModel: ObservableObject {
         do {
             try await user.sendEmailVerification(beforeUpdatingEmail: newEmail)
             dlog("✅ Email verification sent for update in Firebase Auth")
+
+            // P0 FIX: Mark emailVerified=false in Firestore immediately when a user
+            // requests an email change. Firebase Auth will flip isEmailVerified back
+            // to true only after the user clicks the verification link in the new
+            // address. Marking false here prevents stale "verified" state from
+            // persisting in our user doc between the request and confirmation.
+            let db = Firestore.firestore()
+            try? await db.collection("users").document(user.uid).setData(
+                ["emailVerified": false], merge: true
+            )
+            dlog("📧 emailVerified set to false in Firestore pending new-address confirmation")
         } catch {
             dlog("❌ Email update failed: \(error.localizedDescription)")
             throw error

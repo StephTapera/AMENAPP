@@ -732,6 +732,8 @@ struct UnifiedChatView: View {
                                             isFromCurrentUser: isFromCurrentUser,
                                             isLastInGroup: isLastInGroup,
                                             showReadReceipt: isLastOutgoing,
+                                            // FIX 1: Reflect auto-retry state in bubble UI
+                                            isRetrying: messagingService.retryingMessageIds.contains(message.id),
                                             onReply: {
                                                 replyingTo = message
                                                 isInputFocused = true
@@ -1697,18 +1699,28 @@ struct UnifiedChatView: View {
                         }
                     }
                     
-                    // Store failed message for retry
+                    // Store failed message for manual retry fallback
                     failedMessageId = messageId
                     failedMessageText = textToSend
-                    
+
+                    // FIX 1: Schedule auto-retry with exponential backoff.
+                    // The service will retry in background every 2^attempt seconds (max 60s),
+                    // surviving network reconnects and app foreground transitions.
+                    messagingService.scheduleRetry(
+                        for: messageId,
+                        conversationId: conversation.id,
+                        text: textToSend,
+                        attempt: 0
+                    )
+
                     // Show error toast with retry button
                     let errorMsg = (error as? FirebaseMessagingError)?.localizedDescription ?? "Failed to send message"
-                    
+
                     if !networkMonitor.isConnected {
-                        toastManager.showWarning("No internet connection. Message will send when you're back online.")
+                        toastManager.showWarning("No internet connection. Retrying when back online…")
                     } else {
                         toastManager.showError(errorMsg) {
-                            // Retry action
+                            // Manual retry action
                             self.retryFailedMessage(messageId: messageId, text: textToSend)
                         }
                     }
@@ -1804,16 +1816,29 @@ struct UnifiedChatView: View {
     
     private func handleTypingIndicator(isTyping: Bool) {
         typingDebounceTimer?.invalidate()
-        
-        Task {
-            try? await messagingService.updateTypingStatus(
-                conversationId: conversation.id,
-                isTyping: isTyping
-            )
-        }
-        
+
         if isTyping {
-            typingDebounceTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: false) { _ in
+            // FIX 5: Send "typing" immediately so the other person sees it right away.
+            Task {
+                try? await messagingService.updateTypingStatus(
+                    conversationId: conversation.id,
+                    isTyping: true
+                )
+            }
+            // Auto-stop after 2.5s of no new keystrokes (debounce increased from 1.0s).
+            typingDebounceTimer = Timer.scheduledTimer(withTimeInterval: 2.5, repeats: false) { _ in
+                Task {
+                    try? await messagingService.updateTypingStatus(
+                        conversationId: conversation.id,
+                        isTyping: false
+                    )
+                }
+            }
+        } else {
+            // FIX 5: Only send "stopped typing" via the debounce timer — never immediately
+            // on a keystroke. This prevents false "stopped" events mid-sentence when the
+            // user deletes a character and the field is momentarily empty.
+            typingDebounceTimer = Timer.scheduledTimer(withTimeInterval: 2.5, repeats: false) { _ in
                 Task {
                     try? await messagingService.updateTypingStatus(
                         conversationId: conversation.id,
@@ -2730,6 +2755,8 @@ struct LiquidGlassMessageBubble: View {
     /// Controls tail visibility and spacing.
     var isLastInGroup: Bool = true
     var showReadReceipt: Bool = false
+    // FIX 1: Show "Retrying..." state for messages in the auto-retry queue
+    var isRetrying: Bool = false
     var onReply: () -> Void
     var onReact: (String) -> Void
     var onLongPress: () -> Void
@@ -2834,12 +2861,23 @@ struct LiquidGlassMessageBubble: View {
 
                     // Bubble
                     HStack(alignment: .bottom, spacing: 6) {
-                        // Failed indicator (left of bubble for outgoing)
+                        // Failed / Retrying indicator (left of bubble for outgoing)
                         if isFromCurrentUser && message.isSendFailed {
-                            Button { onRetry?() } label: {
-                                Image(systemName: "exclamationmark.circle.fill")
-                                    .font(.system(size: 18))
-                                    .foregroundStyle(.red)
+                            if isRetrying {
+                                // FIX 1: Auto-retry in progress — show spinner instead of tap-to-retry
+                                HStack(spacing: 4) {
+                                    ProgressView()
+                                        .scaleEffect(0.7)
+                                    Text("Retrying…")
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(.secondary)
+                                }
+                            } else {
+                                Button { onRetry?() } label: {
+                                    Image(systemName: "exclamationmark.circle.fill")
+                                        .font(.system(size: 18))
+                                        .foregroundStyle(.red)
+                                }
                             }
                         }
 

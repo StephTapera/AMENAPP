@@ -60,15 +60,15 @@ class TwoFactorOTPService: ObservableObject {
                 self.expiresAt = Date(timeIntervalSince1970: expiresAtMs / 1000)
             }
 
-            print("✅ 2FA OTP requested successfully")
-            print("   - OTP ID: \(self.otpId ?? "unknown")")
-            print("   - Method: \(self.deliveryMethod ?? "unknown")")
-            print("   - Destination: \(self.maskedDestination ?? "unknown")")
+            dlog("✅ 2FA OTP requested successfully")
+            dlog("   - OTP ID: \(self.otpId ?? "unknown")")
+            dlog("   - Method: \(self.deliveryMethod ?? "unknown")")
+            dlog("   - Destination: \(self.maskedDestination ?? "unknown")")
 
             return true
 
         } catch let error as NSError {
-            print("❌ Failed to request 2FA OTP: \(error.localizedDescription)")
+            dlog("❌ Failed to request 2FA OTP: \(error.localizedDescription)")
 
             // Parse Firebase Functions error
             if let details = error.userInfo["details"] as? [String: Any],
@@ -120,7 +120,7 @@ class TwoFactorOTPService: ObservableObject {
                 throw TwoFactorOTPError.verificationFailed
             }
 
-            print("✅ 2FA OTP verified successfully")
+            dlog("✅ 2FA OTP verified successfully")
 
             // Clear local state
             self.otpId = nil
@@ -131,7 +131,7 @@ class TwoFactorOTPService: ObservableObject {
             return sessionToken
 
         } catch let error as NSError {
-            print("❌ Failed to verify 2FA OTP: \(error.localizedDescription)")
+            dlog("❌ Failed to verify 2FA OTP: \(error.localizedDescription)")
 
             // Parse Firebase Functions error
             if let details = error.userInfo["details"] as? [String: Any],

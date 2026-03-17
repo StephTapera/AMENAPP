@@ -172,7 +172,7 @@ class PrayerToActionCompanion: ObservableObject {
     /// Analyze a prayer request and generate companion card
     /// Note: This is a client-side analysis. In production, you'd call a Cloud Function with Vertex AI
     func analyzePrayer(postId: String, content: String, authorId: String) async -> PrayerAnalysis? {
-        print("🙏 Analyzing prayer request...")
+        dlog("🙏 Analyzing prayer request...")
         
         isProcessing = true
         defer { isProcessing = false }
@@ -220,7 +220,7 @@ class PrayerToActionCompanion: ObservableObject {
         // Cache locally
         analyses[postId] = analysis
         
-        print("✅ Prayer analysis complete: \(themes.count) themes, urgency: \(urgency.rawValue)")
+        dlog("✅ Prayer analysis complete: \(themes.count) themes, urgency: \(urgency.rawValue)")
         
         return analysis
     }
@@ -521,7 +521,7 @@ class PrayerToActionCompanion: ObservableObject {
     func saveAnalysis(_ analysis: PrayerAnalysis) async throws {
         let docRef = db.collection("prayer_analyses").document(analysis.id)
         try await docRef.setData(try Firestore.Encoder().encode(analysis))
-        print("✅ Prayer analysis saved: \(analysis.id)")
+        dlog("✅ Prayer analysis saved: \(analysis.id)")
     }
     
     // MARK: - Approve Analysis
@@ -540,7 +540,7 @@ class PrayerToActionCompanion: ObservableObject {
         try await saveAnalysis(updatedAnalysis)
         analyses[analysis.prayerId] = updatedAnalysis
         
-        print("✅ Prayer analysis approved and visible")
+        dlog("✅ Prayer analysis approved and visible")
     }
 }
 

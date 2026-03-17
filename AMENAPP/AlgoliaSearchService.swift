@@ -50,23 +50,23 @@ class AlgoliaSearchService: ObservableObject {
         // Validate credentials
         guard !appID.isEmpty && appID != "YOUR_APP_ID",
               !apiKey.isEmpty && apiKey != "YOUR_SEARCH_KEY" else {
-            print("❌ Algolia credentials not configured in AlgoliaConfig.swift")
+            dlog("❌ Algolia credentials not configured in AlgoliaConfig.swift")
             return
         }
         
         // Initialize client
         do {
             client = try SearchClient(appID: appID, apiKey: apiKey)
-            print("✅ Algolia client initialized successfully")
+            dlog("✅ Algolia client initialized successfully")
         } catch {
-            print("❌ Failed to initialize Algolia client: \(error)")
+            dlog("❌ Failed to initialize Algolia client: \(error)")
             return
         }
         
-        print("✅ Algolia client initialized successfully")
-        print("   App ID: \(appID.prefix(8))...")
-        print("   Users Index: \(usersIndexName)")
-        print("   Posts Index: \(postsIndexName)")
+        dlog("✅ Algolia client initialized successfully")
+        dlog("   App ID: \(appID.prefix(8))...")
+        dlog("   Users Index: \(usersIndexName)")
+        dlog("   Posts Index: \(postsIndexName)")
     }
     
     // MARK: - Search Users
@@ -139,7 +139,7 @@ class AlgoliaSearchService: ObservableObject {
             // URLSession -999 cancel — same cause, suppress.
             throw CancellationError()
         } catch {
-            print("❌ Algolia suggestions error: \(error)")
+            dlog("❌ Algolia suggestions error: \(error)")
             throw error
         }
     }
@@ -213,11 +213,11 @@ class AlgoliaSearchService: ObservableObject {
                 )
             }
             
-            print("✅ Algolia found \(users.count) users for '\(query)'")
+            dlog("✅ Algolia found \(users.count) users for '\(query)'")
             return users
             
         } catch {
-            print("❌ Algolia search error: \(error)")
+            dlog("❌ Algolia search error: \(error)")
             throw error
         }
     }
@@ -316,11 +316,11 @@ class AlgoliaSearchService: ObservableObject {
                 )
             }
             
-            print("✅ Algolia found \(posts.count) posts for '\(query)'")
+            dlog("✅ Algolia found \(posts.count) posts for '\(query)'")
             return posts
             
         } catch {
-            print("❌ Algolia search error: \(error)")
+            dlog("❌ Algolia search error: \(error)")
             throw error
         }
     }

@@ -27,7 +27,7 @@ final class FollowStateManager: ObservableObject {
     private let db = Firestore.firestore()
     
     private init() {
-        print("🔰 FollowStateManager initialized")
+        dlog("🔰 FollowStateManager initialized")
         
         // Listen for follow state changes from other parts of the app
         NotificationCenter.default.addObserver(
@@ -120,7 +120,7 @@ final class FollowStateManager: ObservableObject {
         followStates[userId] = state
         cacheTimestamps[userId] = Date()
         
-        print("✅ Updated follow state for \(userId): \(state)")
+        dlog("✅ Updated follow state for \(userId): \(state)")
         
         // Broadcast update via NotificationCenter for cross-view updates
         NotificationCenter.default.post(
@@ -137,7 +137,7 @@ final class FollowStateManager: ObservableObject {
         fetchTasks[userId]?.cancel()
         fetchTasks.removeValue(forKey: userId)
         
-        print("🗑️ Invalidated cache for \(userId)")
+        dlog("🗑️ Invalidated cache for \(userId)")
     }
     
     /// Clear all caches
@@ -147,7 +147,7 @@ final class FollowStateManager: ObservableObject {
         fetchTasks.values.forEach { $0.cancel() }
         fetchTasks.removeAll()
         
-        print("🧹 Cleared all follow state caches")
+        dlog("🧹 Cleared all follow state caches")
     }
     
     // MARK: - Private Methods
@@ -181,7 +181,7 @@ final class FollowStateManager: ObservableObject {
             }
             
         } catch {
-            print("❌ Failed to fetch follow state for \(userId): \(error)")
+            dlog("❌ Failed to fetch follow state for \(userId): \(error)")
             return .notFollowing
         }
     }

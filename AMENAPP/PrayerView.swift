@@ -64,7 +64,7 @@ struct PrayerView: View {
             posts = rankedPrayers.filter { rankedIds.contains($0.id) }
         }
         let ms = Date().timeIntervalSince(t0) * 1000
-        if ms > 5 { print("⚡️ [PrayerView] filteredPosts took \(String(format: "%.1f", ms))ms (\(posts.count) posts, tab=\(selectedTab.rawValue))") }
+        if ms > 5 { dlog("⚡️ [PrayerView] filteredPosts took \(String(format: "%.1f", ms))ms (\(posts.count) posts, tab=\(selectedTab.rawValue))") }
         return posts
     }
 
@@ -115,7 +115,7 @@ struct PrayerView: View {
                                         tabHaptic.impactOccurred()
                                         DispatchQueue.main.async {
                                             let ms = Date().timeIntervalSince(t0) * 1000
-                                            print("🔘 [PrayerView] Filter tap → '\(tab.rawValue)' settled in \(String(format: "%.1f", ms))ms")
+                                            dlog("🔘 [PrayerView] Filter tap → '\(tab.rawValue)' settled in \(String(format: "%.1f", ms))ms")
                                         }
                                     }
                                 )
@@ -194,7 +194,7 @@ struct PrayerView: View {
             let oldRequestCount = oldValue.filter { $0.topicTag == "Prayer Request" }.count
             let newRequestCount = newValue.filter { $0.topicTag == "Prayer Request" }.count
             if oldRequestCount != newRequestCount {
-                print("🙏 [PrayerView] Request count changed \(oldRequestCount)→\(newRequestCount), re-ranking")
+                dlog("🙏 [PrayerView] Request count changed \(oldRequestCount)→\(newRequestCount), re-ranking")
                 rankPrayerRequests()
             }
         }
@@ -233,14 +233,14 @@ struct PrayerView: View {
             await MainActor.run {
                 let ms = Date().timeIntervalSince(t0) * 1000
                 rankedPrayers = ranked
-                print("🙏 [PrayerView] Ranked \(rankedPrayers.count) requests in \(String(format: "%.1f", ms))ms")
+                dlog("🙏 [PrayerView] Ranked \(rankedPrayers.count) requests in \(String(format: "%.1f", ms))ms")
             }
         }
     }
 
     /// Refresh prayers with pull-to-refresh
     private func refreshPrayers() async {
-        print("🔄 Refreshing Prayer posts...")
+        dlog("🔄 Refreshing Prayer posts...")
         
         let topicTag: String?
         
@@ -263,7 +263,7 @@ struct PrayerView: View {
         await MainActor.run {
             let haptic = UINotificationFeedbackGenerator()
             haptic.notificationOccurred(.success)
-            print("✅ Prayer posts refreshed!")
+            dlog("✅ Prayer posts refreshed!")
         }
         
         // Reset pagination after refresh
@@ -286,7 +286,7 @@ struct PrayerView: View {
             visiblePostCount = min(visiblePostCount + increment, maxCount)
             isLoadingMore = false
             let ms = Date().timeIntervalSince(t0) * 1000
-            print("📄 [PrayerView] Loaded more posts → visibleCount=\(visiblePostCount)/\(maxCount) in \(String(format: "%.1f", ms))ms")
+            dlog("📄 [PrayerView] Loaded more posts → visibleCount=\(visiblePostCount)/\(maxCount) in \(String(format: "%.1f", ms))ms")
         }
     }
     
@@ -1362,6 +1362,8 @@ struct PrayerPostCard: View {
     @State private var showingDeleteAlert = false
     @State private var showUserProfile = false
     @State private var showShareSheet = false  // ✅ NEW: For native SwiftUI sharing
+    // P1 #8: Debounce rapid amen taps — only the last tap within 300ms is committed
+    @State private var amenDebounceTask: Task<Void, Never>?
     @Namespace private var glassNamespace
     
     // Check if this is the user's own post
@@ -1485,7 +1487,7 @@ struct PrayerPostCard: View {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                     isFollowing = newFollowState
                 }
-                print("🔄 Follow state synced for \(authorName): \(newFollowState)")
+                dlog("🔄 Follow state synced for \(authorName): \(newFollowState)")
             }
         }
     }
@@ -1702,8 +1704,8 @@ struct PrayerPostCard: View {
     @ViewBuilder
     private var avatarWithFollowButton: some View {
         Button {
-            print("👤 Opening profile for user ID: \(post.authorId)")
-            print("   Author name: \(authorName)")
+            dlog("👤 Opening profile for user ID: \(post.authorId)")
+            dlog("   Author name: \(authorName)")
             showUserProfile = true
             let haptic = UIImpactFeedbackGenerator(style: .light)
             haptic.impactOccurred()
@@ -1933,35 +1935,51 @@ struct PrayerPostCard: View {
     }
     
     private func handleAmenTap() {
-        // OPTIMISTIC UPDATE: Update UI immediately for instant feedback
+        // P1 #8: OPTIMISTIC UPDATE — toggle UI immediately so feedback is instant
         withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
             hasAmened.toggle()
             amenCount = hasAmened ? amenCount + 1 : amenCount - 1
             isAmenAnimating = true
         }
-        
+
         let haptic = UIImpactFeedbackGenerator(style: hasAmened ? .medium : .light)
         haptic.impactOccurred()
-        
+
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             isAmenAnimating = false
         }
-        
-        // Capture the post ID before detaching
+
+        // P1 #8: Debounce — cancel any in-flight commit and wait 300 ms.
+        // Only the final tap state within the window is written to the backend,
+        // preventing inflated/negative counts from rapid double-taps.
+        amenDebounceTask?.cancel()
+
+        // Capture state before launching the task
         let postId = post.backendId
-        
-        // Background sync to Firebase (no await needed)
-        Task.detached(priority: .userInitiated) { [interactionsService] in
+        let capturedInteractionsService = interactionsService
+
+        amenDebounceTask = Task { @MainActor in
             do {
-                try await interactionsService.toggleAmen(postId: postId)
+                try await Task.sleep(for: .milliseconds(300))
             } catch {
-                // On error, revert the optimistic update
-                await MainActor.run {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
-                        hasAmened.toggle()
-                        amenCount = hasAmened ? amenCount + 1 : amenCount - 1
+                // Task was cancelled by another tap — don't commit this state
+                return
+            }
+            guard !Task.isCancelled else { return }
+
+            // Commit the current UI state to the backend
+            Task.detached(priority: .userInitiated) { [capturedInteractionsService] in
+                do {
+                    try await capturedInteractionsService.toggleAmen(postId: postId)
+                } catch {
+                    // On error, revert the optimistic update
+                    await MainActor.run {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                            hasAmened.toggle()
+                            amenCount = hasAmened ? amenCount + 1 : amenCount - 1
+                        }
+                        dlog("❌ Failed to sync Amen: \(error)")
                     }
-                    print("❌ Failed to sync Amen: \(error)")
                 }
             }
         }
@@ -1986,7 +2004,7 @@ struct PrayerPostCard: View {
         let haptic = UINotificationFeedbackGenerator()
         haptic.notificationOccurred(.warning)
         
-        print("🗑️ Prayer post deleted")
+        dlog("🗑️ Prayer post deleted")
     }
     
     // MARK: - Follow Functions
@@ -2025,13 +2043,13 @@ struct PrayerPostCard: View {
                 let followService = await FollowService.shared
                 if currentFollowState {
                     try await followService.followUser(userId: targetUserId)
-                    print("✅ Followed user: \(targetUserId)")
+                    dlog("✅ Followed user: \(targetUserId)")
                 } else {
                     try await followService.unfollowUser(userId: targetUserId)
-                    print("✅ Unfollowed user: \(targetUserId)")
+                    dlog("✅ Unfollowed user: \(targetUserId)")
                 }
             } catch {
-                print("❌ Failed to toggle follow: \(error)")
+                dlog("❌ Failed to toggle follow: \(error)")
                 
                 // On error, revert the optimistic update
                 await MainActor.run {
@@ -2065,7 +2083,7 @@ struct PrayerPostCard: View {
         
         // Get current user ID for state checks
         guard let userId = Auth.auth().currentUser?.uid else {
-            print("⚠️ Cannot start real-time listener: No authenticated user")
+            dlog("⚠️ Cannot start real-time listener: No authenticated user")
             return
         }
         
@@ -2147,7 +2165,7 @@ struct PrayerPostCard: View {
             let haptic = UINotificationFeedbackGenerator()
             haptic.notificationOccurred(.success)
             
-            print("🔄 Prayer \(hasReposted ? "reposted" : "unreposted") (optimistic)")
+            dlog("🔄 Prayer \(hasReposted ? "reposted" : "unreposted") (optimistic)")
         }
         
         // Capture post ID before detaching
@@ -2160,10 +2178,10 @@ struct PrayerPostCard: View {
                 try await repostService.toggleRepost(postId: postId)
                 
                 await MainActor.run {
-                    print("✅ Repost synced successfully to Firebase")
+                    dlog("✅ Repost synced successfully to Firebase")
                 }
             } catch {
-                print("❌ Failed to toggle repost: \(error.localizedDescription)")
+                dlog("❌ Failed to toggle repost: \(error.localizedDescription)")
                 
                 // On error, revert the optimistic update
                 await MainActor.run {
@@ -2195,7 +2213,7 @@ struct PrayerPostCard: View {
             errorMessage = "Unable to repost. Please try again."
         }
         
-        print("⚠️ Showing repost error to user: \(errorMessage)")
+        dlog("⚠️ Showing repost error to user: \(errorMessage)")
         ToastManager.shared.show(ToastNotification(message: errorMessage, style: .error))
     }
     
@@ -2222,7 +2240,7 @@ struct PrayerPostCard: View {
             let haptic = UIImpactFeedbackGenerator(style: hasSaved ? .medium : .light)
             haptic.impactOccurred()
             
-            print("🔖 Prayer \(hasSaved ? "saved" : "unsaved") (optimistic)")
+            dlog("🔖 Prayer \(hasSaved ? "saved" : "unsaved") (optimistic)")
         }
         
         // Capture the current state and post ID before detaching
@@ -2234,13 +2252,13 @@ struct PrayerPostCard: View {
             do {
                 if currentSavedState {
                     try await savedPostsService.savePost(postId: postId)
-                    print("✅ Post saved to Firebase")
+                    dlog("✅ Post saved to Firebase")
                 } else {
                     try await savedPostsService.unsavePost(postId: postId)
-                    print("✅ Post unsaved from Firebase")
+                    dlog("✅ Post unsaved from Firebase")
                 }
             } catch {
-                print("❌ Failed to toggle save: \(error.localizedDescription)")
+                dlog("❌ Failed to toggle save: \(error.localizedDescription)")
                 
                 // On error, revert the optimistic update
                 await MainActor.run {
@@ -2269,7 +2287,7 @@ struct PrayerPostCard: View {
             errorMessage = "Unable to save post. Please try again."
         }
         
-        print("⚠️ Showing save error to user: \(errorMessage)")
+        dlog("⚠️ Showing save error to user: \(errorMessage)")
         ToastManager.shared.show(ToastNotification(message: errorMessage, style: .error))
     }
     
@@ -2283,19 +2301,19 @@ struct PrayerPostCard: View {
         UIPasteboard.general.string = "https://amenapp.com/prayer/\(UUID().uuidString)"
         let haptic = UINotificationFeedbackGenerator()
         haptic.notificationOccurred(.success)
-        print("🔗 Prayer link copied")
+        dlog("🔗 Prayer link copied")
     }
     
     private func muteAuthor() {
         let haptic = UINotificationFeedbackGenerator()
         haptic.notificationOccurred(.success)
-        print("🔇 Muted \(authorName)")
+        dlog("🔇 Muted \(authorName)")
     }
     
     private func blockAuthor() {
         let haptic = UINotificationFeedbackGenerator()
         haptic.notificationOccurred(.warning)
-        print("🚫 Blocked \(authorName)")
+        dlog("🚫 Blocked \(authorName)")
     }
     
     @ViewBuilder
@@ -2705,10 +2723,10 @@ struct PrayerCommentSection: View {
             
             await MainActor.run {
                 isSubmitting = false
-                print("✅ Comment posted successfully - will appear via listener")
+                dlog("✅ Comment posted successfully - will appear via listener")
             }
         } catch {
-            print("❌ Failed to post comment: \(error)")
+            dlog("❌ Failed to post comment: \(error)")
             
             // On error, restore comment text and show error
             await MainActor.run {
@@ -2745,10 +2763,10 @@ struct PrayerCommentSection: View {
                     .sorted { $0.createdAt > $1.createdAt }
                 self.commentCount = comments.count
                 isLoading = false
-                print("✅ Loaded \(comments.count) comments for post: \(post.id.uuidString)")
+                dlog("✅ Loaded \(comments.count) comments for post: \(post.id.uuidString)")
             }
         } catch {
-            print("❌ Failed to load comments: \(error.localizedDescription)")
+            dlog("❌ Failed to load comments: \(error.localizedDescription)")
             await MainActor.run {
                 isLoading = false
                 errorMessage = "Failed to load comments"
@@ -2778,7 +2796,7 @@ struct PrayerCommentSection: View {
     
     private func deleteComment(_ comment: Comment) {
         guard let commentId = comment.id else {
-            print("⚠️ Cannot delete comment: Missing comment ID")
+            dlog("⚠️ Cannot delete comment: Missing comment ID")
             return
         }
         
@@ -2802,9 +2820,9 @@ struct PrayerCommentSection: View {
         Task.detached(priority: .userInitiated) {
             do {
                 try await commentService.deleteComment(commentId: commentId, postId: postId)
-                print("✅ Comment deleted successfully: \(commentId)")
+                dlog("✅ Comment deleted successfully: \(commentId)")
             } catch {
-                print("❌ Failed to delete comment: \(error.localizedDescription)")
+                dlog("❌ Failed to delete comment: \(error.localizedDescription)")
                 
                 // On error, restore the comment at its original position
                 await MainActor.run {
@@ -3046,7 +3064,7 @@ struct PrayerCommentRow: View {
     /// Load initial amen state from backend
     private func loadInitialState() async {
         guard let commentId = comment.id else {
-            print("⚠️ Cannot load state: Missing comment ID")
+            dlog("⚠️ Cannot load state: Missing comment ID")
             return
         }
         
@@ -3056,7 +3074,7 @@ struct PrayerCommentRow: View {
     /// Handle amen toggle with optimistic update and error rollback
     private func handleAmenToggle() {
         guard let commentId = comment.id else {
-            print("⚠️ Cannot toggle amen: Missing comment ID")
+            dlog("⚠️ Cannot toggle amen: Missing comment ID")
             return
         }
         
@@ -3080,9 +3098,9 @@ struct PrayerCommentRow: View {
         Task.detached(priority: .userInitiated) {
             do {
                 try await commentService.toggleAmen(commentId: commentId, postId: postId, currentlyAmened: previousState)
-                print("✅ Amen toggled successfully")
+                dlog("✅ Amen toggled successfully")
             } catch {
-                print("❌ Failed to toggle amen: \(error.localizedDescription)")
+                dlog("❌ Failed to toggle amen: \(error.localizedDescription)")
                 
                 // On error, revert the optimistic update
                 await MainActor.run {

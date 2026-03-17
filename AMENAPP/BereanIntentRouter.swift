@@ -123,7 +123,7 @@ class BereanIntentRouter: ObservableObject {
         context: BereanContext,
         sessionId: String? = nil
     ) async throws -> BereanResponse {
-        print("🧠 Berean routing request from \(context.featureContext.rawValue)...")
+        dlog("🧠 Berean routing request from \(context.featureContext.rawValue)...")
         
         isProcessing = true
         defer { isProcessing = false }
@@ -164,7 +164,7 @@ class BereanIntentRouter: ObservableObject {
         // 5. Update session (with retention policy)
         await updateSession(session: session, input: input, response: response)
         
-        print("✅ Berean routed to \(routing.tool) with \(routing.priority) priority")
+        dlog("✅ Berean routed to \(routing.tool) with \(routing.priority) priority")
         return response
     }
     
@@ -874,7 +874,7 @@ class BereanIntentRouter: ObservableObject {
         // Trigger pattern-break after 2 prior matches (3 total including current)
         guard repeatCount >= 2 else { return nil }
 
-        print("🔁 Berean: Scrupulosity loop detected (\(repeatCount + 1) occurrences in last 10 messages)")
+        dlog("🔁 Berean: Scrupulosity loop detected (\(repeatCount + 1) occurrences in last 10 messages)")
 
         return BereanResponse(
             content: BereanSafetyPolicy.refusal(for: .scrupulosity),

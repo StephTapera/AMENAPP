@@ -160,10 +160,10 @@ struct FollowingListView: View {
             
             following = followingDetails.sorted { $0.displayName < $1.displayName }
             
-            print("✅ Loaded \(following.count) following")
+            dlog("✅ Loaded \(following.count) following")
             
         } catch {
-            print("❌ Error loading following: \(error)")
+            dlog("❌ Error loading following: \(error)")
             errorMessage = "Failed to load following. Please try again."
         }
         
@@ -181,10 +181,10 @@ struct FollowingListView: View {
             let haptic = UINotificationFeedbackGenerator()
             haptic.notificationOccurred(.success)
             
-            print("✅ Unfollowed: \(user.displayName)")
+            dlog("✅ Unfollowed: \(user.displayName)")
             
         } catch {
-            print("❌ Error unfollowing user: \(error)")
+            dlog("❌ Error unfollowing user: \(error)")
             
             // Rollback on error
             await loadFollowing()

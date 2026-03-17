@@ -14,8 +14,8 @@ class AppLaunchConfig {
         // Initialize Remote Config (if RemoteConfigManager exists)
         // RemoteConfigManager.shared.fetchAndActivate()
         
-        print("🚀 App launch configuration complete")
-        print("   Rate Limiter: Ready")
-        print("   Usage Monitor: Ready")
+        dlog("🚀 App launch configuration complete")
+        dlog("   Rate Limiter: Ready")
+        dlog("   Usage Monitor: Ready")
     }
 }

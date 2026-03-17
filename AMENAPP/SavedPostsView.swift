@@ -176,7 +176,7 @@ struct SavedPostsView: View {
         defer { isLoading = false }
         
         do {
-            print("📥 Loading saved posts...")
+            dlog("📥 Loading saved posts...")
             
             // Fetch saved post IDs first
             let postIds = try await savedPostsService.fetchSavedPostIds()
@@ -194,7 +194,7 @@ struct SavedPostsView: View {
                     let post = try await postsService.fetchPost(postId: postId)
                     posts.append(post)
                 } catch {
-                    print("⚠️ Failed to fetch saved post \(postId): \(error)")
+                    dlog("⚠️ Failed to fetch saved post \(postId): \(error)")
                     // Continue loading other posts even if one fails
                 }
             }
@@ -202,10 +202,10 @@ struct SavedPostsView: View {
             // Sort by creation date (most recent first)
             savedPosts = posts.sorted { $0.createdAt > $1.createdAt }
             
-            print("✅ Loaded \(savedPosts.count) saved posts")
+            dlog("✅ Loaded \(savedPosts.count) saved posts")
             
         } catch {
-            print("❌ Error loading saved posts: \(error)")
+            dlog("❌ Error loading saved posts: \(error)")
             errorMessage = "Failed to load saved posts. Please try again."
             showError = true
         }
@@ -246,7 +246,7 @@ struct SavedPostsView: View {
         savedPostsService.observeSavedPosts { [self] postIds in
             Task { @MainActor in
                 if postIds.count > savedPosts.count {
-                    print("🔄 New saved post detected, reloading...")
+                    dlog("🔄 New saved post detected, reloading...")
                     await loadSavedPosts()
                 }
             }
@@ -293,10 +293,10 @@ struct SavedPostsView: View {
             let haptic = UINotificationFeedbackGenerator()
             haptic.notificationOccurred(.success)
             
-            print("✅ Cleared all saved posts")
+            dlog("✅ Cleared all saved posts")
             
         } catch {
-            print("❌ Error clearing saved posts: \(error)")
+            dlog("❌ Error clearing saved posts: \(error)")
             errorMessage = "Failed to clear saved posts. Please try again."
             showError = true
         }
@@ -371,7 +371,7 @@ struct SavedPostsListCompact: View {
         do {
             savedCount = try await savedPostsService.getSavedPostsCount()
         } catch {
-            print("❌ Error loading saved count: \(error)")
+            dlog("❌ Error loading saved count: \(error)")
         }
     }
 }

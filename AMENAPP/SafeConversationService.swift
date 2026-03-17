@@ -74,7 +74,7 @@ class SafeConversationService {
         try await saveSettings(settings)
         
         #if DEBUG
-        print("🛡️ [SAFE MODE] Auto-enabled for user \(userId) for \(durationHours) hours")
+        dlog("🛡️ [SAFE MODE] Auto-enabled for user \(userId) for \(durationHours) hours")
         #endif
     }
     

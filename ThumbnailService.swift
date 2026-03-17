@@ -30,7 +30,7 @@ class ThumbnailService {
     /// - Returns: Thumbnail image data (JPEG, 50-100KB typical size)
     func generateThumbnail(from imageData: Data) -> Data? {
         guard let image = UIImage(data: imageData) else {
-            print("❌ [THUMBNAIL] Failed to load image from data")
+            dlog("❌ [THUMBNAIL] Failed to load image from data")
             return nil
         }
         
@@ -59,7 +59,7 @@ class ThumbnailService {
         
         // Compress to JPEG
         guard let thumbnailData = thumbnail.jpegData(compressionQuality: compressionQuality) else {
-            print("❌ [THUMBNAIL] Failed to compress thumbnail")
+            dlog("❌ [THUMBNAIL] Failed to compress thumbnail")
             return nil
         }
         
@@ -67,7 +67,7 @@ class ThumbnailService {
         let thumbnailSize = thumbnailData.count / 1024 // KB
         let reduction = Double(originalSize) / Double(max(thumbnailSize, 1))
         
-        print("✅ [THUMBNAIL] Generated: \(originalSize)KB → \(thumbnailSize)KB (\(String(format: "%.1f", reduction))x reduction)")
+        dlog("✅ [THUMBNAIL] Generated: \(originalSize)KB → \(thumbnailSize)KB (\(String(format: "%.1f", reduction))x reduction)")
         
         return thumbnailData
     }

@@ -73,7 +73,7 @@ class EnhancedSearchService: ObservableObject {
             return []
         }
         
-        print("🤖 AI-Enhanced Search: '\(query)' with filter: \(filter.rawValue)")
+        dlog("🤖 AI-Enhanced Search: '\(query)' with filter: \(filter.rawValue)")
         
         isSearching = true
         defer { isSearching = false }
@@ -154,12 +154,12 @@ class EnhancedSearchService: ObservableObject {
                     }
                 }
                 
-                print("✅ Generated \(result.suggestions.count) AI suggestions")
+                dlog("✅ Generated \(result.suggestions.count) AI suggestions")
                 
             } catch is CancellationError {
-                print("⏸️ Suggestion generation cancelled")
+                dlog("⏸️ Suggestion generation cancelled")
             } catch {
-                print("⚠️ Error generating suggestions: \(error.localizedDescription)")
+                dlog("⚠️ Error generating suggestions: \(error.localizedDescription)")
                 // Fail silently - don't disrupt search
             }
         }
@@ -181,10 +181,10 @@ class EnhancedSearchService: ObservableObject {
                 }
             }
             
-            print("✅ Generated \(result.filters.count) filter recommendations")
+            dlog("✅ Generated \(result.filters.count) filter recommendations")
             
         } catch {
-            print("⚠️ Error generating filter recommendations: \(error.localizedDescription)")
+            dlog("⚠️ Error generating filter recommendations: \(error.localizedDescription)")
             // Fail silently
         }
     }

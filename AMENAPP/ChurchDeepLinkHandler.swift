@@ -35,7 +35,7 @@ class ChurchDeepLinkHandler: ObservableObject {
         showChurchProfile = true
         
         #if DEBUG
-        print("🔗 [DEEP LINK] Opening church: \(id)")
+        dlog("🔗 [DEEP LINK] Opening church: \(id)")
         #endif
     }
     

@@ -70,7 +70,7 @@ class SearchService: ObservableObject {
             return []
         }
         
-        print("🔍 Searching for: '\(query)' with filter: \(filter.rawValue)")
+        dlog("🔍 Searching for: '\(query)' with filter: \(filter.rawValue)")
         
         isSearching = true
         defer { isSearching = false }
@@ -112,7 +112,7 @@ class SearchService: ObservableObject {
             self.searchResults = results
         }
         
-        print("✅ Found \(results.count) results")
+        dlog("✅ Found \(results.count) results")
         
         return results
     }
@@ -121,18 +121,18 @@ class SearchService: ObservableObject {
     
     func searchPeople(query: String) async throws -> [AppSearchResult] {
         let lowercaseQuery = query.lowercased()
-        print("🔍 Searching people with Algolia: '\(lowercaseQuery)'")
+        dlog("🔍 Searching people with Algolia: '\(lowercaseQuery)'")
         
         do {
             // Use Algolia for search (typo-tolerant, instant results)
             let algoliaUsers = try await AlgoliaSearchService.shared.searchUsers(query: lowercaseQuery)
             let results = algoliaUsers.map { $0.toSearchResult() }
             
-            print("✅ Found \(results.count) people via Algolia")
+            dlog("✅ Found \(results.count) people via Algolia")
             return results
             
         } catch {
-            print("⚠️ Algolia search failed, falling back to Firestore: \(error)")
+            dlog("⚠️ Algolia search failed, falling back to Firestore: \(error)")
             
             // Fallback to Firestore if Algolia fails
             return try await searchPeopleFirestore(query: lowercaseQuery)
@@ -143,7 +143,7 @@ class SearchService: ObservableObject {
     
     private func searchPeopleFirestore(query: String) async throws -> [AppSearchResult] {
         let lowercaseQuery = query.lowercased()
-        print("🔍 Searching people with query: '\(lowercaseQuery)'")
+        dlog("🔍 Searching people with query: '\(lowercaseQuery)'")
         
         var results: [AppSearchResult] = []
         
@@ -155,7 +155,7 @@ class SearchService: ObservableObject {
                 .limit(to: 20)
                 .getDocuments()
             
-            print("✅ Found \(snapshot.documents.count) users by usernameLowercase")
+            dlog("✅ Found \(snapshot.documents.count) users by usernameLowercase")
             
             for document in snapshot.documents {
                 if let result = parseUserDocument(document) {
@@ -170,7 +170,7 @@ class SearchService: ObservableObject {
                 .limit(to: 20)
                 .getDocuments()
             
-            print("✅ Found \(nameSnapshot.documents.count) users by displayNameLowercase")
+            dlog("✅ Found \(nameSnapshot.documents.count) users by displayNameLowercase")
             
             for document in nameSnapshot.documents {
                 if let result = parseUserDocument(document) {
@@ -182,8 +182,8 @@ class SearchService: ObservableObject {
             }
             
         } catch {
-            print("⚠️ Lowercase field search failed (fields may not exist): \(error)")
-            print("📝 Falling back to client-side filtering...")
+            dlog("⚠️ Lowercase field search failed (fields may not exist): \(error)")
+            dlog("📝 Falling back to client-side filtering...")
             
             // STRATEGY 2: Fallback - Get all users and filter client-side (NOT IDEAL but works)
             // Only do this for development. In production, you MUST add lowercase fields.
@@ -191,7 +191,7 @@ class SearchService: ObservableObject {
                 .limit(to: 100)  // Limit to prevent huge downloads
                 .getDocuments()
             
-            print("📥 Downloaded \(allUsersSnapshot.documents.count) users for client-side search")
+            dlog("📥 Downloaded \(allUsersSnapshot.documents.count) users for client-side search")
             
             for document in allUsersSnapshot.documents {
                 let data = document.data()
@@ -207,10 +207,10 @@ class SearchService: ObservableObject {
                 }
             }
             
-            print("✅ Client-side filter found \(results.count) matching users")
+            dlog("✅ Client-side filter found \(results.count) matching users")
         }
         
-        print("✅ Total people results: \(results.count)")
+        dlog("✅ Total people results: \(results.count)")
         return results
     }
     
@@ -221,7 +221,7 @@ class SearchService: ObservableObject {
         
         guard let username = data["username"] as? String,
               let displayName = data["displayName"] as? String else {
-            print("⚠️ Skipping user \(userId) - missing username or displayName")
+            dlog("⚠️ Skipping user \(userId) - missing username or displayName")
             return nil
         }
         
@@ -281,18 +281,18 @@ class SearchService: ObservableObject {
     
     func searchPosts(query: String) async throws -> [AppSearchResult] {
         let lowercaseQuery = query.lowercased()
-        print("🔍 Searching posts with Algolia: '\(lowercaseQuery)'")
+        dlog("🔍 Searching posts with Algolia: '\(lowercaseQuery)'")
         
         do {
             // Use Algolia for search (typo-tolerant, instant results)
             let algoliaPosts = try await AlgoliaSearchService.shared.searchPosts(query: lowercaseQuery)
             let results = algoliaPosts.map { $0.toSearchResult() }
             
-            print("✅ Found \(results.count) posts via Algolia")
+            dlog("✅ Found \(results.count) posts via Algolia")
             return results
             
         } catch {
-            print("⚠️ Algolia search failed, falling back to Firestore: \(error)")
+            dlog("⚠️ Algolia search failed, falling back to Firestore: \(error)")
             
             // Fallback to Firestore if Algolia fails
             return try await searchPostsFirestore(query: lowercaseQuery)

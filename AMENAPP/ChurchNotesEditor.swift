@@ -582,7 +582,7 @@ struct EnhancedChurchNoteEditor: View {
                 showAutoSaveIndicator = false
             }
         } catch {
-            print("Auto-save failed: \(error)")
+            dlog("Auto-save failed: \(error)")
         }
     }
     

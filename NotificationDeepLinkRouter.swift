@@ -70,7 +70,7 @@ final class NotificationDeepLinkRouter: ObservableObject {
     func route(_ notification: AppNotification) {
         let destination = determineDestination(for: notification)
         
-        print("🔗 Routing notification to: \(destination)")
+        dlog("🔗 Routing notification to: \(destination)")
         
         // Track engagement for smart notification engine
         SmartNotificationEngine.shared.recordNotificationInteraction(notification)
@@ -82,11 +82,11 @@ final class NotificationDeepLinkRouter: ObservableObject {
     /// Route from push notification payload
     func routeFromPushPayload(_ userInfo: [AnyHashable: Any]) {
         guard let type = userInfo["type"] as? String else {
-            print("⚠️ No type in push notification payload")
+            dlog("⚠️ No type in push notification payload")
             return
         }
         
-        print("🔗 Routing push notification: \(type)")
+        dlog("🔗 Routing push notification: \(type)")
         
         let destination: NavigationDestination
         
@@ -229,7 +229,7 @@ final class NotificationDeepLinkRouter: ObservableObject {
         if now.timeIntervalSince(lastNavigationTime) < navigationDebounceInterval,
            activeDestination != nil {
             pendingNavigation = destination
-            print("⏸️ Debounced navigation (rapid arrival): \(destination)")
+            dlog("⏸️ Debounced navigation (rapid arrival): \(destination)")
             return
         }
 
@@ -237,18 +237,18 @@ final class NotificationDeepLinkRouter: ObservableObject {
 
         if isAppReady() {
             activeDestination = destination
-            print("✅ Navigating to: \(destination)")
+            dlog("✅ Navigating to: \(destination)")
         } else {
             // Queue navigation for when app is ready
             pendingNavigation = destination
-            print("⏸️ Queued navigation (app not ready): \(destination)")
+            dlog("⏸️ Queued navigation (app not ready): \(destination)")
         }
     }
 
     /// Call this when app is ready to handle navigation
     func appDidBecomeReady() {
         if let pending = pendingNavigation {
-            print("▶️ Processing pending navigation: \(pending)")
+            dlog("▶️ Processing pending navigation: \(pending)")
             activeDestination = pending
             pendingNavigation = nil
         }
@@ -265,7 +265,7 @@ final class NotificationDeepLinkRouter: ObservableObject {
                 try? await Task.sleep(nanoseconds: 300_000_000) // 0.3s settle
                 self.activeDestination = queued
                 self.lastNavigationTime = Date()
-                print("▶️ Processing queued navigation: \(queued)")
+                dlog("▶️ Processing queued navigation: \(queued)")
             }
         }
     }
@@ -286,14 +286,14 @@ final class NotificationDeepLinkRouter: ObservableObject {
     /// Handle deep link URL (e.g., amenapp://post/abc123)
     func handleURL(_ url: URL) {
         guard url.scheme == "amenapp" else {
-            print("⚠️ Unknown URL scheme: \(url.scheme ?? "nil")")
+            dlog("⚠️ Unknown URL scheme: \(url.scheme ?? "nil")")
             return
         }
         
         let host = url.host ?? ""
         let pathComponents = url.pathComponents.filter { $0 != "/" }
         
-        print("🔗 Handling deep link: \(host) with path: \(pathComponents)")
+        dlog("🔗 Handling deep link: \(host) with path: \(pathComponents)")
         
         let destination: NavigationDestination
         
@@ -342,7 +342,7 @@ final class NotificationDeepLinkRouter: ObservableObject {
             }
             
         default:
-            print("⚠️ Unknown deep link host: \(host)")
+            dlog("⚠️ Unknown deep link host: \(host)")
             destination = .notifications
         }
         

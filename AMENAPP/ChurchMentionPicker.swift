@@ -154,7 +154,7 @@ class ChurchMentionViewModel: ObservableObject {
                     results = searchResults
                 }
             } catch {
-                print("⚠️ Church search failed: \(error)")
+                dlog("⚠️ Church search failed: \(error)")
             }
             
             isLoading = false
@@ -173,7 +173,7 @@ class ChurchMentionViewModel: ObservableObject {
             )
             results = Array(searchResults.prefix(10))
         } catch {
-            print("⚠️ Failed to load nearby churches: \(error)")
+            dlog("⚠️ Failed to load nearby churches: \(error)")
         }
         
         isLoading = false
@@ -186,7 +186,7 @@ class ChurchMentionViewModel: ObservableObject {
         do {
             return try await service.getOrCreateChurch(placeId: placeId)
         } catch {
-            print("⚠️ Failed to create church: \(error)")
+            dlog("⚠️ Failed to create church: \(error)")
             return nil
         }
     }

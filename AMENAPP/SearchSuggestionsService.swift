@@ -130,7 +130,7 @@ class SearchSuggestionsService {
                 )
             }
         } catch {
-            print("❌ Error getting people suggestions: \(error)")
+            dlog("❌ Error getting people suggestions: \(error)")
             return []
         }
     }
@@ -166,7 +166,7 @@ class SearchSuggestionsService {
                 )
             }
         } catch {
-            print("❌ Error getting user suggestions: \(error)")
+            dlog("❌ Error getting user suggestions: \(error)")
             return []
         }
     }
@@ -197,7 +197,7 @@ class SearchSuggestionsService {
                 )
             }
         } catch {
-            print("❌ Error getting group suggestions: \(error)")
+            dlog("❌ Error getting group suggestions: \(error)")
             return []
         }
     }

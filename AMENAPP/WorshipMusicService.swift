@@ -234,7 +234,7 @@ extension WorshipMusicService {
             }
 
         } catch {
-            print("⚠️ [WorshipMusic] MusicKit search failed: \(error.localizedDescription)")
+            dlog("⚠️ [WorshipMusic] MusicKit search failed: \(error.localizedDescription)")
             startActivityWithoutPlayback(title: title, artist: artist, churchNoteId: churchNoteId)
         }
     }
@@ -258,7 +258,7 @@ extension WorshipMusicService {
             )
             startElapsedTimer(duration: info.durationSeconds)
         } catch {
-            print("⚠️ [WorshipMusic] Full playback failed, using preview: \(error)")
+            dlog("⚠️ [WorshipMusic] Full playback failed, using preview: \(error)")
             startPreviewPlayback(info: info)
         }
     }
@@ -295,7 +295,7 @@ extension WorshipMusicService {
             try await MusicLibrary.shared.add(song)
             return true
         } catch {
-            print("⚠️ [WorshipMusic] addToLibrary failed: \(error)")
+            dlog("⚠️ [WorshipMusic] addToLibrary failed: \(error)")
             return false
         }
     }
@@ -330,7 +330,7 @@ extension WorshipMusicService {
             }
             return true
         } catch {
-            print("⚠️ [WorshipMusic] addToPlaylist failed: \(error)")
+            dlog("⚠️ [WorshipMusic] addToPlaylist failed: \(error)")
             return false
         }
     }

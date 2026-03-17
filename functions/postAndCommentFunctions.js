@@ -21,7 +21,13 @@ const { onDocumentCreated }  = require('firebase-functions/v2/firestore');
 const admin = require('firebase-admin');
 
 const db      = admin.firestore();
-const rtdb    = admin.database();
+// Lazy RTDB init — top-level admin.database() throws during Firebase deploy analysis
+// if FIREBASE_CONFIG is not yet populated. Use the explicit URL to force resolution.
+let _rtdb = null;
+const getRtdb = () => {
+  if (!_rtdb) _rtdb = admin.database("https://amen-5e359-default-rtdb.firebaseio.com");
+  return _rtdb;
+};
 const storage = admin.storage();
 
 const REGION = 'us-central1';
@@ -195,7 +201,7 @@ exports.addComment = onCall({ region: REGION }, async (request) => {
   const commenter = commenterSnap.data() || {};
 
   // Write to Realtime Database (canonical comment store)
-  const commentRef = rtdb.ref(`postInteractions/${postId}/comments`).push();
+  const commentRef = getRtdb().ref(`postInteractions/${postId}/comments`).push();
   const commentId = commentRef.key;
 
   const commentData = {
@@ -254,7 +260,7 @@ exports.toggleReaction = onCall({ region: REGION }, async (request) => {
   const countField = reactionType === 'amen' ? 'amenCount' : 'lightbulbCount';
 
   // RTDB path for user's reaction (presence = reacted)
-  const userReactionRef = rtdb.ref(
+  const userReactionRef = getRtdb().ref(
     `postInteractions/${postId}/${reactionType}s/${auth.uid}`
   );
 

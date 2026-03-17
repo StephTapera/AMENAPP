@@ -96,7 +96,7 @@ class AntiHarassmentEngine {
 
         // Auth guard: reject unauthenticated writes
         guard Auth.auth().currentUser != nil else {
-            print("⛔️ [ENFORCEMENT] recordEnforcement rejected — no authenticated session")
+            dlog("⛔️ [ENFORCEMENT] recordEnforcement rejected — no authenticated session")
             throw NSError(domain: "AntiHarassmentEngine", code: 401,
                           userInfo: [NSLocalizedDescriptionKey: "Authentication required to record enforcement"])
         }
@@ -119,7 +119,7 @@ class AntiHarassmentEngine {
             .getDocuments()
 
         if let existing, !existing.documents.isEmpty {
-            print("⚠️ [ENFORCEMENT] Duplicate suppressed for idempotency key: \(idempotencyKey)")
+            dlog("⚠️ [ Duplicate suppressed for idempotency key: \(idempotencyKey)")
             return
         }
 
@@ -163,7 +163,7 @@ class AntiHarassmentEngine {
                 "idempotencyKey": idempotencyKey
             ])
 
-        print("📝 [ENFORCEMENT] Recorded: User \(userId), Violation: \(violation), Action: \(action), Source: \(source.rawValue), Surface: \(surface.rawValue)")
+        dlog("📝 [ Recorded: User \(userId), Violation: \(violation), Action: \(action), Source: \(source.rawValue), Surface: \(surface.rawValue)")
     }
 
     /// Get user's enforcement history.
@@ -357,7 +357,7 @@ class AntiHarassmentEngine {
            let existingProtection = existing.data()?["enhancedProtectionEnabled"] as? Bool, existingProtection,
            let existingExpiry = (existing.data()?["enhancedProtectionExpiresAt"] as? Timestamp)?.dateValue(),
            existingExpiry > expiresAt {
-            print("ℹ️ [PROTECTION] Already active for \(userId) until \(existingExpiry) — not shortening.")
+            dlog("ℹ️ [ Already active for \(userId) until \(existingExpiry) — not shortening.")
             return
         }
 
@@ -384,7 +384,7 @@ class AntiHarassmentEngine {
             "data": ["reason": reason, "expiresAfterDays": "\(expiresAfterDays)"]
         ])
 
-        print("🛡️ [PROTECTION] Enabled for user: \(userId), Reason: \(reason), Expires: \(expiresAt)")
+        dlog("🛡️ [ Enabled for user: \(userId), Reason: \(reason), Expires: \(expiresAt)")
     }
 
     // MARK: - Temporary Restrictions
@@ -440,7 +440,7 @@ class AntiHarassmentEngine {
         if let existing, existing.exists,
            let existingEnd = (existing.data()?["endDate"] as? Timestamp)?.dateValue(),
            existingEnd > proposedEndDate {
-            print("ℹ️ [RESTRICTION] Existing restriction for \(userId)/\(type.rawValue) ends later (\(existingEnd)) — not shortening.")
+            dlog("ℹ️ [ Existing restriction for \(userId)/\(type.rawValue) ends later (\(existingEnd)) — not shortening.")
             return
         }
 
@@ -468,7 +468,7 @@ class AntiHarassmentEngine {
             "data": ["restrictionType": type.rawValue, "hours": "\(durationHours)"]
         ])
 
-        print("⏸️ [RESTRICTION] Applied: User \(userId), Type: \(type.rawValue), Duration: \(durationHours)h")
+        dlog("⏸️ [ Applied: User \(userId), Type: \(type.rawValue), Duration: \(durationHours)h")
     }
 
     /// Check if user is currently restricted
@@ -585,7 +585,7 @@ class AntiHarassmentEngine {
                 "appealStatus": "pending"
             ])
 
-        print("📝 [APPEAL] Submitted: \(appealId), User: \(userId)")
+        dlog("📝 [ Submitted: \(appealId), User: \(userId)")
 
         return appealId
     }
@@ -769,7 +769,7 @@ class AntiHarassmentEngine {
     /// Minor-safety violations (minorSafety, sexualMinors) always receive the
     /// critical path regardless of the pattern's computed riskLevel.
     func handleHarassmentPattern(_ pattern: HarassmentPattern) async throws {
-        print("🚨 [PATTERN] Harassment detected: \(pattern.userId) → \(pattern.targetUserId), Risk: \(pattern.riskLevel)")
+        dlog("🚨 [ Harassment detected: \(pattern.userId) → \(pattern.targetUserId), Risk: \(pattern.riskLevel)")
 
         // MINOR-SAFETY OVERRIDE: any pattern involving child safety or sexual exploitation
         // violations gets the most severe response path unconditionally.
@@ -777,7 +777,7 @@ class AntiHarassmentEngine {
             $0 == .childSafety || $0 == .sexualExploitation
         }
         if hasMinorSafetyViolation {
-            print("🚨 [PATTERN] MINOR-SAFETY override — applying critical path regardless of risk level")
+            dlog("🚨 [ MINOR-SAFETY override — applying critical path regardless of risk level")
             // Full messaging + posting freeze
             try await applyRestriction(
                 userId: pattern.userId,
@@ -897,7 +897,7 @@ class AntiHarassmentEngine {
                 "createdAt": FieldValue.serverTimestamp(),
                 "data": ["reason": "interaction_pattern"]
             ])
-            print("⚠️ [WARNING] Sent to user: \(pattern.userId)")
+            dlog("⚠️ [ Sent to user: \(pattern.userId)")
         }
     }
 }

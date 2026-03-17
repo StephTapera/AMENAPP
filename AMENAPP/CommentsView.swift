@@ -540,7 +540,7 @@ struct CommentsView: View {
                                                                     }
                                                                 }
                                                             } catch {
-                                                                print("❌ [SUMMARY] Failed to load: \(error)")
+                                                                dlog("❌ [SUMMARY] Failed to load: \(error)")
                                                             }
                                                         }
                                                     }
@@ -1280,7 +1280,7 @@ struct CommentsView: View {
                     HapticManager.impact(style: .light)
                 }
             } catch {
-                print("⚠️ [Berean] Comment rewrite unavailable: \(error)")
+                dlog("⚠️ [Berean] Comment rewrite unavailable: \(error)")
                 await MainActor.run {
                     isLoadingBereanSuggestion = false
                 }
@@ -1968,7 +1968,7 @@ struct CommentsView: View {
                     ToastManager.shared.success(approved ? "Comment approved" : "Comment rejected")
                 }
             } catch {
-                print("❌ [APPROVAL] Failed to update comment status: \(error)")
+                dlog("❌ [APPROVAL] Failed to update comment status: \(error)")
             }
         }
     }
@@ -2281,7 +2281,7 @@ private struct PostCommentRow: View {
                             try await BlockService.shared.blockUser(userId: comment.authorId)
                             ToastManager.shared.success("User blocked")
                         } catch {
-                            print("❌ Failed to block user: \(error)")
+                            dlog("❌ Failed to block user: \(error)")
                         }
                     }
                 } label: {
@@ -2295,7 +2295,7 @@ private struct PostCommentRow: View {
                             try await ModerationService.shared.muteUser(userId: comment.authorId)
                             ToastManager.shared.success("User muted")
                         } catch {
-                            print("❌ Failed to mute user: \(error)")
+                            dlog("❌ Failed to mute user: \(error)")
                         }
                     }
                 } label: {

@@ -86,26 +86,140 @@ public class FirebaseMessagingService: ObservableObject {
     // Error tracking for failed messages
     @Published var failedMessages: [String: (text: String, error: FirebaseMessagingError)] = [:]
     @Published var isOffline = false
-    
+
+    // FIX 1: Retry queue entry (persisted across app restart via UserDefaults)
+    struct RetryQueueEntry: Codable {
+        let messageId: String
+        let conversationId: String
+        let text: String
+        let attempt: Int
+        let nextRetryAt: Date
+    }
+
+    // FIX 1: Published so UI can reflect auto-retry state
+    @Published var retryingMessageIds: Set<String> = []
+    private var retryQueue: [RetryQueueEntry] = []
+    private var retryTimer: Timer?
+    private static let retryQueueKey = "messaging_retry_queue"
+
     private var conversationsListener: ListenerRegistration?
     private var archivedConversationsListener: ListenerRegistration?
     private var messagesListeners: [String: ListenerRegistration] = [:]
     var typingListeners: [String: ListenerRegistration] = [:]
     private var isListeningToConversations = false
     private var conversationsPermissionRetryCount = 0
-    
+
     // Message pagination state
     private var lastDocuments: [String: DocumentSnapshot] = [:] // conversationId: lastDoc
     private var hasMoreMessages: [String: Bool] = [:] // conversationId: hasMore
-    
+
     // P0 FIX: Prevent duplicate conversation creation during rapid calls
     // MainActor-isolated so dictionary access is implicitly serialized (no NSLock needed)
     @MainActor private var inflightConversationCreations: [String: Task<String, Error>] = [:]
-    
+
     private init() {
         // Note: Offline persistence is already configured in AppDelegate
         // Do NOT configure cache settings here - it must be done immediately after FirebaseApp.configure()
         dlog("✅ FirebaseMessagingService initialized (using global Firestore settings)")
+        loadRetryQueue()
+        startRetryTimer()
+        NotificationCenter.default.addObserver(
+            forName: UIApplication.willEnterForegroundNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.processRetryQueue()
+        }
+    }
+
+    // MARK: - FIX 1: Message Retry Queue
+
+    /// Schedule a retry with exponential backoff: 2^attempt seconds, capped at 60s.
+    func scheduleRetry(for messageId: String, conversationId: String, text: String, attempt: Int) {
+        let delaySeconds = min(pow(2.0, Double(attempt)), 60.0)
+        let entry = RetryQueueEntry(
+            messageId: messageId,
+            conversationId: conversationId,
+            text: text,
+            attempt: attempt,
+            nextRetryAt: Date().addingTimeInterval(delaySeconds)
+        )
+        // Remove any existing entry for this messageId before re-queuing
+        retryQueue.removeAll { $0.messageId == messageId }
+        retryQueue.append(entry)
+        saveRetryQueue()
+        dlog("🔁 Retry queued: \(messageId) attempt \(attempt) in \(Int(delaySeconds))s")
+    }
+
+    /// Process all retry queue entries whose nextRetryAt has elapsed.
+    func processRetryQueue() {
+        let now = Date()
+        let due = retryQueue.filter { $0.nextRetryAt <= now }
+        guard !due.isEmpty else { return }
+
+        for entry in due {
+            retryQueue.removeAll { $0.messageId == entry.messageId }
+
+            if entry.attempt >= 5 {
+                // Permanently failed: mark in failedMessages, remove from queue
+                failedMessages[entry.messageId] = (
+                    text: entry.text,
+                    error: .networkError(NSError(domain: "retry", code: -1,
+                        userInfo: [NSLocalizedDescriptionKey: "Message failed after 5 attempts"]))
+                )
+                retryingMessageIds.remove(entry.messageId)
+                dlog("❌ Message permanently failed after 5 attempts: \(entry.messageId)")
+                continue
+            }
+
+            retryingMessageIds.insert(entry.messageId)
+            Task {
+                do {
+                    try await self.sendMessage(
+                        conversationId: entry.conversationId,
+                        text: entry.text,
+                        clientMessageId: entry.messageId
+                    )
+                    await MainActor.run {
+                        self.retryingMessageIds.remove(entry.messageId)
+                        self.failedMessages.removeValue(forKey: entry.messageId)
+                    }
+                    dlog("✅ Retry succeeded: \(entry.messageId) on attempt \(entry.attempt + 1)")
+                } catch {
+                    await MainActor.run {
+                        self.retryingMessageIds.remove(entry.messageId)
+                        self.scheduleRetry(
+                            for: entry.messageId,
+                            conversationId: entry.conversationId,
+                            text: entry.text,
+                            attempt: entry.attempt + 1
+                        )
+                    }
+                    dlog("⚠️ Retry failed: \(entry.messageId), scheduling attempt \(entry.attempt + 1)")
+                }
+            }
+        }
+        saveRetryQueue()
+    }
+
+    private func startRetryTimer() {
+        retryTimer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: true) { [weak self] _ in
+            self?.processRetryQueue()
+        }
+    }
+
+    private func saveRetryQueue() {
+        if let data = try? JSONEncoder().encode(retryQueue) {
+            UserDefaults.standard.set(data, forKey: Self.retryQueueKey)
+        }
+    }
+
+    private func loadRetryQueue() {
+        guard let data = UserDefaults.standard.data(forKey: Self.retryQueueKey),
+              let queue = try? JSONDecoder().decode([RetryQueueEntry].self, from: data)
+        else { return }
+        retryQueue = queue
+        dlog("📥 Loaded \(retryQueue.count) pending retry(s) from UserDefaults")
     }
     
     // P0-5 FIX: Clean up all message listeners on deallocation
@@ -803,15 +917,13 @@ public class FirebaseMessagingService: ObservableObject {
         limit: Int,
         onUpdate: @escaping ([AppMessage]) -> Void
     ) {
-        // Guard: remove any existing listener for this conversation before attaching a new one.
-        // Without this, calling startListeningToMessages twice for the same conversationId
-        // would attach two Firestore snapshot listeners, causing every message to be delivered twice.
-        if let existingListener = messagesListeners[conversationId] {
-            existingListener.remove()
-            messagesListeners.removeValue(forKey: conversationId)
-            #if DEBUG
-            ListenerCounter.shared.detach("messaging-messages-\(conversationId.prefix(8))")
-            #endif
+        // FIX 2: Thread-safe duplicate listener guard keyed by conversationId.
+        // Return early if a listener is already active for this conversation — rapid
+        // navigation (push/pop) would otherwise register duplicate Firestore listeners,
+        // causing every incoming message to be delivered twice.
+        if messagesListeners[conversationId] != nil {
+            dlog("⏭️ Already listening to messages for \(conversationId.prefix(8)), skipping duplicate attach")
+            return
         }
         
         let listener = db.collection("conversations")
@@ -1094,7 +1206,8 @@ public class FirebaseMessagingService: ObservableObject {
                 reactions: [],
                 replyTo: replyToMessage,
                 timestamp: Timestamp(date: Date()),
-                readBy: [currentUserId]
+                readBy: [currentUserId],
+                idempotencyKey: messageId // FIX 3: Equals doc ID — retries are no-ops
             )
             
             let participantIds = conversation.participantIds
@@ -3196,7 +3309,10 @@ struct FirebaseMessage: Codable {
     var disappearAt: Timestamp? // When the message should disappear
     var linkPreviewURLs: [String]? // URLs for link previews
     var mentionedUserIds: [String]? // User IDs mentioned with @
-    
+    // FIX 3: Idempotency key stored in document — equals document ID.
+    // Retrying with the same key (and same doc ID) is a no-op on Firestore setData.
+    var idempotencyKey: String?
+
     init(
         id: String? = nil,
         conversationId: String,
@@ -3222,7 +3338,8 @@ struct FirebaseMessage: Codable {
         disappearAfter: TimeInterval? = nil,
         disappearAt: Timestamp? = nil,
         linkPreviewURLs: [String]? = nil,
-        mentionedUserIds: [String]? = nil
+        mentionedUserIds: [String]? = nil,
+        idempotencyKey: String? = nil
     ) {
         self.id = id
         self.conversationId = conversationId
@@ -3249,6 +3366,7 @@ struct FirebaseMessage: Codable {
         self.disappearAt = disappearAt
         self.linkPreviewURLs = linkPreviewURLs
         self.mentionedUserIds = mentionedUserIds
+        self.idempotencyKey = idempotencyKey
     }
     
     struct Attachment: Codable {

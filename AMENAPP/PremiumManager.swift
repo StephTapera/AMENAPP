@@ -81,10 +81,10 @@ class PremiumManager: ObservableObject {
             ]
 
             products = try await Product.products(for: productIDs)
-            print("✅ Loaded \(products.count) products")
+            dlog("✅ Loaded \(products.count) products")
 
         } catch {
-            print("❌ Failed to load products: \(error.localizedDescription)")
+            dlog("❌ Failed to load products: \(error.localizedDescription)")
             purchaseError = "Failed to load subscription options. Please try again."
         }
 
@@ -112,31 +112,31 @@ class PremiumManager: ObservableObject {
                 // Finish transaction
                 await transaction.finish()
 
-                print("✅ Purchase successful")
+                dlog("✅ Purchase successful")
                 isLoading = false
                 return true
 
             case .userCancelled:
-                print("❌ User cancelled purchase")
+                dlog("❌ User cancelled purchase")
                 purchaseError = nil
                 isLoading = false
                 return false
 
             case .pending:
-                print("⏳ Purchase pending")
+                dlog("⏳ Purchase pending")
                 purchaseError = "Purchase is pending approval"
                 isLoading = false
                 return false
 
             @unknown default:
-                print("❌ Unknown purchase result")
+                dlog("❌ Unknown purchase result")
                 purchaseError = "Unknown error occurred"
                 isLoading = false
                 return false
             }
 
         } catch {
-            print("❌ Purchase failed: \(error.localizedDescription)")
+            dlog("❌ Purchase failed: \(error.localizedDescription)")
             purchaseError = "Purchase failed. Please try again."
             isLoading = false
             return false
@@ -157,18 +157,18 @@ class PremiumManager: ObservableObject {
             await checkSubscriptionStatus()
 
             if hasProAccess {
-                print("✅ Purchases restored successfully")
+                dlog("✅ Purchases restored successfully")
                 isLoading = false
                 return true
             } else {
-                print("❌ No active subscription found")
+                dlog("❌ No active subscription found")
                 purchaseError = "No active subscription found"
                 isLoading = false
                 return false
             }
 
         } catch {
-            print("❌ Restore failed: \(error.localizedDescription)")
+            dlog("❌ Restore failed: \(error.localizedDescription)")
             purchaseError = "Failed to restore purchases"
             isLoading = false
             return false
@@ -196,7 +196,7 @@ class PremiumManager: ObservableObject {
                 }
 
             } catch {
-                print("❌ Transaction verification failed: \(error)")
+                dlog("❌ Transaction verification failed: \(error)")
             }
         }
 
@@ -219,7 +219,7 @@ class PremiumManager: ObservableObject {
                     await transaction.finish()
 
                 } catch {
-                    print("❌ Transaction update failed: \(error)")
+                    dlog("❌ Transaction update failed: \(error)")
                 }
             }
         }
@@ -230,7 +230,7 @@ class PremiumManager: ObservableObject {
     private func grantPremiumAccess() async {
         hasProAccess = true
         savePremiumStatus(true)
-        print("✅ Premium access granted")
+        dlog("✅ Premium access granted")
     }
 
     private func revokePremiumAccess() async {
@@ -241,7 +241,7 @@ class PremiumManager: ObservableObject {
         // (simulator always returns empty entitlements — this is expected, not an error)
         #if !targetEnvironment(simulator)
         if wasActive {
-            print("❌ Premium access revoked")
+            dlog("❌ Premium access revoked")
         }
         #endif
     }
@@ -288,7 +288,7 @@ class PremiumManager: ObservableObject {
 
         // Save to UserDefaults
         UserDefaults.standard.set(freeMessagesUsed, forKey: "freeMessagesUsed")
-        print("📊 Messages used: \(freeMessagesUsed)/\(FREE_MESSAGES_PER_DAY)")
+        dlog("📊 Messages used: \(freeMessagesUsed)/\(FREE_MESSAGES_PER_DAY)")
     }
 
     private func resetDailyUsage() {
@@ -297,7 +297,7 @@ class PremiumManager: ObservableObject {
 
         UserDefaults.standard.set(freeMessagesUsed, forKey: "freeMessagesUsed")
         UserDefaults.standard.set(Date(), forKey: "lastMessageResetDate")
-        print("🔄 Daily usage reset")
+        dlog("🔄 Daily usage reset")
     }
 
     // MARK: - Persistence

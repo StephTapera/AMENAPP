@@ -141,7 +141,7 @@ class VertexAIPersonalizationService {
     
     /// Export engagement data for Vertex AI training
     func exportEngagementData(startDate: Date, endDate: Date) async throws -> URL {
-        print("📤 [EXPORT] Exporting engagement data from \(startDate) to \(endDate)")
+        dlog("📤 [EXPORT] Exporting engagement data from \(startDate) to \(endDate)")
         
         let snapshot = try await db.collection("engagementEvents")
             .whereField("timestamp", isGreaterThanOrEqualTo: startDate)
@@ -165,7 +165,7 @@ class VertexAIPersonalizationService {
         
         try jsonlLines.joined(separator: "\n").write(to: fileURL, atomically: true, encoding: .utf8)
         
-        print("✅ [EXPORT] Exported \(jsonlLines.count) events to \(fileURL.path)")
+        dlog("✅ [EXPORT] Exported \(jsonlLines.count) events to \(fileURL.path)")
         
         return fileURL
     }
@@ -175,10 +175,10 @@ class VertexAIPersonalizationService {
         let localFile = try await exportEngagementData(startDate: startDate, endDate: endDate)
         
         // TODO: Upload to GCS using Firebase Storage or Google Cloud SDK
-        print("📤 [GCS] Upload to gs://\(bucket)/training-data/\(localFile.lastPathComponent)")
+        dlog("📤 [GCS] Upload to gs://\(bucket)/training-data/\(localFile.lastPathComponent)")
         
         // For now, just log the instruction
-        print("""
+        dlog("""
         📋 [INSTRUCTION] To upload to GCS, run:
         gsutil cp \(localFile.path) gs://\(bucket)/training-data/
         """)
@@ -196,7 +196,7 @@ class VertexAIPersonalizationService {
             )
         }
         
-        print("🤖 [VERTEX AI] Requesting predictions for \(candidatePosts.count) posts...")
+        dlog("🤖 [VERTEX AI] Requesting predictions for \(candidatePosts.count) posts...")
         
         // Call Vertex AI Prediction API
         guard let url = URL(string: "https://\(vertexAIRegion)-aiplatform.googleapis.com/v1/projects/\(vertexAIProjectId)/locations/\(vertexAIRegion)/endpoints/\(modelEndpoint):predict") else {
@@ -257,7 +257,7 @@ class VertexAIPersonalizationService {
             ))
         }
         
-        print("✅ [VERTEX AI] Received \(results.count) predictions")
+        dlog("✅ [VERTEX AI] Received \(results.count) predictions")
         
         return results
     }
@@ -271,7 +271,7 @@ class VertexAIPersonalizationService {
         do {
             predictions = try await getPredictedFeed(for: userId, candidatePosts: postIds)
         } catch {
-            print("⚠️ [HYBRID] Vertex AI failed, falling back to local algorithm")
+            dlog("⚠️ [HYBRID] Vertex AI failed, falling back to local algorithm")
             // Fallback to local algorithm
             return HomeFeedAlgorithm.shared.rankPosts(
                 candidatePosts,
@@ -312,7 +312,7 @@ class VertexAIPersonalizationService {
         metadata: [String: Any]
     ) async throws -> NotificationPrediction {
         
-        print("🔔 [NOTIFICATION] Predicting relevance for user \(userId)")
+        dlog("🔔 [NOTIFICATION] Predicting relevance for user \(userId)")
         
         // Get user's notification engagement history
         let history = try await db.collection("notificationEngagement")
@@ -362,7 +362,7 @@ class VertexAIPersonalizationService {
             recommendedAction = .suppress
         }
         
-        print("🔔 [RESULT] Score: \(predictedEngagement), Action: \(recommendedAction.rawValue)")
+        dlog("🔔 [RESULT] Score: \(predictedEngagement), Action: \(recommendedAction.rawValue)")
         
         return NotificationPrediction(
             notificationId: UUID().uuidString,
@@ -375,7 +375,7 @@ class VertexAIPersonalizationService {
     
     /// Filter notifications before sending
     func filterNotifications(_ notifications: [AIFilteredNotification]) async throws -> [AIFilteredNotification] {
-        print("🔔 [FILTER] Processing \(notifications.count) notifications...")
+        dlog("🔔 [FILTER] Processing \(notifications.count) notifications...")
         
         var filtered: [AIFilteredNotification] = []
         
@@ -390,11 +390,11 @@ class VertexAIPersonalizationService {
             if prediction.recommendedAction == .send {
                 filtered.append(notification)
             } else {
-                print("🔕 [SUPPRESSED] \(notification.type) for user \(notification.userId) (score: \(prediction.relevanceScore))")
+                dlog("🔕 [SUPPRESSED] \(notification.type) for user \(notification.userId) (score: \(prediction.relevanceScore))")
             }
         }
         
-        print("✅ [FILTER] Sending \(filtered.count)/\(notifications.count) notifications")
+        dlog("✅ [FILTER] Sending \(filtered.count)/\(notifications.count) notifications")
         
         return filtered
     }
@@ -418,14 +418,14 @@ class VertexAIPersonalizationService {
         try await db.collection("notificationEngagement")
             .addDocument(data: engagementData)
         
-        print("📊 [ENGAGEMENT] Recorded notification engagement: opened=\(opened)")
+        dlog("📊 [ENGAGEMENT] Recorded notification engagement: opened=\(opened)")
     }
     
     // MARK: - Model Training (Cloud Function Integration)
     
     /// Trigger Vertex AI model training with latest data
     func triggerModelTraining() async throws {
-        print("🎓 [TRAINING] Triggering Vertex AI model training...")
+        dlog("🎓 [TRAINING] Triggering Vertex AI model training...")
         
         // Export latest engagement data
         let endDate = Date()
@@ -433,7 +433,7 @@ class VertexAIPersonalizationService {
         
         let exportFile = try await exportEngagementData(startDate: startDate, endDate: endDate)
         
-        print("""
+        dlog("""
         ✅ [TRAINING] Data exported. Next steps:
         1. Upload to GCS: gsutil cp \(exportFile.path) gs://YOUR_BUCKET/training-data/
         2. Trigger training job in Vertex AI console

@@ -33,7 +33,7 @@ class AINoteSummarizationService {
     /// - Returns: Structured summary with theme, scripture, points, actions (nil if Cloud Function unavailable)
     func summarizeNote(content: String) async -> NoteSummary? {
         
-        print("📝 [AI SUMMARY] Generating summary for note (\(content.count) chars)")
+        dlog("📝 [AI SUMMARY] Generating summary for note (\(content.count) chars)")
         
         // Send to Cloud Function
         let requestData: [String: Any] = [
@@ -42,24 +42,24 @@ class AINoteSummarizationService {
         ]
         
         do {
-            print("📤 [AI SUMMARY] Sending request to Cloud Function...")
+            dlog("📤 [AI SUMMARY] Sending request to Cloud Function...")
             let result = try await db.collection("noteSummaryRequests")
                 .addDocument(data: requestData)
             
-            print("⏳ [AI SUMMARY] Waiting for AI response (request ID: \(result.documentID))...")
+            dlog("⏳ [AI SUMMARY] Waiting for AI response (request ID: \(result.documentID))...")
             
             // Wait for AI response (max 5 seconds)
             let summary = try await waitForSummary(requestId: result.documentID)
             
-            print("✅ [AI SUMMARY] Summary generated: \(summary.mainTheme)")
+            dlog("✅ [AI SUMMARY] Summary generated: \(summary.mainTheme)")
             return summary
             
         } catch let error as NSError where error.code == 408 {
             // Timeout error - Cloud Function may not be deployed
-            print("⚠️ [AI SUMMARY] Timeout - Cloud Function may not be deployed. Summary unavailable.")
+            dlog("⚠️ [AI SUMMARY] Timeout - Cloud Function may not be deployed. Summary unavailable.")
             return nil
         } catch {
-            print("❌ [AI SUMMARY] Error: \(error)")
+            dlog("❌ [AI SUMMARY] Error: \(error)")
             // Return nil for other errors too (graceful degradation)
             return nil
         }

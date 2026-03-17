@@ -42,9 +42,9 @@ class NetworkStatusMonitor: ObservableObject {
                     self?.connectionType = nil
                 }
                 
-                print("🌐 Network status: \(self?.isConnected == true ? "Connected" : "Disconnected")")
+                dlog("🌐 Network status: \(self?.isConnected == true ? "Connected" : "Disconnected")")
                 if let type = self?.connectionType {
-                    print("📡 Connection type: \(type)")
+                    dlog("📡 Connection type: \(type)")
                 }
             }
         }

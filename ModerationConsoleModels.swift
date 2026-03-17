@@ -376,7 +376,7 @@ final class ModerationConsoleService {
                 buildReviewCase(from: doc)
             }
         } catch {
-            print("⚠️ [Moderation] Failed to fetch pending cases: \(error)")
+            dlog("⚠️ [Moderation] Failed to fetch pending cases: \(error)")
             return []
         }
     }
@@ -436,7 +436,7 @@ final class ModerationConsoleService {
                 riskAnnotations: annotations
             )
         } catch {
-            print("⚠️ [Moderation] Failed to fetch timeline: \(error)")
+            dlog("⚠️ [Moderation] Failed to fetch timeline: \(error)")
             return nil
         }
     }
@@ -472,7 +472,7 @@ final class ModerationConsoleService {
                 uniqueRecipientsWithFlags: 0
             )
         } catch {
-            print("⚠️ [Moderation] Failed to fetch user history: \(error)")
+            dlog("⚠️ [Moderation] Failed to fetch user history: \(error)")
             return nil
         }
     }

@@ -48,7 +48,7 @@ class SocialService: ObservableObject {
                 "mutedUsers.\(userId)": Timestamp(date: muteUntil)
             ])
         
-        print("🔇 Muted user \(userId) until \(muteUntil)")
+        dlog("🔇 Muted user \(userId) until \(muteUntil)")
     }
     
     /// Unmute a user
@@ -64,7 +64,7 @@ class SocialService: ObservableObject {
                 "mutedUsers.\(userId)": FieldValue.delete()
             ])
         
-        print("🔊 Unmuted user \(userId)")
+        dlog("🔊 Unmuted user \(userId)")
     }
     
     /// Check if a user is muted
@@ -84,7 +84,7 @@ class SocialService: ObservableObject {
         isLoading = true
         defer { isLoading = false }
         
-        print("👥 Fetching followers for user: \(userId)")
+        dlog("👥 Fetching followers for user: \(userId)")
         
         let db = Firestore.firestore()
         
@@ -97,7 +97,7 @@ class SocialService: ObservableObject {
             try? doc.data(as: FollowRelationship.self).followerId
         }
         
-        print("   Found \(followerIds.count) followers")
+        dlog("   Found \(followerIds.count) followers")
         
         // Fetch user profiles for all followers
         var followers: [UserModel] = []
@@ -109,7 +109,7 @@ class SocialService: ObservableObject {
                 )
                 followers.append(user)
             } catch {
-                print("⚠️ Failed to fetch follower profile: \(followerId)")
+                dlog("⚠️ Failed to fetch follower profile: \(followerId)")
             }
         }
         
@@ -122,7 +122,7 @@ class SocialService: ObservableObject {
         isLoading = true
         defer { isLoading = false }
         
-        print("👥 Fetching following for user: \(userId)")
+        dlog("👥 Fetching following for user: \(userId)")
         
         let db = Firestore.firestore()
         
@@ -135,7 +135,7 @@ class SocialService: ObservableObject {
             try? doc.data(as: FollowRelationship.self).followingId
         }
         
-        print("   User is following \(followingIds.count) people")
+        dlog("   User is following \(followingIds.count) people")
         
         // Fetch user profiles for all following
         var following: [UserModel] = []
@@ -147,7 +147,7 @@ class SocialService: ObservableObject {
                 )
                 following.append(user)
             } catch {
-                print("⚠️ Failed to fetch following profile: \(followingId)")
+                dlog("⚠️ Failed to fetch following profile: \(followingId)")
             }
         }
         
@@ -181,13 +181,13 @@ class SocialService: ObservableObject {
         isLoading = true
         defer { isLoading = false }
         
-        print("📸 Uploading profile picture...")
+        dlog("📸 Uploading profile picture...")
         
         // Upload to Firebase Storage
         let path = "profile_images/\(currentUserId)/profile_\(Date().timeIntervalSince1970).jpg"
         let downloadURL = try await firebaseManager.uploadImage(image, to: path, compressionQuality: 0.8)
         
-        print("✅ Profile picture uploaded: \(downloadURL.absoluteString)")
+        dlog("✅ Profile picture uploaded: \(downloadURL.absoluteString)")
         
         // Update user profile with new image URL
         try await firebaseManager.updateDocument(
@@ -207,7 +207,7 @@ class SocialService: ObservableObject {
         isLoading = true
         defer { isLoading = false }
         
-        print("📸 Deleting profile picture...")
+        dlog("📸 Deleting profile picture...")
         
         // Get current profile image URL
         let user = try await firebaseManager.fetchDocument(
@@ -227,7 +227,7 @@ class SocialService: ObservableObject {
             at: "users/\(currentUserId)"
         )
         
-        print("✅ Profile picture deleted")
+        dlog("✅ Profile picture deleted")
     }
     
     /// Upload additional photos (for dating profiles, gallery, etc.)

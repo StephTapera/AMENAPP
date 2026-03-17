@@ -246,7 +246,7 @@ struct SocialLinksEditView: View {
                 // Save to Firestore
                 try await socialLinksService.updateSocialLinks(linkData)
                 
-                print("✅ Social links saved successfully")
+                dlog("✅ Social links saved successfully")
                 
                 await MainActor.run {
                     let haptic = UINotificationFeedbackGenerator()
@@ -256,7 +256,7 @@ struct SocialLinksEditView: View {
                 }
                 
             } catch {
-                print("❌ Failed to save social links: \(error)")
+                dlog("❌ Failed to save social links: \(error)")
                 
                 await MainActor.run {
                     errorMessage = "Failed to save links: \(error.localizedDescription)"

@@ -8,6 +8,8 @@
 
 import SwiftUI
 import FirebaseAuth
+import FirebaseFirestore
+import FirebaseDatabase
 import Combine
 
 struct TrustedCircleView: View {
@@ -89,7 +91,7 @@ struct TrustedCircleView: View {
                                 
                                 Spacer()
                                 
-                                Text("\(viewModel.contacts.count)/5")
+                                Text("\(viewModel.contacts.count)/50")
                                     .font(.custom("OpenSans-Regular", size: 14))
                                     .foregroundStyle(.secondary)
                             }
@@ -118,14 +120,14 @@ struct TrustedCircleView: View {
                                 }
                             }
                             
-                            if viewModel.contacts.count < 5 {
+                            if viewModel.contacts.count < 50 {
                                 Button {
                                     viewModel.showAddContact = true
                                 } label: {
                                     HStack {
                                         Image(systemName: "plus.circle.fill")
                                             .font(.system(size: 20))
-                                        
+
                                         Text("Add Trusted Contact")
                                             .font(.custom("OpenSans-SemiBold", size: 16))
                                     }
@@ -136,6 +138,12 @@ struct TrustedCircleView: View {
                                     .cornerRadius(12)
                                 }
                                 .padding(.horizontal, 20)
+                            } else {
+                                Text("You've reached the maximum of 50 trusted contacts.")
+                                    .font(.custom("OpenSans-Regular", size: 13))
+                                    .foregroundStyle(.secondary)
+                                    .multilineTextAlignment(.center)
+                                    .padding(.horizontal, 20)
                             }
                         }
                     }
@@ -258,74 +266,230 @@ struct TrustedContactRow: View {
 
 struct AddTrustedContactSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @State private var selectedTab = 0
+    // Manual entry fields
     @State private var name = ""
     @State private var relationship = ""
     @State private var phoneNumber = ""
     @State private var email = ""
-    
+    // Followers picker
+    @State private var followers: [FollowerPickerUser] = []
+    @State private var isLoadingFollowers = false
+    @State private var followerSearch = ""
+
     let onAdd: (TrustedCircle.TrustedContact) -> Void
-    
+
+    /// Simple model for displaying a follower in the picker.
+    struct FollowerPickerUser: Identifiable {
+        let id: String
+        let displayName: String
+        let username: String
+    }
+
     var canSave: Bool {
         !name.isEmpty && !relationship.isEmpty && (!phoneNumber.isEmpty || !email.isEmpty)
     }
-    
+
+    var filteredFollowers: [FollowerPickerUser] {
+        if followerSearch.isEmpty { return followers }
+        return followers.filter {
+            $0.displayName.localizedCaseInsensitiveContains(followerSearch) ||
+            $0.username.localizedCaseInsensitiveContains(followerSearch)
+        }
+    }
+
     var body: some View {
         NavigationView {
-            Form {
-                Section {
-                    TextField("Name", text: $name)
-                        .font(.custom("OpenSans-Regular", size: 16))
-                    
-                    TextField("Relationship (Friend, Family, etc.)", text: $relationship)
-                        .font(.custom("OpenSans-Regular", size: 16))
-                } header: {
-                    Text("Contact Info")
+            VStack(spacing: 0) {
+                Picker("Add method", selection: $selectedTab) {
+                    Text("From Followers").tag(0)
+                    Text("Manual Entry").tag(1)
                 }
-                
-                Section {
-                    TextField("Phone Number", text: $phoneNumber)
-                        .font(.custom("OpenSans-Regular", size: 16))
-                        .keyboardType(.phonePad)
-                    
-                    TextField("Email (optional)", text: $email)
-                        .font(.custom("OpenSans-Regular", size: 16))
-                        .keyboardType(.emailAddress)
-                        .textInputAutocapitalization(.never)
-                } header: {
-                    Text("Contact Method")
-                } footer: {
-                    Text("Provide at least one way to reach this person")
+                .pickerStyle(.segmented)
+                .padding()
+
+                if selectedTab == 0 {
+                    followersPickerContent
+                } else {
+                    manualEntryForm
                 }
             }
-            .navigationTitle("Add Contact")
+            .navigationTitle("Add Trusted Contact")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
+                    Button("Cancel") { dismiss() }
                 }
-                
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Add") {
+            }
+            .task {
+                await loadFollowers()
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var followersPickerContent: some View {
+        if isLoadingFollowers {
+            ProgressView()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if followers.isEmpty {
+            VStack(spacing: 12) {
+                Image(systemName: "person.2.slash")
+                    .font(.system(size: 40))
+                    .foregroundStyle(.secondary)
+                Text("No followers to add")
+                    .font(.custom("OpenSans-Regular", size: 15))
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            List {
+                SearchBar(text: $followerSearch, placeholder: "Search followers")
+                    .listRowInsets(EdgeInsets())
+                ForEach(filteredFollowers) { user in
+                    Button {
                         let contact = TrustedCircle.TrustedContact(
                             id: UUID().uuidString,
-                            userId: nil,
-                            name: name,
-                            phoneNumber: phoneNumber.isEmpty ? nil : phoneNumber,
-                            email: email.isEmpty ? nil : email,
-                            relationship: relationship,
+                            userId: user.id,
+                            name: user.displayName,
+                            phoneNumber: nil,
+                            email: nil,
+                            relationship: "Follower",
                             addedAt: Date(),
                             isVerified: false
                         )
                         onAdd(contact)
                         dismiss()
+                    } label: {
+                        HStack {
+                            Image(systemName: "person.circle.fill")
+                                .font(.system(size: 32))
+                                .foregroundStyle(.purple)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(user.displayName)
+                                    .font(.custom("OpenSans-SemiBold", size: 15))
+                                    .foregroundStyle(.primary)
+                                Text("@\(user.username)")
+                                    .font(.custom("OpenSans-Regular", size: 13))
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Image(systemName: "plus.circle")
+                                .foregroundStyle(.purple)
+                        }
                     }
-                    .disabled(!canSave)
-                    .font(.custom("OpenSans-SemiBold", size: 16))
+                    .buttonStyle(.plain)
+                }
+            }
+            .listStyle(.plain)
+        }
+    }
+
+    @ViewBuilder
+    private var manualEntryForm: some View {
+        Form {
+            Section {
+                TextField("Name", text: $name)
+                    .font(.custom("OpenSans-Regular", size: 16))
+                TextField("Relationship (Friend, Family, etc.)", text: $relationship)
+                    .font(.custom("OpenSans-Regular", size: 16))
+            } header: {
+                Text("Contact Info")
+            }
+            Section {
+                TextField("Phone Number", text: $phoneNumber)
+                    .font(.custom("OpenSans-Regular", size: 16))
+                    .keyboardType(.phonePad)
+                TextField("Email (optional)", text: $email)
+                    .font(.custom("OpenSans-Regular", size: 16))
+                    .keyboardType(.emailAddress)
+                    .textInputAutocapitalization(.never)
+            } header: {
+                Text("Contact Method")
+            } footer: {
+                Text("Provide at least one way to reach this person")
+            }
+            Section {
+                Button("Add Contact") {
+                    let contact = TrustedCircle.TrustedContact(
+                        id: UUID().uuidString,
+                        userId: nil,
+                        name: name,
+                        phoneNumber: phoneNumber.isEmpty ? nil : phoneNumber,
+                        email: email.isEmpty ? nil : email,
+                        relationship: relationship,
+                        addedAt: Date(),
+                        isVerified: false
+                    )
+                    onAdd(contact)
+                    dismiss()
+                }
+                .disabled(!canSave)
+                .font(.custom("OpenSans-SemiBold", size: 16))
+                .foregroundStyle(canSave ? .purple : .secondary)
+            }
+        }
+    }
+
+    /// Load the current user's followers from RTDB + Firestore for the picker.
+    /// Reads follower IDs from RTDB `user-followers/{userId}` then fetches display
+    /// names from Firestore `users/{followerId}` (up to 50 followers).
+    private func loadFollowers() async {
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+        isLoadingFollowers = true
+        defer { isLoadingFollowers = false }
+        do {
+            // 1. Get follower IDs from RTDB
+            let rtdbRef = Database.database().reference()
+                .child("user-followers").child(userId)
+            let snapshot = try await rtdbRef.getData()
+            guard snapshot.exists(), let dict = snapshot.value as? [String: Any] else { return }
+            let followerIds = Array(dict.keys.prefix(50))
+
+            // 2. Fetch display names from Firestore in parallel
+            let db = Firestore.firestore()
+            var result: [FollowerPickerUser] = []
+            try await withThrowingTaskGroup(of: FollowerPickerUser?.self) { group in
+                for fid in followerIds {
+                    group.addTask {
+                        let doc = try await db.collection("users").document(fid).getDocument()
+                        guard let data = doc.data(),
+                              let displayName = data["displayName"] as? String else { return nil }
+                        let username = data["username"] as? String ?? displayName.lowercased()
+                        return FollowerPickerUser(id: fid, displayName: displayName, username: username)
+                    }
+                }
+                for try await user in group {
+                    if let user = user { result.append(user) }
+                }
+            }
+            followers = result.sorted { $0.displayName < $1.displayName }
+        } catch {
+            dlog("⚠️ TrustedCircle: failed to load followers: \(error.localizedDescription)")
+        }
+    }
+}
+
+// Lightweight inline search bar used in TrustedCircle followers picker
+private struct SearchBar: View {
+    @Binding var text: String
+    let placeholder: String
+    var body: some View {
+        HStack {
+            Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+            TextField(placeholder, text: $text)
+                .autocorrectionDisabled()
+            if !text.isEmpty {
+                Button { text = "" } label: {
+                    Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
                 }
             }
         }
+        .padding(8)
+        .background(Color(.secondarySystemBackground))
+        .cornerRadius(10)
+        .padding(.horizontal)
+        .padding(.vertical, 6)
     }
 }
 
@@ -352,7 +516,7 @@ class TrustedCircleViewModel: ObservableObject {
                 contacts = existingCircle.contacts
             }
         } catch {
-            print("⚠️ Failed to load trusted circle: \(error)")
+            dlog("⚠️ Failed to load trusted circle: \(error)")
         }
     }
     
@@ -370,9 +534,9 @@ class TrustedCircleViewModel: ObservableObject {
         
         do {
             try await service.saveTrustedCircle(updatedCircle)
-            print("✅ Trusted circle saved")
+            dlog("✅ Trusted circle saved")
         } catch {
-            print("⚠️ Failed to save trusted circle: \(error)")
+            dlog("⚠️ Failed to save trusted circle: \(error)")
         }
     }
     

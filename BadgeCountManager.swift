@@ -51,11 +51,18 @@ class BadgeCountManager: ObservableObject {
     private var notificationsClearTime: Date?
     private let notificationsClearSuppressionInterval: TimeInterval = 5.0
 
+    // P0 FIX: Atomic clear guard — prevents badge flip during the window where
+    // clearNotifications() + markAllAsRead() writes are in-flight simultaneously.
+    // Any applyBadgeCount() call while isClearingBadge == true is suppressed.
+    private var isClearingBadge = false
+    // Debounce task for badge application — coalesces rapid listener firings
+    private var badgeDebounceTask: Task<Void, Never>?
+
     // Auth state listener — clears badge on sign-out, starts updates on sign-in
     private var authStateListener: AuthStateDidChangeListenerHandle?
     
     private init() {
-        print("🔰 BadgeCountManager initialized")
+        dlog("🔰 BadgeCountManager initialized")
         setupAuthStateListener()
     }
     
@@ -79,7 +86,7 @@ class BadgeCountManager: ObservableObject {
                     self.stopRealtimeUpdates()
                     self.resetRetryCounters()
                     self.clearBadge()
-                    print("🧹 Badge cleared on sign-out")
+                    dlog("🧹 Badge cleared on sign-out")
                 }
             }
         }
@@ -94,14 +101,14 @@ class BadgeCountManager: ObservableObject {
         // Skip the update to prevent the badge flipping 0→8.
         if let clearTime = notificationsClearTime,
            Date().timeIntervalSince(clearTime) < notificationsClearSuppressionInterval {
-            print("🚫 Badge update suppressed — notifications clear in progress")
+            dlog("🚫 Badge update suppressed — notifications clear in progress")
             return
         }
 
         // If cache is valid, use it immediately
         if let cached = getCachedBadgeCount() {
             applyBadgeCount(cached)
-            print("📛 Using cached badge count: \(cached)")
+            dlog("📛 Using cached badge count: \(cached)")
             return
         }
 
@@ -145,7 +152,7 @@ class BadgeCountManager: ObservableObject {
         cachedBadgeCount = 0
         cacheTimestamp = Date()
         UNUserNotificationCenter.current().setBadgeCount(0) { _ in }
-        print("🧹 Badge cleared")
+        dlog("🧹 Badge cleared")
     }
 
     /// Optimistically zero the messages dot and write unreadCounts=0 to Firestore
@@ -157,7 +164,7 @@ class BadgeCountManager: ObservableObject {
         cachedBadgeCount = unreadNotifications
         cacheTimestamp = Date()
         applyBadgeCount(unreadNotifications)
-        print("🧹 Messages badge cleared")
+        dlog("🧹 Messages badge cleared")
 
         // Zero unreadCounts in Firestore so the real-time listener stays at 0
         guard let userId = Auth.auth().currentUser?.uid else { return }
@@ -187,7 +194,7 @@ class BadgeCountManager: ObservableObject {
                         try? await Task.sleep(nanoseconds: 3_000_000_000)
                         continue
                     }
-                    print("⚠️ Failed to clear Firestore unreadCounts: \(error.localizedDescription)")
+                    dlog("⚠️ Failed to clear Firestore unreadCounts: \(error.localizedDescription)")
                     return
                 }
             }
@@ -203,8 +210,25 @@ class BadgeCountManager: ObservableObject {
         cachedBadgeCount = unreadMessages
         cacheTimestamp = Date()
         notificationsClearTime = Date()
-        applyBadgeCount(unreadMessages)
-        print("🧹 Notifications badge cleared")
+        // P0 FIX: Set clearing guard AFTER caching the zero but BEFORE allowing any
+        // further listener fires through, then apply the badge outside of the guard
+        // (bypassing applyBadgeCount) so the zero always lands immediately.
+        isClearingBadge = true
+        badgeDebounceTask?.cancel()
+        Task {
+            do {
+                try await UNUserNotificationCenter.current().setBadgeCount(unreadMessages)
+            } catch {
+                dlog("⚠️ Failed to set badge count on clear: \(error)")
+            }
+        }
+        dlog("🧹 Notifications badge cleared")
+        // Release the guard after the suppression interval so normal badge updates resume
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            try? await Task.sleep(for: .seconds(self.notificationsClearSuppressionInterval))
+            self.isClearingBadge = false
+        }
     }
     
     // MARK: - Private Methods
@@ -213,7 +237,7 @@ class BadgeCountManager: ObservableObject {
         // Prevent concurrent updates (locking)
         guard !isUpdating else {
             pendingUpdate = true
-            print("⏳ Badge update already in progress, marking pending")
+            dlog("⏳ Badge update already in progress, marking pending")
             return
         }
         
@@ -232,7 +256,7 @@ class BadgeCountManager: ObservableObject {
         }
         
         guard let userId = Auth.auth().currentUser?.uid else {
-            print("⚠️ No authenticated user for badge update")
+            dlog("⚠️ No authenticated user for badge update")
             clearBadge()
             return
         }
@@ -264,10 +288,10 @@ class BadgeCountManager: ObservableObject {
             // Update app icon badge
             applyBadgeCount(total)
             
-            print("✅ Badge updated: \(total) (messages: \(messages), notifications: \(notifications))")
+            dlog("✅ Badge updated: \(total) (messages: \(messages), notifications: \(notifications))")
             
         } catch {
-            print("❌ Badge update failed: \(error.localizedDescription)")
+            dlog("❌ Badge update failed: \(error.localizedDescription)")
         }
     }
     
@@ -311,16 +335,29 @@ class BadgeCountManager: ObservableObject {
     }
     
     private func applyBadgeCount(_ count: Int) {
-        // P0 FIX: Use UNUserNotificationCenter (modern API) instead of UIApplication
-        // This is the correct iOS 16+ API and prevents conflicts
-        // Note: Also works in simulator for testing (previously was disabled)
-        Task {
+        // P0 FIX: Suppress badge updates while a clear operation is in-flight to prevent
+        // the 0→N flip caused by stale Firestore docs arriving before writes commit.
+        guard !isClearingBadge else {
+            dlog("🚫 applyBadgeCount suppressed — badge clear in progress")
+            return
+        }
+
+        // P0 FIX: Debounce badge application by 300ms so rapid simultaneous listener
+        // firings (conversations + notifications) coalesce into a single setBadgeCount call.
+        badgeDebounceTask?.cancel()
+        badgeDebounceTask = Task { [weak self] in
+            guard let self else { return }
+            try? await Task.sleep(for: .milliseconds(300))
+            guard !Task.isCancelled else { return }
+            guard !self.isClearingBadge else { return }
             do {
                 try await UNUserNotificationCenter.current().setBadgeCount(count)
-                print("📱 App icon badge set to: \(count)")
+                dlog("📱 App icon badge set to: \(count)")
             } catch {
-                print("⚠️ Failed to set badge count: \(error)")
+                dlog("⚠️ Failed to set badge count: \(error)")
             }
+            // P2 FIX: Keep Live Activity badge in sync with app icon badge
+            LiveActivityManager.shared.updateBadge(count)
         }
     }
 }
@@ -336,7 +373,7 @@ extension BadgeCountManager {
     /// double-badge-increment race window that existed previously.
     func startRealtimeUpdates() {
         guard !isListening else {
-            print("⚠️ Badge listeners already active")
+            dlog("⚠️ Badge listeners already active")
             return
         }
         guard let userId = Auth.auth().currentUser?.uid else { return }
@@ -356,7 +393,7 @@ extension BadgeCountManager {
             .addSnapshotListener { [weak self] snapshot, error in
                 guard let self = self else { return }
                 if let error = error {
-                    print("❌ Badge – notifications listener error: \(error.localizedDescription)")
+                    dlog("❌ Badge – notifications listener error: \(error.localizedDescription)")
                     return
                 }
                 // Use snapshot count directly — Firestore delivers this listener
@@ -374,7 +411,7 @@ extension BadgeCountManager {
             }
 
         isListening = true
-        print("✅ Real-time badge listeners started")
+        dlog("✅ Real-time badge listeners started")
     }
 
     /// Attach (or reattach) only the conversations sub-listener.
@@ -393,7 +430,7 @@ extension BadgeCountManager {
             .addSnapshotListener { [weak self] snapshot, error in
                 guard let self = self else { return }
                 if let error = error {
-                    print("❌ Badge – conversations listener error: \(error.localizedDescription)")
+                    dlog("❌ Badge – conversations listener error: \(error.localizedDescription)")
                     // Transient permission errors on startup resolve once the auth token propagates.
                     let nsError = error as NSError
                     if nsError.domain == "FIRFirestoreErrorDomain" && nsError.code == 7 {
@@ -401,7 +438,7 @@ extension BadgeCountManager {
                             self.badgeConversationsRetryCount += 1
                             let retryNum = self.badgeConversationsRetryCount
                             let delay = UInt64(retryNum) * 3_000_000_000
-                            print("⚠️ Badge listener: permission denied — retry \(retryNum)/3 in \(retryNum * 3)s")
+                            dlog("⚠️ Badge listener: permission denied — retry \(retryNum)/3 in \(retryNum * 3)s")
                             // Detach immediately so the error callback stops firing while we wait.
                             self.conversationsListener?.remove()
                             self.conversationsListener = nil
@@ -416,7 +453,7 @@ extension BadgeCountManager {
                             }
                         } else {
                             // Final failure — leave listener nil to stop the error flood.
-                            print("🛑 Badge listener: permission denied after 3 retries — check Firestore rules deployment.")
+                            dlog("🛑 Badge listener: permission denied after 3 retries — check Firestore rules deployment.")
                             self.conversationsListener?.remove()
                             self.conversationsListener = nil
                         }
@@ -460,7 +497,7 @@ extension BadgeCountManager {
         conversationsListener = nil
         notificationsListener = nil
         isListening = false
-        print("🛑 Real-time badge listeners stopped")
+        dlog("🛑 Real-time badge listeners stopped")
     }
 
     /// Reset the permission retry counters. Call this only on explicit sign-out

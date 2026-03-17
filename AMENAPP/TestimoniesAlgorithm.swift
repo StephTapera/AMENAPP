@@ -191,7 +191,7 @@ class TestimoniesAlgorithm: ObservableObject {
         savePreferences()
 
         #if DEBUG
-        print("📊 Testimony preference updated: Category=\(post.topicTag ?? "none") +\(type.scoreBoost)")
+        dlog("📊 Testimony preference updated: Category=\(post.topicTag ?? "none") +\(type.scoreBoost)")
         #endif
     }
 
@@ -231,7 +231,7 @@ class TestimoniesAlgorithm: ObservableObject {
             let data = try encoder.encode(userPreferences)
             UserDefaults.standard.set(data, forKey: "testimonyPreferences_v1")
         } catch {
-            print("❌ Failed to save testimony preferences: \(error)")
+            dlog("❌ Failed to save testimony preferences: \(error)")
         }
     }
 

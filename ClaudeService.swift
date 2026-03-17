@@ -387,7 +387,7 @@ final class ClaudeService: ObservableObject {
         let lower = trimmed.lowercased()
         for pattern in BereanSafetyPolicy.jailbreakPatterns {
             if lower.contains(pattern) {
-                print("🔒 [Berean/Claude] Jailbreak attempt blocked: \(pattern)")
+                dlog("🔒 [Berean/Claude] Jailbreak attempt blocked: \(pattern)")
                 throw OpenAIServiceError.contentBlocked
             }
         }
@@ -397,7 +397,7 @@ final class ClaudeService: ObservableObject {
             guard let re = try? NSRegularExpression(pattern: pattern) else { continue }
             let range = NSRange(trimmed.startIndex..., in: trimmed)
             if re.firstMatch(in: trimmed, range: range) != nil {
-                print("🔒 [Berean/Claude] PII detected before API send: \(label)")
+                dlog("🔒 [Berean/Claude] PII detected before API send: \(label)")
                 throw OpenAIServiceError.contentBlocked
             }
         }

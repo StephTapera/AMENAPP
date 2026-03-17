@@ -460,7 +460,7 @@ class PrayerWallViewModel: ObservableObject {
             answeredToday = prayers.filter { $0.isAnswered }.count
             
         } catch {
-            print("❌ Failed to load prayers: \(error)")
+            dlog("❌ Failed to load prayers: \(error)")
         }
     }
     
@@ -487,7 +487,7 @@ class PrayerWallViewModel: ObservableObject {
             await loadPrayers()
             
         } catch {
-            print("❌ Failed to submit prayer: \(error)")
+            dlog("❌ Failed to submit prayer: \(error)")
         }
     }
     
@@ -521,7 +521,7 @@ class PrayerWallViewModel: ObservableObject {
                 }
             }
         } catch {
-            print("❌ Failed to pray: \(error)")
+            dlog("❌ Failed to pray: \(error)")
         }
     }
 }

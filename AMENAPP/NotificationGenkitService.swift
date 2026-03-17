@@ -28,7 +28,7 @@ class NotificationGenkitService: ObservableObject {
     private let functions = Functions.functions(region: "us-central1")
     
     init() {
-        print("✅ NotificationGenkitService initialized with Firebase Cloud Functions")
+        dlog("✅ NotificationGenkitService initialized with Firebase Cloud Functions")
     }
     
     // MARK: - Smart Notification Generation
@@ -46,7 +46,7 @@ class NotificationGenkitService: ObservableObject {
         isProcessing = true
         defer { isProcessing = false }
         
-        print("🤖 Generating smart notification for: \(eventType.rawValue)")
+        dlog("🤖 Generating smart notification for: \(eventType.rawValue)")
         
         // Call Cloud Function to generate personalized notification
         let callable = functions.httpsCallable("generateNotificationText")
@@ -63,10 +63,10 @@ class NotificationGenkitService: ObservableObject {
         let priority: NotificationPriority = .medium
         let category = eventType.rawValue
         
-        print("✅ Smart notification generated:")
-        print("   Title: \(title)")
-        print("   Body: \(body)")
-        print("   Priority: \(priority.rawValue)")
+        dlog("✅ Smart notification generated:")
+        dlog("   Title: \(title)")
+        dlog("   Body: \(body)")
+        dlog("   Priority: \(priority.rawValue)")
         
         return SmartNotification(
             title: title,
@@ -92,7 +92,7 @@ class NotificationGenkitService: ObservableObject {
         isProcessing = true
         defer { isProcessing = false }
         
-        print("📊 Summarizing \(notifications.count) notifications...")
+        dlog("📊 Summarizing \(notifications.count) notifications...")
         
         let notificationTexts = notifications.prefix(10).map { "\($0.senderName): \($0.message)" }
         let callable = functions.httpsCallable("summarizeNotifications")
@@ -103,7 +103,7 @@ class NotificationGenkitService: ObservableObject {
         let count = notifications.count
         let topPriority = "medium"
         
-        print("✅ Summary generated: \(summary)")
+        dlog("✅ Summary generated: \(summary)")
         
         return NotificationSummary(
             summary: summary,
@@ -122,7 +122,7 @@ class NotificationGenkitService: ObservableObject {
         priority: NotificationPriority
     ) async throws -> TimingRecommendation {
         
-        print("⏰ Optimizing notification timing for user: \(userId)")
+        dlog("⏰ Optimizing notification timing for user: \(userId)")
         
         // Fetch user's activity patterns
         let activityPatterns = try await fetchUserActivityPatterns(userId: userId)
@@ -142,7 +142,7 @@ class NotificationGenkitService: ObservableObject {
         let diff = abs(peakHour - currentHour)
         let delayMinutes = diff <= 1 ? 0 : min(diff * 60, 240)
 
-        print("✅ Timing computed locally: \(delayMinutes == 0 ? "Send now" : "Delay \(delayMinutes) min")")
+        dlog("✅ Timing computed locally: \(delayMinutes == 0 ? "Send now" : "Delay \(delayMinutes) min")")
 
         return TimingRecommendation(
             sendImmediately: delayMinutes == 0,
@@ -214,7 +214,7 @@ class NotificationGenkitService: ObservableObject {
                 token: fcmToken,
                 content: content
             )
-            print("✅ Smart notification sent immediately")
+            dlog("✅ Smart notification sent immediately")
         } else {
             // Schedule for later
             try await scheduleNotification(
@@ -222,7 +222,7 @@ class NotificationGenkitService: ObservableObject {
                 content: content,
                 delayMinutes: timing.delayMinutes
             )
-            print("✅ Smart notification scheduled for \(timing.delayMinutes) minutes")
+            dlog("✅ Smart notification scheduled for \(timing.delayMinutes) minutes")
         }
         
         // Step 6: Save to Firestore for in-app notifications
@@ -242,11 +242,11 @@ class NotificationGenkitService: ObservableObject {
     ) async throws {
         
         guard pendingNotifications.count >= 3 else {
-            print("⚠️ Not enough notifications to batch (need 3+, have \(pendingNotifications.count))")
+            dlog("⚠️ Not enough notifications to batch (need 3+, have \(pendingNotifications.count))")
             return
         }
         
-        print("📦 Creating batch notification summary for \(pendingNotifications.count) notifications")
+        dlog("📦 Creating batch notification summary for \(pendingNotifications.count) notifications")
         
         // Generate summary
         let summary = try await summarizeNotifications(
@@ -276,7 +276,7 @@ class NotificationGenkitService: ObservableObject {
         // Mark individual notifications as sent in batch
         try await markNotificationsAsBatched(notificationIds: summary.notificationIds)
         
-        print("✅ Batch notification summary sent")
+        dlog("✅ Batch notification summary sent")
     }
     
     // MARK: - Helper Methods
@@ -340,7 +340,7 @@ class NotificationGenkitService: ObservableObject {
         ]
         
         try await db.collection("notificationQueue").addDocument(data: notificationData)
-        print("✅ Notification queued for delivery")
+        dlog("✅ Notification queued for delivery")
     }
     
     private func scheduleNotification(
@@ -362,7 +362,7 @@ class NotificationGenkitService: ObservableObject {
         ]
         
         try await db.collection("scheduledNotifications").addDocument(data: notificationData)
-        print("✅ Notification scheduled for: \(scheduledTime)")
+        dlog("✅ Notification scheduled for: \(scheduledTime)")
     }
     
     private func saveNotificationToFirestore(
@@ -386,7 +386,7 @@ class NotificationGenkitService: ObservableObject {
         notificationData.merge(customData) { _, new in new }
         
         try await db.collection("notifications").addDocument(data: notificationData)
-        print("✅ Notification saved to Firestore")
+        dlog("✅ Notification saved to Firestore")
     }
     
     private func markNotificationsAsBatched(notificationIds: [String]) async throws {
@@ -398,7 +398,7 @@ class NotificationGenkitService: ObservableObject {
         }
         
         try await batch.commit()
-        print("✅ \(notificationIds.count) notifications marked as batched")
+        dlog("✅ \(notificationIds.count) notifications marked as batched")
     }
 }
 

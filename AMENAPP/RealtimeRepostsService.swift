@@ -202,7 +202,7 @@ class RealtimeRepostsService: ObservableObject {
         let targetUserId = userId ?? Auth.auth().currentUser?.uid
         
         guard let targetUserId = targetUserId else {
-            print("❌ Cannot observe reposts: User not authenticated")
+            dlog("❌ Cannot observe reposts: User not authenticated")
             return
         }
         
@@ -218,7 +218,7 @@ class RealtimeRepostsService: ObservableObject {
                         completion(posts)
                     }
                 } catch {
-                    print("❌ Error observing reposts: \(error)")
+                    dlog("❌ Error observing reposts: \(error)")
                     await MainActor.run {
                         completion([])
                     }
@@ -227,7 +227,7 @@ class RealtimeRepostsService: ObservableObject {
         }
         
         repostObservers[targetUserId] = handle
-        print("👀 Observing reposts for user: \(targetUserId)")
+        dlog("👀 Observing reposts for user: \(targetUserId)")
     }
     
     /// Remove observer
@@ -241,7 +241,7 @@ class RealtimeRepostsService: ObservableObject {
         repostsRef.removeObserver(withHandle: handle)
         repostObservers.removeValue(forKey: userId)
         
-        print("🔇 Removed reposts observer for user: \(userId)")
+        dlog("🔇 Removed reposts observer for user: \(userId)")
     }
     
     /// Stop ALL active repost observers — call on sign-out.
@@ -264,7 +264,7 @@ class RealtimeRepostsService: ObservableObject {
               let categoryRaw = data["category"] as? String,
               let category = Post.PostCategory(rawValue: categoryRaw),
               let timestamp = data["createdAt"] as? Double else {
-            print("⚠️ Invalid post data for postId: \(postId)")
+            dlog("⚠️ Invalid post data for postId: \(postId)")
             return nil
         }
         

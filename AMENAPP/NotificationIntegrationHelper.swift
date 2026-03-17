@@ -49,9 +49,9 @@ class NotificationHelper {
                 ]
             )
             
-            print("✅ Message notification sent to \(recipientId)")
+            dlog("✅ Message notification sent to \(recipientId)")
         } catch {
-            print("❌ Error sending message notification: \(error)")
+            dlog("❌ Error sending message notification: \(error)")
             // Fallback to basic notification
             await sendBasicNotification(
                 to: recipientId,
@@ -105,9 +105,9 @@ class NotificationHelper {
                 ]
             )
             
-            print("✅ Match notifications sent to both users")
+            dlog("✅ Match notifications sent to both users")
         } catch {
-            print("❌ Error sending match notifications: \(error)")
+            dlog("❌ Error sending match notifications: \(error)")
         }
     }
     
@@ -135,9 +135,9 @@ class NotificationHelper {
                 ]
             )
             
-            print("✅ Like notification sent")
+            dlog("✅ Like notification sent")
         } catch {
-            print("❌ Error sending like notification: \(error)")
+            dlog("❌ Error sending like notification: \(error)")
         }
     }
     
@@ -165,9 +165,9 @@ class NotificationHelper {
                 ]
             )
             
-            print("✅ Comment notification sent")
+            dlog("✅ Comment notification sent")
         } catch {
-            print("❌ Error sending comment notification: \(error)")
+            dlog("❌ Error sending comment notification: \(error)")
         }
     }
     
@@ -199,9 +199,9 @@ class NotificationHelper {
                     ]
                 )
                 
-                print("✅ Prayer notification sent to \(memberId)")
+                dlog("✅ Prayer notification sent to \(memberId)")
             } catch {
-                print("❌ Error sending prayer notification: \(error)")
+                dlog("❌ Error sending prayer notification: \(error)")
             }
         }
     }
@@ -235,9 +235,9 @@ class NotificationHelper {
                     ]
                 )
                 
-                print("✅ Event reminder sent to \(attendeeId)")
+                dlog("✅ Event reminder sent to \(attendeeId)")
             } catch {
-                print("❌ Error sending event reminder: \(error)")
+                dlog("❌ Error sending event reminder: \(error)")
             }
         }
     }
@@ -267,9 +267,9 @@ class NotificationHelper {
                 ]
             )
             
-            print("✅ Group invite sent")
+            dlog("✅ Group invite sent")
         } catch {
-            print("❌ Error sending group invite: \(error)")
+            dlog("❌ Error sending group invite: \(error)")
         }
     }
     
@@ -285,12 +285,12 @@ class NotificationHelper {
                     userId: userId,
                     pendingNotifications: pendingNotifications
                 )
-                print("✅ Daily summary sent to \(userId)")
+                dlog("✅ Daily summary sent to \(userId)")
             } else {
-                print("ℹ️ Not enough notifications for batching (\(pendingNotifications.count))")
+                dlog("ℹ️ Not enough notifications for batching (\(pendingNotifications.count))")
             }
         } catch {
-            print("❌ Error sending daily summary: \(error)")
+            dlog("❌ Error sending daily summary: \(error)")
         }
     }
     
@@ -344,7 +344,7 @@ class NotificationHelper {
         do {
             let doc = try await db.collection("users").document(userId).getDocument()
             guard let fcmToken = doc.data()?["fcmToken"] as? String else {
-                print("⚠️ No FCM token for user: \(userId)")
+                dlog("⚠️ No FCM token for user: \(userId)")
                 return
             }
             
@@ -357,9 +357,9 @@ class NotificationHelper {
                 "createdAt": FieldValue.serverTimestamp()
             ])
             
-            print("✅ Basic notification queued")
+            dlog("✅ Basic notification queued")
         } catch {
-            print("❌ Error sending basic notification: \(error)")
+            dlog("❌ Error sending basic notification: \(error)")
         }
     }
 }

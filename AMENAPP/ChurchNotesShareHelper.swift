@@ -177,7 +177,7 @@ struct ChurchNotesShareHelper {
     /// Share PDF of note
     static func sharePDF(for note: ChurchNote, from view: UIView?) {
         guard let pdfData = generatePDF(for: note) else {
-            print("Failed to generate PDF")
+            dlog("Failed to generate PDF")
             return
         }
         
@@ -205,7 +205,7 @@ struct ChurchNotesShareHelper {
                 rootVC.present(activityVC, animated: true)
             }
         } catch {
-            print("Error saving PDF: \(error)")
+            dlog("Error saving PDF: \(error)")
         }
     }
     
@@ -238,7 +238,7 @@ struct ChurchNotesShareHelper {
                 rootVC.present(activityVC, animated: true)
             }
         } catch {
-            print("Error exporting notes: \(error)")
+            dlog("Error exporting notes: \(error)")
         }
     }
     
@@ -281,7 +281,7 @@ struct ChurchNotesShareHelper {
                     )
                 }
                 
-                print("✅ Church note shared to community successfully")
+                dlog("✅ Church note shared to community successfully")
                 completion(true)
             }
         }

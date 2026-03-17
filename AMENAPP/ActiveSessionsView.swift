@@ -162,10 +162,10 @@ struct ActiveSessionsView: View {
                 try? doc.data(as: DeviceSession.self)
             }
             
-            print("✅ Loaded \(devices.count) active device sessions")
+            dlog("✅ Loaded \(devices.count) active device sessions")
             
         } catch {
-            print("❌ Failed to load devices: \(error.localizedDescription)")
+            dlog("❌ Failed to load devices: \(error.localizedDescription)")
         }
         
         isLoading = false
@@ -196,14 +196,14 @@ struct ActiveSessionsView: View {
             // Remove from local list
             devices.removeAll { $0.id == device.id }
             
-            print("✅ Device signed out: \(device.deviceName)")
+            dlog("✅ Device signed out: \(device.deviceName)")
             
             // Success haptic
             let haptic = UINotificationFeedbackGenerator()
             haptic.notificationOccurred(.success)
             
         } catch {
-            print("❌ Failed to sign out device: \(error.localizedDescription)")
+            dlog("❌ Failed to sign out device: \(error.localizedDescription)")
             
             // Error haptic
             let haptic = UINotificationFeedbackGenerator()

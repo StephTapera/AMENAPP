@@ -366,7 +366,7 @@ final class MediaSafetyGateway {
             }
         } catch {
             // Hash check failed — proceed with allowWithAsyncScan (fail open for hashing)
-            print("⚠️ [MediaSafety] Hash check failed: \(error)")
+            dlog("⚠️ [MediaSafety] Hash check failed: \(error)")
         }
 
         return .allow

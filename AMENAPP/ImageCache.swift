@@ -36,7 +36,7 @@ class ImageCache {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            print("⚠️ Memory warning - clearing image cache")
+            dlog("⚠️ Memory warning - clearing image cache")
             // Hop to MainActor to satisfy @MainActor isolation on `cache`
             Task { @MainActor [weak self] in
                 self?.cache.removeAllObjects()

@@ -41,7 +41,7 @@ func PerfBegin(_ label: String) -> PerfToken {
 func PerfEnd(_ token: PerfToken, threshold ms: Double = 0) {
     let elapsed = (CFAbsoluteTimeGetCurrent() - token.start) * 1000
     if elapsed >= ms {
-        print("[Perf] \(token.label)\t\(String(format: "%.1f", elapsed))ms")
+        dlog("[Perf] \(token.label)\t\(String(format: "%.1f", elapsed))ms")
     }
 }
 
@@ -75,9 +75,9 @@ final class ListenerCounter {
     func attach(_ key: String, maxExpected: Int = 1) {
         counts[key, default: 0] += 1
         let count = counts[key]!
-        print("[Listener] + \(key) → \(count) active")
+        dlog("[Listener] + \(key) → \(count) active")
         if count > maxExpected {
-            print("⚠️ [Listener] OVER LIMIT: \(key) has \(count) listeners (max \(maxExpected))")
+            dlog("⚠️ [Listener] OVER LIMIT: \(key) has \(count) listeners (max \(maxExpected))")
         }
     }
     
@@ -85,15 +85,15 @@ final class ListenerCounter {
     func detach(_ key: String) {
         let before = counts[key, default: 0]
         counts[key] = max(0, before - 1)
-        print("[Listener] - \(key) → \(counts[key]!) active")
+        dlog("[Listener] - \(key) → \(counts[key]!) active")
     }
     
     /// Dump current listener state to console.
     func dumpAll() {
-        print("[Listener] === Active Listeners ===")
+        dlog("[Listener] === Active Listeners ===")
         for (key, count) in counts.sorted(by: { $0.key < $1.key }) {
             let flag = count > 1 ? " ⚠️" : ""
-            print("[Listener]   \(key): \(count)\(flag)")
+            dlog("[Listener]   \(key): \(count)\(flag)")
         }
     }
 }

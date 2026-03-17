@@ -37,7 +37,7 @@ class RealtimeCommentsService: ObservableObject {
             for (postId, handle) in commentListeners {
                 database.child("comments").child(postId).removeObserver(withHandle: handle)
             }
-            print("🔇 All comment listeners removed in deinit")
+            dlog("🔇 All comment listeners removed in deinit")
         }
     }
     
@@ -96,7 +96,7 @@ class RealtimeCommentsService: ObservableObject {
             "createdAt": timestamp
         ]
         
-        print("💬 Creating comment on post: \(postId)")
+        dlog("💬 Creating comment on post: \(postId)")
         
         // Multi-path update
         let updates: [String: Any] = [
@@ -113,7 +113,7 @@ class RealtimeCommentsService: ObservableObject {
         // Increment post comment count
         try await RealtimeEngagementService.shared.incrementCommentCount(postId: postId)
         
-        print("✅ Comment created successfully")
+        dlog("✅ Comment created successfully")
         
         // Create Comment object for return
         let comment = Comment(
@@ -137,7 +137,7 @@ class RealtimeCommentsService: ObservableObject {
             object: nil,
             userInfo: ["comment": comment]
         )
-        print("📬 Sent newCommentCreated notification")
+        dlog("📬 Sent newCommentCreated notification")
         
         return comment
     }
@@ -145,12 +145,12 @@ class RealtimeCommentsService: ObservableObject {
     // MARK: - Fetch Comments for Post
     
     func fetchComments(postId: String) async throws -> [Comment] {
-        print("📥 Fetching comments for post: \(postId)")
+        dlog("📥 Fetching comments for post: \(postId)")
         
         let snapshot = try await database.child("comments").child(postId).getData()
         
         guard snapshot.exists(), let commentsDict = snapshot.value as? [String: Any] else {
-            print("⚠️ No comments found")
+            dlog("⚠️ No comments found")
             return []
         }
         
@@ -198,19 +198,19 @@ class RealtimeCommentsService: ObservableObject {
         // Sort by creation date (oldest first for comments)
         comments.sort { $0.createdAt < $1.createdAt }
         
-        print("✅ Fetched \(comments.count) comments")
+        dlog("✅ Fetched \(comments.count) comments")
         return comments
     }
     
     // MARK: - Fetch User Comments
     
     func fetchUserComments(userId: String) async throws -> [Comment] {
-        print("📥 Fetching comments by user: \(userId)")
+        dlog("📥 Fetching comments by user: \(userId)")
         
         let snapshot = try await database.child("user_comments").child(userId).getData()
         
         guard snapshot.exists(), let commentDict = snapshot.value as? [String: Any] else {
-            print("⚠️ No comments found for user")
+            dlog("⚠️ No comments found for user")
             return []
         }
         
@@ -237,7 +237,7 @@ class RealtimeCommentsService: ObservableObject {
         // Sort by timestamp (newest first)
         comments.sort { $0.createdAt > $1.createdAt }
         
-        print("✅ Fetched \(comments.count) user comments")
+        dlog("✅ Fetched \(comments.count) user comments")
         return comments
     }
     
@@ -247,7 +247,7 @@ class RealtimeCommentsService: ObservableObject {
     /// 1. Comments the user made (from user_comments)
     /// 2. Replies others made to the user's comments (by checking parentCommentId)
     func fetchUserCommentInteractions(userId: String) async throws -> [Comment] {
-        print("📥 Fetching ALL comment interactions for user: \(userId)")
+        dlog("📥 Fetching ALL comment interactions for user: \(userId)")
         
         var allComments: [Comment] = []
         var commentIds = Set<String>() // Track to avoid duplicates
@@ -261,7 +261,7 @@ class RealtimeCommentsService: ObservableObject {
                 commentIds.insert(commentId)
             }
         }
-        print("   ✅ User's own comments: \(userComments.count)")
+        dlog("   ✅ User's own comments: \(userComments.count)")
         
         // 2. Fetch replies to the user's comments
         // For each comment the user made, check if there are replies to it
@@ -290,7 +290,7 @@ class RealtimeCommentsService: ObservableObject {
                    !commentIds.contains(replyIdUnwrapped) {
                     allComments.append(reply)
                     commentIds.insert(replyIdUnwrapped)
-                    print("   💬 Found reply from \(reply.authorName) to user's comment")
+                    dlog("   💬 Found reply from \(reply.authorName) to user's comment")
                 }
             }
         }
@@ -298,7 +298,7 @@ class RealtimeCommentsService: ObservableObject {
         // Sort by newest first
         allComments.sort { $0.createdAt > $1.createdAt }
         
-        print("✅ Fetched \(allComments.count) total comment interactions (\(userComments.count) own + \(allComments.count - userComments.count) replies received)")
+        dlog("✅ Fetched \(allComments.count) total comment interactions (\(userComments.count) own + \(allComments.count - userComments.count) replies received)")
         return allComments
     }
     
@@ -308,7 +308,7 @@ class RealtimeCommentsService: ObservableObject {
               let authorName = data["authorName"] as? String,
               let content = data["content"] as? String,
               let timestampDouble = data["createdAt"] as? Double else {
-            print("⚠️ Invalid comment data for ID: \(commentId)")
+            dlog("⚠️ Invalid comment data for ID: \(commentId)")
             return nil
         }
         
@@ -359,7 +359,7 @@ class RealtimeCommentsService: ObservableObject {
         
         let userId = currentUser.uid
         
-        print("🗑️ Deleting comment: \(commentId)")
+        dlog("🗑️ Deleting comment: \(commentId)")
         
         // Verify caller is the comment author before deleting
         let commentSnapshot = try await database.child("comments").child(postId).child(commentId).getData()
@@ -384,7 +384,7 @@ class RealtimeCommentsService: ObservableObject {
         // Decrement post comment count
         try await RealtimeEngagementService.shared.decrementCommentCount(postId: postId)
         
-        print("✅ Comment deleted successfully")
+        dlog("✅ Comment deleted successfully")
     }
     
     // MARK: - Toggle Comment Amen
@@ -403,7 +403,7 @@ class RealtimeCommentsService: ObservableObject {
         
         if hasAmen {
             // Remove amen
-            print("🙏 Removing amen from comment: \(commentId)")
+            dlog("🙏 Removing amen from comment: \(commentId)")
             
             let updates: [String: Any?] = [
                 interactionPath: nil
@@ -420,12 +420,12 @@ class RealtimeCommentsService: ObservableObject {
                 return TransactionResult.success(withValue: currentData)
             }
             
-            print("✅ Comment amen removed")
+            dlog("✅ Comment amen removed")
             return false
             
         } else {
             // Add amen
-            print("🙏 Adding amen to comment: \(commentId)")
+            dlog("🙏 Adding amen to comment: \(commentId)")
             
             let updates: [String: Any] = [
                 interactionPath: Date().timeIntervalSince1970
@@ -441,7 +441,7 @@ class RealtimeCommentsService: ObservableObject {
                 return TransactionResult.success(withValue: currentData)
             }
             
-            print("✅ Comment amen added")
+            dlog("✅ Comment amen added")
             return true
         }
     }
@@ -449,7 +449,7 @@ class RealtimeCommentsService: ObservableObject {
     // MARK: - Real-time Listener for Comments
     
     func observeComments(postId: String, completion: @escaping ([Comment]) -> Void) {
-        print("👂 Setting up real-time listener for comments on post: \(postId)")
+        dlog("👂 Setting up real-time listener for comments on post: \(postId)")
         
         let handle = database.child("comments").child(postId).observe(.value) { [weak self] snapshot in
             guard let self = self else { return }
@@ -515,7 +515,7 @@ class RealtimeCommentsService: ObservableObject {
                 comments.sort { $0.createdAt < $1.createdAt }
 
                 self.comments[postId] = comments
-                print("🔄 Real-time update: \(comments.count) comments")
+                dlog("🔄 Real-time update: \(comments.count) comments")
                 completion(comments)
             }
         }
@@ -527,7 +527,7 @@ class RealtimeCommentsService: ObservableObject {
         if let handle = commentListeners[postId] {
             database.child("comments").child(postId).removeObserver(withHandle: handle)
             commentListeners.removeValue(forKey: postId)
-            print("🔇 Removed comments listener for post: \(postId)")
+            dlog("🔇 Removed comments listener for post: \(postId)")
         }
     }
     
@@ -536,6 +536,6 @@ class RealtimeCommentsService: ObservableObject {
             database.child("comments").child(postId).removeObserver(withHandle: handle)
         }
         commentListeners.removeAll()
-        print("🔇 All comment listeners removed")
+        dlog("🔇 All comment listeners removed")
     }
 }

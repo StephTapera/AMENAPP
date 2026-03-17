@@ -87,7 +87,7 @@ extension NotificationsView {
         // Show saved searches view and scroll to this alert
         // You can pass this info to SavedSearchesView
         
-        print("🔍 Opening saved search: \(searchData.query)")
+        dlog("🔍 Opening saved search: \(searchData.query)")
         
         // Post notification for navigation
         NotificationCenter.default.post(
@@ -144,7 +144,7 @@ struct SavedSearchNotificationHelper {
                 return
             }
             
-            print("📍 Navigating to saved search: \(query)")
+            dlog("📍 Navigating to saved search: \(query)")
             
             // TODO: Present SavedSearchesView and highlight this search
             // You can use a coordinator or navigation helper here

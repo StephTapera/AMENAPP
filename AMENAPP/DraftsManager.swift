@@ -124,7 +124,7 @@ class DraftsManager: ObservableObject {
         
         if drafts.count != originalCount {
             saveDrafts()
-            print("🗑️ Cleaned up \(originalCount - drafts.count) expired drafts")
+            dlog("🗑️ Cleaned up \(originalCount - drafts.count) expired drafts")
         }
     }
     

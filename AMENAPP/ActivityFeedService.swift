@@ -309,9 +309,9 @@ class ActivityFeedService: ObservableObject {
         let activityRef = ref.child("activityFeed/global").childByAutoId()
         activityRef.setValue(activity) { error, _ in
             if let error = error {
-                print("❌ Failed to log global activity: \(error)")
+                dlog("❌ Failed to log global activity: \(error)")
             } else {
-                print("✅ Global activity logged")
+                dlog("✅ Global activity logged")
             }
         }
     }
@@ -320,9 +320,9 @@ class ActivityFeedService: ObservableObject {
         let activityRef = ref.child("communityActivity/\(communityId)").childByAutoId()
         activityRef.setValue(activity) { error, _ in
             if let error = error {
-                print("❌ Failed to log community activity: \(error)")
+                dlog("❌ Failed to log community activity: \(error)")
             } else {
-                print("✅ Community activity logged")
+                dlog("✅ Community activity logged")
             }
         }
     }
@@ -333,7 +333,7 @@ class ActivityFeedService: ObservableObject {
     func startObservingGlobalFeed() {
         guard globalObserverHandle == nil else { return }
 
-        print("🔊 Starting global activity feed observer")
+        dlog("🔊 Starting global activity feed observer")
         globalFeedError = nil
 
         // Cache root ref now (on MainActor) so deinit can use it safely.
@@ -350,7 +350,7 @@ class ActivityFeedService: ObservableObject {
                 self?.processActivitySnapshot(snapshot, isGlobal: true)
             },
             withCancel: { [weak self] error in
-                print("❌ Global activity feed error: \(error)")
+                dlog("❌ Global activity feed error: \(error)")
                 DispatchQueue.main.async {
                     self?.globalFeedError = error.localizedDescription
                 }
@@ -366,7 +366,7 @@ class ActivityFeedService: ObservableObject {
         // even if startObservingGlobalFeed was never called
         if _rootRef == nil { _rootRef = ref }
         
-        print("🔊 Starting community activity feed observer for: \(communityId)")
+        dlog("🔊 Starting community activity feed observer for: \(communityId)")
         
         let query = ref.child("communityActivity/\(communityId)")
             .queryOrdered(byChild: "timestamp")
@@ -387,7 +387,7 @@ class ActivityFeedService: ObservableObject {
               let userName = data["userName"] as? String,
               let userInitials = data["userInitials"] as? String,
               let timestamp = data["timestamp"] as? Int64 else {
-            print("⚠️ Invalid activity data")
+            dlog("⚠️ Invalid activity data")
             return
         }
         
@@ -440,7 +440,7 @@ class ActivityFeedService: ObservableObject {
             ref.child("activityFeed/global").removeObserver(withHandle: handle)
             globalObserverHandle = nil
             globalSeenIds.removeAll()
-            print("🔇 Stopped global activity feed observer")
+            dlog("🔇 Stopped global activity feed observer")
         }
     }
 
@@ -516,13 +516,13 @@ class ActivityFeedService: ObservableObject {
         // Sort by timestamp (newest first)
         activities.sort { $0.timestamp > $1.timestamp }
         
-        print("✅ Fetched \(activities.count) global activities")
+        dlog("✅ Fetched \(activities.count) global activities")
         return activities
     }
     
     /// Fetch community activities once
     func fetchCommunityActivities(communityId: String) async throws -> [Activity] {
-        print("📥 Fetching community activities for: \(communityId)")
+        dlog("📥 Fetching community activities for: \(communityId)")
         
         let query = ref.child("communityActivity/\(communityId)")
             .queryOrdered(byChild: "timestamp")
@@ -561,7 +561,7 @@ class ActivityFeedService: ObservableObject {
         // Sort by timestamp (newest first)
         activities.sort { $0.timestamp > $1.timestamp }
         
-        print("✅ Fetched \(activities.count) community activities")
+        dlog("✅ Fetched \(activities.count) community activities")
         return activities
     }
 }

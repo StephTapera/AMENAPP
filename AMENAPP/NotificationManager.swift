@@ -30,7 +30,10 @@ class NotificationManager: ObservableObject {
     private let db = Firestore.firestore()
     // DEPRECATED: UserDefaults storage deprecated. Settings now stored in Firestore.
     private let settingsKey = "notification_preferences"
-    
+    // P2 FIX: Track the app version at which the notification prompt was last shown
+    // so that an upgrade can surface the Settings redirect if the user previously denied.
+    private let notifPromptVersionKey = "lastNotifPromptVersion"
+
     private init() {
         Task {
             await loadSettings()
@@ -45,7 +48,10 @@ class NotificationManager: ObservableObject {
         do {
             let granted = try await center.requestAuthorization(options: [.alert, .sound, .badge])
             isAuthorized = granted
-            
+            // P2 FIX: Record the version at which the prompt was shown
+            if let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String {
+                UserDefaults.standard.set(version, forKey: notifPromptVersionKey)
+            }
             if granted {
                 dlog("✅ Notifications authorized")
             } else {
@@ -55,7 +61,55 @@ class NotificationManager: ObservableObject {
             dlog("❌ Notification authorization error: \(error)")
         }
     }
-    
+
+    /// P2 FIX: Check whether a version-based re-prompt is warranted.
+    /// - If status is .notDetermined: always prompt (first install or after reset).
+    /// - If status is .denied AND the current app version is newer than when we last prompted:
+    ///   present a UIAlert directing the user to Settings (iOS does not allow a second
+    ///   programmatic prompt after the user has denied once).
+    /// Call this from onAppear in the main app view or after sign-in.
+    func checkVersionBasedReprompt() async {
+        let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0"
+        let lastPromptVersion = UserDefaults.standard.string(forKey: notifPromptVersionKey) ?? ""
+
+        let settings = await center.notificationSettings()
+
+        switch settings.authorizationStatus {
+        case .notDetermined:
+            // First launch or reset — request directly
+            await requestAuthorization()
+        case .denied:
+            // Only show the Settings redirect if this is a new version since we last prompted
+            if currentVersion > lastPromptVersion {
+                UserDefaults.standard.set(currentVersion, forKey: notifPromptVersionKey)
+                await showSettingsRedirectAlert()
+            }
+        default:
+            isAuthorized = settings.authorizationStatus == .authorized
+        }
+    }
+
+    /// Show a UIAlert telling the user to enable notifications in Settings.
+    /// Called only when the system status is .denied and a new app version warrants re-prompting.
+    @MainActor
+    private func showSettingsRedirectAlert() async {
+        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let rootVC = windowScene.windows.first?.rootViewController else { return }
+        let alert = UIAlertController(
+            title: "Enable Notifications",
+            message: "Turn on notifications in Settings to receive prayer reminders, messages, and community updates.",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "Not Now", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Open Settings", style: .default) { _ in
+            if let url = URL(string: UIApplication.openSettingsURLString) {
+                UIApplication.shared.open(url)
+            }
+        })
+        rootVC.present(alert, animated: true)
+        dlog("🔔 Showed Settings redirect alert for notification re-prompt")
+    }
+
     /// Check current authorization status
     func checkAuthorization() {
         Task {

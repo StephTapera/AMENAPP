@@ -275,7 +275,7 @@ struct ShareToMessagesSheet: View {
                     users.append(user)
                 }
             } catch {
-                print("⚠️ Failed to fetch user \(userId): \(error)")
+                dlog("⚠️ Failed to fetch user \(userId): \(error)")
             }
         }
         
@@ -313,7 +313,7 @@ struct ShareToMessagesSheet: View {
                     )
                     successCount += 1
                 } catch {
-                    print("❌ Failed to send to \(recipientId): \(error)")
+                    dlog("❌ Failed to send to \(recipientId): \(error)")
                 }
             }
             

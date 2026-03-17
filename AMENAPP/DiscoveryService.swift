@@ -162,7 +162,7 @@ final class DiscoveryService: ObservableObject {
                 peopleResults[idx].isFollowing = true
             }
         } catch {
-            print("[DiscoveryService] Follow failed: \(error)")
+            dlog("[DiscoveryService] Follow failed: \(error)")
         }
     }
 
@@ -176,7 +176,7 @@ final class DiscoveryService: ObservableObject {
                 peopleResults[idx].isFollowing = false
             }
         } catch {
-            print("[DiscoveryService] Unfollow failed: \(error)")
+            dlog("[DiscoveryService] Unfollow failed: \(error)")
         }
     }
 
@@ -262,7 +262,7 @@ final class DiscoveryService: ObservableObject {
 
         } catch {
             // Non-fatal: static catalog already shown
-            print("[DiscoveryService] Trending fetch failed: \(error)")
+            dlog("[DiscoveryService] Trending fetch failed: \(error)")
         }
     }
 
@@ -351,7 +351,7 @@ final class DiscoveryService: ObservableObject {
             followSuggestions = Array(rankFollowSuggestions(candidates).prefix(8))
 
         } catch {
-            print("[DiscoveryService] Follow suggestions failed: \(error)")
+            dlog("[DiscoveryService] Follow suggestions failed: \(error)")
         }
     }
 

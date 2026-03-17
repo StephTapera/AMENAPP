@@ -38,7 +38,7 @@ final class FirebaseBooksService {
     
     /// Fetch all books from Firestore
     func fetchAllBooks() async throws -> [Book] {
-        print("📚 Fetching all books from Firestore...")
+        dlog("📚 Fetching all books from Firestore...")
         
         let snapshot = try await booksCollection
             .order(by: "createdAt", descending: true)
@@ -48,13 +48,13 @@ final class FirebaseBooksService {
             try doc.data(as: Book.self)
         }
         
-        print("✅ Fetched \(books.count) books")
+        dlog("✅ Fetched \(books.count) books")
         return books
     }
     
     /// Fetch books by category
     func fetchBooks(category: String) async throws -> [Book] {
-        print("📚 Fetching books in category: \(category)")
+        dlog("📚 Fetching books in category: \(category)")
         
         let snapshot = try await booksCollection
             .whereField("category", isEqualTo: category)
@@ -65,13 +65,13 @@ final class FirebaseBooksService {
             try doc.data(as: Book.self)
         }
         
-        print("✅ Fetched \(books.count) books in \(category)")
+        dlog("✅ Fetched \(books.count) books in \(category)")
         return books
     }
     
     /// Fetch featured books
     func fetchFeaturedBooks(limit: Int = 10) async throws -> [Book] {
-        print("⭐ Fetching featured books...")
+        dlog("⭐ Fetching featured books...")
         
         let snapshot = try await booksCollection
             .whereField("isFeatured", isEqualTo: true)
@@ -82,13 +82,13 @@ final class FirebaseBooksService {
             try doc.data(as: Book.self)
         }
         
-        print("✅ Fetched \(books.count) featured books")
+        dlog("✅ Fetched \(books.count) featured books")
         return books
     }
     
     /// Fetch trending books
     func fetchTrendingBooks(limit: Int = 10) async throws -> [Book] {
-        print("🔥 Fetching trending books...")
+        dlog("🔥 Fetching trending books...")
         
         let snapshot = try await booksCollection
             .whereField("isTrending", isEqualTo: true)
@@ -100,19 +100,19 @@ final class FirebaseBooksService {
             try doc.data(as: Book.self)
         }
         
-        print("✅ Fetched \(books.count) trending books")
+        dlog("✅ Fetched \(books.count) trending books")
         return books
     }
     
     /// Fetch recommended books based on user interests (from onboarding)
     func fetchRecommendedBooks(for userId: String, limit: Int = 10) async throws -> [Book] {
-        print("💡 Fetching recommended books for user: \(userId)")
+        dlog("💡 Fetching recommended books for user: \(userId)")
         
         // Get user interests from their profile
         let userDoc = try await firestore.collection("users").document(userId).getDocument()
         guard let userData = userDoc.data(),
               let interests = userData["interests"] as? [String] else {
-            print("⚠️ No user interests found, returning featured books")
+            dlog("⚠️ No user interests found, returning featured books")
             return try await fetchFeaturedBooks(limit: limit)
         }
         
@@ -151,13 +151,13 @@ final class FirebaseBooksService {
             try doc.data(as: Book.self)
         }
         
-        print("✅ Fetched \(books.count) recommended books")
+        dlog("✅ Fetched \(books.count) recommended books")
         return books
     }
     
     /// Search books by title, author, or tags
     func searchBooks(query: String) async throws -> [Book] {
-        print("🔍 Searching books with query: \(query)")
+        dlog("🔍 Searching books with query: \(query)")
         
         let lowercaseQuery = query.lowercased()
         
@@ -171,20 +171,20 @@ final class FirebaseBooksService {
             book.tags.contains { $0.lowercased().contains(lowercaseQuery) }
         }
         
-        print("✅ Found \(results.count) books matching query")
+        dlog("✅ Found \(results.count) books matching query")
         return results
     }
     
     /// Fetch a single book by ID
     func fetchBook(id: String) async throws -> Book {
-        print("📖 Fetching book with ID: \(id)")
+        dlog("📖 Fetching book with ID: \(id)")
         
         let doc = try await booksCollection.document(id).getDocument()
         guard let book = try? doc.data(as: Book.self) else {
             throw FirebaseBooksError.bookNotFound
         }
         
-        print("✅ Fetched book: \(book.title)")
+        dlog("✅ Fetched book: \(book.title)")
         return book
     }
     
@@ -192,7 +192,7 @@ final class FirebaseBooksService {
     
     /// Save/bookmark a book
     func saveBook(bookId: String, userId: String) async throws {
-        print("💾 Saving book \(bookId) for user \(userId)")
+        dlog("💾 Saving book \(bookId) for user \(userId)")
         
         let savedBook = SavedBook(
             userId: userId,
@@ -208,12 +208,12 @@ final class FirebaseBooksService {
             "savedCount": FieldValue.increment(Int64(1))
         ])
         
-        print("✅ Book saved successfully")
+        dlog("✅ Book saved successfully")
     }
     
     /// Unsave/unbookmark a book
     func unsaveBook(bookId: String, userId: String) async throws {
-        print("🗑️ Unsaving book \(bookId) for user \(userId)")
+        dlog("🗑️ Unsaving book \(bookId) for user \(userId)")
         
         let snapshot = try await savedBooksCollection
             .whereField("userId", isEqualTo: userId)
@@ -229,7 +229,7 @@ final class FirebaseBooksService {
             "savedCount": FieldValue.increment(Int64(-1))
         ])
         
-        print("✅ Book unsaved successfully")
+        dlog("✅ Book unsaved successfully")
     }
     
     /// Check if user has saved a book
@@ -245,7 +245,7 @@ final class FirebaseBooksService {
     
     /// Fetch user's saved books
     func fetchSavedBooks(for userId: String) async throws -> [Book] {
-        print("📚 Fetching saved books for user: \(userId)")
+        dlog("📚 Fetching saved books for user: \(userId)")
         
         let snapshot = try await savedBooksCollection
             .whereField("userId", isEqualTo: userId)
@@ -268,7 +268,7 @@ final class FirebaseBooksService {
             }
         }
         
-        print("✅ Fetched \(books.count) saved books")
+        dlog("✅ Fetched \(books.count) saved books")
         return books
     }
     
@@ -281,7 +281,7 @@ final class FirebaseBooksService {
     
     /// Update reading progress
     func updateReadingProgress(bookId: String, userId: String, progress: Double, isRead: Bool = false) async throws {
-        print("📊 Updating reading progress for book \(bookId): \(progress * 100)%")
+        dlog("📊 Updating reading progress for book \(bookId): \(progress * 100)%")
         
         let snapshot = try await savedBooksCollection
             .whereField("userId", isEqualTo: userId)
@@ -298,7 +298,7 @@ final class FirebaseBooksService {
             "isRead": isRead
         ])
         
-        print("✅ Reading progress updated")
+        dlog("✅ Reading progress updated")
     }
     
     // MARK: - Book Reviews
@@ -312,7 +312,7 @@ final class FirebaseBooksService {
         rating: Int,
         reviewText: String
     ) async throws {
-        print("⭐ Submitting review for book: \(bookId)")
+        dlog("⭐ Submitting review for book: \(bookId)")
         
         let review = BookReview(
             bookId: bookId,
@@ -331,12 +331,12 @@ final class FirebaseBooksService {
         // Update book's average rating
         try await updateBookAverageRating(bookId: bookId)
         
-        print("✅ Review submitted successfully")
+        dlog("✅ Review submitted successfully")
     }
     
     /// Fetch reviews for a book
     func fetchReviews(for bookId: String) async throws -> [BookReview] {
-        print("📝 Fetching reviews for book: \(bookId)")
+        dlog("📝 Fetching reviews for book: \(bookId)")
         
         let snapshot = try await bookReviewsCollection
             .whereField("bookId", isEqualTo: bookId)
@@ -347,7 +347,7 @@ final class FirebaseBooksService {
             try doc.data(as: BookReview.self)
         }
         
-        print("✅ Fetched \(reviews.count) reviews")
+        dlog("✅ Fetched \(reviews.count) reviews")
         return reviews
     }
     
@@ -369,7 +369,7 @@ final class FirebaseBooksService {
     
     /// Add a new book to Firestore (admin only)
     func addBook(_ book: Book) async throws -> String {
-        print("➕ Adding new book: \(book.title)")
+        dlog("➕ Adding new book: \(book.title)")
         
         let docRef = booksCollection.document()
         var newBook = book
@@ -377,7 +377,7 @@ final class FirebaseBooksService {
         
         try docRef.setData(from: newBook)
         
-        print("✅ Book added with ID: \(docRef.documentID)")
+        dlog("✅ Book added with ID: \(docRef.documentID)")
         return docRef.documentID
     }
     
@@ -387,16 +387,16 @@ final class FirebaseBooksService {
             throw FirebaseBooksError.invalidBookId
         }
         
-        print("✏️ Updating book: \(book.title)")
+        dlog("✏️ Updating book: \(book.title)")
         
         try booksCollection.document(bookId).setData(from: book, merge: true)
         
-        print("✅ Book updated successfully")
+        dlog("✅ Book updated successfully")
     }
     
     /// Delete a book
     func deleteBook(id: String) async throws {
-        print("🗑️ Deleting book: \(id)")
+        dlog("🗑️ Deleting book: \(id)")
         
         try await booksCollection.document(id).delete()
         
@@ -417,7 +417,7 @@ final class FirebaseBooksService {
             try await doc.reference.delete()
         }
         
-        print("✅ Book and related data deleted successfully")
+        dlog("✅ Book and related data deleted successfully")
     }
 }
 

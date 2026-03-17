@@ -45,7 +45,7 @@ class CloudFunctionsService: ObservableObject {
             "groupName": groupName as Any
         ]
         
-        print("📞 Calling createConversation function...")
+        dlog("📞 Calling createConversation function...")
         
         let result = try await functions.httpsCallable("createConversation").call(data)
         
@@ -57,9 +57,9 @@ class CloudFunctionsService: ObservableObject {
         let existed = response["existed"] as? Bool ?? false
         
         if existed {
-            print("✅ Found existing conversation: \(conversationId)")
+            dlog("✅ Found existing conversation: \(conversationId)")
         } else {
-            print("✅ Created new conversation: \(conversationId)")
+            dlog("✅ Created new conversation: \(conversationId)")
         }
         
         return conversationId
@@ -80,7 +80,7 @@ class CloudFunctionsService: ObservableObject {
             data["replyToMessageId"] = replyToMessageId
         }
         
-        print("📞 Calling sendMessage function...")
+        dlog("📞 Calling sendMessage function...")
         
         let result = try await functions.httpsCallable("sendMessage").call(data)
         
@@ -89,7 +89,7 @@ class CloudFunctionsService: ObservableObject {
             throw CloudFunctionsError.invalidResponse
         }
         
-        print("✅ Message sent: \(messageId)")
+        dlog("✅ Message sent: \(messageId)")
         
         return messageId
     }
@@ -107,7 +107,7 @@ class CloudFunctionsService: ObservableObject {
             data["messageIds"] = messageIds
         }
         
-        print("📞 Calling markMessagesAsRead function...")
+        dlog("📞 Calling markMessagesAsRead function...")
         
         let result = try await functions.httpsCallable("markMessagesAsRead").call(data)
         
@@ -117,7 +117,7 @@ class CloudFunctionsService: ObservableObject {
             throw CloudFunctionsError.operationFailed
         }
         
-        print("✅ Messages marked as read")
+        dlog("✅ Messages marked as read")
     }
     
     /// Delete a message
@@ -130,7 +130,7 @@ class CloudFunctionsService: ObservableObject {
             "messageId": messageId
         ]
         
-        print("📞 Calling deleteMessage function...")
+        dlog("📞 Calling deleteMessage function...")
         
         let result = try await functions.httpsCallable("deleteMessage").call(data)
         
@@ -140,7 +140,7 @@ class CloudFunctionsService: ObservableObject {
             throw CloudFunctionsError.operationFailed
         }
         
-        print("✅ Message deleted")
+        dlog("✅ Message deleted")
     }
     
     // MARK: - Feed Generation
@@ -148,7 +148,7 @@ class CloudFunctionsService: ObservableObject {
     /// Generate personalized feed for user
     /// This is called by Cloud Functions based on who the user follows
     func generateFeed(limit: Int = 20) async throws -> [PostFeedItem] {
-        print("📰 Requesting personalized feed from Cloud Functions...")
+        dlog("📰 Requesting personalized feed from Cloud Functions...")
         
         let callable = functions.httpsCallable("generateFeed")
         let data = ["limit": limit]
@@ -178,11 +178,11 @@ class CloudFunctionsService: ObservableObject {
                 )
             }
             
-            print("✅ Received \(posts.count) posts in feed")
+            dlog("✅ Received \(posts.count) posts in feed")
             return posts
             
         } catch {
-            print("❌ Error generating feed: \(error.localizedDescription)")
+            dlog("❌ Error generating feed: \(error.localizedDescription)")
             throw CloudFunctionsError.functionCallFailed(error.localizedDescription)
         }
     }
@@ -196,7 +196,7 @@ class CloudFunctionsService: ObservableObject {
         reason: String,
         details: String = ""
     ) async throws {
-        print("🚩 Reporting \(contentType): \(contentId)")
+        dlog("🚩 Reporting \(contentType): \(contentId)")
         
         let callable = functions.httpsCallable("reportContent")
         let data: [String: Any] = [
@@ -215,10 +215,10 @@ class CloudFunctionsService: ObservableObject {
                 throw CloudFunctionsError.reportFailed
             }
             
-            print("✅ Content reported successfully")
+            dlog("✅ Content reported successfully")
             
         } catch {
-            print("❌ Error reporting content: \(error.localizedDescription)")
+            dlog("❌ Error reporting content: \(error.localizedDescription)")
             throw CloudFunctionsError.functionCallFailed(error.localizedDescription)
         }
     }
@@ -227,15 +227,15 @@ class CloudFunctionsService: ObservableObject {
     
     /// Request test notification (for debugging)
     func requestTestNotification() async throws {
-        print("🧪 Requesting test notification...")
+        dlog("🧪 Requesting test notification...")
         
         let callable = functions.httpsCallable("sendTestNotification")
         
         do {
             _ = try await callable.call()
-            print("✅ Test notification sent")
+            dlog("✅ Test notification sent")
         } catch {
-            print("❌ Error sending test notification: \(error.localizedDescription)")
+            dlog("❌ Error sending test notification: \(error.localizedDescription)")
             throw error
         }
     }
@@ -250,13 +250,13 @@ class CloudFunctionsService: ObservableObject {
             if let response = result.data as? [String: Any],
                let status = response["status"] as? String,
                status == "healthy" {
-                print("✅ Cloud Functions connection successful")
+                dlog("✅ Cloud Functions connection successful")
                 return true
             } else {
                 throw CloudFunctionsError.invalidResponse
             }
         } catch {
-            print("❌ Cloud Functions connection failed: \(error.localizedDescription)")
+            dlog("❌ Cloud Functions connection failed: \(error.localizedDescription)")
             throw error
         }
     }

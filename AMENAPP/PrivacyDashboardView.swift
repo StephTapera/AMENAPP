@@ -182,7 +182,7 @@ struct PrivacyDashboardView: View {
                 isLoading = false
             }
         } catch {
-            print("❌ Failed to load user data: \(error)")
+            dlog("❌ Failed to load user data: \(error)")
             isLoading = false
         }
     }

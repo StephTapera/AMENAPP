@@ -56,7 +56,7 @@ class TwoFactorAuthService: ObservableObject {
         _ = keychainSave(legacyPhone)
         // Remove from UserDefaults
         UserDefaults.standard.removeObject(forKey: udLegacyPhoneKey)
-        print("🔐 Migrated 2FA phone from UserDefaults to Keychain")
+        dlog("🔐 Migrated 2FA phone from UserDefaults to Keychain")
     }
 
     func load2FASettings() {
@@ -65,7 +65,7 @@ class TwoFactorAuthService: ObservableObject {
         if let stored = keychainLoad() {
             maskedPhone = maskPhone(stored)
         }
-        print("📱 2FA Settings loaded — Enabled: \(is2FAEnabled)")
+        dlog("📱 2FA Settings loaded — Enabled: \(is2FAEnabled)")
     }
 
     // MARK: - Setup 2FA
@@ -73,10 +73,10 @@ class TwoFactorAuthService: ObservableObject {
     func setupTwoFactor(phoneNumber: String) async throws -> String {
         let formatted = formatPhoneNumber(phoneNumber)
         // Never log the full phone number
-        print("📱 Setting up 2FA (number redacted)")
+        dlog("📱 Setting up 2FA (number redacted)")
 
         #if targetEnvironment(simulator)
-        print("⚠️ SIMULATOR: Use Firebase Console test phone numbers")
+        dlog("⚠️ SIMULATOR: Use Firebase Console test phone numbers")
         #endif
 
         do {
@@ -139,9 +139,9 @@ class TwoFactorAuthService: ObservableObject {
                 "twoFactorMaskedPhone": maskPhone(phoneNumber),
                 "twoFactorEnabledAt": Timestamp(date: Date())
             ])
-            print("✅ 2FA enabled successfully")
+            dlog("✅ 2FA enabled successfully")
         } catch {
-            print("❌ Failed to enable 2FA")
+            dlog("❌ Failed to enable 2FA")
             throw TwoFactorError.verificationFailed(error.localizedDescription)
         }
     }
@@ -163,14 +163,14 @@ class TwoFactorAuthService: ObservableObject {
             "twoFactorEnabled": false,
             "twoFactorDisabledAt": Timestamp(date: Date())
         ])
-        print("⚠️ 2FA disabled")
+        dlog("⚠️ 2FA disabled")
     }
 
     // MARK: - Verify at Sign-In
 
     func send2FACode(phoneNumber: String) async throws -> String {
         let formatted = formatPhoneNumber(phoneNumber)
-        print("📱 Sending 2FA code (number redacted)")
+        dlog("📱 Sending 2FA code (number redacted)")
         let verificationID = try await PhoneAuthProvider.provider()
             .verifyPhoneNumber(formatted, uiDelegate: nil)
         self.verificationId = verificationID
@@ -188,10 +188,10 @@ class TwoFactorAuthService: ObservableObject {
                 verificationCode: verificationCode
             )
             _ = try await user.reauthenticate(with: credential)
-            print("✅ 2FA verification successful")
+            dlog("✅ 2FA verification successful")
             return true
         } catch {
-            print("❌ 2FA verification failed")
+            dlog("❌ 2FA verification failed")
             throw TwoFactorError.verificationFailed(error.localizedDescription)
         }
     }
@@ -209,7 +209,7 @@ class TwoFactorAuthService: ObservableObject {
             }
             return enabled
         } catch {
-            print("❌ Failed to check 2FA status")
+            dlog("❌ Failed to check 2FA status")
             return false
         }
     }
@@ -235,7 +235,7 @@ class TwoFactorAuthService: ObservableObject {
             let count = doc.data()?["backupCodesRemaining"] as? Int
             await MainActor.run { self.backupCodesRemaining = count }
         } catch {
-            print("⚠️ Could not load backup code count: \(error.localizedDescription)")
+            dlog("⚠️ Could not load backup code count: \(error.localizedDescription)")
         }
     }
 

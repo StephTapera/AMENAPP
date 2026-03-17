@@ -468,7 +468,7 @@ struct ProfilePhotoEditView: View {
             } catch {
                 await MainActor.run {
                     isUploading = false
-                    print("❌ Error uploading photo: \(error)")
+                    dlog("❌ Error uploading photo: \(error)")
                     
                     // Haptic feedback
                     let haptic = UINotificationFeedbackGenerator()
@@ -508,7 +508,7 @@ struct ProfilePhotoEditView: View {
             } catch {
                 await MainActor.run {
                     isUploading = false
-                    print("❌ Error deleting photo: \(error)")
+                    dlog("❌ Error deleting photo: \(error)")
                     
                     // Haptic feedback
                     let haptic = UINotificationFeedbackGenerator()

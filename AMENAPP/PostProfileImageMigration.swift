@@ -17,7 +17,7 @@ class PostProfileImageMigration {
     
     /// Check if migration is needed
     func checkStatus() async throws -> (totalPosts: Int, needsMigration: Int) {
-        print("🔍 Checking post profile image migration status...")
+        dlog("🔍 Checking post profile image migration status...")
         
         let snapshot = try await db.collection("posts").getDocuments()
         let totalPosts = snapshot.documents.count
@@ -28,9 +28,9 @@ class PostProfileImageMigration {
             return hasProfileImage == nil || hasProfileImage?.isEmpty == true
         }.count
         
-        print("📊 Migration Status:")
-        print("   Total posts: \(totalPosts)")
-        print("   Need migration: \(needsMigration)")
+        dlog("📊 Migration Status:")
+        dlog("   Total posts: \(totalPosts)")
+        dlog("   Need migration: \(needsMigration)")
         
         return (totalPosts, needsMigration)
     }
@@ -38,7 +38,7 @@ class PostProfileImageMigration {
     /// Migrate all posts to include author profile image URLs
     /// This fetches the author's profile image URL from their user document and adds it to their posts
     func migrateAllPosts() async throws {
-        print("🔧 Starting post profile image migration...")
+        dlog("🔧 Starting post profile image migration...")
         
         let postsSnapshot = try await db.collection("posts").getDocuments()
         var migratedCount = 0
@@ -54,7 +54,7 @@ class PostProfileImageMigration {
                 }
                 
                 guard let authorId = postData["authorId"] as? String else {
-                    print("⚠️ Post \(postDoc.documentID) missing authorId")
+                    dlog("⚠️ Post \(postDoc.documentID) missing authorId")
                     errorCount += 1
                     continue
                 }
@@ -63,7 +63,7 @@ class PostProfileImageMigration {
                 let userDoc = try await db.collection("users").document(authorId).getDocument()
                 
                 guard let userData = userDoc.data() else {
-                    print("⚠️ User not found for authorId: \(authorId)")
+                    dlog("⚠️ User not found for authorId: \(authorId)")
                     errorCount += 1
                     continue
                 }
@@ -78,29 +78,29 @@ class PostProfileImageMigration {
                 migratedCount += 1
                 
                 if migratedCount % 10 == 0 {
-                    print("✅ Migrated \(migratedCount) posts so far...")
+                    dlog("✅ Migrated \(migratedCount) posts so far...")
                 }
                 
             } catch {
-                print("❌ Error migrating post \(postDoc.documentID): \(error)")
+                dlog("❌ Error migrating post \(postDoc.documentID): \(error)")
                 errorCount += 1
             }
         }
         
-        print("✅ Migration complete!")
-        print("   Migrated: \(migratedCount)")
-        print("   Errors: \(errorCount)")
+        dlog("✅ Migration complete!")
+        dlog("   Migrated: \(migratedCount)")
+        dlog("   Errors: \(errorCount)")
     }
     
     /// Migrate posts for a specific user (useful when a user updates their profile picture)
     func migratePostsForUser(userId: String) async throws {
-        print("🔧 Migrating posts for user: \(userId)")
+        dlog("🔧 Migrating posts for user: \(userId)")
         
         // Get user's profile image URL
         let userDoc = try await db.collection("users").document(userId).getDocument()
         
         guard let userData = userDoc.data() else {
-            print("❌ User not found: \(userId)")
+            dlog("❌ User not found: \(userId)")
             throw FirebaseError.documentNotFound
         }
         
@@ -111,7 +111,7 @@ class PostProfileImageMigration {
             .whereField("authorId", isEqualTo: userId)
             .getDocuments()
         
-        print("📊 Found \(postsSnapshot.documents.count) posts for user")
+        dlog("📊 Found \(postsSnapshot.documents.count) posts for user")
         
         // Update each post with the profile image URL
         for postDoc in postsSnapshot.documents {
@@ -120,7 +120,7 @@ class PostProfileImageMigration {
             ])
         }
         
-        print("✅ Updated \(postsSnapshot.documents.count) posts with profile image URL")
+        dlog("✅ Updated \(postsSnapshot.documents.count) posts with profile image URL")
     }
 }
 

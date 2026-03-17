@@ -124,14 +124,14 @@ class PhotoInsightsService {
         if shouldCache {
             do {
                 try await cacheInsight(insight, userId: userId)
-                print("✅ Cached photo insights for current user: \(userId)")
+                dlog("✅ Cached photo insights for current user: \(userId)")
             } catch {
-                print("⚠️ Failed to cache photo insights: \(error)")
+                dlog("⚠️ Failed to cache photo insights: \(error)")
                 // Continue anyway - we still have the result
             }
         }
         
-        print("✅ Generated \(badges.count) badges for user: \(userId)")
+        dlog("✅ Generated \(badges.count) badges for user: \(userId)")
         return insight
     }
     
@@ -175,9 +175,9 @@ class PhotoInsightsService {
         }
         
         guard httpResponse.statusCode == 200 else {
-            print("❌ Vision API error: \(httpResponse.statusCode)")
+            dlog("❌ Vision API error: \(httpResponse.statusCode)")
             if let errorString = String(data: data, encoding: .utf8) {
-                print("   Response: \(errorString)")
+                dlog("   Response: \(errorString)")
             }
             throw PhotoInsightError.apiError(httpResponse.statusCode)
         }
@@ -199,7 +199,7 @@ class PhotoInsightsService {
             if adult == "POSSIBLE" || adult == "LIKELY" || adult == "VERY_LIKELY" ||
                racy == "POSSIBLE" || racy == "LIKELY" || racy == "VERY_LIKELY" ||
                violence == "LIKELY" || violence == "VERY_LIKELY" {
-                print("❌ SafeSearch blocked profile picture: adult=\(adult), racy=\(racy), violence=\(violence)")
+                dlog("❌ SafeSearch blocked profile picture: adult=\(adult), racy=\(racy), violence=\(violence)")
                 throw PhotoInsightError.unsafeContent
             }
         }
@@ -218,7 +218,7 @@ class PhotoInsightsService {
             return description
         }
         
-        print("🔍 Detected labels: \(labels.joined(separator: ", "))")
+        dlog("🔍 Detected labels: \(labels.joined(separator: ", "))")
         return labels
     }
     
@@ -277,7 +277,7 @@ class PhotoInsightsService {
     // MARK: - Batch Processing
     
     func batchAnalyzeUsers(userIds: [String], currentUserId: String) async {
-        print("📸 Starting batch analysis for \(userIds.count) users")
+        dlog("📸 Starting batch analysis for \(userIds.count) users")
         
         for userId in userIds {
             do {
@@ -294,11 +294,11 @@ class PhotoInsightsService {
                 // Rate limit: 1 request per second (free tier safe)
                 try await Task.sleep(nanoseconds: 1_000_000_000)
             } catch {
-                print("⚠️ Failed to analyze user \(userId): \(error)")
+                dlog("⚠️ Failed to analyze user \(userId): \(error)")
             }
         }
         
-        print("✅ Batch analysis complete")
+        dlog("✅ Batch analysis complete")
     }
 }
 

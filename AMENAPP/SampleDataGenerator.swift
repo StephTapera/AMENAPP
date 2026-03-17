@@ -60,8 +60,8 @@ class SampleDataGenerator {
         let userName = currentUser.displayName ?? "Demo User"
         let userInitials = String(userName.prefix(2).uppercased())
 
-        print("🎬 Generating sample posts for App Store screenshots...")
-        print("   User: \(userName) (\(userId))")
+        dlog("🎬 Generating sample posts for App Store screenshots...")
+        dlog("   User: \(userName) (\(userId))")
 
         // Generate 3 posts for each category
         try await generateCategoryPosts(
@@ -88,8 +88,8 @@ class SampleDataGenerator {
             userInitials: userInitials
         )
 
-        print("✅ Sample posts generated successfully!")
-        print("   Total: 9 posts (3 per category)")
+        dlog("✅ Sample posts generated successfully!")
+        dlog("   Total: 9 posts (3 per category)")
     }
 
     /// Generates posts for a specific category
@@ -122,7 +122,7 @@ class SampleDataGenerator {
             // Add to Firestore
             try await db.collection("posts").addDocument(data: postData)
 
-            print("   ✓ Created \(category) post: \(content.prefix(40))...")
+            dlog("   ✓ Created \(category) post: \(content.prefix(40))...")
         }
     }
 
@@ -136,7 +136,7 @@ class SampleDataGenerator {
 
         let userId = currentUser.uid
 
-        print("🗑️ Clearing sample posts...")
+        dlog("🗑️ Clearing sample posts...")
 
         // Fetch all posts by current user
         let snapshot = try await db.collection("posts")
@@ -148,7 +148,7 @@ class SampleDataGenerator {
             try await document.reference.delete()
         }
 
-        print("✅ Cleared \(snapshot.documents.count) sample posts")
+        dlog("✅ Cleared \(snapshot.documents.count) sample posts")
     }
 }
 

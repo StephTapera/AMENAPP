@@ -107,7 +107,7 @@ struct FollowButtonWrapper: View {
                 try await FollowerQuickActions.unfollowUser(userId: userId)
             }
         } catch {
-            print("❌ Follow/unfollow failed: \(error)")
+            dlog("❌ Follow/unfollow failed: \(error)")
             // Revert state on error
             isFollowing = !shouldFollow
         }
@@ -162,7 +162,7 @@ class FollowRequestsBadgeViewModel: ObservableObject {
             
             pendingCount = snapshot.documents.count
         } catch {
-            print("❌ Failed to load pending requests count: \(error)")
+            dlog("❌ Failed to load pending requests count: \(error)")
         }
     }
 }
@@ -343,7 +343,7 @@ struct FollowerStatsWidget: View {
             let followService = FollowService.shared
             stats = try await followService.getFollowStats(userId: userId)
         } catch {
-            print("❌ Failed to load stats: \(error)")
+            dlog("❌ Failed to load stats: \(error)")
         }
     }
     
@@ -437,7 +437,7 @@ class PeopleSearchViewModel: ObservableObject {
             }
             
         } catch {
-            print("❌ Search failed: \(error)")
+            dlog("❌ Search failed: \(error)")
         }
         
         isLoading = false
@@ -508,7 +508,7 @@ struct FollowerSystemSetup {
             await followService.loadCurrentUserFollowers()
             followService.startListening()
             
-            print("✅ Follower system initialized")
+            dlog("✅ Follower system initialized")
         }
     }
     
@@ -517,7 +517,7 @@ struct FollowerSystemSetup {
         let followService = FollowService.shared
         followService.stopListening()
         
-        print("🔇 Follower system listeners stopped")
+        dlog("🔇 Follower system listeners stopped")
     }
 }
 

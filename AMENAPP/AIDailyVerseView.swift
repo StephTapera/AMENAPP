@@ -130,7 +130,7 @@ struct AIDailyVerseCard: View {
                    let verse = try? JSONDecoder().decode(PersonalizedDailyVerse.self, from: data) {
                     await MainActor.run {
                         verseService.todayVerse = verse
-                        print("📖 Loaded cached verse from UserDefaults")
+                        dlog("📖 Loaded cached verse from UserDefaults")
                     }
                 } else {
                     // No cache, load fresh verse

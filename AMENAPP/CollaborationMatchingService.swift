@@ -111,10 +111,10 @@ class CollaborationMatchingService: ObservableObject {
                 .prefix(limit)
                 .map { $0 }
             
-            print("✅ Found \(suggestedCollaborators.count) potential collaborators")
+            dlog("✅ Found \(suggestedCollaborators.count) potential collaborators")
             
         } catch {
-            print("❌ Failed to find collaborators: \(error)")
+            dlog("❌ Failed to find collaborators: \(error)")
         }
     }
     

@@ -112,19 +112,19 @@ struct SocialFollowersListView: View {
     private func loadUsers() async {
         isLoading = true
         
-        print("📥 Loading \(listType == .followers ? "followers" : "following") for user: \(userId)")
+        dlog("📥 Loading \(listType == .followers ? "followers" : "following") for user: \(userId)")
         
         do {
             switch listType {
             case .followers:
                 users = try await socialService.fetchFollowers(for: userId)
-                print("✅ Loaded \(users.count) followers")
+                dlog("✅ Loaded \(users.count) followers")
             case .following:
                 users = try await socialService.fetchFollowing(for: userId)
-                print("✅ Loaded \(users.count) following")
+                dlog("✅ Loaded \(users.count) following")
             }
         } catch {
-            print("❌ Failed to load users: \(error)")
+            dlog("❌ Failed to load users: \(error)")
             users = []
         }
         
@@ -259,7 +259,7 @@ private struct SocialUserRowView: View {
         
         // Prevent double-tapping
         guard !isLoading else {
-            print("⚠️ Already processing follow action")
+            dlog("⚠️ Already processing follow action")
             return
         }
         
@@ -275,10 +275,10 @@ private struct SocialUserRowView: View {
             do {
                 if originalFollowingState {
                     try await followService.unfollowUser(userId: userId)
-                    print("✅ Unfollowed @\(user.username)")
+                    dlog("✅ Unfollowed @\(user.username)")
                 } else {
                     try await followService.followUser(userId: userId)
-                    print("✅ Followed @\(user.username)")
+                    dlog("✅ Followed @\(user.username)")
                 }
                 
                 // Success - UI is already updated
@@ -287,7 +287,7 @@ private struct SocialUserRowView: View {
                 }
                 
             } catch {
-                print("❌ Failed to toggle follow: \(error)")
+                dlog("❌ Failed to toggle follow: \(error)")
                 
                 // Revert UI on error
                 await MainActor.run {

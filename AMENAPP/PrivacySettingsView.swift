@@ -568,13 +568,13 @@ struct PrivacySettingsView: View {
                 "privacyUpdatedAt":            FieldValue.serverTimestamp()
             ])
             await MainActor.run { isSaving = false }
-            print("✅ Privacy settings saved successfully")
+            dlog("✅ Privacy settings saved successfully")
         } catch {
             await MainActor.run {
                 errorMessage = "Failed to save privacy settings: \(error.localizedDescription)"
                 isSaving = false
             }
-            print("❌ Error saving privacy settings: \(error.localizedDescription)")
+            dlog("❌ Error saving privacy settings: \(error.localizedDescription)")
         }
     }
 }

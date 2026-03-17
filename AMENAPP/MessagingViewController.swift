@@ -119,7 +119,7 @@ class MessagingViewController: UIViewController {
     private func uploadImage(_ image: UIImage, completion: @escaping (String?) -> Void) {
         // Compress image
         guard let imageData = image.jpegData(compressionQuality: 0.7) else {
-            print("❌ Failed to compress image")
+            dlog("❌ Failed to compress image")
             completion(nil)
             return
         }
@@ -129,7 +129,7 @@ class MessagingViewController: UIViewController {
         let storageRef = Storage.storage().reference()
         let imageRef = storageRef.child("messages/\(conversationId ?? "unknown")/\(filename)")
         
-        print("📤 Uploading image to Firebase Storage...")
+        dlog("📤 Uploading image to Firebase Storage...")
         
         // Upload with metadata
         let metadata = StorageMetadata()
@@ -137,28 +137,28 @@ class MessagingViewController: UIViewController {
         
         imageRef.putData(imageData, metadata: metadata) { metadata, error in
             if let error = error {
-                print("❌ Upload failed: \(error.localizedDescription)")
+                dlog("❌ Upload failed: \(error.localizedDescription)")
                 completion(nil)
                 return
             }
             
-            print("✅ Image uploaded successfully")
+            dlog("✅ Image uploaded successfully")
             
             // Get download URL
             imageRef.downloadURL { url, error in
                 if let error = error {
-                    print("❌ Failed to get download URL: \(error.localizedDescription)")
+                    dlog("❌ Failed to get download URL: \(error.localizedDescription)")
                     completion(nil)
                     return
                 }
                 
                 guard let downloadURL = url?.absoluteString else {
-                    print("❌ Download URL is nil")
+                    dlog("❌ Download URL is nil")
                     completion(nil)
                     return
                 }
                 
-                print("✅ Download URL obtained: \(downloadURL)")
+                dlog("✅ Download URL obtained: \(downloadURL)")
                 completion(downloadURL)
             }
         }

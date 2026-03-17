@@ -549,10 +549,10 @@ struct AccountSettingsView: View {
                 await MainActor.run {
                     self.isPrivateAccount = isPrivate
                 }
-                print("✅ Loaded private account status: \(isPrivate)")
+                dlog("✅ Loaded private account status: \(isPrivate)")
             }
         } catch {
-            print("❌ Failed to load private account status: \(error)")
+            dlog("❌ Failed to load private account status: \(error)")
         }
     }
     
@@ -572,7 +572,7 @@ struct AccountSettingsView: View {
                 "isPrivateAccount": newValue
             ])
             
-            print("✅ Updated private account status to: \(newValue)")
+            dlog("✅ Updated private account status to: \(newValue)")
 
             // Invalidate PrivacyAccessControl cache so all views immediately reflect the change.
             // This covers profile views, feed scoring, and comment gates for the current user.
@@ -584,7 +584,7 @@ struct AccountSettingsView: View {
             successHaptic.notificationOccurred(.success)
             
         } catch {
-            print("❌ Failed to update private account status: \(error)")
+            dlog("❌ Failed to update private account status: \(error)")
             
             // Rollback on error
             await MainActor.run {
@@ -607,7 +607,7 @@ struct AccountSettingsView: View {
                 ageTierRaw  = data["ageTier"]   as? String
             }
         } catch {
-            print("❌ Failed to load age info: \(error)")
+            dlog("❌ Failed to load age info: \(error)")
         }
     }
 }

@@ -1369,7 +1369,7 @@ class CommentService: ObservableObject {
                     ])
                 dlog("📬 Comment notification updated for post author: \(postAuthorId)")
             } catch {
-                print("⚠️ Comment notification update failed for post \(postId): \(error.localizedDescription)")
+                dlog("⚠️ Comment notification update failed for post \(postId): \(error.localizedDescription)")
             }
         } else {
             let notification: [String: Any] = [
@@ -1391,7 +1391,7 @@ class CommentService: ObservableObject {
                     .collection("notifications").document(deterministicId).setData(notification)
                 dlog("📬 Comment notification created for post author: \(postAuthorId)")
             } catch {
-                print("⚠️ Comment notification failed for post \(postId): \(error.localizedDescription)")
+                dlog("⚠️ Comment notification failed for post \(postId): \(error.localizedDescription)")
             }
         }
     }

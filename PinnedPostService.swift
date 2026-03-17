@@ -28,7 +28,7 @@ class PinnedPostService: ObservableObject {
             throw NSError(domain: "PinnedPost", code: 401, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
         }
         
-        print("📌 Pinning post \(postId) for user \(userId)")
+        dlog("📌 Pinning post \(postId) for user \(userId)")
         
         // Check if user already has a pinned post
         let userRef = db.collection("users").document(userId)
@@ -36,7 +36,7 @@ class PinnedPostService: ObservableObject {
         
         if let existingPinnedPostId = userData?["pinnedPostId"] as? String, !existingPinnedPostId.isEmpty {
             // User already has a pinned post - unpin it first
-            print("⚠️ User already has pinned post: \(existingPinnedPostId). Unpinning first...")
+            dlog("⚠️ User already has pinned post: \(existingPinnedPostId). Unpinning first...")
             try await unpinPost(postId: existingPinnedPostId)
         }
         
@@ -72,7 +72,7 @@ class PinnedPostService: ObservableObject {
         // Update local cache
         pinnedPostIds.insert(postId)
         
-        print("✅ Post pinned successfully")
+        dlog("✅ Post pinned successfully")
     }
     
     /// Unpin a post from user's profile
@@ -81,7 +81,7 @@ class PinnedPostService: ObservableObject {
             throw NSError(domain: "PinnedPost", code: 401, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
         }
         
-        print("📌 Unpinning post \(postId) for user \(userId)")
+        dlog("📌 Unpinning post \(postId) for user \(userId)")
         
         let batch = db.batch()
         
@@ -104,7 +104,7 @@ class PinnedPostService: ObservableObject {
         // Update local cache
         pinnedPostIds.remove(postId)
         
-        print("✅ Post unpinned successfully")
+        dlog("✅ Post unpinned successfully")
     }
     
     /// Toggle pin status for a post
@@ -159,10 +159,10 @@ class PinnedPostService: ObservableObject {
         do {
             if let pinnedPostId = try await getPinnedPostId(for: userId) {
                 pinnedPostIds.insert(pinnedPostId)
-                print("✅ Loaded pinned post: \(pinnedPostId)")
+                dlog("✅ Loaded pinned post: \(pinnedPostId)")
             }
         } catch {
-            print("❌ Failed to load pinned posts: \(error)")
+            dlog("❌ Failed to load pinned posts: \(error)")
         }
     }
     
@@ -178,7 +178,7 @@ class PinnedPostService: ObservableObject {
     /// Start listening for pinned post changes
     func startListening() {
         guard pinnedPostListener == nil else {
-            print("⚠️ Pinned post listener already active")
+            dlog("⚠️ Pinned post listener already active")
             return
         }
         
@@ -196,18 +196,18 @@ class PinnedPostService: ObservableObject {
                     // Add current pinned post
                     if let pinnedPostId = data["pinnedPostId"] as? String {
                         self.pinnedPostIds.insert(pinnedPostId)
-                        print("🔄 Pinned post updated: \(pinnedPostId)")
+                        dlog("🔄 Pinned post updated: \(pinnedPostId)")
                     }
                 }
             }
         
-        print("✅ Pinned post listener started")
+        dlog("✅ Pinned post listener started")
     }
     
     /// Stop listening for pinned post changes
     func stopListening() {
         pinnedPostListener?.remove()
         pinnedPostListener = nil
-        print("🛑 Pinned post listener stopped")
+        dlog("🛑 Pinned post listener stopped")
     }
 }

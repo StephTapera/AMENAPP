@@ -120,14 +120,14 @@ class BereanDataManager: ObservableObject {
         savedMessages.insert(savedMessage, at: 0)
         persistSavedMessages()
         
-        print("💾 Message saved for later: \(message.content.prefix(50))...")
+        dlog("💾 Message saved for later: \(message.content.prefix(50))...")
     }
     
     func unsaveMessage(_ savedMessage: SavedBereanMessage) {
         savedMessages.removeAll { $0.id == savedMessage.id }
         persistSavedMessages()
         
-        print("🗑️ Message removed from saved")
+        dlog("🗑️ Message removed from saved")
     }
     
     func updateSavedMessage(_ savedMessage: SavedBereanMessage, tags: [String], note: String?) {
@@ -138,7 +138,7 @@ class BereanDataManager: ObservableObject {
             savedMessages[index] = updated
             persistSavedMessages()
             
-            print("✏️ Saved message updated")
+            dlog("✏️ Saved message updated")
         }
     }
     
@@ -147,7 +147,7 @@ class BereanDataManager: ObservableObject {
             let data = try JSONEncoder().encode(savedMessages)
             UserDefaults.standard.set(data, forKey: "berean_saved_messages")
         } catch {
-            print("❌ Failed to save messages: \(error)")
+            dlog("❌ Failed to save messages: \(error)")
         }
     }
     
@@ -156,12 +156,12 @@ class BereanDataManager: ObservableObject {
         
         do {
             savedMessages = try JSONDecoder().decode([SavedBereanMessage].self, from: data)
-            print("📖 Loaded \(savedMessages.count) saved messages")
+            dlog("📖 Loaded \(savedMessages.count) saved messages")
         } catch {
             // The stored data is corrupt or the model schema changed.
             // Remove the corrupt key so subsequent launches don't keep failing,
             // and leave savedMessages as its current value (empty default).
-            print("❌ Failed to load saved messages — clearing corrupt cache: \(error)")
+            dlog("❌ Failed to load saved messages — clearing corrupt cache: \(error)")
             UserDefaults.standard.removeObject(forKey: "berean_saved_messages")
         }
     }
@@ -175,7 +175,7 @@ class BereanDataManager: ObservableObject {
     ) async throws {
         // Check network connectivity first
         guard AMENNetworkMonitor.shared.isConnected else {
-            print("❌ Cannot report issue - no network connection")
+            dlog("❌ Cannot report issue - no network connection")
             throw BereanError.networkUnavailable
         }
         
@@ -204,7 +204,7 @@ class BereanDataManager: ObservableObject {
         
         try await reportRef.setValue(reportData)
         
-        print("✅ Issue report submitted: \(issueType.rawValue)")
+        dlog("✅ Issue report submitted: \(issueType.rawValue)")
         
         // Also send email notification (optional - would need backend)
         await sendIssueReportEmail(report: report)
@@ -213,7 +213,7 @@ class BereanDataManager: ObservableObject {
     private func sendIssueReportEmail(report: BereanIssueReport) async {
         // In production, call your backend API to send email
         // For now, just log
-        print("📧 Email notification would be sent for issue: \(report.issueType.rawValue)")
+        dlog("📧 Email notification would be sent for issue: \(report.issueType.rawValue)")
     }
     
     // MARK: - Share to Feed
@@ -225,7 +225,7 @@ class BereanDataManager: ObservableObject {
     ) async throws {
         // Check network connectivity first
         guard AMENNetworkMonitor.shared.isConnected else {
-            print("❌ Cannot share to feed - no network connection")
+            dlog("❌ Cannot share to feed - no network connection")
             throw BereanError.networkUnavailable
         }
         
@@ -277,7 +277,7 @@ class BereanDataManager: ObservableObject {
             communityId: communityId
         )
         
-        print("✅ Shared to feed: \(postId)")
+        dlog("✅ Shared to feed: \(postId)")
     }
     
     // MARK: - Export Conversations

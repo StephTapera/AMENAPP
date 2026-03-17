@@ -67,6 +67,7 @@ const {
   send2FAEmail,
   send2FASMS,
   cleanupExpiredOTPs,
+  expire2FASessions,
 } = require("./twoFactorAuth");
 
 // Shabbat Mode: server-side enforcement middleware
@@ -156,6 +157,11 @@ exports.verify2FAOTP = verify2FAOTP;
 exports.send2FAEmail = send2FAEmail;
 exports.send2FASMS = send2FASMS;
 exports.cleanupExpiredOTPs = cleanupExpiredOTPs;
+exports.expire2FASessions = expire2FASessions;
+
+// P0: Scheduled cleanup for expired 2FA sessions (hourly, guaranteed TTL enforcement)
+const { cleanupExpired2FASessions } = require("./cleanupExpired2FASessions");
+exports.cleanupExpired2FASessions = cleanupExpired2FASessions;
 
 // Post + Comment pipeline
 exports.finalizePostPublish  = finalizePostPublish;
@@ -894,3 +900,23 @@ exports.reRankFeedRealTime        = mlNotif.reRankFeedRealTime;
 exports.runSLOAnomalyDetection    = mlNotif.runSLOAnomalyDetection;
 exports.costOptimizationAudit     = mlNotif.costOptimizationAudit;
 exports.runAgeSignalDetection     = mlNotif.runAgeSignalDetection;
+
+// ============================================================================
+// NOTIFICATIONS — Prayer amens/comments, mentions, scheduled campaigns
+// ============================================================================
+const {
+  onPrayerAmen,
+  onPrayerComment,
+  onPostMention,
+  weeklyCheckin,
+  communityDigest,
+  bereanDailyInsight,
+} = require("./notifications");
+exports.onPrayerAmen       = onPrayerAmen;
+exports.onPrayerComment    = onPrayerComment;
+exports.onPostMention      = onPostMention;
+exports.weeklyCheckin      = weeklyCheckin;
+exports.communityDigest    = communityDigest;
+exports.bereanDailyInsight = bereanDailyInsight;
+
+// Algolia sync handled by installed Firestore extension (ext-firestore-algolia-search)

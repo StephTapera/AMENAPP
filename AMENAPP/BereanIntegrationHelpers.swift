@@ -100,11 +100,11 @@ struct BereanNavigationHelper {
     /// Replace this implementation with your actual navigation logic
     static func openBibleVerse(reference: String, translation: String = "ESV") {
         guard let parsed = VerseReferenceParser.parse(reference) else {
-            print("❌ Invalid verse reference: \(reference)")
+            dlog("❌ Invalid verse reference: \(reference)")
             return
         }
         
-        print("📖 Opening Bible: \(parsed.fullReference) (\(translation))")
+        dlog("📖 Opening Bible: \(parsed.fullReference) (\(translation))")
         
         // OPTION 1: Using NavigationLink (if in NavigationStack)
         // You would need to use an EnvironmentObject or AppState
@@ -145,7 +145,7 @@ struct BereanNavigationHelper {
     
     /// Open Bible to a specific book and chapter
     static func openBibleChapter(book: String, chapter: Int, translation: String = "ESV") {
-        print("📖 Opening Bible: \(book) \(chapter) (\(translation))")
+        dlog("📖 Opening Bible: \(book) \(chapter) (\(translation))")
         
         // Implement your navigation logic here
         NotificationCenter.default.post(
@@ -319,14 +319,14 @@ extension VerseReferenceParser {
             ("3:16", false),
         ]
         
-        print("🧪 Running Verse Reference Parser Tests:")
+        dlog("🧪 Running Verse Reference Parser Tests:")
         for (input, expectedValid) in testCases {
             let result = parse(input)
             let isValid = result != nil
             let status = isValid == expectedValid ? "✅" : "❌"
-            print("\(status) '\(input)' - Valid: \(isValid) (Expected: \(expectedValid))")
+            dlog("\(status) '\(input)' - Valid: \(isValid) (Expected: \(expectedValid))")
             if let parsed = result {
-                print("   Parsed: \(parsed.fullReference)")
+                dlog("   Parsed: \(parsed.fullReference)")
             }
         }
     }

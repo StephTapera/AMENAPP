@@ -46,9 +46,9 @@ struct NotificationUsageExamples {
                 ]
             )
             
-            print("✅ Message notification sent")
+            dlog("✅ Message notification sent")
         } catch {
-            print("❌ Error sending message notification: \(error)")
+            dlog("❌ Error sending message notification: \(error)")
         }
     }
     
@@ -91,9 +91,9 @@ struct NotificationUsageExamples {
                 ]
             )
             
-            print("✅ Match notification sent")
+            dlog("✅ Match notification sent")
         } catch {
-            print("❌ Error sending match notification: \(error)")
+            dlog("❌ Error sending match notification: \(error)")
         }
     }
     
@@ -137,9 +137,9 @@ struct NotificationUsageExamples {
                     ]
                 )
                 
-                print("✅ Prayer request notification sent to \(member.name)")
+                dlog("✅ Prayer request notification sent to \(member.name)")
             } catch {
-                print("❌ Error sending prayer notification to \(member.name): \(error)")
+                dlog("❌ Error sending prayer notification to \(member.name): \(error)")
             }
         }
     }
@@ -174,9 +174,9 @@ struct NotificationUsageExamples {
                     ]
                 )
                 
-                print("✅ Event reminder sent to \(attendee.name)")
+                dlog("✅ Event reminder sent to \(attendee.name)")
             } catch {
-                print("❌ Error sending event reminder to \(attendee.name): \(error)")
+                dlog("❌ Error sending event reminder to \(attendee.name): \(error)")
             }
         }
     }
@@ -189,7 +189,7 @@ struct NotificationUsageExamples {
             let pendingNotifications = try await fetchPendingNotifications(userId: userId)
             
             guard pendingNotifications.count >= 3 else {
-                print("⚠️ Not enough notifications to batch")
+                dlog("⚠️ Not enough notifications to batch")
                 return
             }
             
@@ -198,9 +198,9 @@ struct NotificationUsageExamples {
                 pendingNotifications: pendingNotifications
             )
             
-            print("✅ Daily summary sent to user: \(userId)")
+            dlog("✅ Daily summary sent to user: \(userId)")
         } catch {
-            print("❌ Error sending daily summary: \(error)")
+            dlog("❌ Error sending daily summary: \(error)")
         }
     }
     

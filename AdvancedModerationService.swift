@@ -108,13 +108,13 @@ class AdvancedModerationService {
     ) async throws -> AdvancedModerationResult {
         
         #if DEBUG
-        print("🛡️ [ADVANCED MODERATION] Starting multi-provider check...")
+        dlog("🛡️ [ADVANCED MODERATION] Starting multi-provider check...")
         #endif
         
         // Step 0: Check if user is shadow banned
         if await isUserShadowBanned(userId) {
             #if DEBUG
-            print("🚫 [SHADOW BAN] User \(userId) is shadow banned")
+            dlog("🚫 [SHADOW BAN] User \(userId) is shadow banned")
             #endif
             return AdvancedModerationResult(
                 isApproved: false,
@@ -136,13 +136,13 @@ class AdvancedModerationService {
             detectedLanguage = await detectLanguage(content)
         }
         #if DEBUG
-        print("🌍 [LANGUAGE] Detected: \(detectedLanguage)")
+        dlog("🌍 [LANGUAGE] Detected: \(detectedLanguage)")
         #endif
         
         // Step 2: Detect content context (Bible quote, prayer, etc.)
         let context = detectContentContext(content)
         #if DEBUG
-        print("📖 [CONTEXT] Type: \(context.rawValue)")
+        dlog("📖 [CONTEXT] Type: \(context.rawValue)")
         #endif
         
         // Step 3: Bible quote detection - allow religious content
@@ -150,7 +150,7 @@ class AdvancedModerationService {
             let bibleResult = await analyzeBibleQuote(content)
             if bibleResult.isApproved {
                 #if DEBUG
-                print("✅ [BIBLE] Approved as scripture reference")
+                dlog("✅ [BIBLE] Approved as scripture reference")
                 #endif
                 return bibleResult
             }
@@ -190,7 +190,7 @@ class AdvancedModerationService {
         )
         
         #if DEBUG
-        print("🛡️ [RESULT] \(aggregatedResult.severityLevel.rawValue) (confidence: \(aggregatedResult.confidence))")
+        dlog("🛡️ [RESULT] \(aggregatedResult.severityLevel.rawValue) (confidence: \(aggregatedResult.confidence))")
         #endif
         
         return aggregatedResult
@@ -231,7 +231,7 @@ class AdvancedModerationService {
             }
         } catch {
             #if DEBUG
-            print("⚠️ [LANGUAGE] Google NL API error: \(error)")
+            dlog("⚠️ [LANGUAGE] Google NL API error: \(error)")
             #endif
         }
         
@@ -598,11 +598,11 @@ class AdvancedModerationService {
             lastShadowBanSync = Date()
             
             #if DEBUG
-            print("🚫 [SHADOW BAN] Loaded \(shadowBannedUsers.count) banned users")
+            dlog("🚫 [SHADOW BAN] Loaded \(shadowBannedUsers.count) banned users")
             #endif
         } catch {
             #if DEBUG
-            print("❌ [SHADOW BAN] Failed to load: \(error)")
+            dlog("❌ [SHADOW BAN] Failed to load: \(error)")
             #endif
         }
     }
@@ -631,7 +631,7 @@ class AdvancedModerationService {
             }
         } catch {
             #if DEBUG
-            print("❌ [SHADOW BAN] Failed to check history: \(error)")
+            dlog("❌ [SHADOW BAN] Failed to check history: \(error)")
             #endif
         }
     }
@@ -655,11 +655,11 @@ class AdvancedModerationService {
             shadowBannedUsers.insert(userId)
             
             #if DEBUG
-            print("🚫 [SHADOW BAN] Applied to user \(userId) for \(durationDays) days")
+            dlog("🚫 [SHADOW BAN] Applied to user \(userId) for \(durationDays) days")
             #endif
         } catch {
             #if DEBUG
-            print("❌ [SHADOW BAN] Failed to apply: \(error)")
+            dlog("❌ [SHADOW BAN] Failed to apply: \(error)")
             #endif
         }
     }
@@ -691,7 +691,7 @@ class AdvancedModerationService {
             try await db.collection("advancedModerationLogs").addDocument(data: logData)
         } catch {
             #if DEBUG
-            print("⚠️ [LOGGING] Failed to log result: \(error)")
+            dlog("⚠️ [LOGGING] Failed to log result: \(error)")
             #endif
         }
     }

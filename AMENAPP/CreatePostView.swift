@@ -496,7 +496,7 @@ struct CreatePostView: View {
                                     .fill(
                                         postBtnState == .sent
                                             ? Color(red: 0.165, green: 0.431, blue: 0.227)
-                                            : (canPublish ? Color(red: 0.788, green: 0.659, blue: 0.298) : Color.black.opacity(0.3))
+                                            : (canPublish ? Color.black : Color.black.opacity(0.3))
                                     )
                                     .animation(.easeOut(duration: 0.3), value: postBtnState)
                             )

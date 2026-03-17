@@ -129,7 +129,7 @@ class NestedCommentService: ObservableObject {
             )
         }
         
-        print("✅ Posted comment successfully (reply: \(parentCommentId != nil))")
+        dlog("✅ Posted comment successfully (reply: \(parentCommentId != nil))")
         return comment
     }
     
@@ -277,7 +277,7 @@ class NestedCommentService: ObservableObject {
         do {
             try await db.collection("notifications").addDocument(data: notificationData)
         } catch {
-            print("❌ Failed to send mention notification: \(error)")
+            dlog("❌ Failed to send mention notification: \(error)")
         }
     }
     
@@ -308,7 +308,7 @@ class NestedCommentService: ObservableObject {
             
             try await db.collection("notifications").addDocument(data: notificationData)
         } catch {
-            print("❌ Failed to send reply notification: \(error)")
+            dlog("❌ Failed to send reply notification: \(error)")
         }
     }
     

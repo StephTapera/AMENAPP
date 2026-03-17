@@ -411,7 +411,7 @@ final class MinorSafetyService {
                 merge: true
             )
         } catch {
-            print("⚠️ [MinorSafety] Failed to set evidence preservation: \(error)")
+            dlog("⚠️ [MinorSafety] Failed to set evidence preservation: \(error)")
         }
     }
 
@@ -432,7 +432,7 @@ final class MinorSafetyService {
             // Invalidate cache
             userProfileCache.removeValue(forKey: minorUserId)
         } catch {
-            print("⚠️ [MinorSafety] Failed to update guardian settings: \(error)")
+            dlog("⚠️ [MinorSafety] Failed to update guardian settings: \(error)")
         }
     }
 

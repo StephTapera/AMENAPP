@@ -190,16 +190,7 @@ struct QuickAccessRow: View {
                     ForEach(contacts) { conv in
                         Button { onTap(conv) } label: {
                             VStack(spacing: 6) {
-                                QuickAvatarView(conversation: conv)
-                                    .overlay(alignment: .bottomTrailing) {
-                                        if conv.unreadCount > 0 {
-                                            Circle()
-                                                .fill(AMENInboxTokens.unreadDot)
-                                                .frame(width: 9, height: 9)
-                                                .overlay(Circle().stroke(AMENInboxTokens.background, lineWidth: 1.5))
-                                                .offset(x: 2, y: 2)
-                                        }
-                                    }
+                                BreathingAvatarWrapper(conversation: conv)
 
                                 Text(conv.name.components(separatedBy: " ").first ?? conv.name)
                                     .font(.system(size: 11, weight: .medium))
@@ -245,6 +236,52 @@ private struct QuickAvatarView: View {
                     .font(.system(size: size * 0.32, weight: .semibold))
                     .foregroundStyle(AMENInboxTokens.secondaryText)
             )
+    }
+}
+
+// MARK: - Breathing Avatar Wrapper
+
+/// Wraps QuickAvatarView with breathing ring animation for unread conversations.
+private struct BreathingAvatarWrapper: View {
+    let conversation: ChatConversation
+    @State private var animating = false
+
+    private var isUnread: Bool { conversation.unreadCount > 0 }
+
+    var body: some View {
+        QuickAvatarView(conversation: conversation)
+            .overlay(alignment: .bottomTrailing) {
+                if isUnread {
+                    Circle()
+                        .fill(AMENInboxTokens.unreadDot)
+                        .frame(width: 9, height: 9)
+                        .overlay(Circle().stroke(AMENInboxTokens.background, lineWidth: 1.5))
+                        .offset(x: 2, y: 2)
+                }
+            }
+            // Inner breathing ring
+            .overlay {
+                if isUnread {
+                    Circle()
+                        .stroke(Color.black.opacity(animating ? 0.55 : 0.18), lineWidth: 1.5)
+                        .padding(-4)
+                        .scaleEffect(animating ? 1.06 : 1.0)
+                }
+            }
+            // Outer breathing ring
+            .overlay {
+                if isUnread {
+                    Circle()
+                        .stroke(Color.black.opacity(animating ? 0.15 : 0), lineWidth: 1)
+                        .padding(-9)
+                        .animation(.easeInOut(duration: 2.6).repeatForever(autoreverses: true).delay(0.4), value: animating)
+                }
+            }
+            .animation(.easeInOut(duration: 2.6).repeatForever(autoreverses: true), value: animating)
+            .onAppear {
+                guard isUnread else { return }
+                animating = true
+            }
     }
 }
 
@@ -320,26 +357,8 @@ struct AMENThreadRow: View, Equatable {
                     }
                 }
 
-                // Unread badge (right edge)
-                if isUnread {
-                    VStack {
-                        Spacer().frame(height: 4)
-                        if conversation.unreadCount > 9 {
-                            Text("9+")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 5)
-                                .padding(.vertical, 2)
-                                .background(Capsule().fill(AMENInboxTokens.unreadDot))
-                        } else {
-                            Text("\(conversation.unreadCount)")
-                                .font(.system(size: 11, weight: .bold))
-                                .foregroundStyle(.white)
-                                .frame(width: 19, height: 19)
-                                .background(Circle().fill(AMENInboxTokens.unreadDot))
-                        }
-                    }
-                }
+                // Unread badge (right edge) — odometer roll on increment
+                OdometerBadgeView(count: conversation.unreadCount)
             }
             .padding(.horizontal, AMENInboxTokens.hPad)
             .padding(.vertical, AMENInboxTokens.rowVPad)
@@ -647,5 +666,71 @@ struct InboxSectionLabel: View {
             .padding(.top, 16)
             .padding(.bottom, 6)
             .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+// MARK: - Odometer Badge View
+
+/// Unread count badge with odometer-style digit roll animation on increment.
+struct OdometerBadgeView: View {
+    let count: Int
+    @State private var appeared = false
+    @State private var digitKey = UUID()
+
+    var body: some View {
+        Group {
+            if count > 0 {
+                VStack {
+                    Spacer().frame(height: 4)
+                    HStack(spacing: 0) {
+                        let digits = digitsFor(count)
+                        ForEach(Array(digits.enumerated()), id: \.offset) { idx, digit in
+                            Text(digit)
+                                .font(.system(size: count > 9 ? 10 : 11, weight: .bold))
+                                .foregroundStyle(.white)
+                                .frame(width: 8, height: 14)
+                                .clipped()
+                                .offset(y: appeared ? 0 : 14)
+                                .opacity(appeared ? 1 : 0)
+                                .animation(
+                                    .spring(response: 0.3, dampingFraction: 0.72)
+                                    .delay(Double(idx) * 0.04),
+                                    value: digitKey
+                                )
+                        }
+                    }
+                    .padding(.horizontal, count > 9 ? 5 : 3)
+                    .padding(.vertical, 2)
+                    .background(
+                        Group {
+                            if count > 9 {
+                                Capsule().fill(AMENInboxTokens.unreadDot)
+                            } else {
+                                Circle().fill(AMENInboxTokens.unreadDot)
+                                    .frame(width: 19, height: 19)
+                            }
+                        }
+                    )
+                }
+            }
+        }
+        .scaleEffect(count > 0 ? 1 : 0)
+        .opacity(count > 0 ? 1 : 0)
+        .animation(.spring(response: 0.4, dampingFraction: 0.55), value: count)
+        .onAppear { appeared = true }
+        .onChange(of: count) { _, _ in
+            // Re-trigger digit roll on count change
+            appeared = false
+            digitKey = UUID()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                appeared = true
+            }
+        }
+    }
+
+    private func digitsFor(_ n: Int) -> [String] {
+        if n > 99 { return ["9", "+"] }
+        if n > 9 { return Array(String(n)).map(String.init) }
+        return [String(n)]
     }
 }

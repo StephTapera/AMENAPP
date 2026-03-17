@@ -115,7 +115,7 @@ class BereanFastMode: ObservableObject {
             Task {
                 // 1. Check memory cache first (fastest)
                 if let cached = getFromMemoryCache(query: query, context: context) {
-                    print("⚡️ FastMode: Memory cache hit")
+                    dlog("⚡️ FastMode: Memory cache hit")
                     continuation.yield(StreamChunk(
                         content: cached.answer.response,
                         isPartial: false,
@@ -131,7 +131,7 @@ class BereanFastMode: ObservableObject {
                 
                 // 2. Check local verse cache (fast for offline)
                 if let verse = getFromVerseCache(query: query) {
-                    print("⚡️ FastMode: Verse cache hit")
+                    dlog("⚡️ FastMode: Verse cache hit")
                     continuation.yield(StreamChunk(
                         content: verse.text,
                         isPartial: true,
@@ -143,7 +143,7 @@ class BereanFastMode: ObservableObject {
                 
                 // 3. Check circuit breaker
                 if circuitBreakerOpen {
-                    print("⚠️ FastMode: Circuit breaker open, returning basic mode")
+                    dlog("⚠️ FastMode: Circuit breaker open, returning basic mode")
                     let basicResponse = getBasicModeResponse(query: query)
                     continuation.yield(basicResponse)
                     continuation.finish()
@@ -152,7 +152,7 @@ class BereanFastMode: ObservableObject {
                 
                 // 4. Rate limit check
                 if !checkRateLimit() {
-                    print("⚠️ FastMode: Rate limit exceeded")
+                    dlog("⚠️ FastMode: Rate limit exceeded")
                     let rateLimitResponse = StreamChunk(
                         content: "You're exploring quickly! Take a moment, then continue.",
                         isPartial: false,
@@ -244,7 +244,7 @@ class BereanFastMode: ObservableObject {
             memoryCache.removeValue(forKey: key)
         }
         
-        print("🧹 FastMode: Evicted \(removeCount) cache entries")
+        dlog("🧹 FastMode: Evicted \(removeCount) cache entries")
     }
     
     private func cacheKey(query: String, context: BereanContext) -> String {
@@ -294,12 +294,12 @@ class BereanFastMode: ObservableObject {
         // Load from UserDefaults
         guard let data = UserDefaults.standard.data(forKey: "berean_verse_cache"),
               let cache = try? JSONDecoder().decode([String: LocalVerseSnippet].self, from: data) else {
-            print("📖 FastMode: No local verse cache found")
+            dlog("📖 FastMode: No local verse cache found")
             return
         }
         
         localVerseCache = cache
-        print("📖 FastMode: Loaded \(cache.count) verses from cache")
+        dlog("📖 FastMode: Loaded \(cache.count) verses from cache")
     }
     
     private func saveLocalVerseCache() {
@@ -348,7 +348,7 @@ class BereanFastMode: ObservableObject {
             }
             
         } catch {
-            print("❌ FastMode: Stream error: \(error)")
+            dlog("❌ FastMode: Stream error: \(error)")
             openCircuitBreaker()
             
             let errorChunk = StreamChunk(
@@ -395,7 +395,7 @@ class BereanFastMode: ObservableObject {
     
     /// Prefetch content on navigation
     func prefetchFor(screen: BereanContext.FeatureContext, userId: String?) {
-        print("🔮 FastMode: Prefetching for \(screen.rawValue)")
+        dlog("🔮 FastMode: Prefetching for \(screen.rawValue)")
         
         let queries = predictQueriesFor(screen: screen)
         
@@ -470,9 +470,9 @@ class BereanFastMode: ObservableObject {
                         cacheAnswer(answer, context: request.context)
                     }
                     
-                    print("✅ FastMode: Prefetched '\(query.prefix(30))...'")
+                    dlog("✅ FastMode: Prefetched '\(query.prefix(30))...'")
                 } catch {
-                    print("⚠️ FastMode: Prefetch failed for '\(query.prefix(30))...'")
+                    dlog("⚠️ FastMode: Prefetch failed for '\(query.prefix(30))...'")
                 }
             }
         }
@@ -523,7 +523,7 @@ class BereanFastMode: ObservableObject {
         requestCount += 1
         
         if requestCount > requestLimit {
-            print("⚠️ FastMode: Rate limit exceeded (\(requestCount)/\(requestLimit))")
+            dlog("⚠️ FastMode: Rate limit exceeded (\(requestCount)/\(requestLimit))")
             return false
         }
         
@@ -544,7 +544,7 @@ class BereanFastMode: ObservableObject {
     private func closeCircuitBreaker() async {
         circuitBreakerOpen = false
         cacheStatus = .ready
-        print("✅ FastMode: Circuit breaker closed")
+        dlog("✅ FastMode: Circuit breaker closed")
     }
     
     private func getBasicModeResponse(query: String) -> StreamChunk {
@@ -603,7 +603,7 @@ class BereanFastMode: ObservableObject {
     
     func clearCache() {
         memoryCache.removeAll()
-        print("🧹 FastMode: Memory cache cleared")
+        dlog("🧹 FastMode: Memory cache cleared")
     }
 }
 

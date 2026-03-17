@@ -430,7 +430,7 @@ struct CreateGroupView: View {
             searchResults = users
             isSearching = false
         } catch {
-            print("❌ Error searching users: \(error)")
+            dlog("❌ Error searching users: \(error)")
             errorMessage = "Failed to search users. Please try again."
             showError = true
             searchResults = []
@@ -440,7 +440,7 @@ struct CreateGroupView: View {
     
     private func toggleUserSelection(userId: String) {
         guard !userId.isEmpty else {
-            print("⚠️ Warning: Attempted to select user with empty ID")
+            dlog("⚠️ Warning: Attempted to select user with empty ID")
             return
         }
         
@@ -505,7 +505,7 @@ struct CreateGroupView: View {
                     groupName: trimmedGroupName
                 )
                 
-                print("✅ Created group conversation: \(conversationId)")
+                dlog("✅ Created group conversation: \(conversationId)")
                 
                 let haptic = UINotificationFeedbackGenerator()
                 haptic.notificationOccurred(.success)
@@ -514,7 +514,7 @@ struct CreateGroupView: View {
                 dismiss()
                 
             } catch {
-                print("❌ Error creating group: \(error)")
+                dlog("❌ Error creating group: \(error)")
                 errorMessage = error.localizedDescription
                 showError = true
                 isCreating = false

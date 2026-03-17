@@ -63,11 +63,11 @@ struct Breadcrumb {
     static func dump() {
         #if DEBUG
         let crumbs = trail()
-        print("[Breadcrumb] ===== Last \(crumbs.count) actions =====")
+        dlog("[Breadcrumb] ===== Last \(crumbs.count) actions =====")
         for (idx, crumb) in crumbs.enumerated() {
             let ts = ISO8601DateFormatter().string(from: crumb.timestamp)
             let metaStr = crumb.meta.isEmpty ? "" : " \(crumb.meta)"
-            print("[Breadcrumb] \(idx + 1). \(ts)  \(crumb.action)\(metaStr)")
+            dlog("[Breadcrumb] \(idx + 1). \(ts)  \(crumb.action)\(metaStr)")
         }
         #endif
     }
@@ -110,7 +110,7 @@ final class WriteOpTracer {
         )
         Task { @MainActor in
             shared.inflight[key] = token
-            print("[WriteOp] START  \(opName)  key=\(key.prefix(20))… retry=\(retryCount)")
+            dlog("[WriteOp] START  \(opName)  key=\(key.prefix(20))… retry=\(retryCount)")
         }
         Breadcrumb.record("write_op_start", meta: ["op": opName, "retry": "\(retryCount)"])
         return token
@@ -123,7 +123,7 @@ final class WriteOpTracer {
         Task { @MainActor in
             shared.inflight.removeValue(forKey: token.idempotencyKey)
             shared.record(token: token, outcome: outcome, elapsed: elapsed)
-            print("[WriteOp] OK     \(token.opName)  \(String(format: "%.0f", elapsed))ms  \(docId.map { "docId=\($0.prefix(12))…" } ?? "")")
+            dlog("[WriteOp] OK     \(token.opName)  \(String(format: "%.0f", elapsed))ms  \(docId.map { "docId=\($0.prefix(12))…" } ?? "")")
         }
         Breadcrumb.record("write_op_ok", meta: ["op": token.opName, "ms": String(format: "%.0f", elapsed)])
     }
@@ -135,7 +135,7 @@ final class WriteOpTracer {
         Task { @MainActor in
             shared.inflight.removeValue(forKey: token.idempotencyKey)
             shared.record(token: token, outcome: outcome, elapsed: elapsed)
-            print("[WriteOp] FAIL   \(token.opName)  \(String(format: "%.0f", elapsed))ms  error=\(error.localizedDescription)")
+            dlog("[WriteOp] FAIL   \(token.opName)  \(String(format: "%.0f", elapsed))ms  error=\(error.localizedDescription)")
         }
         Breadcrumb.record("write_op_fail", meta: ["op": token.opName, "err": error.localizedDescription.prefix(60).description])
     }
@@ -145,14 +145,14 @@ final class WriteOpTracer {
     /// Dump all inflight and recently completed ops.
     static func dumpAll() {
         Task { @MainActor in
-            print("[WriteOp] ===== In-flight (\(shared.inflight.count)) =====")
+            dlog("[WriteOp] ===== In-flight (\(shared.inflight.count)) =====")
             for (key, token) in shared.inflight {
                 let age = (CFAbsoluteTimeGetCurrent() - token.startTime) * 1000
-                print("[WriteOp]   \(token.opName)  key=\(key.prefix(20))…  age=\(String(format: "%.0f", age))ms  retry=\(token.retryCount)")
+                dlog("[WriteOp]   \(token.opName)  key=\(key.prefix(20))…  age=\(String(format: "%.0f", age))ms  retry=\(token.retryCount)")
             }
-            print("[WriteOp] ===== Completed (last \(shared.completed.count)) =====")
+            dlog("[WriteOp] ===== Completed (last \(shared.completed.count)) =====")
             for entry in shared.completed.suffix(20) {
-                print("[WriteOp]   \(entry.token.opName)  \(String(format: "%.0f", entry.elapsed))ms  \(entry.outcome.prefix(80))")
+                dlog("[WriteOp]   \(entry.token.opName)  \(String(format: "%.0f", entry.elapsed))ms  \(entry.outcome.prefix(80))")
             }
         }
     }

@@ -159,7 +159,7 @@ class RealtimeDatabaseService: ObservableObject {
         // Clear typing indicator
         try await clearTypingIndicator(conversationId: conversationId)
         
-        print("✅ Realtime message sent: \(messageId)")
+        dlog("✅ Realtime message sent: \(messageId)")
     }
     
     /// Observe messages in a conversation in real-time
@@ -420,7 +420,7 @@ class RealtimeDatabaseService: ObservableObject {
             try await ref.child("userConversations").child(participantId).child(conversationId).setValue(true)
         }
         
-        print("✅ Realtime conversation created: \(conversationId)")
+        dlog("✅ Realtime conversation created: \(conversationId)")
         return conversationId
     }
     
@@ -455,15 +455,15 @@ class RealtimeDatabaseService: ObservableObject {
         ]
         try await interactionsRef.setValue(interactionsData)
         
-        print("✅ Realtime post published: \(postId)")
-        print("✅ Post interactions initialized: \(postId)")
+        dlog("✅ Realtime post published: \(postId)")
+        dlog("✅ Post interactions initialized: \(postId)")
     }
     
     /// Observe recent posts in real-time
     func observeRecentPosts(limit: Int = 50, onUpdate: @escaping ([String]) -> Void) {
         // Skip observing if user is not authenticated
         guard Auth.auth().currentUser != nil else {
-            print("⏭️ Skipping observeRecentPosts - user not authenticated")
+            dlog("⏭️ Skipping observeRecentPosts - user not authenticated")
             return
         }
         

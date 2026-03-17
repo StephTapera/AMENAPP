@@ -573,7 +573,7 @@ class FollowersAnalyticsViewModel: ObservableObject {
             generateGrowthData(days: timeRange.days)
             
         } catch {
-            print("❌ Failed to load analytics: \(error)")
+            dlog("❌ Failed to load analytics: \(error)")
         }
     }
     

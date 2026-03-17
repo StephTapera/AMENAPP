@@ -304,7 +304,7 @@ struct ContactSearchView: View {
                 searchResults = users.map { SearchableUser(from: $0) }
                 isSearching = false
             } catch {
-                print("Error searching users: \(error)")
+                dlog("Error searching users: \(error)")
                 isSearching = false
             }
         }
@@ -342,7 +342,7 @@ struct ContactSearchView: View {
                     userInfo: ["conversationId": conversationId]
                 )
             } catch {
-                print("Error creating conversation: \(error)")
+                dlog("Error creating conversation: \(error)")
             }
         }
     }

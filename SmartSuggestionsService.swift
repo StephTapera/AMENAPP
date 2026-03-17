@@ -50,12 +50,12 @@ class SmartSuggestionsService {
             // Check if cache is still valid (< 7 days old)
             let daysSinceGenerated = Calendar.current.dateComponents([.day], from: cached.generatedAt, to: Date()).day ?? 0
             if daysSinceGenerated < cacheExpiryDays {
-                print("✅ Using cached suggestion for \(targetUserId)")
+                dlog("✅ Using cached suggestion for \(targetUserId)")
                 return cached
             }
         }
         
-        print("🤖 Generating AI suggestion for \(targetUserId)")
+        dlog("🤖 Generating AI suggestion for \(targetUserId)")
         
         // Fetch user profiles
         let currentUser = try await fetchUserProfile(userId: currentUserId)
@@ -85,7 +85,7 @@ class SmartSuggestionsService {
         // Cache result
         try await cacheSuggestion(suggestion, currentUserId: currentUserId)
         
-        print("✅ Generated suggestion: \(reason)")
+        dlog("✅ Generated suggestion: \(reason)")
         return suggestion
     }
     
@@ -157,9 +157,9 @@ class SmartSuggestionsService {
         }
         
         guard httpResponse.statusCode == 200 else {
-            print("❌ OpenAI API error: \(httpResponse.statusCode)")
+            dlog("❌ OpenAI API error: \(httpResponse.statusCode)")
             if let errorString = String(data: data, encoding: .utf8) {
-                print("   Response: \(errorString)")
+                dlog("   Response: \(errorString)")
             }
             throw SuggestionError.apiError(httpResponse.statusCode)
         }
@@ -269,7 +269,7 @@ class SmartSuggestionsService {
     // MARK: - Batch Processing
     
     func batchGenerateSuggestions(for currentUserId: String, targetUserIds: [String]) async {
-        print("🤖 Generating suggestions for \(targetUserIds.count) users")
+        dlog("🤖 Generating suggestions for \(targetUserIds.count) users")
         
         for targetUserId in targetUserIds {
             do {
@@ -278,11 +278,11 @@ class SmartSuggestionsService {
                 // Rate limit: 3 requests per second for free tier
                 try await Task.sleep(nanoseconds: 350_000_000)
             } catch {
-                print("⚠️ Failed to generate suggestion for \(targetUserId): \(error)")
+                dlog("⚠️ Failed to generate suggestion for \(targetUserId): \(error)")
             }
         }
         
-        print("✅ Batch suggestion generation complete")
+        dlog("✅ Batch suggestion generation complete")
     }
 }
 

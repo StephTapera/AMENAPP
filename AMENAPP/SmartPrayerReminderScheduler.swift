@@ -37,7 +37,7 @@ class SmartPrayerReminderScheduler: NSObject, ObservableObject {
             let granted = try await notificationCenter.requestAuthorization(options: [.alert, .sound, .badge])
             notificationPermissionGranted = granted
         } catch {
-            print("❌ Notification permission error: \(error)")
+            dlog("❌ Notification permission error: \(error)")
         }
         
         // Request location permission
@@ -98,7 +98,7 @@ class SmartPrayerReminderScheduler: NSObject, ObservableObject {
             try await scheduleReminder(reminder)
         }
         
-        print("✅ Prayer reminder created: \(title)")
+        dlog("✅ Prayer reminder created: \(title)")
     }
     
     func updateReminder(_ reminder: PrayerReminder) async throws {
@@ -121,7 +121,7 @@ class SmartPrayerReminderScheduler: NSObject, ObservableObject {
             try await scheduleReminder(reminder)
         }
         
-        print("✅ Prayer reminder updated: \(reminder.title)")
+        dlog("✅ Prayer reminder updated: \(reminder.title)")
     }
     
     func deleteReminder(_ reminderId: String) async throws {
@@ -137,7 +137,7 @@ class SmartPrayerReminderScheduler: NSObject, ObservableObject {
         // Cancel notification
         cancelReminder(reminderId)
         
-        print("✅ Prayer reminder deleted")
+        dlog("✅ Prayer reminder deleted")
     }
     
     func toggleReminder(_ reminderId: String) async throws {
@@ -205,7 +205,7 @@ class SmartPrayerReminderScheduler: NSObject, ObservableObject {
         )
         
         try await notificationCenter.add(request)
-        print("✅ Scheduled prayer reminder: \(reminder.title)")
+        dlog("✅ Scheduled prayer reminder: \(reminder.title)")
     }
     
     private func createTimeTrigger(for time: Date, recurrence: RecurrencePattern) -> UNNotificationTrigger {
@@ -256,7 +256,7 @@ class SmartPrayerReminderScheduler: NSObject, ObservableObject {
     private func cancelReminder(_ reminderId: String) {
         notificationCenter.removePendingNotificationRequests(withIdentifiers: [reminderId])
         stopMonitoringLocation(reminderId)
-        print("✅ Cancelled prayer reminder: \(reminderId)")
+        dlog("✅ Cancelled prayer reminder: \(reminderId)")
     }
     
     // MARK: - Location Monitoring
@@ -277,14 +277,14 @@ class SmartPrayerReminderScheduler: NSObject, ObservableObject {
         region.notifyOnExit = location.notifyOnExit
         
         locationManager.startMonitoring(for: region)
-        print("✅ Started monitoring location: \(location.name)")
+        dlog("✅ Started monitoring location: \(location.name)")
     }
     
     private func stopMonitoringLocation(_ reminderId: String) {
         for region in locationManager.monitoredRegions {
             if region.identifier == reminderId {
                 locationManager.stopMonitoring(for: region)
-                print("✅ Stopped monitoring location for reminder: \(reminderId)")
+                dlog("✅ Stopped monitoring location for reminder: \(reminderId)")
             }
         }
     }
@@ -429,9 +429,9 @@ class SmartPrayerReminderScheduler: NSObject, ObservableObject {
                     self.activeReminders = reminders
                 }
                 
-                print("✅ Loaded \(reminders.count) prayer reminders")
+                dlog("✅ Loaded \(reminders.count) prayer reminders")
             } catch {
-                print("❌ Error loading reminders: \(error)")
+                dlog("❌ Error loading reminders: \(error)")
             }
         }
     }
@@ -471,12 +471,12 @@ extension SmartPrayerReminderScheduler: CLLocationManagerDelegate {
     }
     
     nonisolated func locationManager(_ manager: CLLocationManager, didEnterRegion region: CLRegion) {
-        print("✅ Entered prayer location: \(region.identifier)")
+        dlog("✅ Entered prayer location: \(region.identifier)")
         // The notification will be triggered by UNLocationNotificationTrigger
     }
     
     nonisolated func locationManager(_ manager: CLLocationManager, didExitRegion region: CLRegion) {
-        print("✅ Exited prayer location: \(region.identifier)")
+        dlog("✅ Exited prayer location: \(region.identifier)")
     }
 }
 

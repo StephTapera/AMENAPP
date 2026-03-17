@@ -63,24 +63,24 @@ enum SecureStorage {
 
 // MARK: - Release Build Log Suppression
 //
-// In release builds ALL `print()` calls are completely stripped by the compiler.
+// In release builds ALL `dlog()` calls are completely stripped by the compiler.
 // This eliminates 4,000+ print statements from the release binary, preventing
 // PII/auth-token leaks through the device Console and removing measurable CPU cost.
 //
-// DEBUG builds behave exactly as before — print() works normally.
+// DEBUG builds behave exactly as before — dlog() works normally.
 //
 // Usage: no code changes needed anywhere else. The compiler substitutes this
 // overload in non-DEBUG configurations and optimises the empty body away entirely.
 #if !DEBUG
 @_transparent
 @inline(__always)
-func print(_ items: Any..., separator: String = " ", terminator: String = "\n") {
+func dlog(_ items: Any..., separator: String = " ", terminator: String = "\n") {
     // intentionally empty — stripped in release
 }
 
 @_transparent
 @inline(__always)
-func print(_ items: Any...) {
+func dlog(_ items: Any...) {
     // intentionally empty — stripped in release
 }
 #endif
@@ -110,60 +110,60 @@ struct AppLogger {
     
     /// Log a message with category prefix
     static func log(_ message: String, category: Category = .debug) {
-        print("[\(category.rawValue)] \(message)")
+        dlog("[\(category.rawValue)] \(message)")
     }
     
     /// Log a save button action
     static func logSave(_ message: String, postId: String? = nil) {
         if let postId = postId {
-            print("[\(Category.save.rawValue)] [\(postId.prefix(8))] \(message)")
+            dlog("[\(Category.save.rawValue)] [\(postId.prefix(8))] \(message)")
         } else {
-            print("[\(Category.save.rawValue)] \(message)")
+            dlog("[\(Category.save.rawValue)] \(message)")
         }
     }
     
     /// Log a comment action
     static func logComment(_ message: String, postId: String? = nil) {
         if let postId = postId {
-            print("[\(Category.comment.rawValue)] [\(postId.prefix(8))] \(message)")
+            dlog("[\(Category.comment.rawValue)] [\(postId.prefix(8))] \(message)")
         } else {
-            print("[\(Category.comment.rawValue)] \(message)")
+            dlog("[\(Category.comment.rawValue)] \(message)")
         }
     }
     
     /// Log a repost action
     static func logRepost(_ message: String, postId: String? = nil) {
         if let postId = postId {
-            print("[\(Category.repost.rawValue)] [\(postId.prefix(8))] \(message)")
+            dlog("[\(Category.repost.rawValue)] [\(postId.prefix(8))] \(message)")
         } else {
-            print("[\(Category.repost.rawValue)] \(message)")
+            dlog("[\(Category.repost.rawValue)] \(message)")
         }
     }
     
     /// Log a lightbulb action
     static func logLightbulb(_ message: String, postId: String? = nil) {
         if let postId = postId {
-            print("[\(Category.lightbulb.rawValue)] [\(postId.prefix(8))] \(message)")
+            dlog("[\(Category.lightbulb.rawValue)] [\(postId.prefix(8))] \(message)")
         } else {
-            print("[\(Category.lightbulb.rawValue)] \(message)")
+            dlog("[\(Category.lightbulb.rawValue)] \(message)")
         }
     }
     
     /// Log an amen action
     static func logAmen(_ message: String, postId: String? = nil) {
         if let postId = postId {
-            print("[\(Category.amen.rawValue)] [\(postId.prefix(8))] \(message)")
+            dlog("[\(Category.amen.rawValue)] [\(postId.prefix(8))] \(message)")
         } else {
-            print("[\(Category.amen.rawValue)] \(message)")
+            dlog("[\(Category.amen.rawValue)] \(message)")
         }
     }
     
     /// Log a generic reaction
     static func logReaction(_ message: String, postId: String? = nil) {
         if let postId = postId {
-            print("[\(Category.reaction.rawValue)] [\(postId.prefix(8))] \(message)")
+            dlog("[\(Category.reaction.rawValue)] [\(postId.prefix(8))] \(message)")
         } else {
-            print("[\(Category.reaction.rawValue)] \(message)")
+            dlog("[\(Category.reaction.rawValue)] \(message)")
         }
     }
     
@@ -171,33 +171,33 @@ struct AppLogger {
     static func logError(_ message: String, error: Error? = nil, file: String = #file, line: Int = #line) {
         let fileName = (file as NSString).lastPathComponent
         if let error = error {
-            print("[\(Category.error.rawValue)] [\(fileName):\(line)] \(message) - \(error.localizedDescription)")
+            dlog("[\(Category.error.rawValue)] [\(fileName):\(line)] \(message) - \(error.localizedDescription)")
         } else {
-            print("[\(Category.error.rawValue)] [\(fileName):\(line)] \(message)")
+            dlog("[\(Category.error.rawValue)] [\(fileName):\(line)] \(message)")
         }
     }
     
     /// Log a success message
     static func logSuccess(_ message: String) {
-        print("[\(Category.success.rawValue)] \(message)")
+        dlog("[\(Category.success.rawValue)] \(message)")
     }
     
     /// Log a warning
     static func logWarning(_ message: String) {
-        print("[\(Category.warning.rawValue)] \(message)")
+        dlog("[\(Category.warning.rawValue)] \(message)")
     }
     
     // MARK: - Separator
     
     /// Print a visual separator for important sections
     static func separator() {
-        print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        dlog("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
     }
     
     /// Print a section header
     static func section(_ title: String) {
         separator()
-        print("  \(title)")
+        dlog("  \(title)")
         separator()
     }
 }
