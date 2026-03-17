@@ -72,7 +72,7 @@ struct SocialFollowButton: View {
     private func handleFollowToggle() {
         // P0 FIX: Prevent duplicate follow operations from rapid taps
         guard !isLoading else {
-            print("⚠️ Follow action already in progress")
+            dlog("⚠️ Follow action already in progress")
             return
         }
         
@@ -95,7 +95,7 @@ struct SocialFollowButton: View {
             } catch {
                 await MainActor.run {
                     isLoading = false
-                    print("❌ Follow/Unfollow error: \(error)")
+                    dlog("❌ Follow/Unfollow error: \(error)")
                 }
             }
         }

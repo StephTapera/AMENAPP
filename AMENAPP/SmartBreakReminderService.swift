@@ -55,7 +55,7 @@ class SmartBreakReminderService: ObservableObject {
         
         // Check if we've already sent max reminders today
         guard usageRemindersToday < maxUsageRemindersPerDay else {
-            print("📊 Smart break reminder limit reached (\(maxUsageRemindersPerDay)/day)")
+            dlog("📊 Smart break reminder limit reached (\(maxUsageRemindersPerDay)/day)")
             return
         }
         
@@ -63,7 +63,7 @@ class SmartBreakReminderService: ObservableObject {
         if let lastReminder = lastUsageReminderTime {
             let hoursSinceLastReminder = Date().timeIntervalSince(lastReminder) / 3600
             guard hoursSinceLastReminder >= 2.0 else {
-                print("📊 Too soon since last usage reminder (only \(Int(hoursSinceLastReminder * 60)) min ago)")
+                dlog("📊 Too soon since last usage reminder (only \(Int(hoursSinceLastReminder * 60)) min ago)")
                 return
             }
         }
@@ -196,9 +196,9 @@ class SmartBreakReminderService: ObservableObject {
             usageRemindersToday += 1
             saveReminderData()
             
-            print("✅ Sent smart break reminder (score: \(score), continuous: \(continuousMinutes)m, reminders today: \(usageRemindersToday))")
+            dlog("✅ Sent smart break reminder (score: \(score), continuous: \(continuousMinutes)m, reminders today: \(usageRemindersToday))")
         } catch {
-            print("❌ Failed to send smart break reminder: \(error)")
+            dlog("❌ Failed to send smart break reminder: \(error)")
         }
     }
     
@@ -227,7 +227,7 @@ class SmartBreakReminderService: ObservableObject {
         )
         
         center.setNotificationCategories([category])
-        print("✅ Smart break reminder categories configured")
+        dlog("✅ Smart break reminder categories configured")
     }
     
     // MARK: - Daily Reset
@@ -236,7 +236,7 @@ class SmartBreakReminderService: ObservableObject {
     func resetDailyCounters() {
         usageRemindersToday = 0
         saveReminderData()
-        print("🔄 Smart break reminder counters reset for new day")
+        dlog("🔄 Smart break reminder counters reset for new day")
     }
     
     // MARK: - Persistence
@@ -257,7 +257,7 @@ class SmartBreakReminderService: ObservableObject {
         
         usageRemindersToday = UserDefaults.standard.integer(forKey: reminderCountKey)
         
-        print("📊 Loaded smart reminder data: \(usageRemindersToday) reminders sent today")
+        dlog("📊 Loaded smart reminder data: \(usageRemindersToday) reminders sent today")
     }
     
     private func saveReminderData() {

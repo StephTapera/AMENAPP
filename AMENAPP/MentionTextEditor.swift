@@ -254,7 +254,7 @@ class MentionService: ObservableObject {
                     )
                 }
             } catch {
-                print("❌ Failed to search users for mentions: \(error)")
+                dlog("❌ Failed to search users for mentions: \(error)")
                 self.searchResults = []
             }
         }

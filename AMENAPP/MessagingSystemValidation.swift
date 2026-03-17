@@ -195,7 +195,7 @@ struct MessagingSystemValidator {
     // MARK: - Print Results
     
     static func printValidationResults() {
-        print("\n🔍 ===== MESSAGING SYSTEM VALIDATION =====\n")
+        dlog("\n🔍 ===== MESSAGING SYSTEM VALIDATION =====\n")
         
         let results = validateSystem()
         let passedCount = results.filter { $0.isValid }.count
@@ -203,20 +203,20 @@ struct MessagingSystemValidator {
         
         for result in results {
             let emoji = result.isValid ? "✅" : "❌"
-            print("\(emoji) \(result.component)")
-            print("   \(result.message)\n")
+            dlog("\(emoji) \(result.component)")
+            dlog("   \(result.message)\n")
         }
         
-        print("─────────────────────────────────────────")
-        print("Results: \(passedCount)/\(totalCount) passed")
+        dlog("─────────────────────────────────────────")
+        dlog("Results: \(passedCount)/\(totalCount) passed")
         
         if passedCount == totalCount {
-            print("✅ ALL SYSTEMS GO - PRODUCTION READY! 🚀")
+            dlog("✅ ALL SYSTEMS GO - PRODUCTION READY! 🚀")
         } else {
-            print("⚠️ \(totalCount - passedCount) issues found - needs attention")
+            dlog("⚠️ \(totalCount - passedCount) issues found - needs attention")
         }
         
-        print("═════════════════════════════════════════\n")
+        dlog("═════════════════════════════════════════\n")
     }
 }
 

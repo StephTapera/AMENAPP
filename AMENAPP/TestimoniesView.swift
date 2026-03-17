@@ -210,7 +210,7 @@ struct TestimoniesView: View {
             if let post = userInfo["post"] as? Post, post.category == .testimonies {
                 let haptic = UIImpactFeedbackGenerator(style: .light)
                 haptic.impactOccurred()
-                print("✅ New testimony from \(post.authorName) added to feed")
+                dlog("✅ New testimony from \(post.authorName) added to feed")
             }
         }
     }
@@ -439,7 +439,7 @@ struct TestimoniesView: View {
             let ranked = await testimonyAlgorithm.rankTestimonies(snapshot, for: prefs)
             await MainActor.run {
                 personalizedPosts = ranked
-                print("✨ Testimonies personalized: \(personalizedPosts.count) posts ranked")
+                dlog("✨ Testimonies personalized: \(personalizedPosts.count) posts ranked")
             }
         }
     }
@@ -494,17 +494,17 @@ struct TestimoniesView: View {
                     if isReposted {
                         // Add to user's reposts for profile view
                         postsManager.repostToProfile(originalPost: post)
-                        print("✅ Reposted: \(post.content)")
+                        dlog("✅ Reposted: \(post.content)")
                         
                         // Show success toast
                         currentToast = Toast(type: .success, message: "Testimony reposted!")
                     } else {
-                        print("✅ Removed repost: \(post.content)")
+                        dlog("✅ Removed repost: \(post.content)")
                         currentToast = Toast(type: .info, message: "Repost removed")
                     }
                 }
             } catch {
-                print("❌ Failed to repost: \(error.localizedDescription)")
+                dlog("❌ Failed to repost: \(error.localizedDescription)")
                 
                 await MainActor.run {
                     let haptic = UINotificationFeedbackGenerator()
@@ -545,7 +545,7 @@ struct TestimoniesView: View {
     private func refreshTestimonies() async {
         isLoadingPosts = true
         errorMessage = nil
-        print("🔄 Refreshing Testimonies posts...")
+        dlog("🔄 Refreshing Testimonies posts...")
         
         await postsManager.fetchFilteredPosts(
             for: .testimonies,
@@ -558,7 +558,7 @@ struct TestimoniesView: View {
             isLoadingPosts = false
             let haptic = UINotificationFeedbackGenerator()
             haptic.notificationOccurred(.success)
-            print("✅ Testimonies posts refreshed!")
+            dlog("✅ Testimonies posts refreshed!")
         }
         
         // Reset pagination after refresh
@@ -960,7 +960,7 @@ struct TestimonyPostCard: View {
             let interactionsService = PostInteractionsService.shared
             try await interactionsService.toggleAmen(postId: postId)
         } catch {
-            print("❌ Failed to toggle amen: \(error)")
+            dlog("❌ Failed to toggle amen: \(error)")
             
             // On error, revert the optimistic update
             await MainActor.run {
@@ -1054,7 +1054,7 @@ struct TestimonyPostCard: View {
             let interactionsService = PostInteractionsService.shared
             _ = try await interactionsService.toggleRepost(postId: postId)
         } catch {
-            print("❌ Failed to toggle repost: \(error)")
+            dlog("❌ Failed to toggle repost: \(error)")
             
             // On error, revert the optimistic update
             await MainActor.run {
@@ -1195,7 +1195,7 @@ struct TestimonyPostCard: View {
         UIPasteboard.general.string = "https://amenapp.com/testimony/\(post.id.uuidString)"
         let haptic = UINotificationFeedbackGenerator()
         haptic.notificationOccurred(.success)
-        print("🔗 Link copied to clipboard")
+        dlog("🔗 Link copied to clipboard")
     }
     
     private func muteAuthor() {
@@ -1207,7 +1207,7 @@ struct TestimonyPostCard: View {
                     haptic.notificationOccurred(.success)
                 }
             } catch {
-                print("❌ Failed to mute \(post.authorName): \(error.localizedDescription)")
+                dlog("❌ Failed to mute \(post.authorName): \(error.localizedDescription)")
             }
         }
     }
@@ -1221,7 +1221,7 @@ struct TestimonyPostCard: View {
                     haptic.notificationOccurred(.warning)
                 }
             } catch {
-                print("❌ Failed to block \(post.authorName): \(error.localizedDescription)")
+                dlog("❌ Failed to block \(post.authorName): \(error.localizedDescription)")
             }
         }
     }
@@ -1386,7 +1386,7 @@ struct TestimonyCommentSection: View {
                 isLoading = false
             }
         } catch {
-            print("❌ Error loading comments: \(error.localizedDescription)")
+            dlog("❌ Error loading comments: \(error.localizedDescription)")
             await MainActor.run {
                 isLoading = false
             }
@@ -1423,7 +1423,7 @@ struct TestimonyCommentSection: View {
                     haptic.notificationOccurred(.success)
                 }
             } catch {
-                print("❌ Failed to post comment: \(error.localizedDescription)")
+                dlog("❌ Failed to post comment: \(error.localizedDescription)")
             }
         }
     }
@@ -1953,7 +1953,7 @@ struct TestimonyFullCommentSheet: View {
                 isLoading = false
             }
         } catch {
-            print("❌ Failed to load comments: \(error)")
+            dlog("❌ Failed to load comments: \(error)")
             await MainActor.run {
                 isLoading = false
             }
@@ -1991,7 +1991,7 @@ struct TestimonyFullCommentSheet: View {
                     haptic.notificationOccurred(.success)
                 }
             } catch {
-                print("❌ Failed to post comment: \(error)")
+                dlog("❌ Failed to post comment: \(error)")
             }
         }
     }

@@ -36,7 +36,7 @@ class SavedPostsService: ObservableObject {
     
     /// Save a post to user's saved collection
     func savePost(postId: String, post: Post? = nil, collection: String? = nil) async throws {
-        print("💾 Saving post: \(postId)")
+        dlog("💾 Saving post: \(postId)")
         
         guard let userId = firebaseManager.currentUser?.uid else {
             throw FirebaseError.unauthorized
@@ -44,7 +44,7 @@ class SavedPostsService: ObservableObject {
         
         // Check if already saved
         if savedPostIds.contains(postId) {
-            print("⚠️ Post already saved")
+            dlog("⚠️ Post already saved")
             return
         }
         
@@ -58,7 +58,7 @@ class SavedPostsService: ObservableObject {
         let docRef = try db.collection(FirebaseManager.CollectionPath.savedPosts)
             .addDocument(from: savedPost)
         
-        print("✅ Post saved with ID: \(docRef.documentID)")
+        dlog("✅ Post saved with ID: \(docRef.documentID)")
         
         // Update local cache
         var savedPostWithId = savedPost
@@ -73,7 +73,7 @@ class SavedPostsService: ObservableObject {
                 object: nil,
                 userInfo: ["post": post]
             )
-            print("📬 Post saved notification sent")
+            dlog("📬 Post saved notification sent")
         }
         
         // Haptic feedback
@@ -83,7 +83,7 @@ class SavedPostsService: ObservableObject {
     
     /// Unsave a post
     func unsavePost(postId: String) async throws {
-        print("🗑️ Unsaving post: \(postId)")
+        dlog("🗑️ Unsaving post: \(postId)")
         
         guard let userId = firebaseManager.currentUser?.uid else {
             throw FirebaseError.unauthorized
@@ -98,13 +98,13 @@ class SavedPostsService: ObservableObject {
         let snapshot = try await query.getDocuments()
         
         guard let document = snapshot.documents.first else {
-            print("⚠️ Saved post not found")
+            dlog("⚠️ Saved post not found")
             return
         }
         
         try await document.reference.delete()
         
-        print("✅ Post unsaved")
+        dlog("✅ Post unsaved")
         
         // Update local cache
         savedPosts.removeAll { $0.postId == postId }
@@ -117,7 +117,7 @@ class SavedPostsService: ObservableObject {
                 object: nil,
                 userInfo: ["postId": postUUID]
             )
-            print("📬 Post unsaved notification sent")
+            dlog("📬 Post unsaved notification sent")
         }
         
         // Haptic feedback
@@ -138,7 +138,7 @@ class SavedPostsService: ObservableObject {
     
     /// Fetch all saved posts for current user
     func fetchSavedPosts(collection: String? = nil) async throws -> [SavedPost] {
-        print("📥 Fetching saved posts...")
+        dlog("📥 Fetching saved posts...")
         
         guard let userId = firebaseManager.currentUser?.uid else {
             throw FirebaseError.unauthorized
@@ -163,7 +163,7 @@ class SavedPostsService: ObservableObject {
             try doc.data(as: SavedPost.self)
         }
         
-        print("✅ Fetched \(fetchedSavedPosts.count) saved posts")
+        dlog("✅ Fetched \(fetchedSavedPosts.count) saved posts")
         
         // Update local cache
         savedPosts = fetchedSavedPosts
@@ -189,11 +189,11 @@ class SavedPostsService: ObservableObject {
                     posts.append(firestorePost.toPost())
                 }
             } catch {
-                print("⚠️ Failed to fetch saved post: \(savedPost.postId)")
+                dlog("⚠️ Failed to fetch saved post: \(savedPost.postId)")
             }
         }
         
-        print("✅ Fetched \(posts.count) saved post objects")
+        dlog("✅ Fetched \(posts.count) saved post objects")
         
         return posts
     }
@@ -219,7 +219,7 @@ class SavedPostsService: ObservableObject {
             let snapshot = try await query.getDocuments()
             return !snapshot.documents.isEmpty
         } catch {
-            print("❌ Error checking saved status: \(error)")
+            dlog("❌ Error checking saved status: \(error)")
             return false
         }
     }
@@ -254,7 +254,7 @@ class SavedPostsService: ObservableObject {
                 "savedPostCollections": FieldValue.arrayUnion([name])
             ])
         
-        print("✅ Collection created: \(name)")
+        dlog("✅ Collection created: \(name)")
     }
     
     /// Delete a custom collection (moves all posts to "All")
@@ -291,7 +291,7 @@ class SavedPostsService: ObservableObject {
         
         collections.removeAll { $0 == name }
         
-        print("✅ Collection deleted: \(name)")
+        dlog("✅ Collection deleted: \(name)")
     }
     
     /// Move a saved post to a different collection
@@ -315,7 +315,7 @@ class SavedPostsService: ObservableObject {
             "collectionName": newCollection
         ])
         
-        print("✅ Post moved to collection: \(newCollection)")
+        dlog("✅ Post moved to collection: \(newCollection)")
         
         // Update local cache
         if let index = savedPosts.firstIndex(where: { $0.postId == postId }) {
@@ -328,11 +328,11 @@ class SavedPostsService: ObservableObject {
     /// Start listening to saved posts
     func startListening() {
         guard let userId = firebaseManager.currentUser?.uid else {
-            print("⚠️ No user ID for listener")
+            dlog("⚠️ No user ID for listener")
             return
         }
         
-        print("🔊 Starting real-time listener for saved posts...")
+        dlog("🔊 Starting real-time listener for saved posts...")
         
         let listener = db.collection(FirebaseManager.CollectionPath.savedPosts)
             .whereField("userId", isEqualTo: userId)
@@ -341,7 +341,7 @@ class SavedPostsService: ObservableObject {
                 guard let self = self else { return }
                 
                 if let error = error {
-                    print("❌ Saved posts listener error: \(error)")
+                    dlog("❌ Saved posts listener error: \(error)")
                     return
                 }
                 
@@ -354,7 +354,7 @@ class SavedPostsService: ObservableObject {
                 self.savedPosts = fetchedSavedPosts
                 self.savedPostIds = Set(fetchedSavedPosts.map { $0.postId })
                 
-                print("✅ Real-time update: \(fetchedSavedPosts.count) saved posts")
+                dlog("✅ Real-time update: \(fetchedSavedPosts.count) saved posts")
             }
         
         listeners.append(listener)
@@ -362,7 +362,7 @@ class SavedPostsService: ObservableObject {
     
     /// Stop all listeners
     func stopListening() {
-        print("🔇 Stopping saved posts listeners...")
+        dlog("🔇 Stopping saved posts listeners...")
         listeners.forEach { $0.remove() }
         listeners.removeAll()
     }
@@ -375,7 +375,7 @@ class SavedPostsService: ObservableObject {
             throw FirebaseError.unauthorized
         }
         
-        print("🗑️ Clearing all saved posts...")
+        dlog("🗑️ Clearing all saved posts...")
         
         let query = db.collection(FirebaseManager.CollectionPath.savedPosts)
             .whereField("userId", isEqualTo: userId)
@@ -388,7 +388,7 @@ class SavedPostsService: ObservableObject {
         }
         try await batch.commit()
         
-        print("✅ All saved posts cleared")
+        dlog("✅ All saved posts cleared")
         
         // Update local cache
         savedPosts.removeAll()

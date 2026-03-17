@@ -148,7 +148,7 @@ class BereanAnswerEngine: ObservableObject {
         context: BereanContext? = nil,
         mode: InterpretationMode? = nil
     ) async throws -> BereanAnswer {
-        print("📖 Berean processing query: \(query.prefix(50))...")
+        dlog("📖 Berean processing query: \(query.prefix(50))...")
         
         isProcessing = true
         defer { isProcessing = false }
@@ -167,7 +167,7 @@ class BereanAnswerEngine: ObservableObject {
         
         // 2. Check cache
         if let cached = answerCache.get(query: query, mode: interpretationMode, context: context) {
-            print("✅ Berean cache hit")
+            dlog("✅ Berean cache hit")
             return cached
         }
         
@@ -213,7 +213,7 @@ class BereanAnswerEngine: ObservableObject {
         // 7. Cache the answer
         answerCache.store(answer: answer, context: context)
         
-        print("✅ Berean answer generated with \(answer.scripture.count) citations")
+        dlog("✅ Berean answer generated with \(answer.scripture.count) citations")
         return answer
     }
     
@@ -386,10 +386,10 @@ class BereanAnswerEngine: ObservableObject {
         
         do {
             let passages = try await youVersion.fetchVerses(references: references, version: .esv)
-            print("📖 BereanEngine: Fetched \(passages.count) verses from YouVersion")
+            dlog("📖 BereanEngine: Fetched \(passages.count) verses from YouVersion")
             return passages
         } catch {
-            print("⚠️ BereanEngine: YouVersion fetch failed, using fallback")
+            dlog("⚠️ BereanEngine: YouVersion fetch failed, using fallback")
             // Fallback to basic structure if API fails
             return references.compactMap { ref in
                 guard let parsed = parseReferenceBasic(ref) else { return nil }

@@ -254,7 +254,7 @@ struct AuthDebugView: View {
     
     private func log(_ message: String) {
         testResults.append(message)
-        print(message)
+        dlog(message)
     }
     
     private func runDiagnostics() {

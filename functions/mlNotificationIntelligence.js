@@ -16,7 +16,11 @@ const {
 } = require("./mlClients");
 
 const db = admin.firestore();
-const rtdb = admin.database();
+let _rtdb = null;
+const getRtdb = () => {
+  if (!_rtdb) _rtdb = admin.database("https://amen-5e359-default-rtdb.firebaseio.com");
+  return _rtdb;
+};
 
 // ═══════════════════════════════════════════
 // optimizeNotificationSendTime — Called before any send
@@ -89,7 +93,7 @@ async function suppressNotificationStorm(userId, notificationType) {
 
   try {
     const key = `notifThrottle/${userId}`;
-    const ref = rtdb.ref(key);
+    const ref = getRtdb().ref(key);
     const snap = await ref.get();
     const data = snap.val() || { count: 0, windowStart: 0 };
 
@@ -212,7 +216,7 @@ const reRankFeedRealTime = onCall(
       const fatigueScore = ml.fatigueScore || 0;
 
       // Fetch saturation topics
-      const saturationRef = rtdb.ref(`contentSaturation/${userId}`);
+      const saturationRef = getRtdb().ref(`contentSaturation/${userId}`);
       const satSnap = await saturationRef.get();
       const saturationData = satSnap.val() || {};
       const now = Date.now();

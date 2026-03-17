@@ -102,7 +102,7 @@ class ChurchNotesService: ObservableObject {
                 guard let self = self else { return }
                 
                 if let error = error {
-                    print("❌ Folders listener error: \(error)")
+                    dlog("❌ Folders listener error: \(error)")
                     return
                 }
                 
@@ -135,7 +135,7 @@ class ChurchNotesService: ObservableObject {
         newFolder.id = docRef.documentID
         
         try docRef.setData(from: newFolder)
-        print("✅ Created folder: \(newFolder.name)")
+        dlog("✅ Created folder: \(newFolder.name)")
     }
     
     /// Delete folder
@@ -152,7 +152,7 @@ class ChurchNotesService: ObservableObject {
         }
         
         try await db.collection("noteFolders").document(folderId).delete()
-        print("✅ Deleted folder: \(folder.name)")
+        dlog("✅ Deleted folder: \(folder.name)")
     }
     
     /// Move note to folder
@@ -187,10 +187,10 @@ class ChurchNotesService: ObservableObject {
                 try document.data(as: ChurchNote.self)
             }
             
-            print("✅ Fetched \(notes.count) church notes")
+            dlog("✅ Fetched \(notes.count) church notes")
         } catch {
             self.error = error.localizedDescription
-            print("❌ Failed to fetch church notes: \(error)")
+            dlog("❌ Failed to fetch church notes: \(error)")
         }
     }
     
@@ -402,7 +402,7 @@ class ChurchNotesService: ObservableObject {
         for note in notes {
             try await deleteNote(note)
         }
-        print("✅ Bulk deleted \(notes.count) notes")
+        dlog("✅ Bulk deleted \(notes.count) notes")
     }
     
     /// Bulk favorite/unfavorite notes
@@ -413,7 +413,7 @@ class ChurchNotesService: ObservableObject {
                 try await updateNote(note)
             }
         }
-        print("✅ Bulk updated \(notes.count) notes")
+        dlog("✅ Bulk updated \(notes.count) notes")
     }
     
     /// Bulk move to folder
@@ -421,7 +421,7 @@ class ChurchNotesService: ObservableObject {
         for note in notes {
             try await moveNoteToFolder(note, folderId: folderId)
         }
-        print("✅ Bulk moved \(notes.count) notes to folder")
+        dlog("✅ Bulk moved \(notes.count) notes to folder")
     }
     
     /// Bulk export notes
@@ -500,7 +500,7 @@ class ChurchNotesService: ObservableObject {
         updatedNote.permission = permission
         updatedNote.updatedAt = Date()
         try await updateNote(updatedNote)
-        print("✅ Updated permission for note: \(note.title) to \(permission.rawValue)")
+        dlog("✅ Updated permission for note: \(note.title) to \(permission.rawValue)")
     }
     
     /// Share note with specific users (replaces existing shared list)
@@ -510,7 +510,7 @@ class ChurchNotesService: ObservableObject {
         updatedNote.permission = .shared
         updatedNote.updatedAt = Date()
         try await updateNote(updatedNote)
-        print("✅ Shared note with \(userIds.count) users")
+        dlog("✅ Shared note with \(userIds.count) users")
     }
     
     /// Share note with additional users (adds to existing shared list)
@@ -529,7 +529,7 @@ class ChurchNotesService: ObservableObject {
         updatedNote.permission = .shared
         updatedNote.updatedAt = Date()
         try await updateNote(updatedNote)
-        print("✅ Shared note with \(userIds.count) additional users (total: \(updatedNote.sharedWith.count))")
+        dlog("✅ Shared note with \(userIds.count) additional users (total: \(updatedNote.sharedWith.count))")
         
         // Send notifications to newly shared users
         if !newlySharedUsers.isEmpty {

@@ -48,7 +48,7 @@ class AppUsageTracker: ObservableObject {
         guard sessionStartTime == nil else { return }
         sessionStartTime = Date()
         currentSessionStartTime = Date()  // Start continuous session tracking
-        print("📊 AppUsageTracker: Session started")
+        dlog("📊 AppUsageTracker: Session started")
     }
     
     /// End tracking session when app becomes inactive
@@ -63,14 +63,14 @@ class AppUsageTracker: ObservableObject {
         sessionStartTime = nil
         currentSessionStartTime = nil  // End continuous session tracking
         
-        print("📊 AppUsageTracker: Session ended. Duration: \(sessionMinutes) minutes. Total today: \(todayUsageMinutes) minutes")
+        dlog("📊 AppUsageTracker: Session ended. Duration: \(sessionMinutes) minutes. Total today: \(todayUsageMinutes) minutes")
     }
     
     /// Update daily time limit
     func updateDailyLimit(_ minutes: Int) {
         dailyLimitMinutes = minutes
         UserDefaults.standard.set(minutes, forKey: limitKey)
-        print("⏱️ AppUsageTracker: Daily limit updated to \(minutes) minutes")
+        dlog("⏱️ AppUsageTracker: Daily limit updated to \(minutes) minutes")
     }
     
     /// Reset usage for a new day
@@ -82,7 +82,7 @@ class AppUsageTracker: ObservableObject {
         // Also reset smart break reminder counters
         smartBreakReminder.resetDailyCounters()
         
-        print("🔄 AppUsageTracker: Daily usage reset")
+        dlog("🔄 AppUsageTracker: Daily usage reset")
     }
     
     /// Check if limit has been reached
@@ -152,7 +152,7 @@ class AppUsageTracker: ObservableObject {
             let haptic = UINotificationFeedbackGenerator()
             haptic.notificationOccurred(.warning)
             
-            print("⏰ AppUsageTracker: Daily limit of \(dailyLimitMinutes) minutes reached! Showing dialog.")
+            dlog("⏰ AppUsageTracker: Daily limit of \(dailyLimitMinutes) minutes reached! Showing dialog.")
         }
     }
     
@@ -176,7 +176,7 @@ class AppUsageTracker: ObservableObject {
         // Load today's usage
         todayUsageMinutes = UserDefaults.standard.integer(forKey: usageKey)
         
-        print("📊 AppUsageTracker: Loaded usage data - \(todayUsageMinutes) minutes used, \(dailyLimitMinutes) limit")
+        dlog("📊 AppUsageTracker: Loaded usage data - \(todayUsageMinutes) minutes used, \(dailyLimitMinutes) limit")
     }
     
     private func saveUsageData() {

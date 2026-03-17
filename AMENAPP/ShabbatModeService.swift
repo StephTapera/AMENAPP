@@ -127,7 +127,7 @@ final class ShabbatModeService: ObservableObject {
         persistToFirestore(enabled: enabled)
         // Note: logStateTransition is called inside updateShabbatActiveState() on active→inactive
         // or inactive→active transitions; no separate call needed here.
-        print("🕊️ ShabbatModeService: isEnabled = \(enabled)")
+        dlog("🕊️ ShabbatModeService: isEnabled = \(enabled)")
     }
 
     /// Returns true if today is Sunday in the given timezone (defaults to device timezone).
@@ -224,7 +224,7 @@ final class ShabbatModeService: ObservableObject {
         let ref = Firestore.firestore().collection("users").document(uid)
         ref.setData(["shabbatModeEnabled": enabled], merge: true) { error in
             if let error {
-                print("⚠️ ShabbatModeService: Firestore write failed: \(error)")
+                dlog("⚠️ ShabbatModeService: Firestore write failed: \(error)")
             }
         }
     }
@@ -251,7 +251,7 @@ final class AppAccessController {
             return true
         case .blocked(let reason):
             ShabbatModeService.shared.logBlocked(feature: feature, route: route)
-            print("🚫 AppAccessController: blocked \(feature.rawValue) — \(reason.errorCode)")
+            dlog("🚫 AppAccessController: blocked \(feature.rawValue) — \(reason.errorCode)")
             return false
         }
     }
@@ -277,11 +277,11 @@ enum ShabbatAnalytics {
         Firestore.firestore()
             .collection("analytics_shabbat_blocks")
             .addDocument(data: entry)
-        print("📊 shabbat_blocked: feature=\(feature.rawValue) route=\(route ?? "-")")
+        dlog("📊 shabbat_blocked: feature=\(feature.rawValue) route=\(route ?? "-")")
     }
 
     /// Log when Shabbat active state transitions (foreground re-entry or toggle).
     static func logStateTransition(enabled: Bool, isSunday: Bool) {
-        print("📊 shabbat_state_transition: enabled=\(enabled) isSunday=\(isSunday) tz=\(TimeZone.current.identifier)")
+        dlog("📊 shabbat_state_transition: enabled=\(enabled) isSunday=\(isSunday) tz=\(TimeZone.current.identifier)")
     }
 }

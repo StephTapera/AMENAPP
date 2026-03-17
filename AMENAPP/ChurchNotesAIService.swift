@@ -9,6 +9,7 @@ import Foundation
 import SwiftUI
 import Combine
 import FirebaseAuth
+import Security
 
 @MainActor
 class ChurchNotesAIService: ObservableObject {
@@ -24,8 +25,65 @@ class ChurchNotesAIService: ObservableObject {
     // Rate limiting: 10 requests per hour per user
     private var requestCounts: [String: (count: Int, resetTime: Date)] = [:]
     
-    private init() {}
-    
+    private init() {
+        // P2 #4: Migrate encryption key from UserDefaults to Keychain on first run
+        migrateEncryptionKeyIfNeeded()
+    }
+
+    // MARK: - Encryption Key Management (Keychain)
+
+    private static let keychainService = "com.amenapp.churchnotes"
+    private static let keychainAccount = "encryptionKey"
+
+    /// Returns the church notes encryption key, reading from (and if needed creating in) the Keychain.
+    /// P2 #4: Key is stored in Keychain rather than UserDefaults to prevent it from appearing
+    /// in iCloud backups or device migration snapshots.
+    func loadEncryptionKey() -> String {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: Self.keychainService,
+            kSecAttrAccount as String: Self.keychainAccount,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne,
+        ]
+        var result: AnyObject?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        if status == errSecSuccess,
+           let data = result as? Data,
+           let key = String(data: data, encoding: .utf8) {
+            return key
+        }
+        // No key found — generate one and persist it
+        let newKey = UUID().uuidString + UUID().uuidString
+        saveEncryptionKeyToKeychain(newKey)
+        return newKey
+    }
+
+    private func saveEncryptionKeyToKeychain(_ key: String) {
+        let data = Data(key.utf8)
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: Self.keychainService,
+            kSecAttrAccount as String: Self.keychainAccount,
+            kSecValueData as String: data,
+            // Only accessible when device is unlocked; not backed up to iCloud
+            kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
+        ]
+        // Remove any stale item first to avoid errSecDuplicateItem
+        SecItemDelete(query as CFDictionary)
+        SecItemAdd(query as CFDictionary, nil)
+    }
+
+    /// One-time migration: if an encryption key exists in UserDefaults, move it to Keychain
+    /// and delete it from UserDefaults so it is no longer stored in plaintext.
+    private func migrateEncryptionKeyIfNeeded() {
+        let legacyKey = "churchNotesEncryptionKey"
+        if let existingKey = UserDefaults.standard.string(forKey: legacyKey), !existingKey.isEmpty {
+            saveEncryptionKeyToKeychain(existingKey)
+            UserDefaults.standard.removeObject(forKey: legacyKey)
+        }
+    }
+
     // MARK: - Rate Limiting
     
     private func checkRateLimit(userId: String) throws {

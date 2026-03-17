@@ -88,18 +88,23 @@ service cloud.firestore {
     // Returns true when the caller has a live, unexpired 2FA session document.
     // The session is created by the verify2FAOTP Cloud Function (admin SDK) and
     // cannot be forged by the client (userSecurity is deny-all for client writes).
-    // We query the collection for a session belonging to this user that is still active.
-    // NOTE: Firestore rules cannot compare Timestamps from sub-documents to
-    // request.time directly, so we rely on the Cloud Function to set active=false
-    // when it expires, and on the 30-minute TTL enforced at write time.
+    // We check both session2FAActive=true AND session2FAExpiresAt > request.time
+    // so that sessions are rejected server-side as soon as they expire, even before
+    // the scheduled cleanupExpired2FASessions function flips session2FAActive=false.
     function caller2FASessionValid() {
       // Skip the check when the user does not have 2FA enabled.
       let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
       let has2FA = userDoc.data.get('twoFactorEnabled', false);
-      // If 2FA is not enabled, allow through. Otherwise require an active session.
+      // If 2FA is not enabled, allow through. Otherwise require an active, unexpired session.
+      let securityDoc = get(/databases/$(database)/documents/userSecurity/$(request.auth.uid));
       return !has2FA || (
         exists(/databases/$(database)/documents/userSecurity/$(request.auth.uid))
-        && get(/databases/$(database)/documents/userSecurity/$(request.auth.uid)).data.get('session2FAActive', false) == true
+        && securityDoc.data.get('session2FAActive', false) == true
+        // P0 FIX: Enforce TTL at the rules layer — reject sessions whose
+        // session2FAExpiresAt has passed, regardless of session2FAActive flag.
+        // request.time is a Timestamp; comparison with a stored Timestamp field
+        // is supported in Firestore Security Rules.
+        && securityDoc.data.get('session2FAExpiresAt', request.time) > request.time
       );
     }
 

@@ -18,7 +18,7 @@ enum BundleConfig {
             // Use print (not assertionFailure) so Debug builds don't crash when
             // Config.local.xcconfig is not yet set up. Callers fall back to "".
             #if DEBUG
-            print("⚠️ BundleConfig: key '\(key)' is missing or empty in Info.plist. " +
+            dlog("⚠️ BundleConfig: key '\(key)' is missing or empty in Info.plist. " +
                   "Copy Config.xcconfig → Config.local.xcconfig and add real key values.")
             #endif
             return nil

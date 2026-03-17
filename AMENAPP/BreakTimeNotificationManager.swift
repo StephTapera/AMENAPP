@@ -83,15 +83,15 @@ class BreakTimeNotificationManager: ObservableObject {
             isAuthorized = granted
             
             if granted {
-                print("✅ Break notification authorization granted")
+                dlog("✅ Break notification authorization granted")
                 setupNotificationCategories()
             } else {
-                print("❌ Break notification authorization denied")
+                dlog("❌ Break notification authorization denied")
             }
             
             return granted
         } catch {
-            print("❌ Break notification authorization error: \(error)")
+            dlog("❌ Break notification authorization error: \(error)")
             return false
         }
     }
@@ -108,7 +108,7 @@ class BreakTimeNotificationManager: ObservableObject {
     /// Schedule break notifications (ONLY 2 daily: morning + night to avoid duplicates)
     func scheduleBreakNotifications(for prayerTime: String) async {
         guard isAuthorized else {
-            print("⚠️ Not authorized for break notifications")
+            dlog("⚠️ Not authorized for break notifications")
             _ = await requestAuthorization()
             return
         }
@@ -126,12 +126,12 @@ class BreakTimeNotificationManager: ObservableObject {
             await scheduleBreakNotification(for: breakTime)
         }
         
-        print("✅ Scheduled EXACTLY \(breakTimes.count) break notifications (morning & night only)")
+        dlog("✅ Scheduled EXACTLY \(breakTimes.count) break notifications (morning & night only)")
         
         // Verify no duplicates
         let count = await getPendingNotificationsCount()
         if count > 2 {
-            print("⚠️ WARNING: Found \(count) pending break notifications! Expected 2.")
+            dlog("⚠️ WARNING: Found \(count) pending break notifications! Expected 2.")
         }
     }
     
@@ -180,9 +180,9 @@ class BreakTimeNotificationManager: ObservableObject {
         
         do {
             try await center.add(request)
-            print("✅ Scheduled daily inspiration for \(breakTime.timeString)")
+            dlog("✅ Scheduled daily inspiration for \(breakTime.timeString)")
         } catch {
-            print("❌ Failed to schedule inspiration notification: \(error)")
+            dlog("❌ Failed to schedule inspiration notification: \(error)")
         }
     }
     
@@ -209,7 +209,7 @@ class BreakTimeNotificationManager: ObservableObject {
         if let data = UserDefaults.standard.data(forKey: breakTimeKey),
            let decoded = try? JSONDecoder().decode([BreakTime].self, from: data) {
             scheduledBreakTimes = decoded
-            print("✅ Loaded \(decoded.count) scheduled break times")
+            dlog("✅ Loaded \(decoded.count) scheduled break times")
         }
     }
     
@@ -237,7 +237,7 @@ class BreakTimeNotificationManager: ObservableObject {
         )
         
         center.setNotificationCategories([category])
-        print("✅ Daily inspiration notification categories configured")
+        dlog("✅ Daily inspiration notification categories configured")
     }
     
     // MARK: - Reminder Actions
@@ -261,9 +261,9 @@ class BreakTimeNotificationManager: ObservableObject {
         
         do {
             try await center.add(request)
-            print("✅ Scheduled reminder for 15 minutes")
+            dlog("✅ Scheduled reminder for 15 minutes")
         } catch {
-            print("❌ Failed to schedule reminder: \(error)")
+            dlog("❌ Failed to schedule reminder: \(error)")
         }
     }
     
@@ -281,7 +281,7 @@ class BreakTimeNotificationManager: ObservableObject {
             .map { $0.identifier }
         if !notificationIdentifiers.isEmpty {
             center.removePendingNotificationRequests(withIdentifiers: notificationIdentifiers)
-            print("🗑️ Removed \(notificationIdentifiers.count) old notification(s)")
+            dlog("🗑️ Removed \(notificationIdentifiers.count) old notification(s)")
         }
     }
     
@@ -290,7 +290,7 @@ class BreakTimeNotificationManager: ObservableObject {
         center.removePendingNotificationRequests(withIdentifiers: getAllBreakIdentifiers())
         scheduledBreakTimes.removeAll()
         saveScheduledBreakTimes()
-        print("🗑️ Cleared all break notifications")
+        dlog("🗑️ Cleared all break notifications")
     }
     
     /// Get pending notifications count

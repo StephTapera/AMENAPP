@@ -128,7 +128,7 @@ struct AISearchExamplesView: View {
                                 SmartFilterBanner(
                                     suggestion: SampleData.filterSuggestion,
                                     onApplyFilters: { filters in
-                                        print("Applied filters: \(filters)")
+                                        dlog("Applied filters: \(filters)")
                                     }
                                 )
                                 .transition(AnyTransition.asymmetric(
@@ -235,7 +235,7 @@ struct ExampleSearchRow: View {
             suggestions: SampleData.getSuggestions(for: "Bible study"),
             relatedTopics: SampleData.getRelatedTopics(for: "Bible study"),
             onSuggestionTap: { suggestion in
-                print("Tapped: \(suggestion)")
+                dlog("Tapped: \(suggestion)")
             }
         )
         .padding(.top)
@@ -246,7 +246,7 @@ struct ExampleSearchRow: View {
     SmartFilterBanner(
         suggestion: SampleData.filterSuggestion,
         onApplyFilters: { filters in
-            print("Applied: \(filters)")
+            dlog("Applied: \(filters)")
         }
     )
     .padding()

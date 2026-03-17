@@ -57,7 +57,7 @@ class NotificationQuickReplyService: ObservableObject {
                 authorProfileImageURL: profileImageURL
             )
             
-            print("✅ Quick reply posted: \(commentId)")
+            dlog("✅ Quick reply posted: \(commentId)")
             
             // Also increment comment count in Firestore post document
             // Note: This uses eventual consistency - if post doesn't exist, it will fail silently
@@ -67,7 +67,7 @@ class NotificationQuickReplyService: ObservableObject {
                 ])
             } catch {
                 // Post may have been deleted - log but don't fail the comment operation
-                print("⚠️ Failed to increment comment count on post \(postId): \(error.localizedDescription)")
+                dlog("⚠️ Failed to increment comment count on post \(postId): \(error.localizedDescription)")
             }
             
         } catch {
@@ -114,11 +114,11 @@ class LegacyNotificationDeepLinkHandler: ObservableObject {
     
     /// Handle notification tap from system notification center
     func handleNotificationTap(userInfo: [AnyHashable: Any]) {
-        print("🔗 Handling notification tap with userInfo: \(userInfo)")
+        dlog("🔗 Handling notification tap with userInfo: \(userInfo)")
         
         // Extract notification type and IDs from push notification payload
         guard let type = userInfo["type"] as? String else {
-            print("⚠️ No notification type in userInfo")
+            dlog("⚠️ No notification type in userInfo")
             return
         }
         
@@ -139,13 +139,13 @@ class LegacyNotificationDeepLinkHandler: ObservableObject {
             }
             
         default:
-            print("⚠️ Unknown notification type: \(type)")
+            dlog("⚠️ Unknown notification type: \(type)")
         }
     }
     
     /// Handle deep link from URL scheme (amenapp://...)
     func handleDeepLink(url: URL) {
-        print("🔗 Handling deep link URL: \(url)")
+        dlog("🔗 Handling deep link URL: \(url)")
         
         let components = URLComponents(url: url, resolvingAgainstBaseURL: true)
         guard let host = components?.host else { return }
@@ -167,7 +167,7 @@ class LegacyNotificationDeepLinkHandler: ObservableObject {
             }
             
         default:
-            print("⚠️ Unknown deep link host: \(host)")
+            dlog("⚠️ Unknown deep link host: \(host)")
         }
     }
     

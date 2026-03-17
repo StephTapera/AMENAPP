@@ -587,9 +587,9 @@ extension ChurchNotificationManager {
         
         UNUserNotificationCenter.current().add(request) { error in
             if let error = error {
-                print("❌ Failed to schedule morning reminder: \(error)")
+                dlog("❌ Failed to schedule morning reminder: \(error)")
             } else {
-                print("✅ Scheduled morning reminder for \(church.name)")
+                dlog("✅ Scheduled morning reminder for \(church.name)")
             }
         }
     }
@@ -616,9 +616,9 @@ extension ChurchNotificationManager {
         
         UNUserNotificationCenter.current().add(request) { error in
             if let error = error {
-                print("❌ Failed to schedule arrival notification: \(error)")
+                dlog("❌ Failed to schedule arrival notification: \(error)")
             } else {
-                print("✅ Scheduled arrival notification for \(church.name)")
+                dlog("✅ Scheduled arrival notification for \(church.name)")
             }
         }
     }

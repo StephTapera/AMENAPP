@@ -83,7 +83,7 @@ class ChurchNotificationManager: NSObject, ObservableObject {
             arrivalCategory
         ])
         
-        print("✅ Church notification categories registered")
+        dlog("✅ Church notification categories registered")
     }
     
     func checkAuthorizationStatus() async -> Bool {
@@ -105,7 +105,7 @@ class ChurchNotificationManager: NSObject, ObservableObject {
             }
             return granted
         } catch {
-            print("Error requesting notification permission: \(error)")
+            dlog("Error requesting notification permission: \(error)")
             return false
         }
     }
@@ -131,7 +131,7 @@ class ChurchNotificationManager: NSObject, ObservableObject {
         
         UNUserNotificationCenter.current().add(request) { error in
             if let error = error {
-                print("Error scheduling notification: \(error)")
+                dlog("Error scheduling notification: \(error)")
             }
         }
     }
@@ -164,7 +164,7 @@ class ChurchNotificationManager: NSObject, ObservableObject {
         
         UNUserNotificationCenter.current().add(request) { error in
             if let error = error {
-                print("Error scheduling location notification: \(error)")
+                dlog("Error scheduling location notification: \(error)")
             }
         }
     }
@@ -195,7 +195,7 @@ class ChurchNotificationManager: NSObject, ObservableObject {
         
         UNUserNotificationCenter.current().add(request) { error in
             if let error = error {
-                print("Error scheduling weekly notification: \(error)")
+                dlog("Error scheduling weekly notification: \(error)")
             }
         }
     }

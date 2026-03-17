@@ -65,9 +65,9 @@ struct SearchViewWithSaveExample: View {
             )
             showSaveAlert = true
         } catch SavedSearchError.alreadySaved {
-            print("Search already saved")
+            dlog("Search already saved")
         } catch {
-            print("Error saving search: \(error)")
+            dlog("Error saving search: \(error)")
         }
     }
 }
@@ -236,7 +236,7 @@ extension PrayerRequestService {
             authorName: userName
         )
         
-        print("✅ Prayer request created and checked for matches")
+        dlog("✅ Prayer request created and checked for matches")
         
         return prayerId
     }
@@ -328,7 +328,7 @@ struct SaveSearchButtonCompact: View {
             isSaved = true
             showAlert = true
         } catch {
-            print("Error saving search: \(error)")
+            dlog("Error saving search: \(error)")
         }
     }
 }
@@ -370,7 +370,7 @@ extension TestimonyService {
             authorName: userName
         )
         
-        print("✅ Testimony created and checked for matches")
+        dlog("✅ Testimony created and checked for matches")
     }
 }
 */
@@ -412,7 +412,7 @@ extension OpenTableService {
             authorName: userName
         )
         
-        print("✅ OpenTable post created and checked for matches")
+        dlog("✅ OpenTable post created and checked for matches")
     }
 }
 */
@@ -428,7 +428,7 @@ extension SavedSearchService {
     
     /// Check all existing content against saved searches (run once on app launch)
     func migrateExistingContent() async throws {
-        print("🔄 Migrating existing content to check saved searches...")
+        dlog("🔄 Migrating existing content to check saved searches...")
         
         // To implement this, you would need to:
         // 1. Add a checkForMatches() method to SavedSearchService
@@ -441,7 +441,7 @@ extension SavedSearchService {
         // - Check if content matches any saved search queries
         // - Create alerts for matches
         
-        print("✅ Migration complete")
+        dlog("✅ Migration complete")
     }
 }
 */

@@ -184,7 +184,7 @@ final class ModerationIngestService {
             try await db.collection("moderation_ingest_events").addDocument(data: event)
         } catch {
             // Non-fatal — server pipeline is best-effort for pre-submit
-            print("⚠️ [ModerationIngestService] Failed to submit ingest event: \(error.localizedDescription)")
+            dlog("⚠️ [ModerationIngestService] Failed to submit ingest event: \(error.localizedDescription)")
         }
     }
 }

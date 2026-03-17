@@ -121,7 +121,7 @@ class DeepLinkRouter: ObservableObject {
         let feature = route.requiredFeature
         if case .blocked(let reason) = AppAccessController.shared.canAccess(feature) {
             ShabbatModeService.shared.logBlocked(feature: feature, route: route.analyticsLabel)
-            print("🚫 DeepLinkRouter: blocked \(reason.errorCode) for route \(route.analyticsLabel)")
+            dlog("🚫 DeepLinkRouter: blocked \(reason.errorCode) for route \(route.analyticsLabel)")
             // Route to permitted tab (Resources = 3) and let the gate overlay handle UX
             selectedTab = 3
             // Signal ContentView to show the gate banner

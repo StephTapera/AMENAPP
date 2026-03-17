@@ -31,7 +31,7 @@ class FirebaseManager {
         
         // ✅ Firestore settings are configured in AppDelegate.swift
         // (must be set ONCE, immediately after FirebaseApp.configure())
-        print("✅ FirebaseManager initialized")
+        dlog("✅ FirebaseManager initialized")
     }
     
     // MARK: - Collection Paths
@@ -85,7 +85,7 @@ class FirebaseManager {
     
     /// Sign up with email and password
     func signUp(email: String, password: String, displayName: String, username: String? = nil, birthYear: Int? = nil) async throws -> FirebaseAuth.User {
-        print("🔐 FirebaseManager: Creating new user account...")
+        dlog("🔐 FirebaseManager: Creating new user account...")
         
         // Create Firebase Auth user
         let result = try await auth.createUser(withEmail: email, password: password)
@@ -105,11 +105,11 @@ class FirebaseManager {
         // Create searchable name keywords for messaging search
         let nameKeywords = createNameKeywords(from: displayName)
         
-        print("📝 FirebaseManager: Creating user profile...")
-        print("   - Display Name: \(displayName)")
-        print("   - Username: \(finalUsername)")
-        print("   - Initials: \(initials)")
-        print("   - Name Keywords: \(nameKeywords)")
+        dlog("📝 FirebaseManager: Creating user profile...")
+        dlog("   - Display Name: \(displayName)")
+        dlog("   - Username: \(finalUsername)")
+        dlog("   - Initials: \(initials)")
+        dlog("   - Name Keywords: \(nameKeywords)")
         
         // Create user profile in Firestore
         let now = Timestamp(date: Date())
@@ -164,7 +164,7 @@ class FirebaseManager {
                 .document(user.uid)
                 .setData(finalUserData)
 
-            print("✅ FirebaseManager: User profile created successfully!")
+            dlog("✅ FirebaseManager: User profile created successfully!")
 
             // ── Username lookup index — public read, enables username availability checks ──
             // SECURITY FIX: Store only uid (not email) to prevent unauthenticated email enumeration.
@@ -173,17 +173,17 @@ class FirebaseManager {
                 try await firestore.collection("usernameLookup")
                     .document(finalUsername)
                     .setData(["uid": user.uid])
-                print("✅ FirebaseManager: Username lookup index written")
+                dlog("✅ FirebaseManager: Username lookup index written")
             } catch {
-                print("⚠️ FirebaseManager: Username lookup index write failed (non-critical): \(error)")
+                dlog("⚠️ FirebaseManager: Username lookup index write failed (non-critical): \(error)")
             }
 
             // ⭐️ Sync to Algolia for instant search
             do {
                 try await AlgoliaSyncService.shared.syncUser(userId: user.uid, userData: finalUserData)
-                print("✅ FirebaseManager: User synced to Algolia")
+                dlog("✅ FirebaseManager: User synced to Algolia")
             } catch {
-                print("⚠️ FirebaseManager: Algolia sync failed (non-critical): \(error)")
+                dlog("⚠️ FirebaseManager: Algolia sync failed (non-critical): \(error)")
                 // Don't throw - user creation succeeded, search sync is optional
             }
             
@@ -194,27 +194,27 @@ class FirebaseManager {
                 try await firestore.collection("user_privacy_settings")
                     .document(user.uid)
                     .setData(privacyData)
-                print("✅ FirebaseManager: Privacy settings initialized with conservative defaults")
+                dlog("✅ FirebaseManager: Privacy settings initialized with conservative defaults")
             } catch {
-                print("⚠️ FirebaseManager: Privacy settings creation failed (non-critical): \(error)")
+                dlog("⚠️ FirebaseManager: Privacy settings creation failed (non-critical): \(error)")
                 // Don't throw - user creation succeeded, privacy settings can be created later
             }
             
-            print("🎉 Complete user setup finished for: \(displayName)")
+            dlog("🎉 Complete user setup finished for: \(displayName)")
 
             // ✉️ Send email verification
             do {
                 try await user.sendEmailVerification()
                 #if DEBUG
-                print("✅ FirebaseManager: Verification email sent to \(email)")
+                dlog("✅ FirebaseManager: Verification email sent to \(email)")
                 #endif
             } catch {
-                print("⚠️ FirebaseManager: Failed to send verification email (non-critical): \(error)")
+                dlog("⚠️ FirebaseManager: Failed to send verification email (non-critical): \(error)")
                 // Don't throw - user creation succeeded, they can verify later
             }
 
         } catch {
-            print("❌ FirebaseManager: Failed to create user profile: \(error)")
+            dlog("❌ FirebaseManager: Failed to create user profile: \(error)")
             // Delete the auth user if profile creation fails
             try? await user.delete()
             throw error
@@ -232,7 +232,7 @@ class FirebaseManager {
     func sendPasswordReset(email: String) async throws {
         try await auth.sendPasswordReset(withEmail: email)
         #if DEBUG
-        print("✅ FirebaseManager: Password reset email sent to \(email)")
+        dlog("✅ FirebaseManager: Password reset email sent to \(email)")
         #endif
     }
 
@@ -245,13 +245,13 @@ class FirebaseManager {
         }
 
         guard !user.isEmailVerified else {
-            print("ℹ️ FirebaseManager: Email already verified")
+            dlog("ℹ️ FirebaseManager: Email already verified")
             return
         }
 
         try await user.sendEmailVerification()
         #if DEBUG
-        print("✅ FirebaseManager: Verification email sent to \(user.email ?? "unknown")")
+        dlog("✅ FirebaseManager: Verification email sent to \(user.email ?? "unknown")")
         #endif
     }
 
@@ -263,7 +263,7 @@ class FirebaseManager {
 
         try await user.reload()
         #if DEBUG
-        print("✅ FirebaseManager: User reloaded, emailVerified=\(user.isEmailVerified)")
+        dlog("✅ FirebaseManager: User reloaded, emailVerified=\(user.isEmailVerified)")
         #endif
     }
 
@@ -283,7 +283,7 @@ class FirebaseManager {
 
         try await auth.sendSignInLink(toEmail: email, actionCodeSettings: actionCodeSettings)
         #if DEBUG
-        print("✅ FirebaseManager: Sign-in link sent to \(email)")
+        dlog("✅ FirebaseManager: Sign-in link sent to \(email)")
         #endif
 
         // P0-4 FIX: Save email in Keychain (not UserDefaults) — it's PII
@@ -298,7 +298,7 @@ class FirebaseManager {
 
         let result = try await auth.signIn(withEmail: email, link: link)
         #if DEBUG
-        print("✅ FirebaseManager: Signed in with email link for \(email)")
+        dlog("✅ FirebaseManager: Signed in with email link for \(email)")
         #endif
 
         // P0-4 FIX: Clear email from Keychain after use
@@ -335,7 +335,7 @@ class FirebaseManager {
                 .document(result.user.uid)
                 .setData(userData)
 
-            print("✅ FirebaseManager: Email link user profile created")
+            dlog("✅ FirebaseManager: Email link user profile created")
         }
 
         return result.user
@@ -438,21 +438,29 @@ class FirebaseManager {
         try await firestore.collection(CollectionPath.users)
             .document(user.uid)
             .setData(userData)
-        
+
+        // P0 FIX: Mark emailVerified=true in Firestore for Google sign-in users.
+        // Google IdP tokens have email_verified=true by definition; stamp this into
+        // our own user doc so downstream rules and queries can rely on it without
+        // re-reading the Firebase Auth token.
+        try? await firestore.collection(CollectionPath.users)
+            .document(user.uid)
+            .setData(["emailVerified": true], merge: true)
+
         // Username lookup index — uid only (no email to prevent enumeration)
         do {
             try await firestore.collection("usernameLookup")
                 .document(username)
                 .setData(["uid": user.uid])
-            print("✅ FirebaseManager: Username lookup index written (Google)")
+            dlog("✅ FirebaseManager: Username lookup index written (Google)")
         } catch {
-            print("⚠️ FirebaseManager: Username lookup index write failed (non-critical): \(error)")
+            dlog("⚠️ FirebaseManager: Username lookup index write failed (non-critical): \(error)")
         }
-        
+
         // Sync to Algolia
         try? await AlgoliaSyncService.shared.syncUser(userId: user.uid, userData: userData)
     }
-    
+
     // MARK: - Apple Sign-In
     
     /// Sign in with Apple
@@ -530,21 +538,29 @@ class FirebaseManager {
         try await firestore.collection(CollectionPath.users)
             .document(user.uid)
             .setData(userData)
-        
+
+        // P0 FIX: Mark emailVerified=true in Firestore for Apple sign-in users.
+        // Apple IdP tokens have email_verified=true by definition (Apple validates the
+        // address before issuing the credential). Stamp this into our user doc for
+        // consistency with the Google path and for downstream rule/query use.
+        try? await firestore.collection(CollectionPath.users)
+            .document(user.uid)
+            .setData(["emailVerified": true], merge: true)
+
         // Username lookup index — uid only (no email to prevent enumeration)
         do {
             try await firestore.collection("usernameLookup")
                 .document(username)
                 .setData(["uid": user.uid])
-            print("✅ FirebaseManager: Username lookup index written (Apple)")
+            dlog("✅ FirebaseManager: Username lookup index written (Apple)")
         } catch {
-            print("⚠️ FirebaseManager: Username lookup index write failed (non-critical): \(error)")
+            dlog("⚠️ FirebaseManager: Username lookup index write failed (non-critical): \(error)")
         }
-        
+
         // Sync to Algolia
         try? await AlgoliaSyncService.shared.syncUser(userId: user.uid, userData: userData)
     }
-    
+
     // MARK: - Firestore Operations
     
     /// Reference to a collection
@@ -664,7 +680,7 @@ class FirebaseManager {
     /// comments, messages, notifications, follower relationships, and Storage files.
     /// The Cloud Function runs with admin SDK and handles all sub-collections atomically.
     func deleteUserData(userId: String) async throws {
-        print("🗑️ FirebaseManager: Queuing cascade deletion for: \(userId)")
+        dlog("🗑️ FirebaseManager: Queuing cascade deletion for: \(userId)")
 
         do {
             // 1. Write a deletion request document — the Cloud Function watches this
@@ -679,7 +695,7 @@ class FirebaseManager {
                     "status": "pending"
                 ])
 
-            print("✅ FirebaseManager: Cascade deletion request queued (Cloud Function will handle posts/comments/messages/storage)")
+            dlog("✅ FirebaseManager: Cascade deletion request queued (Cloud Function will handle posts/comments/messages/storage)")
 
             // 2. Delete the main user auth profile immediately so the user
             //    cannot log back in while the cascade is in progress.
@@ -687,7 +703,7 @@ class FirebaseManager {
             //       after this function returns, so we don't double-delete here.
 
         } catch {
-            print("❌ FirebaseManager: Failed to queue deletion request: \(error)")
+            dlog("❌ FirebaseManager: Failed to queue deletion request: \(error)")
             throw error
         }
     }
@@ -809,7 +825,7 @@ extension FirebaseManager {
         )
         
         try await user.link(with: credential)
-        print("✅ FirebaseManager: Google account linked successfully")
+        dlog("✅ FirebaseManager: Google account linked successfully")
     }
     
     /// Link Apple account to existing account
@@ -831,7 +847,7 @@ extension FirebaseManager {
         )
         
         try await user.link(with: credential)
-        print("✅ FirebaseManager: Apple account linked successfully")
+        dlog("✅ FirebaseManager: Apple account linked successfully")
         
         // Update display name if provided and not already set
         if let fullName = fullName,
@@ -862,7 +878,7 @@ extension FirebaseManager {
         }
         
         _ = try await user.unlink(fromProvider: providerID)
-        print("✅ FirebaseManager: Provider \(providerID) unlinked successfully")
+        dlog("✅ FirebaseManager: Provider \(providerID) unlinked successfully")
     }
 }
 

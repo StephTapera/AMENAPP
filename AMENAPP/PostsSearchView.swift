@@ -666,7 +666,7 @@ class PostsSearchViewModel: ObservableObject {
             hasMore = snapshot.documents.count == pageSize
             
         } catch {
-            print("❌ Error loading posts: \(error)")
+            dlog("❌ Error loading posts: \(error)")
             posts = []
         }
     }
@@ -793,10 +793,10 @@ class PostsSearchViewModel: ObservableObject {
             posts = Array(searchResults.prefix(pageSize))
             hasMore = searchResults.count > pageSize
             
-            print("✅ Enhanced search: \(posts.count) results for '\(query)' (from \(scoredPosts.count) matches)")
+            dlog("✅ Enhanced search: \(posts.count) results for '\(query)' (from \(scoredPosts.count) matches)")
             
         } catch {
-            print("❌ Error in search: \(error)")
+            dlog("❌ Error in search: \(error)")
             posts = []
         }
     }

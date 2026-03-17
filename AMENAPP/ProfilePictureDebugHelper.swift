@@ -19,12 +19,12 @@ class ProfilePictureDebugHelper {
     
     /// Print current user's cached profile data
     func printCachedProfileData() {
-        print("🔍 === CACHED PROFILE DATA ===")
-        print("Display Name: \(UserDefaults.standard.string(forKey: "currentUserDisplayName") ?? "nil")")
-        print("Username: \(UserDefaults.standard.string(forKey: "currentUserUsername") ?? "nil")")
-        print("Initials: \(UserDefaults.standard.string(forKey: "currentUserInitials") ?? "nil")")
-        print("Profile Image URL: \(UserDefaults.standard.string(forKey: "currentUserProfileImageURL") ?? "nil")")
-        print("=============================")
+        dlog("🔍 === CACHED PROFILE DATA ===")
+        dlog("Display Name: \(UserDefaults.standard.string(forKey: "currentUserDisplayName") ?? "nil")")
+        dlog("Username: \(UserDefaults.standard.string(forKey: "currentUserUsername") ?? "nil")")
+        dlog("Initials: \(UserDefaults.standard.string(forKey: "currentUserInitials") ?? "nil")")
+        dlog("Profile Image URL: \(UserDefaults.standard.string(forKey: "currentUserProfileImageURL") ?? "nil")")
+        dlog("=============================")
     }
     
     /// Check if a specific post has profile image URL
@@ -33,19 +33,19 @@ class ProfilePictureDebugHelper {
             let doc = try await db.collection("posts").document(postId).getDocument()
             
             guard let data = doc.data() else {
-                print("❌ Post not found: \(postId)")
+                dlog("❌ Post not found: \(postId)")
                 return
             }
             
-            print("🔍 === POST DATA ===")
-            print("Author ID: \(data["authorId"] as? String ?? "nil")")
-            print("Author Name: \(data["authorName"] as? String ?? "nil")")
-            print("Profile Image URL: \(data["authorProfileImageURL"] as? String ?? "nil")")
-            print("Has Profile Image: \(data["authorProfileImageURL"] != nil)")
-            print("===================")
+            dlog("🔍 === POST DATA ===")
+            dlog("Author ID: \(data["authorId"] as? String ?? "nil")")
+            dlog("Author Name: \(data["authorName"] as? String ?? "nil")")
+            dlog("Profile Image URL: \(data["authorProfileImageURL"] as? String ?? "nil")")
+            dlog("Has Profile Image: \(data["authorProfileImageURL"] != nil)")
+            dlog("===================")
             
         } catch {
-            print("❌ Error fetching post: \(error)")
+            dlog("❌ Error fetching post: \(error)")
         }
     }
     
@@ -74,22 +74,22 @@ class ProfilePictureDebugHelper {
             
             let total = snapshot.documents.count
             
-            print("📊 === PROFILE IMAGE STATISTICS ===")
-            print("Total Posts: \(total)")
-            print("With Profile Image: \(withImage) (\(withImage * 100 / max(total, 1))%)")
-            print("Without Profile Image: \(withoutImage) (\(withoutImage * 100 / max(total, 1))%)")
-            print("Empty Profile Image: \(emptyImage) (\(emptyImage * 100 / max(total, 1))%)")
-            print("==================================")
+            dlog("📊 === PROFILE IMAGE STATISTICS ===")
+            dlog("Total Posts: \(total)")
+            dlog("With Profile Image: \(withImage) (\(withImage * 100 / max(total, 1))%)")
+            dlog("Without Profile Image: \(withoutImage) (\(withoutImage * 100 / max(total, 1))%)")
+            dlog("Empty Profile Image: \(emptyImage) (\(emptyImage * 100 / max(total, 1))%)")
+            dlog("==================================")
             
         } catch {
-            print("❌ Error getting stats: \(error)")
+            dlog("❌ Error getting stats: \(error)")
         }
     }
     
     /// Check current user's profile in Firestore
     func checkCurrentUserProfile() async {
         guard let userId = Auth.auth().currentUser?.uid else {
-            print("❌ No authenticated user")
+            dlog("❌ No authenticated user")
             return
         }
         
@@ -97,27 +97,27 @@ class ProfilePictureDebugHelper {
             let doc = try await db.collection("users").document(userId).getDocument()
             
             guard let data = doc.data() else {
-                print("❌ User document not found")
+                dlog("❌ User document not found")
                 return
             }
             
-            print("🔍 === FIRESTORE USER DATA ===")
-            print("User ID: \(userId)")
-            print("Display Name: \(data["displayName"] as? String ?? "nil")")
-            print("Username: \(data["username"] as? String ?? "nil")")
-            print("Initials: \(data["initials"] as? String ?? "nil")")
-            print("Profile Image URL: \(data["profileImageURL"] as? String ?? "nil")")
-            print("Has Profile Image: \(data["profileImageURL"] != nil)")
-            print("==============================")
+            dlog("🔍 === FIRESTORE USER DATA ===")
+            dlog("User ID: \(userId)")
+            dlog("Display Name: \(data["displayName"] as? String ?? "nil")")
+            dlog("Username: \(data["username"] as? String ?? "nil")")
+            dlog("Initials: \(data["initials"] as? String ?? "nil")")
+            dlog("Profile Image URL: \(data["profileImageURL"] as? String ?? "nil")")
+            dlog("Has Profile Image: \(data["profileImageURL"] != nil)")
+            dlog("==============================")
             
         } catch {
-            print("❌ Error fetching user: \(error)")
+            dlog("❌ Error fetching user: \(error)")
         }
     }
     
     /// Force re-cache current user profile
     func forceCacheRefresh() async {
-        print("🔄 Forcing profile cache refresh...")
+        dlog("🔄 Forcing profile cache refresh...")
         await UserProfileImageCache.shared.cacheCurrentUserProfile()
         printCachedProfileData()
     }
@@ -125,16 +125,16 @@ class ProfilePictureDebugHelper {
     /// Force migration for current user's posts
     func forceMigrateCurrentUserPosts() async {
         guard let userId = Auth.auth().currentUser?.uid else {
-            print("❌ No authenticated user")
+            dlog("❌ No authenticated user")
             return
         }
         
         do {
-            print("🔄 Forcing migration for current user's posts...")
+            dlog("🔄 Forcing migration for current user's posts...")
             try await PostProfileImageMigration.shared.migratePostsForUser(userId: userId)
-            print("✅ Migration complete")
+            dlog("✅ Migration complete")
         } catch {
-            print("❌ Migration failed: \(error)")
+            dlog("❌ Migration failed: \(error)")
         }
     }
     
@@ -142,27 +142,27 @@ class ProfilePictureDebugHelper {
     func resetMigrationFlags() {
         UserDefaults.standard.removeObject(forKey: "hasRunPostProfileImageMigration_v1")
         UserDefaults.standard.removeObject(forKey: "hasRunUserSearchMigration_v1")
-        print("✅ Migration flags reset - restart app to run migrations again")
+        dlog("✅ Migration flags reset - restart app to run migrations again")
     }
     
     /// Complete diagnostic check
     func runFullDiagnostic() async {
-        print("\n🔍 === PROFILE PICTURE DIAGNOSTIC ===\n")
+        dlog("\n🔍 === PROFILE PICTURE DIAGNOSTIC ===\n")
         
-        print("1. Cached Profile Data:")
+        dlog("1. Cached Profile Data:")
         printCachedProfileData()
         
-        print("\n2. Firestore User Profile:")
+        dlog("\n2. Firestore User Profile:")
         await checkCurrentUserProfile()
         
-        print("\n3. Profile Image Statistics:")
+        dlog("\n3. Profile Image Statistics:")
         await getProfileImageStats()
         
-        print("\n4. Migration Status:")
+        dlog("\n4. Migration Status:")
         let hasRun = UserDefaults.standard.bool(forKey: "hasRunPostProfileImageMigration_v1")
-        print("Migration has run: \(hasRun ? "✅ Yes" : "❌ No")")
+        dlog("Migration has run: \(hasRun ? "✅ Yes" : "❌ No")")
         
-        print("\n====================================\n")
+        dlog("\n====================================\n")
     }
 }
 #endif

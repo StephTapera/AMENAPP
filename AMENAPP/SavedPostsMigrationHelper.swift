@@ -23,7 +23,7 @@ struct SavedPostsMigrationHelper {
             ])
         }
         
-        print("🔄 Starting migration from Firestore to RTDB...")
+        dlog("🔄 Starting migration from Firestore to RTDB...")
         
         let db = Firestore.firestore()
         let rtdbService = RealtimeSavedPostsService.shared
@@ -33,7 +33,7 @@ struct SavedPostsMigrationHelper {
             .whereField("userId", isEqualTo: userId)
             .getDocuments()
         
-        print("📥 Found \(snapshot.documents.count) saved posts in Firestore")
+        dlog("📥 Found \(snapshot.documents.count) saved posts in Firestore")
         
         var migratedCount = 0
         var errorCount = 0
@@ -43,7 +43,7 @@ struct SavedPostsMigrationHelper {
                 let data = document.data()
                 
                 guard let postId = data["postId"] as? String else {
-                    print("⚠️ Skipping document \(document.documentID) - missing postId")
+                    dlog("⚠️ Skipping document \(document.documentID) - missing postId")
                     errorCount += 1
                     continue
                 }
@@ -52,7 +52,7 @@ struct SavedPostsMigrationHelper {
                 let isAlreadySaved = try await rtdbService.isPostSaved(postId: postId)
                 
                 if isAlreadySaved {
-                    print("⏭️ Post \(postId) already in RTDB, skipping")
+                    dlog("⏭️ Post \(postId) already in RTDB, skipping")
                     continue
                 }
                 
@@ -60,21 +60,21 @@ struct SavedPostsMigrationHelper {
                 _ = try await rtdbService.toggleSavePost(postId: postId)
                 
                 migratedCount += 1
-                print("✅ Migrated post \(postId)")
+                dlog("✅ Migrated post \(postId)")
                 
                 // Small delay to avoid rate limiting
                 try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
                 
             } catch {
                 errorCount += 1
-                print("❌ Error migrating document \(document.documentID): \(error)")
+                dlog("❌ Error migrating document \(document.documentID): \(error)")
             }
         }
         
-        print("✅ Migration complete!")
-        print("   - Migrated: \(migratedCount)")
-        print("   - Skipped/Errors: \(errorCount)")
-        print("   - Total in Firestore: \(snapshot.documents.count)")
+        dlog("✅ Migration complete!")
+        dlog("   - Migrated: \(migratedCount)")
+        dlog("   - Skipped/Errors: \(errorCount)")
+        dlog("   - Total in Firestore: \(snapshot.documents.count)")
     }
     
     /// Clean up Firestore saved posts after successful migration
@@ -86,7 +86,7 @@ struct SavedPostsMigrationHelper {
             ])
         }
         
-        print("🗑️ Cleaning up Firestore saved posts...")
+        dlog("🗑️ Cleaning up Firestore saved posts...")
         
         let db = Firestore.firestore()
         
@@ -102,7 +102,7 @@ struct SavedPostsMigrationHelper {
         
         try await batch.commit()
         
-        print("✅ Deleted \(snapshot.documents.count) saved posts from Firestore")
+        dlog("✅ Deleted \(snapshot.documents.count) saved posts from Firestore")
     }
     
     /// Verify migration was successful by comparing counts
@@ -114,7 +114,7 @@ struct SavedPostsMigrationHelper {
             ])
         }
         
-        print("🔍 Verifying migration...")
+        dlog("🔍 Verifying migration...")
         
         let db = Firestore.firestore()
         let rtdbService = RealtimeSavedPostsService.shared
@@ -134,10 +134,10 @@ struct SavedPostsMigrationHelper {
             isSuccessful: rtdbCount >= firestoreCount
         )
         
-        print("📊 Migration Verification:")
-        print("   - Firestore: \(firestoreCount)")
-        print("   - RTDB: \(rtdbCount)")
-        print("   - Status: \(result.isSuccessful ? "✅ SUCCESS" : "⚠️ MISMATCH")")
+        dlog("📊 Migration Verification:")
+        dlog("   - Firestore: \(firestoreCount)")
+        dlog("   - RTDB: \(rtdbCount)")
+        dlog("   - Status: \(result.isSuccessful ? "✅ SUCCESS" : "⚠️ MISMATCH")")
         
         return result
     }

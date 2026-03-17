@@ -23,7 +23,7 @@ class AIToneGuidanceService: ObservableObject {
 
     private init() {
         self.apiKey = BundleConfig.string(forKey: "OPENAI_API_KEY") ?? ""
-        print("✅ AIToneGuidanceService initialized")
+        dlog("✅ AIToneGuidanceService initialized")
     }
 
     // MARK: - Models
@@ -153,7 +153,7 @@ class AIToneGuidanceService: ObservableObject {
                 let nsErr = error as NSError
                 if !(nsErr.domain == NSURLErrorDomain && nsErr.code == NSURLErrorCancelled)
                     && !(nsErr.domain == "NSURLErrorDomain" && nsErr.code == -999) {
-                    print("❌ [TONE] Analysis failed: \(error)")
+                    dlog("❌ [TONE] Analysis failed: \(error)")
                 }
                 await MainActor.run {
                     isAnalyzing = false

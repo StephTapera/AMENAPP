@@ -239,9 +239,9 @@ struct BereanConversationManagementView: View {
             try text.write(to: fileURL, atomically: true, encoding: .utf8)
             exportedFileURL = fileURL
             showingShareSheet = true
-            print("✅ Exported to: \(fileURL.path)")
+            dlog("✅ Exported to: \(fileURL.path)")
         } catch {
-            print("❌ Failed to save file: \(error)")
+            dlog("❌ Failed to save file: \(error)")
         }
     }
     
@@ -253,9 +253,9 @@ struct BereanConversationManagementView: View {
             try data.write(to: fileURL)
             exportedFileURL = fileURL
             showingShareSheet = true
-            print("✅ Exported to: \(fileURL.path)")
+            dlog("✅ Exported to: \(fileURL.path)")
         } catch {
-            print("❌ Failed to save file: \(error)")
+            dlog("❌ Failed to save file: \(error)")
         }
     }
 }

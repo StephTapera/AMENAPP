@@ -73,7 +73,7 @@ class SmartNotificationService {
         message: String
     ) async throws {
         
-        print("📬 [SMART_NOTIF] Queuing \(type.rawValue) notification for user \(recipientId)")
+        dlog("📬 [SMART_NOTIF] Queuing \(type.rawValue) notification for user \(recipientId)")
         
         // Step 1: Check if user has similar pending notifications
         let existingBatch = try await findExistingBatch(
@@ -89,7 +89,7 @@ class SmartNotificationService {
                 senderId: senderId
             )
             
-            print("📬 [SMART_NOTIF] Added to existing batch \(batch.batchId)")
+            dlog("📬 [SMART_NOTIF] Added to existing batch \(batch.batchId)")
             
         } else {
             // Create new batch
@@ -101,7 +101,7 @@ class SmartNotificationService {
                 message: message
             )
             
-            print("📬 [SMART_NOTIF] Created new batch \(batchId)")
+            dlog("📬 [SMART_NOTIF] Created new batch \(batchId)")
             
             // Schedule batch delivery based on user preferences
             try await scheduleBatchDelivery(batchId: batchId, recipientId: recipientId)
@@ -187,7 +187,7 @@ class SmartNotificationService {
         // Calculate optimal delivery time
         let deliveryTime = calculateOptimalDeliveryTime(preferences: preferences)
         
-        print("📬 [SMART_NOTIF] Scheduled batch \(batchId) for delivery at \(deliveryTime)")
+        dlog("📬 [SMART_NOTIF] Scheduled batch \(batchId) for delivery at \(deliveryTime)")
         
         // Schedule Cloud Function to deliver batch
         try await db.collection("scheduledBatches")
@@ -293,7 +293,7 @@ class SmartNotificationService {
                 "deliveredAt": FieldValue.serverTimestamp()
             ])
         
-        print("📬 [SMART_NOTIF] Delivered batch \(batch.batchId): \(title)")
+        dlog("📬 [SMART_NOTIF] Delivered batch \(batch.batchId): \(title)")
     }
     
     /// Generate smart content for batched notification
@@ -374,7 +374,7 @@ class SmartNotificationService {
                 "lastUpdated": FieldValue.serverTimestamp()
             ])
         
-        print("📬 [SMART_NOTIF] Updated preferences for user \(userId)")
+        dlog("📬 [SMART_NOTIF] Updated preferences for user \(userId)")
     }
 }
 

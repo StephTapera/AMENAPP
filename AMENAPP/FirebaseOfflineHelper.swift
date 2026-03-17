@@ -31,7 +31,7 @@ class FirebaseOfflineHelper {
     ) async throws -> T? where T: Codable {
         // Check network first
         guard AMENNetworkMonitor.shared.isConnected else {
-            print("⚠️ Offline - attempting to use cached value for: \(path)")
+            dlog("⚠️ Offline - attempting to use cached value for: \(path)")
             
             if let cacheKey = cacheKey,
                let cached = getCachedValue(key: cacheKey, type: T.self) {
@@ -61,12 +61,12 @@ class FirebaseOfflineHelper {
             
             return decoded
         } catch {
-            print("❌ Firebase query failed: \(error.localizedDescription)")
+            dlog("❌ Firebase query failed: \(error.localizedDescription)")
             
             // Try cache as fallback
             if let cacheKey = cacheKey,
                let cached = getCachedValue(key: cacheKey, type: T.self) {
-                print("✅ Using cached fallback for: \(path)")
+                dlog("✅ Using cached fallback for: \(path)")
                 return cached
             }
             
@@ -107,7 +107,7 @@ class FirebaseOfflineHelper {
             
             return exists
         } catch {
-            print("⚠️ Failed to check status for \(path): \(error.localizedDescription)")
+            dlog("⚠️ Failed to check status for \(path): \(error.localizedDescription)")
             
             // Fallback to cache
             if let cacheKey = cacheKey {
@@ -133,7 +133,7 @@ class FirebaseOfflineHelper {
         // Check network
         guard AMENNetworkMonitor.shared.isConnected else {
             if queueIfOffline {
-                print("📥 Queuing write for when online: \(path)")
+                dlog("📥 Queuing write for when online: \(path)")
                 OfflineWriteQueue.shared.queue(path: path, value: value)
             } else {
                 throw NSError(
@@ -149,7 +149,7 @@ class FirebaseOfflineHelper {
         let ref = Database.database().reference(withPath: path)
         try await ref.setValue(value)
         
-        print("✅ Successfully wrote to \(path)")
+        dlog("✅ Successfully wrote to \(path)")
     }
     
     // MARK: - Caching Helpers
@@ -159,7 +159,7 @@ class FirebaseOfflineHelper {
             let data = try JSONEncoder().encode(value)
             UserDefaults.standard.set(data, forKey: "firebase_cache_\(key)")
         } catch {
-            print("⚠️ Failed to cache value for key \(key): \(error)")
+            dlog("⚠️ Failed to cache value for key \(key): \(error)")
         }
     }
     
@@ -171,7 +171,7 @@ class FirebaseOfflineHelper {
         do {
             return try JSONDecoder().decode(T.self, from: data)
         } catch {
-            print("⚠️ Failed to decode cached value for key \(key): \(error)")
+            dlog("⚠️ Failed to decode cached value for key \(key): \(error)")
             return nil
         }
     }
@@ -185,7 +185,7 @@ class FirebaseOfflineHelper {
         for key in keys where key.hasPrefix("firebase_cache_") {
             UserDefaults.standard.removeObject(forKey: key)
         }
-        print("🗑️ Cleared all Firebase cache")
+        dlog("🗑️ Cleared all Firebase cache")
     }
 }
 
@@ -210,7 +210,7 @@ class OfflineWriteQueue: ObservableObject {
     func queue(path: String, value: Any) {
         pendingWrites.append((path, value))
         savePendingWrites()
-        print("📥 Queued write: \(path) (\(pendingWrites.count) pending)")
+        dlog("📥 Queued write: \(path) (\(pendingWrites.count) pending)")
     }
     
     @objc private func networkStatusChanged() {
@@ -223,13 +223,13 @@ class OfflineWriteQueue: ObservableObject {
     
     func processQueue() async {
         guard AMENNetworkMonitor.shared.isConnected else {
-            print("⚠️ Still offline - cannot process queue")
+            dlog("⚠️ Still offline - cannot process queue")
             return
         }
         
         guard !pendingWrites.isEmpty else { return }
         
-        print("📤 Processing \(pendingWrites.count) queued writes...")
+        dlog("📤 Processing \(pendingWrites.count) queued writes...")
         
         let writes = pendingWrites
         pendingWrites.removeAll()
@@ -238,9 +238,9 @@ class OfflineWriteQueue: ObservableObject {
             do {
                 let ref = Database.database().reference(withPath: path)
                 try await ref.setValue(value)
-                print("✅ Processed queued write: \(path)")
+                dlog("✅ Processed queued write: \(path)")
             } catch {
-                print("❌ Failed to process write for \(path): \(error)")
+                dlog("❌ Failed to process write for \(path): \(error)")
                 // Re-queue on failure
                 pendingWrites.append((path, value))
             }

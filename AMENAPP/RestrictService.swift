@@ -36,7 +36,7 @@ final class RestrictService {
             let ids = doc.data()?["restrictedUsers"] as? [String] ?? []
             restrictedUserIds = Set(ids)
         } catch {
-            print("⚠️ [RestrictService] Load failed: \(error)")
+            dlog("⚠️ [RestrictService] Load failed: \(error)")
         }
     }
 
@@ -87,7 +87,7 @@ final class RestrictService {
                 "restrictedUsers": Array(restrictedUserIds)
             ])
         } catch {
-            print("⚠️ [RestrictService] Save failed: \(error)")
+            dlog("⚠️ [RestrictService] Save failed: \(error)")
         }
     }
 }

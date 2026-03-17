@@ -16,6 +16,7 @@ struct BereanAIAssistantView: View {
     var initialQuery: String? = nil
     
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var scenePhase  // FIX 4: Detect background/foreground
     @StateObject private var viewModel = BereanViewModel()
     @State private var messageText = ""
     @State private var showSuggestions = true
@@ -126,6 +127,10 @@ struct BereanAIAssistantView: View {
     @State private var showFirstTimeLongPressHint = false
     @AppStorage("hasSeenBereanLongPressHint") private var hasSeenLongPressHint = false
     @AppStorage("berean_composer_draft") private var composerDraft = ""
+    // FIX 4: Persist streaming state across background/foreground transitions
+    @AppStorage("berean_partial_response") private var persistedPartialResponse = ""
+    @AppStorage("berean_interrupted_query") private var persistedInterruptedQuery = ""
+    @State private var streamWasInterrupted = false
     
     // Welcome section animations
     @State private var bibleIconScale: CGFloat = 0.5
@@ -155,6 +160,7 @@ struct BereanAIAssistantView: View {
     // → results transition, matching the reference prompt state machine.
     @State private var inputBarExpanded = false    // true when user has typed text
     @State private var shimmerOffset: CGFloat = -1 // animates 0→1 for the searching shimmer
+    @State private var inputPulseOn = false        // breathing border pulse when idle
     
     private func startWelcomeTextRotation() {
         // ✅ Change welcome text only on view appear (not continuously)
@@ -605,7 +611,7 @@ struct BereanAIAssistantView: View {
                     },
                     onSavedPrompts: {
                         // Show saved prompts
-                        print("Saved prompts tapped")
+                        dlog("Saved prompts tapped")
                     }
                 )
                 .transition(.asymmetric(
@@ -716,6 +722,55 @@ struct BereanAIAssistantView: View {
             // Persist composer draft so it survives navigation
             composerDraft = messageText
         }
+        // FIX 4: Handle streaming reconnect on background/foreground transitions.
+        // When the app is backgrounded mid-stream, URLSession is suspended and the
+        // response terminates. We save enough state to surface a "Resume" prompt on return.
+        .onChange(of: scenePhase) { _, newPhase in
+            switch newPhase {
+            case .background:
+                // If a stream is active, stop generation and persist the partial response
+                // so the user doesn't lose context on foreground.
+                if isGenerating {
+                    // Capture partial content from the last assistant message
+                    let partial = viewModel.messages.last(where: { $0.role == .assistant })?.content ?? ""
+                    let query = viewModel.messages.last(where: { $0.role == .user })?.content ?? ""
+                    if !partial.isEmpty {
+                        persistedPartialResponse = partial
+                        persistedInterruptedQuery = query
+                        streamWasInterrupted = true
+                    }
+                    viewModel.stopGeneration()
+                    withAnimation(.easeOut(duration: 0.3)) {
+                        isThinking = false
+                        isGenerating = false
+                    }
+                }
+            case .active:
+                // If stream was interrupted, show "Tap to continue" so user can re-ask.
+                // We don't auto-restart because the stream state is gone; a fresh request
+                // is required. The persisted query is restored to the input field so a
+                // single tap re-sends it.
+                if streamWasInterrupted {
+                    streamWasInterrupted = false
+                    let savedQuery = persistedInterruptedQuery
+                    let savedPartial = persistedPartialResponse
+                    persistedPartialResponse = ""
+                    persistedInterruptedQuery = ""
+
+                    // Only prompt resume if there was a meaningful partial response
+                    if !savedQuery.isEmpty, !savedPartial.isEmpty {
+                        messageText = savedQuery
+                        // Brief delay so the view is fully active before showing the toast/banner
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                            showError = .unknown("Response was interrupted. Tap Send to continue.")
+                            showErrorBanner = true
+                        }
+                    }
+                }
+            default:
+                break
+            }
+        }
     }
     
     // MARK: - Share to OpenTable Feed
@@ -781,7 +836,7 @@ struct BereanAIAssistantView: View {
                     }
                 }
             } catch let error as BereanError {
-                print("❌ Berean error sharing to feed: \(error.localizedDescription)")
+                dlog("❌ Berean error sharing to feed: \(error.localizedDescription)")
                 
                 let haptic = UINotificationFeedbackGenerator()
                 haptic.notificationOccurred(.error)
@@ -791,7 +846,7 @@ struct BereanAIAssistantView: View {
                     showErrorBanner = true
                 }
             } catch {
-                print("❌ Failed to share to feed: \(error.localizedDescription)")
+                dlog("❌ Failed to share to feed: \(error.localizedDescription)")
                 
                 let haptic = UINotificationFeedbackGenerator()
                 haptic.notificationOccurred(.error)
@@ -1302,6 +1357,42 @@ struct BereanAIAssistantView: View {
             composerIconRow
         }
         .background(composerBackground)
+        // Breathing pulse border when idle, sharp border when focused
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(
+                    isInputFocused
+                        ? Color.black.opacity(0.22)
+                        : Color.black.opacity(inputPulseOn ? 0.14 : 0.0),
+                    lineWidth: 1.5
+                )
+                .animation(
+                    isInputFocused
+                        ? .easeOut(duration: 0.3)
+                        : .easeInOut(duration: 3.0).repeatForever(autoreverses: true),
+                    value: isInputFocused ? isInputFocused : inputPulseOn
+                )
+        )
+        // Subtle glow on focus
+        .shadow(
+            color: Color.black.opacity(isInputFocused ? 0.06 : 0),
+            radius: isInputFocused ? 8 : 0, x: 0, y: 0
+        )
+        .animation(.easeOut(duration: 0.35), value: isInputFocused)
+        .onChange(of: isInputFocused) { _, focused in
+            if focused {
+                inputPulseOn = false
+            } else {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    inputPulseOn = true
+                }
+            }
+        }
+        .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                inputPulseOn = true
+            }
+        }
     }
 
     private var composerDivider: some View {
@@ -1708,7 +1799,7 @@ struct BereanAIAssistantView: View {
     /// Handle plus button tap (add attachments/options)
     private func handlePlusButtonTap() {
         #if DEBUG
-        print("➕ Plus button tapped - Show attachment options")
+        dlog("➕ Plus button tapped - Show attachment options")
         #endif
         
         // Show quick actions menu
@@ -1829,7 +1920,7 @@ struct BereanAIAssistantView: View {
     private func retryLastMessage() {
         // Check network before retrying
         guard networkMonitor.isConnected else {
-            print("❌ Cannot retry - no network connection")
+            dlog("❌ Cannot retry - no network connection")
             showError = .networkUnavailable
             showErrorBanner = true
             return
@@ -1842,7 +1933,7 @@ struct BereanAIAssistantView: View {
         } else if let lastUserMessage = viewModel.messages.last(where: { $0.role == .user }) {
             messageToRetry = lastUserMessage.content
         } else {
-            print("⚠️ No message to retry")
+            dlog("⚠️ No message to retry")
             return
         }
         
@@ -1861,14 +1952,14 @@ struct BereanAIAssistantView: View {
             }
         }
         
-        print("🔄 Retrying message: \(messageToRetry.prefix(50))...")
+        dlog("🔄 Retrying message: \(messageToRetry.prefix(50))...")
         
         // ✅ Implement exponential backoff for retries
         let backoffDelay = pow(2.0, Double(min(retryAttempts, maxRetryAttempts))) * 0.5
         retryAttempts += 1
         
         if retryAttempts > maxRetryAttempts {
-            print("⚠️ Max retry attempts reached, resetting counter")
+            dlog("⚠️ Max retry attempts reached, resetting counter")
             retryAttempts = 0
         }
         
@@ -1881,7 +1972,7 @@ struct BereanAIAssistantView: View {
     /// Refresh the current conversation with pull-to-refresh
     @MainActor
     private func refreshConversation() async {
-        print("🔄 Refreshing conversation...")
+        dlog("🔄 Refreshing conversation...")
         
         // Add small delay for smooth pull-to-refresh animation
         try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
@@ -1893,7 +1984,7 @@ struct BereanAIAssistantView: View {
         let haptic = UIImpactFeedbackGenerator(style: .medium)
         haptic.impactOccurred()
         
-        print("✅ Conversation refreshed")
+        dlog("✅ Conversation refreshed")
     }
     
     /// Regenerate the last Berean response
@@ -1937,7 +2028,7 @@ struct BereanAIAssistantView: View {
         let haptic = UINotificationFeedbackGenerator()
         haptic.notificationOccurred(.success)
         
-        print("✅ New conversation started")
+        dlog("✅ New conversation started")
     }
     
     /// Clear all data
@@ -1956,7 +2047,7 @@ struct BereanAIAssistantView: View {
         let haptic = UINotificationFeedbackGenerator()
         haptic.notificationOccurred(.warning)
         
-        print("✅ All data cleared successfully")
+        dlog("✅ All data cleared successfully")
     }
     
     /// Handle Berean quick-action chip taps
@@ -1991,7 +2082,7 @@ struct BereanAIAssistantView: View {
         let haptic = UINotificationFeedbackGenerator()
         haptic.notificationOccurred(.success)
         
-        print("📸 Image uploaded - ready for analysis")
+        dlog("📸 Image uploaded - ready for analysis")
     }
     
     /// Handle verse reference tap to show full verse
@@ -2023,7 +2114,7 @@ struct BereanAIAssistantView: View {
         // Trim whitespace and check if empty
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedText.isEmpty else {
-            print("⚠️ Cannot send empty message")
+            dlog("⚠️ Cannot send empty message")
             return
         }
         
@@ -2031,32 +2122,32 @@ struct BereanAIAssistantView: View {
         if !isRetry {
             // Check if this is a duplicate of the last sent message
             if trimmedText == lastSentMessageText {
-                print("⚠️ Duplicate message detected, ignoring")
+                dlog("⚠️ Duplicate message detected, ignoring")
                 return
             }
             
             // Check debounce interval
             if let lastTime = lastSentTime, Date().timeIntervalSince(lastTime) < sendDebounceInterval {
-                print("⚠️ Message sent too quickly, debouncing")
+                dlog("⚠️ Message sent too quickly, debouncing")
                 return
             }
         }
         
         // ✅ P0-2: Prevent sending if already generating
         guard !isGenerating else {
-            print("⚠️ Already generating response, ignoring new message")
+            dlog("⚠️ Already generating response, ignoring new message")
             return
         }
         
         // ✅ Check if there's a pending request in the ViewModel
         guard viewModel.pendingRequestId == nil else {
-            print("⚠️ Request already in flight, ignoring duplicate")
+            dlog("⚠️ Request already in flight, ignoring duplicate")
             return
         }
         
         // ✅ Check Premium limits FIRST
         guard premiumManager.canSendMessage() else {
-            print("❌ Message limit reached")
+            dlog("❌ Message limit reached")
             showError = .rateLimitExceeded
             showErrorBanner = true
             
@@ -2084,7 +2175,7 @@ struct BereanAIAssistantView: View {
         
         // Check network connectivity
         guard networkMonitor.isConnected else {
-            print("❌ No network connection")
+            dlog("❌ No network connection")
             showError = .networkUnavailable
             showErrorBanner = true
             
@@ -2184,7 +2275,7 @@ struct BereanAIAssistantView: View {
                     
                     // ✅ Track usage for free tier users
                     premiumManager.incrementMessageCount()
-                    print("📊 Message count updated: \(premiumManager.freeMessagesUsed)/\(premiumManager.FREE_MESSAGES_PER_DAY)")
+                    dlog("📊 Message count updated: \(premiumManager.freeMessagesUsed)/\(premiumManager.FREE_MESSAGES_PER_DAY)")
                     
                     withAnimation(.easeOut(duration: 0.3)) {
                         isThinking = false
@@ -2212,11 +2303,11 @@ struct BereanAIAssistantView: View {
                         performanceMetrics.fastestResponse = min(performanceMetrics.fastestResponse, responseTime)
                         performanceMetrics.slowestResponse = max(performanceMetrics.slowestResponse, responseTime)
                         
-                        print("⚡ Performance: Response time: \(String(format: "%.2f", responseTime))s | Avg: \(String(format: "%.2f", performanceMetrics.averageResponseTime))s | Fastest: \(String(format: "%.2f", performanceMetrics.fastestResponse))s | Slowest: \(String(format: "%.2f", performanceMetrics.slowestResponse))s")
+                        dlog("⚡ Performance: Response time: \(String(format: "%.2f", responseTime))s | Avg: \(String(format: "%.2f", performanceMetrics.averageResponseTime))s | Fastest: \(String(format: "%.2f", performanceMetrics.fastestResponse))s | Slowest: \(String(format: "%.2f", performanceMetrics.slowestResponse))s")
                         
                         // ✅ Log warning if response is slow (> 5s)
                         if responseTime > 5.0 {
-                            print("⚠️ Slow response detected: \(String(format: "%.2f", responseTime))s")
+                            dlog("⚠️ Slow response detected: \(String(format: "%.2f", responseTime))s")
                         }
                     }
                     
@@ -2224,12 +2315,12 @@ struct BereanAIAssistantView: View {
                     let successHaptic = UINotificationFeedbackGenerator()
                     successHaptic.notificationOccurred(.success)
                     
-                    print("✅ Message sent and response received successfully")
+                    dlog("✅ Message sent and response received successfully")
                 }
             },
             onError: { error in
                 Task { @MainActor in
-                    print("❌ Error generating response: \(error.localizedDescription)")
+                    dlog("❌ Error generating response: \(error.localizedDescription)")
                     
                     // ✅ P0-4: Preserve failed message for retry
                     lastFailedMessageText = trimmedText
@@ -2615,10 +2706,25 @@ struct MessageBubbleView: View {
 
     var body: some View {
         // User messages: right-aligned bubble. Berean messages: full-width editorial layout.
-        if message.isFromUser {
-            userMessageBubble
-        } else {
-            bereanMessageBlock
+        Group {
+            if message.isFromUser {
+                userMessageBubble
+                    .opacity(appeared ? 1 : 0)
+                    .offset(x: appeared ? 0 : 24)
+                    .scaleEffect(appeared ? 1 : 0.94, anchor: .bottomTrailing)
+            } else {
+                bereanMessageBlock
+                    .opacity(appeared ? 1 : 0)
+                    .offset(x: appeared ? 0 : -24)
+                    .scaleEffect(appeared ? 1 : 0.94, anchor: .bottomLeading)
+            }
+        }
+        .animation(.spring(response: 0.45, dampingFraction: 0.78), value: appeared)
+        .onAppear {
+            guard !appeared else { return }
+            withAnimation(.spring(response: 0.45, dampingFraction: 0.78)) {
+                appeared = true
+            }
         }
     }
 
@@ -3108,7 +3214,7 @@ struct VerseReferenceChip: View {
         let haptic = UIImpactFeedbackGenerator(style: .medium)
         haptic.impactOccurred()
         
-        print("📖 Navigating to verse: \(reference)")
+        dlog("📖 Navigating to verse: \(reference)")
     }
 }
 
@@ -3684,7 +3790,7 @@ class BereanViewModel: ObservableObject {
     /// then patches it asynchronously with an AI-generated title).
     func saveCurrentConversation() {
         guard !messages.isEmpty else {
-            print("⚠️ No messages to save")
+            dlog("⚠️ No messages to save")
             return
         }
 
@@ -3697,7 +3803,7 @@ class BereanViewModel: ObservableObject {
 
         savedConversations.insert(conversation, at: 0)
         saveConversationsToUserDefaults()
-        print("✅ Conversation saved: \(conversation.title)")
+        dlog("✅ Conversation saved: \(conversation.title)")
 
         // Kick off AI title generation in background; it will patch the stored record when done
         generateAITitle(for: conversation.id)
@@ -3707,7 +3813,7 @@ class BereanViewModel: ObservableObject {
     func loadConversation(_ conversation: SavedConversation) {
         messages = conversation.messages
         selectedTranslation = conversation.translation
-        print("📖 Loaded conversation: \(conversation.title)")
+        dlog("📖 Loaded conversation: \(conversation.title)")
     }
     
     /// Delete a conversation
@@ -3715,7 +3821,7 @@ class BereanViewModel: ObservableObject {
         savedConversations.removeAll { $0.id == conversation.id }
         saveConversationsToUserDefaults()
         deleteConversationFromFirestore(conversation)
-        print("🗑️ Deleted conversation: \(conversation.title)")
+        dlog("🗑️ Deleted conversation: \(conversation.title)")
     }
 
     /// Toggle pin state for a conversation
@@ -3740,7 +3846,7 @@ class BereanViewModel: ObservableObject {
     /// Update conversation title
     func updateConversationTitle(_ conversation: SavedConversation, newTitle: String) {
         guard !newTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            print("⚠️ Cannot update with empty title")
+            dlog("⚠️ Cannot update with empty title")
             return
         }
         
@@ -3754,14 +3860,14 @@ class BereanViewModel: ObservableObject {
             )
             savedConversations[index] = updatedConversation
             saveConversationsToUserDefaults()
-            print("✏️ Updated conversation title: \(newTitle)")
+            dlog("✏️ Updated conversation title: \(newTitle)")
         }
     }
     
     /// Clear current messages
     func clearMessages() {
         messages = []
-        print("🗑️ Messages cleared")
+        dlog("🗑️ Messages cleared")
     }
 
     /// Remove the last assistant message so the caller can re-run generation.
@@ -3782,7 +3888,7 @@ class BereanViewModel: ObservableObject {
         guard let idx = messages.firstIndex(where: { $0.id == messageId }) else { return }
         // Keep everything up to (but not including) the target message
         messages = Array(messages.prefix(idx))
-        print("✏️ User message edited — thread rewound to \(idx) messages")
+        dlog("✏️ User message edited — thread rewound to \(idx) messages")
     }
     
     /// Clear all data (conversations + messages)
@@ -3790,7 +3896,7 @@ class BereanViewModel: ObservableObject {
         messages = []
         savedConversations = []
         UserDefaults.standard.removeObject(forKey: "berean_conversations")
-        print("🗑️ All data cleared")
+        dlog("🗑️ All data cleared")
     }
     
     /// Generate a short fallback title from the first user message (no network needed)
@@ -3839,9 +3945,9 @@ class BereanViewModel: ObservableObject {
         do {
             let data = try JSONEncoder().encode(savedConversations)
             UserDefaults.standard.set(data, forKey: "berean_conversations")
-            print("💾 Saved \(savedConversations.count) conversations to UserDefaults")
+            dlog("💾 Saved \(savedConversations.count) conversations to UserDefaults")
         } catch {
-            print("❌ Failed to save conversations: \(error.localizedDescription)")
+            dlog("❌ Failed to save conversations: \(error.localizedDescription)")
         }
         // Fire-and-forget cloud sync
         syncConversationsToFirestore()
@@ -3849,7 +3955,7 @@ class BereanViewModel: ObservableObject {
 
     private func loadSavedConversations() {
         guard let data = UserDefaults.standard.data(forKey: "berean_conversations") else {
-            print("ℹ️ No saved conversations found locally")
+            dlog("ℹ️ No saved conversations found locally")
             // Try cloud fallback
             fetchConversationsFromFirestore()
             return
@@ -3857,11 +3963,11 @@ class BereanViewModel: ObservableObject {
 
         do {
             savedConversations = try JSONDecoder().decode([SavedConversation].self, from: data)
-            print("📖 Loaded \(savedConversations.count) conversations from local cache")
+            dlog("📖 Loaded \(savedConversations.count) conversations from local cache")
             // Merge newer cloud data in background (non-blocking)
             fetchConversationsFromFirestore()
         } catch {
-            print("❌ Failed to decode local conversations — clearing cache: \(error.localizedDescription)")
+            dlog("❌ Failed to decode local conversations — clearing cache: \(error.localizedDescription)")
             UserDefaults.standard.removeObject(forKey: "berean_conversations")
             savedConversations = []
             fetchConversationsFromFirestore()
@@ -3901,7 +4007,7 @@ class BereanViewModel: ObservableObject {
                     "payload":     json   // full JSON blob for restoration
                 ], merge: true)
             }
-            print("☁️ Synced \(toSync.count) conversations to Firestore")
+            dlog("☁️ Synced \(toSync.count) conversations to Firestore")
         }
     }
 
@@ -3939,7 +4045,7 @@ class BereanViewModel: ObservableObject {
                         return $0.date > $1.date
                     }
                     self.saveConversationsToUserDefaults()
-                    print("☁️ Merged \(newFromCloud.count) conversations from Firestore")
+                    dlog("☁️ Merged \(newFromCloud.count) conversations from Firestore")
                 }
             }
         }
@@ -3958,19 +4064,19 @@ class BereanViewModel: ObservableObject {
             // Validate that it's a known translation
             if availableTranslations.contains(saved) {
                 selectedTranslation = saved
-                print("📖 Loaded translation preference: \(saved)")
+                dlog("📖 Loaded translation preference: \(saved)")
             } else {
-                print("⚠️ Invalid saved translation '\(saved)', using default")
+                dlog("⚠️ Invalid saved translation '\(saved)', using default")
                 selectedTranslation = "ESV"
             }
         } else {
-            print("ℹ️ No saved translation preference, using default: ESV")
+            dlog("ℹ️ No saved translation preference, using default: ESV")
         }
     }
     
     private func saveSelectedTranslation() {
         UserDefaults.standard.set(selectedTranslation, forKey: "berean_translation")
-        print("💾 Saved translation preference: \(selectedTranslation)")
+        dlog("💾 Saved translation preference: \(selectedTranslation)")
     }
     
     // MARK: - Stop Generation
@@ -3980,7 +4086,7 @@ class BereanViewModel: ObservableObject {
         currentTask?.cancel()
         currentTask = nil
         pendingRequestId = nil  // ✅ P0-1: Clear pending request
-        print("⏸️ Stopped AI generation")
+        dlog("⏸️ Stopped AI generation")
     }
 
     // MARK: - Continue Generating
@@ -4125,7 +4231,7 @@ class BereanViewModel: ObservableObject {
         // Cap queue at 20 entries to avoid unbounded growth
         if queue.count > 20 { queue = Array(queue.suffix(20)) }
         saveRetryQueue(queue)
-        print("📥 Queued for retry: \"\(String(messageText.prefix(40)))…\"")
+        dlog("📥 Queued for retry: \"\(String(messageText.prefix(40)))…\"")
     }
 
     /// Returns the oldest queued message and removes it from the queue.
@@ -4162,7 +4268,7 @@ class BereanViewModel: ObservableObject {
             let systemMessages = messages.prefix(2).filter { $0.role == .system }
             let recentMessages = messages.suffix(maxMessagesInMemory - systemMessages.count)
             messages = Array(systemMessages) + recentMessages
-            print("📉 Trimmed conversation history to \(messages.count) messages")
+            dlog("📉 Trimmed conversation history to \(messages.count) messages")
         }
     }
     
@@ -4215,12 +4321,12 @@ class BereanViewModel: ObservableObject {
     ) {
         // ✅ P0-1: Idempotency check
         guard !completedRequestIds.contains(requestId) else {
-            print("⏭️ Skipping duplicate request: \(requestId)")
+            dlog("⏭️ Skipping duplicate request: \(requestId)")
             return
         }
         
         guard pendingRequestId == nil || pendingRequestId == requestId else {
-            print("⚠️ Request already in flight, ignoring duplicate")
+            dlog("⚠️ Request already in flight, ignoring duplicate")
             return
         }
         
@@ -4228,7 +4334,7 @@ class BereanViewModel: ObservableObject {
         
         // Validate input
         guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            print("⚠️ Cannot generate response for empty query")
+            dlog("⚠️ Cannot generate response for empty query")
             onError(NSError(
                 domain: "BereanViewModel",
                 code: -1,
@@ -4242,7 +4348,7 @@ class BereanViewModel: ObservableObject {
         let recentHistory = Array(messages.suffix(contextWindow))
         
         let savedMessages = max(0, messages.count - contextWindow)
-        print("📊 Context: \(responseMode.rawValue) mode → \(contextWindow) messages (saved ~\(savedMessages) messages)")
+        dlog("📊 Context: \(responseMode.rawValue) mode → \(contextWindow) messages (saved ~\(savedMessages) messages)")
         
         // Cancel any existing task
         currentTask?.cancel()
@@ -4268,7 +4374,7 @@ class BereanViewModel: ObservableObject {
                 ) {
                     // ✅ Check if task was cancelled
                     if Task.isCancelled {
-                        print("⏸️ Generation cancelled by user")
+                        dlog("⏸️ Generation cancelled by user")
                         await MainActor.run {
                             self.pendingRequestId = nil
                         }
@@ -4278,7 +4384,7 @@ class BereanViewModel: ObservableObject {
                     // Check timeout
                     let elapsed = Date().timeIntervalSince(startTime)
                     if elapsed > requestTimeout {
-                        print("⏱️ Request timeout after \(elapsed) seconds")
+                        dlog("⏱️ Request timeout after \(elapsed) seconds")
                         throw NSError(
                             domain: "BereanViewModel",
                             code: -3,
@@ -4297,7 +4403,7 @@ class BereanViewModel: ObservableObject {
                 
                 // ✅ Check again before completing
                 guard !Task.isCancelled else {
-                    print("⏸️ Generation cancelled before completion")
+                    dlog("⏸️ Generation cancelled before completion")
                     await MainActor.run {
                         self.pendingRequestId = nil
                     }
@@ -4306,7 +4412,7 @@ class BereanViewModel: ObservableObject {
                 
                 // Validate response
                 guard !fullResponse.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-                    print("❌ Received empty response from AI")
+                    dlog("❌ Received empty response from AI")
                     await MainActor.run {
                         self.pendingRequestId = nil
                     }
@@ -4327,8 +4433,8 @@ class BereanViewModel: ObservableObject {
                 )
                 
                 let duration = Date().timeIntervalSince(startTime)
-                print("✅ Response generation completed in \(String(format: "%.2f", duration))s")
-                print("📊 Context used: \(contextWindow) messages | References found: \(verseReferences.count)")
+                dlog("✅ Response generation completed in \(String(format: "%.2f", duration))s")
+                dlog("📊 Context used: \(contextWindow) messages | References found: \(verseReferences.count)")
                 
                 await MainActor.run {
                     // ✅ P0-1: Mark request as completed
@@ -4346,7 +4452,7 @@ class BereanViewModel: ObservableObject {
                 
             } catch is CancellationError {
                 // Task was cancelled - don't report as error
-                print("⏸️ Generation task cancelled")
+                dlog("⏸️ Generation task cancelled")
                 await MainActor.run {
                     self.pendingRequestId = nil
                 }
@@ -4360,7 +4466,7 @@ class BereanViewModel: ObservableObject {
                     return
                 }
                 
-                print("❌ OpenAI error: \(error.localizedDescription)")
+                dlog("❌ OpenAI error: \(error.localizedDescription)")
                 await MainActor.run {
                     self.pendingRequestId = nil
                     onError(error)
@@ -4376,7 +4482,7 @@ class BereanViewModel: ObservableObject {
                     return
                 }
                 
-                print("❌ Unexpected error during streaming: \(error.localizedDescription)")
+                dlog("❌ Unexpected error during streaming: \(error.localizedDescription)")
                 await MainActor.run {
                     self.pendingRequestId = nil
                     onError(error)
@@ -4444,7 +4550,7 @@ class BereanViewModel: ObservableObject {
                             references.append(reference)
                         }
                     } else {
-                        print("⚠️ Invalid scripture reference detected and filtered: \(reference)")
+                        dlog("⚠️ Invalid scripture reference detected and filtered: \(reference)")
                     }
                 }
             }
@@ -4477,7 +4583,7 @@ class BereanViewModel: ObservableObject {
         
         // Validate book exists
         guard validBooks.contains(bookName) else {
-            print("⚠️ Invalid book name: \(bookName)")
+            dlog("⚠️ Invalid book name: \(bookName)")
             return false
         }
         
@@ -4491,7 +4597,7 @@ class BereanViewModel: ObservableObject {
         // Validate chapter range
         if let maxChapter = bookChapterCounts[bookName],
            chapter > maxChapter {
-            print("⚠️ Invalid chapter: \(bookName) only has \(maxChapter) chapters, got \(chapter)")
+            dlog("⚠️ Invalid chapter: \(bookName) only has \(maxChapter) chapters, got \(chapter)")
             return false
         }
         

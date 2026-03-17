@@ -119,18 +119,18 @@ struct GlassCircularButton: View {
         GlassActionPill(
             icons: ["paperclip", "face.smiling", "photo"],
             actions: [
-                { print("Attach") },
-                { print("Emoji") },
-                { print("Photo") }
+                { dlog("Attach") },
+                { dlog("Emoji") },
+                { dlog("Photo") }
             ]
         )
         
         GlassActionPill(
             icons: ["paperclip", "face.smiling", "photo"],
             actions: [
-                { print("Attach") },
-                { print("Emoji") },
-                { print("Photo") }
+                { dlog("Attach") },
+                { dlog("Emoji") },
+                { dlog("Photo") }
             ],
             isDisabled: true
         )
@@ -139,12 +139,12 @@ struct GlassCircularButton: View {
         HStack(spacing: 20) {
             GlassCircularButton(
                 icon: "paperplane.fill",
-                action: { print("Send") }
+                action: { dlog("Send") }
             )
             
             GlassCircularButton(
                 icon: "paperplane.fill",
-                action: { print("Send") },
+                action: { dlog("Send") },
                 isDisabled: true
             )
         }

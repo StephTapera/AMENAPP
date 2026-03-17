@@ -108,10 +108,10 @@ class EssentialBooksViewModel: ObservableObject {
                 }
             }
 
-            print("✅ Loaded all books data successfully")
+            dlog("✅ Loaded all books data successfully")
         } catch {
             errorMessage = "Failed to load books: \(error.localizedDescription)"
-            print("❌ Error loading books: \(error)")
+            dlog("❌ Error loading books: \(error)")
         }
         
         isLoading = false
@@ -138,7 +138,7 @@ class EssentialBooksViewModel: ObservableObject {
             allBooks = books
         } catch {
             errorMessage = "Failed to load books: \(error.localizedDescription)"
-            print("❌ Error loading books by category: \(error)")
+            dlog("❌ Error loading books by category: \(error)")
         }
         
         isLoading = false
@@ -158,7 +158,7 @@ class EssentialBooksViewModel: ObservableObject {
             searchResults = try await service.searchBooks(query: query)
         } catch {
             errorMessage = "Failed to search books: \(error.localizedDescription)"
-            print("❌ Error searching books: \(error)")
+            dlog("❌ Error searching books: \(error)")
         }
         
         isLoading = false
@@ -181,10 +181,10 @@ class EssentialBooksViewModel: ObservableObject {
                 savedBooks.append(book)
             }
             
-            print("✅ Book saved: \(book.title)")
+            dlog("✅ Book saved: \(book.title)")
         } catch {
             errorMessage = "Failed to save book: \(error.localizedDescription)"
-            print("❌ Error saving book: \(error)")
+            dlog("❌ Error saving book: \(error)")
         }
     }
     
@@ -200,10 +200,10 @@ class EssentialBooksViewModel: ObservableObject {
             // Update local state
             savedBooks.removeAll { $0.id == bookId }
             
-            print("✅ Book unsaved: \(book.title)")
+            dlog("✅ Book unsaved: \(book.title)")
         } catch {
             errorMessage = "Failed to unsave book: \(error.localizedDescription)"
-            print("❌ Error unsaving book: \(error)")
+            dlog("❌ Error unsaving book: \(error)")
         }
     }
     
@@ -220,7 +220,7 @@ class EssentialBooksViewModel: ObservableObject {
         do {
             try await service.incrementViewCount(bookId: bookId)
         } catch {
-            print("⚠️ Failed to increment view count: \(error)")
+            dlog("⚠️ Failed to increment view count: \(error)")
             // Don't show error to user - this is a background operation
         }
     }
@@ -239,10 +239,10 @@ class EssentialBooksViewModel: ObservableObject {
                 isRead: isRead
             )
             
-            print("✅ Reading progress updated: \(progress * 100)%")
+            dlog("✅ Reading progress updated: \(progress * 100)%")
         } catch {
             errorMessage = "Failed to update reading progress: \(error.localizedDescription)"
-            print("❌ Error updating reading progress: \(error)")
+            dlog("❌ Error updating reading progress: \(error)")
         }
     }
     
@@ -275,10 +275,10 @@ class EssentialBooksViewModel: ObservableObject {
                 reviewText: reviewText
             )
             
-            print("✅ Review submitted for: \(book.title)")
+            dlog("✅ Review submitted for: \(book.title)")
         } catch {
             errorMessage = "Failed to submit review: \(error.localizedDescription)"
-            print("❌ Error submitting review: \(error)")
+            dlog("❌ Error submitting review: \(error)")
         }
     }
     
@@ -291,7 +291,7 @@ class EssentialBooksViewModel: ObservableObject {
             return reviews
         } catch {
             errorMessage = "Failed to load reviews: \(error.localizedDescription)"
-            print("❌ Error fetching reviews: \(error)")
+            dlog("❌ Error fetching reviews: \(error)")
             return []
         }
     }

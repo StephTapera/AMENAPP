@@ -66,19 +66,19 @@ class AlgoliaSyncService {
         // Validate credentials
         guard !appID.isEmpty && appID != "YOUR_APP_ID",
               !writeKey.isEmpty && writeKey != "YOUR_WRITE_API_KEY" else {
-            print("⚠️ Algolia Write API Key not configured - syncing disabled")
-            print("   Update AlgoliaConfig.writeAPIKey to enable sync")
+            dlog("⚠️ Algolia Write API Key not configured - syncing disabled")
+            dlog("   Update AlgoliaConfig.writeAPIKey to enable sync")
             return
         }
         
         // Initialize write client with write/admin key
         do {
             writeClient = try SearchClient(appID: appID, apiKey: writeKey)
-            print("✅ Algolia sync service initialized")
-            print("   App ID: \(appID.prefix(8))...")
-            print("   Ready to sync data to Algolia")
+            dlog("✅ Algolia sync service initialized")
+            dlog("   App ID: \(appID.prefix(8))...")
+            dlog("   Ready to sync data to Algolia")
         } catch {
-            print("❌ Failed to initialize Algolia write client: \(error)")
+            dlog("❌ Failed to initialize Algolia write client: \(error)")
         }
     }
     
@@ -88,11 +88,11 @@ class AlgoliaSyncService {
     /// Call this when a user is created or updated
     func syncUser(userId: String, userData: [String: Any]) async throws {
         guard let client = writeClient else {
-            print("⚠️ Algolia sync disabled - skipping user sync")
+            dlog("⚠️ Algolia sync disabled - skipping user sync")
             return
         }
         
-        print("🔄 Syncing user \(userId) to Algolia...")
+        dlog("🔄 Syncing user \(userId) to Algolia...")
         
         // Prepare user data for Algolia
         let algoliaRecord = AlgoliaUserRecord(
@@ -116,9 +116,9 @@ class AlgoliaSyncService {
                 body: algoliaRecord
             )
             
-            print("✅ User \(userId) synced to Algolia (task: \(response.taskID))")
+            dlog("✅ User \(userId) synced to Algolia (task: \(response.taskID))")
         } catch {
-            print("❌ Failed to sync user to Algolia: \(error)")
+            dlog("❌ Failed to sync user to Algolia: \(error)")
             throw error
         }
     }
@@ -127,11 +127,11 @@ class AlgoliaSyncService {
     /// Call this when a post is created or updated
     func syncPost(postId: String, postData: [String: Any]) async throws {
         guard let client = writeClient else {
-            print("⚠️ Algolia sync disabled - skipping post sync")
+            dlog("⚠️ Algolia sync disabled - skipping post sync")
             return
         }
         
-        print("🔄 Syncing post \(postId) to Algolia...")
+        dlog("🔄 Syncing post \(postId) to Algolia...")
         
         // Prepare post data for Algolia
         let category = postData["category"] as? String ?? "general"
@@ -156,9 +156,9 @@ class AlgoliaSyncService {
                 body: algoliaRecord
             )
             
-            print("✅ Post \(postId) synced to Algolia (task: \(response.taskID))")
+            dlog("✅ Post \(postId) synced to Algolia (task: \(response.taskID))")
         } catch {
-            print("❌ Failed to sync post to Algolia: \(error)")
+            dlog("❌ Failed to sync post to Algolia: \(error)")
             throw error
         }
     }
@@ -169,20 +169,20 @@ class AlgoliaSyncService {
     /// Call this when a user is deleted or account is deactivated
     func deleteUser(userId: String) async throws {
         guard let client = writeClient else {
-            print("⚠️ Algolia sync disabled - skipping user deletion")
+            dlog("⚠️ Algolia sync disabled - skipping user deletion")
             return
         }
         
-        print("🗑️ Deleting user \(userId) from Algolia...")
+        dlog("🗑️ Deleting user \(userId) from Algolia...")
         
         do {
             let response = try await client.deleteObject(
                 indexName: usersIndexName,
                 objectID: userId
             )
-            print("✅ User \(userId) deleted from Algolia (task: \(response.taskID))")
+            dlog("✅ User \(userId) deleted from Algolia (task: \(response.taskID))")
         } catch {
-            print("❌ Failed to delete user from Algolia: \(error)")
+            dlog("❌ Failed to delete user from Algolia: \(error)")
             throw error
         }
     }
@@ -191,20 +191,20 @@ class AlgoliaSyncService {
     /// Call this when a post is deleted
     func deletePost(postId: String) async throws {
         guard let client = writeClient else {
-            print("⚠️ Algolia sync disabled - skipping post deletion")
+            dlog("⚠️ Algolia sync disabled - skipping post deletion")
             return
         }
         
-        print("🗑️ Deleting post \(postId) from Algolia...")
+        dlog("🗑️ Deleting post \(postId) from Algolia...")
         
         do {
             let response = try await client.deleteObject(
                 indexName: postsIndexName,
                 objectID: postId
             )
-            print("✅ Post \(postId) deleted from Algolia (task: \(response.taskID))")
+            dlog("✅ Post \(postId) deleted from Algolia (task: \(response.taskID))")
         } catch {
-            print("❌ Failed to delete post from Algolia: \(error)")
+            dlog("❌ Failed to delete post from Algolia: \(error)")
             throw error
         }
     }
@@ -226,7 +226,7 @@ class AlgoliaSyncService {
         let batchSize = 500
         var lastDocument: DocumentSnapshot? = nil
         var totalSynced = 0
-        print("🔄 Starting bulk user sync (all users, batch size: \(batchSize))...")
+        dlog("🔄 Starting bulk user sync (all users, batch size: \(batchSize))...")
 
         repeat {
             // Build paginated query
@@ -267,14 +267,14 @@ class AlgoliaSyncService {
             )
             totalSynced += records.count
             let taskIDs = responses.map { String($0.taskID) }.joined(separator: ", ")
-            print("✅ Synced batch of \(records.count) users (total: \(totalSynced), tasks: \(taskIDs))")
+            dlog("✅ Synced batch of \(records.count) users (total: \(totalSynced), tasks: \(taskIDs))")
 
             // If we got fewer than batchSize, we've reached the end
             if snapshot.documents.count < batchSize { break }
 
         } while true
 
-        print("✅ Bulk sync complete — \(totalSynced) users synced to Algolia")
+        dlog("✅ Bulk sync complete — \(totalSynced) users synced to Algolia")
     }
     
     /// Bulk sync all existing posts from Firestore to Algolia
@@ -288,14 +288,14 @@ class AlgoliaSyncService {
             )
         }
         
-        print("🔄 Starting bulk post sync (limit: \(limit))...")
+        dlog("🔄 Starting bulk post sync (limit: \(limit))...")
         
         // Fetch posts from Firestore
         let snapshot = try await db.collection("posts")
             .limit(to: limit)
             .getDocuments()
         
-        print("📥 Fetched \(snapshot.documents.count) posts from Firestore")
+        dlog("📥 Fetched \(snapshot.documents.count) posts from Firestore")
         
         var records: [AlgoliaPostRecord] = []
         
@@ -325,32 +325,32 @@ class AlgoliaSyncService {
                 objects: records
             )
             let taskIDs = responses.map { String($0.taskID) }.joined(separator: ", ")
-            print("✅ Bulk synced \(records.count) posts to Algolia (tasks: \(taskIDs))")
+            dlog("✅ Bulk synced \(records.count) posts to Algolia (tasks: \(taskIDs))")
         } else {
-            print("⚠️ No posts to sync")
+            dlog("⚠️ No posts to sync")
         }
     }
     
     /// Sync all data (users + posts) to Algolia
     /// Use this for initial setup to populate Algolia with existing Firestore data
     func syncAllData() async throws {
-        print("🚀 Starting full data sync to Algolia...")
+        dlog("🚀 Starting full data sync to Algolia...")
         
         // Sync users
         do {
             try await bulkSyncUsers()
         } catch {
-            print("❌ User sync failed: \(error)")
+            dlog("❌ User sync failed: \(error)")
         }
         
         // Sync posts
         do {
             try await bulkSyncPosts()
         } catch {
-            print("❌ Post sync failed: \(error)")
+            dlog("❌ Post sync failed: \(error)")
         }
         
-        print("✅ Full data sync complete!")
+        dlog("✅ Full data sync complete!")
     }
 }
 
@@ -365,9 +365,9 @@ class AlgoliaSyncService {
  Task {
      do {
          try await AlgoliaSyncService.shared.syncAllData()
-         print("All data synced to Algolia!")
+         dlog("All data synced to Algolia!")
      } catch {
-         print("Sync failed: \(error)")
+         dlog("Sync failed: \(error)")
      }
  }
  

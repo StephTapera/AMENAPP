@@ -97,14 +97,14 @@ class UserSearchMigration: ObservableObject {
             """
             
             // Log results
-            print("\n" + String(repeating: "=", count: 50))
-            print("USER SEARCH MIGRATION COMPLETE")
-            print(String(repeating: "=", count: 50))
-            print("Total: \(totalUsers)")
-            print("Fixed: \(fixedCount)")
-            print("Skipped: \(skippedCount)")
-            print("Errors: \(errorCount)")
-            print(String(repeating: "=", count: 50) + "\n")
+            dlog("\n" + String(repeating: "=", count: 50))
+            dlog("USER SEARCH MIGRATION COMPLETE")
+            dlog(String(repeating: "=", count: 50))
+            dlog("Total: \(totalUsers)")
+            dlog("Fixed: \(fixedCount)")
+            dlog("Skipped: \(skippedCount)")
+            dlog("Errors: \(errorCount)")
+            dlog(String(repeating: "=", count: 50) + "\n")
             
         } catch {
             currentStatus = "❌ Migration failed: \(error.localizedDescription)"
@@ -154,13 +154,13 @@ class UserSearchMigration: ObservableObject {
         if operationCount > 0 {
             do {
                 try await batch.commit()
-                print("✅ Batch commit successful: \(operationCount) users updated")
+                dlog("✅ Batch commit successful: \(operationCount) users updated")
             } catch {
-                print("❌ Batch commit failed: \(error.localizedDescription)")
+                dlog("❌ Batch commit failed: \(error.localizedDescription)")
                 
                 // Retry logic
                 if retryCount < maxRetries {
-                    print("🔄 Retrying batch (attempt \(retryCount + 1)/\(maxRetries))...")
+                    dlog("🔄 Retrying batch (attempt \(retryCount + 1)/\(maxRetries))...")
                     try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second delay
                     return await processBatchWithRetry(users: users, retryCount: retryCount + 1)
                 } else {
@@ -191,7 +191,7 @@ class UserSearchMigration: ObservableObject {
             
             guard let username = data["username"] as? String,
                   let displayName = data["displayName"] as? String else {
-                print("⚠️ User \(document.documentID) missing required fields, skipping")
+                dlog("⚠️ User \(document.documentID) missing required fields, skipping")
                 continue
             }
             

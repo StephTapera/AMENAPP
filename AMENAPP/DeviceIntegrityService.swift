@@ -63,7 +63,7 @@ final class DeviceIntegrityService {
         if failedLoginCount >= 5 {
             // Lock for 15 minutes
             loginLockUntil = Date().addingTimeInterval(15 * 60)
-            print("⚠️ [DeviceIntegrity] Login locked after \(failedLoginCount) failures")
+            dlog("⚠️ [DeviceIntegrity] Login locked after \(failedLoginCount) failures")
         }
     }
 
@@ -92,7 +92,7 @@ final class DeviceIntegrityService {
 
         // Check for burst
         if timestamps.count > burstThreshold {
-            print("⚠️ [DeviceIntegrity] Burst detected: \(timestamps.count) \(action) actions in \(burstWindow)s")
+            dlog("⚠️ [DeviceIntegrity] Burst detected: \(timestamps.count) \(action) actions in \(burstWindow)s")
             incrementSuspiciousScore(reason: "burst_\(action)")
             return (false, "You're performing this action too quickly. Please wait a moment.")
         }

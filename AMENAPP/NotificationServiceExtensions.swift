@@ -63,7 +63,7 @@ extension NotificationService {
         
         for document in snapshot.documents {
             try await document.reference.delete()
-            print("🗑️ Deleted old follow notification from \(actorId)")
+            dlog("🗑️ Deleted old follow notification from \(actorId)")
         }
         
         // Also remove from local array
@@ -78,7 +78,7 @@ extension NotificationService {
     func cleanupDuplicateFollowNotifications() async {
         guard let userId = Auth.auth().currentUser?.uid else { return }
         
-        print("🧹 Cleaning up duplicate follow notifications...")
+        dlog("🧹 Cleaning up duplicate follow notifications...")
         
         do {
             let snapshot = try await db.collection("notifications")
@@ -107,18 +107,18 @@ extension NotificationService {
                 // Delete all except the first (most recent)
                 for document in sorted.dropFirst() {
                     try await document.reference.delete()
-                    print("🗑️ Deleted duplicate follow notification from \(actorId)")
+                    dlog("🗑️ Deleted duplicate follow notification from \(actorId)")
                 }
             }
             
-            print("✅ Cleanup complete")
+            dlog("✅ Cleanup complete")
             // Do NOT call refresh() here — the Firestore real-time listener delivers
             // the updated notification set automatically after any deletes land.
             // Calling refresh() unconditionally set isLoading=true on every tab visit
             // even when no duplicates were found, causing a skeleton flash.
             
         } catch {
-            print("❌ Error cleaning up duplicates: \(error)")
+            dlog("❌ Error cleaning up duplicates: \(error)")
         }
     }
 }

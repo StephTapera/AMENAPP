@@ -220,7 +220,7 @@ class MockSearchService: ObservableObject {
     func search(query: String, filter: SearchFilter = .all) async throws -> [AppSearchResult] {
         guard !query.isEmpty else { return [] }
         
-        print("🔍 Mock searching for: '\(query)'")
+        dlog("🔍 Mock searching for: '\(query)'")
         
         isSearching = true
         
@@ -263,7 +263,7 @@ class MockSearchService: ObservableObject {
             }
         }
         
-        print("✅ Found \(results.count) mock results")
+        dlog("✅ Found \(results.count) mock results")
         
         return results
     }

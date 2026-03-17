@@ -17,11 +17,11 @@ struct UserKeywordsMigration {
     static func migrateAllUsers() async throws {
         let db = Firestore.firestore()
         
-        print("🔄 Starting user migration to add nameKeywords...")
+        dlog("🔄 Starting user migration to add nameKeywords...")
         
         let usersSnapshot = try await db.collection("users").getDocuments()
         
-        print("📊 Found \(usersSnapshot.documents.count) users to check")
+        dlog("📊 Found \(usersSnapshot.documents.count) users to check")
         
         var updatedCount = 0
         var skippedCount = 0
@@ -37,7 +37,7 @@ struct UserKeywordsMigration {
             }
             
             guard let displayName = data["displayName"] as? String else {
-                print("⚠️ Skipping user \(document.documentID) - no displayName")
+                dlog("⚠️ Skipping user \(document.documentID) - no displayName")
                 skippedCount += 1
                 continue
             }
@@ -53,15 +53,15 @@ struct UserKeywordsMigration {
                 ])
                 
                 updatedCount += 1
-                print("✅ Updated user: \(displayName) with keywords: \(keywords)")
+                dlog("✅ Updated user: \(displayName) with keywords: \(keywords)")
                 
             } catch {
                 errorCount += 1
-                print("❌ Error updating user \(displayName): \(error)")
+                dlog("❌ Error updating user \(displayName): \(error)")
             }
         }
         
-        print("""
+        dlog("""
         
         🎉 Migration Complete!
         ✅ Updated: \(updatedCount) users
@@ -113,7 +113,7 @@ struct UserKeywordsMigration {
             }
         }
         
-        print("""
+        dlog("""
         📊 Migration Status:
         ✅ Already migrated: \(hasKeywords) users
         ⚠️ Need migration: \(needsMigration) users
@@ -137,7 +137,7 @@ struct UserKeywordsMigration {
          do {
              try await UserKeywordsMigration.migrateAllUsers()
          } catch {
-             print("Migration error: \(error)")
+             dlog("Migration error: \(error)")
          }
      }
  }
@@ -147,7 +147,7 @@ struct UserKeywordsMigration {
  Task {
      let status = try await UserKeywordsMigration.checkMigrationStatus()
      if status.needsMigration > 0 {
-         print("⚠️ \(status.needsMigration) users need migration")
+         dlog("⚠️ \(status.needsMigration) users need migration")
          // Optionally run migration automatically
      }
  }

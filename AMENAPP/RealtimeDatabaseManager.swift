@@ -137,13 +137,13 @@ class RealtimeDatabaseManager {
     /// Add a comment to a post
     func addComment(postId: String, text: String, completion: ((String?) -> Void)? = nil) {
         guard let userId = currentUserId, let userName = currentUserName else {
-            print("❌ RealtimeDB: Cannot add comment - user not authenticated")
+            dlog("❌ RealtimeDB: Cannot add comment - user not authenticated")
             completion?(nil)
             return
         }
         
         guard let commentId = database.child("postInteractions/\(postId)/comments").childByAutoId().key else {
-            print("❌ RealtimeDB: Failed to generate comment ID")
+            dlog("❌ RealtimeDB: Failed to generate comment ID")
             completion?(nil)
             return
         }
@@ -157,10 +157,10 @@ class RealtimeDatabaseManager {
                 "replyCount": 0
             ]) { error, _ in
                 if let error = error {
-                    print("❌ RealtimeDB: Failed to add comment - \(error.localizedDescription)")
+                    dlog("❌ RealtimeDB: Failed to add comment - \(error.localizedDescription)")
                     completion?(nil)
                 } else {
-                    print("✅ RealtimeDB: Comment added successfully - \(commentId)")
+                    dlog("✅ RealtimeDB: Comment added successfully - \(commentId)")
                     completion?(commentId)
                 }
             }
@@ -435,7 +435,7 @@ class RealtimeDatabaseManager {
                     self?.database.child("prayerActivity/\(postId)/totalPrayerSessions")
                         .setValue(ServerValue.increment(1))
                     
-                    print("🙏 Started praying for post: \(postId)")
+                    dlog("🙏 Started praying for post: \(postId)")
                 }
                 completion?(error == nil)
             }
@@ -475,7 +475,7 @@ class RealtimeDatabaseManager {
                             self.database.child("prayerActivity/\(postId)/prayingNow")
                                 .setValue(ServerValue.increment(-1))
                             
-                            print("✅ Stopped praying for post: \(postId)")
+                            dlog("✅ Stopped praying for post: \(postId)")
                         }
                         completion?(error == nil)
                     }

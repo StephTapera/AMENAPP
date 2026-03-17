@@ -103,6 +103,8 @@ struct PostCard: View {
     
     // ✅ Real-time profile image
     @State private var currentProfileImageURL: String?
+    // P2 FIX: Live Firestore listener for author profile photo changes
+    @State private var authorProfileListener: ListenerRegistration?
     
     // Translation state — managed by TranslationService
     @State private var showTranslatedContent = false
@@ -1118,8 +1120,19 @@ struct PostCard: View {
         cardWithAlerts
             .pressableCard(scale: 0.985)   // A) Subtle press-down on the whole card
             .onAppear {
-                guard !cardAppeared else { return }
-                withAnimation { cardAppeared = true }
+                if !cardAppeared {
+                    withAnimation { cardAppeared = true }
+                }
+                // P2 FIX: Attach a lightweight Firestore listener for the author's profilePhotoURL
+                // so profile photo changes propagate to existing PostCards in real-time.
+                // Called unconditionally (outside the cardAppeared guard) so the listener
+                // is re-established after the card disappears and reappears.
+                startAuthorProfileListener()
+            }
+            .onDisappear {
+                // P2 FIX: Clean up the author profile listener to prevent memory growth.
+                authorProfileListener?.remove()
+                authorProfileListener = nil
             }
             .sheet(isPresented: $showBereanSheet) {
                 BereanAIAssistantView(initialQuery: bereanInitialQuery)
@@ -1132,6 +1145,24 @@ struct PostCard: View {
             }
             .task(id: content) {
                 await detectAndTranslatePost()
+            }
+    }
+
+    /// Start a lightweight Firestore listener on the author's user document for profilePhotoURL.
+    /// Keeps the avatar in PostCard up-to-date without a full post refresh.
+    private func startAuthorProfileListener() {
+        guard let post = post, !post.authorId.isEmpty else { return }
+        guard authorProfileListener == nil else { return }
+        let db = Firestore.firestore()
+        // Note: @State vars have reference-type storage so they can safely be mutated
+        // from within an @escaping closure in a SwiftUI struct without explicit [self] capture.
+        authorProfileListener = db.collection("users").document(post.authorId)
+            .addSnapshotListener { snapshot, error in
+                guard error == nil, let data = snapshot?.data() else { return }
+                if let url = data["profilePhotoURL"] as? String, !url.isEmpty,
+                   url != currentProfileImageURL {
+                    currentProfileImageURL = url
+                }
             }
     }
     

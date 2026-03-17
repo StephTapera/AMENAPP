@@ -268,7 +268,7 @@ actor CircuitBreaker {
         failureCounts[provider] = count
         if count >= failureThreshold {
             openUntil[provider] = Date().addingTimeInterval(cooldownSeconds)
-            print("⚡️ [CircuitBreaker] Provider '\(provider)' OPEN for \(cooldownSeconds)s after \(count) failures")
+            dlog("⚡️ [CircuitBreaker] Provider '\(provider)' OPEN for \(cooldownSeconds)s after \(count) failures")
         }
     }
 }
@@ -359,7 +359,7 @@ final class BereanOrchestrator {
             let providerKey = providerKeyString(providerKind)
             let isCircuitOpen = await circuitBreaker.isOpen(for: providerKey)
             if isCircuitOpen && providerKind != rule.emergency {
-                print("⚡️ [Orchestrator] Circuit open for \(providerKey) — trying next")
+                dlog("⚡️ [Orchestrator] Circuit open for \(providerKey) — trying next")
                 continue
             }
 
@@ -392,7 +392,7 @@ final class BereanOrchestrator {
             } catch {
                 await circuitBreaker.recordFailure(for: providerKey)
                 lastError = error
-                print("⚠️ [Orchestrator] Provider \(providerKey) failed: \(error.localizedDescription)")
+                dlog("⚠️ [Orchestrator] Provider \(providerKey) failed: \(error.localizedDescription)")
 
                 // Safety-critical: never fall through to emergency pass — emergency must still block
                 if request.taskType.isSafetyCritical && providerKind == rule.emergency {

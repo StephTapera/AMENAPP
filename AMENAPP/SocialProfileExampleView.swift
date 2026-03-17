@@ -237,7 +237,7 @@ struct SocialProfileExampleView: View {
             .navigationBarTitleDisplayMode(.inline)
             .sheet(isPresented: $showProfilePicker) {
                 ProfilePicturePicker { imageURL in
-                    print("✅ Profile picture uploaded: \(imageURL)")
+                    dlog("✅ Profile picture uploaded: \(imageURL)")
                     // Refresh user data
                     Task {
                         await userService.fetchCurrentUser()

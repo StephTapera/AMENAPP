@@ -286,7 +286,7 @@ class SafeConversationViewModel: ObservableObject {
             showSupportiveReplies = loadedSettings.showSupportiveReplySuggestions
             autoEnabledUntil = loadedSettings.autoEnabledUntil
         } catch {
-            print("⚠️ Failed to load safe conversation settings: \(error)")
+            dlog("⚠️ Failed to load safe conversation settings: \(error)")
         }
     }
     
@@ -308,9 +308,9 @@ class SafeConversationViewModel: ObservableObject {
         
         do {
             try await service.saveSettings(updatedSettings)
-            print("✅ Safe conversation settings saved")
+            dlog("✅ Safe conversation settings saved")
         } catch {
-            print("⚠️ Failed to save settings: \(error)")
+            dlog("⚠️ Failed to save settings: \(error)")
         }
     }
 }

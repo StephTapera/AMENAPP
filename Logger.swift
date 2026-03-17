@@ -68,10 +68,10 @@ struct Logger {
         let timestamp = dateFormatter.string(from: Date())
         
         #if DEBUG
-        print("\(timestamp) \(level.rawValue) [\(filename):\(line)] \(function) - \(message)")
+        dlog("\(timestamp) \(level.rawValue) [\(filename):\(line)] \(function) - \(message)")
         #else
         // Production: simplified output
-        print("\(level.rawValue) \(message)")
+        dlog("\(level.rawValue) \(message)")
         #endif
     }
     

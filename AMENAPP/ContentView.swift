@@ -6041,7 +6041,7 @@ struct TopIdeasView: View {
                 }
             }
         } catch {
-            print("❌ Failed to check covenant agreement: \(error)")
+            dlog("❌ Failed to check covenant agreement: \(error)")
         }
     }
     */

@@ -50,7 +50,7 @@ class BooksViewModel: ObservableObject {
         do {
             allBooks = try await apiService.fetchAllBooks()
         } catch {
-            print("❌ Error fetching all books: \(error)")
+            dlog("❌ Error fetching all books: \(error)")
             errorMessage = "Failed to load books"
         }
     }
@@ -59,7 +59,7 @@ class BooksViewModel: ObservableObject {
         do {
             featuredBooks = try await apiService.fetchFeaturedBooks(limit: 10)
         } catch {
-            print("❌ Error fetching featured books: \(error)")
+            dlog("❌ Error fetching featured books: \(error)")
         }
     }
     
@@ -67,7 +67,7 @@ class BooksViewModel: ObservableObject {
         do {
             trendingBooks = try await apiService.fetchTrendingBooks(limit: 10)
         } catch {
-            print("❌ Error fetching trending books: \(error)")
+            dlog("❌ Error fetching trending books: \(error)")
         }
     }
     
@@ -81,7 +81,7 @@ class BooksViewModel: ObservableObject {
         do {
             recommendedBooks = try await apiService.fetchRecommendedBooks(for: userId, limit: 10)
         } catch {
-            print("❌ Error fetching recommended books: \(error)")
+            dlog("❌ Error fetching recommended books: \(error)")
             // Fallback to featured books
             recommendedBooks = featuredBooks
         }
@@ -95,7 +95,7 @@ class BooksViewModel: ObservableObject {
         do {
             return try await apiService.fetchBooks(category: category.rawValue)
         } catch {
-            print("❌ Error fetching books for category \(category.rawValue): \(error)")
+            dlog("❌ Error fetching books for category \(category.rawValue): \(error)")
             return []
         }
     }
@@ -108,7 +108,7 @@ class BooksViewModel: ObservableObject {
         do {
             return try await apiService.searchBooks(query: query)
         } catch {
-            print("❌ Error searching books: \(error)")
+            dlog("❌ Error searching books: \(error)")
             return []
         }
     }
@@ -122,7 +122,7 @@ class BooksViewModel: ObservableObject {
             savedBooks = try await apiService.fetchSavedBooks(for: userId)
             savedBookIds = Set(savedBooks.compactMap { $0.id })
         } catch {
-            print("❌ Error loading saved books: \(error)")
+            dlog("❌ Error loading saved books: \(error)")
         }
     }
     
@@ -146,7 +146,7 @@ class BooksViewModel: ObservableObject {
                 savedBooks.append(book)
             }
         } catch {
-            print("❌ Error toggling save book: \(error)")
+            dlog("❌ Error toggling save book: \(error)")
             errorMessage = "Failed to save book"
         }
     }
@@ -164,7 +164,7 @@ class BooksViewModel: ObservableObject {
         do {
             try await apiService.incrementViewCount(bookId: bookId)
         } catch {
-            print("❌ Error incrementing view count: \(error)")
+            dlog("❌ Error incrementing view count: \(error)")
         }
     }
     
@@ -180,7 +180,7 @@ class BooksViewModel: ObservableObject {
                 isRead: isRead
             )
         } catch {
-            print("❌ Error updating reading progress: \(error)")
+            dlog("❌ Error updating reading progress: \(error)")
         }
     }
     

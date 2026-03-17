@@ -83,7 +83,7 @@ struct SearchKeywordsGenerator {
     static func updateAllUsersWithKeywords() async throws {
         let db = Firestore.firestore()
         
-        print("🔄 Starting batch update of user search keywords...")
+        dlog("🔄 Starting batch update of user search keywords...")
         
         let snapshot = try await db.collection("users").getDocuments()
         
@@ -96,7 +96,7 @@ struct SearchKeywordsGenerator {
                 
                 guard let displayName = data["displayName"] as? String,
                       let username = data["username"] as? String else {
-                    print("⚠️ Skipping user \(document.documentID) - missing required fields")
+                    dlog("⚠️ Skipping user \(document.documentID) - missing required fields")
                     continue
                 }
                 
@@ -112,20 +112,20 @@ struct SearchKeywordsGenerator {
                 ])
                 
                 updateCount += 1
-                print("✅ Updated user: @\(username) (\(keywords.count) keywords)")
+                dlog("✅ Updated user: @\(username) (\(keywords.count) keywords)")
                 
                 // Add small delay to avoid rate limiting
                 try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
                 
             } catch {
                 errorCount += 1
-                print("❌ Error updating user \(document.documentID): \(error)")
+                dlog("❌ Error updating user \(document.documentID): \(error)")
             }
         }
         
-        print("✅ Batch update complete!")
-        print("   - Successfully updated: \(updateCount) users")
-        print("   - Errors: \(errorCount)")
+        dlog("✅ Batch update complete!")
+        dlog("   - Successfully updated: \(updateCount) users")
+        dlog("   - Errors: \(errorCount)")
     }
     
     /// Update all existing groups with search keywords (run once)
@@ -133,7 +133,7 @@ struct SearchKeywordsGenerator {
     static func updateAllGroupsWithKeywords() async throws {
         let db = Firestore.firestore()
         
-        print("🔄 Starting batch update of group search keywords...")
+        dlog("🔄 Starting batch update of group search keywords...")
         
         let snapshot = try await db.collection("groups").getDocuments()
         
@@ -145,7 +145,7 @@ struct SearchKeywordsGenerator {
                 let data = document.data()
                 
                 guard let name = data["name"] as? String else {
-                    print("⚠️ Skipping group \(document.documentID) - missing name")
+                    dlog("⚠️ Skipping group \(document.documentID) - missing name")
                     continue
                 }
                 
@@ -163,27 +163,27 @@ struct SearchKeywordsGenerator {
                 ])
                 
                 updateCount += 1
-                print("✅ Updated group: \(name) (\(keywords.count) keywords)")
+                dlog("✅ Updated group: \(name) (\(keywords.count) keywords)")
                 
                 // Add small delay to avoid rate limiting
                 try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
                 
             } catch {
                 errorCount += 1
-                print("❌ Error updating group \(document.documentID): \(error)")
+                dlog("❌ Error updating group \(document.documentID): \(error)")
             }
         }
         
-        print("✅ Batch update complete!")
-        print("   - Successfully updated: \(updateCount) groups")
-        print("   - Errors: \(errorCount)")
+        dlog("✅ Batch update complete!")
+        dlog("   - Successfully updated: \(updateCount) groups")
+        dlog("   - Errors: \(errorCount)")
     }
     
     // MARK: - Create Firestore Indexes
     
     /// Print the Firestore indexes needed
     static func printRequiredIndexes() {
-        print("""
+        dlog("""
         
         📊 Required Firestore Indexes:
         

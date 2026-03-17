@@ -130,10 +130,10 @@ final class ModerationAuditLogService {
                 // Idempotent: use auditId as document ID so duplicate decisions don't create
                 // duplicate records (safe for retry).
                 try await collection.document(auditId).setData(entryData, merge: false)
-                print("📋 [Audit] \(surface.rawValue) → \(action.rawValue) recorded (\(auditId))")
+                dlog("📋 [Audit] \(surface.rawValue) → \(action.rawValue) recorded (\(auditId))")
             } catch {
                 // Audit failure must not block content — log and continue.
-                print("⚠️ [Audit] Failed to write audit log: \(error.localizedDescription)")
+                dlog("⚠️ [Audit] Failed to write audit log: \(error.localizedDescription)")
             }
         }
     }

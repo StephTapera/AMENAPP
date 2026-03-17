@@ -82,9 +82,9 @@ extension Task where Failure == Error {
          try await someNetworkCall()
      }
  } catch let error as TimeoutError {
-     print("⏱️ Timeout: \(error.localizedDescription)")
+     dlog("⏱️ Timeout: \(error.localizedDescription)")
      // Show user-friendly error
  } catch {
-     print("❌ Error: \(error)")
+     dlog("❌ Error: \(error)")
  }
  */

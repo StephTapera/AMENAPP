@@ -126,7 +126,7 @@ struct QuietBlockActionsMenu: View {
                     dismiss()
                 }
             } catch {
-                print("❌ Error performing quiet block: \(error)")
+                dlog("❌ Error performing quiet block: \(error)")
             }
         }
     }

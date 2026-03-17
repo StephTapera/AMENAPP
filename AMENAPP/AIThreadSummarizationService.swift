@@ -21,7 +21,7 @@ class AIThreadSummarizationService: ObservableObject {
     private let openAI = OpenAIService.shared
 
     private init() {
-        print("✅ AIThreadSummarizationService initialized")
+        dlog("✅ AIThreadSummarizationService initialized")
     }
 
     // MARK: - Models
@@ -53,7 +53,7 @@ class AIThreadSummarizationService: ObservableObject {
 
         // Check cache first
         if let cached = cachedSummaries[commentId], !cached.isExpired {
-            print("📦 [SUMMARY] Using cached summary for comment: \(commentId)")
+            dlog("📦 [SUMMARY] Using cached summary for comment: \(commentId)")
             return cached
         }
 
@@ -64,7 +64,7 @@ class AIThreadSummarizationService: ObservableObject {
         }
 
         // Generate new summary
-        print("🤖 [SUMMARY] Generating new summary for \(replies.count) replies...")
+        dlog("🤖 [SUMMARY] Generating new summary for \(replies.count) replies...")
         isGeneratingSummary = true
 
         do {
@@ -183,14 +183,14 @@ class AIThreadSummarizationService: ObservableObject {
 
             // Check if expired
             if threadSummary.isExpired {
-                print("⏰ [SUMMARY] Cached summary expired, will regenerate")
+                dlog("⏰ [SUMMARY] Cached summary expired, will regenerate")
                 return nil
             }
 
-            print("✅ [SUMMARY] Fetched cached summary from Firestore")
+            dlog("✅ [SUMMARY] Fetched cached summary from Firestore")
             return threadSummary
         } catch {
-            print("❌ [SUMMARY] Failed to fetch from Firestore: \(error)")
+            dlog("❌ [SUMMARY] Failed to fetch from Firestore: \(error)")
             return nil
         }
     }
@@ -205,14 +205,14 @@ class AIThreadSummarizationService: ObservableObject {
             "timestamp": Timestamp(date: summary.timestamp)
         ])
 
-        print("💾 [SUMMARY] Stored summary in Firestore")
+        dlog("💾 [SUMMARY] Stored summary in Firestore")
     }
 
     // MARK: - Helper Methods
 
     func clearCache() {
         cachedSummaries.removeAll()
-        print("🗑️ [SUMMARY] Cache cleared")
+        dlog("🗑️ [SUMMARY] Cache cleared")
     }
 
     func invalidateSummary(for commentId: String) {
@@ -221,7 +221,7 @@ class AIThreadSummarizationService: ObservableObject {
         // Also delete from Firestore
         Task {
             try? await db.collection("threadSummaries").document(commentId).delete()
-            print("🗑️ [SUMMARY] Invalidated summary for: \(commentId)")
+            dlog("🗑️ [SUMMARY] Invalidated summary for: \(commentId)")
         }
     }
 }

@@ -151,8 +151,8 @@ struct PrayerBreakModalView: View {
 
 #Preview {
     PrayerBreakModalView(
-        onPrayNow: { print("Pray Now") },
-        onRemindLater: { print("Remind Later") },
-        onSkip: { print("Skip") }
+        onPrayNow: { dlog("Pray Now") },
+        onRemindLater: { dlog("Remind Later") },
+        onSkip: { dlog("Skip") }
     )
 }

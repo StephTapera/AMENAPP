@@ -149,7 +149,7 @@ extension FirebasePostService {
             throw FirebaseError.unauthorized
         }
         
-        print("💾 Saving post: \(postId)")
+        dlog("💾 Saving post: \(postId)")
         
         let savedPostData: [String: Any] = [
             "userId": userId,
@@ -161,7 +161,7 @@ extension FirebasePostService {
             .document("\(userId)_\(postId)")
             .setData(savedPostData)
         
-        print("✅ Post saved successfully")
+        dlog("✅ Post saved successfully")
         
         // Haptic feedback
         let haptic = UINotificationFeedbackGenerator()
@@ -174,13 +174,13 @@ extension FirebasePostService {
             throw FirebaseError.unauthorized
         }
         
-        print("🗑️ Unsaving post: \(postId)")
+        dlog("🗑️ Unsaving post: \(postId)")
         
         try await db.collection(FirebaseManager.CollectionPath.savedPosts)
             .document("\(userId)_\(postId)")
             .delete()
         
-        print("✅ Post unsaved successfully")
+        dlog("✅ Post unsaved successfully")
         
         // Haptic feedback
         let haptic = UIImpactFeedbackGenerator(style: .light)
@@ -212,7 +212,7 @@ extension FirebasePostService {
             throw FirebaseError.unauthorized
         }
         
-        print("🚨 Reporting post: \(postId)")
+        dlog("🚨 Reporting post: \(postId)")
         
         let reportData: [String: Any] = [
             "postId": postId,
@@ -226,7 +226,7 @@ extension FirebasePostService {
         try await db.collection("postReports")
             .addDocument(data: reportData)
         
-        print("✅ Post reported successfully")
+        dlog("✅ Post reported successfully")
         
         // Haptic feedback
         let haptic = UINotificationFeedbackGenerator()
@@ -251,7 +251,7 @@ extension FirebasePostService {
             throw FirebaseError.unauthorized
         }
         
-        print("📌 Pinning post: \(postId)")
+        dlog("📌 Pinning post: \(postId)")
         
         // Mark post as pinned
         try await db.collection(FirebaseManager.CollectionPath.posts)
@@ -271,7 +271,7 @@ extension FirebasePostService {
             try await doc.reference.updateData(["isPinned": false])
         }
         
-        print("✅ Post pinned successfully")
+        dlog("✅ Post pinned successfully")
     }
     
     /// Unpin a post
@@ -280,7 +280,7 @@ extension FirebasePostService {
             throw FirebaseError.unauthorized
         }
         
-        print("📌 Unpinning post: \(postId)")
+        dlog("📌 Unpinning post: \(postId)")
         
         try await db.collection(FirebaseManager.CollectionPath.posts)
             .document(postId)
@@ -289,7 +289,7 @@ extension FirebasePostService {
                 "pinnedAt": FieldValue.delete()
             ])
         
-        print("✅ Post unpinned successfully")
+        dlog("✅ Post unpinned successfully")
     }
     
     // MARK: - Post Drafts
@@ -305,7 +305,7 @@ extension FirebasePostService {
             throw FirebaseError.unauthorized
         }
         
-        print("💾 Saving post draft...")
+        dlog("💾 Saving post draft...")
         
         // Upload images if any (as drafts)
         var imageURLs: [String]? = nil
@@ -336,7 +336,7 @@ extension FirebasePostService {
         let draftRef = try await db.collection("postDrafts")
             .addDocument(data: draftData)
         
-        print("✅ Draft saved with ID: \(draftRef.documentID)")
+        dlog("✅ Draft saved with ID: \(draftRef.documentID)")
         return draftRef.documentID
     }
     
@@ -346,7 +346,7 @@ extension FirebasePostService {
             throw FirebaseError.unauthorized
         }
         
-        print("📥 Loading drafts...")
+        dlog("📥 Loading drafts...")
         
         let snapshot = try await db.collection("postDrafts")
             .whereField("userId", isEqualTo: userId)
@@ -357,19 +357,19 @@ extension FirebasePostService {
             try doc.data(as: FirebasePostDraft.self)
         }
         
-        print("✅ Loaded \(drafts.count) drafts")
+        dlog("✅ Loaded \(drafts.count) drafts")
         return drafts
     }
     
     /// Delete draft
     func deleteDraft(draftId: String) async throws {
-        print("🗑️ Deleting draft: \(draftId)")
+        dlog("🗑️ Deleting draft: \(draftId)")
         
         try await db.collection("postDrafts")
             .document(draftId)
             .delete()
         
-        print("✅ Draft deleted successfully")
+        dlog("✅ Draft deleted successfully")
     }
     
     /// Publish draft as post
@@ -378,7 +378,7 @@ extension FirebasePostService {
             throw FirebaseError.unauthorized
         }
         
-        print("📤 Publishing draft: \(draftId)")
+        dlog("📤 Publishing draft: \(draftId)")
         
         // Get draft
         let draftDoc = try await db.collection("postDrafts")
@@ -408,7 +408,7 @@ extension FirebasePostService {
         // Delete draft
         try await deleteDraft(draftId: draftId)
         
-        print("✅ Draft published successfully")
+        dlog("✅ Draft published successfully")
     }
     
     // MARK: - Scheduled Posts
@@ -430,7 +430,7 @@ extension FirebasePostService {
                          userInfo: [NSLocalizedDescriptionKey: "Scheduled time must be in the future"])
         }
         
-        print("📅 Scheduling post for: \(scheduledFor)")
+        dlog("📅 Scheduling post for: \(scheduledFor)")
         
         // Upload images if any
         var imageURLs: [String]? = nil
@@ -462,7 +462,7 @@ extension FirebasePostService {
         let scheduledRef = try await db.collection("scheduledPosts")
             .addDocument(data: scheduledPostData)
         
-        print("✅ Post scheduled with ID: \(scheduledRef.documentID)")
+        dlog("✅ Post scheduled with ID: \(scheduledRef.documentID)")
         
         // Note: You'll need a Cloud Function to publish scheduled posts
         // Or a background task that checks for scheduled posts to publish
@@ -472,7 +472,7 @@ extension FirebasePostService {
     
     /// Cancel scheduled post
     func cancelScheduledPost(scheduledPostId: String) async throws {
-        print("🚫 Cancelling scheduled post: \(scheduledPostId)")
+        dlog("🚫 Cancelling scheduled post: \(scheduledPostId)")
         
         try await db.collection("scheduledPosts")
             .document(scheduledPostId)
@@ -481,7 +481,7 @@ extension FirebasePostService {
                 "cancelledAt": Date()
             ])
         
-        print("✅ Scheduled post cancelled")
+        dlog("✅ Scheduled post cancelled")
     }
     
     // MARK: - Block and Hide
@@ -492,7 +492,7 @@ extension FirebasePostService {
             throw FirebaseError.unauthorized
         }
         
-        print("🙈 Hiding post: \(postId)")
+        dlog("🙈 Hiding post: \(postId)")
         
         let hiddenPostData: [String: Any] = [
             "userId": userId,
@@ -504,7 +504,7 @@ extension FirebasePostService {
             .document("\(userId)_\(postId)")
             .setData(hiddenPostData)
         
-        print("✅ Post hidden successfully")
+        dlog("✅ Post hidden successfully")
     }
     
     /// Check if post is hidden by current user

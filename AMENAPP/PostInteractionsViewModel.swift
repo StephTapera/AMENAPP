@@ -285,7 +285,7 @@ class PostInteractionsViewModel: ObservableObject {
     // MARK: - Error Handling
     
     private func handleError(_ error: Error) {
-        print("❌ PostInteractions Error: \(error.localizedDescription)")
+        dlog("❌ PostInteractions Error: \(error.localizedDescription)")
         errorMessage = error.localizedDescription
         showError = true
     }

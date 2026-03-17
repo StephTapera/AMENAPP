@@ -28,7 +28,7 @@ extension AppDelegate {
         // Setup FCM token
         PushNotificationManager.shared.setupFCMToken()
         
-        print("✅ Push notifications configured")
+        dlog("✅ Push notifications configured")
     }
     
     /// Handle successful APNS token registration
@@ -36,7 +36,7 @@ extension AppDelegate {
                      didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         // Pass device token to FCM — must be set before FCM token is fetched
         Messaging.messaging().apnsToken = deviceToken
-        print("✅ APNS token registered")
+        dlog("✅ APNS token registered")
         
         // If FCM token hasn't been obtained yet (race: APNS arrived after initial fetch),
         // retry the token fetch now that APNS is available.
@@ -46,7 +46,7 @@ extension AppDelegate {
     /// Handle failed APNS token registration
     func application(_ application: UIApplication, 
                      didFailToRegisterForRemoteNotificationsWithError error: Error) {
-        print("❌ Failed to register for remote notifications: \(error)")
+        dlog("❌ Failed to register for remote notifications: \(error)")
     }
 }
 

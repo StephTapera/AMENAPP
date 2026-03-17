@@ -25,9 +25,9 @@ class FirestorePostsDiagnostics {
     /// Call this from your UserProfileView to debug why posts aren't showing
     @MainActor
     func diagnoseUserPosts(userId: String) async {
-        print("🔍 ========== STARTING POST DIAGNOSTICS ==========")
-        print("🔍 User ID: \(userId)")
-        print("")
+        dlog("🔍 ========== STARTING POST DIAGNOSTICS ==========")
+        dlog("🔍 User ID: \(userId)")
+        dlog("")
         
         // Step 1: Check authentication
         await checkAuthentication()
@@ -47,54 +47,54 @@ class FirestorePostsDiagnostics {
         // Step 6: Check indexes
         await checkIndexes()
         
-        print("")
-        print("🔍 ========== DIAGNOSTICS COMPLETE ==========")
+        dlog("")
+        dlog("🔍 ========== DIAGNOSTICS COMPLETE ==========")
     }
     
     // MARK: - Individual Diagnostic Steps
     
     @MainActor
     private func checkAuthentication() async {
-        print("📱 Step 1: Checking Authentication")
+        dlog("📱 Step 1: Checking Authentication")
         
         guard Auth.auth().currentUser != nil else {
-            print("   ❌ NOT AUTHENTICATED - User must sign in to view profiles")
+            dlog("   ❌ NOT AUTHENTICATED - User must sign in to view profiles")
             return
         }
         
         dlog("   ✅ Authenticated (uid redacted)")
         dlog("   Email: [REDACTED]")
-        print("")
+        dlog("")
     }
     
     @MainActor
     private func checkUserExists(userId: String) async {
-        print("👤 Step 2: Checking User Document")
+        dlog("👤 Step 2: Checking User Document")
         
         do {
             let userDoc = try await db.collection("users").document(userId).getDocument()
             
             if userDoc.exists {
-                print("   ✅ User document exists")
+                dlog("   ✅ User document exists")
                 if let data = userDoc.data() {
-                    print("   Name: \(data["displayName"] as? String ?? "Unknown")")
-                    print("   Username: @\(data["username"] as? String ?? "unknown")")
-                    print("   Posts Count: \(data["postsCount"] as? Int ?? 0)")
+                    dlog("   Name: \(data["displayName"] as? String ?? "Unknown")")
+                    dlog("   Username: @\(data["username"] as? String ?? "unknown")")
+                    dlog("   Posts Count: \(data["postsCount"] as? Int ?? 0)")
                 }
             } else {
-                print("   ❌ User document does NOT exist")
-                print("      This user may have been deleted or the ID is incorrect")
+                dlog("   ❌ User document does NOT exist")
+                dlog("      This user may have been deleted or the ID is incorrect")
             }
         } catch {
-            print("   ❌ Error fetching user document: \(error)")
+            dlog("   ❌ Error fetching user document: \(error)")
         }
         
-        print("")
+        dlog("")
     }
     
     @MainActor
     private func queryAllUserPosts(userId: String) async {
-        print("📊 Step 3: Querying ALL Posts (No Filters)")
+        dlog("📊 Step 3: Querying ALL Posts (No Filters)")
         
         do {
             let snapshot = try await db.collection("posts")
@@ -103,14 +103,14 @@ class FirestorePostsDiagnostics {
                 .limit(to: 100)
                 .getDocuments()
             
-            print("   ✅ Found \(snapshot.documents.count) total posts")
+            dlog("   ✅ Found \(snapshot.documents.count) total posts")
             
             if snapshot.documents.isEmpty {
-                print("   ⚠️ No posts found for this user")
-                print("      Possible reasons:")
-                print("      1. User hasn't created any posts")
-                print("      2. authorId in posts doesn't match '\(userId)'")
-                print("      3. Firestore security rules are blocking the query")
+                dlog("   ⚠️ No posts found for this user")
+                dlog("      Possible reasons:")
+                dlog("      1. User hasn't created any posts")
+                dlog("      2. authorId in posts doesn't match '\(userId)'")
+                dlog("      3. Firestore security rules are blocking the query")
             } else {
                 // Analyze posts
                 var categoryBreakdown: [String: Int] = [:]
@@ -131,44 +131,44 @@ class FirestorePostsDiagnostics {
                     }
                 }
                 
-                print("   ")
-                print("   📊 Post Breakdown:")
-                print("      - Original posts: \(originalCount)")
-                print("      - Reposts: \(repostCount)")
-                print("   ")
-                print("   📂 Category Breakdown:")
+                dlog("   ")
+                dlog("   📊 Post Breakdown:")
+                dlog("      - Original posts: \(originalCount)")
+                dlog("      - Reposts: \(repostCount)")
+                dlog("   ")
+                dlog("   📂 Category Breakdown:")
                 for (category, count) in categoryBreakdown.sorted(by: { $0.key < $1.key }) {
-                    print("      - \(category): \(count)")
+                    dlog("      - \(category): \(count)")
                 }
                 
                 // Show first 3 posts as examples
-                print("   ")
-                print("   📝 Sample Posts:")
+                dlog("   ")
+                dlog("   📝 Sample Posts:")
                 for (index, doc) in snapshot.documents.prefix(3).enumerated() {
                     let data = doc.data()
-                    print("      Post \(index + 1):")
-                    print("         ID: \(doc.documentID)")
-                    print("         Category: \(data["category"] as? String ?? "unknown")")
-                    print("         Is Repost: \(data["isRepost"] as? Bool ?? false)")
-                    print("         Content: \((data["content"] as? String ?? "").prefix(50))...")
-                    print("")
+                    dlog("      Post \(index + 1):")
+                    dlog("         ID: \(doc.documentID)")
+                    dlog("         Category: \(data["category"] as? String ?? "unknown")")
+                    dlog("         Is Repost: \(data["isRepost"] as? Bool ?? false)")
+                    dlog("         Content: \((data["content"] as? String ?? "").prefix(50))...")
+                    dlog("")
                 }
             }
         } catch {
-            print("   ❌ Error querying posts: \(error)")
+            dlog("   ❌ Error querying posts: \(error)")
             
             if let nsError = error as NSError? {
-                print("      Error domain: \(nsError.domain)")
-                print("      Error code: \(nsError.code)")
+                dlog("      Error domain: \(nsError.domain)")
+                dlog("      Error code: \(nsError.code)")
             }
         }
         
-        print("")
+        dlog("")
     }
     
     @MainActor
     private func queryOriginalPosts(userId: String) async {
-        print("✏️ Step 4: Querying ORIGINAL Posts (isRepost = false)")
+        dlog("✏️ Step 4: Querying ORIGINAL Posts (isRepost = false)")
         
         do {
             let snapshot = try await db.collection("posts")
@@ -178,11 +178,11 @@ class FirestorePostsDiagnostics {
                 .limit(to: 50)
                 .getDocuments()
             
-            print("   ✅ Found \(snapshot.documents.count) original posts")
+            dlog("   ✅ Found \(snapshot.documents.count) original posts")
             
             if snapshot.documents.isEmpty {
-                print("   ⚠️ No original posts found")
-                print("      This means all posts have isRepost=true")
+                dlog("   ⚠️ No original posts found")
+                dlog("      This means all posts have isRepost=true")
             } else {
                 var categoryBreakdown: [String: Int] = [:]
                 
@@ -192,34 +192,34 @@ class FirestorePostsDiagnostics {
                     categoryBreakdown[category, default: 0] += 1
                 }
                 
-                print("   ")
-                print("   📂 Category Breakdown (Original Posts):")
+                dlog("   ")
+                dlog("   📂 Category Breakdown (Original Posts):")
                 for (category, count) in categoryBreakdown.sorted(by: { $0.key < $1.key }) {
-                    print("      - \(category): \(count)")
+                    dlog("      - \(category): \(count)")
                 }
             }
         } catch {
-            print("   ❌ Error querying original posts: \(error)")
+            dlog("   ❌ Error querying original posts: \(error)")
             
             if let nsError = error as NSError?,
                nsError.domain == "FIRFirestoreErrorDomain",
                nsError.code == 9 {
-                print("      ")
-                print("      ⚠️ FIRESTORE INDEX REQUIRED!")
-                print("      This query requires a composite index:")
-                print("      Collection: posts")
-                print("      Fields: authorId (Asc), isRepost (Asc), createdAt (Desc)")
-                print("      ")
-                print("      The FirebasePostService will automatically use a fallback query.")
+                dlog("      ")
+                dlog("      ⚠️ FIRESTORE INDEX REQUIRED!")
+                dlog("      This query requires a composite index:")
+                dlog("      Collection: posts")
+                dlog("      Fields: authorId (Asc), isRepost (Asc), createdAt (Desc)")
+                dlog("      ")
+                dlog("      The FirebasePostService will automatically use a fallback query.")
             }
         }
         
-        print("")
+        dlog("")
     }
     
     @MainActor
     private func queryReposts(userId: String) async {
-        print("🔄 Step 5: Querying REPOSTS (isRepost = true)")
+        dlog("🔄 Step 5: Querying REPOSTS (isRepost = true)")
         
         do {
             let snapshot = try await db.collection("posts")
@@ -229,41 +229,41 @@ class FirestorePostsDiagnostics {
                 .limit(to: 50)
                 .getDocuments()
             
-            print("   ✅ Found \(snapshot.documents.count) reposts")
+            dlog("   ✅ Found \(snapshot.documents.count) reposts")
             
             if snapshot.documents.count > 0 {
-                print("   ")
-                print("   📝 Sample Reposts:")
+                dlog("   ")
+                dlog("   📝 Sample Reposts:")
                 for (index, doc) in snapshot.documents.prefix(3).enumerated() {
                     let data = doc.data()
-                    print("      Repost \(index + 1):")
-                    print("         Original Author: \(data["originalAuthorName"] as? String ?? "Unknown")")
-                    print("         Content: \((data["content"] as? String ?? "").prefix(50))...")
-                    print("")
+                    dlog("      Repost \(index + 1):")
+                    dlog("         Original Author: \(data["originalAuthorName"] as? String ?? "Unknown")")
+                    dlog("         Content: \((data["content"] as? String ?? "").prefix(50))...")
+                    dlog("")
                 }
             }
         } catch {
-            print("   ❌ Error querying reposts: \(error)")
+            dlog("   ❌ Error querying reposts: \(error)")
         }
         
-        print("")
+        dlog("")
     }
     
     @MainActor
     private func checkIndexes() async {
-        print("🔧 Step 6: Index Recommendations")
-        print("   ")
-        print("   For optimal performance, ensure these indexes exist:")
-        print("   ")
-        print("   1. Posts Collection - Original Posts Query")
-        print("      Fields: authorId (Asc), isRepost (Asc), createdAt (Desc)")
-        print("   ")
-        print("   2. Posts Collection - Reposts Query")
-        print("      Fields: authorId (Asc), isRepost (Asc), createdAt (Desc)")
-        print("   ")
-        print("   Create indexes at:")
-        print("   Firebase Console → Firestore → Indexes")
-        print("")
+        dlog("🔧 Step 6: Index Recommendations")
+        dlog("   ")
+        dlog("   For optimal performance, ensure these indexes exist:")
+        dlog("   ")
+        dlog("   1. Posts Collection - Original Posts Query")
+        dlog("      Fields: authorId (Asc), isRepost (Asc), createdAt (Desc)")
+        dlog("   ")
+        dlog("   2. Posts Collection - Reposts Query")
+        dlog("      Fields: authorId (Asc), isRepost (Asc), createdAt (Desc)")
+        dlog("   ")
+        dlog("   Create indexes at:")
+        dlog("   Firebase Console → Firestore → Indexes")
+        dlog("")
     }
     
     // MARK: - Quick Test
@@ -272,12 +272,12 @@ class FirestorePostsDiagnostics {
     @MainActor
     func createTestPost(category: String = "openTable") async {
         guard let currentUserId = Auth.auth().currentUser?.uid else {
-            print("❌ Not authenticated - cannot create test post")
+            dlog("❌ Not authenticated - cannot create test post")
             return
         }
         
         guard let userName = Auth.auth().currentUser?.displayName else {
-            print("❌ User has no display name")
+            dlog("❌ User has no display name")
             return
         }
         
@@ -301,14 +301,14 @@ class FirestorePostsDiagnostics {
         
         do {
             let docRef = try await db.collection("posts").addDocument(data: testPost)
-            print("✅ Test post created successfully!")
-            print("   Post ID: \(docRef.documentID)")
-            print("   Category: \(category)")
-            print("   Author: \(userName) (\(currentUserId))")
-            print("")
-            print("   Now check your profile to see if this post appears!")
+            dlog("✅ Test post created successfully!")
+            dlog("   Post ID: \(docRef.documentID)")
+            dlog("   Category: \(category)")
+            dlog("   Author: \(userName) (\(currentUserId))")
+            dlog("")
+            dlog("   Now check your profile to see if this post appears!")
         } catch {
-            print("❌ Failed to create test post: \(error)")
+            dlog("❌ Failed to create test post: \(error)")
         }
     }
 }

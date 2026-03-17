@@ -109,9 +109,9 @@ struct ProfilePinnedPostsSection: View {
                 }
             }
             
-            print("✅ Loaded \(posts.count) pinned posts for user: \(userId)")
+            dlog("✅ Loaded \(posts.count) pinned posts for user: \(userId)")
         } catch {
-            print("❌ Failed to load pinned posts: \(error)")
+            dlog("❌ Failed to load pinned posts: \(error)")
             pinnedPosts = []
         }
     }

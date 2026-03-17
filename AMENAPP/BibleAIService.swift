@@ -21,7 +21,7 @@ class BibleAIService: ObservableObject {
     
     // Placeholder init - replace with real implementation after adding VertexAI
     init() {
-        print("⚠️ BibleAIService: AI features disabled - add FirebaseVertexAI package to enable")
+        dlog("⚠️ BibleAIService: AI features disabled - add FirebaseVertexAI package to enable")
     }
 }
 
@@ -86,14 +86,14 @@ extension BibleAIService {
             ]
         )
         
-        print("✅ BibleAIService initialized with Gemini 2.0 Flash")
+        dlog("✅ BibleAIService initialized with Gemini 2.0 Flash")
     }
     
     // MARK: - Start New Chat Session
     
     func startNewChat() {
         chat = model.startChat(history: [])
-        print("💬 New AI Bible Study chat started")
+        dlog("💬 New AI Bible Study chat started")
     }
     
     // MARK: - Send Message (Streaming)
@@ -113,7 +113,7 @@ extension BibleAIService {
         return AsyncThrowingStream { continuation in
             Task {
                 do {
-                    print("📤 Sending message to AI: \(message)")
+                    dlog("📤 Sending message to AI: \(message)")
                     
                     let responseStream = chat.sendMessageStream(message)
                     
@@ -124,10 +124,10 @@ extension BibleAIService {
                     }
                     
                     continuation.finish()
-                    print("✅ AI response completed")
+                    dlog("✅ AI response completed")
                     
                 } catch {
-                    print("❌ AI error: \(error.localizedDescription)")
+                    dlog("❌ AI error: \(error.localizedDescription)")
                     continuation.finish(throwing: error)
                 }
             }
@@ -146,7 +146,7 @@ extension BibleAIService {
             throw AIError.chatNotInitialized
         }
         
-        print("📤 Sending message to AI: \(message)")
+        dlog("📤 Sending message to AI: \(message)")
         
         let response = try await chat.sendMessage(message)
         
@@ -154,7 +154,7 @@ extension BibleAIService {
             throw AIError.emptyResponse
         }
         
-        print("✅ AI response received: \(text.prefix(100))...")
+        dlog("✅ AI response received: \(text.prefix(100))...")
         return text
     }
     
@@ -189,7 +189,7 @@ extension BibleAIService {
             """
         }
         
-        print("📖 Generating devotional...")
+        dlog("📖 Generating devotional...")
         
         let response = try await model.generateContent(prompt)
         
@@ -197,7 +197,7 @@ extension BibleAIService {
             throw AIError.emptyResponse
         }
         
-        print("✅ Devotional generated")
+        dlog("✅ Devotional generated")
         
         // Parse the response into a Devotional struct
         return parseDevotional(from: text)
@@ -220,7 +220,7 @@ extension BibleAIService {
         Ensure it's biblically comprehensive and engaging.
         """
         
-        print("📚 Generating \(duration)-day study plan on \(topic)...")
+        dlog("📚 Generating \(duration)-day study plan on \(topic)...")
         
         let response = try await model.generateContent(prompt)
         
@@ -228,7 +228,7 @@ extension BibleAIService {
             throw AIError.emptyResponse
         }
         
-        print("✅ Study plan generated")
+        dlog("✅ Study plan generated")
         
         // For now, return a simple version
         // In production, you'd parse the response into a full StudyPlan structure
@@ -298,7 +298,7 @@ extension BibleAIService {
             """
         }
         
-        print("🔍 Analyzing \(reference) - Type: \(analysisType)")
+        dlog("🔍 Analyzing \(reference) - Type: \(analysisType)")
         
         let response = try await model.generateContent(prompt)
         
@@ -306,7 +306,7 @@ extension BibleAIService {
             throw AIError.emptyResponse
         }
         
-        print("✅ Analysis complete")
+        dlog("✅ Analysis complete")
         return text
     }
     
@@ -325,7 +325,7 @@ extension BibleAIService {
         6. Application to help remember it
         """
         
-        print("🧠 Generating memory aid for \(reference)...")
+        dlog("🧠 Generating memory aid for \(reference)...")
         
         let response = try await model.generateContent(prompt)
         
@@ -333,7 +333,7 @@ extension BibleAIService {
             throw AIError.emptyResponse
         }
         
-        print("✅ Memory aid generated")
+        dlog("✅ Memory aid generated")
         
         return MemoryAid(
             verse: verse,
@@ -369,7 +369,7 @@ extension BibleAIService {
             """
         }
         
-        print("💡 Generating AI insights...")
+        dlog("💡 Generating AI insights...")
         
         let response = try await model.generateContent(prompt)
         
@@ -377,7 +377,7 @@ extension BibleAIService {
             throw AIError.emptyResponse
         }
         
-        print("✅ Insights generated")
+        dlog("✅ Insights generated")
         
         // For now, return sample insights
         // In production, you'd parse the AI response
@@ -413,7 +413,7 @@ extension BibleAIService {
     
     func clearChat() {
         chat = nil
-        print("🗑️ Chat history cleared")
+        dlog("🗑️ Chat history cleared")
     }
 }
 */

@@ -646,142 +646,112 @@ struct ModernChatInputBar: View {
             if !selectedImages.isEmpty {
                 selectedImagesPreview
             }
-            
-            // 🎨 Dia-Style Input Bar
-            HStack(spacing: 12) {
-                // Plus button (add files/tabs)
-                Button(action: onPhotoPicker) {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 24))
-                        .foregroundStyle(.secondary)
-                }
-                
-                // Main input field with glass effect
-                HStack(spacing: 12) {
-                    // Search/prompt icon
-                    Image(systemName: "magnifyingglass")
-                        .font(.system(size: 16))
-                        .foregroundStyle(.secondary)
-                    
-                    TextField("Hey Dia...", text: $messageText, axis: .vertical)
-                        .font(.custom("OpenSans-Regular", size: 16))
-                        .foregroundStyle(.primary)
-                        .focused($isInputFocused)
-                        .lineLimit(1...5)
-                        .tint(.primary)
-                    
-                    // Clear button when typing
-                    if !messageText.isEmpty {
-                        Button {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                messageText = ""
-                            }
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 16))
-                                .foregroundStyle(.secondary)
+
+            // ── Floating white card ──────────────────────────────────────────
+            VStack(spacing: 0) {
+
+                // TEXT INPUT ROW
+                TextField("Message...", text: $messageText, axis: .vertical)
+                    .font(.custom("OpenSans-Regular", size: 16))
+                    .foregroundStyle(.primary)
+                    .focused($isInputFocused)
+                    .lineLimit(1...5)
+                    .tint(Color(red: 0.20, green: 0.46, blue: 1.0))
+                    .padding(.horizontal, 16)
+                    .padding(.top, 14)
+                    .padding(.bottom, 10)
+
+                // Thin divider
+                Rectangle()
+                    .fill(Color(.separator).opacity(0.5))
+                    .frame(height: 0.5)
+                    .padding(.horizontal, 12)
+
+                // ACTIONS ROW
+                HStack(spacing: 0) {
+                    // Left: attachment icons
+                    HStack(spacing: 18) {
+                        attachButton(icon: "paperclip") {}
+                        attachButton(icon: "photo", action: onPhotoPicker)
+                        attachButton(icon: "doc") {}
+                        attachButton(icon: "video") {}
+                    }
+
+                    Spacer()
+
+                    // Right: gradient send pill (72×40 pt)
+                    Button(action: {
+                        if canSend {
+                            onSend()
+                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                        } else if let voiceAction = onVoiceInput {
+                            voiceAction()
                         }
-                    }
-                }
-                .padding(.horizontal, 18)
-                .padding(.vertical, 14)
-                .background(diaInputGlassPill)
-                
-                // Voice/Send button
-                Button(action: {
-                    if canSend {
-                        onSend()
-                        let haptic = UIImpactFeedbackGenerator(style: .medium)
-                        haptic.impactOccurred()
-                    } else if let voiceAction = onVoiceInput {
-                        voiceAction()
-                    }
-                }) {
-                    Image(systemName: canSend ? "arrow.up" : "waveform")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .frame(width: 44, height: 44)
+                    }) {
+                        HStack(spacing: 5) {
+                            Image(systemName: canSend ? "arrow.up" : "mic.fill")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(.white)
+                                .animation(.spring(response: 0.28, dampingFraction: 0.65), value: canSend)
+                            if canSend {
+                                Text("Send")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundStyle(.white)
+                                    .transition(.asymmetric(
+                                        insertion: .move(edge: .trailing).combined(with: .opacity),
+                                        removal: .opacity
+                                    ))
+                            }
+                        }
+                        .frame(width: canSend ? 88 : 72, height: 40)
                         .background(
-                            Circle()
+                            Capsule()
                                 .fill(
-                                    canSend 
-                                        ? Color.black 
-                                        : Color.black.opacity(0.7)
+                                    LinearGradient(
+                                        colors: [
+                                            Color(red: 0.20, green: 0.46, blue: 1.0),
+                                            Color(red: 0.06, green: 0.72, blue: 0.90),
+                                        ],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
                                 )
                         )
-                        .scaleEffect(isPressed ? 0.92 : 1.0)
-                        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isPressed)
-                }
-                .simultaneousGesture(
-                    DragGesture(minimumDistance: 0)
-                        .onChanged { _ in
-                            isPressed = true
-                        }
-                        .onEnded { _ in
-                            isPressed = false
-                        }
-                )
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 16)
-            .background(
-                // Subtle frosted glass background
-                Rectangle()
-                    .fill(.ultraThinMaterial)
-                    .overlay(
-                        Rectangle()
-                            .fill(
-                                LinearGradient(
-                                    colors: [
-                                        Color.white.opacity(0.05),
-                                        Color.clear
-                                    ],
-                                    startPoint: .top,
-                                    endPoint: .bottom
-                                )
-                            )
+                        .animation(.spring(response: 0.32, dampingFraction: 0.72), value: canSend)
+                        .scaleEffect(isPressed ? 0.94 : 1.0)
+                        .animation(.spring(response: 0.28, dampingFraction: 0.65), value: isPressed)
+                    }
+                    .simultaneousGesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { _ in isPressed = true }
+                            .onEnded   { _ in isPressed = false }
                     )
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+            }
+            .background(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(Color(.systemBackground))
+                    .shadow(color: .black.opacity(0.09), radius: 22, x: 0, y: -5)
+                    .shadow(color: .black.opacity(0.04), radius: 4,  x: 0, y: -1)
             )
+            .padding(.horizontal, 12)
+            .padding(.bottom, 10)
         }
     }
-    
-    // MARK: - Liquid Glass Components (Dia Style)
-    
-    /// Dia-style glass pill for text input
-    private var diaInputGlassPill: some View {
-        ZStack {
-            // Base frosted glass
-            Capsule()
-                .fill(.ultraThinMaterial)
-            
-            // Subtle white gradient
-            Capsule()
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color.white.opacity(0.5),
-                            Color.white.opacity(0.3)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-            
-            // Soft border
-            Capsule()
-                .strokeBorder(
-                    LinearGradient(
-                        colors: [
-                            Color.white.opacity(0.6),
-                            Color.white.opacity(0.2)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    lineWidth: 0.5
-                )
+
+    // MARK: - Action button helpers
+
+    @ViewBuilder
+    private func attachButton(icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 18, weight: .regular))
+                .foregroundStyle(Color(.secondaryLabel))
+                .frame(width: 32, height: 32)
+                .contentShape(Rectangle())
         }
-        .shadow(color: .black.opacity(0.08), radius: 16, y: 4)
     }
     
     private var selectedImagesPreview: some View {
@@ -1008,7 +978,7 @@ struct DiaChatView: View {
     
     private func handleVoiceInput() {
         // Handle voice input
-        print("Voice input tapped")
+        dlog("Voice input tapped")
     }
 }
 

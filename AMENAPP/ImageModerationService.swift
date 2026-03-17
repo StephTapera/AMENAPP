@@ -114,12 +114,12 @@ class ImageModerationService {
     
     /// Moderate an image before allowing upload
     func moderateImage(imageData: Data, userId: String, context: ImageContext) async throws -> ImageModerationDecision {
-        print("🛡️ [IMAGE MOD] Moderating \(context.rawValue) image for user: \(userId)")
+        dlog("🛡️ [IMAGE MOD] Moderating \(context.rawValue) image for user: \(userId)")
 
         // If the Vision API key is not configured, we cannot verify image safety.
         // Hold for human review rather than blindly approving unmoderated content.
         guard !apiKey.isEmpty else {
-            print("⚠️ [IMAGE MOD] GOOGLE_VISION_API_KEY not set — holding image for human review")
+            dlog("⚠️ [IMAGE MOD] GOOGLE_VISION_API_KEY not set — holding image for human review")
             return .review(reasons: ["Image safety check unavailable — held for review"])
         }
         
@@ -131,7 +131,7 @@ class ImageModerationService {
         
         // Determine action
         if !safeSearchResult.isApproved {
-            print("❌ [IMAGE MOD] BLOCKED - \(safeSearchResult.flaggedReasons.joined(separator: ", "))")
+            dlog("❌ [IMAGE MOD] BLOCKED - \(safeSearchResult.flaggedReasons.joined(separator: ", "))")
             
             // Log to Firestore for admin review
             try await logModerationAction(
@@ -145,7 +145,7 @@ class ImageModerationService {
         }
         
         if safeSearchResult.needsReview {
-            print("⚠️ [IMAGE MOD] REVIEW NEEDED - borderline content")
+            dlog("⚠️ [IMAGE MOD] REVIEW NEEDED - borderline content")
             
             try await logModerationAction(
                 userId: userId,
@@ -157,7 +157,7 @@ class ImageModerationService {
             return .review(reasons: ["Content requires manual review"])
         }
         
-        print("✅ [IMAGE MOD] APPROVED")
+        dlog("✅ [IMAGE MOD] APPROVED")
         return .approved
     }
     
@@ -198,9 +198,9 @@ class ImageModerationService {
         }
         
         guard httpResponse.statusCode == 200 else {
-            print("❌ [IMAGE MOD] Vision API error: \(httpResponse.statusCode)")
+            dlog("❌ [IMAGE MOD] Vision API error: \(httpResponse.statusCode)")
             if let errorString = String(data: data, encoding: .utf8) {
-                print("   Response: \(errorString)")
+                dlog("   Response: \(errorString)")
             }
             throw ImageModerationError.apiError(httpResponse.statusCode)
         }
@@ -221,7 +221,7 @@ class ImageModerationService {
             racy: SafeSearchLikelihood(stringValue: safeSearchAnnotation["racy"] ?? "UNKNOWN")
         )
         
-        print("🔍 [IMAGE MOD] SafeSearch: adult=\(result.adult), racy=\(result.racy), violence=\(result.violence)")
+        dlog("🔍 [IMAGE MOD] SafeSearch: adult=\(result.adult), racy=\(result.racy), violence=\(result.violence)")
         
         return result
     }

@@ -1077,6 +1077,9 @@ struct GroupedNotificationRow: View {
     @State private var actorProfile: CachedProfile?
     // Optimistic follow state — hides Follow Back button immediately on tap
     @State private var didFollowBack = false
+    // Swipe-to-mark-read gesture state
+    @State private var dragOffset: CGFloat = 0
+    @State private var swipeMarkedRead = false
 
     private var isFollowType: Bool {
         group.primaryNotification.type == .follow ||
@@ -1090,42 +1093,85 @@ struct GroupedNotificationRow: View {
     }
 
     var body: some View {
-        Button {
-            onTap()
-        } label: {
-            HStack(alignment: .top, spacing: 14) {
-                // Left unread dot (Threads-style)
-                Circle()
-                    .fill(group.hasUnread ? Color.blue : Color.clear)
-                    .frame(width: 8, height: 8)
-                    .padding(.top, 22)
-                    .animation(.spring(response: 0.3, dampingFraction: 0.8), value: group.hasUnread)
-                    .accessibilityHidden(true)
-
-                // Avatar with type badge overlay
-                avatarView
-
-                // Text content (name + action + timestamp + preview)
-                VStack(alignment: .leading, spacing: 2) {
-                    notificationText
-
-                    // Timestamp
-                    Text(group.primaryNotification.timeAgo)
-                        .font(.system(size: 13))
-                        .foregroundStyle(Color(uiColor: .tertiaryLabel))
-                        .padding(.top, 2)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-                // Trailing area: Follow Back OR thumbnail
-                trailingView
+        ZStack(alignment: .leading) {
+            // Bottom layer: swipe reveal "Marked as read"
+            HStack(spacing: 6) {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundColor(.blue)
+                Text("Marked as read")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.blue)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .background(group.hasUnread ? Color(uiColor: .secondarySystemBackground).opacity(0.5) : Color.clear)
-            .contentShape(Rectangle())
+            .padding(.leading, 20)
+            .opacity(min(1, Double(dragOffset / 60)))
+
+            // Top layer: row content with drag offset
+            Button {
+                onTap()
+            } label: {
+                HStack(alignment: .top, spacing: 14) {
+                    // Left unread dot (Threads-style)
+                    Circle()
+                        .fill((group.hasUnread && !swipeMarkedRead) ? Color.blue : Color.clear)
+                        .frame(width: 8, height: 8)
+                        .padding(.top, 22)
+                        .scaleEffect((group.hasUnread && !swipeMarkedRead) ? 1 : 0)
+                        .opacity((group.hasUnread && !swipeMarkedRead) ? 1 : 0)
+                        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: swipeMarkedRead)
+                        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: group.hasUnread)
+                        .accessibilityHidden(true)
+
+                    // Avatar with type badge overlay
+                    avatarView
+
+                    // Text content (name + action + timestamp + preview)
+                    VStack(alignment: .leading, spacing: 2) {
+                        notificationText
+
+                        // Timestamp
+                        Text(group.primaryNotification.timeAgo)
+                            .font(.system(size: 13))
+                            .foregroundStyle(Color(uiColor: .tertiaryLabel))
+                            .padding(.top, 2)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    // Trailing area: Follow Back OR thumbnail
+                    trailingView
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(group.hasUnread ? Color(uiColor: .secondarySystemBackground).opacity(0.5) : Color.clear)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(NotificationRowButtonStyle())
+            .offset(x: dragOffset)
+            .simultaneousGesture(
+                group.hasUnread && !swipeMarkedRead
+                ? DragGesture(minimumDistance: 8)
+                    .onChanged { value in
+                        if value.translation.width > 0 {
+                            dragOffset = min(value.translation.width * 0.4, 36)
+                        }
+                    }
+                    .onEnded { value in
+                        if value.translation.width > 50 {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.65)) {
+                                dragOffset = 0
+                            }
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                                swipeMarkedRead = true
+                            }
+                            onMarkAsRead()
+                        } else {
+                            withAnimation(.spring(response: 0.38, dampingFraction: 0.72)) {
+                                dragOffset = 0
+                            }
+                        }
+                    }
+                : nil
+            )
         }
-        .buttonStyle(NotificationRowButtonStyle())
         .contextMenu {
             Button { onMarkAsRead() } label: {
                 Label(group.hasUnread ? "Mark as Read" : "Mark as Unread", systemImage: "envelope.open")

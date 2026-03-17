@@ -168,7 +168,7 @@ struct NotificationPostDetailView: View {
                 let haptic = UINotificationFeedbackGenerator()
                 haptic.notificationOccurred(.success)
             } catch {
-                print("❌ Failed to send comment: \(error)")
+                dlog("❌ Failed to send comment: \(error)")
                 let haptic = UINotificationFeedbackGenerator()
                 haptic.notificationOccurred(.error)
             }
@@ -196,7 +196,7 @@ struct NotificationPostDetailView: View {
             
             return (initials, username, profileImageURL)
         } catch {
-            print("❌ Failed to get user info: \(error)")
+            dlog("❌ Failed to get user info: \(error)")
             return nil
         }
     }
@@ -503,7 +503,7 @@ class NotificationPostViewModel: ObservableObject {
             )
         } catch {
             self.error = error
-            print("❌ Failed to load post: \(error)")
+            dlog("❌ Failed to load post: \(error)")
         }
     }
 }

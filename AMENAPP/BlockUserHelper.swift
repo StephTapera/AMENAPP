@@ -52,12 +52,12 @@ struct BlockUserButton: View {
         Task {
             do {
                 try await BlockService.shared.blockUser(userId: userId)
-                print("✅ Blocked @\(username)")
+                dlog("✅ Blocked @\(username)")
                 
                 // Show toast notification (optional)
                 // ToastService.shared.show("Blocked @\(username)")
             } catch {
-                print("❌ Failed to block user: \(error)")
+                dlog("❌ Failed to block user: \(error)")
             }
         }
     }
@@ -96,9 +96,9 @@ struct UnblockUserButton: View {
         Task {
             do {
                 try await BlockService.shared.unblockUser(userId: userId)
-                print("✅ Unblocked @\(username)")
+                dlog("✅ Unblocked @\(username)")
             } catch {
-                print("❌ Failed to unblock user: \(error)")
+                dlog("❌ Failed to unblock user: \(error)")
             }
         }
     }
@@ -216,7 +216,7 @@ struct ReportAndBlockSheet: View {
                 // 2. Block the user
                 try await BlockService.shared.blockUser(userId: userId)
                 
-                print("✅ Reported and blocked @\(username)")
+                dlog("✅ Reported and blocked @\(username)")
                 
                 // Dismiss
                 await MainActor.run {
@@ -227,7 +227,7 @@ struct ReportAndBlockSheet: View {
                 // ToastService.shared.show("User reported and blocked")
                 
             } catch {
-                print("❌ Failed to report/block user: \(error)")
+                dlog("❌ Failed to report/block user: \(error)")
             }
             
             isSubmitting = false
@@ -253,7 +253,7 @@ struct ReportAndBlockSheet: View {
         
         try await db.collection("reports").addDocument(data: report)
         
-        print("✅ Report submitted successfully")
+        dlog("✅ Report submitted successfully")
     }
 }
 

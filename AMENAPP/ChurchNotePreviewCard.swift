@@ -498,7 +498,7 @@ private extension Color {
 #Preview {
     VStack(spacing: 20) {
         ChurchNotePreviewCard(note: ChurchNote.preview) {
-            print("Tapped")
+            dlog("Tapped")
         }
         .padding()
         

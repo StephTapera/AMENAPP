@@ -34,7 +34,7 @@ class HeyFeedPreferencesService: ObservableObject {
     
     func loadPreferences() {
         guard let userId = Auth.auth().currentUser?.uid else {
-            print("⚠️ HeyFeed: No user ID, using defaults")
+            dlog("⚠️ HeyFeed: No user ID, using defaults")
             return
         }
         
@@ -51,7 +51,7 @@ class HeyFeedPreferencesService: ObservableObject {
                     self.isLoading = false
                     
                     if let error = error {
-                        print("❌ HeyFeed: Error loading preferences: \(error)")
+                        dlog("❌ HeyFeed: Error loading preferences: \(error)")
                         return
                     }
                     
@@ -65,7 +65,7 @@ class HeyFeedPreferencesService: ObservableObject {
                     
                     if let prefs = HeyFeedPreferences.fromDictionary(data) {
                         self.preferences = prefs
-                        print("✅ HeyFeed: Loaded preferences (mode: \(prefs.mode.rawValue))")
+                        dlog("✅ HeyFeed: Loaded preferences (mode: \(prefs.mode.rawValue))")
                     }
                 }
             }
@@ -83,9 +83,9 @@ class HeyFeedPreferencesService: ObservableObject {
                 .document(userId)
                 .setData(preferences.toDictionary(), merge: true)
             
-            print("✅ HeyFeed: Saved preferences")
+            dlog("✅ HeyFeed: Saved preferences")
         } catch {
-            print("❌ HeyFeed: Failed to save preferences: \(error)")
+            dlog("❌ HeyFeed: Failed to save preferences: \(error)")
         }
     }
     
@@ -184,7 +184,7 @@ class HeyFeedPreferencesService: ObservableObject {
                     "targetAuthorId": authorId
                 ])
         } catch {
-            print("⚠️ HeyFeed: Failed to record mute signal: \(error)")
+            dlog("⚠️ HeyFeed: Failed to record mute signal: \(error)")
         }
     }
     
@@ -216,9 +216,9 @@ class HeyFeedPreferencesService: ObservableObject {
                     "timestamp": Timestamp(date: signal.timestamp)
                 ])
             
-            print("✅ HeyFeed: Recorded signal: \(signalType.rawValue)")
+            dlog("✅ HeyFeed: Recorded signal: \(signalType.rawValue)")
         } catch {
-            print("⚠️ HeyFeed: Failed to record signal: \(error)")
+            dlog("⚠️ HeyFeed: Failed to record signal: \(error)")
         }
     }
     

@@ -38,7 +38,7 @@ class NotificationDeepLinkHandler: ObservableObject {
         if let observer = notificationObserver {
             NotificationCenter.default.removeObserver(observer)
         }
-        print("🧹 NotificationDeepLinkHandler deallocated, observers removed")
+        dlog("🧹 NotificationDeepLinkHandler deallocated, observers removed")
     }
     
     // MARK: - Setup
@@ -63,18 +63,18 @@ class NotificationDeepLinkHandler: ObservableObject {
     
     /// Handle when user taps on a push notification
     func handleNotificationTap(userInfo: [String: Any]) async {
-        print("🔗 Handling notification tap with userInfo: \(userInfo)")
+        dlog("🔗 Handling notification tap with userInfo: \(userInfo)")
         
         // Extract notification type and relevant IDs
         guard let type = userInfo["type"] as? String else {
-            print("⚠️ No notification type found")
+            dlog("⚠️ No notification type found")
             return
         }
         
         let deepLink = createDeepLink(type: type, userInfo: userInfo)
         
         if let deepLink = deepLink {
-            print("✅ Created deep link: \(deepLink)")
+            dlog("✅ Created deep link: \(deepLink)")
             self.pendingDeepLink = deepLink
             self.shouldNavigate = true
             
@@ -86,7 +86,7 @@ class NotificationDeepLinkHandler: ObservableObject {
     
     /// Handle notification when app is in foreground
     func handleForegroundNotification(userInfo: [String: Any]) async {
-        print("📲 Received foreground notification: \(userInfo)")
+        dlog("📲 Received foreground notification: \(userInfo)")
         
         // Refresh notifications service
         await NotificationService.shared.refresh()
@@ -120,7 +120,7 @@ class NotificationDeepLinkHandler: ObservableObject {
             return .conversation(conversationId: conversationId)
             
         default:
-            print("⚠️ Unknown notification type: \(type)")
+            dlog("⚠️ Unknown notification type: \(type)")
             return .notificationsTab
         }
     }
@@ -134,7 +134,7 @@ class NotificationDeepLinkHandler: ObservableObject {
         let alert = message?["alert"] as? [String: Any]
         let body = alert?["body"] as? String ?? "New notification"
         
-        print("💬 In-app banner: \(body)")
+        dlog("💬 In-app banner: \(body)")
         
         // Post notification for UI to display banner
         NotificationCenter.default.post(
@@ -295,7 +295,7 @@ extension NotificationDeepLinkHandler {
          _ application: UIApplication,
          didFailToRegisterForRemoteNotificationsWithError error: Error
      ) {
-         print("❌ Failed to register for remote notifications: \(error)")
+         dlog("❌ Failed to register for remote notifications: \(error)")
      }
      
      private func saveAPNsToken(_ token: String) async {
@@ -310,9 +310,9 @@ extension NotificationDeepLinkHandler {
                      "apnsToken": token,
                      "apnsTokenUpdatedAt": FieldValue.serverTimestamp()
                  ])
-             print("✅ APNs token saved")
+             dlog("✅ APNs token saved")
          } catch {
-             print("❌ Failed to save APNs token: \(error)")
+             dlog("❌ Failed to save APNs token: \(error)")
          }
      }
  }
@@ -337,7 +337,7 @@ extension NotificationDeepLinkHandler {
      
      private func handleDeepLink(_ url: URL) {
          // Parse URL and create appropriate deep link
-         print("🔗 Deep link: \(url)")
+         dlog("🔗 Deep link: \(url)")
      }
  }
  

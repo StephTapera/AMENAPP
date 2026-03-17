@@ -315,6 +315,22 @@ final class LiveActivityManager {
     }
 
     // ──────────────────────────────────────────────────────────
+    // MARK: - Badge Sync
+    // ──────────────────────────────────────────────────────────
+
+    /// P2 FIX: Update all active Live Activities with the latest badge count so the
+    /// Dynamic Island / Lock Screen widget stays in sync with the app icon badge.
+    /// Called from BadgeCountManager.applyBadgeCount(_:) on every badge change.
+    func updateBadge(_ count: Int) {
+        guard isLiveActivitiesAvailable else { return }
+        // Prayer activity carries an amenCount field; reuse updatePrayerAmenCount
+        // only if count semantically matches. For badge we update via bridge directly.
+        Task {
+            await LiveActivityBridge.shared.updateBadgeCount(count)
+        }
+    }
+
+    // ──────────────────────────────────────────────────────────
     // MARK: - End All
     // ──────────────────────────────────────────────────────────
 

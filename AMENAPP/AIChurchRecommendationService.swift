@@ -61,7 +61,7 @@ class AIChurchRecommendationService {
             throw NSError(domain: "AIChurchRecs", code: 401, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
         }
         
-        print("⛪ [AI CHURCH] Getting recommendations for \(nearbyChurches.count) churches")
+        dlog("⛪ [AI CHURCH] Getting recommendations for \(nearbyChurches.count) churches")
         
         // Build user profile
         let userProfile = try await buildUserProfile(userId: userId)
@@ -76,20 +76,20 @@ class AIChurchRecommendationService {
         ]
         
         do {
-            print("📤 [AI CHURCH] Sending request to Cloud Function...")
+            dlog("📤 [AI CHURCH] Sending request to Cloud Function...")
             let result = try await db.collection("churchRecommendationRequests")
                 .addDocument(data: requestData)
             
-            print("⏳ [AI CHURCH] Waiting for AI analysis...")
+            dlog("⏳ [AI CHURCH] Waiting for AI analysis...")
             
             // Wait for AI response (max 6 seconds)
             let recommendations = try await waitForRecommendations(requestId: result.documentID)
             
-            print("✅ [AI CHURCH] Received \(recommendations.count) recommendations")
+            dlog("✅ [AI CHURCH] Received \(recommendations.count) recommendations")
             return recommendations
             
         } catch {
-            print("❌ [AI CHURCH] Error: \(error)")
+            dlog("❌ [AI CHURCH] Error: \(error)")
             throw error
         }
     }

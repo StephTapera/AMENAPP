@@ -288,9 +288,9 @@ struct TwoFactorVerificationGateView: View {
         
         do {
             _ = try await twoFactorService.send2FACode(phoneNumber: phone)
-            print("✅ Initial 2FA code sent")
+            dlog("✅ Initial 2FA code sent")
         } catch {
-            print("❌ Failed to send initial 2FA code: \(error.localizedDescription)")
+            dlog("❌ Failed to send initial 2FA code: \(error.localizedDescription)")
             errorMessage = "Failed to send verification code. Please try again."
             showError = true
         }
@@ -408,13 +408,13 @@ struct TwoFactorVerificationGateView: View {
         
         do {
             _ = try await twoFactorService.send2FACode(phoneNumber: phone)
-            print("✅ 2FA code resent")
+            dlog("✅ 2FA code resent")
             
             // Success haptic
             let haptic = UINotificationFeedbackGenerator()
             haptic.notificationOccurred(.success)
         } catch {
-            print("❌ Failed to resend code: \(error.localizedDescription)")
+            dlog("❌ Failed to resend code: \(error.localizedDescription)")
             errorMessage = "Failed to resend code. Please try again."
             showError = true
             

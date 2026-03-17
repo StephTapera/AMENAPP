@@ -14,7 +14,11 @@ const {
 } = require("./mlClients");
 
 const db = admin.firestore();
-const rtdb = admin.database();
+let _rtdb = null;
+const getRtdb = () => {
+  if (!_rtdb) _rtdb = admin.database("https://amen-5e359-default-rtdb.firebaseio.com");
+  return _rtdb;
+};
 
 // ═══════════════════════════════════════════
 // generateCongregationHealthReport — Weekly Sunday 3am
@@ -359,7 +363,7 @@ const detectGriefCrisisPreIncident = onDocumentWritten(
 
     try {
       // Maintain rolling 72hr window in RTDB
-      const ref = rtdb.ref(`crisisMonitoring/${authorId}`);
+      const ref = getRtdb().ref(`crisisMonitoring/${authorId}`);
       const snap = await ref.get();
       const history = snap.val() || { signals: [], lastUpdated: 0 };
 
@@ -440,7 +444,7 @@ const runZeroHarassmentDetection = onDocumentWritten(
     try {
       // Track interaction frequency in RTDB
       const key = `harassmentTracking/${targetUserId}/${authorId}`;
-      const ref = rtdb.ref(key);
+      const ref = getRtdb().ref(key);
       const snap = await ref.get();
       const history = snap.val() || { interactions: [], sentimentSum: 0 };
 

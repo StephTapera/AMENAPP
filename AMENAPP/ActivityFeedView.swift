@@ -115,7 +115,7 @@ struct ActivityFeedView: View {
                 }
             }
         } catch {
-            print("⚠️ Could not load user's church: \(error.localizedDescription)")
+            dlog("⚠️ Could not load user's church: \(error.localizedDescription)")
         }
     }
 

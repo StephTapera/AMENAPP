@@ -46,9 +46,9 @@ extension AIBibleStudyView {
             Task {
                 do {
                     try await saveConversationToFirestore(messages: messages)
-                    print("💾 Saved conversation with \(messages.count) messages to Firestore")
+                    dlog("💾 Saved conversation with \(messages.count) messages to Firestore")
                 } catch {
-                    print("❌ Failed to save conversation: \(error)")
+                    dlog("❌ Failed to save conversation: \(error)")
                 }
             }
         }
@@ -87,7 +87,7 @@ extension AIBibleStudyView {
         }
         
         try await batch.commit()
-        print("✅ Saved conversation \(conversationRef.documentID) with \(messages.count) messages")
+        dlog("✅ Saved conversation \(conversationRef.documentID) with \(messages.count) messages")
     }
     
     func loadConversation(_ conversation: [AIStudyMessage]) {
@@ -140,10 +140,10 @@ extension AIBibleStudyView {
             
             await MainActor.run {
                 conversationHistory = loadedConversations
-                print("✅ Loaded \(loadedConversations.count) conversations from Firestore")
+                dlog("✅ Loaded \(loadedConversations.count) conversations from Firestore")
             }
         } catch {
-            print("❌ Failed to load conversations: \(error)")
+            dlog("❌ Failed to load conversations: \(error)")
         }
     }
 }

@@ -199,7 +199,7 @@ struct MentionTextView: View {
                 ],
                 font: .custom("OpenSans-Regular", size: 16),
                 lineSpacing: 6
-            ) { mention in print("Tapped: @\(mention.username)") }
+            ) { mention in dlog("Tapped: @\(mention.username)") }
             .padding()
             .background(Color(.systemBackground))
             .cornerRadius(12)

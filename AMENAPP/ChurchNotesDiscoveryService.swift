@@ -201,14 +201,14 @@ class ChurchNotesDiscoveryService {
     /// Log discovery results for debugging (development builds only)
     func logDiscoveryResults(_ scoredNotes: [ScoredNote], limit: Int = 5) {
         #if DEBUG
-        print("\n🔍 CHURCH NOTES DISCOVERY RESULTS (Top \(limit))")
-        print("=" + String(repeating: "=", count: 60))
+        dlog("\n🔍 CHURCH NOTES DISCOVERY RESULTS (Top \(limit))")
+        dlog("=" + String(repeating: "=", count: 60))
 
         for (index, scoredNote) in scoredNotes.prefix(limit).enumerated() {
-            print("\n[\(index + 1)] \(scoredNote.debugInfo)")
+            dlog("\n[\(index + 1)] \(scoredNote.debugInfo)")
         }
 
-        print("=" + String(repeating: "=", count: 60) + "\n")
+        dlog("=" + String(repeating: "=", count: 60) + "\n")
         #endif
     }
 

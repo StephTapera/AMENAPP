@@ -65,7 +65,7 @@ final class UnusualLoginDetector {
                     )
                 }
 
-                print("⚠️ [UnusualLogin] New device detected — alert written for user \(userId)")
+                dlog("⚠️ [UnusualLogin] New device detected — alert written for user \(userId)")
             } else {
                 // Known device — update last seen
                 try await db.collection("users").document(userId)
@@ -73,7 +73,7 @@ final class UnusualLoginDetector {
                     .updateData(["lastSeenAt": FieldValue.serverTimestamp()])
             }
         } catch {
-            print("⚠️ [UnusualLogin] Error checking device: \(error)")
+            dlog("⚠️ [UnusualLogin] Error checking device: \(error)")
         }
     }
 

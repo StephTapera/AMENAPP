@@ -317,52 +317,52 @@ class UserService: ObservableObject {
     
     /// Fetch any user's profile by their Firebase user ID
     func fetchUserProfile(userId: String) async throws -> UserModel {
-        print("👤 Fetching user profile for ID: \(userId)")
+        dlog("👤 Fetching user profile for ID: \(userId)")
         
         let path = "\(FirebaseManager.CollectionPath.users)/\(userId)"
         
         do {
             let user = try await firebaseManager.fetchDocument(from: path, as: UserModel.self)
-            print("✅ Successfully fetched user: \(user.displayName) (@\(user.username))")
+            dlog("✅ Successfully fetched user: \(user.displayName) (@\(user.username))")
             return user
         } catch {
-            print("❌ Failed to fetch user profile: \(error)")
+            dlog("❌ Failed to fetch user profile: \(error)")
             throw error
         }
     }
     
     /// Create user profile in Firestore
     func createUserProfile(email: String, displayName: String, username: String) async throws {
-        print("👤 UserService: Starting createUserProfile for \(username)")
+        dlog("👤 UserService: Starting createUserProfile for \(username)")
         
         guard let userId = firebaseManager.currentUser?.uid else {
-            print("❌ UserService: No authenticated user found!")
+            dlog("❌ UserService: No authenticated user found!")
             throw FirebaseError.unauthorized
         }
         
-        print("✅ UserService: User ID: \(userId)")
+        dlog("✅ UserService: User ID: \(userId)")
         
         // Validate username format (lowercase, alphanumeric + underscores, 3-20 chars)
         let cleanedUsername = username.lowercased().trimmingCharacters(in: .whitespaces)
-        print("👤 UserService: Validating username: \(cleanedUsername)")
+        dlog("👤 UserService: Validating username: \(cleanedUsername)")
         
         guard isValidUsername(cleanedUsername) else {
-            print("❌ UserService: Invalid username format")
+            dlog("❌ UserService: Invalid username format")
             throw NSError(domain: "UserService", code: 400, userInfo: [NSLocalizedDescriptionKey: "Username must be 3-20 characters (letters, numbers, underscores only)"])
         }
         
-        print("✅ UserService: Username format is valid")
+        dlog("✅ UserService: Username format is valid")
         
         // Check if username is available (skip if already checked in UI, but double-check for safety)
-        print("👤 UserService: Checking username availability...")
+        dlog("👤 UserService: Checking username availability...")
         let isAvailable = try await isUsernameAvailable(cleanedUsername)
         
         guard isAvailable else {
-            print("❌ UserService: Username '\(cleanedUsername)' is already taken")
+            dlog("❌ UserService: Username '\(cleanedUsername)' is already taken")
             throw NSError(domain: "UserService", code: 409, userInfo: [NSLocalizedDescriptionKey: "Username '@\(cleanedUsername)' is already taken"])
         }
         
-        print("✅ UserService: Username is available")
+        dlog("✅ UserService: Username is available")
         
         let newUser = UserModel(
             id: userId,
@@ -371,18 +371,18 @@ class UserService: ObservableObject {
             username: cleanedUsername
         )
         
-        print("👤 UserService: Saving user to Firestore...")
+        dlog("👤 UserService: Saving user to Firestore...")
         let path = "\(FirebaseManager.CollectionPath.users)/\(userId)"
         
         do {
             try await firebaseManager.saveDocument(newUser, to: path)
-            print("✅ UserService: User profile saved successfully to \(path)")
+            dlog("✅ UserService: User profile saved successfully to \(path)")
             
-            print("👤 UserService: Fetching current user...")
+            dlog("👤 UserService: Fetching current user...")
             await fetchCurrentUser()
-            print("✅ UserService: createUserProfile completed successfully!")
+            dlog("✅ UserService: createUserProfile completed successfully!")
         } catch {
-            print("❌ UserService: Failed to save to Firestore: \(error)")
+            dlog("❌ UserService: Failed to save to Firestore: \(error)")
             throw error
         }
     }
@@ -471,11 +471,11 @@ class UserService: ObservableObject {
             throw FirebaseError.unauthorized
         }
         
-        print("💾 Saving onboarding preferences to Firestore...")
-        print("   - Interests: \(interests)")
-        print("   - Goals: \(goals)")
-        print("   - Prayer Time: \(prayerTime)")
-        print("   - Profile Image URL: \(profileImageURL ?? "nil")")
+        dlog("💾 Saving onboarding preferences to Firestore...")
+        dlog("   - Interests: \(interests)")
+        dlog("   - Goals: \(goals)")
+        dlog("   - Prayer Time: \(prayerTime)")
+        dlog("   - Profile Image URL: \(profileImageURL ?? "nil")")
         
         var updates: [String: Any] = [
             "interests": interests,
@@ -494,12 +494,12 @@ class UserService: ObservableObject {
         
         do {
             try await firebaseManager.updateDocument(updates, at: path)
-            print("✅ Onboarding preferences saved successfully!")
+            dlog("✅ Onboarding preferences saved successfully!")
             
             // Refresh current user data
             await fetchCurrentUser()
         } catch {
-            print("❌ Failed to save onboarding preferences: \(error)")
+            dlog("❌ Failed to save onboarding preferences: \(error)")
             throw error
         }
     }
@@ -555,7 +555,7 @@ class UserService: ObservableObject {
         let path = "\(FirebaseManager.CollectionPath.users)/\(userId)"
         try await firebaseManager.updateDocument(updates, at: path)
         
-        print("✅ Username change request submitted: @\(newUsername)")
+        dlog("✅ Username change request submitted: @\(newUsername)")
         
         await fetchCurrentUser()
     }
@@ -588,7 +588,7 @@ class UserService: ObservableObject {
         let path = "\(FirebaseManager.CollectionPath.users)/\(userId)"
         try await firebaseManager.updateDocument(updates, at: path)
         
-        print("✅ Display name change request submitted: \(newDisplayName)")
+        dlog("✅ Display name change request submitted: \(newDisplayName)")
         
         await fetchCurrentUser()
     }
@@ -725,7 +725,7 @@ class UserService: ObservableObject {
         let path = "\(FirebaseManager.CollectionPath.users)/\(userId)"
         try await firebaseManager.updateDocument(updates, at: path)
         
-        print("✅ Security settings updated")
+        dlog("✅ Security settings updated")
         await fetchCurrentUser()
     }
 }

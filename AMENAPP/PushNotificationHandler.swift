@@ -44,10 +44,10 @@ class PushNotificationHandler: NSObject, ObservableObject {
 
     func handleForegroundNotification(_ notification: UNNotification) {
         let userInfo = notification.request.content.userInfo
-        print("📬 Received foreground notification")
-        print("   Title:", notification.request.content.title)
-        print("   Body:", notification.request.content.body)
-        print("   UserInfo:", userInfo)
+        dlog("📬 Received foreground notification")
+        dlog("   Title: \(notification.request.content.title)")
+        dlog("   Body: \(notification.request.content.body)")
+        dlog("   UserInfo: \(userInfo)")
 
         // Update badge from notification payload
         if let badge = notification.request.content.badge?.intValue {
@@ -62,10 +62,10 @@ class PushNotificationHandler: NSObject, ObservableObject {
 
     func handleNotificationTap(_ response: UNNotificationResponse) {
         let userInfo = response.notification.request.content.userInfo
-        print("👆 User tapped notification")
+        dlog("👆 User tapped notification")
 
         guard let type = userInfo["type"] as? String else {
-            print("⚠️ No notification type found")
+            dlog("⚠️ No notification type found")
             return
         }
 
@@ -85,7 +85,7 @@ class PushNotificationHandler: NSObject, ObservableObject {
                 intendedLink = .conversation(userId: actorId)
             }
         default:
-            print("⚠️ Unknown notification type:", type)
+            dlog("⚠️ Unknown notification type: \(type)")
         }
 
         // ── Shabbat gate ──────────────────────────────────────────────────
@@ -95,7 +95,7 @@ class PushNotificationHandler: NSObject, ObservableObject {
             let feature = link.requiredFeature
             if case .blocked = AppAccessController.shared.canAccess(feature) {
                 ShabbatModeService.shared.logBlocked(feature: feature, route: "push_notification/\(type)")
-                print("🚫 PushNotificationHandler: notification tap blocked by Shabbat Mode (type=\(type))")
+                dlog("🚫 PushNotificationHandler: notification tap blocked by Shabbat Mode (type=\(type))")
                 // Navigate to Resources tab — gate view will be shown
                 NotificationCenter.default.post(name: .shabbatDeepLinkBlocked, object: nil,
                                                 userInfo: ["blockedRoute": "notification/\(type)"])
@@ -154,7 +154,7 @@ class PushNotificationHandler: NSObject, ObservableObject {
                 "timezone": TimeZone.current.identifier
             ])
 
-        print("✅ FCM token saved (deviceTokens subcollection)")
+        dlog("✅ FCM token saved (deviceTokens subcollection)")
     }
 
     /// Mark the current token disabled on sign-out (does not delete so CF can clean up).
@@ -172,9 +172,9 @@ class PushNotificationHandler: NSObject, ObservableObject {
                 .collection("deviceTokens").document(sanitised)
                 .setData(["enabled": false, "disabledAt": FieldValue.serverTimestamp()], merge: true)
             lastSavedToken = nil
-            print("✅ FCM token disabled on sign-out")
+            dlog("✅ FCM token disabled on sign-out")
         } catch {
-            print("❌ Failed to disable FCM token:", error)
+            dlog("❌ Failed to disable FCM token: \(error)")
         }
     }
 
@@ -250,16 +250,16 @@ extension PushNotificationHandler: UNUserNotificationCenterDelegate {
 
 extension PushNotificationHandler: MessagingDelegate {
     nonisolated func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
-        print("🔄 FCM Token refreshed")
+        dlog("🔄 FCM Token refreshed")
         guard let token = fcmToken else {
-            print("⚠️ No FCM token received")
+            dlog("⚠️ No FCM token received")
             return
         }
-        print("   New token:", token)
+        dlog("   New token: \(token)")
 
         Task { @MainActor in
             guard let userId = FirebaseManager.shared.currentUser?.uid else {
-                print("⚠️ No authenticated user to save FCM token")
+                dlog("⚠️ No authenticated user to save FCM token")
                 return
             }
             try? await saveFCMToken(token, for: userId)

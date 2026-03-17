@@ -95,15 +95,15 @@ class CompositeNotificationDelegate: NSObject, UNUserNotificationCenterDelegate 
         let actionIdentifier = response.actionIdentifier
         let categoryIdentifier = response.notification.request.content.categoryIdentifier
         
-        print("⛪️ Church notification tapped")
-        print("   Category: \(categoryIdentifier)")
-        print("   Action: \(actionIdentifier)")
+        dlog("⛪️ Church notification tapped")
+        dlog("   Category: \(categoryIdentifier)")
+        dlog("   Action: \(actionIdentifier)")
         
         let userInfo = response.notification.request.content.userInfo
 
         // Handle specific actions for church notifications
         if actionIdentifier == "GET_DIRECTIONS" {
-            print("   Opening directions to church")
+            dlog("   Opening directions to church")
             // Open Maps with church location from notification payload
             if let latStr = userInfo["churchLat"] as? String,
                let lngStr = userInfo["churchLng"] as? String,
@@ -120,7 +120,7 @@ class CompositeNotificationDelegate: NSObject, UNUserNotificationCenterDelegate 
             NotificationCenter.default.post(name: .navigateToFindChurch, object: nil)
         } else if actionIdentifier == UNNotificationDefaultActionIdentifier {
             // User tapped the notification body — navigate to Find Church tab
-            print("   Opening church details")
+            dlog("   Opening church details")
             NotificationCenter.default.post(name: .navigateToFindChurch, object: nil)
         }
     }
@@ -130,7 +130,7 @@ class CompositeNotificationDelegate: NSObject, UNUserNotificationCenterDelegate 
     private func handlePushNotificationTap(response: UNNotificationResponse) {
         let userInfo = response.notification.request.content.userInfo
         
-        print("📱 Push notification tapped, routing via NotificationDeepLinkRouter")
+        dlog("📱 Push notification tapped, routing via NotificationDeepLinkRouter")
         
         // Route to the correct screen using the deep link router
         NotificationDeepLinkRouter.shared.routeFromPushPayload(userInfo)

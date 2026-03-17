@@ -29,7 +29,7 @@ class ContentModerationService {
         // Force-refresh prevents stale token errors (seen as GTMSessionFetcher duplicate call warnings).
         guard let currentUser = Auth.auth().currentUser else {
             // Unauthenticated — cannot post. Hard block; do not allow content through.
-            print("❌ Moderation: user not authenticated — blocking content")
+            dlog("❌ Moderation: user not authenticated — blocking content")
             return ModerationDecision(
                 action: .holdForReview,
                 confidence: 1.0,
@@ -53,7 +53,7 @@ class ContentModerationService {
         do {
             _ = try await currentUser.getIDToken(forcingRefresh: true)
         } catch {
-            print("⚠️ Could not refresh ID token: \(error.localizedDescription) — proceeding anyway")
+            dlog("⚠️ Could not refresh ID token: \(error.localizedDescription) — proceeding anyway")
         }
 
         let functions = Functions.functions()
@@ -105,7 +105,7 @@ class ContentModerationService {
             if isExpectedDevError {
                 Logger.debug("Moderation unavailable (expected in dev/simulator): \(error.localizedDescription)")
             } else {
-                print("❌ Moderation error: \(error)")
+                dlog("❌ Moderation error: \(error)")
             }
             return ModerationDecision(
                 action: .allow,
@@ -125,7 +125,7 @@ class ContentModerationService {
                 )
             )
             #else
-            print("❌ Moderation error: \(error)")
+            dlog("❌ Moderation error: \(error)")
             // FAIL CLOSED in production: hold for review rather than silently allowing
             // content through. This prevents bypass via network errors.
             return ModerationDecision(

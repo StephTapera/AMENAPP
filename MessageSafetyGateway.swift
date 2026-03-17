@@ -582,7 +582,7 @@ final class MessageSafetyGateway {
             // connectivity issues to bypass enforcement.
             // The message is not permanently lost — the user can retry once network
             // is restored and the cache refreshes.
-            print("⚠️ [Safety] isAccountFrozen fetch failed for \(userId) — failing closed: \(error)")
+            dlog("⚠️ [Safety] isAccountFrozen fetch failed for \(userId) — failing closed: \(error)")
             return true
         }
     }
@@ -655,7 +655,7 @@ final class MessageSafetyGateway {
                 return nil
             }
         } catch {
-            print("⚠️ [Safety] Failed to record strike for \(userId): \(error)")
+            dlog("⚠️ [Safety] Failed to record strike for \(userId): \(error)")
         }
     }
 
@@ -716,7 +716,7 @@ final class MessageSafetyGateway {
         do {
             try await moderationQueue.document(messageId).setData(eventData)
         } catch {
-            print("⚠️ [Safety] Failed to write to moderation queue: \(error)")
+            dlog("⚠️ [Safety] Failed to write to moderation queue: \(error)")
         }
 
         // Write a compact safety event (no message text) for pattern engine
@@ -732,7 +732,7 @@ final class MessageSafetyGateway {
         do {
             try await safetyEvents.addDocument(data: safetyEventData)
         } catch {
-            print("⚠️ [Safety] Failed to write safety event: \(error)")
+            dlog("⚠️ [Safety] Failed to write safety event: \(error)")
         }
     }
 
@@ -795,7 +795,7 @@ final class MessageSafetyGateway {
         } catch {
             // Fail closed: if we cannot verify the cooldown status, block the send.
             // This prevents a user in cooldown from bypassing it via a network hiccup.
-            print("⚠️ [Safety] Could not verify cooldown for \(userId) — blocking send: \(error)")
+            dlog("⚠️ [Safety] Could not verify cooldown for \(userId) — blocking send: \(error)")
             return true
         }
     }

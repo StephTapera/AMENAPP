@@ -20,13 +20,13 @@ class UserSearchFix {
     /// Fix all existing users by adding lowercase fields
     /// ⚠️ Run this ONCE to migrate existing users
     func fixAllUsers() async throws {
-        print("🔧 Starting user search fix...")
-        print("📊 This will add 'usernameLowercase' and 'displayNameLowercase' to all users")
+        dlog("🔧 Starting user search fix...")
+        dlog("📊 This will add 'usernameLowercase' and 'displayNameLowercase' to all users")
         
         let usersRef = db.collection("users")
         let snapshot = try await usersRef.getDocuments()
         
-        print("📥 Found \(snapshot.documents.count) users to process")
+        dlog("📥 Found \(snapshot.documents.count) users to process")
         
         var fixedCount = 0
         var skippedCount = 0
@@ -41,7 +41,7 @@ class UserSearchFix {
             let hasDisplayNameLowercase = data["displayNameLowercase"] != nil
             
             if hasUsernameLowercase && hasDisplayNameLowercase {
-                print("⏭️  User \(userId) already has lowercase fields, skipping")
+                dlog("⏭️  User \(userId) already has lowercase fields, skipping")
                 skippedCount += 1
                 continue
             }
@@ -49,7 +49,7 @@ class UserSearchFix {
             // Get current values
             guard let username = data["username"] as? String,
                   let displayName = data["displayName"] as? String else {
-                print("⚠️ User \(userId) missing username or displayName, skipping")
+                dlog("⚠️ User \(userId) missing username or displayName, skipping")
                 skippedCount += 1
                 continue
             }
@@ -62,25 +62,25 @@ class UserSearchFix {
                     "updatedAt": Date()
                 ])
                 
-                print("✅ Fixed user \(userId): @\(username) / \(displayName)")
+                dlog("✅ Fixed user \(userId): @\(username) / \(displayName)")
                 fixedCount += 1
                 
             } catch {
-                print("❌ Failed to fix user \(userId): \(error)")
+                dlog("❌ Failed to fix user \(userId): \(error)")
                 errorCount += 1
             }
         }
         
-        print("\n🎉 User search fix complete!")
-        print("   ✅ Fixed: \(fixedCount) users")
-        print("   ⏭️  Skipped: \(skippedCount) users (already had fields)")
-        print("   ❌ Errors: \(errorCount) users")
-        print("\n💡 Users can now be found in search!")
+        dlog("\n🎉 User search fix complete!")
+        dlog("   ✅ Fixed: \(fixedCount) users")
+        dlog("   ⏭️  Skipped: \(skippedCount) users (already had fields)")
+        dlog("   ❌ Errors: \(errorCount) users")
+        dlog("\n💡 Users can now be found in search!")
     }
     
     /// Fix a single user by ID
     func fixUser(userId: String) async throws {
-        print("🔧 Fixing user: \(userId)")
+        dlog("🔧 Fixing user: \(userId)")
         
         let userRef = db.collection("users").document(userId)
         let snapshot = try await userRef.getDocument()
@@ -104,12 +104,12 @@ class UserSearchFix {
             "updatedAt": Date()
         ])
         
-        print("✅ Fixed user \(userId): @\(username) / \(displayName)")
+        dlog("✅ Fixed user \(userId): @\(username) / \(displayName)")
     }
     
     /// Check how many users need fixing
     func checkUsersNeedingFix() async throws -> (needsFix: Int, total: Int) {
-        print("🔍 Checking users...")
+        dlog("🔍 Checking users...")
         
         let snapshot = try await db.collection("users").getDocuments()
         let total = snapshot.documents.count
@@ -126,10 +126,10 @@ class UserSearchFix {
             }
         }
         
-        print("📊 Results:")
-        print("   Total users: \(total)")
-        print("   Need fix: \(needsFix)")
-        print("   Already fixed: \(total - needsFix)")
+        dlog("📊 Results:")
+        dlog("   Total users: \(total)")
+        dlog("   Need fix: \(needsFix)")
+        dlog("   Already fixed: \(total - needsFix)")
         
         return (needsFix, total)
     }

@@ -640,7 +640,7 @@ struct PostDetailView: View {
             // and commentService.commentReplies — commentsWithReplies (computed) updates automatically.
             _ = try await commentService.fetchCommentsWithReplies(for: postId)
         } catch {
-            print("❌ Failed to load comments: \(error)")
+            dlog("❌ Failed to load comments: \(error)")
             // Only show the error state when comments are empty — if we already have cached
             // comments from the real-time listener, keep showing them rather than replacing
             // them with an error banner.
@@ -664,7 +664,7 @@ struct PostDetailView: View {
                 _ = try await commentService.addComment(postId: postId, content: text, post: post)
                 // UI updates automatically via @Published commentService.comments
             } catch {
-                print("❌ Failed to post comment: \(error)")
+                dlog("❌ Failed to post comment: \(error)")
                 let nsError = error as NSError
                 if nsError.domain == "CommentService" && nsError.code == -11 {
                     // Rate limit hit — show subtle auto-dismissing notice, don't restore text
@@ -708,7 +708,7 @@ struct PostDetailView: View {
                 try await followService.toggleFollow(userId: post.authorId)
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
             } catch {
-                print("❌ Follow error: \(error.localizedDescription)")
+                dlog("❌ Follow error: \(error.localizedDescription)")
                 UINotificationFeedbackGenerator().notificationOccurred(.error)
             }
             isFollowInFlight = false
@@ -984,7 +984,7 @@ struct CommentRowView: View {
             } catch {
                 await MainActor.run { isDeleting = false }
                 UINotificationFeedbackGenerator().notificationOccurred(.error)
-                print("❌ Failed to delete comment: \(error)")
+                dlog("❌ Failed to delete comment: \(error)")
             }
         }
     }
@@ -997,7 +997,7 @@ struct CommentRowView: View {
                 try await CommentService.shared.deleteComment(commentId: replyId, postId: postId)
             } catch {
                 UINotificationFeedbackGenerator().notificationOccurred(.error)
-                print("❌ Failed to delete reply: \(error)")
+                dlog("❌ Failed to delete reply: \(error)")
             }
         }
     }
@@ -1016,7 +1016,7 @@ struct CommentRowView: View {
                 )
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
             } catch {
-                print("❌ Report failed: \(error)")
+                dlog("❌ Report failed: \(error)")
             }
         }
     }
@@ -1035,7 +1035,7 @@ struct CommentRowView: View {
                 )
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
             } catch {
-                print("❌ Report failed: \(error)")
+                dlog("❌ Report failed: \(error)")
             }
         }
     }

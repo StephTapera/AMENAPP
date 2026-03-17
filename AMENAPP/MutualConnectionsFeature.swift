@@ -87,7 +87,7 @@ class MutualConnectionsService {
                     mutualConnections.append(connection)
                 }
             } catch {
-                print("⚠️ Failed to fetch mutual connection \(mutualId): \(error)")
+                dlog("⚠️ Failed to fetch mutual connection \(mutualId): \(error)")
             }
         }
 
@@ -238,7 +238,7 @@ struct MutualConnectionsBadge: View {
         do {
             mutualConnections = try await MutualConnectionsService.shared.getMutualConnections(userId: userId)
         } catch {
-            print("❌ Failed to load mutual connections: \(error)")
+            dlog("❌ Failed to load mutual connections: \(error)")
             mutualConnections = []
         }
     }

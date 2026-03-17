@@ -63,13 +63,11 @@ class SessionTimeoutManager: ObservableObject {
     // MARK: - Public Methods
 
     /// Returns the persisted Remember Me preference.
-    /// P2-6 FIX: Defaults to `false` (require re-auth after inactivity) rather than `true`.
-    /// Defaulting to `true` meant every new install silently opted into indefinite sessions,
-    /// which is unexpected for a faith app handling personal/spiritual content.
-    /// Users who want to stay signed in can explicitly enable Remember Me in settings.
+    /// Defaults to `true` — users stay logged in (matching Threads/Instagram UX).
+    /// Users who want aggressive session timeouts can disable Remember Me in settings.
     /// Nonisolated so it can be used as a default parameter value.
     nonisolated static func _storedRememberMe() -> Bool {
-        guard UserDefaults.standard.object(forKey: "rememberMe") != nil else { return false }
+        guard UserDefaults.standard.object(forKey: "rememberMe") != nil else { return true }
         return UserDefaults.standard.bool(forKey: "rememberMe")
     }
 
@@ -211,13 +209,11 @@ class SessionTimeoutManager: ObservableObject {
     }
 
     /// Returns whether "Remember Me" is currently enabled.
-    /// P1 FIX: Defaults to FALSE (require re-auth after inactivity) to match
-    /// `_storedRememberMe()` and the security-conscious policy set at line 67.
-    /// Previously defaulted to true, silently opting all new installs into
-    /// indefinite sessions and defeating the inactivity timeout entirely.
+    /// Defaults to `true` — users stay logged in (matches Threads/Instagram UX).
+    /// Users who want aggressive session timeouts can disable Remember Me in Settings.
     func isRememberMeEnabled() -> Bool {
         guard UserDefaults.standard.object(forKey: "rememberMe") != nil else {
-            return false
+            return true
         }
         return UserDefaults.standard.bool(forKey: "rememberMe")
     }

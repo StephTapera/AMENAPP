@@ -63,7 +63,7 @@ class PostCardServices: ObservableObject {
         self.safety = ContentSafetyShieldService.shared
         self.scripture = ScriptureVerificationService.shared
         
-        print("✅ PostCardServices initialized - single instance for all cards")
+        dlog("✅ PostCardServices initialized - single instance for all cards")
     }
     
     // MARK: - Convenience Methods

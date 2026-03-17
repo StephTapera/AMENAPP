@@ -86,7 +86,7 @@ class CommentSafetySystem {
         )
         
         let elapsed = (CFAbsoluteTimeGetCurrent() - startTime) * 1000
-        print("⚡️ [SAFETY] All checks completed in \(String(format: "%.0f", elapsed))ms")
+        dlog("⚡️ [SAFETY] All checks completed in \(String(format: "%.0f", elapsed))ms")
         
         // AGGREGATE RESULTS
         var violations: [PolicyViolation] = []
@@ -362,7 +362,7 @@ class CommentSafetySystem {
         )
         
         if isPileOn {
-            print("🚨 [PILE-ON DETECTED] Post: \(postId), Comments: \(totalCount), Unique: \(commenterIds.count)")
+            dlog("🚨 [PILE-ON DETECTED] Post: \(postId), Comments: \(totalCount), Unique: \(commenterIds.count)")
         }
         
         return PileOnResult(
@@ -469,7 +469,7 @@ class CommentSafetySystem {
         )
 
         if isRepeatOffender {
-            print("🚨 [REPEAT HARASSMENT] Commenter: \(commenterId), Target: \(targetUserId), Interactions: \(interactionCount)")
+            dlog("🚨 [REPEAT HARASSMENT] Commenter: \(commenterId), Target: \(targetUserId), Interactions: \(interactionCount)")
         }
 
         return RepeatHarassmentResult(
@@ -622,7 +622,7 @@ class CommentSafetySystem {
             )
             
             if decision.shouldBlock {
-                print("🚨 [ASYNC CHECK] Comment \(commentId) flagged for review: \(decision.reasons.joined(separator: ", "))")
+                dlog("🚨 [ASYNC CHECK] Comment \(commentId) flagged for review: \(decision.reasons.joined(separator: ", "))")
                 
                 // Flag for review (don't delete immediately to avoid race conditions)
                 try await db
@@ -638,7 +638,7 @@ class CommentSafetySystem {
                     ])
             }
         } catch {
-            print("⚠️ [ASYNC CHECK] Failed: \(error)")
+            dlog("⚠️ [ASYNC CHECK] Failed: \(error)")
         }
     }
     
@@ -656,7 +656,7 @@ class CommentSafetySystem {
                 "commentCooldown": 60  // 60 seconds between comments
             ])
         
-        print("🛡️ [PILE-ON PROTECTION] Activated for post: \(postId)")
+        dlog("🛡️ [PILE-ON PROTECTION] Activated for post: \(postId)")
         
         // Notify post author with a supportive in-app notification
         guard !authorId.isEmpty else { return }
@@ -674,7 +674,7 @@ class CommentSafetySystem {
                 "idempotencyKey": "pile_on_\(postId)"
             ])
         
-        print("🔔 [PILE-ON PROTECTION] Author \(authorId) notified for post \(postId)")
+        dlog("🔔 [PILE-ON PROTECTION] Author \(authorId) notified for post \(postId)")
     }
 }
 

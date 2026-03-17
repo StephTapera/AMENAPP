@@ -56,6 +56,8 @@ struct MessagesView: View {
     @State private var searchText = ""
     @State private var activeSheet: MessageSheetType?
     @State private var selectedTab: MessageTab = .messages
+    @State private var rowsVisible = false
+    @Namespace private var pillNS
     @State private var messageRequests: [MessageRequest] = []
     @State private var showDeleteConfirmation = false
     @State private var conversationToDelete: ChatConversation?
@@ -260,6 +262,10 @@ struct MessagesView: View {
                 .onAppear {
                     tabBarVisible.wrappedValue = false
                     BadgeCountManager.shared.clearMessages()
+                    // Trigger staggered row entrance
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        rowsVisible = true
+                    }
                 }
                 .onDisappear {
                     tabBarVisible.wrappedValue = true
@@ -379,7 +385,7 @@ struct MessagesView: View {
                                 .padding(.top, 60)
                         }
                     } else {
-                        ForEach(filteredConversations) { conv in
+                        ForEach(Array(filteredConversations.enumerated()), id: \.element.id) { index, conv in
                             amenThreadRow(conv)
                                 .contextMenu { conversationContextMenu(for: conv) }
                                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
@@ -390,6 +396,14 @@ struct MessagesView: View {
                                 }
                                 // Request AI summary when row appears
                                 .onAppear { aiSummaryService.requestSummary(for: conv) }
+                                // Staggered entrance animation
+                                .opacity(rowsVisible ? 1 : 0)
+                                .offset(x: rowsVisible ? 0 : 20)
+                                .animation(
+                                    .spring(response: 0.45, dampingFraction: 0.78)
+                                    .delay(Double(index) * 0.065),
+                                    value: rowsVisible
+                                )
                             InboxSeparator()
                         }
                     }
@@ -499,6 +513,7 @@ struct MessagesView: View {
                     .foregroundStyle(isActive
                         ? AMENInboxTokens.background        // white text on black
                         : AMENInboxTokens.secondaryText)
+                    .animation(.easeOut(duration: 0.2), value: isActive)
 
                 // Inline badge count (requests only) with scale animation on first appearance
                 if let count = badge, count > 0 {
@@ -518,13 +533,18 @@ struct MessagesView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 9)
             .background(
-                Capsule()
-                    .fill(isActive
-                        ? AMENInboxTokens.accent
-                        : Color(.systemGray6))
+                ZStack {
+                    if isActive {
+                        Capsule()
+                            .fill(AMENInboxTokens.accent)
+                            .matchedGeometryEffect(id: "activePill", in: pillNS)
+                    } else {
+                        Capsule()
+                            .fill(Color(.systemGray6))
+                    }
+                }
             )
-            // Subtle press scale
-            .scaleEffect(isActive ? 1.0 : 1.0)   // placeholder for press gesture below
+            .animation(.spring(response: 0.35, dampingFraction: 0.72), value: selectedTab)
         }
         .buttonStyle(PillPressStyle())
         .accessibilityAddTraits(isActive ? .isSelected : [])
@@ -1531,6 +1551,8 @@ struct MessagesView: View {
         // Prevent multiple simultaneous refreshes
         guard !isRefreshing else { return }
 
+        // Reset staggered entrance so it replays
+        rowsVisible = false
         isRefreshing = true
 
         // Keep the live Firestore listener running — stopping it causes a data hole.
@@ -1543,6 +1565,10 @@ struct MessagesView: View {
             // haptic
             HapticManager.notification(type: .success)
             isRefreshing = false
+            // Replay staggered entrance
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                rowsVisible = true
+            }
         }
     }
     

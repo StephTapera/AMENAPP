@@ -148,7 +148,7 @@ class PrayerFollowThroughService: ObservableObject {
         prayerThemes: [PrayerTheme],
         urgency: PrayerUrgency
     ) async -> [PrayerIntercessorMatch] {
-        print("🤝 Matching intercessors for prayer...")
+        dlog("🤝 Matching intercessors for prayer...")
         
         isLoading = true
         defer { isLoading = false }
@@ -189,7 +189,7 @@ class PrayerFollowThroughService: ObservableObject {
         // Sort by score (highest first) and limit to top 10
         let topMatches = matches.sorted { $0.matchScore > $1.matchScore }.prefix(10)
         
-        print("✅ Found \(topMatches.count) matched intercessors")
+        dlog("✅ Found \(topMatches.count) matched intercessors")
         return Array(topMatches)
     }
     
@@ -323,7 +323,7 @@ class PrayerFollowThroughService: ObservableObject {
         // Update local state
         myPrayerCommitments.append(commitment)
         
-        print("✅ Committed to pray for: \(prayerId)")
+        dlog("✅ Committed to pray for: \(prayerId)")
     }
     
     /// Load user's prayer commitments
@@ -344,10 +344,10 @@ class PrayerFollowThroughService: ObservableObject {
             }
             
             myPrayerCommitments = commitments
-            print("✅ Loaded \(commitments.count) prayer commitments")
+            dlog("✅ Loaded \(commitments.count) prayer commitments")
             
         } catch {
-            print("❌ Failed to load commitments: \(error.localizedDescription)")
+            dlog("❌ Failed to load commitments: \(error.localizedDescription)")
         }
     }
     
@@ -389,10 +389,10 @@ class PrayerFollowThroughService: ObservableObject {
                 .document(checkInReminder.id)
                 .setData(try Firestore.Encoder().encode(checkInReminder))
             
-            print("✅ Scheduled reminders for prayer")
+            dlog("✅ Scheduled reminders for prayer")
             
         } catch {
-            print("❌ Failed to schedule reminders: \(error.localizedDescription)")
+            dlog("❌ Failed to schedule reminders: \(error.localizedDescription)")
         }
     }
     
@@ -420,7 +420,7 @@ class PrayerFollowThroughService: ObservableObject {
             
             myPrayerCommitments[index] = updatedCommitment
             
-            print("✅ Sent encouragement message")
+            dlog("✅ Sent encouragement message")
         }
     }
     
@@ -483,7 +483,7 @@ class PrayerFollowThroughService: ObservableObject {
         // Notify all intercessors
         await notifyIntercessors(card: card, intercessorIds: intercessorIds)
         
-        print("✅ Prayer marked as answered with gratitude card")
+        dlog("✅ Prayer marked as answered with gratitude card")
     }
     
     private func generateGratitudeSummary(testimony: String) -> String {
@@ -511,11 +511,11 @@ class PrayerFollowThroughService: ObservableObject {
                     .document(reminder.id)
                     .setData(try Firestore.Encoder().encode(reminder))
             } catch {
-                print("⚠️ Failed to notify intercessor: \(error.localizedDescription)")
+                dlog("⚠️ Failed to notify intercessor: \(error.localizedDescription)")
             }
         }
         
-        print("✅ Notified \(intercessorIds.count) intercessors of answered prayer")
+        dlog("✅ Notified \(intercessorIds.count) intercessors of answered prayer")
     }
 }
 

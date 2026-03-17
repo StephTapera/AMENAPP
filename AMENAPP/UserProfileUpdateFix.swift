@@ -35,7 +35,7 @@ extension FirebaseManager {
         updateData["updatedAt"] = Timestamp(date: Date())
         
         guard !updateData.isEmpty else {
-            print("⚠️ No fields to update")
+            dlog("⚠️ No fields to update")
             return
         }
         
@@ -43,13 +43,13 @@ extension FirebaseManager {
             .document(userId)
             .updateData(updateData)
         
-        print("✅ Updated user profile for search: \(updateData.keys)")
+        dlog("✅ Updated user profile for search: \(updateData.keys)")
     }
     
     /// Verify all users have searchable fields
     /// Run this once to migrate existing users
     func migrateUsersForSearch() async throws {
-        print("🔄 Starting user search migration...")
+        dlog("🔄 Starting user search migration...")
         
         let snapshot = try await firestore.collection(CollectionPath.users)
             .getDocuments()
@@ -86,16 +86,16 @@ extension FirebaseManager {
                         .document(document.documentID)
                         .updateData(updateData)
                     migratedCount += 1
-                    print("✅ Migrated user: \(document.documentID)")
+                    dlog("✅ Migrated user: \(document.documentID)")
                 }
                 
             } catch {
                 errorCount += 1
-                print("❌ Failed to migrate user \(document.documentID): \(error)")
+                dlog("❌ Failed to migrate user \(document.documentID): \(error)")
             }
         }
         
-        print("✅ Migration complete: \(migratedCount) users updated, \(errorCount) errors")
+        dlog("✅ Migration complete: \(migratedCount) users updated, \(errorCount) errors")
     }
 }
 

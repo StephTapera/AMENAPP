@@ -410,7 +410,7 @@ class TrustByDesignService: ObservableObject {
             .document(record.id)
             .setData(from: record)
         
-        print("🛡️ Quiet block applied: \(action.rawValue) on \(targetUserId)")
+        dlog("🛡️ Quiet block applied: \(action.rawValue) on \(targetUserId)")
     }
     
     /// Check if user is blocked by quiet action

@@ -345,10 +345,10 @@ struct DiscoverPeopleView: View {
                 try? doc.data(as: FirebaseSearchUser.self)
             }.filter { $0.id != currentUserId } // Don't show current user
             
-            print("✅ Loaded \(recentUsers.count) recent users and \(newUsers.count) new users")
+            dlog("✅ Loaded \(recentUsers.count) recent users and \(newUsers.count) new users")
             
         } catch {
-            print("❌ Error loading users: \(error)")
+            dlog("❌ Error loading users: \(error)")
         }
     }
     
@@ -372,7 +372,7 @@ struct DiscoverPeopleView: View {
             _ = try await searchService.searchUsers(query: query, searchType: .both)
             
         } catch {
-            print("❌ Search error: \(error)")
+            dlog("❌ Search error: \(error)")
         }
         
         isSearching = false
@@ -412,7 +412,7 @@ struct DiscoverPeopleView: View {
             }
             
         } catch {
-            print("❌ Filter error: \(error)")
+            dlog("❌ Filter error: \(error)")
         }
     }
 }
@@ -628,7 +628,7 @@ struct ThreadsFollowButton: View {
                 }
                 
             } catch {
-                print("❌ Follow error: \(error)")
+                dlog("❌ Follow error: \(error)")
                 await MainActor.run {
                     isProcessing = false
                 }
@@ -762,7 +762,7 @@ struct DiscoverPeopleSection: View {
             }.filter { $0.id != currentUserId } // Don't show current user
             
         } catch {
-            print("❌ Error loading suggested users: \(error)")
+            dlog("❌ Error loading suggested users: \(error)")
         }
     }
 }
@@ -904,7 +904,7 @@ struct CompactUserCard: View {
                 }
                 
             } catch {
-                print("❌ Follow error: \(error)")
+                dlog("❌ Follow error: \(error)")
             }
         }
     }

@@ -663,6 +663,6 @@ struct ProfileData {
 
 #Preview {
     OnboardingSuccessScreen(gradientColors: [.pink, .purple]) {
-        print("Complete")
+        dlog("Complete")
     }
 }

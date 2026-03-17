@@ -170,7 +170,7 @@ final class AgeAssuranceService {
 
             isLoaded = true
         } catch {
-            print("❌ AgeAssuranceService: Failed to load tier — \(error)")
+            dlog("❌ AgeAssuranceService: Failed to load tier — \(error)")
             // On a transient Firestore error, default to the most restrictive safe tier
             // rather than granting full adult access. The gate will re-evaluate on next load.
             tier = .tierB

@@ -1484,7 +1484,7 @@ struct FindChurchView: View {
         let haptic = UISelectionFeedbackGenerator()
         haptic.selectionChanged()
         
-        print("🔍 Searching for: '\(searchText)'")
+        dlog("🔍 Searching for: '\(searchText)'")
         
         // The filtering happens in filteredChurches computed property
         // This just provides haptic feedback and logs the search
@@ -1521,9 +1521,9 @@ struct FindChurchView: View {
                 } else {
                     currentLocationName = "Current Location"
                 }
-                print("📍 Location: \(currentLocationName)")
+                dlog("📍 Location: \(currentLocationName)")
             } catch {
-                print("❌ Reverse geocoding error: \(error.localizedDescription)")
+                dlog("❌ Reverse geocoding error: \(error.localizedDescription)")
                 currentLocationName = "Unknown Location"
             }
         }
@@ -1531,7 +1531,7 @@ struct FindChurchView: View {
     
     func performRealSearch() {
         guard let userLoc = userLocation else {
-            print("⚠️ Cannot search: User location not available")
+            dlog("⚠️ Cannot search: User location not available")
             errorMessage = "Location not available. Please enable location services in Settings."
             showErrorAlert = true
             return
@@ -1540,7 +1540,7 @@ struct FindChurchView: View {
         // P0 FIX: Cancel existing search and start new one
         // Single source of truth: searchTask != nil means searching
         guard !isSearching else {
-            print("⚠️ Search already in progress")
+            dlog("⚠️ Search already in progress")
             return
         }
 
@@ -1561,7 +1561,7 @@ struct FindChurchView: View {
                 let haptic = UIImpactFeedbackGenerator(style: .light)
                 haptic.impactOccurred()
 
-                print("🔍 Starting church search at (\(userLoc.latitude), \(userLoc.longitude)) within \(searchRadius)m")
+                dlog("🔍 Starting church search at (\(userLoc.latitude), \(userLoc.longitude)) within \(searchRadius)m")
 
                 let results = try await churchSearchService.searchChurches(near: userLoc, radius: searchRadius)
 
@@ -1570,7 +1570,7 @@ struct FindChurchView: View {
                         errorMessage = "No churches found within \(Int(searchRadius / 1609.34)) miles. Try increasing the search radius."
                         showErrorAlert = true
                     } else {
-                        print("✅ Found \(results.count) churches nearby")
+                        dlog("✅ Found \(results.count) churches nearby")
 
                         // Success haptic
                         let successHaptic = UINotificationFeedbackGenerator()
@@ -1579,7 +1579,7 @@ struct FindChurchView: View {
                 }
 
             } catch ChurchSearchError.noInternetConnection {
-                print("❌ No internet connection")
+                dlog("❌ No internet connection")
 
                 await MainActor.run {
                     errorMessage = "No internet connection. Please check your network and try again."
@@ -1591,7 +1591,7 @@ struct FindChurchView: View {
                 }
 
             } catch ChurchSearchError.noResultsFound {
-                print("❌ No results found")
+                dlog("❌ No results found")
 
                 await MainActor.run {
                     errorMessage = "No churches found in this area. Try increasing the search radius to \(Int(searchRadius / 1609.34) + 5) miles."
@@ -1599,7 +1599,7 @@ struct FindChurchView: View {
                 }
 
             } catch ChurchSearchError.tooManyRequests {
-                print("❌ Too many requests")
+                dlog("❌ Too many requests")
 
                 await MainActor.run {
                     errorMessage = "Search limit reached. Please wait a moment and try again."
@@ -1607,7 +1607,7 @@ struct FindChurchView: View {
                 }
 
             } catch ChurchSearchError.locationUnavailable {
-                print("❌ Location unavailable")
+                dlog("❌ Location unavailable")
 
                 await MainActor.run {
                     errorMessage = "Location services are unavailable. Please enable location access in Settings."
@@ -1615,11 +1615,11 @@ struct FindChurchView: View {
                 }
 
             } catch is CancellationError {
-                print("🔄 Search cancelled (new search started)")
+                dlog("🔄 Search cancelled (new search started)")
                 // Don't show error for cancellation - this is expected when user starts new search
 
             } catch {
-                print("❌ Church search failed: \(error.localizedDescription)")
+                dlog("❌ Church search failed: \(error.localizedDescription)")
 
                 await MainActor.run {
                     // Provide more specific error messages
@@ -1689,7 +1689,7 @@ struct FindChurchView: View {
             visitHistory: churchVisitHistory,
             userLocation: userLocation
         ) {
-            print("📅 Smart notification scheduled for: \(optimalTime)")
+            dlog("📅 Smart notification scheduled for: \(optimalTime)")
             // Schedule at optimal time
             notificationManager.scheduleServiceReminder(for: church, beforeMinutes: 60)
         } else {
@@ -1814,7 +1814,7 @@ struct FindChurchView: View {
         
         saveUserPreferences()
         
-        print("✅ Checked in to \(church.name) at \(now)")
+        dlog("✅ Checked in to \(church.name) at \(now)")
     }
     
     func addToSchedule(_ church: Church) {
@@ -1842,7 +1842,7 @@ struct FindChurchView: View {
             // Update insights after saving
             updateJourneyInsights()
         } catch {
-            print("❌ Failed to save user preferences: \(error.localizedDescription)")
+            dlog("❌ Failed to save user preferences: \(error.localizedDescription)")
         }
     }
     
@@ -1853,7 +1853,7 @@ struct FindChurchView: View {
                 let decoder = JSONDecoder()
                 userPreferences = try decoder.decode(UserChurchPreferences.self, from: prefsData)
             } catch {
-                print("❌ Failed to load user preferences: \(error.localizedDescription)")
+                dlog("❌ Failed to load user preferences: \(error.localizedDescription)")
             }
         }
         
@@ -1863,7 +1863,7 @@ struct FindChurchView: View {
                 let decoder = JSONDecoder()
                 churchVisitHistory = try decoder.decode([ChurchVisit].self, from: historyData)
             } catch {
-                print("❌ Failed to load visit history: \(error.localizedDescription)")
+                dlog("❌ Failed to load visit history: \(error.localizedDescription)")
             }
         }
         
@@ -1884,7 +1884,7 @@ struct FindChurchView: View {
     
     func loadAIRecommendations() {
         guard !filteredChurches.isEmpty else {
-            print("ℹ️ No churches available for AI recommendations")
+            dlog("ℹ️ No churches available for AI recommendations")
             return
         }
         
@@ -1930,9 +1930,9 @@ struct FindChurchView: View {
                 let haptic = UINotificationFeedbackGenerator()
                 haptic.notificationOccurred(.success)
                 
-                print("✅ Loaded \(recommendations.count) AI church recommendations")
+                dlog("✅ Loaded \(recommendations.count) AI church recommendations")
             } catch {
-                print("❌ Failed to load AI recommendations: \(error)")
+                dlog("❌ Failed to load AI recommendations: \(error)")
                 await MainActor.run {
                     isLoadingAIRecommendations = false
                 }
@@ -1972,7 +1972,7 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
         case .denied, .restricted:
             isAuthorized = false
             // Could notify user to check Settings
-            print("⚠️ Location access denied. User must enable in Settings.")
+            dlog("⚠️ Location access denied. User must enable in Settings.")
         @unknown default:
             isAuthorized = false
         }
@@ -3420,14 +3420,14 @@ class ChurchPersistenceManager: ObservableObject {
         savedChurches.append(church)
         persistChurches()
         
-        print("✅ Saved church: \(church.name)")
+        dlog("✅ Saved church: \(church.name)")
     }
     
     func removeChurch(_ church: Church) {
         savedChurches.removeAll { $0.id == church.id }
         persistChurches()
         
-        print("🗑️ Removed church: \(church.name)")
+        dlog("🗑️ Removed church: \(church.name)")
     }
     
     func isChurchSaved(_ churchId: UUID) -> Bool {
@@ -3441,22 +3441,22 @@ class ChurchPersistenceManager: ObservableObject {
             userDefaults.set(data, forKey: savedChurchesKey)
             // synchronize() is deprecated since iOS 12 — writes are persisted automatically.
         } catch {
-            print("❌ Failed to save churches: \(error.localizedDescription)")
+            dlog("❌ Failed to save churches: \(error.localizedDescription)")
         }
     }
     
     private func loadSavedChurches() {
         guard let data = userDefaults.data(forKey: savedChurchesKey) else {
-            print("ℹ️ No saved churches found")
+            dlog("ℹ️ No saved churches found")
             return
         }
         
         do {
             let decoder = JSONDecoder()
             savedChurches = try decoder.decode([Church].self, from: data)
-            print("✅ Loaded \(savedChurches.count) saved churches")
+            dlog("✅ Loaded \(savedChurches.count) saved churches")
         } catch {
-            print("❌ Failed to load churches: \(error.localizedDescription)")
+            dlog("❌ Failed to load churches: \(error.localizedDescription)")
             savedChurches = []
         }
     }
@@ -3465,7 +3465,7 @@ class ChurchPersistenceManager: ObservableObject {
         savedChurches.removeAll()
         userDefaults.removeObject(forKey: savedChurchesKey)
         // synchronize() is deprecated since iOS 12 — writes are persisted automatically.
-        print("🗑️ Cleared all saved churches")
+        dlog("🗑️ Cleared all saved churches")
     }
 }
 

@@ -31,16 +31,16 @@ class PersonalizationService: ObservableObject {
     
     func loadUserProfile() async {
         guard let userId = Auth.auth().currentUser?.uid else {
-            print("⚠️ PersonalizationService: No authenticated user")
+            dlog("⚠️ PersonalizationService: No authenticated user")
             return
         }
         
         do {
             let document = try await db.collection("users").document(userId).getDocument()
             userProfile = try? document.data(as: UserModel.self)
-            print("✅ PersonalizationService: Loaded user profile with \(userProfile?.interests?.count ?? 0) interests")
+            dlog("✅ PersonalizationService: Loaded user profile with \(userProfile?.interests?.count ?? 0) interests")
         } catch {
-            print("❌ PersonalizationService: Failed to load profile - \(error)")
+            dlog("❌ PersonalizationService: Failed to load profile - \(error)")
         }
     }
     
@@ -49,18 +49,18 @@ class PersonalizationService: ObservableObject {
     /// Personalize posts based on user interests, goals, and behavior
     func personalizePostsFeed(_ posts: [Post], category: Post.PostCategory) -> [Post] {
         guard let profile = userProfile else {
-            print("⚠️ No user profile for personalization")
+            dlog("⚠️ No user profile for personalization")
             return posts
         }
         
         guard let interests = profile.interests, !interests.isEmpty else {
-            print("⚠️ User has no interests set")
+            dlog("⚠️ User has no interests set")
             return posts
         }
         
         let goals = profile.goals ?? []
         
-        print("🎯 Personalizing \(posts.count) posts with \(interests.count) interests and \(goals.count) goals")
+        dlog("🎯 Personalizing \(posts.count) posts with \(interests.count) interests and \(goals.count) goals")
         
         // Score and sort posts
         let scoredPosts = posts.map { post -> (post: Post, score: PostRelevanceScore) in
@@ -80,10 +80,10 @@ class PersonalizationService: ObservableObject {
         
         // Log top 3 posts for debugging
         if scoredPosts.count >= 3 {
-            print("📊 Top 3 personalized posts:")
+            dlog("📊 Top 3 personalized posts:")
             for i in 0..<min(3, scoredPosts.count) {
                 let scored = scoredPosts.sorted { $0.score.total > $1.score.total }[i]
-                print("   \(i+1). Score: \(Int(scored.score.total)) - \(scored.post.content.prefix(50))...")
+                dlog("   \(i+1). Score: \(Int(scored.score.total)) - \(scored.post.content.prefix(50))...")
             }
         }
         
@@ -95,17 +95,17 @@ class PersonalizationService: ObservableObject {
     /// Find people who match user's interests for friend suggestions
     func findRelevantPeople(limit: Int = 20) async -> [UserModel] {
         guard let currentProfile = userProfile else {
-            print("⚠️ No user profile for people recommendations")
+            dlog("⚠️ No user profile for people recommendations")
             return []
         }
         
         guard let userInterests = currentProfile.interests, !userInterests.isEmpty else {
-            print("⚠️ User has no interests for people matching")
+            dlog("⚠️ User has no interests for people matching")
             return []
         }
         
         do {
-            print("🔍 Finding people with matching interests...")
+            dlog("🔍 Finding people with matching interests...")
             
             // Fetch potential matches from Firestore
             // Query users who have ANY of the same interests
@@ -124,7 +124,7 @@ class PersonalizationService: ObservableObject {
             // Filter out current user
             let otherUsers = users.filter { $0.id != currentProfile.id }
             
-            print("📥 Found \(otherUsers.count) users with matching interests")
+            dlog("📥 Found \(otherUsers.count) users with matching interests")
             
             // Score each user
             let scoredUsers = otherUsers.map { user -> (user: UserModel, score: UserRelevanceScore) in
@@ -142,21 +142,21 @@ class PersonalizationService: ObservableObject {
                 .prefix(limit)
                 .map { $0.user }
             
-            print("✅ Recommended \(topUsers.count) users based on interests")
+            dlog("✅ Recommended \(topUsers.count) users based on interests")
             
             // Log top 3 for debugging
             if scoredUsers.count >= 3 {
-                print("📊 Top 3 recommended users:")
+                dlog("📊 Top 3 recommended users:")
                 for i in 0..<min(3, scoredUsers.count) {
                     let scored = scoredUsers.sorted { $0.score.total > $1.score.total }[i]
-                    print("   \(i+1). Score: \(Int(scored.score.total)) - @\(scored.user.username) (\(scored.score.sharedInterests) shared interests)")
+                    dlog("   \(i+1). Score: \(Int(scored.score.total)) - @\(scored.user.username) (\(scored.score.sharedInterests) shared interests)")
                 }
             }
             
             return Array(topUsers)
             
         } catch {
-            print("❌ Failed to find relevant people: \(error)")
+            dlog("❌ Failed to find relevant people: \(error)")
             return []
         }
     }

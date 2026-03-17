@@ -190,7 +190,7 @@ class UserSearchService: ObservableObject {
             
             guard let username = data["username"] as? String,
                   let displayName = data["displayName"] as? String else {
-                print("⚠️ User \(document.documentID) missing required fields")
+                dlog("⚠️ User \(document.documentID) missing required fields")
                 continue
             }
             
@@ -585,6 +585,6 @@ struct MessagingUserSearchView: View {
 
 #Preview("Messaging Search") {
     MessagingUserSearchView { user in
-        print("Selected user: \(user.displayName)")
+        dlog("Selected user: \(user.displayName)")
     }
 }

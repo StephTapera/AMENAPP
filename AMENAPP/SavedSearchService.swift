@@ -133,7 +133,7 @@ class SavedSearchService: ObservableObject {
         // Check if query is already saved
         let existingSearches = try await fetchSavedSearches()
         if existingSearches.contains(where: { $0.query.lowercased() == query.lowercased() && $0.category == category }) {
-            print("⚠️ Search already saved: \(query)")
+            dlog("⚠️ Search already saved: \(query)")
             throw SavedSearchError.alreadySaved
         }
         
@@ -161,7 +161,7 @@ class SavedSearchService: ObservableObject {
         
         try await db.collection("savedSearches").addDocument(data: data)
         
-        print("✅ Search saved: \(query)")
+        dlog("✅ Search saved: \(query)")
         
         // Trigger haptic feedback
         let haptic = UINotificationFeedbackGenerator()
@@ -192,7 +192,7 @@ class SavedSearchService: ObservableObject {
         
         savedSearches = searches
         
-        print("✅ Fetched \(searches.count) saved searches")
+        dlog("✅ Fetched \(searches.count) saved searches")
         
         return searches
     }
@@ -206,7 +206,7 @@ class SavedSearchService: ObservableObject {
         // Remove from local cache
         savedSearches.removeAll { $0.id == id }
         
-        print("✅ Deleted saved search: \(id)")
+        dlog("✅ Deleted saved search: \(id)")
         
         let haptic = UIImpactFeedbackGenerator(style: .medium)
         haptic.impactOccurred()
@@ -229,7 +229,7 @@ class SavedSearchService: ObservableObject {
         // Update local cache
         savedSearches[index].notificationsEnabled = newValue
         
-        print("✅ Notifications \(newValue ? "enabled" : "disabled") for search: \(searchId)")
+        dlog("✅ Notifications \(newValue ? "enabled" : "disabled") for search: \(searchId)")
     }
     
     // MARK: - Check for New Results
@@ -251,13 +251,13 @@ class SavedSearchService: ObservableObject {
                 savedSearches[index].lastTriggered = Date()
             }
             
-            print("✅ Triggered check for search: \(savedSearch.query)")
+            dlog("✅ Triggered check for search: \(savedSearch.query)")
             
             // In a real implementation, you would perform the actual search here
             // and create alerts if new results are found
             
         } catch {
-            print("❌ Failed to trigger search check: \(error)")
+            dlog("❌ Failed to trigger search check: \(error)")
         }
     }
     
@@ -282,7 +282,7 @@ class SavedSearchService: ObservableObject {
         
         searchAlerts = alerts
         
-        print("✅ Fetched \(alerts.count) search alerts")
+        dlog("✅ Fetched \(alerts.count) search alerts")
     }
     
     /// Mark an alert as read
@@ -296,7 +296,7 @@ class SavedSearchService: ObservableObject {
             searchAlerts[index].isRead = true
         }
         
-        print("✅ Marked alert as read: \(alertId)")
+        dlog("✅ Marked alert as read: \(alertId)")
     }
     
     /// Create a new search alert
@@ -323,7 +323,7 @@ class SavedSearchService: ObservableObject {
         
         try await db.collection("searchAlerts").addDocument(data: data)
         
-        print("✅ Created search alert for query: \(query)")
+        dlog("✅ Created search alert for query: \(query)")
     }
     
     // MARK: - Real-time Listener
@@ -331,11 +331,11 @@ class SavedSearchService: ObservableObject {
     /// Start listening for saved searches changes
     func startListening() {
         guard let userId = Auth.auth().currentUser?.uid else {
-            print("⚠️ No user ID for saved searches listener")
+            dlog("⚠️ No user ID for saved searches listener")
             return
         }
         
-        print("🔊 Starting real-time listener for saved searches...")
+        dlog("🔊 Starting real-time listener for saved searches...")
         
         listener = db.collection("savedSearches")
             .whereField("userId", isEqualTo: userId)
@@ -344,7 +344,7 @@ class SavedSearchService: ObservableObject {
                 guard let self = self else { return }
                 
                 if let error = error {
-                    print("❌ Saved searches listener error: \(error)")
+                    dlog("❌ Saved searches listener error: \(error)")
                     Task { @MainActor in
                         self.error = error.localizedDescription
                     }
@@ -361,7 +361,7 @@ class SavedSearchService: ObservableObject {
                 
                 Task { @MainActor in
                     self.savedSearches = searches
-                    print("✅ Real-time update: \(searches.count) saved searches")
+                    dlog("✅ Real-time update: \(searches.count) saved searches")
                 }
             }
         
@@ -373,7 +373,7 @@ class SavedSearchService: ObservableObject {
                 guard let self = self else { return }
                 
                 if let error = error {
-                    print("❌ Search alerts listener error: \(error)")
+                    dlog("❌ Search alerts listener error: \(error)")
                     return
                 }
                 
@@ -387,14 +387,14 @@ class SavedSearchService: ObservableObject {
                 
                 Task { @MainActor in
                     self.searchAlerts = alerts
-                    print("✅ Real-time update: \(alerts.count) search alerts")
+                    dlog("✅ Real-time update: \(alerts.count) search alerts")
                 }
             }
     }
     
     /// Stop listening for changes
     func stopListening() {
-        print("🔇 Stopping saved searches listener...")
+        dlog("🔇 Stopping saved searches listener...")
         listener?.remove()
         listener = nil
         alertsListener?.remove()

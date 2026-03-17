@@ -29,7 +29,7 @@ extension FirebaseMessagingService {
             do {
                 try await updateTypingStatus(conversationId: conversationId, isTyping: false)
             } catch {
-                print("⚠️ Failed to clear typing status: \(error)")
+                dlog("⚠️ Failed to clear typing status: \(error)")
             }
         }
     }

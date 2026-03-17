@@ -31,12 +31,12 @@ actor FollowOperationActor {
     /// - Returns: `true` if operation can proceed, `false` if already in progress
     func startOperation(for userId: String) -> Bool {
         guard !inFlightOperations.contains(userId) else {
-            print("⚠️ Follow operation already in progress for user \(userId)")
+            dlog("⚠️ Follow operation already in progress for user \(userId)")
             return false
         }
         
         inFlightOperations.insert(userId)
-        print("✅ Started follow operation for user \(userId)")
+        dlog("✅ Started follow operation for user \(userId)")
         return true
     }
     
@@ -44,7 +44,7 @@ actor FollowOperationActor {
     /// - Parameter userId: The user to mark as complete
     func completeOperation(for userId: String) {
         inFlightOperations.remove(userId)
-        print("✅ Completed follow operation for user \(userId)")
+        dlog("✅ Completed follow operation for user \(userId)")
     }
     
     /// Check if an operation is currently in progress
@@ -57,7 +57,7 @@ actor FollowOperationActor {
     /// Reset all operations (useful for testing or error recovery)
     func resetAllOperations() {
         inFlightOperations.removeAll()
-        print("🔄 Reset all follow operations")
+        dlog("🔄 Reset all follow operations")
     }
 }
 

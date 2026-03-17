@@ -2602,7 +2602,7 @@ struct SavedContentView: View {
     @Binding var savedPosts: [Post]
     
     var body: some View {
-        let _ = print("🔍 [SAVED-TAB] SavedContentView body evaluated - savedPosts.count: \(savedPosts.count)")
+        let _ = dlog("🔍 [SAVED-TAB] SavedContentView body evaluated - savedPosts.count: \(savedPosts.count)")
         if savedPosts.isEmpty {
             // Empty state
             VStack(spacing: 16) {
@@ -2639,7 +2639,7 @@ struct RepostsContentView: View {
     @Binding var reposts: [Post]
     
     var body: some View {
-        let _ = print("🔍 [REPOSTS-TAB] RepostsContentView body evaluated - reposts.count: \(reposts.count)")
+        let _ = dlog("🔍 [REPOSTS-TAB] RepostsContentView body evaluated - reposts.count: \(reposts.count)")
         if reposts.isEmpty {
             // Empty state
             VStack(spacing: 16) {

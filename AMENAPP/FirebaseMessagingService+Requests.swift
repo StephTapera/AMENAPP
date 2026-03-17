@@ -52,7 +52,7 @@ extension FirebaseMessagingService {
             requests.append(request)
         }
         
-        print("📬 Fetched \(requests.count) message requests for user \(userId)")
+        dlog("📬 Fetched \(requests.count) message requests for user \(userId)")
         return requests
     }
     
@@ -70,13 +70,13 @@ extension FirebaseMessagingService {
             "updatedAt": Timestamp(date: Date())
         ])
         
-        print("✅ Message request accepted: \(requestId)")
+        dlog("✅ Message request accepted: \(requestId)")
     }
     
     /// Decline (delete) a message request
     func declineMessageRequest(requestId: String) async throws {
         try await deleteConversation(conversationId: requestId)
-        print("❌ Message request declined: \(requestId)")
+        dlog("❌ Message request declined: \(requestId)")
     }
     
     // MARK: - Mark as Read
@@ -93,7 +93,7 @@ extension FirebaseMessagingService {
             "requestReadBy": FieldValue.arrayUnion([currentUserId])
         ])
         
-        print("📖 Message request marked as read: \(requestId)")
+        dlog("📖 Message request marked as read: \(requestId)")
     }
     */
 }

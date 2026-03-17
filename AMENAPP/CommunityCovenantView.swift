@@ -277,7 +277,7 @@ struct CommunityCovenantView: View {
                     "communityStandardsAgreedAt": FieldValue.serverTimestamp()
                 ])
                 
-                print("✅ Community Covenant agreement saved")
+                dlog("✅ Community Covenant agreement saved")
                 
                 await MainActor.run {
                     isSubmitting = false
@@ -285,7 +285,7 @@ struct CommunityCovenantView: View {
                 }
                 
             } catch {
-                print("❌ Failed to save agreement: \(error)")
+                dlog("❌ Failed to save agreement: \(error)")
                 await MainActor.run {
                     isSubmitting = false
                     errorMessage = "Failed to save agreement. Please try again."

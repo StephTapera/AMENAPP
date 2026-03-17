@@ -244,13 +244,83 @@ struct EnhancedCommentRow: View {
             showReactionPicker = false
         }
         
-        // Save to Firebase
+        // P2 #2: Persist reaction to Firestore using deterministic doc ID
+        // ("{userId}_{emoji}") so duplicate reactions from the same user are a no-op.
+        saveReactionToFirestore(reaction)
+
+        // Notify parent (for any additional handling)
         onReact(reaction)
     }
-    
+
+    /// P2 #2: Write reaction with a deterministic document ID to enforce one reaction
+    /// per user per emoji. Tapping the same emoji again removes the reaction (toggle).
+    private func saveReactionToFirestore(_ reaction: CommentReaction) {
+        guard let commentId = comment.id,
+              let userId = FirebaseManager.shared.currentUser?.uid else { return }
+
+        let db = Firestore.firestore()
+        let postId = comment.postId
+        let reactionsCollection = db
+            .collection("posts").document(postId)
+            .collection("comments").document(commentId)
+            .collection("reactions")
+
+        // Deterministic doc ID prevents duplicates — same user + same emoji is always
+        // the same document, so a second tap simply overwrites (or deletes) the existing one.
+        let docId = "\(userId)_\(reaction.rawValue)"
+        let reactionRef = reactionsCollection.document(docId)
+
+        if userReaction == nil {
+            // Reaction was just removed (we toggled it off above) — delete from Firestore
+            Task.detached {
+                try? await reactionRef.delete()
+            }
+        } else {
+            // Reaction was added or changed — upsert with merge:false (idempotent)
+            let reactionData: [String: Any] = [
+                "userId": userId,
+                "emoji": reaction.rawValue,
+                "timestamp": FieldValue.serverTimestamp(),
+            ]
+            Task.detached {
+                try? await reactionRef.setData(reactionData, merge: false)
+            }
+        }
+    }
+
     private func loadReactions() async {
-        // Load reactions from Firestore
-        // This would be implemented in your CommentService
+        guard let commentId = comment.id else { return }
+        let db = Firestore.firestore()
+        let postId = comment.postId
+        let userId = FirebaseManager.shared.currentUser?.uid ?? ""
+
+        do {
+            let snapshot = try await db
+                .collection("posts").document(postId)
+                .collection("comments").document(commentId)
+                .collection("reactions")
+                .getDocuments()
+
+            var loaded: [CommentReaction: Int] = [:]
+            var myReaction: CommentReaction?
+
+            for doc in snapshot.documents {
+                let data = doc.data()
+                guard let emojiStr = data["emoji"] as? String,
+                      let reaction = CommentReaction(rawValue: emojiStr) else { continue }
+                loaded[reaction, default: 0] += 1
+                if let docUserId = data["userId"] as? String, docUserId == userId {
+                    myReaction = reaction
+                }
+            }
+
+            await MainActor.run {
+                reactions = loaded
+                userReaction = myReaction
+            }
+        } catch {
+            // Non-critical — reactions are cosmetic; silently ignore load errors
+        }
     }
 }
 

@@ -233,7 +233,7 @@ class LegacyUserService: ObservableObject {
     private var userListener: ListenerRegistration?
     
     init() {
-        print("👤 UserService initialized")
+        dlog("👤 UserService initialized")
     }
     
     deinit {
@@ -245,18 +245,18 @@ class LegacyUserService: ObservableObject {
     /// Fetch the current authenticated user's profile data from Firestore
     func fetchCurrentUser() async {
         guard let userId = firebaseManager.currentUser?.uid else {
-            print("❌ UserService: No authenticated user")
+            dlog("❌ UserService: No authenticated user")
             return
         }
         
-        print("📥 UserService: Fetching user profile for ID: \(userId)")
+        dlog("📥 UserService: Fetching user profile for ID: \(userId)")
         isLoading = true
         
         do {
             let document = try await db.collection("users").document(userId).getDocument()
             
             guard document.exists else {
-                print("❌ UserService: User document not found")
+                dlog("❌ UserService: User document not found")
                 error = "User profile not found"
                 isLoading = false
                 return
@@ -274,23 +274,23 @@ class LegacyUserService: ObservableObject {
             UserDefaults.standard.set(userData.initials, forKey: "currentUserInitials")
             if let profileImageURL = userData.profileImageURL {
                 UserDefaults.standard.set(profileImageURL, forKey: "currentUserProfileImageURL")
-                print("   ✅ Cached profile image URL: \(profileImageURL)")
+                dlog("   ✅ Cached profile image URL: \(profileImageURL)")
             } else {
                 // Clear cached URL if user removed their profile photo
                 UserDefaults.standard.removeObject(forKey: "currentUserProfileImageURL")
             }
             
-            print("✅ UserService: User profile loaded successfully")
-            print("   Name: \(userData.displayName)")
-            print("   Username: @\(userData.username)")
-            print("   Bio: \(userData.bio)")
-            print("   Interests: \(userData.interests)")
-            print("   Profile Image: \(userData.profileImageURL ?? "none")")
+            dlog("✅ UserService: User profile loaded successfully")
+            dlog("   Name: \(userData.displayName)")
+            dlog("   Username: @\(userData.username)")
+            dlog("   Bio: \(userData.bio)")
+            dlog("   Interests: \(userData.interests)")
+            dlog("   Profile Image: \(userData.profileImageURL ?? "none")")
             
             isLoading = false
             
         } catch {
-            print("❌ UserService: Failed to fetch user - \(error)")
+            dlog("❌ UserService: Failed to fetch user - \(error)")
             self.error = error.localizedDescription
             isLoading = false
         }
@@ -301,17 +301,17 @@ class LegacyUserService: ObservableObject {
     /// Start listening to user profile changes in real-time
     func startListeningToCurrentUser() {
         guard let userId = firebaseManager.currentUser?.uid else {
-            print("❌ UserService: Cannot start listener - no user")
+            dlog("❌ UserService: Cannot start listener - no user")
             return
         }
         
-        print("👂 UserService: Starting real-time listener for user: \(userId)")
+        dlog("👂 UserService: Starting real-time listener for user: \(userId)")
         
         userListener = db.collection("users").document(userId).addSnapshotListener { [weak self] snapshot, error in
             guard let self = self else { return }
             
             if let error = error {
-                print("❌ UserService: Listener error - \(error)")
+                dlog("❌ UserService: Listener error - \(error)")
                 Task { @MainActor in
                     self.error = error.localizedDescription
                 }
@@ -319,7 +319,7 @@ class LegacyUserService: ObservableObject {
             }
             
             guard let snapshot = snapshot, snapshot.exists else {
-                print("❌ UserService: User document doesn't exist")
+                dlog("❌ UserService: User document doesn't exist")
                 return
             }
             
@@ -336,15 +336,15 @@ class LegacyUserService: ObservableObject {
                     UserDefaults.standard.set(userData.initials, forKey: "currentUserInitials")
                     if let profileImageURL = userData.profileImageURL {
                         UserDefaults.standard.set(profileImageURL, forKey: "currentUserProfileImageURL")
-                        print("   ✅ Updated cached profile image URL: \(profileImageURL)")
+                        dlog("   ✅ Updated cached profile image URL: \(profileImageURL)")
                     } else {
                         UserDefaults.standard.removeObject(forKey: "currentUserProfileImageURL")
                     }
                     
-                    print("🔄 UserService: User profile updated via listener")
+                    dlog("🔄 UserService: User profile updated via listener")
                 }
             } catch {
-                print("❌ UserService: Failed to decode user - \(error)")
+                dlog("❌ UserService: Failed to decode user - \(error)")
             }
         }
     }
@@ -353,7 +353,7 @@ class LegacyUserService: ObservableObject {
     func stopListening() {
         userListener?.remove()
         userListener = nil
-        print("🔇 UserService: Stopped real-time listener")
+        dlog("🔇 UserService: Stopped real-time listener")
     }
     
     // MARK: - Update Profile
@@ -364,9 +364,9 @@ class LegacyUserService: ObservableObject {
             throw UserServiceError.unauthorized
         }
         
-        print("💾 UserService: Updating profile...")
-        print("   Name: \(displayName)")
-        print("   Bio: \(bio)")
+        dlog("💾 UserService: Updating profile...")
+        dlog("   Name: \(displayName)")
+        dlog("   Bio: \(bio)")
         
         // Generate new initials
         let names = displayName.components(separatedBy: " ")
@@ -388,7 +388,7 @@ class LegacyUserService: ObservableObject {
         
         try await db.collection("users").document(userId).updateData(updateData)
         
-        print("✅ UserService: Profile updated successfully")
+        dlog("✅ UserService: Profile updated successfully")
         
         // Update local cache
         if var user = currentUser {
@@ -417,7 +417,7 @@ class LegacyUserService: ObservableObject {
             throw UserServiceError.unauthorized
         }
         
-        print("📤 UserService: Uploading profile image...")
+        dlog("📤 UserService: Uploading profile image...")
         
         // Compress image
         guard let imageData = image.jpegData(compressionQuality: compressionQuality) else {
@@ -434,7 +434,7 @@ class LegacyUserService: ObservableObject {
         _ = try await storageRef.putDataAsync(imageData, metadata: metadata)
         let downloadURL = try await storageRef.downloadURL()
         
-        print("✅ UserService: Image uploaded to: \(downloadURL.absoluteString)")
+        dlog("✅ UserService: Image uploaded to: \(downloadURL.absoluteString)")
         
         // Update Firestore with new URL
         let updateData: [String: Any] = [
@@ -444,7 +444,7 @@ class LegacyUserService: ObservableObject {
         
         try await db.collection("users").document(userId).updateData(updateData)
         
-        print("✅ UserService: Profile image URL updated in Firestore")
+        dlog("✅ UserService: Profile image URL updated in Firestore")
         
         // Update profile photos in all conversations
         await updateProfilePhotoInConversations(userId: userId, photoURL: downloadURL.absoluteString)
@@ -468,7 +468,7 @@ class LegacyUserService: ObservableObject {
             throw UserServiceError.unauthorized
         }
         
-        print("💾 UserService: Updating profile image URL...")
+        dlog("💾 UserService: Updating profile image URL...")
         
         let updateData: [String: Any] = [
             "profileImageURL": imageURL,
@@ -477,7 +477,7 @@ class LegacyUserService: ObservableObject {
         
         try await db.collection("users").document(userId).updateData(updateData)
         
-        print("✅ UserService: Profile image URL updated")
+        dlog("✅ UserService: Profile image URL updated")
         
         // Update profile photos in all conversations
         await updateProfilePhotoInConversations(userId: userId, photoURL: imageURL)
@@ -500,7 +500,7 @@ class LegacyUserService: ObservableObject {
             throw UserServiceError.unauthorized
         }
         
-        print("🗑️ UserService: Removing profile image...")
+        dlog("🗑️ UserService: Removing profile image...")
         
         // Remove from Firestore (set to null)
         let updateData: [String: Any] = [
@@ -519,7 +519,7 @@ class LegacyUserService: ObservableObject {
         
         try? await storageRef.delete()
         
-        print("✅ UserService: Profile image removed")
+        dlog("✅ UserService: Profile image removed")
         
         // Update local cache
         if var user = currentUser {
@@ -539,11 +539,11 @@ class LegacyUserService: ObservableObject {
             throw UserServiceError.unauthorized
         }
         
-        print("💾 UserService: Saving onboarding preferences...")
-        print("   Interests: \(interests)")
-        print("   Goals: \(goals)")
-        print("   Prayer Time: \(prayerTime)")
-        print("   Profile Image URL: \(profileImageURL ?? "none")")
+        dlog("💾 UserService: Saving onboarding preferences...")
+        dlog("   Interests: \(interests)")
+        dlog("   Goals: \(goals)")
+        dlog("   Prayer Time: \(prayerTime)")
+        dlog("   Profile Image URL: \(profileImageURL ?? "none")")
         
         var updateData: [String: Any] = [
             "interests": interests,
@@ -561,7 +561,7 @@ class LegacyUserService: ObservableObject {
         // Use setData with merge to create document if it doesn't exist
         try await db.collection("users").document(userId).setData(updateData, merge: true)
         
-        print("✅ UserService: Preferences saved successfully")
+        dlog("✅ UserService: Preferences saved successfully")
         
         // Update local cache
         if var user = currentUser {
@@ -594,7 +594,7 @@ class LegacyUserService: ObservableObject {
             throw UserServiceError.unauthorized
         }
         
-        print("🔒 UserService: Updating security settings...")
+        dlog("🔒 UserService: Updating security settings...")
         
         let updateData: [String: Any] = [
             "loginAlerts": loginAlerts,
@@ -605,7 +605,7 @@ class LegacyUserService: ObservableObject {
         
         try await db.collection("users").document(userId).updateData(updateData)
         
-        print("✅ UserService: Security settings updated")
+        dlog("✅ UserService: Security settings updated")
         
         // Update local cache
         if var user = currentUser {
@@ -633,7 +633,7 @@ class LegacyUserService: ObservableObject {
             throw UserServiceError.unauthorized
         }
         
-        print("🔔 UserService: Updating notification settings...")
+        dlog("🔔 UserService: Updating notification settings...")
         
         let updateData: [String: Any] = [
             "pushNotificationsEnabled": pushEnabled,
@@ -648,7 +648,7 @@ class LegacyUserService: ObservableObject {
         
         try await db.collection("users").document(userId).updateData(updateData)
         
-        print("✅ UserService: Notification settings updated")
+        dlog("✅ UserService: Notification settings updated")
         
         // Update local cache
         if var user = currentUser {
@@ -668,7 +668,7 @@ class LegacyUserService: ObservableObject {
     
     /// Fetch any user's profile by ID
     func fetchUser(userId: String) async throws -> User {
-        print("📥 UserService: Fetching user profile for ID: \(userId)")
+        dlog("📥 UserService: Fetching user profile for ID: \(userId)")
         
         let document = try await db.collection("users").document(userId).getDocument()
         
@@ -679,7 +679,7 @@ class LegacyUserService: ObservableObject {
         var userData = try document.data(as: User.self)
         userData.id = userId
         
-        print("✅ UserService: User profile loaded: \(userData.displayName)")
+        dlog("✅ UserService: User profile loaded: \(userData.displayName)")
         
         return userData
     }
@@ -688,7 +688,7 @@ class LegacyUserService: ObservableObject {
     
     /// Search users by name or username
     func searchUsers(query: String, limit: Int = 20) async throws -> [User] {
-        print("🔍 UserService: Searching users with query: \(query)")
+        dlog("🔍 UserService: Searching users with query: \(query)")
         
         let lowercaseQuery = query.lowercased()
         
@@ -720,7 +720,7 @@ class LegacyUserService: ObservableObject {
             }
         }
         
-        print("✅ UserService: Found \(users.count) users")
+        dlog("✅ UserService: Found \(users.count) users")
         
         return users
     }
@@ -730,14 +730,14 @@ class LegacyUserService: ObservableObject {
     /// Update profile photo in all conversations the user is part of
     private func updateProfilePhotoInConversations(userId: String, photoURL: String) async {
         do {
-            print("🔄 Updating profile photo in conversations for user: \(userId)")
+            dlog("🔄 Updating profile photo in conversations for user: \(userId)")
             
             // Find all conversations where user is a participant
             let conversationsSnapshot = try await db.collection("conversations")
                 .whereField("participantIds", arrayContains: userId)
                 .getDocuments()
             
-            print("📝 Found \(conversationsSnapshot.documents.count) conversations to update")
+            dlog("📝 Found \(conversationsSnapshot.documents.count) conversations to update")
             
             // Update each conversation's participantPhotoURLs map
             for document in conversationsSnapshot.documents {
@@ -748,12 +748,12 @@ class LegacyUserService: ObservableObject {
                     "updatedAt": Timestamp(date: Date())
                 ])
                 
-                print("✅ Updated profile photo in conversation: \(document.documentID)")
+                dlog("✅ Updated profile photo in conversation: \(document.documentID)")
             }
             
-            print("🎉 Profile photo updated in all conversations")
+            dlog("🎉 Profile photo updated in all conversations")
         } catch {
-            print("❌ Error updating profile photo in conversations: \(error)")
+            dlog("❌ Error updating profile photo in conversations: \(error)")
         }
     }
     

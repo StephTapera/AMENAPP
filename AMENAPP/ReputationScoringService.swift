@@ -195,7 +195,7 @@ class ReputationScoringService: ObservableObject {
     /// Load reputation score from Firestore
     func loadReputationScore() async {
         guard let userId = Auth.auth().currentUser?.uid else {
-            print("⚠️ Not authenticated - cannot load reputation")
+            dlog("⚠️ Not authenticated - cannot load reputation")
             return
         }
         
@@ -210,14 +210,14 @@ class ReputationScoringService: ObservableObject {
                 // Parse reputation score
                 let score = try Firestore.Decoder().decode(ReputationScore.self, from: data)
                 currentScore = score
-                print("✅ Loaded reputation score: \(score.totalScore) (\(score.trustLevel.displayName))")
+                dlog("✅ Loaded reputation score: \(score.totalScore) (\(score.trustLevel.displayName))")
             } else {
                 // Initialize new reputation score
                 try await initializeReputationScore(userId: userId)
             }
             
         } catch {
-            print("❌ Failed to load reputation score: \(error.localizedDescription)")
+            dlog("❌ Failed to load reputation score: \(error.localizedDescription)")
         }
     }
     
@@ -234,7 +234,7 @@ class ReputationScoringService: ObservableObject {
             .setData(try Firestore.Encoder().encode(newScore))
         
         currentScore = newScore
-        print("✅ Initialized new reputation score")
+        dlog("✅ Initialized new reputation score")
     }
     
     // MARK: - Update Score
@@ -243,11 +243,11 @@ class ReputationScoringService: ObservableObject {
     func recordAction(_ action: ReputationAction, userId: String? = nil) async {
         let targetUserId = userId ?? Auth.auth().currentUser?.uid
         guard let targetUserId = targetUserId else {
-            print("⚠️ No user ID provided")
+            dlog("⚠️ No user ID provided")
             return
         }
         
-        print("📊 Recording reputation action: \(action.description) (\(action.scoreChange > 0 ? "+" : "")\(action.scoreChange))")
+        dlog("📊 Recording reputation action: \(action.description) (\(action.scoreChange > 0 ? "+" : "")\(action.scoreChange))")
         
         do {
             let docRef = db.collection("user_reputation").document(targetUserId)
@@ -292,10 +292,10 @@ class ReputationScoringService: ObservableObject {
                 currentScore = score
             }
             
-            print("✅ Reputation updated: \(oldScore) → \(score.totalScore) (\(score.trustLevel.displayName))")
+            dlog("✅ Reputation updated: \(oldScore) → \(score.totalScore) (\(score.trustLevel.displayName))")
             
         } catch {
-            print("❌ Failed to update reputation: \(error.localizedDescription)")
+            dlog("❌ Failed to update reputation: \(error.localizedDescription)")
         }
     }
     

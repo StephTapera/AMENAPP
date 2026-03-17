@@ -62,10 +62,10 @@ class SpotlightViewModel: ObservableObject {
             
             hasMoreContent = eligible.count > 30
             
-            print("✨ Spotlight loaded: \(spotlightPosts.count) posts")
+            dlog("✨ Spotlight loaded: \(spotlightPosts.count) posts")
             
         } catch {
-            print("❌ Spotlight load failed: \(error.localizedDescription)")
+            dlog("❌ Spotlight load failed: \(error.localizedDescription)")
         }
     }
     
@@ -127,10 +127,10 @@ class SpotlightViewModel: ObservableObject {
             
             hasMoreContent = eligible.count > 30
             
-            print("✨ Spotlight filtered (\(filter.title)): \(spotlightPosts.count) posts")
+            dlog("✨ Spotlight filtered (\(filter.title)): \(spotlightPosts.count) posts")
             
         } catch {
-            print("❌ Spotlight filter failed: \(error.localizedDescription)")
+            dlog("❌ Spotlight filter failed: \(error.localizedDescription)")
         }
     }
     

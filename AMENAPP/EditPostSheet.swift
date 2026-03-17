@@ -216,7 +216,7 @@ struct EditPostSheet: View {
                     dismiss()
                 }
                 
-                print("✅ Post edited successfully")
+                dlog("✅ Post edited successfully")
                 
             } catch {
                 await MainActor.run {
@@ -225,7 +225,7 @@ struct EditPostSheet: View {
                     showError = true
                 }
                 
-                print("❌ Failed to edit post: \(error)")
+                dlog("❌ Failed to edit post: \(error)")
             }
         }
     }

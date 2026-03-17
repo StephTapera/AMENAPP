@@ -82,7 +82,7 @@ class MessageAIService: ObservableObject {
         isGenerating = true
         defer { isGenerating = false }
         
-        print("🤖 Generating ice breakers for: \(recipientName)")
+        dlog("🤖 Generating ice breakers for: \(recipientName)")
         
         let input: [String: Any] = [
             "recipientName": recipientName,
@@ -108,7 +108,7 @@ class MessageAIService: ObservableObject {
             )
         }
         
-        print("✅ Generated \(iceBreakers.count) ice breakers")
+        dlog("✅ Generated \(iceBreakers.count) ice breakers")
         return iceBreakers
     }
     
@@ -127,7 +127,7 @@ class MessageAIService: ObservableObject {
         isGenerating = true
         defer { isGenerating = false }
         
-        print("💬 Generating smart replies to: \"\(message.prefix(50))...\"")
+        dlog("💬 Generating smart replies to: \"\(message.prefix(50))...\"")
         
         // Prepare conversation history
         let history = conversationHistory?.suffix(5).map { msg in
@@ -170,7 +170,7 @@ class MessageAIService: ObservableObject {
             self.currentSuggestions = suggestions
         }
         
-        print("✅ Generated \(suggestions.count) smart replies")
+        dlog("✅ Generated \(suggestions.count) smart replies")
         return suggestions
     }
     
@@ -185,7 +185,7 @@ class MessageAIService: ObservableObject {
         isGenerating = true
         defer { isGenerating = false }
         
-        print("🔍 Analyzing conversation with \(messages.count) messages")
+        dlog("🔍 Analyzing conversation with \(messages.count) messages")
         
         // Prepare messages for analysis (last 50 messages)
         let recentMessages = messages.suffix(50).map { msg in
@@ -224,7 +224,7 @@ class MessageAIService: ObservableObject {
             tone: tone
         )
         
-        print("✅ Conversation analysis complete")
+        dlog("✅ Conversation analysis complete")
         return insight
     }
     
@@ -260,7 +260,7 @@ class MessageAIService: ObservableObject {
         mood: String? = nil
     ) async throws -> [ScriptureSuggestion] {
         
-        print("📖 Finding relevant scripture for context")
+        dlog("📖 Finding relevant scripture for context")
         
         let input: [String: Any] = [
             "context": conversationContext,
@@ -299,7 +299,7 @@ class MessageAIService: ObservableObject {
         style: EnhancementStyle
     ) async throws -> String {
         
-        print("✨ Enhancing message with style: \(style.rawValue)")
+        dlog("✨ Enhancing message with style: \(style.rawValue)")
         
         let input: [String: Any] = [
             "message": message,

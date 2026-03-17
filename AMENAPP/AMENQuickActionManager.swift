@@ -109,10 +109,10 @@ final class AMENQuickActionManager: ObservableObject {
     /// ContentView will consume it once the user is authenticated and the UI is ready.
     func handle(_ shortcutItem: UIApplicationShortcutItem) {
         guard let actionType = AMENQuickActionType(rawValue: shortcutItem.type) else {
-            print("⚠️ [QuickAction] Unknown shortcut type: \(shortcutItem.type)")
+            dlog("⚠️ [QuickAction] Unknown shortcut type: \(shortcutItem.type)")
             return
         }
-        print("✅ [QuickAction] Received: \(actionType.title)")
+        dlog("✅ [QuickAction] Received: \(actionType.title)")
         pendingRoute = route(for: actionType)
     }
 
@@ -175,7 +175,7 @@ final class AMENQuickActionManager: ObservableObject {
         items.append(makeShortcut(.bereanAI))
 
         UIApplication.shared.shortcutItems = items
-        print("✅ [QuickAction] Installed \(items.count) shortcuts")
+        dlog("✅ [QuickAction] Installed \(items.count) shortcuts")
     }
 
     /// Remove all dynamic shortcuts (e.g. on sign-out)

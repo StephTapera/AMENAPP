@@ -177,7 +177,7 @@ final class SafetyReportingService {
                 now.timeIntervalSince($0) < rateLimitWindow
             }
             if recentReportTimestamps.count >= rateLimitMaxCount {
-                print("⚠️ [Safety] Report rate limit hit for reporter \(submission.reporterId) — throttling")
+                dlog("⚠️ [Safety] Report rate limit hit for reporter \(submission.reporterId) — throttling")
                 return .alreadyReported
             }
             recentReportTimestamps.append(now)

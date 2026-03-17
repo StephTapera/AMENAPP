@@ -3,7 +3,7 @@
 //  AMENAPP
 //
 //  Lightweight logging wrapper with log levels and PII redaction.
-//  Replaces raw print() statements for production-safe logging.
+//  Replaces raw dlog() statements for production-safe logging.
 //
 //  Usage:
 //    AMENLog.info("User signed in", category: .auth)
@@ -134,7 +134,7 @@ enum AMENLog {
 
         // Also print in DEBUG for Xcode console
         #if DEBUG
-        print(formatted)
+        dlog(formatted)
         #endif
     }
 }

@@ -90,9 +90,9 @@ class AIContentDetectionService {
     ///   - text: The content to analyze
     ///   - pastedRatio: Optional ratio of pasted vs typed content (0.0-1.0)
     func detectAIContent(_ text: String, pastedRatio: Double? = nil) async -> AIContentDetectionResult {
-        print("🔍 AI Detection analyzing content (length: \(text.count))")
+        dlog("🔍 AI Detection analyzing content (length: \(text.count))")
         if let ratio = pastedRatio {
-            print("   📋 Paste ratio: \(Int(ratio * 100))%")
+            dlog("   📋 Paste ratio: \(Int(ratio * 100))%")
         }
         
         let lowercased = text.lowercased()
@@ -104,7 +104,7 @@ class AIContentDetectionService {
             if lowercased.contains(pattern) {
                 score += 0.4
                 matchedPatterns.append(pattern)
-                print("   ✓ Matched pattern: '\(pattern)' (+0.4)")
+                dlog("   ✓ Matched pattern: '\(pattern)' (+0.4)")
             }
         }
         
@@ -113,7 +113,7 @@ class AIContentDetectionService {
             if lowercased.contains(pattern) {
                 score += 0.6
                 matchedPatterns.append(pattern)
-                print("   ✓ Matched spiritual pattern: '\(pattern)' (+0.6)")
+                dlog("   ✓ Matched spiritual pattern: '\(pattern)' (+0.6)")
             }
         }
         
@@ -122,7 +122,7 @@ class AIContentDetectionService {
             if lowercased.contains(pattern) {
                 score += 0.3
                 matchedPatterns.append(pattern)
-                print("   ✓ Matched inspirational pattern: '\(pattern)' (+0.3)")
+                dlog("   ✓ Matched inspirational pattern: '\(pattern)' (+0.3)")
             }
         }
         
@@ -131,14 +131,14 @@ class AIContentDetectionService {
             if lowercased.contains(artifact) || text.contains(artifact) {
                 score += 1.0 // Instant block
                 matchedPatterns.append("AI source: \(artifact)")
-                print("   🚨 DETECTED AI SOURCE: '\(artifact)' (+1.0 - INSTANT BLOCK)")
+                dlog("   🚨 DETECTED AI SOURCE: '\(artifact)' (+1.0 - INSTANT BLOCK)")
             }
         }
         
         // Check for excessive structure (numbered lists, bullet points)
         let structureScore = detectExcessiveStructure(text)
         if structureScore > 0 {
-            print("   ✓ Structure detected: +\(structureScore)")
+            dlog("   ✓ Structure detected: +\(structureScore)")
             score += structureScore
             matchedPatterns.append("structured format")
         }
@@ -146,7 +146,7 @@ class AIContentDetectionService {
         // Check for overly formal language
         let formalityScore = detectFormalLanguage(text)
         if formalityScore > 0 {
-            print("   ✓ Formal language detected: +\(formalityScore)")
+            dlog("   ✓ Formal language detected: +\(formalityScore)")
             score += formalityScore
             matchedPatterns.append("formal language")
         }
@@ -154,7 +154,7 @@ class AIContentDetectionService {
         // Check for repetitive phrases (AI hallmark)
         let repetitionScore = detectRepetitivePatterns(text)
         if repetitionScore > 0 {
-            print("   ✓ Repetitive patterns detected: +\(repetitionScore)")
+            dlog("   ✓ Repetitive patterns detected: +\(repetitionScore)")
             score += repetitionScore
             matchedPatterns.append("repetitive patterns")
         }
@@ -162,7 +162,7 @@ class AIContentDetectionService {
         // Check for markdown formatting (AI often uses markdown)
         let markdownScore = detectMarkdownFormatting(text)
         if markdownScore > 0 {
-            print("   ✓ Markdown formatting detected: +\(markdownScore)")
+            dlog("   ✓ Markdown formatting detected: +\(markdownScore)")
             score += markdownScore
             matchedPatterns.append("markdown formatting")
         }
@@ -170,7 +170,7 @@ class AIContentDetectionService {
         // Check for overly long, perfectly structured paragraphs
         let structuredParagraphScore = detectPerfectParagraphs(text)
         if structuredParagraphScore > 0 {
-            print("   ✓ Perfect paragraphs detected: +\(structuredParagraphScore)")
+            dlog("   ✓ Perfect paragraphs detected: +\(structuredParagraphScore)")
             score += structuredParagraphScore
             matchedPatterns.append("overly structured")
         }
@@ -180,12 +180,12 @@ class AIContentDetectionService {
             if ratio >= 0.95 && text.count > 100 {
                 // Very high paste ratio with substantial content = likely AI
                 let pasteScore = 0.35
-                print("   ✓ Very high paste ratio (\(Int(ratio * 100))%) with \(text.count) chars: +\(pasteScore)")
+                dlog("   ✓ Very high paste ratio (\(Int(ratio * 100))%) with \(text.count) chars: +\(pasteScore)")
                 score += pasteScore
                 matchedPatterns.append("95%+ pasted content")
             } else if ratio >= 0.9 && text.count > 50 {
                 let pasteScore = 0.25
-                print("   ✓ High paste ratio detected (\(Int(ratio * 100))%): +\(pasteScore)")
+                dlog("   ✓ High paste ratio detected (\(Int(ratio * 100))%): +\(pasteScore)")
                 score += pasteScore
                 matchedPatterns.append("90%+ pasted content")
             }
@@ -193,7 +193,7 @@ class AIContentDetectionService {
             // Single large paste (no typing at all) is highly suspicious
             if ratio == 1.0 && text.count > 80 {
                 let singlePasteScore = 0.2
-                print("   ✓ Single large paste (no typing): +\(singlePasteScore)")
+                dlog("   ✓ Single large paste (no typing): +\(singlePasteScore)")
                 score += singlePasteScore
                 matchedPatterns.append("single paste, no edits")
             }
@@ -202,7 +202,7 @@ class AIContentDetectionService {
         // Detect inspirational quote style (short, impactful, generic wisdom)
         let quoteScore = detectInspirationQuoteStyle(text)
         if quoteScore > 0 {
-            print("   ✓ Inspirational quote style detected: +\(quoteScore)")
+            dlog("   ✓ Inspirational quote style detected: +\(quoteScore)")
             score += quoteScore
             matchedPatterns.append("generic wisdom style")
         }
@@ -210,7 +210,7 @@ class AIContentDetectionService {
         // Detect unusual Unicode/formatting from AI chat interfaces
         let unicodeScore = detectAIUnicodeArtifacts(text)
         if unicodeScore > 0 {
-            print("   ✓ AI Unicode artifacts detected: +\(unicodeScore)")
+            dlog("   ✓ AI Unicode artifacts detected: +\(unicodeScore)")
             score += unicodeScore
             matchedPatterns.append("AI formatting artifacts")
         }
@@ -218,9 +218,9 @@ class AIContentDetectionService {
         // Normalize score to 0-1
         let confidence = min(score, 1.0)
         
-        print("📊 Total confidence score: \(String(format: "%.2f", confidence)) (\(Int(confidence * 100))%)")
-        print("   Threshold: 0.4 (40%)")
-        print("   Result: \(confidence >= 0.4 ? "🚫 BLOCKED" : "✅ ALLOWED")")
+        dlog("📊 Total confidence score: \(String(format: "%.2f", confidence)) (\(Int(confidence * 100))%)")
+        dlog("   Threshold: 0.4 (40%)")
+        dlog("   Result: \(confidence >= 0.4 ? "🚫 BLOCKED" : "✅ ALLOWED")")
         
         let isAIGenerated = confidence >= 0.4 // Lowered threshold to 40% to be more aggressive
         
@@ -442,9 +442,9 @@ class AIContentDetectionService {
         }
         
         // Log the detection
-        print("🤖 AI content detected in post \(postId)")
-        print("   Confidence: \(String(format: "%.1f%%", result.confidence * 100))")
-        print("   Reason: \(result.reason)")
+        dlog("🤖 AI content detected in post \(postId)")
+        dlog("   Confidence: \(String(format: "%.1f%%", result.confidence * 100))")
+        dlog("   Reason: \(result.reason)")
         
         // Flag the post in Firestore
         try await flagPost(postId: postId, result: result)

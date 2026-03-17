@@ -405,7 +405,7 @@ struct CreateGroupView: View {
                     isSearching = false
                 }
             } catch {
-                print("Error searching users: \(error)")
+                dlog("Error searching users: \(error)")
                 await MainActor.run {
                     isSearching = false
                 }
@@ -466,7 +466,7 @@ struct CreateGroupView: View {
                     haptic.notificationOccurred(.success)
                 }
             } catch {
-                print("Error creating group: \(error)")
+                dlog("Error creating group: \(error)")
                 await MainActor.run {
                     isSearching = false
                     creationErrorMessage = "Failed to create group. Please try again."

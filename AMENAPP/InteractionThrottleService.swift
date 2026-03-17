@@ -246,7 +246,7 @@ class InteractionThrottleService: ObservableObject {
             ])
         }
         
-        print("🚨 User marked as suspicious: \(userId) - \(reason)")
+        dlog("🚨 User marked as suspicious: \(userId) - \(reason)")
     }
     
     private func detectBrigading(targetPostId: String, action: InteractionAction) async {
@@ -263,7 +263,7 @@ class InteractionThrottleService: ObservableObject {
         
         // If 20+ different users interacted with same post in 5 minutes
         if recentOnPost.count >= 20 {
-            print("⚠️ Potential brigading detected on post: \(targetPostId)")
+            dlog("⚠️ Potential brigading detected on post: \(targetPostId)")
             
             try? await db.collection("brigadingAlerts").document().setData([
                 "postId": targetPostId,
@@ -292,7 +292,7 @@ class InteractionThrottleService: ObservableObject {
                 }
             }
             
-            print("🧹 Cleaned up old interaction records")
+            dlog("🧹 Cleaned up old interaction records")
         }
     }
     
@@ -301,7 +301,7 @@ class InteractionThrottleService: ObservableObject {
     func resetUserThrottle(userId: String) {
         interactionHistory.removeValue(forKey: userId)
         suspiciousUsers.remove(userId)
-        print("✅ Reset throttle for user: \(userId)")
+        dlog("✅ Reset throttle for user: \(userId)")
     }
     
     func getStats() -> ThrottleStats {

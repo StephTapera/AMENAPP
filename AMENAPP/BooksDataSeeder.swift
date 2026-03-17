@@ -20,7 +20,7 @@ class BooksDataSeeder {
     /// Seed all essential books to Firebase
     @MainActor
     func seedBooks() async throws {
-        print("🌱 Starting to seed Essential Books to Firebase...")
+        dlog("🌱 Starting to seed Essential Books to Firebase...")
         
         let books = createEssentialBooks()
         var successCount = 0
@@ -29,13 +29,13 @@ class BooksDataSeeder {
             do {
                 _ = try await apiService.addBook(book)
                 successCount += 1
-                print("✅ Added: \(book.title)")
+                dlog("✅ Added: \(book.title)")
             } catch {
-                print("❌ Failed to add \(book.title): \(error)")
+                dlog("❌ Failed to add \(book.title): \(error)")
             }
         }
         
-        print("🎉 Seeding complete! Added \(successCount)/\(books.count) books to Firebase")
+        dlog("🎉 Seeding complete! Added \(successCount)/\(books.count) books to Firebase")
     }
     
     /// Create the essential books list

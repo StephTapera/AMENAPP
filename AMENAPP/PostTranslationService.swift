@@ -39,7 +39,7 @@ class PostTranslationService: ObservableObject {
     }
 
     private init() {
-        print("✅ PostTranslationService initialized (device language: \(deviceLanguage))")
+        dlog("✅ PostTranslationService initialized (device language: \(deviceLanguage))")
     }
 
     // MARK: - Language Detection (on-device, NaturalLanguage)

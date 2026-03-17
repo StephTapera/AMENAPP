@@ -131,11 +131,11 @@ class CrisisDetectionService {
         userId: String
     ) async throws -> CrisisDetectionResult {
         
-        print("🚨 [CRISIS] Analyzing prayer request for crisis indicators...")
+        dlog("🚨 [CRISIS] Analyzing prayer request for crisis indicators...")
         
         // Step 1: Quick local pattern matching (instant)
         if let quickResult = performQuickCrisisCheck(prayerText) {
-            print("🚨 [CRISIS] Quick check detected: \(quickResult.crisisTypes.map { $0.displayName })")
+            dlog("🚨 [CRISIS] Quick check detected: \(quickResult.crisisTypes.map { $0.displayName })")
             
             // Log crisis detection
             await logCrisisDetection(
@@ -161,7 +161,7 @@ class CrisisDetectionService {
                 result: aiResult
             )
             
-            print("🚨 [CRISIS] AI detected: \(aiResult.crisisTypes.map { $0.displayName }) (urgency: \(aiResult.urgencyLevel.rawValue))")
+            dlog("🚨 [CRISIS] AI detected: \(aiResult.crisisTypes.map { $0.displayName }) (urgency: \(aiResult.urgencyLevel.rawValue))")
         }
         
         return aiResult
@@ -292,7 +292,7 @@ class CrisisDetectionService {
             return response
             
         } catch {
-            print("❌ [CRISIS] AI API error: \(error)")
+            dlog("❌ [CRISIS] AI API error: \(error)")
             
             // Fallback: No crisis detected if AI fails
             return CrisisDetectionResult(
@@ -402,7 +402,7 @@ class CrisisDetectionService {
         result: CrisisDetectionResult
     ) async {
         #if DEBUG
-        print("🧠 [CRISIS] Detection result for \(userId): isCrisis=\(result.isCrisis), urgency=\(result.urgencyLevel.rawValue), confidence=\(result.confidence)")
+        dlog("🧠 [CRISIS] Detection result for \(userId): isCrisis=\(result.isCrisis), urgency=\(result.urgencyLevel.rawValue), confidence=\(result.confidence)")
         #endif
         // All server-side logging (crisisDetectionLogs, moderatorAlerts) is handled
         // by the Cloud Function triggered on crisisDetectionRequests writes.

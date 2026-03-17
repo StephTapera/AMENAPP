@@ -62,7 +62,7 @@ struct SavedPostsQuickAccessButton: View {
         do {
             savedCount = try await savedPostsService.getSavedPostsCount()
         } catch {
-            print("❌ Error loading saved count: \(error)")
+            dlog("❌ Error loading saved count: \(error)")
         }
     }
     
@@ -155,7 +155,7 @@ struct SavedPostsRow: View {
         do {
             savedCount = try await savedPostsService.getSavedPostsCount()
         } catch {
-            print("❌ Error loading saved count: \(error)")
+            dlog("❌ Error loading saved count: \(error)")
         }
     }
 }

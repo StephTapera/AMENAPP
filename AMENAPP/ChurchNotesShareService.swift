@@ -48,7 +48,7 @@ class ChurchNotesShareService: ObservableObject {
                 throw ShareError.invalidResponse
             }
             
-            print("✅ Note shared with \(sharedWithCount) users")
+            dlog("✅ Note shared with \(sharedWithCount) users")
             
             return ShareResult(
                 success: success,
@@ -56,7 +56,7 @@ class ChurchNotesShareService: ObservableObject {
                 sharedWith: sharedWith
             )
         } catch let error as NSError {
-            print("❌ Share note error: \(error)")
+            dlog("❌ Share note error: \(error)")
             
             if error.domain == FunctionsErrorDomain {
                 let code = FunctionsErrorCode(rawValue: error.code)
@@ -106,14 +106,14 @@ class ChurchNotesShareService: ObservableObject {
                 throw ShareError.invalidResponse
             }
             
-            print("✅ Revoked access for \(revokedCount) users")
+            dlog("✅ Revoked access for \(revokedCount) users")
             
             return RevokeResult(
                 success: success,
                 revokedCount: revokedCount
             )
         } catch let error as NSError {
-            print("❌ Revoke access error: \(error)")
+            dlog("❌ Revoke access error: \(error)")
             
             if error.domain == FunctionsErrorDomain {
                 let code = FunctionsErrorCode(rawValue: error.code)
@@ -161,7 +161,7 @@ class ChurchNotesShareService: ObservableObject {
                 throw ShareError.invalidResponse
             }
             
-            print("✅ Generated share link: \(shareUrl)")
+            dlog("✅ Generated share link: \(shareUrl)")
             
             return ShareLinkResult(
                 success: success,
@@ -169,7 +169,7 @@ class ChurchNotesShareService: ObservableObject {
                 shareLinkId: shareLinkId
             )
         } catch let error as NSError {
-            print("❌ Generate share link error: \(error)")
+            dlog("❌ Generate share link error: \(error)")
             
             if error.domain == FunctionsErrorDomain {
                 let code = FunctionsErrorCode(rawValue: error.code)

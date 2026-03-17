@@ -146,7 +146,7 @@ final class TranslationSettingsManager: ObservableObject {
                 .setData(["languagePreferences": encoded], merge: true)
         } catch {
             // Non-fatal: local copy is already updated
-            print("[TranslationSettings] Firestore persist failed: \(error)")
+            dlog("[TranslationSettings] Firestore persist failed: \(error)")
         }
     }
 
@@ -168,7 +168,7 @@ final class TranslationSettingsManager: ObservableObject {
                 saveLocalPreferences(decoded)
             }
         } catch {
-            print("[TranslationSettings] Firestore load failed: \(error)")
+            dlog("[TranslationSettings] Firestore load failed: \(error)")
         }
 
         isLoaded = true

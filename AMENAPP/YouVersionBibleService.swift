@@ -29,7 +29,7 @@ class YouVersionBibleService: ObservableObject {
     
     /// Fetch verse from YouVersion API
     func fetchVerse(reference: String, version: ScripturePassage.BibleVersion = .esv) async throws -> ScripturePassage {
-        print("📖 YouVersion: Fetching \(reference) (\(version.rawValue))...")
+        dlog("📖 YouVersion: Fetching \(reference) (\(version.rawValue))...")
         
         // Check cache first
         let cacheKey = "\(reference)_\(version.rawValue)"
@@ -79,7 +79,7 @@ class YouVersionBibleService: ObservableObject {
         // Convert to ScripturePassage
         let passage = convertToScripturePassage(youVersionResponse.data, reference: reference, version: version)
         
-        print("✅ YouVersion: Fetched \(reference)")
+        dlog("✅ YouVersion: Fetched \(reference)")
         return passage
     }
     
@@ -98,7 +98,7 @@ class YouVersionBibleService: ObservableObject {
                         let passage = try await self.fetchVerse(reference: reference, version: version)
                         return (index, passage)
                     } catch {
-                        print("⚠️ YouVersion: Failed to fetch \(reference): \(error)")
+                        dlog("⚠️ YouVersion: Failed to fetch \(reference): \(error)")
                         return (index, nil)
                     }
                 }
@@ -246,7 +246,7 @@ class YouVersionBibleService: ObservableObject {
     
     /// Search for verses containing keywords
     func searchVerses(query: String, version: ScripturePassage.BibleVersion = .esv, limit: Int = 10) async throws -> [ScripturePassage] {
-        print("🔍 YouVersion: Searching '\(query)'...")
+        dlog("🔍 YouVersion: Searching '\(query)'...")
         
         let bibleId = getBibleId(for: version)
         let encodedQuery = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? query
@@ -282,7 +282,7 @@ class YouVersionBibleService: ObservableObject {
     
     func clearCache() {
         verseCache.removeAll()
-        print("🧹 YouVersion: Cache cleared")
+        dlog("🧹 YouVersion: Cache cleared")
     }
     
     func getCacheSize() -> Int {

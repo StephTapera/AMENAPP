@@ -456,7 +456,7 @@ class ProfileSetupViewModel: ObservableObject {
                 self.profileImage = image
             }
         } catch {
-            print("Error loading image: \(error)")
+            dlog("Error loading image: \(error)")
         }
     }
     
@@ -468,7 +468,7 @@ class ProfileSetupViewModel: ObservableObject {
 
     private func performSave() async {
         guard let userId = Auth.auth().currentUser?.uid else {
-            print("⚠️ AmenConnect: No authenticated user — cannot save profile")
+            dlog("⚠️ AmenConnect: No authenticated user — cannot save profile")
             return
         }
 
@@ -486,7 +486,7 @@ class ProfileSetupViewModel: ObservableObject {
                 _ = try await storageRef.putDataAsync(imageData, metadata: metadata)
                 photoURL = try await storageRef.downloadURL().absoluteString
             } catch {
-                print("⚠️ AmenConnect: Photo upload failed — \(error.localizedDescription)")
+                dlog("⚠️ AmenConnect: Photo upload failed — \(error.localizedDescription)")
                 // Continue saving profile without photo
             }
         }
@@ -510,9 +510,9 @@ class ProfileSetupViewModel: ObservableObject {
 
         do {
             try await db.collection("amenConnect").document(userId).setData(profileData, merge: true)
-            print("✅ AmenConnect: Profile saved for user \(userId)")
+            dlog("✅ AmenConnect: Profile saved for user \(userId)")
         } catch {
-            print("❌ AmenConnect: Failed to save profile — \(error.localizedDescription)")
+            dlog("❌ AmenConnect: Failed to save profile — \(error.localizedDescription)")
         }
     }
 }

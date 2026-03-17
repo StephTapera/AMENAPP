@@ -190,7 +190,7 @@ final class BereanConversationMemoryService: ObservableObject {
                 .getDocuments()
             sessions = snapshot.documents.compactMap { decodeSession($0.data(), id: $0.documentID) }
         } catch {
-            print("[BereanMemory] Failed to load sessions: \(error)")
+            dlog("[BereanMemory] Failed to load sessions: \(error)")
         }
         isLoading = false
     }
@@ -207,7 +207,7 @@ final class BereanConversationMemoryService: ObservableObject {
                 .getDocuments()
             return snapshot.documents.compactMap { decodeMessage($0.data(), id: $0.documentID, sessionId: sessionId) }
         } catch {
-            print("[BereanMemory] Failed to load messages: \(error)")
+            dlog("[BereanMemory] Failed to load messages: \(error)")
             return []
         }
     }
@@ -250,7 +250,7 @@ final class BereanConversationMemoryService: ObservableObject {
             batch.deleteDocument(sessionRef)
             try await batch.commit()
         } catch {
-            print("[BereanMemory] Failed to delete session: \(error)")
+            dlog("[BereanMemory] Failed to delete session: \(error)")
         }
         sessions.removeAll { $0.id == sessionId }
     }

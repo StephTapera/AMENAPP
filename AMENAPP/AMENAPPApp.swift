@@ -68,6 +68,12 @@ struct AMENAPPApp: App {
             Self.setupRemoteConfig()
         }
         
+        // One-time migration: upgrade any stored rememberMe=false to true so existing
+        // users are not logged out every 30 minutes after the policy change.
+        if let stored = UserDefaults.standard.object(forKey: "rememberMe") as? Bool, !stored {
+            UserDefaults.standard.set(true, forKey: "rememberMe")
+        }
+
         // Pre-warm taptic engine generators so first user interaction fires with zero latency.
         // This is synchronous but extremely cheap (~0.1ms).
         HapticManager.prepareAll()
@@ -79,13 +85,13 @@ struct AMENAPPApp: App {
         // ❌ REMOVED: Eager PostsManager initialization
         // Task { @MainActor in
         //     _ = PostsManager.shared
-        //     print("✅ PostsManager initialized early")
+        //     dlog("✅ PostsManager initialized early")
         // }
         
         // ❌ REMOVED: Eager PostInteractionsService initialization  
         // Task {
         //     _ = PostInteractionsService.shared
-        //     print("✅ PostInteractionsService initialized early")
+        //     dlog("✅ PostInteractionsService initialized early")
         // }
         
         // ❌ REMOVED: Eager PremiumManager initialization
@@ -373,8 +379,11 @@ struct AMENAPPApp: App {
             }
         } else {
             dlog("⚠️ User has not granted notification permission")
+            // P2 FIX: Version-based re-prompt — show Settings redirect if user denied
+            // on a previous version. This is a no-op if already shown for this version.
+            await NotificationManager.shared.checkVersionBasedReprompt()
         }
-        
+
         // ✅ NEW: Setup auth state listener for token lifecycle
         await MainActor.run {
             setupAuthStateListener()

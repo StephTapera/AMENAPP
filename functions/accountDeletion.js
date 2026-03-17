@@ -20,7 +20,11 @@ const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const admin = require('firebase-admin');
 
 const db      = admin.firestore();
-const rtdb    = admin.database();
+let _rtdb = null;
+const getRtdb = () => {
+  if (!_rtdb) _rtdb = admin.database("https://amen-5e359-default-rtdb.firebaseio.com");
+  return _rtdb;
+};
 const storage = admin.storage();
 const auth    = admin.auth();
 
@@ -90,14 +94,14 @@ exports.processAccountDeletion = onDocumentCreated(
     // than deleting the whole conversation (to preserve the other party's data).
     try {
       // Remove user presence
-      await rtdb.ref(`presence/${uid}`).remove();
-      await rtdb.ref(`userOnline/${uid}`).remove();
-      await rtdb.ref(`typingIndicators/${uid}`).remove();
+      await getRtdb().ref(`presence/${uid}`).remove();
+      await getRtdb().ref(`userOnline/${uid}`).remove();
+      await getRtdb().ref(`typingIndicators/${uid}`).remove();
 
       // Anonymize messages sent by this user across all conversations
       // Note: Full conversation deletion is out of scope here; we scrub the text.
       // For GDPR/CCPA compliance, scrubbing is sufficient (the message happened).
-      const messagesSnap = await rtdb.ref('messages')
+      const messagesSnap = await getRtdb().ref('messages')
         .orderByChild('senderId')
         .equalTo(uid)
         .once('value');
@@ -109,7 +113,7 @@ exports.processAccountDeletion = onDocumentCreated(
         updates[`${child.ref.path}/senderId`]   = 'deleted';
       });
       if (Object.keys(updates).length > 0) {
-        await rtdb.ref().update(updates);
+        await getRtdb().ref().update(updates);
       }
 
       console.log(`[accountDeletion] RTDB cleaned for uid=${uid}`);

@@ -649,7 +649,7 @@ class ChurchProfileViewModel: ObservableObject {
                 isSaved = true
             }
         } catch {
-            print("⚠️ Failed to toggle save: \(error)")
+            dlog("⚠️ Failed to toggle save: \(error)")
         }
     }
     
@@ -689,7 +689,7 @@ class ChurchProfileViewModel: ObservableObject {
             // Reload profile to update tip counts
             await loadProfile()
         } catch {
-            print("⚠️ Failed to mark tip helpful: \(error)")
+            dlog("⚠️ Failed to mark tip helpful: \(error)")
         }
     }
 }

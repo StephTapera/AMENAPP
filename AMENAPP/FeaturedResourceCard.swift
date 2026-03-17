@@ -172,65 +172,179 @@ private struct FeaturedCardMetaItem: View {
     }
 }
 
-// MARK: - GrowFeaturedCard
+// MARK: - GrowFeaturedCard (split HStack design)
 
 /// Hero card for the Grow section.
-/// Visual identity: warm amber-ochre — warmth, wisdom, upward growth.
-/// Hero motif: soft stacked leaf-light shapes — organic, upward, scripture-rooted.
+/// Split layout: warm amber gradient left panel + white editorial right panel.
 struct GrowFeaturedCard: View {
+    private let amber  = Color(red: 0.72, green: 0.38, blue: 0.10)
+    private let amberD = Color(red: 0.40, green: 0.18, blue: 0.04)
+
     var body: some View {
-        FeaturedResourceCard(
-            category: "GROW",
-            title: "Walk With Christ",
-            metaItems: [
-                .init(icon: "book.pages", label: "Devotionals"),
-                .init(icon: "chart.line.uptrend.xyaxis", label: "Milestones"),
-                .init(icon: "sun.horizon", label: "Daily habits"),
-            ],
-            cardGradient: LinearGradient(
-                stops: [
-                    .init(color: Color(red: 0.72, green: 0.38, blue: 0.10), location: 0.0),
-                    .init(color: Color(red: 0.55, green: 0.26, blue: 0.06), location: 0.6),
-                    .init(color: Color(red: 0.40, green: 0.18, blue: 0.04), location: 1.0),
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            ),
-            categoryColor: Color(red: 1.0, green: 0.80, blue: 0.45)
-        ) {
-            GrowHeroVisual()
+        HStack(spacing: 0) {
+            // ── Left: warm amber gradient + hero visual ──────────────────────
+            ZStack(alignment: .bottomLeading) {
+                LinearGradient(
+                    stops: [
+                        .init(color: Color(red: 0.72, green: 0.38, blue: 0.10), location: 0.0),
+                        .init(color: Color(red: 0.55, green: 0.26, blue: 0.06), location: 0.6),
+                        .init(color: Color(red: 0.40, green: 0.18, blue: 0.04), location: 1.0),
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                GrowHeroVisual()
+                    .frame(width: 68, height: 68)
+                    .padding(.leading, 14)
+                    .padding(.bottom, 14)
+            }
+            .frame(width: 130)
+
+            // ── Right: white editorial panel ─────────────────────────────────
+            VStack(alignment: .leading, spacing: 6) {
+                // Category eyebrow
+                Text("GROW")
+                    .font(.system(size: 9, weight: .semibold))
+                    .kerning(2.0)
+                    .foregroundStyle(amber)
+
+                // Title
+                Text("Walk With Christ")
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.85)
+
+                // Chips
+                HStack(spacing: 6) {
+                    SplitCardChip(icon: "book.pages",               label: "Devotionals")
+                    SplitCardChip(icon: "chart.line.uptrend.xyaxis", label: "Milestones")
+                }
+                HStack(spacing: 6) {
+                    SplitCardChip(icon: "sun.horizon", label: "Daily habits")
+                }
+
+                Spacer()
+
+                // CTA row
+                HStack(spacing: 4) {
+                    Text("Start Your Path")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(amber)
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(amber)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(.systemBackground))
         }
+        .frame(height: FeaturedCardTokens.height)
+        .clipShape(RoundedRectangle(cornerRadius: FeaturedCardTokens.cornerRadius, style: .continuous))
+        .shadow(color: amber.opacity(0.22), radius: 18, x: 0, y: 8)
+        .shadow(color: .black.opacity(0.06), radius: 4, x: 0, y: 2)
     }
 }
 
-// MARK: - PlatformFeaturedCard
+// MARK: - PlatformFeaturedCard (split HStack design)
 
 /// Hero card for the Platform section.
-/// Visual identity: deep indigo-slate — purpose, structure, aspiration, calling.
-/// Hero motif: abstract beacon grid — visibility, building, vocation.
+/// Split layout: deep navy gradient left panel + white editorial right panel.
 struct PlatformFeaturedCard: View {
+    private let indigo  = Color(red: 0.42, green: 0.46, blue: 1.0)
+    private let indigoD = Color(red: 0.08, green: 0.08, blue: 0.28)
+
     var body: some View {
-        FeaturedResourceCard(
-            category: "PLATFORM",
-            title: "Build & Serve",
-            metaItems: [
-                .init(icon: "person.2.wave.2", label: "Mentorship"),
-                .init(icon: "briefcase",       label: "Jobs"),
-                .init(icon: "pencil.and.ruler", label: "Creator"),
-            ],
-            cardGradient: LinearGradient(
-                stops: [
-                    .init(color: Color(red: 0.18, green: 0.22, blue: 0.52), location: 0.0),
-                    .init(color: Color(red: 0.12, green: 0.14, blue: 0.40), location: 0.55),
-                    .init(color: Color(red: 0.08, green: 0.08, blue: 0.28), location: 1.0),
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            ),
-            categoryColor: Color(red: 0.68, green: 0.72, blue: 1.0)
-        ) {
-            PlatformHeroVisual()
+        HStack(spacing: 0) {
+            // ── Left: deep navy gradient + hero visual ───────────────────────
+            ZStack(alignment: .bottomLeading) {
+                LinearGradient(
+                    stops: [
+                        .init(color: Color(red: 0.18, green: 0.22, blue: 0.52), location: 0.0),
+                        .init(color: Color(red: 0.12, green: 0.14, blue: 0.40), location: 0.55),
+                        .init(color: Color(red: 0.08, green: 0.08, blue: 0.28), location: 1.0),
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                PlatformHeroVisual()
+                    .frame(width: 68, height: 68)
+                    .padding(.leading, 14)
+                    .padding(.bottom, 14)
+            }
+            .frame(width: 130)
+
+            // ── Right: white editorial panel ─────────────────────────────────
+            VStack(alignment: .leading, spacing: 6) {
+                // Category eyebrow
+                Text("PLATFORM")
+                    .font(.system(size: 9, weight: .semibold))
+                    .kerning(2.0)
+                    .foregroundStyle(indigo)
+
+                // Title
+                Text("Build & Serve")
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.85)
+
+                // Chips
+                HStack(spacing: 6) {
+                    SplitCardChip(icon: "person.2.wave.2", label: "Mentorship")
+                    SplitCardChip(icon: "briefcase",       label: "Jobs")
+                }
+                HStack(spacing: 6) {
+                    SplitCardChip(icon: "pencil.and.ruler", label: "Creator")
+                }
+
+                Spacer()
+
+                // CTA row
+                HStack(spacing: 4) {
+                    Text("Explore Platform")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(indigo)
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(indigo)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(.systemBackground))
         }
+        .frame(height: FeaturedCardTokens.height)
+        .clipShape(RoundedRectangle(cornerRadius: FeaturedCardTokens.cornerRadius, style: .continuous))
+        .shadow(color: indigo.opacity(0.22), radius: 18, x: 0, y: 8)
+        .shadow(color: .black.opacity(0.06), radius: 4, x: 0, y: 2)
+    }
+}
+
+// MARK: - SplitCardChip
+
+/// Small chip used in the split editorial cards' right panel.
+private struct SplitCardChip: View {
+    let icon: String
+    let label: String
+
+    var body: some View {
+        HStack(spacing: 3) {
+            Image(systemName: icon)
+                .font(.system(size: 9, weight: .medium))
+            Text(label)
+                .font(.system(size: 10, weight: .medium))
+        }
+        .foregroundStyle(Color(.secondaryLabel))
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(
+            Capsule()
+                .fill(Color(.secondarySystemBackground))
+        )
     }
 }
 

@@ -140,9 +140,9 @@ struct BlockedUsersView: View {
         Task {
             do {
                 try await blockService.unblockUser(userId: user.id)
-                print("✅ Unblocked @\(user.username)")
+                dlog("✅ Unblocked @\(user.username)")
             } catch {
-                print("❌ Failed to unblock user: \(error)")
+                dlog("❌ Failed to unblock user: \(error)")
             }
         }
     }

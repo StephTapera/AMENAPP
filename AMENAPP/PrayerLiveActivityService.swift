@@ -88,7 +88,7 @@ final class PrayerLiveActivityService {
                 try await db.collection("posts").document(postId)
                     .updateData(["amenCount": FieldValue.increment(Int64(1))])
             } catch {
-                print("⚠️ [PrayerLiveActivity] Failed to mark as prayed: \(error.localizedDescription)")
+                dlog("⚠️ [PrayerLiveActivity] Failed to mark as prayed: \(error.localizedDescription)")
             }
         }
     }

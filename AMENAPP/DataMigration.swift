@@ -13,20 +13,20 @@ class DataMigrationService {
     
     /// Run all migrations
     func runAllMigrations() async throws {
-        print("🚀 Starting data migrations...")
+        dlog("🚀 Starting data migrations...")
         
         try await migrateUserDocuments()
         try await migrateConversationDocuments()
         try await migrateFollowDocuments()
         
-        print("✅ All migrations completed successfully!")
+        dlog("✅ All migrations completed successfully!")
     }
     
     // MARK: - 1. Migrate User Documents (Add messagePrivacy)
     
     /// Add messagePrivacy field to all existing user documents
     func migrateUserDocuments() async throws {
-        print("📝 Migrating user documents...")
+        dlog("📝 Migrating user documents...")
         
         let users = try await db.collection("users").getDocuments()
         let batch = db.batch()
@@ -47,7 +47,7 @@ class DataMigrationService {
             // Commit batch every 500 documents (Firestore limit)
             if count % 500 == 0 && count > 0 {
                 try await batch.commit()
-                print("  ✓ Migrated \(count) users...")
+                dlog("  ✓ Migrated \(count) users...")
             }
         }
         
@@ -56,14 +56,14 @@ class DataMigrationService {
             try await batch.commit()
         }
         
-        print("✅ Migrated \(count) user documents")
+        dlog("✅ Migrated \(count) user documents")
     }
     
     // MARK: - 2. Migrate Conversation Documents (Add messageCounts)
     
     /// Add messageCounts field to all existing conversation documents
     func migrateConversationDocuments() async throws {
-        print("📝 Migrating conversation documents...")
+        dlog("📝 Migrating conversation documents...")
         
         let conversations = try await db.collection("conversations").getDocuments()
         var count = 0
@@ -89,12 +89,12 @@ class DataMigrationService {
                 count += 1
                 
                 if count % 100 == 0 {
-                    print("  ✓ Migrated \(count) conversations...")
+                    dlog("  ✓ Migrated \(count) conversations...")
                 }
             }
         }
         
-        print("✅ Migrated \(count) conversation documents")
+        dlog("✅ Migrated \(count) conversation documents")
     }
     
     /// Count existing messages for each participant
@@ -126,7 +126,7 @@ class DataMigrationService {
     
     /// Migrate follow documents to use {followerId}_{followingId} format
     func migrateFollowDocuments() async throws {
-        print("📝 Migrating follow documents...")
+        dlog("📝 Migrating follow documents...")
         
         let follows = try await db.collection("follows").getDocuments()
         let batch = db.batch()
@@ -138,7 +138,7 @@ class DataMigrationService {
             
             guard let followerId = data["followerId"] as? String ?? data["followerUserId"] as? String,
                   let followingId = data["followingId"] as? String ?? data["followingUserId"] as? String else {
-                print("⚠️ Skipping document \(doc.documentID) - missing required fields")
+                dlog("⚠️ Skipping document \(doc.documentID) - missing required fields")
                 continue
             }
             
@@ -185,7 +185,7 @@ class DataMigrationService {
             // Commit batch every 500 operations
             if count % 250 == 0 && count > 0 {  // 250 because we're doing 2 operations per migration
                 try await batch.commit()
-                print("  ✓ Migrated \(count) follows...")
+                dlog("  ✓ Migrated \(count) follows...")
             }
         }
         
@@ -194,20 +194,20 @@ class DataMigrationService {
             try await batch.commit()
         }
         
-        print("✅ Migrated \(count) follow documents")
+        dlog("✅ Migrated \(count) follow documents")
     }
     
     // MARK: - Verification Functions
     
     /// Verify all migrations completed successfully
     func verifyMigrations() async throws {
-        print("\n🔍 Verifying migrations...")
+        dlog("\n🔍 Verifying migrations...")
         
         try await verifyUserMigration()
         try await verifyConversationMigration()
         try await verifyFollowMigration()
         
-        print("✅ All verifications passed!")
+        dlog("✅ All verifications passed!")
     }
     
     private func verifyUserMigration() async throws {
@@ -216,11 +216,11 @@ class DataMigrationService {
         for doc in users.documents {
             let data = doc.data()
             if data["messagePrivacy"] == nil {
-                print("⚠️ User \(doc.documentID) missing messagePrivacy")
+                dlog("⚠️ User \(doc.documentID) missing messagePrivacy")
             }
         }
         
-        print("✓ User documents verified")
+        dlog("✓ User documents verified")
     }
     
     private func verifyConversationMigration() async throws {
@@ -229,11 +229,11 @@ class DataMigrationService {
         for doc in conversations.documents {
             let data = doc.data()
             if data["messageCounts"] == nil {
-                print("⚠️ Conversation \(doc.documentID) missing messageCounts")
+                dlog("⚠️ Conversation \(doc.documentID) missing messageCounts")
             }
         }
         
-        print("✓ Conversation documents verified")
+        dlog("✓ Conversation documents verified")
     }
     
     private func verifyFollowMigration() async throws {
@@ -244,17 +244,17 @@ class DataMigrationService {
             
             // Check for proper ID format
             if !doc.documentID.contains("_") {
-                print("⚠️ Follow \(doc.documentID) has incorrect ID format")
+                dlog("⚠️ Follow \(doc.documentID) has incorrect ID format")
             }
             
             // Check for required fields
             if data["followerId"] == nil || data["followerUserId"] == nil ||
                data["followingId"] == nil || data["followingUserId"] == nil {
-                print("⚠️ Follow \(doc.documentID) missing required fields")
+                dlog("⚠️ Follow \(doc.documentID) missing required fields")
             }
         }
         
-        print("✓ Follow documents verified")
+        dlog("✓ Follow documents verified")
     }
     
     // MARK: - Helper: Add messagePrivacy to a single user
@@ -291,23 +291,23 @@ class MigrationRunner {
     /// Run migrations with progress tracking
     static func runMigrations() async {
         do {
-            print("=" * 50)
-            print("🚀 STARTING DATA MIGRATION")
-            print("=" * 50)
+            dlog("=" * 50)
+            dlog("🚀 STARTING DATA MIGRATION")
+            dlog("=" * 50)
             
             try await DataMigrationService.shared.runAllMigrations()
             
-            print("\n")
+            dlog("\n")
             try await DataMigrationService.shared.verifyMigrations()
             
-            print("\n" + "=" * 50)
-            print("✅ MIGRATION COMPLETED SUCCESSFULLY")
-            print("=" * 50)
+            dlog("\n" + "=" * 50)
+            dlog("✅ MIGRATION COMPLETED SUCCESSFULLY")
+            dlog("=" * 50)
         } catch {
-            print("\n" + "=" * 50)
-            print("❌ MIGRATION FAILED")
-            print("Error: \(error.localizedDescription)")
-            print("=" * 50)
+            dlog("\n" + "=" * 50)
+            dlog("❌ MIGRATION FAILED")
+            dlog("Error: \(error.localizedDescription)")
+            dlog("=" * 50)
         }
     }
 }

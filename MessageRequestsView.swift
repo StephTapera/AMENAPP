@@ -77,7 +77,7 @@ struct MessageRequestsView: View {
             try await trustService.loadMessageRequests(userId: userId)
             isLoading = false
         } catch {
-            print("❌ Error loading message requests: \(error)")
+            dlog("❌ Error loading message requests: \(error)")
             isLoading = false
         }
     }
@@ -122,7 +122,7 @@ struct MessageRequestsView: View {
                     }
                 }
             } catch {
-                print("❌ Error handling request: \(error)")
+                dlog("❌ Error handling request: \(error)")
                 // ROLLBACK: Re-add the request on error
                 await MainActor.run {
                     trustService.messageRequests.append(request)
@@ -245,7 +245,7 @@ struct ConversationRequestRow: View {
                 try await trustService.loadPrivacySettings(userId: userId)
                 settings = trustService.userSettings
             } catch {
-                print("❌ Error loading settings: \(error)")
+                dlog("❌ Error loading settings: \(error)")
             }
         }
     }
