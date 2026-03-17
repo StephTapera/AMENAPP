@@ -431,6 +431,73 @@
           "order": "DESCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "berean_embeddings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "updatedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "berean_cross_references",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "sourceVerse", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "berean_word_studies",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "word", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "berean_word_studies",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "strongsNumber", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "berean_commentaries",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "verse", "order": "ASCENDING" },
+        { "fieldPath": "isPublicDomain", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "berean_feedback",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "answerId", "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "berean_popular_questions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "weekOf", "order": "ASCENDING" },
+        { "fieldPath": "askCount", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "berean_quality_scores",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "lastUpdated", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "berean_pastor_flags",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "resolved", "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

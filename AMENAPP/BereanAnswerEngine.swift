@@ -177,9 +177,24 @@ class BereanAnswerEngine: ObservableObject {
         // 4. Extract Scripture references from query
         let scriptureRefs = extractScriptureReferences(from: query)
         
-        // 5. Fetch Scripture passages
-        let scripture = await fetchScripture(references: scriptureRefs)
-        
+        // 5. Fetch Scripture passages from explicit references
+        var scripture = await fetchScripture(references: scriptureRefs)
+
+        // 5a. Semantic RAG: find relevant passages the user didn't explicitly reference
+        let ragContext = await BereanSemanticSearch.shared.buildRAGContext(query: query)
+        if !ragContext.retrievedPassages.isEmpty {
+            print("📖 Berean: RAG retrieved \(ragContext.retrievedPassages.count) relevant passages")
+            // Add RAG-discovered passages to scripture (avoiding duplicates)
+            let existingRefs = Set(scripture.map { $0.reference.lowercased() })
+            for result in ragContext.retrievedPassages {
+                for passage in result.relevantPassages {
+                    if !existingRefs.contains(passage.reference.lowercased()) {
+                        scripture.append(passage)
+                    }
+                }
+            }
+        }
+
         // 6. Generate answer with strict citation requirements
         let answer: BereanAnswer
         
@@ -210,11 +225,14 @@ class BereanAnswerEngine: ObservableObject {
             )
         }
         
-        // 7. Cache the answer
-        answerCache.store(answer: answer, context: context)
-        
-        print("✅ Berean answer generated with \(answer.scripture.count) citations")
-        return answer
+        // 7. Verify citations post-generation
+        let verifiedAnswer = await verifyAnswer(answer)
+
+        // 8. Cache the verified answer
+        answerCache.store(answer: verifiedAnswer, context: context)
+
+        print("✅ Berean answer generated with \(verifiedAnswer.scripture.count) citations")
+        return verifiedAnswer
     }
     
     // MARK: - Safety Checks
@@ -429,16 +447,25 @@ class BereanAnswerEngine: ObservableObject {
         mode: InterpretationMode,
         context: BereanContext?
     ) async -> BereanAnswer {
-        // In production, call AI service with strict prompt:
-        // "You must cite sources. Never make claims without citations."
-        
-        // Generate response with citations
+        // Build RAG context for enhanced prompt
+        let ragContext = await BereanSemanticSearch.shared.buildRAGContext(query: query)
+
+        // Enrich with cross-references, word studies, and commentary
+        let verseRefs = scripture.map { $0.reference }
+        let enrichedContexts = await BereanCrossReferences.shared.getEnrichedContext(verses: verseRefs)
+        let enrichedText = enrichedContexts.map { $0.formattedForPrompt }
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n\n")
+
+        // Generate response with citations + RAG context + cross-references
         let response = await generateResponseWithCitations(
             query: query,
             scripture: scripture,
-            mode: mode
+            mode: mode,
+            ragContext: ragContext.formattedContext,
+            enrichedContext: enrichedText
         )
-        
+
         // Generate historical context if relevant
         let historical = await generateHistoricalContext(
             scripture: scripture,
@@ -468,7 +495,9 @@ class BereanAnswerEngine: ObservableObject {
     private func generateResponseWithCitations(
         query: String,
         scripture: [ScripturePassage],
-        mode: InterpretationMode
+        mode: InterpretationMode,
+        ragContext: String = "",
+        enrichedContext: String = ""
     ) async -> String {
         guard let primaryVerse = scripture.first else {
             return "I'd be happy to explore that with you. Could you point me to a specific passage?"
@@ -493,20 +522,36 @@ class BereanAnswerEngine: ObservableObject {
             modeInstruction = "Emphasize consensus across Christian traditions. Highlight what is broadly agreed upon."
         }
         
+        let ragSection = ragContext.isEmpty ? "" : """
+
+        Additional relevant passages discovered through semantic search:
+        \(ragContext)
+
+        """
+
+        let enrichedSection = enrichedContext.isEmpty ? "" : """
+
+        Cross-references, word studies, and commentary:
+        \(enrichedContext)
+
+        """
+
         let prompt = """
         A user is asking about Scripture. Answer based strictly on the provided passages. \
         Do not invent verses or make claims without citation.
-        
+
         Question: \(query)
-        
+
         Scripture passages:
         \(scriptureContext)
-        
+        \(ragSection)\(enrichedSection)
         Primary reference: \(primaryVerse.reference)
-        
+
         Response style: \(modeInstruction)
-        
+
         Provide a clear, well-cited answer. Reference verses by their full citation (e.g. John 3:16 ESV). \
+        If the semantic search surfaced relevant passages the user didn't mention, weave them in naturally. \
+        If cross-references or word studies are provided, incorporate key insights (e.g., original Greek/Hebrew meaning). \
         Be warm, scholarly, and pastoral. Keep the response under 400 words.
         """
         
