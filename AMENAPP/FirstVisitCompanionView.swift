@@ -448,7 +448,7 @@ struct FirstVisitCompanionView: View {
                 ZStack {
                     if let website = church.website,
                        let url = URL(string: website.hasPrefix("http://") || website.hasPrefix("https://") ? website : "https://\(website)") {
-                        CachedAsyncImage(url: url) { phase in
+                        AsyncImage(url: url) { phase in
                             switch phase {
                             case .success(let img):
                                 img.resizable().aspectRatio(contentMode: .fill)

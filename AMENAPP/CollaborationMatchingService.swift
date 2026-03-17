@@ -206,8 +206,8 @@ class CollaborationMatchingService: ObservableObject {
     
     /// Calculate engagement pattern similarity (0-1 scale)
     private func calculateEngagementSimilarity(
-        _ pattern1: EngagementPattern,
-        _ pattern2: EngagementPattern
+        _ pattern1: CollabEngagementPattern,
+        _ pattern2: CollabEngagementPattern
     ) -> Double {
         // Compare time of day, frequency, and content types
         let timeOfDayMatch = abs(pattern1.averageHourOfDay - pattern2.averageHourOfDay) < 3.0
@@ -326,7 +326,7 @@ class CollaborationMatchingService: ObservableObject {
             skills: data["skills"] as? [String] ?? [],
             recentIdeas: recentIdeas,
             following: data["following"] as? [String] ?? [],
-            engagementPattern: EngagementPattern(
+            engagementPattern: CollabEngagementPattern(
                 averageHourOfDay: 14.0, // Default placeholder
                 postsPerWeek: Double(postsSnapshot.documents.count)
             )
@@ -383,10 +383,10 @@ struct UserData {
     let skills: [String]
     let recentIdeas: [String]
     let following: [String]
-    let engagementPattern: EngagementPattern
+    let engagementPattern: CollabEngagementPattern
 }
 
-struct EngagementPattern {
+struct CollabEngagementPattern {
     let averageHourOfDay: Double
     let postsPerWeek: Double
 }

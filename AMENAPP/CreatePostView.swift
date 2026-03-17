@@ -47,6 +47,7 @@ struct CreatePostView: View {
     @State private var showingTopicTagSheet = false
     @State private var showingScheduleSheet = false
     @State private var isPublishing = false
+    @State private var postBtnState: PostButtonMorphState = .idle
     @State private var showDraftsSheet = false
     @State private var showFirstPostGuidelinesPrompt = false
     @State private var scheduledDate: Date?
@@ -88,6 +89,8 @@ struct CreatePostView: View {
 
     // MARK: - Toolbar expand/collapse
     @State private var isToolbarExpanded = false
+
+    enum PostButtonMorphState { case idle, sending, sent }
 
     enum PollDuration: String, CaseIterable, Identifiable {
         case oneDay   = "1 day"
@@ -458,18 +461,67 @@ struct CreatePostView: View {
 
                         Button {
                             publishPost()
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.65)) {
+                                postBtnState = .sending
+                            }
                         } label: {
-                            Text("Post")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundStyle(canPublish ? .white : .white.opacity(0.5))
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 7)
-                                .background(
-                                    Capsule()
-                                        .fill(canPublish ? Color.black : Color.black.opacity(0.3))
-                                )
+                            ZStack {
+                                // Idle: paperplane
+                                Image(systemName: "paperplane.fill")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(.white)
+                                    .opacity(postBtnState == .idle ? 1 : 0)
+                                    .scaleEffect(postBtnState == .idle ? 1 : 0.5)
+
+                                // Sending: spinner
+                                ProgressView()
+                                    .tint(Color(red: 0.10, green: 0.06, blue: 0.02))
+                                    .scaleEffect(0.8)
+                                    .opacity(postBtnState == .sending ? 1 : 0)
+                                    .scaleEffect(postBtnState == .sending ? 1 : 0.5)
+
+                                // Sent: checkmark
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundStyle(.white)
+                                    .opacity(postBtnState == .sent ? 1 : 0)
+                                    .scaleEffect(postBtnState == .sent ? 1 : 0.5)
+                            }
+                            .animation(.spring(response: 0.35, dampingFraction: 0.65), value: postBtnState)
+                            .frame(width: 24, height: 24)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 7)
+                            .background(
+                                Capsule()
+                                    .fill(
+                                        postBtnState == .sent
+                                            ? Color(red: 0.165, green: 0.431, blue: 0.227)
+                                            : (canPublish ? Color(red: 0.788, green: 0.659, blue: 0.298) : Color.black.opacity(0.3))
+                                    )
+                                    .animation(.easeOut(duration: 0.3), value: postBtnState)
+                            )
                         }
                         .disabled(!canPublish || isPublishing)
+                        .onChange(of: showingSuccessNotice) { _, isSuccess in
+                            if isSuccess {
+                                withAnimation(.spring(response: 0.35, dampingFraction: 0.65)) {
+                                    postBtnState = .sent
+                                }
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.65)) {
+                                        postBtnState = .idle
+                                    }
+                                }
+                            }
+                        }
+                        .onChange(of: isPublishing) { _, publishing in
+                            if !publishing && !showingSuccessNotice && postBtnState == .sending {
+                                // Error path — revert to idle
+                                withAnimation(.spring(response: 0.35, dampingFraction: 0.65)) {
+                                    postBtnState = .idle
+                                }
+                            }
+                        }
                     }
                 }
             }

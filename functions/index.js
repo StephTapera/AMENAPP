@@ -845,3 +845,52 @@ exports.stripeCreateConnectedAccount = stripe.stripeCreateConnectedAccount;
 exports.stripeGetAccountStatus       = stripe.stripeGetAccountStatus;
 exports.stripeCreatePaymentIntent    = stripe.stripeCreatePaymentIntent;
 exports.stripeRequestPayout          = stripe.stripeRequestPayout;
+
+// ============================================================================
+// ML CONTENT PIPELINE — Post ML analysis, virality, deletion cleanup
+// ============================================================================
+const mlContent = require("./mlContentPipeline");
+exports.onPostCreatedML          = mlContent.onPostCreatedML;
+exports.onPostDeletedML          = mlContent.onPostDeletedML;
+exports.computeViralityScore     = mlContent.computeViralityScore;
+
+// ============================================================================
+// ML USER INTELLIGENCE — Interest graph, fatigue, creation nudge, session intent
+// ============================================================================
+const mlUser = require("./mlUserIntelligence");
+exports.buildPassiveInterestGraph   = mlUser.buildPassiveInterestGraph;
+exports.detectSocialFatigue         = mlUser.detectSocialFatigue;
+exports.predictCreationPropensity   = mlUser.predictCreationPropensity;
+exports.computeSessionIntent        = mlUser.computeSessionIntent;
+exports.updateSpiritualHealthScore  = mlUser.updateSpiritualHealthScore;
+
+// ============================================================================
+// ML PRAYER INTELLIGENCE — Intercessor matching, testimony linking, gifts, verse
+// ============================================================================
+const mlPrayer = require("./mlPrayerIntelligence");
+exports.matchIntercessors               = mlPrayer.matchIntercessors;
+exports.detectTestimonyOutcome           = mlPrayer.detectTestimonyOutcome;
+exports.detectSpiritualGift              = mlPrayer.detectSpiritualGift;
+exports.computeScriptureSentimentMatch   = mlPrayer.computeScriptureSentimentMatch;
+exports.generatePersonalVerseEngine      = mlPrayer.generatePersonalVerseEngine;
+
+// ============================================================================
+// ML COMMUNITY INTELLIGENCE — Health reports, coordinated behavior, safety
+// ============================================================================
+const mlCommunity = require("./mlCommunityIntelligence");
+exports.generateCongregationHealthReport = mlCommunity.generateCongregationHealthReport;
+exports.detectCoordinatedBehavior        = mlCommunity.detectCoordinatedBehavior;
+exports.runLinguisticFingerprint         = mlCommunity.runLinguisticFingerprint;
+exports.detectGriefCrisisPreIncident     = mlCommunity.detectGriefCrisisPreIncident;
+exports.runZeroHarassmentDetection       = mlCommunity.runZeroHarassmentDetection;
+exports.scoreTheologicalDrift            = mlCommunity.scoreTheologicalDrift;
+
+// ============================================================================
+// ML NOTIFICATION & INFRASTRUCTURE — Feed re-rank, SLO, cost audit, churn
+// ============================================================================
+const mlNotif = require("./mlNotificationIntelligence");
+exports.predictNotificationChurn  = mlNotif.predictNotificationChurn;
+exports.reRankFeedRealTime        = mlNotif.reRankFeedRealTime;
+exports.runSLOAnomalyDetection    = mlNotif.runSLOAnomalyDetection;
+exports.costOptimizationAudit     = mlNotif.costOptimizationAudit;
+exports.runAgeSignalDetection     = mlNotif.runAgeSignalDetection;

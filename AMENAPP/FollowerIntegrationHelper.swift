@@ -620,7 +620,7 @@ struct SimpleUserCard: View {
                     .frame(width: 48, height: 48)
                 
                 if let photoURL = user.profileImageURL, !photoURL.isEmpty {
-                    CachedAsyncImage(url: URL(string: photoURL)) { phase in
+                    AsyncImage(url: URL(string: photoURL)) { phase in
                         switch phase {
                         case .success(let image):
                             image

@@ -8,6 +8,7 @@
 //
 
 import Foundation
+import Combine
 import FirebaseFirestore
 
 @MainActor
@@ -105,5 +106,49 @@ class SemanticSearchService: ObservableObject {
     private func generateKeywordVector(for text: String) -> [Float] {
         let lower = text.lowercased()
         return searchKeywords.map { lower.contains($0) ? Float(1.0) : Float(0.0) }
+    }
+
+    /// Cloud Run semantic search with timeout fallback.
+    func searchViaCloudRun(query: String, limit: Int) async -> [SemanticSearchResult]? {
+        guard query.count >= 3 else { return nil }
+
+        // Attempt Cloud Function call with 5s timeout
+        do {
+            let result = try await withThrowingTaskGroup(of: [SemanticSearchResult]?.self) { group in
+                group.addTask {
+                    let response = try await CloudFunctionsService.shared.call(
+                        "semanticSearch",
+                        data: ["query": query, "limit": limit] as [String: Any]
+                    )
+                    guard let items = response as? [[String: Any]] else { return nil }
+                    return items.compactMap { item -> SemanticSearchResult? in
+                        guard let postId = item["postId"] as? String,
+                              let score = item["score"] as? Double else { return nil }
+                        return SemanticSearchResult(
+                            id: postId,
+                            postID: postId,
+                            content: item["content"] as? String ?? "",
+                            authorName: item["authorName"] as? String ?? "",
+                            category: item["category"] as? String ?? "",
+                            relevanceScore: Float(score),
+                            matchReason: item["matchReason"] as? String ?? "Semantic match"
+                        )
+                    }
+                }
+                group.addTask {
+                    try await Task.sleep(nanoseconds: 5_000_000_000)
+                    return nil // Timeout
+                }
+                // Return first completed result
+                for try await result in group {
+                    group.cancelAll()
+                    return result
+                }
+                return nil
+            }
+            return result
+        } catch {
+            return nil
+        }
     }
 }

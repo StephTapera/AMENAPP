@@ -417,7 +417,7 @@ struct UserSearchResultRow: View {
         HStack(spacing: 12) {
             // Profile Image
             if let profileImageURL = user.profileImageURL, let url = URL(string: profileImageURL) {
-                CachedAsyncImage(url: url) { phase in
+                AsyncImage(url: url) { phase in
                     switch phase {
                     case .empty:
                         Circle()

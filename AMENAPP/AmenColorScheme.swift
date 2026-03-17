@@ -32,14 +32,7 @@ extension Color {
     // NOTE: These are now defined in AmenAdaptiveColors.swift with dark/light mode support
     // Keeping here for reference only (commented out to avoid conflicts)
 
-    /// Gold accent - Premium, elegant
-    // static let amenGold = Color(red: 0.83, green: 0.69, blue: 0.22)
-
-    /// Bronze accent - Warm, sophisticated
-    // static let amenBronze = Color(red: 0.80, green: 0.50, blue: 0.20)
-
-    /// Silver accent - Cool, modern
-    // static let amenSilver = Color(red: 0.75, green: 0.75, blue: 0.75)
+    // amenGold, amenBronze, amenSilver defined in AmenAdaptiveColors.swift
     
     // MARK: - Text Colors
     
@@ -105,7 +98,7 @@ extension Color {
     /// Gold gradient - Premium accent
     static var amenGoldGradient: LinearGradient {
         LinearGradient(
-            colors: [amenGold, amenBronze],
+            colors: [Color(red: 0.83, green: 0.69, blue: 0.22), Color(red: 0.80, green: 0.50, blue: 0.20)],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )
@@ -267,9 +260,9 @@ struct AmenColorScheme {
                     .foregroundColor(.amenTextSecondary)
                 
                 HStack(spacing: 12) {
-                    ColorSwatch(color: .amenGold, name: "Gold")
-                    ColorSwatch(color: .amenBronze, name: "Bronze")
-                    ColorSwatch(color: .amenSilver, name: "Silver")
+                    ColorSwatch(color: Color(red: 0.83, green: 0.69, blue: 0.22), name: "Gold")
+                    ColorSwatch(color: Color(red: 0.80, green: 0.50, blue: 0.20), name: "Bronze")
+                    ColorSwatch(color: Color(red: 0.75, green: 0.75, blue: 0.75), name: "Silver")
                 }
             }
             
@@ -300,10 +293,10 @@ struct AmenColorScheme {
                     .foregroundColor(.amenTextSecondary)
                 
                 HStack(spacing: 12) {
-                    ColorSwatch(color: .amenSuccess, name: "Success")
-                    ColorSwatch(color: .amenWarning, name: "Warning")
-                    ColorSwatch(color: .amenError, name: "Error")
-                    ColorSwatch(color: .amenInfo, name: "Info")
+                    ColorSwatch(color: .green, name: "Success")
+                    ColorSwatch(color: .orange, name: "Warning")
+                    ColorSwatch(color: .red, name: "Error")
+                    ColorSwatch(color: .blue, name: "Info")
                 }
             }
             
@@ -315,10 +308,10 @@ struct AmenColorScheme {
                     .foregroundColor(.amenTextSecondary)
                 
                 HStack(spacing: 12) {
-                    ColorSwatch(color: .amenPrayer, name: "Prayer")
-                    ColorSwatch(color: .amenTestimony, name: "Testimony")
-                    ColorSwatch(color: .amenOpenTable, name: "OpenTable")
-                    ColorSwatch(color: .amenScripture, name: "Scripture")
+                    ColorSwatch(color: .purple, name: "Prayer")
+                    ColorSwatch(color: .orange, name: "Testimony")
+                    ColorSwatch(color: .blue, name: "OpenTable")
+                    ColorSwatch(color: .teal, name: "Scripture")
                 }
             }
             

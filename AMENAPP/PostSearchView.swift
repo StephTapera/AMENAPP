@@ -253,7 +253,7 @@ struct PostThumbnailView: View {
                 // Post image/video
                 if let firstMedia = post.mediaURLs.first,
                    let url = URL(string: firstMedia) {
-                    CachedAsyncImage(url: url) { phase in
+                    AsyncImage(url: url) { phase in
                         switch phase {
                         case .success(let image):
                             image

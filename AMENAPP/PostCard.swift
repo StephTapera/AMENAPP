@@ -37,6 +37,9 @@ struct PostCard: View {
     @State private var showingDeleteAlert = false
     @State private var showingRepostConfirmation = false
     @State private var hasLitLightbulb = false
+
+    // Staggered entrance animation
+    @State private var cardAppeared = false
     @State private var hasSaidAmen = false
     @State private var isLightbulbAnimating = false
     @State private var showShareSheet = false
@@ -1114,6 +1117,10 @@ struct PostCard: View {
     var body: some View {
         cardWithAlerts
             .pressableCard(scale: 0.985)   // A) Subtle press-down on the whole card
+            .onAppear {
+                guard !cardAppeared else { return }
+                withAnimation { cardAppeared = true }
+            }
             .sheet(isPresented: $showBereanSheet) {
                 BereanAIAssistantView(initialQuery: bereanInitialQuery)
             }
@@ -1324,6 +1331,10 @@ struct PostCard: View {
                     guard NavigationGuard.shared.shouldNavigate() else { return }
                     showPostDetail = true
                 }
+                .offset(y: cardAppeared ? 0 : 18)
+                .opacity(cardAppeared ? 1 : 0)
+                .blur(radius: cardAppeared ? 0 : 4)
+                .animation(.spring(response: 0.55, dampingFraction: 0.8).delay(0.0), value: cardAppeared)
             
             // Post content with mention support
             VStack(alignment: .leading, spacing: 8) {
@@ -1368,6 +1379,10 @@ struct PostCard: View {
             }
             .padding(.horizontal, 16)
             .padding(.top, 10)
+            .offset(y: cardAppeared ? 0 : 18)
+            .opacity(cardAppeared ? 1 : 0)
+            .blur(radius: cardAppeared ? 0 : 4)
+            .animation(.spring(response: 0.55, dampingFraction: 0.8).delay(0.12), value: cardAppeared)
 
             // Translation affordance — driven by translationUIState state machine
             // Shows: "See Translation" | loading chip | "Translated from X / View original" | error
@@ -1427,6 +1442,10 @@ struct PostCard: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 12)
                 .padding(.bottom, 14)
+                .offset(y: cardAppeared ? 0 : 18)
+                .opacity(cardAppeared ? 1 : 0)
+                .blur(radius: cardAppeared ? 0 : 4)
+                .animation(.spring(response: 0.55, dampingFraction: 0.8).delay(0.36), value: cardAppeared)
         }
         .background(
             ZStack {
