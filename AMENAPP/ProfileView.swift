@@ -2697,7 +2697,7 @@ struct ProfileReplyCard: View {
                         if let profileImageURL = comment.authorProfileImageURL, 
                            !profileImageURL.isEmpty,
                            let url = URL(string: profileImageURL) {
-                            CachedAsyncImage(url: url) { phase in
+                            AsyncImage(url: url) { phase in
                                 switch phase {
                                 case .success(let image):
                                     image
@@ -3441,7 +3441,7 @@ struct EditProfileView: View {
         ZStack(alignment: .bottomTrailing) {
             // Show current profile image or initials
             if let imageURL = profileData.profileImageURL, !imageURL.isEmpty, let url = URL(string: imageURL) {
-                CachedAsyncImage(url: url) { phase in
+                AsyncImage(url: url) { phase in
                     switch phase {
                     case .success(let image):
                         image
@@ -4578,7 +4578,7 @@ struct FullScreenAvatarView: View {
                     if let profileImageURL = profileImageURL,
                        !profileImageURL.isEmpty,
                        let url = URL(string: profileImageURL) {
-                        CachedAsyncImage(url: url) { phase in
+                        AsyncImage(url: url) { phase in
                             switch phase {
                             case .success(let image):
                                 image
@@ -4818,7 +4818,7 @@ struct ProfilePhotoEditView: View {
                       !currentImageURL.isEmpty,
                       let url = URL(string: currentImageURL) {
                 // Show current image
-                CachedAsyncImage(url: url) { phase in
+                AsyncImage(url: url) { phase in
                     switch phase {
                     case .success(let image):
                         image

@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import Combine
 import FirebaseAuth
 import FirebaseFirestore
 
@@ -55,8 +56,14 @@ class PollService: ObservableObject {
         // Atomic transaction: increment vote count + record user vote
         let postRef = db.collection("posts").document(postId)
 
-        try await db.runTransaction { transaction, _ in
-            let doc = try transaction.getDocument(postRef)
+        try await db.runTransaction { transaction, errorPointer in
+            let doc: DocumentSnapshot
+            do {
+                doc = try transaction.getDocument(postRef)
+            } catch let fetchError as NSError {
+                errorPointer?.pointee = fetchError
+                return nil
+            }
             guard var pollData = doc.data()?["poll"] as? [String: Any],
                   var options = pollData["options"] as? [[String: Any]] else {
                 return nil

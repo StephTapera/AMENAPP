@@ -1266,7 +1266,7 @@ struct FindChurchView: View {
                                                 }
                                             },
                                             onSave: { toggleSave(church) },
-                                            onShare: { 
+                                            onShare: {
                                                 shareableChurch = church
                                                 showShareSheet = true
                                             },
@@ -1276,11 +1276,18 @@ struct FindChurchView: View {
                                             insertion: .scale(scale: 0.95).combined(with: .opacity),
                                             removal: .opacity
                                         ).animation(.easeOut(duration: 0.2)))
+                                        .scrollTransition(.animated(.spring(response: 0.3, dampingFraction: 0.8))) { content, phase in
+                                            content
+                                                .scaleEffect(phase.isIdentity ? 1.0 : 0.94)
+                                                .opacity(phase.isIdentity ? 1.0 : 0.58)
+                                        }
                                     }
                                 }
+                                .scrollTargetLayout()
                                 .padding(.horizontal, 16)
                                 .padding(.bottom, 80)
                             }
+                            .scrollTargetBehavior(.viewAligned(limitBehavior: .alwaysByFew))
                             .refreshable {
                                 await refreshChurchSearch()
                             }

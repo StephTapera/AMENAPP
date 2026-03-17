@@ -63,7 +63,7 @@ struct ProfilePhotoEditView: View {
                             } else if let currentImageURL = currentImageURL,
                                       let url = URL(string: currentImageURL) {
                                 // Current photo from server
-                                CachedAsyncImage(url: url) { phase in
+                                AsyncImage(url: url) { phase in
                                     switch phase {
                                     case .success(let image):
                                         image

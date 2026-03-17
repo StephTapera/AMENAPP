@@ -1636,38 +1636,52 @@ struct CompactTabBar: View {
                                 )
                         )
                         .matchedGeometryEffect(id: "TAB_BACKGROUND", in: tabNamespace)
+                        .animation(.spring(response: 0.4, dampingFraction: 0.6), value: selectedTab)
                 }
                 
                 // Icon with badge OR profile photo for Profile tab
-                ZStack(alignment: .topTrailing) {
-                    // Profile tab (tag 5) shows user's profile photo if available
-                    if tab.tag == 5 {
-                        profileTabContent(isSelected: isSelected)
-                    } else {
-                        // Regular icon for other tabs
-                        Image(systemName: tab.icon)
-                            .font(.system(size: 18, weight: isSelected ? .semibold : .medium))
-                            .foregroundStyle(isSelected ? .primary : .secondary)
-                            .symbolEffect(.bounce, value: isSelected)
+                VStack(spacing: 2) {
+                    ZStack(alignment: .topTrailing) {
+                        // Profile tab (tag 5) shows user's profile photo if available
+                        if tab.tag == 5 {
+                            profileTabContent(isSelected: isSelected)
+                        } else {
+                            // Regular icon for other tabs
+                            Image(systemName: tab.icon)
+                                .font(.system(size: 18, weight: isSelected ? .semibold : .medium))
+                                .foregroundStyle(isSelected ? .primary : .secondary)
+                                .symbolEffect(.bounce, value: isSelected)
+                        }
+
+                        // Smart badge for Messages tab (shows count then transitions to dot)
+                        if tab.tag == 2 && totalUnreadCount > 0 {
+                            SmartMessageBadge(unreadCount: totalUnreadCount, pulse: badgePulse)
+                                .offset(x: 2, y: -2)
+                        }
+
+                        // Simple dot indicator for Home tab
+                        if tab.tag == 0 && hasNewPosts {
+                            UnreadDot(pulse: newPostsBadgePulse)
+                                .offset(x: 2, y: -2)
+                        }
+
+                        // Red dot for Notifications tab (tag 4 = bell)
+                        if tab.tag == 4 && badgeCountManager.unreadNotifications > 0 {
+                            UnreadDot(pulse: false)
+                                .offset(x: 2, y: -2)
+                        }
                     }
-                    
-                    // Smart badge for Messages tab (shows count then transitions to dot)
-                    if tab.tag == 2 && totalUnreadCount > 0 {
-                        SmartMessageBadge(unreadCount: totalUnreadCount, pulse: badgePulse)
-                            .offset(x: 2, y: -2)
-                    }
-                    
-                    // Simple dot indicator for Home tab
-                    if tab.tag == 0 && hasNewPosts {
-                        UnreadDot(pulse: newPostsBadgePulse)
-                            .offset(x: 2, y: -2)
-                    }
-                    
-                    // Red dot for Notifications tab (tag 4 = bell)
-                    if tab.tag == 4 && badgeCountManager.unreadNotifications > 0 {
-                        UnreadDot(pulse: false)
-                            .offset(x: 2, y: -2)
-                    }
+                    .scaleEffect(isSelected ? 1.25 : 1.0)
+                    .offset(y: isSelected ? -2 : 0)
+                    .animation(.spring(response: 0.4, dampingFraction: 0.6), value: isSelected)
+
+                    // Gold dot indicator below active tab
+                    Circle()
+                        .fill(Color(red: 0.788, green: 0.659, blue: 0.298))
+                        .frame(width: 4, height: 4)
+                        .scaleEffect(isSelected ? 1.0 : 0.01)
+                        .opacity(isSelected ? 1.0 : 0)
+                        .animation(.spring(response: 0.35, dampingFraction: 0.5), value: isSelected)
                 }
                 .frame(width: 44, height: 38)  // Smaller compact button size
             }
@@ -1703,7 +1717,7 @@ struct CompactTabBar: View {
                !photoURL.isEmpty,
                let url = URL(string: photoURL) {
                 // User has profile photo - show it
-                CachedAsyncImage(url: url) { phase in
+                AsyncImage(url: url) { phase in
                     switch phase {
                     case .success(let image):
                         image
@@ -5152,6 +5166,11 @@ struct DailyVerseBanner: View {
     @State private var showVerseDetail = false
     @State private var localColorId: String = UserDefaults.standard.string(forKey: "bannerColorId") ?? "red"
 
+    // Verse transition phase
+    enum VersePhase { case entering, visible, exiting }
+    @State private var versePhase: VersePhase = .visible
+    @State private var verseRefRotation: Double = 0
+
     private var activeColor: BannerColorOption {
         BannerColorOption.find(localColorId)
     }
@@ -5211,9 +5230,15 @@ struct DailyVerseBanner: View {
                             .lineSpacing(3)
                             .lineLimit(3)
                             .fixedSize(horizontal: false, vertical: true)
+                            .offset(x: versePhase == .exiting ? -30 : versePhase == .entering ? 30 : 0)
+                            .blur(radius: versePhase == .visible ? 0 : 3)
+                            .opacity(versePhase == .visible ? 1 : 0)
+                            .animation(.easeInOut(duration: 0.35), value: versePhase)
                         Text("— \(verse.reference)")
                             .font(.custom("OpenSans-SemiBold", size: 11))
                             .foregroundStyle(.white.opacity(0.80))
+                            .rotation3DEffect(.degrees(verseRefRotation), axis: (x: 1, y: 0, z: 0))
+                            .animation(.spring(response: 0.35, dampingFraction: 0.8), value: verseRefRotation)
                     } else if verseService.isGenerating {
                         HStack(spacing: 8) {
                             AMENLoadingIndicator(color: .white, dotSize: 7, spacing: 6, bounceHeight: 8)
@@ -5228,14 +5253,21 @@ struct DailyVerseBanner: View {
                             .lineSpacing(3)
                             .lineLimit(3)
                             .fixedSize(horizontal: false, vertical: true)
+                            .offset(x: versePhase == .exiting ? -30 : versePhase == .entering ? 30 : 0)
+                            .blur(radius: versePhase == .visible ? 0 : 3)
+                            .opacity(versePhase == .visible ? 1 : 0)
+                            .animation(.easeInOut(duration: 0.35), value: versePhase)
                         Text("— Jeremiah 29:11")
                             .font(.custom("OpenSans-SemiBold", size: 11))
                             .foregroundStyle(.white.opacity(0.80))
+                            .rotation3DEffect(.degrees(verseRefRotation), axis: (x: 1, y: 0, z: 0))
+                            .animation(.spring(response: 0.35, dampingFraction: 0.8), value: verseRefRotation)
                     }
                 }
                 .padding(.vertical, 12)
                 .padding(.trailing, 14)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .clipped()
 
                 // Edit hint — top-right palette icon
                 VStack {

@@ -4728,7 +4728,7 @@ private struct ElegantWorshipSongRow: View {
                     .fill(Color.purple.opacity(0.10))
                     .frame(width: 42, height: 42)
                 if let urlStr = song.albumArtURL, let url = URL(string: urlStr) {
-                    CachedAsyncImage(url: url) { phase in
+                    AsyncImage(url: url) { phase in
                         if case .success(let img) = phase {
                             img.resizable().scaledToFill()
                                 .frame(width: 42, height: 42)
@@ -5342,10 +5342,17 @@ struct MinimalNotesList: View {
                         notesService: notesService,
                         onTap: { onNoteSelected(note) }
                     )
+                    .scrollTransition(.animated(.spring(response: 0.3, dampingFraction: 0.8))) { content, phase in
+                        content
+                            .scaleEffect(phase.isIdentity ? 1.0 : 0.94)
+                            .opacity(phase.isIdentity ? 1.0 : 0.58)
+                    }
                 }
             }
+            .scrollTargetLayout()
             .padding(.top, 8)
         }
+        .scrollTargetBehavior(.viewAligned(limitBehavior: .alwaysByFew))
         .coordinateSpace(name: "scroll")
         .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
             scrollOffset = value

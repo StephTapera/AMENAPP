@@ -11,6 +11,7 @@
 import Foundation
 import Combine
 import SwiftUI
+import UIKit
 
 @MainActor
 class BereanLiveActivityService: ObservableObject {
@@ -41,7 +42,7 @@ class BereanLiveActivityService: ObservableObject {
         showFallbackSheet = true
         isActivityActive = true
 
-        HapticManager.impact(style: .medium)
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
 
         Task {
             await fetchResponse(
@@ -90,7 +91,7 @@ class BereanLiveActivityService: ObservableObject {
                 scriptures: Array(scriptures.prefix(3))
             )
 
-            HapticManager.notification(type: .success)
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
 
         } catch {
             fallbackState = BereanActivityAttributes.ContentState(

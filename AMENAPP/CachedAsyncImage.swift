@@ -103,3 +103,4 @@ extension CachedAsyncImage where Content == Image, Placeholder == Color {
         )
     }
 }
+

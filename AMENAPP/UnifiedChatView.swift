@@ -2745,9 +2745,21 @@ struct LiquidGlassMessageBubble: View {
     // Reactions for inline quick-tap (iMessage style)
     private let quickReactions = ["❤️", "🙏", "🔥", "😂", "😮", "👍"]
 
-    // iMessage outgoing color
-    private let sentColor = Color(red: 0.0, green: 0.48, blue: 1.0)   // iMessage blue
-    // App's existing dark color alternative (kept for reference; using blue per brief)
+    // iMessage outgoing gradient
+    private let sentGradient = LinearGradient(
+        colors: [
+            Color(red: 0.0, green: 0.50, blue: 1.0),
+            Color(red: 0.0, green: 0.40, blue: 0.92)
+        ],
+        startPoint: .top,
+        endPoint: .bottom
+    )
+    private let sentColor = Color(red: 0.0, green: 0.48, blue: 1.0)
+
+    // Swipe-to-reply state
+    @State private var swipeOffset: CGFloat = 0
+    @State private var didTriggerReplyHaptic = false
+    private let swipeThreshold: CGFloat = 60
 
     private var bubbleBackground: some View {
         Group {
@@ -2761,7 +2773,7 @@ struct LiquidGlassMessageBubble: View {
                         )
                 } else {
                     MessageBubbleShape(isFromCurrentUser: true)
-                        .fill(sentColor)
+                        .fill(sentGradient)
                         .shadow(color: sentColor.opacity(0.25), radius: 6, y: 2)
                 }
             } else {
@@ -2781,6 +2793,17 @@ struct LiquidGlassMessageBubble: View {
                                 .combined(with: .opacity))
                     .padding(.bottom, 4)
             }
+
+            ZStack(alignment: isFromCurrentUser ? .leading : .trailing) {
+                // Swipe-to-reply indicator
+                if abs(swipeOffset) > 10 {
+                    Image(systemName: "arrowshape.turn.up.left.circle.fill")
+                        .font(.system(size: 24))
+                        .foregroundStyle(abs(swipeOffset) >= swipeThreshold ? .blue : .secondary)
+                        .scaleEffect(abs(swipeOffset) >= swipeThreshold ? 1.1 : 0.8)
+                        .opacity(min(1.0, abs(swipeOffset) / swipeThreshold))
+                        .animation(.spring(response: 0.2), value: swipeOffset)
+                }
 
             HStack(alignment: .bottom, spacing: 6) {
                 if isFromCurrentUser { Spacer(minLength: 52) }
@@ -2894,6 +2917,32 @@ struct LiquidGlassMessageBubble: View {
 
                 if !isFromCurrentUser { Spacer(minLength: 52) }
             }
+            .offset(x: swipeOffset)
+            .gesture(
+                DragGesture(minimumDistance: 20, coordinateSpace: .local)
+                    .onChanged { value in
+                        // Only allow swipe in the reply direction (left for outgoing, right for incoming)
+                        let translation = value.translation.width
+                        let direction: CGFloat = isFromCurrentUser ? -1 : 1
+                        let raw = translation * direction
+                        guard raw > 0 else { swipeOffset = 0; return }
+                        swipeOffset = translation * 0.6 // dampened
+                        if abs(swipeOffset) >= swipeThreshold && !didTriggerReplyHaptic {
+                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                            didTriggerReplyHaptic = true
+                        }
+                    }
+                    .onEnded { _ in
+                        if abs(swipeOffset) >= swipeThreshold {
+                            onReply()
+                        }
+                        withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) {
+                            swipeOffset = 0
+                        }
+                        didTriggerReplyHaptic = false
+                    }
+            )
+            } // ZStack
         }
         .animation(.spring(response: 0.28, dampingFraction: 0.7), value: showInlineReactions)
     }

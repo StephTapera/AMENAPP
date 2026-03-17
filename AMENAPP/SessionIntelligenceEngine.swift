@@ -119,7 +119,7 @@ class SocialFatigueModel {
 
     /// Compute fatigue score (0.0 = fresh, 1.0 = near-churn).
     func computeFatigue() -> Float {
-        let sessionMinutes = Float(AppUsageTracker.shared.totalMinutesToday)
+        let sessionMinutes = Float(AppUsageTracker.shared.todayUsageMinutes)
         let dailyLimit = Float(45) // Default daily limit
 
         // Simple fatigue based on usage ratio
@@ -159,7 +159,7 @@ class CreationPropensityScorer {
         propensity += min(0.3, Float(draftCount) * 0.1)
 
         // Recent engagement spike on creator content
-        let recentInteractions = PostInteractionsService.shared.recentInteractionCount
+        let recentInteractions = 0 // PostInteractionsService tracks per-post, not aggregate count
         propensity += min(0.2, Float(recentInteractions) / 50.0)
 
         // Time since last post (longer gap = higher propensity for return creators)

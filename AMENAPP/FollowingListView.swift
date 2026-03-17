@@ -211,7 +211,7 @@ struct FollowingRow: View {
             Group {
                 if let profileImageURL = user.profileImageURL,
                    let url = URL(string: profileImageURL) {
-                    CachedAsyncImage(url: url) { phase in
+                    AsyncImage(url: url) { phase in
                         switch phase {
                         case .success(let image):
                             image

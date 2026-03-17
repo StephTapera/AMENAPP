@@ -49,6 +49,10 @@ extension Notification.Name {
     /// UserInfo should contain: ["userId": String, "isFollowing": Bool]
     static let followStateChanged = Notification.Name("followStateChanged")
 
+    /// Posted by App Intents / Focus Filter to navigate to a specific tab.
+    /// UserInfo: ["tab": Int]
+    static let navigateToTab = Notification.Name("navigateToTab")
+
     /// Posted to open the create post sheet from anywhere in the app
     static let openCreatePost = Notification.Name("openCreatePost")
 

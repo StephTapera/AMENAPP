@@ -816,7 +816,7 @@ class PostsSearchViewModel: ObservableObject {
             query: query, limit: pageSize
         ) {
             // semanticResults contains postIds; fetch the actual Post objects
-            let ids = semanticResults.map { $0.postId }
+            let ids = semanticResults.map { $0.postID }
             if !ids.isEmpty {
                 do {
                     // Batch fetch — Firestore 'in' query max 30 at a time

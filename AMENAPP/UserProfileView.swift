@@ -2007,7 +2007,7 @@ struct UserProfileView: View {
                                     .frame(width: 80, height: 80)
                                 
                                 if let profileImageURL = profileData.profileImageURL, !profileImageURL.isEmpty {
-                                    CachedAsyncImage(url: URL(string: profileImageURL)) { phase in
+                                    AsyncImage(url: URL(string: profileImageURL)) { phase in
                                         switch phase {
                                         case .success(let image):
                                             image

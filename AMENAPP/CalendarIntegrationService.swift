@@ -71,7 +71,7 @@ class CalendarIntegrationService: ObservableObject {
         )
         
         if let existingEventId = existingEventId {
-            Logger.debug("Calendar event already exists: \(existingEventId)")
+            print("Calendar event already exists: \(existingEventId)")
             return existingEventId
         }
         
@@ -123,7 +123,7 @@ class CalendarIntegrationService: ObservableObject {
             throw CalendarError.eventCreationFailed
         }
         
-        Logger.debug("Created calendar event: \(eventIdentifier)")
+        print("Created calendar event: \(eventIdentifier)")
         return eventIdentifier
     }
     
@@ -148,7 +148,7 @@ class CalendarIntegrationService: ObservableObject {
         event.endDate = startDate.addingTimeInterval(TimeInterval(service.duration * 60))
         
         try eventStore.save(event, span: .thisEvent)
-        Logger.debug("Updated calendar event: \(eventId)")
+        print("Updated calendar event: \(eventId)")
     }
     
     // MARK: - Remove Calendar Event
@@ -156,12 +156,12 @@ class CalendarIntegrationService: ObservableObject {
     /// Removes calendar event (idempotent - no error if already removed)
     func removeCalendarEvent(eventId: String) async throws {
         guard let event = eventStore.event(withIdentifier: eventId) else {
-            Logger.debug("Calendar event not found (already removed): \(eventId)")
+            print("Calendar event not found (already removed): \(eventId)")
             return
         }
         
         try eventStore.remove(event, span: .thisEvent)
-        Logger.debug("Removed calendar event: \(eventId)")
+        print("Removed calendar event: \(eventId)")
     }
     
     // MARK: - Helper Methods

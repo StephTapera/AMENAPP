@@ -316,7 +316,7 @@ struct EventDetailView: View {
             .padding(.vertical, 12)
             .background(status.color.opacity(0.10), in: RoundedRectangle(cornerRadius: 12))
         }
-        .buttonStyle(.liquidGlass)
+        .buttonStyle(.plain)
     }
 
     // MARK: - Calendar Section
@@ -393,7 +393,7 @@ struct EventDetailView: View {
                 .padding(.vertical, 13)
                 .background(event.eventType.color, in: RoundedRectangle(cornerRadius: 12))
             }
-            .buttonStyle(.liquidGlass)
+            .buttonStyle(.plain)
             .disabled(isAddingToCalendar)
 
             // Open native editor (user controls all fields)
@@ -452,7 +452,7 @@ struct EventDetailView: View {
                         .padding(.vertical, 12)
                         .background(Color(red: 0.15, green: 0.45, blue: 0.90), in: RoundedRectangle(cornerRadius: 12))
                 }
-                .buttonStyle(.liquidGlass)
+                .buttonStyle(.plain)
             } else {
                 HStack(spacing: 10) {
                     Image(systemName: "bell.slash.fill")
