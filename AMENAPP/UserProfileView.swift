@@ -249,7 +249,11 @@ struct UserProfileView: View {
     @ObservedObject private var pinnedPostService = PinnedPostService.shared
     @ObservedObject private var followService = FollowService.shared
     @Namespace private var tabNamespace
-    
+
+    // Mutuals
+    @StateObject private var mutualsVM = MutualsViewModel()
+    @State private var showMutualsSheet = false
+
     // Additional production-ready states
     @State private var showShareSheet = false
     @State private var shareItems: [Any] = []
@@ -306,7 +310,23 @@ struct UserProfileView: View {
                     
                     // Profile Header
                     profileHeaderView
-                    
+
+                    // Mutuals strip — shown between header and tabs when mutuals exist
+                    // Privacy: hidden when viewing own profile (mutualsVM returns empty for self)
+                    if mutualsVM.isLoading || !mutualsVM.mutuals.isEmpty {
+                        MutualsAvatarStrip(
+                            mutuals: mutualsVM.mutuals,
+                            isLoading: mutualsVM.isLoading,
+                            onTap: { showMutualsSheet = true }
+                        )
+                        .task(id: userId) {
+                            await mutualsVM.load(profileUID: userId)
+                        }
+                        .sheet(isPresented: $showMutualsSheet) {
+                            MutualsListView(mutuals: mutualsVM.mutuals)
+                        }
+                    }
+
                     // Tab Selector (Posts / Reposts)
                     tabSelectorView
                     
@@ -2138,6 +2158,8 @@ struct UserProfileView: View {
                                 .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isFollowing)
                                 .animation(.spring(response: 0.3, dampingFraction: 0.7), value: followRequestPending)
                                 .transition(.scale.combined(with: .opacity))
+                                .accessibilityLabel(followButtonText)
+                                .accessibilityHint(isFollowing ? "Double tap to unfollow" : (followRequestPending ? "Follow request pending" : "Double tap to follow"))
                                 
                                 // Message Button — disabled with rationale if private + not following
                                 let messageBlocked = profileData.isPrivateAccount && !isFollowing
