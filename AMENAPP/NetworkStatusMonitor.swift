@@ -9,6 +9,7 @@ import Foundation
 import Network
 import Combine
 
+@MainActor
 class NetworkStatusMonitor: ObservableObject {
     static let shared = NetworkStatusMonitor()
     
@@ -52,7 +53,7 @@ class NetworkStatusMonitor: ObservableObject {
         monitor.start(queue: queue)
     }
     
-    func stopMonitoring() {
+    nonisolated func stopMonitoring() {
         monitor.cancel()
     }
     

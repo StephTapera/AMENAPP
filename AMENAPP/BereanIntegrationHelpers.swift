@@ -276,7 +276,8 @@ struct BereanDeepLinkHandler {
  
  // In your main navigation coordinator or app state:
  
- class AppNavigationCoordinator: ObservableObject {
+ @MainActor
+class AppNavigationCoordinator: ObservableObject {
      @Published var selectedTab: Tab = .home
      @Published var bibleVerse: VerseReference?
      @Published var bibleTranslation: String = "ESV"

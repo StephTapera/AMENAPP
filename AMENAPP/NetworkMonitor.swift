@@ -9,6 +9,7 @@ import Network
 import SwiftUI
 import Combine
 
+@MainActor
 class AMENNetworkMonitor: ObservableObject {
     static let shared = AMENNetworkMonitor()
     
