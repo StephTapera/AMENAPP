@@ -60,8 +60,18 @@ class FollowService: ObservableObject {
     private let firebaseManager = FirebaseManager.shared
     private let db = Firestore.firestore()
     private var listeners: [ListenerRegistration] = []
-    private var isListening = false  // ✅ FIX: Prevent duplicate listener registration
-    
+    private var isListening = false  // Prevent duplicate listener registration
+
+    // P0 CRASH FIX: Track the user ID for which follow data was last loaded.
+    // The auth state listener can re-fire spuriously (token refresh, RTDB
+    // reconnect), triggering duplicate loadCurrentUserFollowing/Followers()
+    // calls that run concurrently with in-flight UI navigation, racing
+    // @Published writes → CA layer hierarchy crash.
+    // Reset on stopListening() so sign-out → sign-in reloads correctly.
+    private var loadedForUserId: String?
+    // Prevent two concurrent in-flight loads for the same user.
+    private var isLoadingFollowData = false
+
     private init() {}
     
     // MARK: - Follow User
@@ -534,20 +544,34 @@ class FollowService: ObservableObject {
     /// Load current user's following list into cache
     func loadCurrentUserFollowing() async {
         guard let currentUserId = firebaseManager.currentUser?.uid else { return }
-        
+        // Skip if already loaded for this user and a load isn't already in progress.
+        guard loadedForUserId != currentUserId, !isLoadingFollowData else {
+            dlog("⏭️ Follow data already loaded for current user — skipping duplicate load")
+            return
+        }
+        isLoadingFollowData = true
+
         do {
             let followingIds = try await fetchFollowingIds(userId: currentUserId)
             following = Set(followingIds)
+            loadedForUserId = currentUserId
             dlog("✅ Loaded \(followingIds.count) following into cache")
         } catch {
             dlog("❌ Failed to load following: \(error)")
         }
+        isLoadingFollowData = false
     }
-    
+
     /// Load current user's followers list into cache
     func loadCurrentUserFollowers() async {
         guard let currentUserId = firebaseManager.currentUser?.uid else { return }
-        
+        // The `loadedForUserId` guard in loadCurrentUserFollowing() covers both loads
+        // (they're always called together). Skip redundant followers fetch too.
+        guard loadedForUserId != currentUserId, !isLoadingFollowData else {
+            dlog("⏭️ Follow data already loaded for current user — skipping duplicate load")
+            return
+        }
+
         do {
             let followerIds = try await fetchFollowerIds(userId: currentUserId)
             followers = Set(followerIds)
@@ -675,6 +699,8 @@ class FollowService: ObservableObject {
         listeners.forEach { $0.remove() }
         listeners.removeAll()
         isListening = false  // ✅ FIX: Reset flag so listeners can be restarted
+        loadedForUserId = nil       // Allow re-load after sign-out → sign-in
+        isLoadingFollowData = false // Clear any stale in-progress flag
     }
     
     // MARK: - Bulk Operations

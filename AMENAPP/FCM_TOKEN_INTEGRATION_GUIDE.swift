@@ -409,6 +409,7 @@ func testPushNotificationSetup() async {
 // ============================================================================
 
 /// Complete example showing FCM integration in authentication
+@MainActor
 class AuthenticationViewModelFCMGuide: ObservableObject {
     @Published var isAuthenticated = false
     @Published var errorMessage: String?
