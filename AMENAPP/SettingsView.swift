@@ -10,7 +10,6 @@
 
 import SwiftUI
 import FirebaseAuth
-import PhotosUI
 
 // MARK: - Design Tokens
 
@@ -34,10 +33,9 @@ struct SettingsView: View {
     @EnvironmentObject private var authViewModel: AuthenticationViewModel
 
     @State private var showSignOutConfirmation = false
+    @State private var showDeleteAccountConfirmation = false
     @State private var navigateToAccountSettings = false
     @State private var groupsVisible = false     // drives stagger entrance
-    @State private var photoItem: PhotosPickerItem? = nil
-    @State private var isUploadingPhoto = false
 
     var body: some View {
         NavigationStack {
@@ -55,11 +53,13 @@ struct SettingsView: View {
 
                         // ── Group 1: Account ────────────────────────────────
                         SDGroup {
-                            SDNavRow(icon: "person", label: "Edit Profile", subtitle: "Name, bio, links", iconBg: .blue) { AccountSettingsView() }
+                            SDNavRow(icon: "person", label: "Edit Profile", subtitle: "Name, bio, links", iconBg: .blue) { EditProfileFromSettingsView() }
                             SDDivider()
                             SDNavRow(icon: "at", label: "Account", subtitle: "Email, username, password", iconBg: .gray) { AccountSettingsView() }
                             SDDivider()
                             SDNavRow(icon: "bell", label: "Notifications", subtitle: "Push, email, in-app", iconBg: .red) { NotificationSettingsView() }
+                            SDDivider()
+                            SDNavRow(icon: "square.grid.2x2", label: "Integrations", subtitle: "Widgets, Live Activities, Siri", iconBg: .indigo) { IntegrationSettingsView() }
                             SDDivider()
                             SDNavRow(icon: "lock", label: "Privacy & Safety", subtitle: "Who can see your content", iconBg: .green) { PrivacySettingsView() }
                             SDDivider()
@@ -105,7 +105,7 @@ struct SettingsView: View {
                         .offset(y: groupsVisible ? 0 : 18)
                         .animation(.spring(response: 0.46, dampingFraction: 0.82).delay(0.20), value: groupsVisible)
 
-                        // ── Sign Out ────────────────────────────────────────
+                        // ── Sign Out / Delete Account ───────────────────────
                         SDGroup {
                             SDActionRow(icon: "rectangle.portrait.and.arrow.right",
                                         label: "Sign Out",
@@ -113,20 +113,26 @@ struct SettingsView: View {
                                 HapticManager.impact(style: .medium)
                                 showSignOutConfirmation = true
                             }
+                            SDDivider()
+                            SDNavRow(icon: "trash",
+                                     label: "Delete Account",
+                                     subtitle: "Permanent — cannot be undone",
+                                     iconBg: SD.danger) {
+                                DeleteAccountView()
+                            }
                         }
                         .opacity(groupsVisible ? 1 : 0)
                         .offset(y: groupsVisible ? 0 : 18)
                         .animation(.spring(response: 0.46, dampingFraction: 0.82).delay(0.23), value: groupsVisible)
 
-                        // ── Delete account footer ───────────────────────────
-                        NavigationLink {
-                            DeleteAccountView()
-                        } label: {
-                            Text("Deactivate or delete account")
+                        // ── App Version ─────────────────────────────────────
+                        HStack {
+                            Text("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")")
                                 .font(.system(size: 12))
-                                .foregroundStyle(SD.danger.opacity(0.60))
+                                .foregroundStyle(SD.secondary)
                         }
-                        .padding(.top, 2)
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 4)
                         .padding(.bottom, 32)
                         .opacity(groupsVisible ? 1 : 0)
                         .animation(.easeIn(duration: 0.2).delay(0.28), value: groupsVisible)
@@ -172,6 +178,14 @@ struct SettingsView: View {
             } message: {
                 Text("Are you sure you want to sign out?")
             }
+            .alert("Delete Account", isPresented: $showDeleteAccountConfirmation) {
+                Button("Delete Account", role: .destructive) {
+                    // Navigate to DeleteAccountView for full flow with re-auth
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This action is permanent and cannot be undone.")
+            }
             .onReceive(NotificationCenter.default.publisher(for: .navigateToAccountSettings)) { _ in
                 navigateToAccountSettings = true
             }
@@ -185,53 +199,30 @@ struct SettingsView: View {
 
     private var profileHeader: some View {
         HStack(spacing: 14) {
-            // Avatar: real profile photo with camera badge + photo picker
-            PhotosPicker(selection: $photoItem, matching: .images, photoLibrary: .shared()) {
-                ZStack(alignment: .bottomTrailing) {
-                    // Profile photo or fallback
-                    if let photoURL = Auth.auth().currentUser?.photoURL {
-                        AsyncImage(url: photoURL) { phase in
-                            switch phase {
-                            case .success(let img):
-                                img.resizable().scaledToFill()
-                                    .frame(width: 52, height: 52)
-                                    .clipShape(Circle())
-                            default:
-                                avatarFallback
-                            }
-                        }
-                    } else {
-                        avatarFallback
-                    }
-
-                    // Camera badge
-                    Circle()
-                        .fill(Color.black)
-                        .frame(width: 20, height: 20)
-                        .overlay(
-                            Image(systemName: isUploadingPhoto ? "arrow.triangle.2.circlepath" : "camera.fill")
-                                .font(.system(size: 9, weight: .semibold))
-                                .foregroundStyle(.white)
-                        )
-                        .overlay(Circle().stroke(SD.bg, lineWidth: 1.5))
+            // Avatar: read-only display in Settings — camera/edit lives in EditProfileView only.
+            // Resolves photo URL from Firebase Auth first, then falls back to UserDefaults cache.
+            let resolvedPhotoURL: URL? = {
+                if let url = Auth.auth().currentUser?.photoURL { return url }
+                if let cached = UserProfileImageCache.shared.cachedProfileImageURL {
+                    return URL(string: cached)
                 }
-            }
-            .buttonStyle(.plain)
-            .onChange(of: photoItem) { _, newItem in
-                guard let newItem else { return }
-                Task {
-                    isUploadingPhoto = true
-                    if let data = try? await newItem.loadTransferable(type: Data.self),
-                       let image = UIImage(data: data) {
-                        let compressed = image.jpegData(compressionQuality: 0.85).flatMap { UIImage(data: $0) } ?? image
-                        await withCheckedContinuation { continuation in
-                            ProfilePhotoService.shared.uploadProfilePhoto(image: compressed) { _ in
-                                continuation.resume()
-                            }
+                return nil
+            }()
+
+            Group {
+                if let photoURL = resolvedPhotoURL {
+                    AsyncImage(url: photoURL) { phase in
+                        switch phase {
+                        case .success(let img):
+                            img.resizable().scaledToFill()
+                                .frame(width: 52, height: 52)
+                                .clipShape(Circle())
+                        default:
+                            avatarFallback
                         }
                     }
-                    isUploadingPhoto = false
-                    photoItem = nil
+                } else {
+                    avatarFallback
                 }
             }
 
@@ -425,6 +416,44 @@ struct SDActionRow: View {
     }
 }
 
+// MARK: - Disabled Row (Coming Soon / unimplemented destinations)
+
+struct SDDisabledRow: View {
+    let icon: String
+    let label: String
+    var badge: String? = nil
+
+    var body: some View {
+        HStack(spacing: 13) {
+            Image(systemName: icon)
+                .font(.system(size: 16, weight: .regular))
+                .foregroundStyle(SD.label.opacity(0.3))
+                .frame(width: 22, alignment: .center)
+
+            Text(label)
+                .font(.system(size: 15, weight: .regular))
+                .foregroundStyle(SD.label.opacity(0.3))
+
+            Spacer()
+
+            if let badge {
+                Text(badge)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(SD.secondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(
+                        Capsule().fill(SD.panelEdge)
+                    )
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 13)
+        .contentShape(Rectangle())
+        .allowsHitTesting(false)  // tap-through: row is not interactive
+    }
+}
+
 // MARK: - Divider
 
 struct SDDivider: View {
@@ -524,7 +553,8 @@ struct CreatorGroupView: View {
     var body: some View {
         SDDetailScaffold(title: "Creator") {
             SDGroup {
-                SDNavRow(icon: "chart.line.uptrend.xyaxis", label: "Insights & Analytics") { CreatorInsightsView() }
+                // Insights: Coming Soon — navigation disabled until feature is live
+                SDDisabledRow(icon: "chart.line.uptrend.xyaxis", label: "Insights & Analytics", badge: "Coming Soon")
                 SDDivider()
                 SDNavRow(icon: "doc.text",                  label: "Drafts")               { DraftsSettingsView() }
             }
@@ -592,6 +622,38 @@ struct SettingsRowExternal: View {
     let action: () -> Void
     var body: some View {
         SDActionRow(icon: icon, label: title, style: .standard, action: action)
+    }
+}
+
+// MARK: - EditProfile wrapper (Settings → EditProfileView bridge)
+// EditProfileView requires @Binding var profileData, so this wrapper owns the state.
+
+private struct EditProfileFromSettingsView: View {
+    private let user = Auth.auth().currentUser
+    @State private var profileData: UserProfileData = UserProfileData(
+        name: "", username: "", bio: "", bioURL: nil,
+        initials: "", profileImageURL: nil, interests: [String](), socialLinks: [SocialLinkUI]()
+    )
+    @State private var loaded = false
+
+    var body: some View {
+        EditProfileView(profileData: $profileData)
+            .task {
+                guard !loaded, let uid = user?.uid else { return }
+                loaded = true
+                // Pre-fill from UserDefaults cache so the view opens instantly
+                profileData = UserProfileData(
+                    name:            UserDefaults.standard.string(forKey: "cached_displayName") ?? user?.displayName ?? "",
+                    username:        UserDefaults.standard.string(forKey: "cached_username") ?? "",
+                    bio:             UserDefaults.standard.string(forKey: "cached_bio") ?? "",
+                    bioURL:          UserDefaults.standard.string(forKey: "cached_bioURL"),
+                    initials:        UserDefaults.standard.string(forKey: "cached_initials") ?? String((user?.displayName ?? "?").prefix(1)),
+                    profileImageURL: UserDefaults.standard.string(forKey: "cached_profileImageURL") ?? user?.photoURL?.absoluteString,
+                    interests:       [String](),
+                    socialLinks:     [SocialLinkUI]()
+                )
+                _ = uid // suppress unused warning
+            }
     }
 }
 

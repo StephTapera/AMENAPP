@@ -22,12 +22,21 @@ struct AMENAPPApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     
     @State private var currentUser: UserModel? = nil  // Store user for personalized welcome
-    
+    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
+
     // PERFORMANCE: Store auth listener handle for cleanup
     @State private var authStateHandle: AuthStateDidChangeListenerHandle?
     // P1-3 FIX: Track whether FCM setup has already run this session
     // to prevent redundant token writes on every foreground transition.
     @State private var fcmSetupDone = false
+    // P0 CRASH FIX: Track the last user UID seen by the auth state listener.
+    // Firebase fires addStateDidChangeListener multiple times for the same user
+    // (on token refresh, RTDB reconnect, App Check completion). Without this guard,
+    // every spurious re-fire runs duplicate loadCurrentUserFollowing() +
+    // loadCurrentUserFollowers() + registerDeviceToken() — the concurrent
+    // @Published writes during a simultaneous tab-bar navigation tear down the
+    // CA layer hierarchy → EXC_BAD_ACCESS at CALayerGetSuperlayer.
+    @State private var lastAuthStateUserId: String? = nil
     // P0-C FIX: Track startup tasks so they can be cancelled on disappear,
     // preventing retain cycles across background/foreground transitions.
     @State private var startupTasks: [Task<Void, Never>] = []
@@ -269,13 +278,22 @@ struct AMENAPPApp: App {
                 handleLiveActivityDeepLink(url)
 
                 // ✅ Share Extension: user tapped "Post" in the extension
-                if url.scheme == "amen" && url.host == "share" {
+                if (url.scheme == "com.amenapp" || url.scheme == "amenapp") && url.host == "share" {
                     handleShareExtensionDraft()
                 }
             }
             .task {
                 // Restore any Live Activities that survived an app relaunch
                 LiveActivityManager.shared.restoreActiveActivities()
+            }
+            // Show supplementary interest/follow onboarding once after account creation.
+            // This is separate from the username/profile OnboardingView in ContentView.
+            // Gated by a simple @AppStorage bool so it only shows once per device install.
+            .fullScreenCover(isPresented: Binding(
+                get: { Auth.auth().currentUser != nil && !hasCompletedOnboarding },
+                set: { _ in }
+            )) {
+                OnboardingFlowView()
             }
             .onChange(of: scenePhase) { _, newPhase in
                 // P1 FIX: Drive behavioral awareness engine session lifecycle from scene phase
@@ -286,11 +304,39 @@ struct AMENAPPApp: App {
                     // Refresh dynamic shortcuts whenever the app comes to the foreground
                     // so the menu reflects current state (drafts, unread count, etc.)
                     refreshQuickActions()
+                    // Auth token expiry check: if the user was signed in but the token
+                    // is now invalid (revoked, expired), redirect to sign-in immediately
+                    // rather than letting silent permission-denied errors confuse the user.
+                    checkAuthTokenValidity()
                 case .background:
                     BehavioralAwarenessEngine.shared.endSession()
                     Self.scheduleBackgroundFeedRefresh()
+                    Task { await PostsManager.shared.stopListeningForProfileUpdates() }
                 default:
                     break
+                }
+            }
+        }
+    }
+
+    // MARK: - Auth Token Validity
+
+    /// Called on every foreground transition. Forces a token refresh and signs out
+    /// if the token can no longer be refreshed (revoked session, banned account, etc.).
+    private func checkAuthTokenValidity() {
+        guard Auth.auth().currentUser != nil else { return }
+        Task {
+            do {
+                // forceRefresh: true — contacts Firebase Auth servers to verify the token.
+                // Will throw if the refresh token has been revoked or the account deleted.
+                _ = try await Auth.auth().currentUser?.getIDToken(forcingRefresh: true)
+            } catch let error as NSError {
+                // FIRAuthErrorCodeUserNotFound, FIRAuthErrorCodeUserDisabled,
+                // FIRAuthErrorCodeTokenExpired all land here.
+                dlog("⚠️ Auth token invalid on foreground: \(error.localizedDescription)")
+                await MainActor.run {
+                    try? Auth.auth().signOut()
+                    // ContentView observes Auth.auth().currentUser and will redirect to sign-in
                 }
             }
         }
@@ -396,8 +442,21 @@ struct AMENAPPApp: App {
         // PERFORMANCE: Store handle for cleanup
         authStateHandle = Auth.auth().addStateDidChangeListener { auth, user in
             Task { @MainActor in
+                let incomingUserId = user?.uid
+
+                // P0 CRASH FIX: Firebase fires addStateDidChangeListener spuriously
+                // for the same user on auth-token refresh, RTDB reconnect, and App
+                // Check completion. Guard against same-user re-fires so we don't
+                // redundantly re-init FollowService and re-register device tokens
+                // concurrently with in-flight UI navigation.
+                guard incomingUserId != self.lastAuthStateUserId else {
+                    dlog("🔁 Auth state re-fired for same user — skipping duplicate init")
+                    return
+                }
+                self.lastAuthStateUserId = incomingUserId
+
                 if let user = user {
-                    // User logged in - register token
+                    // Actual sign-in (new user or first fire after launch)
                     #if DEBUG
                     dlog("👤 User logged in: \(user.uid)")
                     #endif
@@ -425,19 +484,21 @@ struct AMENAPPApp: App {
                         await FollowService.shared.loadCurrentUserFollowers()
                         FollowService.shared.startListening()
                     }
+                    // Integration preferences — start syncing on sign-in
+                    AMENUserPreferencesService.shared.startListening()
                 } else {
+                    // Actual sign-out
                     // P0-D FIX: Reset fcmSetupDone so the next sign-in within the same
                     // session re-registers the FCM token for the new user account.
-                    // Without this, a second sign-in skips FCM setup and push notifications
-                    // go unregistered (or worse, remain tied to the previous user).
                     self.fcmSetupDone = false
-                    // User logged out - unregister token
                     dlog("👋 User logged out, unregistering device token")
                     await DeviceTokenManager.shared.unregisterDeviceToken()
                     AgeAssuranceService.shared.reset()
                     // Stop FollowService listeners so stale following data from the
                     // previous user doesn't leak into the next sign-in session.
                     FollowService.shared.stopListening()
+                    // Stop integration prefs listener on sign-out
+                    AMENUserPreferencesService.shared.stopListening()
                 }
             }
         }

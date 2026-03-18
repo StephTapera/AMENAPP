@@ -134,6 +134,42 @@ struct AMENShortcutsProvider: AppShortcutsProvider {
             shortTitle: "Daily Verse",
             systemImageName: "book.fill"
         )
+        AppShortcut(
+            intent: PostPrayerRequestIntent(),
+            phrases: [
+                "Post a prayer request on \(.applicationName)",
+                "Ask for prayer on \(.applicationName)"
+            ],
+            shortTitle: "Post Prayer Request",
+            systemImageName: "hands.and.sparkles"
+        )
+        AppShortcut(
+            intent: ShareTestimonyIntent(),
+            phrases: [
+                "Share a testimony on \(.applicationName)",
+                "Post my testimony on \(.applicationName)"
+            ],
+            shortTitle: "Share Testimony",
+            systemImageName: "sparkles"
+        )
+        AppShortcut(
+            intent: RSVPEventIntent(),
+            phrases: [
+                "RSVP to an event on \(.applicationName)",
+                "I'll be there on \(.applicationName)"
+            ],
+            shortTitle: "RSVP to Event",
+            systemImageName: "calendar.badge.plus"
+        )
+        AppShortcut(
+            intent: DiscoverPrayerNeedsIntent(),
+            phrases: [
+                "Discover prayer needs on \(.applicationName)",
+                "Who needs prayer on \(.applicationName)"
+            ],
+            shortTitle: "Discover Prayer Needs",
+            systemImageName: "person.2.wave.2"
+        )
     }
 }
 
@@ -174,3 +210,95 @@ struct PostCategoryQuery: EntityQuery {
 }
 
 // navigateToTab and openCreatePost are defined in NotificationExtensions.swift
+
+// MARK: - Preference-gated Intents (v2 — full feature spec)
+
+private func siriEnabled() async -> Bool {
+    await MainActor.run { AMENUserPreferencesService.shared.preferences.siriIntegrationEnabled }
+}
+
+private let siriDisabledDialog = IntentDialog("Siri integration is turned off. Enable it in AMEN Settings → Siri & Shortcuts.")
+
+// MARK: Post a Prayer Request
+
+struct PostPrayerRequestIntent: AppIntent {
+    static var title: LocalizedStringResource = "Post a Prayer Request"
+    static var description = IntentDescription("Share a prayer request with your AMEN community.")
+    static var openAppWhenRun: Bool = true
+
+    @Parameter(title: "Prayer Request", description: "What would you like prayer for?")
+    var prayerText: String?
+
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        guard await siriEnabled() else { return .result(dialog: siriDisabledDialog) }
+        if let text = prayerText {
+            await MainActor.run { UserDefaults.standard.set(text, forKey: "siri_pending_prayer") }
+        }
+        NotificationCenter.default.post(name: .amenOpenPrayerComposer, object: prayerText)
+        return .result(dialog: "Opening your prayer request in AMEN 🙏")
+    }
+}
+
+// MARK: Share a Testimony
+
+struct ShareTestimonyIntent: AppIntent {
+    static var title: LocalizedStringResource = "Share a Testimony"
+    static var description = IntentDescription("Share what God has done in your life.")
+    static var openAppWhenRun: Bool = true
+
+    @Parameter(title: "Testimony", description: "Briefly describe what you want to share")
+    var testimonyText: String?
+
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        guard await siriEnabled() else { return .result(dialog: siriDisabledDialog) }
+        if let text = testimonyText {
+            await MainActor.run { UserDefaults.standard.set(text, forKey: "siri_pending_testimony") }
+        }
+        NotificationCenter.default.post(name: .amenOpenTestimonyComposer, object: testimonyText)
+        return .result(dialog: "Opening your testimony in AMEN ✨")
+    }
+}
+
+// MARK: RSVP to an Event
+
+struct RSVPEventIntent: AppIntent {
+    static var title: LocalizedStringResource = "RSVP to an Event"
+    static var description = IntentDescription("Let your church community know you'll be there.")
+    static var openAppWhenRun: Bool = true
+
+    @Parameter(title: "Event Name", description: "The name of the event")
+    var eventName: String?
+
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        guard await siriEnabled() else { return .result(dialog: siriDisabledDialog) }
+        if let name = eventName {
+            await MainActor.run { UserDefaults.standard.set(name, forKey: "siri_pending_rsvp_event") }
+        }
+        NotificationCenter.default.post(name: .amenOpenEvents, object: eventName)
+        let msg = eventName.map { "Opening RSVP for \"\($0)\" 📅" } ?? "Opening Events in AMEN 📅"
+        return .result(dialog: IntentDialog(stringLiteral: msg))
+    }
+}
+
+// MARK: Discover Prayer Needs
+
+struct DiscoverPrayerNeedsIntent: AppIntent {
+    static var title: LocalizedStringResource = "Discover Prayer Needs"
+    static var description = IntentDescription("See who in your community needs prayer right now.")
+    static var openAppWhenRun: Bool = true
+
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        guard await siriEnabled() else { return .result(dialog: siriDisabledDialog) }
+        NotificationCenter.default.post(name: .amenOpenPrayerFeed, object: nil)
+        return .result(dialog: "Opening the Prayer feed in AMEN 🙏")
+    }
+}
+
+// MARK: - Deep-link Notification Names (Siri intent routing)
+
+extension Notification.Name {
+    static let amenOpenPrayerComposer    = Notification.Name("amen.openPrayerComposer")
+    static let amenOpenTestimonyComposer = Notification.Name("amen.openTestimonyComposer")
+    static let amenOpenEvents            = Notification.Name("amen.openEvents")
+    static let amenOpenPrayerFeed        = Notification.Name("amen.openPrayerFeed")
+}
