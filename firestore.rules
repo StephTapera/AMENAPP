@@ -665,9 +665,10 @@ service cloud.firestore {
         
         // ✅ Allow create if user is the sender and account is not frozen
         // Safety: frozen accounts (accountStatus == 'frozen') cannot send new messages
+        // Note: text is optional — media/reaction messages may omit it
         allow create: if isAuthenticated()
           && request.resource.data.senderId == request.auth.uid
-          && validLength(request.resource.data.text, 10000)
+          && (!request.resource.data.keys().hasAny(['text']) || validLength(request.resource.data.text, 10000))
           && (
             !exists(/databases/$(database)/documents/userSafetyRecords/$(request.auth.uid))
             || get(/databases/$(database)/documents/userSafetyRecords/$(request.auth.uid)).data.accountStatus != 'frozen'
@@ -1631,6 +1632,17 @@ service cloud.firestore {
     }
 
     // ============================================================================
+    // USER PREFERENCES (AMENUserPreferences — integration toggles, stored at
+    // users/{uid}/preferences/integrations)
+    // ============================================================================
+
+    match /users/{userId}/preferences/{prefDoc} {
+      // Users can read and write their own preferences only.
+      // The doc ID is always "integrations"; the wildcard future-proofs other prefs.
+      allow read, write: if isOwner(userId);
+    }
+
+    // ============================================================================
     // TWO-FACTOR AUTHENTICATION
     // ============================================================================
 
@@ -2152,6 +2164,33 @@ service cloud.firestore {
         allow delete: if isAuthenticated()
           && resource.data.get('authorId', '') == request.auth.uid;
       }
+    }
+
+    // ============================================================================
+    // BIBLE VERSES (KJV — seeded via seedBible.js, 31,102 docs)
+    // ============================================================================
+
+    match /bibleVerses/{verseId} {
+      allow read: if isAuthenticated();
+    }
+
+    // ============================================================================
+    // MENTORSHIP
+    // ============================================================================
+
+    match /mentorProfiles/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId);
+    }
+
+    match /mentorshipRelationships/{docId} {
+      allow read, write: if isAuthenticated()
+        && (resource == null
+          || resource.data.mentorId == request.auth.uid
+          || resource.data.menteeId == request.auth.uid);
+      allow create: if isAuthenticated()
+        && (request.resource.data.mentorId == request.auth.uid
+          || request.resource.data.menteeId == request.auth.uid);
     }
 
     // ============================================================================
