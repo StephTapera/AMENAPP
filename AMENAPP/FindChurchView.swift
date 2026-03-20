@@ -10,6 +10,8 @@ import MapKit
 import CoreLocation
 import Combine
 import FirebaseAuth
+import FirebaseFirestore
+import UserNotifications
 
 // MARK: - Church Model
 
@@ -178,6 +180,14 @@ struct FindChurchView: View {
     @State private var showDenominationInfo: ChurchDenomination?
     @State private var activeSheet: FindChurchSheet?
     @State private var showMapView = false
+    @State private var selectedMapChurch: Church?
+    @State private var showMapMiniSheet = false
+    @State private var appleMapResults: [MKMapItem] = []
+    @State private var expandedChurchId: UUID?
+    @State private var showCheckInSheet = false
+    @State private var checkInChurch: Church?
+    @State private var checkInRipple = false
+    @State private var plannedAttendanceChurchId: UUID?
     @State private var recentSearches: [String] = []
     @State private var showRecentSearches = false
     @State private var favoriteChurches: [UUID] = []
@@ -1054,13 +1064,15 @@ struct FindChurchView: View {
                             locationText: currentLocationName,
                             isLocationAuthorized: locationManager.isAuthorized,
                             onSearchSubmit: { performSearchWithText() },
-                            onFilterTap: { 
+                            onFilterTap: {
                                 withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
                                     showFilters.toggle()
                                 }
                             },
                             onRefresh: locationManager.isAuthorized ? { performRealSearch() } : nil,
-                            onBack: { dismiss() }
+                            onBack: { dismiss() },
+                            isMapMode: showMapView,
+                            onMapToggle: { withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) { showMapView.toggle() } }
                         )
                         
                         // Minimal filter chips (shown when expanded)
@@ -1124,6 +1136,20 @@ struct FindChurchView: View {
                                 title: "Location Required",
                                 subtitle: "Enable location to find churches"
                             )
+                        } else if showMapView {
+                            FindChurchMapView(
+                                churches: filteredChurches,
+                                appleMapResults: appleMapResults,
+                                userLocation: userLocation,
+                                selectedChurch: $selectedMapChurch,
+                                onCheckIn: { church in checkInToChurch(church) },
+                                onGetDirections: { church in openDirections(to: church) }
+                            )
+                            .transition(.asymmetric(
+                                insertion: .scale(scale: 0.95).combined(with: .opacity),
+                                removal: .move(edge: .leading).combined(with: .opacity)
+                            ))
+                            .onAppear { performMKLocalSearch() }
                         } else if !filteredChurches.isEmpty {
                             // Church list with smooth animations
                             ScrollView(showsIndicators: false) {
@@ -1259,18 +1285,32 @@ struct FindChurchView: View {
                                             church: church,
                                             isSaved: savedChurchIds.contains(church.id),
                                             isVisited: userPreferences.visitedChurches.contains(church.id),
+                                            isExpanded: expandedChurchId == church.id,
                                             onTap: {
                                                 withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
                                                     selectedChurch = church
                                                     markChurchAsViewed(church)
                                                 }
                                             },
-                                            onSave: { toggleSave(church) },
-                                            onShare: {
-                                                shareableChurch = church
-                                                showShareSheet = true
+                                            onExpand: {
+                                                withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                                                    expandedChurchId = expandedChurchId == church.id ? nil : church.id
+                                                }
                                             },
-                                            onCheckIn: { checkInToChurch(church) }
+                                            onSave: { toggleSave(church) },
+                                            onShare: { shareableChurch = church; showShareSheet = true },
+                                            onCheckIn: { checkInToChurch(church) },
+                                            isPlanned: plannedAttendanceChurchId == church.id,
+                                            onPlanAttendance: {
+                                                withAnimation {
+                                                    if plannedAttendanceChurchId == church.id {
+                                                        plannedAttendanceChurchId = nil
+                                                    } else {
+                                                        plannedAttendanceChurchId = church.id
+                                                        scheduleSundayMorningReminder(for: church)
+                                                    }
+                                                }
+                                            }
                                         )
                                         .transition(.asymmetric(
                                             insertion: .scale(scale: 0.95).combined(with: .opacity),
@@ -1307,58 +1347,15 @@ struct FindChurchView: View {
             // Single .sheet(item:) — ALL sheet presentations flow through activeSheet.
             // onChange observers bridge legacy @State booleans/optionals so all call sites stay unchanged.
             .sheet(item: $activeSheet) { sheet in
-                switch sheet {
-                case .denomination(let denomination):
-                    DenominationInfoSheet(denomination: denomination)
-                case .share(let church):
-                    ShareSheet(items: [church.shareText])
-                case .schedule:
-                    ChurchScheduleView(
-                        savedChurches: persistenceManager.savedChurches,
-                        onDismiss: { activeSheet = nil }
-                    )
-                case .firstVisit(let church):
-                    FirstVisitCompanionView(church: church)
-                case .churchDetail(let church):
-                    EnhancedChurchDetailSheet(
-                        church: church,
-                        isSaved: savedChurchIds.contains(church.id),
-                        isVisited: userPreferences.visitedChurches.contains(church.id),
-                        onSave: { toggleSave(church) },
-                        onGetDirections: { openDirections(to: church) },
-                        onCall: { callChurch(church) },
-                        onShare: {
-                            shareableChurch = church
-                            activeSheet = .share(church)
-                        },
-                        onCheckIn: { checkInToChurch(church) },
-                        onAddToSchedule: {
-                            addToSchedule(church)
-                            activeSheet = .schedule
-                        },
-                        onPlanFirstVisit: {
-                            let visitChurch = VisitCompanionChurch(from: church)
-                            activeSheet = .firstVisit(visitChurch)
-                        }
-                    )
-                case .comparison(let churches):
-                    ChurchComparisonView(
-                        churches: churches,
-                        onClose: { activeSheet = nil }
-                    )
-                }
+                activeSheetContent(for: sheet)
             }
             // Bridge selectedChurch optional → .churchDetail case
             .onChange(of: selectedChurch) { _, church in
-                if let c = church { activeSheet = .churchDetail(c); selectedChurch = nil }
+                handleSelectedChurchChange(church)
             }
             // Bridge showComparisonView boolean → .comparison case
             .onChange(of: showComparisonView) { _, isShowing in
-                if isShowing {
-                    let churches = filteredChurches.filter { selectedChurchesForComparison.contains($0.id) }
-                    activeSheet = .comparison(churches)
-                    showComparisonView = false
-                }
+                handleComparisonViewChange(isShowing)
             }
             .onChange(of: showDenominationInfo) { _, denomination in
                 if let d = denomination { activeSheet = .denomination(d); showDenominationInfo = nil }
@@ -1371,6 +1368,9 @@ struct FindChurchView: View {
             }
             .onChange(of: showFirstVisitCompanion) { _, isShowing in
                 if isShowing, let church = selectedChurchForVisit { activeSheet = .firstVisit(church); showFirstVisitCompanion = false }
+            }
+            .sheet(isPresented: $showCheckInSheet) {
+                checkInSheetContent
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar(.hidden, for: .navigationBar)
@@ -1529,6 +1529,79 @@ struct FindChurchView: View {
         }
     }
     
+    // MARK: - Sheet & onChange Helpers (extracted for type-checker)
+
+    @ViewBuilder
+    private func activeSheetContent(for sheet: FindChurchSheet) -> some View {
+        switch sheet {
+        case .denomination(let denomination):
+            DenominationInfoSheet(denomination: denomination)
+        case .share(let church):
+            ShareSheet(items: [church.shareText])
+        case .schedule:
+            ChurchScheduleView(
+                savedChurches: persistenceManager.savedChurches,
+                onDismiss: { activeSheet = nil }
+            )
+        case .firstVisit(let church):
+            FirstVisitCompanionView(church: church)
+        case .churchDetail(let church):
+            EnhancedChurchDetailSheet(
+                church: church,
+                isSaved: savedChurchIds.contains(church.id),
+                isVisited: userPreferences.visitedChurches.contains(church.id),
+                onSave: { toggleSave(church) },
+                onGetDirections: { openDirections(to: church) },
+                onCall: { callChurch(church) },
+                onShare: {
+                    shareableChurch = church
+                    activeSheet = .share(church)
+                },
+                onCheckIn: { checkInToChurch(church) },
+                onAddToSchedule: {
+                    addToSchedule(church)
+                    activeSheet = .schedule
+                },
+                onPlanFirstVisit: {
+                    let visitChurch = VisitCompanionChurch(from: church)
+                    activeSheet = .firstVisit(visitChurch)
+                }
+            )
+        case .comparison(let churches):
+            ChurchComparisonView(
+                churches: churches,
+                onClose: { activeSheet = nil }
+            )
+        }
+    }
+
+    private func handleSelectedChurchChange(_ church: Church?) {
+        if let c = church { activeSheet = .churchDetail(c); selectedChurch = nil }
+    }
+
+    private func handleComparisonViewChange(_ isShowing: Bool) {
+        if isShowing {
+            let churches: [Church] = filteredChurches.filter { selectedChurchesForComparison.contains($0.id) }
+            activeSheet = .comparison(churches)
+            showComparisonView = false
+        }
+    }
+
+    @ViewBuilder
+    private var checkInSheetContent: some View {
+        if let church = checkInChurch {
+            ChurchCheckInSheet(
+                church: church,
+                onPostToFeed: { thought in
+                    postCheckInToFeed(church: church, thought: thought)
+                    showCheckInSheet = false
+                },
+                onDone: { showCheckInSheet = false }
+            )
+            .presentationDetents([.medium])
+        }
+    }
+
     func performRealSearch() {
         guard let userLoc = userLocation else {
             dlog("⚠️ Cannot search: User location not available")
@@ -1778,43 +1851,118 @@ struct FindChurchView: View {
     }
     
     func checkInToChurch(_ church: Church) {
-        let haptic = UINotificationFeedbackGenerator()
-        haptic.notificationOccurred(.success)
-        
+        // Location verify: must be within ~0.5 miles (804 meters)
+        if let userLoc = userLocation {
+            let churchLoc = CLLocation(latitude: church.latitude, longitude: church.longitude)
+            let userCLLoc = CLLocation(latitude: userLoc.latitude, longitude: userLoc.longitude)
+            let distanceMeters = userCLLoc.distance(from: churchLoc)
+            if distanceMeters > 804 {
+                errorMessage = "You need to be within 0.5 miles of the church to check in."
+                showErrorAlert = true
+                return
+            }
+        }
+        checkInChurch = church
+        showCheckInSheet = true
+        // Haptic
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        // Schedule smart late-day prompt (4 PM)
+        scheduleCheckInFollowUp(for: church)
+
         let now = Date()
-        
+
         // Record check-in with arrival time
         let visit = ChurchVisit(
             churchId: church.id,
             date: now,
             duration: nil,
             arrivalTime: now,
-            wasOnTime: true // Could calculate based on service time
+            wasOnTime: true
         )
         churchVisitHistory.append(visit)
         userPreferences.visitedChurches.insert(church.id)
-        
+
         // Learn preferences from visit
         userPreferences.preferredDenominations.insert(church.denomination)
-        
+
         // Track typical attendance day
         let calendar = Calendar.current
         let weekday = calendar.component(.weekday, from: now)
         userPreferences.typicalAttendanceDay = weekday
-        
+
         // Auto-save if not already saved
         if !savedChurchIds.contains(church.id) {
             toggleSave(church)
         }
-        
-        // Show confirmation
-        withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) {
-            // Could show a toast or badge here
-        }
-        
+
         saveUserPreferences()
-        
+
         dlog("✅ Checked in to \(church.name) at \(now)")
+    }
+
+    private func scheduleCheckInFollowUp(for church: Church) {
+        let center = UNUserNotificationCenter.current()
+        center.removePendingNotificationRequests(withIdentifiers: ["find-church-followup"])
+        let content = UNMutableNotificationContent()
+        content.title = "How was \(church.name) today?"
+        content.body = "Share a thought with your community."
+        content.sound = .default
+        content.userInfo = ["churchId": church.id.uuidString, "churchName": church.name]
+        var comps = Calendar.current.dateComponents([.year, .month, .day], from: Date())
+        comps.hour = 16; comps.minute = 0
+        let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: false)
+        let req = UNNotificationRequest(identifier: "find-church-followup", content: content, trigger: trigger)
+        center.add(req)
+    }
+
+    private func scheduleSundayMorningReminder(for church: Church) {
+        let center = UNUserNotificationCenter.current()
+        center.removePendingNotificationRequests(withIdentifiers: ["sunday-morning-\(church.id)"])
+        let content = UNMutableNotificationContent()
+        content.title = "Service at \(church.name) is today"
+        content.body = "Ready to go? Service starts soon."
+        content.sound = .default
+        var comps = DateComponents()
+        comps.weekday = 1 // Sunday
+        comps.hour = 8; comps.minute = 0
+        let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: true)
+        let req = UNNotificationRequest(identifier: "sunday-morning-\(church.id)", content: content, trigger: trigger)
+        center.add(req)
+    }
+
+    private func postCheckInToFeed(church: Church, thought: String) {
+        guard let uid = FirebaseAuth.Auth.auth().currentUser?.uid else { return }
+        let db = Firestore.firestore()
+        let text = thought.isEmpty
+            ? "Checked in at \(church.name) 🙏"
+            : thought
+        let churchTag: [String: Any] = [
+            "id": church.id.uuidString,
+            "name": church.name,
+            "latitude": church.latitude,
+            "longitude": church.longitude
+        ]
+        let data: [String: Any] = [
+            "content": text,
+            "authorId": uid,
+            "createdAt": FieldValue.serverTimestamp(),
+            "type": "checkIn",
+            "churchTag": churchTag
+        ]
+        db.collection("posts").addDocument(data: data)
+    }
+
+    private func performMKLocalSearch() {
+        guard let loc = userLocation else { return }
+        let request = MKLocalSearch.Request()
+        request.naturalLanguageQuery = (searchText.isEmpty ? "" : searchText + " ") + "church"
+        request.region = MKCoordinateRegion(center: loc, latitudinalMeters: 16093, longitudinalMeters: 16093)
+        let search = MKLocalSearch(request: request)
+        Task {
+            if let response = try? await search.start() {
+                await MainActor.run { appleMapResults = response.mapItems }
+            }
+        }
     }
     
     func addToSchedule(_ church: Church) {
@@ -1950,45 +2098,49 @@ struct ChurchFinderScrollOffsetKey: PreferenceKey {
 }
 
 // MARK: - Location Manager
+// P0 CRASH FIX: @MainActor added — CLLocationManager delegate callbacks can fire on
+// background threads when not explicitly set to main queue. Marking @MainActor ensures
+// all @Published writes are on the main actor, preventing EXC_BAD_ACCESS in CALayer.
+@MainActor
 class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     private let manager = CLLocationManager()
     @Published var userLocation: CLLocationCoordinate2D?
     @Published var isAuthorized = false
-    
+
     override init() {
         super.init()
         manager.delegate = self
         manager.desiredAccuracy = kCLLocationAccuracyBest
     }
-    
+
     func checkLocationAuthorization() {
         switch manager.authorizationStatus {
         case .authorizedWhenInUse, .authorizedAlways:
             isAuthorized = true
             manager.startUpdatingLocation()
         case .notDetermined:
-            // Will show banner to request
             isAuthorized = false
         case .denied, .restricted:
             isAuthorized = false
-            // Could notify user to check Settings
             dlog("⚠️ Location access denied. User must enable in Settings.")
         @unknown default:
             isAuthorized = false
         }
     }
-    
+
     func requestPermission() {
         manager.requestWhenInUseAuthorization()
     }
-    
-    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
-        checkLocationAuthorization()
+
+    // nonisolated: CLLocationManager calls these on its own thread; we hop to MainActor
+    // for any @Published write via Task { @MainActor in }.
+    nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        Task { @MainActor [weak self] in self?.checkLocationAuthorization() }
     }
-    
-    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        guard let location = locations.last else { return }
-        userLocation = location.coordinate
+
+    nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        guard let coordinate = locations.last?.coordinate else { return }
+        Task { @MainActor [weak self] in self?.userLocation = coordinate }
     }
 }
 
@@ -3653,6 +3805,8 @@ struct MinimalChurchHeader: View {
     var onFilterTap: () -> Void
     var onRefresh: (() -> Void)?
     var onBack: () -> Void
+    var isMapMode: Bool = false
+    var onMapToggle: () -> Void = {}
     @FocusState private var isSearchFocused: Bool
     
     var body: some View {
@@ -3696,7 +3850,14 @@ struct MinimalChurchHeader: View {
                                 .foregroundStyle(Color(red: 0.3, green: 0.3, blue: 0.3))
                         }
                     }
-                    
+
+                    // Map toggle button
+                    Button(action: onMapToggle) {
+                        Image(systemName: isMapMode ? "list.bullet" : "map")
+                            .font(.system(size: 20, weight: .medium))
+                            .foregroundStyle(Color(red: 0.3, green: 0.3, blue: 0.3))
+                    }
+
                     // Filter button
                     Button(action: onFilterTap) {
                         Image(systemName: "line.3.horizontal.decrease.circle")
@@ -4441,127 +4602,226 @@ struct EnhancedMinimalChurchCard: View {
     let church: Church
     let isSaved: Bool
     let isVisited: Bool
-    var onTap: () -> Void
+    var isExpanded: Bool
+    var onTap: () -> Void       // opens full detail sheet
+    var onExpand: () -> Void    // toggles inline expansion
     var onSave: () -> Void
     var onShare: () -> Void
     var onCheckIn: () -> Void
+    var isPlanned: Bool = false
+    var onPlanAttendance: () -> Void = {}
     @State private var isPressed = false
-    
+
+    private let liveRed = Color(red: 0.878, green: 0.227, blue: 0.227)
+
+    private var isServiceLive: Bool {
+        let cal = Calendar.current
+        let now = Date()
+        let hour = cal.component(.hour, from: now)
+        let weekday = cal.component(.weekday, from: now)
+        return weekday == 1 && hour >= 8 && hour < 13
+    }
+
     var body: some View {
-        Button(action: onTap) {
-            VStack(alignment: .leading, spacing: 12) {
-                // Header with badges
-                HStack(alignment: .top) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(church.name)
-                            .font(.system(size: 20, weight: .semibold))
-                            .foregroundStyle(Color(red: 0.15, green: 0.15, blue: 0.15))
-                            .lineLimit(2)
-                            .multilineTextAlignment(.leading)
-                        
-                        HStack(spacing: 8) {
-                            Text(church.denomination)
-                                .font(.system(size: 14, weight: .regular))
-                                .foregroundStyle(Color(red: 0.5, green: 0.5, blue: 0.5))
-                            
-                            if isVisited {
-                                HStack(spacing: 4) {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .font(.system(size: 10))
-                                    Text("Visited")
-                                        .font(.system(size: 11, weight: .medium))
+        VStack(alignment: .leading, spacing: 0) {
+            // Collapsed header — always shown
+            Button(action: onExpand) {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(alignment: .top) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack(spacing: 8) {
+                                Text(church.name)
+                                    .font(.system(size: 20, weight: .semibold))
+                                    .foregroundStyle(Color(red: 0.15, green: 0.15, blue: 0.15))
+                                    .lineLimit(2)
+                                    .multilineTextAlignment(.leading)
+                                if isServiceLive {
+                                    HStack(spacing: 4) {
+                                        LivePulsingDot()
+                                        Text("Live")
+                                            .font(.system(size: 11, weight: .semibold))
+                                            .foregroundStyle(liveRed)
+                                    }
                                 }
-                                .foregroundStyle(.green)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(
-                                    Capsule()
-                                        .fill(Color.green.opacity(0.15))
-                                )
+                            }
+                            HStack(spacing: 8) {
+                                Text(church.denomination)
+                                    .font(.system(size: 14, weight: .regular))
+                                    .foregroundStyle(Color(red: 0.5, green: 0.5, blue: 0.5))
+                                if isVisited {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "checkmark.circle.fill").font(.system(size: 10))
+                                        Text("Visited").font(.system(size: 11, weight: .medium))
+                                    }
+                                    .foregroundStyle(.green)
+                                    .padding(.horizontal, 8).padding(.vertical, 4)
+                                    .background(Capsule().fill(Color.green.opacity(0.15)))
+                                }
+                            }
+                        }
+                        Spacer()
+                        HStack(spacing: 12) {
+                            Button(action: onSave) {
+                                Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
+                                    .font(.system(size: 20, weight: .medium))
+                                    .foregroundStyle(Color(red: 0.2, green: 0.2, blue: 0.2))
+                            }
+                            .buttonStyle(.plain)
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(Color(.systemGray3))
+                                .rotationEffect(.degrees(isExpanded ? 180 : 0))
+                                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isExpanded)
+                        }
+                    }
+                    HStack(spacing: 16) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "location.fill").font(.system(size: 11, weight: .medium))
+                            Text(church.distance).font(.system(size: 13, weight: .medium))
+                        }
+                        .foregroundStyle(Color(red: 0.5, green: 0.5, blue: 0.5))
+                        HStack(spacing: 6) {
+                            if isServiceLive {
+                                LivePulsingDot()
+                                Text("Service Live Now").font(.system(size: 13, weight: .medium)).foregroundStyle(liveRed)
+                            } else {
+                                Image(systemName: "clock.fill").font(.system(size: 11, weight: .medium))
+                                Text(church.shortServiceTime).font(.system(size: 13, weight: .medium))
+                                    .foregroundStyle(Color(red: 0.5, green: 0.5, blue: 0.5))
                             }
                         }
                     }
-                    
-                    Spacer()
-                    
-                    Button(action: onSave) {
-                        Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
-                            .font(.system(size: 20, weight: .medium))
-                            .foregroundStyle(Color(red: 0.2, green: 0.2, blue: 0.2))
-                    }
-                    .buttonStyle(.plain)
-                }
-                
-                // Info row
-                HStack(spacing: 16) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "location.fill")
-                            .font(.system(size: 11, weight: .medium))
-                        Text(church.distance)
-                            .font(.system(size: 13, weight: .medium))
-                    }
-                    .foregroundStyle(Color(red: 0.5, green: 0.5, blue: 0.5))
-                    
-                    HStack(spacing: 6) {
-                        Image(systemName: "clock.fill")
-                            .font(.system(size: 11, weight: .medium))
-                        Text(church.shortServiceTime)
-                            .font(.system(size: 13, weight: .medium))
-                    }
-                    .foregroundStyle(Color(red: 0.5, green: 0.5, blue: 0.5))
-                }
-                
-                // Subtle address
-                Text(church.address)
-                    .font(.system(size: 13, weight: .regular))
-                    .foregroundStyle(Color(red: 0.6, green: 0.6, blue: 0.6))
-                    .lineLimit(1)
-                
-                // Quick actions
-                HStack(spacing: 8) {
-                    Button(action: onCheckIn) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "mappin.circle")
-                                .font(.system(size: 11))
-                            Text("Check In")
-                                .font(.system(size: 12, weight: .medium))
+                    Text(church.address)
+                        .font(.system(size: 13, weight: .regular))
+                        .foregroundStyle(Color(red: 0.6, green: 0.6, blue: 0.6))
+                        .lineLimit(1)
+                    HStack(spacing: 8) {
+                        Button(action: onCheckIn) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "mappin.circle").font(.system(size: 11))
+                                Text("Check In").font(.system(size: 12, weight: .medium))
+                            }
+                            .foregroundStyle(Color(red: 0.4, green: 0.4, blue: 0.4))
+                            .padding(.horizontal, 10).padding(.vertical, 6)
+                            .background(Capsule().fill(Color(white: 0.96)))
                         }
-                        .foregroundStyle(Color(red: 0.4, green: 0.4, blue: 0.4))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(
-                            Capsule()
-                                .fill(Color(white: 0.96))
-                        )
-                    }
-                    .buttonStyle(.plain)
-                    
-                    Button(action: onShare) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "square.and.arrow.up")
-                                .font(.system(size: 11))
-                            Text("Share")
-                                .font(.system(size: 12, weight: .medium))
+                        .buttonStyle(.plain)
+                        Button(action: onShare) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "square.and.arrow.up").font(.system(size: 11))
+                                Text("Share").font(.system(size: 12, weight: .medium))
+                            }
+                            .foregroundStyle(Color(red: 0.4, green: 0.4, blue: 0.4))
+                            .padding(.horizontal, 10).padding(.vertical, 6)
+                            .background(Capsule().fill(Color(white: 0.96)))
                         }
-                        .foregroundStyle(Color(red: 0.4, green: 0.4, blue: 0.4))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(
-                            Capsule()
-                                .fill(Color(white: 0.96))
-                        )
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
+                .padding(18)
             }
-            .padding(18)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.white)
-                    .shadow(color: Color.black.opacity(isPressed ? 0.08 : 0.04), radius: isPressed ? 12 : 20, y: isPressed ? 4 : 8)
-            )
+            .buttonStyle(.plain)
+
+            // Expanded content
+            if isExpanded {
+                Divider().padding(.horizontal, 18)
+                VStack(alignment: .leading, spacing: 16) {
+                    // Service schedule chips
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Service Times").font(.system(size: 13, weight: .semibold)).foregroundStyle(.secondary)
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                ForEach(serviceChips, id: \.self) { chip in
+                                    Text(chip)
+                                        .font(.system(size: 12, weight: .medium))
+                                        .padding(.horizontal, 12).padding(.vertical, 6)
+                                        .background(Capsule().fill(isServiceLive ? liveRed.opacity(0.12) : Color(.systemGray6)))
+                                        .foregroundStyle(isServiceLive ? liveRed : Color.primary)
+                                }
+                            }
+                        }
+                    }
+
+                    // AMEN members count (placeholder)
+                    HStack(spacing: 8) {
+                        HStack(spacing: -8) {
+                            ForEach(0..<3, id: \.self) { i in
+                                Circle()
+                                    .fill(Color(.systemGray5))
+                                    .frame(width: 26, height: 26)
+                                    .overlay(Circle().stroke(Color.white, lineWidth: 1.5))
+                                    .zIndex(Double(3 - i))
+                            }
+                        }
+                        Text("Members attend here")
+                            .font(.system(size: 13)).foregroundStyle(.secondary)
+                    }
+
+                    // Details row
+                    HStack(spacing: 16) {
+                        if !church.denomination.isEmpty {
+                            Label(church.denomination, systemImage: "cross.circle")
+                                .font(.system(size: 12))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    // Get Directions button
+                    Button {
+                        if let url = URL(string: "maps://?q=\(church.name.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")&ll=\(church.latitude),\(church.longitude)") {
+                            UIApplication.shared.open(url)
+                        }
+                    } label: {
+                        Label("Get Directions", systemImage: "arrow.triangle.turn.up.right.circle.fill")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity).padding(.vertical, 12)
+                            .background(RoundedRectangle(cornerRadius: 12).fill(Color(red: 0.15, green: 0.15, blue: 0.15)))
+                    }
+                    .buttonStyle(.plain)
+
+                    // Plan attendance button
+                    Button(action: onPlanAttendance) {
+                        Label(isPlanned ? "Planning to Attend ✓" : "I'm going here Sunday",
+                              systemImage: isPlanned ? "calendar.badge.checkmark" : "calendar.badge.plus")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(isPlanned ? Color.green : Color.primary)
+                            .frame(maxWidth: .infinity).padding(.vertical, 12)
+                            .background(RoundedRectangle(cornerRadius: 12).fill(isPlanned ? Color.green.opacity(0.1) : Color(.systemGray6)))
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, 18).padding(.vertical, 16)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
         }
-        .buttonStyle(MinimalCardButtonStyle(isPressed: $isPressed))
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.white)
+                .shadow(color: Color.black.opacity(0.04), radius: 20, y: 8)
+        )
+        .animation(.spring(response: 0.4, dampingFraction: 0.7), value: isExpanded)
+    }
+
+    private var serviceChips: [String] {
+        let base = church.serviceTime
+        if base.isEmpty { return ["Sunday 10:00 AM"] }
+        return base.components(separatedBy: CharacterSet(charactersIn: ",&")).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+    }
+}
+
+// Small pulsing red dot for live service indicator
+private struct LivePulsingDot: View {
+    @State private var pulsing = false
+    private let liveRed = Color(red: 0.878, green: 0.227, blue: 0.227)
+    var body: some View {
+        ZStack {
+            Circle().fill(liveRed.opacity(0.3)).frame(width: 13, height: 13).scaleEffect(pulsing ? 1.4 : 1)
+            Circle().fill(liveRed).frame(width: 7, height: 7)
+        }
+        .onAppear {
+            withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) { pulsing = true }
+        }
     }
 }
 
@@ -5264,6 +5524,253 @@ struct AIRecommendationCard: View {
             )
         }
         .buttonStyle(PlainButtonStyle())
+    }
+}
+
+// MARK: - Find Church Map View
+
+struct FindChurchMapView: View {
+    let churches: [Church]
+    let appleMapResults: [MKMapItem]
+    let userLocation: CLLocationCoordinate2D?
+    @Binding var selectedChurch: Church?
+    let onCheckIn: (Church) -> Void
+    let onGetDirections: (Church) -> Void
+
+    @State private var region: MKCoordinateRegion
+    @State private var selectedMapItem: MKMapItem?
+    @State private var showMiniSheet = false
+    @State private var pinsVisible: [UUID: Bool] = [:]
+
+    init(churches: [Church], appleMapResults: [MKMapItem], userLocation: CLLocationCoordinate2D?,
+         selectedChurch: Binding<Church?>, onCheckIn: @escaping (Church) -> Void, onGetDirections: @escaping (Church) -> Void) {
+        self.churches = churches
+        self.appleMapResults = appleMapResults
+        self.userLocation = userLocation
+        self._selectedChurch = selectedChurch
+        self.onCheckIn = onCheckIn
+        self.onGetDirections = onGetDirections
+        let center = userLocation ?? CLLocationCoordinate2D(latitude: 37.3318, longitude: -122.0312)
+        self._region = State(initialValue: MKCoordinateRegion(center: center, span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1)))
+    }
+
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            Map(coordinateRegion: $region, showsUserLocation: true, annotationItems: churches) { church in
+                MapAnnotation(coordinate: church.coordinate) {
+                    ChurchMapPin(
+                        church: church,
+                        isLive: isServiceLive(church),
+                        isVisible: pinsVisible[church.id] ?? false
+                    )
+                    .onTapGesture {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            selectedChurch = church
+                            showMiniSheet = true
+                        }
+                    }
+                    .onAppear {
+                        let idx = churches.firstIndex(where: { $0.id == church.id }) ?? 0
+                        DispatchQueue.main.asyncAfter(deadline: .now() + Double(idx) * 0.08) {
+                            withAnimation(.spring(response: 0.5, dampingFraction: 0.6)) {
+                                pinsVisible[church.id] = true
+                            }
+                        }
+                    }
+                }
+            }
+            .ignoresSafeArea(edges: .bottom)
+            .onTapGesture {
+                withAnimation { showMiniSheet = false }
+            }
+
+            if showMiniSheet, let church = selectedChurch {
+                ChurchMapMiniSheet(
+                    church: church,
+                    isLive: isServiceLive(church),
+                    onCheckIn: { onCheckIn(church); showMiniSheet = false },
+                    onGetDirections: { onGetDirections(church) },
+                    onDismiss: { withAnimation { showMiniSheet = false } }
+                )
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+    }
+
+    private func isServiceLive(_ church: Church) -> Bool {
+        let now = Date()
+        let cal = Calendar.current
+        let hour = cal.component(.hour, from: now)
+        let weekday = cal.component(.weekday, from: now)
+        return weekday == 1 && hour >= 8 && hour < 13
+    }
+}
+
+struct ChurchMapPin: View {
+    let church: Church
+    let isLive: Bool
+    let isVisible: Bool
+
+    var body: some View {
+        ZStack {
+            if isLive {
+                Circle()
+                    .fill(Color(red: 0.878, green: 0.227, blue: 0.227).opacity(0.25))
+                    .frame(width: 36, height: 36)
+                    .scaleEffect(isVisible ? 1 : 0)
+            }
+            Circle()
+                .fill(isLive ? Color(red: 0.878, green: 0.227, blue: 0.227) : Color.primary)
+                .frame(width: 22, height: 22)
+                .overlay(
+                    Image(systemName: "building.columns.fill")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.white)
+                )
+                .shadow(radius: 4)
+                .scaleEffect(isVisible ? 1 : 0)
+                .offset(y: isVisible ? 0 : -20)
+        }
+    }
+}
+
+struct ChurchMapMiniSheet: View {
+    let church: Church
+    let isLive: Bool
+    let onCheckIn: () -> Void
+    let onGetDirections: () -> Void
+    let onDismiss: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(church.name)
+                        .font(.system(size: 16, weight: .semibold))
+                    HStack(spacing: 8) {
+                        Text(church.distance)
+                            .font(.system(size: 13))
+                            .foregroundStyle(.secondary)
+                        if isLive {
+                            HStack(spacing: 4) {
+                                Circle().fill(Color(red: 0.878, green: 0.227, blue: 0.227)).frame(width: 7, height: 7)
+                                Text("Service Live Now")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundStyle(Color(red: 0.878, green: 0.227, blue: 0.227))
+                            }
+                        } else {
+                            Text(church.shortServiceTime)
+                                .font(.system(size: 13))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                Spacer()
+                Button(action: onDismiss) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 22))
+                        .foregroundStyle(Color(.systemGray3))
+                }
+            }
+            HStack(spacing: 10) {
+                Button(action: onCheckIn) {
+                    Label("Check In", systemImage: "mappin.circle.fill")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(RoundedRectangle(cornerRadius: 10).fill(Color(red: 0.878, green: 0.227, blue: 0.227)))
+                }
+                Button(action: onGetDirections) {
+                    Label("Directions", systemImage: "arrow.triangle.turn.up.right.circle.fill")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Color.primary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(RoundedRectangle(cornerRadius: 10).fill(Color(.systemGray6)))
+                }
+            }
+        }
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(.regularMaterial)
+                .shadow(color: .black.opacity(0.15), radius: 20, y: -4)
+        )
+        .padding(.horizontal, 16)
+        .padding(.bottom, 20)
+    }
+}
+
+// MARK: - Church Check In Sheet
+
+struct ChurchCheckInSheet: View {
+    let church: Church
+    let onPostToFeed: (String) -> Void
+    let onDone: () -> Void
+    @State private var thought = ""
+    @State private var rippleScale: CGFloat = 0
+    @State private var rippleOpacity: Double = 1
+
+    var body: some View {
+        VStack(spacing: 20) {
+            // Ripple animation header
+            ZStack {
+                Circle()
+                    .fill(Color(red: 0.878, green: 0.227, blue: 0.227).opacity(rippleOpacity * 0.3))
+                    .frame(width: 80, height: 80)
+                    .scaleEffect(rippleScale * 3)
+                Circle()
+                    .fill(Color(red: 0.878, green: 0.227, blue: 0.227))
+                    .frame(width: 60, height: 60)
+                    .overlay(
+                        Image(systemName: "mappin.circle.fill")
+                            .font(.system(size: 28))
+                            .foregroundStyle(.white)
+                    )
+            }
+            .onAppear {
+                withAnimation(.easeOut(duration: 0.6)) {
+                    rippleScale = 1; rippleOpacity = 0
+                }
+            }
+
+            VStack(spacing: 6) {
+                Text("You checked in at")
+                    .font(.system(size: 14)).foregroundStyle(.secondary)
+                Text(church.name)
+                    .font(.system(size: 20, weight: .bold))
+            }
+
+            TextField("Share a thought from today's service…", text: $thought, axis: .vertical)
+                .font(.system(size: 15))
+                .lineLimit(3, reservesSpace: true)
+                .padding(14)
+                .background(RoundedRectangle(cornerRadius: 12).fill(Color(.systemGray6)))
+                .padding(.horizontal)
+
+            HStack(spacing: 12) {
+                Button {
+                    onPostToFeed(thought)
+                } label: {
+                    Text("Post to Feed")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity).padding(.vertical, 14)
+                        .background(RoundedRectangle(cornerRadius: 12).fill(Color(red: 0.878, green: 0.227, blue: 0.227)))
+                }
+                Button(action: onDone) {
+                    Text("Done")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Color.primary)
+                        .frame(maxWidth: .infinity).padding(.vertical, 14)
+                        .background(RoundedRectangle(cornerRadius: 12).fill(Color(.systemGray6)))
+                }
+            }
+            .padding(.horizontal)
+            Spacer()
+        }
+        .padding(.top, 28)
     }
 }
 

@@ -57,12 +57,13 @@ class AlgoliaSearchService: ObservableObject {
         // Initialize client
         do {
             client = try SearchClient(appID: appID, apiKey: apiKey)
-            dlog("✅ Algolia client initialized successfully")
         } catch {
             dlog("❌ Failed to initialize Algolia client: \(error)")
             return
         }
-        
+
+        // Single init log — was duplicated on lines 60 and 66, causing
+        // "Algolia client initialized successfully" to appear twice in logs.
         dlog("✅ Algolia client initialized successfully")
         dlog("   App ID: \(appID.prefix(8))...")
         dlog("   Users Index: \(usersIndexName)")
@@ -215,13 +216,17 @@ class AlgoliaSearchService: ObservableObject {
             
             dlog("✅ Algolia found \(users.count) users for '\(query)'")
             return users
-            
+
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch let nsError as NSError where nsError.code == NSURLErrorCancelled {
+            throw CancellationError()
         } catch {
             dlog("❌ Algolia search error: \(error)")
             throw error
         }
     }
-    
+
     // MARK: - Search Posts
     
     /// Search posts with Algolia
@@ -318,7 +323,11 @@ class AlgoliaSearchService: ObservableObject {
             
             dlog("✅ Algolia found \(posts.count) posts for '\(query)'")
             return posts
-            
+
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch let nsError as NSError where nsError.code == NSURLErrorCancelled {
+            throw CancellationError()
         } catch {
             dlog("❌ Algolia search error: \(error)")
             throw error
