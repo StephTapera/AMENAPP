@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleGetInfoString</key>
-	<string></string>
+	<string>AMEN 1.0 — Faith-centered social network</string>
 	<key>CFBundleLocalizations</key>
 	<array>
 		<string>en</string>
@@ -28,24 +28,18 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>amenapp</string>
-				<string>amen</string>
+				<string>com.amenapp</string>
 			</array>
 		</dict>
 	</array>
 	<key>FirebaseAppDelegateProxyEnabled</key>
 	<false/>
-	<key>GOOGLE_VISION_API_KEY</key>
-	<string>$(GOOGLE_VISION_API_KEY)</string>
 	<key>NSAppleMusicUsageDescription</key>
 	<string>AMEN uses Apple Music to play worship songs in your Church Notes.</string>
-	<key>NSUserTrackingUsageDescription</key>
-	<string>AMEN does not track you across other apps or websites. This permission is requested only if a third-party SDK requires it for analytics or crash reporting.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>AMEN uses speech recognition to let you compose posts, prayers, and messages by voice.</string>
 	<key>NSUserNotificationsUsageDescription</key>
 	<string>We&apos;ll send you reminders about church service times and when you&apos;re near your saved churches</string>
-	<key>OPENAI_API_KEY</key>
-	<string>$(OPENAI_API_KEY)</string>
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
 		<string>com.amenapp.feed.refresh</string>
@@ -56,14 +50,22 @@
 		<string>fetch</string>
 		<string>processing</string>
 	</array>
-	<key>VertexAI</key>
-	<string>$(VERTEX_AI_KEY)</string>
-	<key>YOUVERSION_API_KEY</key>
-	<string>$(YOUVERSION_API_KEY)</string>
 	<key>FEED_RANKING_URL</key>
 	<string>$(FEED_RANKING_URL)</string>
 	<key>SEARCH_SERVICE_URL</key>
 	<string>$(SEARCH_SERVICE_URL)</string>
+	<key>YOUVERSION_API_KEY</key>
+	<string>$(YOUVERSION_API_KEY)</string>
+	<key>REVENUECAT_API_KEY</key>
+	<string>$(REVENUECAT_API_KEY)</string>
+	<key>OPENAI_API_KEY</key>
+	<string>$(OPENAI_API_KEY)</string>
+	<key>YOUTUBE_API_KEY</key>
+	<string>$(YOUTUBE_API_KEY)</string>
+	<key>SPOTIFY_CLIENT_ID</key>
+	<string>$(SPOTIFY_CLIENT_ID)</string>
+	<key>SPOTIFY_CLIENT_SECRET</key>
+	<string>$(SPOTIFY_CLIENT_SECRET)</string>
 	<key>NSUserActivityTypes</key>
 	<array>
 		<string>INSendMessageIntent</string>
@@ -72,13 +74,34 @@
 	<true/>
 	<key>NSSupportsLiveActivitiesFrequentUpdates</key>
 	<true/>
-	<key>ANTHROPIC_API_KEY</key>
-	<string>$(ANTHROPIC_API_KEY)</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>AMEN needs access to your photo library to share images in posts, messages, and your profile.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>AMEN uses the camera to take photos for posts, messages, and your profile picture.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>AMEN uses your location to find nearby churches and faith communities.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>AMEN uses the microphone to let you compose posts, prayers, and messages by voice.</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>AMEN adds church events and service reminders to your calendar so you never miss a moment.</string>
+	<key>NSRemindersUsageDescription</key>
+	<string>AMEN creates reminders for prayer commitments, church events, and spiritual goals.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>AMEN saves shared photos and church media to your photo library.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>AMEN uses Face ID to keep your account secure and let you sign in quickly.</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>AMEN reads your heart rate and activity to help Synaptic Studio craft prayers and reflections that match how you feel right now. No health data is stored.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>AMEN may log mindfulness minutes from prayer and meditation sessions to Apple Health, helping you track your spiritual wellness alongside your physical health.</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>UILaunchScreen</key>
+	<dict>
+		<key>UIImageName</key>
+		<string>amen-logo</string>
+		<key>UIColorName</key>
+		<string>AccentColor</string>
+	</dict>
 </dict>
 </plist>
