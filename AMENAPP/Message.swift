@@ -39,6 +39,16 @@ public enum MessageDeliveryStatus {
     }
 }
 
+// MARK: - Message Type
+
+public enum MessageType: String, Codable {
+    case text    = "text"
+    case image   = "image"
+    case video   = "video"
+    case file    = "file"
+    case link    = "link"
+}
+
 // MARK: - Message Model
 
 public class AppMessage: Identifiable, Equatable, Hashable {
@@ -60,7 +70,7 @@ public class AppMessage: Identifiable, Equatable, Hashable {
     var isDeleted: Bool = false
     var deletedBy: String?
     var editedAt: Date?
-    
+
     // New properties for delivery status and features
     var isSent: Bool = false
     var isDelivered: Bool = false
@@ -68,7 +78,29 @@ public class AppMessage: Identifiable, Equatable, Hashable {
     var disappearAfter: TimeInterval? = nil // Disappearing message duration
     var linkPreviews: [MessageLinkPreview] = []
     var mentionedUserIds: [String] = []
-    
+
+    // MARK: - Attachment type & rich media fields
+    var messageType: MessageType = .text
+
+    // Video / image shared media
+    var mediaURL: String? = nil
+    var mediaDuration: Double? = nil
+
+    // File attachments
+    var mediaFileName: String? = nil
+    var mediaFileSize: Int? = nil
+    var mediaFileExtension: String? = nil
+
+    // Link attachment
+    var linkURL: String? = nil
+    var linkTitle: String? = nil
+    var linkDescription: String? = nil
+    var linkThumbnailURL: String? = nil
+    var linkDomain: String? = nil
+
+    // Upload progress (0.0 – 1.0), nil when upload is complete
+    var uploadProgress: Double? = nil
+
     init(
         id: String = UUID().uuidString,
         text: String,
@@ -93,7 +125,19 @@ public class AppMessage: Identifiable, Equatable, Hashable {
         isSendFailed: Bool = false,
         disappearAfter: TimeInterval? = nil,
         linkPreviews: [MessageLinkPreview] = [],
-        mentionedUserIds: [String] = []
+        mentionedUserIds: [String] = [],
+        messageType: MessageType = .text,
+        mediaURL: String? = nil,
+        mediaDuration: Double? = nil,
+        mediaFileName: String? = nil,
+        mediaFileSize: Int? = nil,
+        mediaFileExtension: String? = nil,
+        linkURL: String? = nil,
+        linkTitle: String? = nil,
+        linkDescription: String? = nil,
+        linkThumbnailURL: String? = nil,
+        linkDomain: String? = nil,
+        uploadProgress: Double? = nil
     ) {
         self.id = id
         self.text = text
@@ -119,6 +163,18 @@ public class AppMessage: Identifiable, Equatable, Hashable {
         self.disappearAfter = disappearAfter
         self.linkPreviews = linkPreviews
         self.mentionedUserIds = mentionedUserIds
+        self.messageType = messageType
+        self.mediaURL = mediaURL
+        self.mediaDuration = mediaDuration
+        self.mediaFileName = mediaFileName
+        self.mediaFileSize = mediaFileSize
+        self.mediaFileExtension = mediaFileExtension
+        self.linkURL = linkURL
+        self.linkTitle = linkTitle
+        self.linkDescription = linkDescription
+        self.linkThumbnailURL = linkThumbnailURL
+        self.linkDomain = linkDomain
+        self.uploadProgress = uploadProgress
     }
     
     var senderInitials: String {

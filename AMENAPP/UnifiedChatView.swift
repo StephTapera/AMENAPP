@@ -46,6 +46,24 @@ struct UnifiedChatView: View {
     @State private var isMediaSectionExpanded = false
     @State private var isInputBarFocused = false
     @State private var showUserProfile = false
+
+    // Attachment tray — animated spring tray
+    @State private var isAttachTrayOpen = false
+
+    // Video attachment
+    @State private var showVideoPicker = false
+    @State private var activeVideoUploadId: String? = nil
+
+    // File attachment
+    @State private var showDocumentPicker = false
+    @State private var activeFileUploadId: String? = nil
+
+    // Link attachment
+    @State private var showLinkSheet = false
+
+    // Quick reply chips (shown when messages.isEmpty)
+    @State private var isChipsExpanded = true
+    @State private var dismissedChipIds: Set<String> = []
     @State private var placeholderText = ""
     @State private var firstUnreadMessageId: String?
     @State private var showJumpToUnread = false
@@ -334,6 +352,28 @@ struct UnifiedChatView: View {
             maxSelectionCount: 5,
             matching: .any(of: [.images])
         )
+        // Video picker sheet
+        .sheet(isPresented: $showVideoPicker) {
+            VideoPicker(conversationId: conversation.id) { videoURL in
+                handleVideoSelected(videoURL)
+            }
+        }
+        // Document picker sheet
+        .sheet(isPresented: $showDocumentPicker) {
+            DocumentPicker { fileURL, fileName, fileSize in
+                handleFileSelected(fileURL: fileURL, fileName: fileName, fileSize: fileSize)
+            }
+        }
+        // Link attach sheet
+        .sheet(isPresented: $showLinkSheet) {
+            LinkAttachSheet(
+                conversationId: conversation.id,
+                senderId: Auth.auth().currentUser?.uid ?? "",
+                senderName: messagingService.currentUserName
+            ) { msg in
+                appendAttachmentMessage(msg)
+            }
+        }
         .alert("Message Failed", isPresented: $showErrorAlert) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -620,6 +660,18 @@ struct UnifiedChatView: View {
                                     isInputFocused = true
                                 }
                             )
+
+                            // Quick reply chips shown when conversation has no messages
+                            QuickReplyChipsView(
+                                isExpanded: $isChipsExpanded,
+                                dismissedChipIds: $dismissedChipIds,
+                                onChipTapped: { text in
+                                    sendQuickReply(text)
+                                }
+                            )
+                            .padding(.horizontal, 16)
+                            .padding(.top, 8)
+                            .transition(.opacity.combined(with: .move(edge: .bottom)))
                         }
 
                         // P1-3 FIX: Pagination load more button
@@ -972,87 +1024,79 @@ struct UnifiedChatView: View {
         .buttonStyle(ScaleButtonStyle())
     }
     
-    // MARK: - Collapsible Media Section
-    
+    // MARK: - Collapsible Media Section (Animated Attachment Tray)
+
     private var collapsibleMediaSection: some View {
-        VStack(spacing: 0) {
-            // Media buttons grid with refined black/white design
-            LazyVGrid(columns: [
-                GridItem(.flexible()),
-                GridItem(.flexible()),
-                GridItem(.flexible()),
-                GridItem(.flexible())
-            ], spacing: 12) {
-                MediaButton(
-                    icon: "photo.fill",
-                    title: "Photos",
-                    color: Color(red: 0.15, green: 0.15, blue: 0.15)
-                ) {
-                    showingPhotoPicker = true
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
-                        isMediaSectionExpanded = false
-                    }
-                }
-                
-                MediaButton(
-                    icon: "video.fill",
-                    title: "Video",
-                    color: Color(red: 0.15, green: 0.15, blue: 0.15),
-                    comingSoon: true
-                ) {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
-                        isMediaSectionExpanded = false
-                    }
-                    toastManager.showInfo("Video sharing coming soon")
-                }
-                
-                MediaButton(
-                    icon: "doc.fill",
-                    title: "Files",
-                    color: Color(red: 0.15, green: 0.15, blue: 0.15),
-                    comingSoon: true
-                ) {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
-                        isMediaSectionExpanded = false
-                    }
-                    toastManager.showInfo("File sharing coming soon")
-                }
-                
-                MediaButton(
-                    icon: "link",
-                    title: "Link",
-                    color: Color(red: 0.15, green: 0.15, blue: 0.15),
-                    comingSoon: true
-                ) {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
-                        isMediaSectionExpanded = false
-                    }
-                    toastManager.showInfo("Link sharing coming soon")
-                }
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 16)
-            .background(
-                Rectangle()
-                    .fill(.white)
-                    .shadow(color: .black.opacity(0.04), radius: 8, y: -2)
-            )
+        HStack(spacing: 0) {
+            attachTrayCell(icon: "photo.fill",  label: "Photos", iconColor: .blue,   bgColor: Color(red: 0.91, green: 0.96,  blue: 0.996), index: 0) { showingPhotoPicker = true }
+            attachTrayCell(icon: "video.fill",  label: "Video",  iconColor: .purple, bgColor: Color(red: 0.94, green: 0.93,  blue: 0.973), index: 1) { showVideoPicker = true }
+            attachTrayCell(icon: "doc.fill",    label: "Files",  iconColor: .green,  bgColor: Color(red: 0.94, green: 0.968, blue: 0.929), index: 2) { showDocumentPicker = true }
+            attachTrayCell(icon: "link",        label: "Link",   iconColor: .orange, bgColor: Color(red: 1.0,  green: 0.957, blue: 0.925), index: 3) { showLinkSheet = true }
         }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 16)
+        .background(
+            Rectangle()
+                .fill(.ultraThinMaterial)
+                .shadow(color: .black.opacity(0.04), radius: 8, y: -2)
+        )
+        .onAppear {
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.6).delay(0.05)) {
+                isAttachTrayOpen = true
+            }
+        }
+        .onDisappear {
+            isAttachTrayOpen = false
+        }
+    }
+
+    @ViewBuilder
+    private func attachTrayCell(
+        icon: String,
+        label: String,
+        iconColor: Color,
+        bgColor: Color,
+        index: Int,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                isMediaSectionExpanded = false
+                isAttachTrayOpen = false
+            }
+            action()
+        } label: {
+            AttachItemView(item: AttachItemView.Item(id: label, icon: icon, label: label, iconColor: iconColor, bgColor: bgColor))
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.plain)
+        .offset(y: isAttachTrayOpen ? 0 : 20)
+        .scaleEffect(isAttachTrayOpen ? 1.0 : 0.85)
+        .opacity(isAttachTrayOpen ? 1.0 : 0.0)
+        .animation(
+            .spring(response: 0.4, dampingFraction: 0.6)
+                .delay(Double(index) * 0.04),
+            value: isAttachTrayOpen
+        )
     }
     
     // MARK: - Compact Input Bar
     
     private var compactInputBar: some View {
         HStack(spacing: 12) {
-            // Plus button - frosted glass style
+            // Plus button — rotates 45° when tray is open
             Button {
                 let haptic = UIImpactFeedbackGenerator(style: .light)
                 haptic.impactOccurred()
-                
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
                     isMediaSectionExpanded.toggle()
                     if isMediaSectionExpanded {
                         isInputFocused = false
+                        isAttachTrayOpen = true
+                    } else {
+                        isAttachTrayOpen = false
                     }
                 }
             } label: {
@@ -1064,26 +1108,25 @@ struct UnifiedChatView: View {
                             Circle()
                                 .stroke(Color.white.opacity(0.2), lineWidth: 1)
                         )
-                    
-                    VStack(spacing: 2) {
-                        Image(systemName: isMediaSectionExpanded ? "xmark" : "plus")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundStyle(Color.primary.opacity(0.6))
-                        if !isMediaSectionExpanded {
-                            Text("Media")
-                                .font(.system(size: 8, weight: .medium))
-                                .foregroundStyle(Color.primary.opacity(0.4))
-                        }
-                    }
+
+                    Image(systemName: "plus")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(Color.primary.opacity(0.6))
+                        .rotationEffect(.degrees(isMediaSectionExpanded ? 45 : 0))
+                        .animation(.spring(response: 0.4, dampingFraction: 0.6), value: isMediaSectionExpanded)
                 }
             }
             .buttonStyle(SpringButtonStyle())
             
             // Text input - frosted glass with visible text and subtle border
-            let inputBackground = RoundedRectangle(cornerRadius: 25)
+            // cornerRadius morphs when focused (iMessage-style)
+            let inputCornerRadius: CGFloat = isInputFocused ? 14 : 18
+            let inputBackground = RoundedRectangle(cornerRadius: inputCornerRadius)
                 .fill(Color(.systemBackground).opacity(0.5))
-            let inputBorder = RoundedRectangle(cornerRadius: 25)
+                .animation(.spring(response: 0.35, dampingFraction: 0.65), value: isInputFocused)
+            let inputBorder = RoundedRectangle(cornerRadius: inputCornerRadius)
                 .stroke(Color.black.opacity(0.15), lineWidth: 1)
+                .animation(.spring(response: 0.35, dampingFraction: 0.65), value: isInputFocused)
             HStack(spacing: 8) {
                 ZStack(alignment: .leading) {
                     if messageText.isEmpty {
@@ -1100,42 +1143,72 @@ struct UnifiedChatView: View {
                         .foregroundColor(Color.primary)
                 }
 
-                // Voice/Send button integrated inside the input bar
+                // Voice/Send/Stop button — morphs between states with spring animation
                 Button {
-                    if messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    if isRecording {
+                        // Stop recording
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            isRecording = false
+                        }
+                    } else if !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        sendMessage()
+                    } else {
+                        // Mic tap — placeholder for voice recording
                         let haptic = UIImpactFeedbackGenerator(style: .medium)
                         haptic.impactOccurred()
-                    } else {
-                        sendMessage()
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            isRecording = true
+                        }
                     }
                 } label: {
                     ZStack {
+                        // Pulse ring when recording
+                        if isRecording {
+                            Circle()
+                                .stroke(Color.red, lineWidth: 2)
+                                .frame(width: 36, height: 36)
+                                .scaleEffect(isRecording ? 2.1 : 1.0)
+                                .opacity(0)
+                                .animation(
+                                    .easeOut(duration: 1.0).repeatForever(autoreverses: false),
+                                    value: isRecording
+                                )
+                        }
+
                         Circle()
                             .fill(
-                                LinearGradient(
-                                    colors: isMessageEmpty ? [
-                                        Color(red: 0.25, green: 0.25, blue: 0.25),
-                                        Color(red: 0.25, green: 0.25, blue: 0.25)
-                                    ] : [
-                                        Color(red: 0.15, green: 0.15, blue: 0.15),
-                                        Color(red: 0.05, green: 0.05, blue: 0.05)
-                                    ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
+                                isRecording
+                                ? AnyShapeStyle(Color.red)
+                                : isMessageEmpty
+                                    ? AnyShapeStyle(LinearGradient(
+                                        colors: [Color(red: 0.25, green: 0.25, blue: 0.25),
+                                                 Color(red: 0.25, green: 0.25, blue: 0.25)],
+                                        startPoint: .topLeading, endPoint: .bottomTrailing))
+                                    : AnyShapeStyle(Color.blue)
                             )
-                            .frame(width: 36, height: 36)
+                            .frame(width: 32, height: 32)
+                            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isMessageEmpty)
+                            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isRecording)
 
-                        if isMessageEmpty {
-                            Image(systemName: "waveform")
-                                .font(.system(size: 15, weight: .medium))
+                        if isRecording {
+                            Image(systemName: "stop.fill")
+                                .font(.system(size: 12, weight: .bold))
                                 .foregroundColor(.white)
+                                .transition(.scale.combined(with: .opacity))
+                        } else if isMessageEmpty {
+                            Image(systemName: "mic")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(.white)
+                                .transition(.scale.combined(with: .opacity))
                         } else {
                             Image(systemName: "arrow.up")
-                                .font(.system(size: 15, weight: .bold))
+                                .font(.system(size: 14, weight: .bold))
                                 .foregroundColor(.white)
+                                .transition(.scale.combined(with: .opacity))
                         }
                     }
+                    .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isMessageEmpty)
+                    .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isRecording)
                 }
                 .buttonStyle(SpringButtonStyle())
                 .disabled(isSendingMessage || isBereanStreaming)
@@ -2182,6 +2255,124 @@ struct UnifiedChatView: View {
         }
     }
 
+    // MARK: - Attachment Handlers
+
+    /// Send a quick reply chip text as a normal message and animate the chip away.
+    private func sendQuickReply(_ text: String) {
+        messageText = text
+        sendMessage()
+    }
+
+    /// Called when the user picks a video from the library.
+    private func handleVideoSelected(_ videoURL: URL) {
+        let tempId = UUID().uuidString
+        activeVideoUploadId = tempId
+
+        // Optimistic message with upload progress
+        let optimistic = AppMessage(
+            id: tempId,
+            text: "",
+            isFromCurrentUser: true,
+            timestamp: Date(),
+            senderId: Auth.auth().currentUser?.uid ?? "",
+            senderName: messagingService.currentUserName,
+            isSent: false,
+            messageType: .video,
+            uploadProgress: 0.01
+        )
+        pendingMessages[tempId] = optimistic
+        if !messages.contains(where: { $0.id == tempId }) {
+            messages.append(optimistic)
+        }
+
+        VideoAttachmentService.uploadAndSend(
+            videoURL: videoURL,
+            conversationId: conversation.id,
+            senderId: Auth.auth().currentUser?.uid ?? "",
+            senderName: messagingService.currentUserName,
+            onProgress: { progress in
+                if let idx = self.messages.firstIndex(where: { $0.id == tempId }) {
+                    self.messages[idx].uploadProgress = progress
+                }
+            },
+            onComplete: { finalMsg in
+                self.appendAttachmentMessage(finalMsg)
+                self.pendingMessages.removeValue(forKey: tempId)
+                self.messages.removeAll { $0.id == tempId }
+                self.activeVideoUploadId = nil
+            },
+            onError: { error in
+                dlog("❌ [Video] Upload error: \(error)")
+                if let idx = self.messages.firstIndex(where: { $0.id == tempId }) {
+                    self.messages[idx].isSendFailed = true
+                    self.messages[idx].uploadProgress = nil
+                }
+                self.activeVideoUploadId = nil
+                self.toastManager.showError("Video upload failed")
+            }
+        )
+    }
+
+    /// Called when the user picks a file from the document picker.
+    private func handleFileSelected(fileURL: URL, fileName: String, fileSize: Int) {
+        let tempId = UUID().uuidString
+        activeFileUploadId = tempId
+
+        let optimistic = AppMessage(
+            id: tempId,
+            text: "",
+            isFromCurrentUser: true,
+            timestamp: Date(),
+            senderId: Auth.auth().currentUser?.uid ?? "",
+            senderName: messagingService.currentUserName,
+            isSent: false,
+            messageType: .file,
+            mediaFileName: fileName,
+            mediaFileSize: fileSize,
+            mediaFileExtension: (fileName as NSString).pathExtension.lowercased(),
+            uploadProgress: 0.01
+        )
+        pendingMessages[tempId] = optimistic
+        if !messages.contains(where: { $0.id == tempId }) {
+            messages.append(optimistic)
+        }
+
+        FileAttachmentService.uploadAndSend(
+            fileURL: fileURL,
+            fileName: fileName,
+            fileSize: fileSize,
+            conversationId: conversation.id,
+            senderId: Auth.auth().currentUser?.uid ?? "",
+            senderName: messagingService.currentUserName,
+            onProgress: { progress in
+                if let idx = self.messages.firstIndex(where: { $0.id == tempId }) {
+                    self.messages[idx].uploadProgress = progress
+                }
+            },
+            onComplete: { finalMsg in
+                self.appendAttachmentMessage(finalMsg)
+                self.pendingMessages.removeValue(forKey: tempId)
+                self.messages.removeAll { $0.id == tempId }
+                self.activeFileUploadId = nil
+            },
+            onError: { error in
+                dlog("❌ [File] Upload error: \(error)")
+                if let idx = self.messages.firstIndex(where: { $0.id == tempId }) {
+                    self.messages[idx].isSendFailed = true
+                    self.messages[idx].uploadProgress = nil
+                }
+                self.activeFileUploadId = nil
+                self.toastManager.showError("File upload failed")
+            }
+        )
+    }
+
+    /// Append a fully-uploaded attachment message into the local messages array.
+    private func appendAttachmentMessage(_ msg: AppMessage) {
+        guard !messages.contains(where: { $0.id == msg.id }) else { return }
+        messages.append(msg)
+    }
+
     // MARK: - Berean AI Send
 
     /// Routes an @Berean message through the Claude streaming API instead of normal Firestore send.
@@ -3062,65 +3253,80 @@ struct LiquidGlassMessageBubble: View {
                             }
                         }
 
-                        Text(message.text)
-                            .font(.system(size: 16))
-                            .foregroundStyle(isFromCurrentUser ? .white : Color(.label))
-                            .fixedSize(horizontal: false, vertical: true)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 9)
-                            .background(bubbleBackground)
-                            .frame(maxWidth: 280, alignment: isFromCurrentUser ? .trailing : .leading)
-                            .reactionPicker(
-                                id: message.id,
-                                isFromCurrentUser: isFromCurrentUser,
-                                context: .message,
-                                selectedEmoji: message.reactions
-                                    .first(where: { $0.userId == (FirebaseManager.shared.currentUser?.uid ?? "") })?.emoji,
-                                onSelect: { emoji in onReact(emoji) }
-                            )
-                            .onTapGesture(count: 2) {
-                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.65)) {
-                                    showInlineReactions.toggle()
-                                }
+                        // ── Message content: branches on messageType ──────────────
+                        Group {
+                            switch message.messageType {
+                            case .video:
+                                VideoMessageBubble(message: message, isFromCurrentUser: isFromCurrentUser)
+                            case .file:
+                                FileMessageBubble(message: message, isFromCurrentUser: isFromCurrentUser)
+                            case .link:
+                                LinkMessageBubble(message: message, isFromCurrentUser: isFromCurrentUser)
+                            case .text, .image:
+                                // Default text / photo bubble (existing behavior untouched)
+                                Text(message.text)
+                                    .font(.system(size: 16))
+                                    .foregroundStyle(isFromCurrentUser ? .white : Color(.label))
+                                    .fixedSize(horizontal: false, vertical: true)
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 9)
+                                    .background(bubbleBackground)
+                                    .frame(maxWidth: 280, alignment: isFromCurrentUser ? .trailing : .leading)
                             }
-                            .contextMenu {
-                                Button { onReply() } label: {
-                                    Label("Reply", systemImage: "arrowshape.turn.up.left")
-                                }
-                                Button { onLongPress() } label: {
-                                    Label("React", systemImage: "face.smiling")
-                                }
+                        }
+                        .reactionPicker(
+                            id: message.id,
+                            isFromCurrentUser: isFromCurrentUser,
+                            context: .message,
+                            selectedEmoji: message.reactions
+                                .first(where: { $0.userId == (FirebaseManager.shared.currentUser?.uid ?? "") })?.emoji,
+                            onSelect: { emoji in onReact(emoji) }
+                        )
+                        .onTapGesture(count: 2) {
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.65)) {
+                                showInlineReactions.toggle()
+                            }
+                        }
+                        .contextMenu {
+                            Button { onReply() } label: {
+                                Label("Reply", systemImage: "arrowshape.turn.up.left")
+                            }
+                            Button { onLongPress() } label: {
+                                Label("React", systemImage: "face.smiling")
+                            }
+                            if message.messageType == .text || message.messageType == .image {
                                 Button {
                                     UIPasteboard.general.string = message.text
                                 } label: {
                                     Label("Copy", systemImage: "doc.on.doc")
                                 }
-                                if isFromCurrentUser {
-                                    Divider()
-                                    Button(role: .destructive) { onDelete() } label: {
-                                        Label("Delete", systemImage: "trash")
+                            }
+                            if isFromCurrentUser {
+                                Divider()
+                                Button(role: .destructive) { onDelete() } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
+                            }
+                            if !isFromCurrentUser {
+                                Divider()
+                                if let onReport {
+                                    Button(role: .destructive) { onReport() } label: {
+                                        Label("Report", systemImage: "exclamationmark.bubble.fill")
                                     }
                                 }
-                                if !isFromCurrentUser {
-                                    Divider()
-                                    if let onReport {
-                                        Button(role: .destructive) { onReport() } label: {
-                                            Label("Report", systemImage: "exclamationmark.bubble.fill")
-                                        }
+                                if let onBlock {
+                                    Button(role: .destructive) { onBlock() } label: {
+                                        Label("Block", systemImage: "person.slash.fill")
                                     }
-                                    if let onBlock {
-                                        Button(role: .destructive) { onBlock() } label: {
-                                            Label("Block", systemImage: "person.slash.fill")
-                                        }
-                                    }
-                                    if let onMute {
-                                        Button { onMute() } label: {
-                                            Label("Mute", systemImage: "speaker.slash.fill")
-                                        }
+                                }
+                                if let onMute {
+                                    Button { onMute() } label: {
+                                        Label("Mute", systemImage: "speaker.slash.fill")
                                     }
                                 }
                             }
+                        }
                     }
 
                     // Reactions row (below bubble, no background pill)
@@ -3410,6 +3616,161 @@ struct MediaButton: View {
 
 // Note: ScaleButtonStyle is defined in SharedUIComponents.swift
 // Note: placeholder(when:alignment:placeholder:) extension is defined in SharedUIComponents.swift
+
+// MARK: - Attach Item View (tray cell)
+
+/// A single cell in the animated attachment tray.
+struct AttachItemView: View {
+    struct Item: Identifiable {
+        let id: String
+        let icon: String
+        let label: String
+        let iconColor: Color
+        let bgColor: Color
+    }
+
+    let item: Item
+
+    var body: some View {
+        VStack(spacing: 6) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                    .fill(item.bgColor)
+                    .frame(width: 44, height: 44)
+                Image(systemName: item.icon)
+                    .font(.system(size: 19, weight: .semibold))
+                    .foregroundStyle(item.iconColor)
+            }
+            Text(item.label)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(Color(.systemGray))
+        }
+    }
+}
+
+// MARK: - Quick Reply Chips
+
+private struct QuickReplyModel: Identifiable {
+    let id: String
+    let emoji: String
+    let text: String
+}
+
+struct QuickReplyChipsView: View {
+
+    @Binding var isExpanded: Bool
+    @Binding var dismissedChipIds: Set<String>
+    let onChipTapped: (String) -> Void
+
+    @State private var slidingOutId: String? = nil
+
+    private let quickReplies: [QuickReplyModel] = [
+        QuickReplyModel(id: "pray",    emoji: "🙏",  text: "I'll be praying for you"),
+        QuickReplyModel(id: "verse",   emoji: "✝️",  text: "Share a verse"),
+        QuickReplyModel(id: "believe", emoji: "💬",  text: "What are you believing God for?")
+    ]
+
+    private var visibleReplies: [QuickReplyModel] {
+        quickReplies.filter { !dismissedChipIds.contains($0.id) }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            // Header row
+            Button {
+                withAnimation(.spring(response: 0.45, dampingFraction: 0.7)) {
+                    isExpanded.toggle()
+                }
+            } label: {
+                HStack(spacing: 8) {
+                    // Circle "+" rotates 45° when expanded
+                    ZStack {
+                        Circle()
+                            .fill(Color(.systemGray5))
+                            .frame(width: 24, height: 24)
+                        Image(systemName: "plus")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                            .rotationEffect(.degrees(isExpanded ? 45 : 0))
+                            .animation(.spring(response: 0.45, dampingFraction: 0.7), value: isExpanded)
+                    }
+
+                    Text("Quick replies")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(.secondary)
+
+                    Spacer()
+
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .rotationEffect(.degrees(isExpanded ? 180 : 0))
+                        .animation(.spring(response: 0.45, dampingFraction: 0.7), value: isExpanded)
+                }
+            }
+            .buttonStyle(.plain)
+
+            // Chips
+            if isExpanded {
+                VStack(spacing: 8) {
+                    ForEach(Array(visibleReplies.enumerated()), id: \.element.id) { index, reply in
+                        chipButton(for: reply, index: index)
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
+                }
+                .animation(.spring(response: 0.45, dampingFraction: 0.7), value: visibleReplies.map { $0.id })
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func chipButton(for reply: QuickReplyModel, index: Int) -> some View {
+        Button {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+
+            // Animate chip sliding out
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                slidingOutId = reply.id
+            }
+
+            onChipTapped(reply.text)
+
+            // Restore after 1.5s
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                    slidingOutId = nil
+                    dismissedChipIds.insert(reply.id)
+                }
+            }
+        } label: {
+            HStack(spacing: 10) {
+                Text(reply.emoji)
+                    .font(.system(size: 16))
+                Text(reply.text)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(.primary)
+                Spacer()
+                Image(systemName: "arrow.right")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 11)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
+            )
+        }
+        .buttonStyle(.plain)
+        .offset(x: slidingOutId == reply.id ? 300 : 0)
+        .opacity(slidingOutId == reply.id ? 0 : 1)
+        .animation(
+            .spring(response: 0.4, dampingFraction: 0.6).delay(Double(index) * 0.08),
+            value: isExpanded
+        )
+    }
+}
 
 // MARK: - Berean AI Typing Indicator Bubble
 
