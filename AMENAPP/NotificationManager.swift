@@ -398,7 +398,87 @@ extension NotificationManager {
             options: []
         )
         
-        center.setNotificationCategories([prayerCategory, messageCategory])
+        // MARK: - New Custom Categories
+        
+        // Prayer Request actions: Pray Now, Add to List, Dismiss
+        let prayNowAction = UNNotificationAction(
+            identifier: "PRAY_NOW",
+            title: "Pray Now",
+            options: .foreground
+        )
+        
+        let addToListAction = UNNotificationAction(
+            identifier: "ADD_TO_PRAYER_LIST",
+            title: "Add to List",
+            options: []
+        )
+        
+        let dismissPrayerAction = UNNotificationAction(
+            identifier: "DISMISS_PRAYER",
+            title: "Dismiss",
+            options: .destructive
+        )
+        
+        let prayerRequestCategory = UNNotificationCategory(
+            identifier: "PRAYER_REQUEST",
+            actions: [prayNowAction, addToListAction, dismissPrayerAction],
+            intentIdentifiers: [],
+            options: .customDismissAction
+        )
+        
+        // Testimony Posted actions: React 🙌, Comment, Share
+        let reactAction = UNNotificationAction(
+            identifier: "REACT_AMEN",
+            title: "🙌 Amen",
+            options: []
+        )
+        
+        let commentAction = UNNotificationAction(
+            identifier: "COMMENT_TESTIMONY",
+            title: "Comment",
+            options: .foreground
+        )
+        
+        let shareTestimonyAction = UNNotificationAction(
+            identifier: "SHARE_TESTIMONY",
+            title: "Share",
+            options: .foreground
+        )
+        
+        let testimonyPostedCategory = UNNotificationCategory(
+            identifier: "TESTIMONY_POSTED",
+            actions: [reactAction, commentAction, shareTestimonyAction],
+            intentIdentifiers: [],
+            options: .customDismissAction
+        )
+        
+        // Event Reminder actions: I'll Be There, Remind Me Later
+        let attendEventAction = UNNotificationAction(
+            identifier: "ATTEND_EVENT",
+            title: "I'll Be There",
+            options: []
+        )
+        
+        let remindEventLaterAction = UNNotificationAction(
+            identifier: "REMIND_EVENT_LATER",
+            title: "Remind Me Later",
+            options: []
+        )
+        
+        let eventReminderCategory = UNNotificationCategory(
+            identifier: "EVENT_REMINDER",
+            actions: [attendEventAction, remindEventLaterAction],
+            intentIdentifiers: [],
+            options: .customDismissAction
+        )
+        
+        center.setNotificationCategories([
+            prayerCategory,
+            messageCategory,
+            prayerRequestCategory,
+            testimonyPostedCategory,
+            eventReminderCategory
+        ])
         dlog("✅ Notification categories setup complete")
     }
 }

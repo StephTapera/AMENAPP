@@ -1292,7 +1292,7 @@ struct ChangeEmailView: View {
                             
                             // Change Email Button
                             Button {
-                                HapticManager.impact(style: .medium)
+                                HapticManager.impact(style: .light)
                                 changeEmail()
                             } label: {
                                 ZStack {

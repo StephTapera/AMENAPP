@@ -650,6 +650,8 @@ exports.bereanNotificationText = berean.bereanNotificationText;
 exports.bereanReportTriage = berean.bereanReportTriage;
 exports.bereanRankingLabels = berean.bereanRankingLabels;
 exports.bereanGenericProxy = berean.bereanGenericProxy;
+exports.bereanChatProxy = berean.bereanChatProxy;
+exports.deleteAccount = berean.deleteAccount;
 
 // ============================================================================
 // GENKIT-STYLE AI FLOWS — daily verse, notification text, digest
@@ -927,12 +929,21 @@ exports.communityDigest    = communityDigest;
 exports.bereanDailyInsight = bereanDailyInsight;
 
 // Algolia sync handled by installed Firestore extension (ext-firestore-algolia-search)
-<<<<<<< HEAD
 
 // ============================================================================
 // FELLOWSHIP MATCHER — Claude-powered spiritual theme matching
 // ============================================================================
 exports.fellowshipMatcher           = fellowshipMatcher;
 exports.onNewPrayerFellowshipCheck  = onNewPrayerFellowshipCheck;
-=======
->>>>>>> recover/user-work
+
+// ============================================================================
+// OPENAI PROXIES — All OpenAI API calls go through these Cloud Functions.
+// Client Swift code must NEVER call api.openai.com directly.
+// The OPENAI_API_KEY lives only in Firebase Secret Manager (never on-device).
+// Run: firebase functions:secrets:set OPENAI_API_KEY
+// ============================================================================
+const openAIFunctions = require("./openAIFunctions");
+exports.openAIProxy           = openAIFunctions.openAIProxy;
+exports.whisperProxy          = openAIFunctions.whisperProxy;
+exports.transcribeAudio       = openAIFunctions.transcribeAudio;
+exports.smartSuggestionsProxy = openAIFunctions.smartSuggestionsProxy;

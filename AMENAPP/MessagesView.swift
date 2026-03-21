@@ -907,7 +907,7 @@ struct MessagesView: View {
             .overlay(alignment: .bottomTrailing) {
                 Button {
                     activeSheet = .newMessage
-                    HapticManager.impact(style: .medium)
+                    HapticManager.impact(style: .light)
                 } label: {
                     Image(systemName: "square.and.pencil")
                         .font(.system(size: 18, weight: .semibold))

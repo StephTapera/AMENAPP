@@ -75,6 +75,11 @@ struct Post: Identifiable, Codable, Equatable {
 
     // Poll attachment — nil when the post has no poll
     var poll: PostPoll? = nil
+    
+    // Pinned post metadata — user can pin important posts to their profile
+    var isPinned: Bool = false
+    var pinnedAt: Date? = nil
+    var pinnedExpiresAt: Date? = nil
 
     enum PostCategory: String, Codable, CaseIterable {
         case openTable = "openTable"      // ✅ Firebase-safe (no special chars)

@@ -14,6 +14,7 @@
 
 import Foundation
 import MapKit
+import FirebaseFunctions
 
 // MARK: - Result model
 
@@ -125,13 +126,6 @@ enum ChurchVerificationService {
     }
 
     private static func verifyWithClaude(_ item: MKMapItem) async -> ChurchVerification {
-        let apiKey = Bundle.main.object(forInfoDictionaryKey: "ANTHROPIC_API_KEY") as? String ?? ""
-        guard !apiKey.isEmpty else {
-            // No API key — soft-pass ambiguous items rather than silently dropping them
-            return .init(isChurch: true, confidence: .low,
-                         reason: "ANTHROPIC_API_KEY not set; passing ambiguous result")
-        }
-
         let name    = item.name ?? "Unknown"
         let address = [item.placemark.thoroughfare,
                        item.placemark.locality,
@@ -166,50 +160,38 @@ enum ChurchVerificationService {
         """
 
         do {
-            let body: [String: Any] = [
-                "model": "claude-sonnet-4-6",
-                "max_tokens": 120,
-                "system": systemPrompt,
-                "messages": [["role": "user", "content": placeData]]
-            ]
+            let functions = Functions.functions()
+            let callable = functions.httpsCallable("bereanChatProxy")
+            let result = try await callable.call([
+                "systemPrompt": systemPrompt,
+                "userMessage": placeData,
+                "maxTokens": 120,
+            ] as [String: Any])
 
-            var request = URLRequest(url: URL(string: "https://api.anthropic.com/v1/messages")!)
-            request.httpMethod = "POST"
-            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.setValue(apiKey,             forHTTPHeaderField: "x-api-key")
-            request.setValue("2023-06-01",       forHTTPHeaderField: "anthropic-version")
-            request.httpBody = try JSONSerialization.data(withJSONObject: body)
-
-            let (data, response) = try await URLSession.shared.data(for: request)
-            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
-                return .init(isChurch: true, confidence: .low, reason: "Claude API error; soft pass")
+            guard let data = result.data as? [String: Any],
+                  let raw = data["text"] as? String else {
+                return .init(isChurch: true, confidence: .low, reason: "Proxy response parse error; soft pass")
             }
 
-            struct AnthropicResponse: Codable {
-                let content: [Block]
-                struct Block: Codable { let text: String }
-            }
-            struct VerifyResponse: Codable {
-                let isChurch: Bool
-                let confidence: String
-                let reason: String
-            }
-
-            let decoded = try JSONDecoder().decode(AnthropicResponse.self, from: data)
-            let raw = decoded.content.first?.text ?? ""
             let clean = raw
                 .trimmingCharacters(in: .whitespacesAndNewlines)
                 .replacingOccurrences(of: "```json", with: "")
                 .replacingOccurrences(of: "```", with: "")
                 .trimmingCharacters(in: .whitespacesAndNewlines)
 
+            struct VerifyResponse: Codable {
+                let isChurch: Bool
+                let confidence: String
+                let reason: String
+            }
+
             guard let jsonData = clean.data(using: .utf8),
-                  let result = try? JSONDecoder().decode(VerifyResponse.self, from: jsonData) else {
+                  let verifyResult = try? JSONDecoder().decode(VerifyResponse.self, from: jsonData) else {
                 return .init(isChurch: true, confidence: .low, reason: "Parse error; soft pass")
             }
 
-            let conf = ChurchVerification.Confidence(rawValue: result.confidence) ?? .low
-            return .init(isChurch: result.isChurch, confidence: conf, reason: result.reason)
+            let conf = ChurchVerification.Confidence(rawValue: verifyResult.confidence) ?? .low
+            return .init(isChurch: verifyResult.isChurch, confidence: conf, reason: verifyResult.reason)
 
         } catch {
             dlog("ChurchVerificationService: \(error.localizedDescription)")

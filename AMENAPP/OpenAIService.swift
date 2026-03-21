@@ -2,13 +2,15 @@
 //  OpenAIService.swift
 //  AMENAPP
 //
-//  Direct OpenAI API integration for Berean AI
-//  Production-hardened: cancellation, typed errors, retry, mode routing,
-//  structured cache keys, preflight validation, ephemeral session.
+//  Berean AI — all OpenAI calls proxied through Firebase Cloud Functions.
+//  The OPENAI_API_KEY lives exclusively in Firebase Secret Manager (never on-device).
+//  Streaming is emulated client-side via a typewriter Timer after receiving
+//  the full response from the openAIProxy callable.
 
 import Foundation
 import SwiftUI
 import Combine
+import FirebaseFunctions
 
 // MARK: - Supporting Enums
 
@@ -173,29 +175,13 @@ enum OpenAIError: LocalizedError {
     }
 }
 
-// MARK: - Codable Request / Response Models
+// MARK: - Internal Message Model
 
-private struct ChatCompletionRequest: Encodable {
-    struct Message: Encodable {
+private struct ChatCompletionRequest {
+    struct Message {
         let role: String
         let content: String
     }
-    let model: String
-    let messages: [Message]
-    let temperature: Double
-    let max_tokens: Int
-    let stream: Bool?
-}
-
-private struct ChatCompletionResponse: Decodable {
-    struct Choice: Decodable {
-        struct Message: Decodable {
-            let role: String
-            let content: String
-        }
-        let message: Message
-    }
-    let choices: [Choice]
 }
 
 // MARK: - Service
@@ -210,21 +196,16 @@ class OpenAIService: ObservableObject {
 
     // MARK: - Configuration
 
-    private let apiKey: String
-    private let baseURL = "https://api.openai.com/v1"
+    /// All OpenAI calls are proxied through the "openAIProxy" Cloud Function.
+    /// The API key never leaves the server.
+    private let functions = Functions.functions()
     private let modelID = "gpt-4o"
 
     // One active stream at a time — cancel previous before starting new one.
     private var currentTask: Task<Void, Never>?
 
-    // Ephemeral session so no accidental persistence of sensitive request data.
-    private let session: URLSession = {
-        let config = URLSessionConfiguration.ephemeral
-        config.timeoutIntervalForRequest = 30
-        config.timeoutIntervalForResource = 60
-        config.waitsForConnectivity = true
-        return URLSession(configuration: config)
-    }()
+    // Typewriter interval: 15 ms per character to emulate streaming UX.
+    private let typewriterIntervalMs: Int = 15
 
     // Response cache with 15-minute TTL (no conversation-history responses cached).
     private var responseCache: [String: CachedResponse] = [:]
@@ -233,9 +214,7 @@ class OpenAIService: ObservableObject {
     private let maxHistoryMessages = 12
     private let maxMessageLength = 12_000
 
-    init() {
-        self.apiKey = BundleConfig.string(forKey: "OPENAI_API_KEY") ?? ""
-    }
+    init() {}
 
     // MARK: - Public Control
 
@@ -267,12 +246,6 @@ class OpenAIService: ObservableObject {
     ) -> AsyncThrowingStream<String, Error> {
 
         cancelCurrentRequest()
-
-        guard !apiKey.isEmpty else {
-            return AsyncThrowingStream { continuation in
-                continuation.finish(throwing: OpenAIServiceError.missingAPIKey)
-            }
-        }
 
         // Preflight validation before touching the network.
         do {
@@ -319,16 +292,19 @@ class OpenAIService: ObservableObject {
                     var fullResponse = ""
 
                     try await self.withRetry {
-                        let stream = self.streamChatCompletion(
+                        fullResponse = try await self.callOpenAIProxy(
                             messages: messages,
                             maxTokens: maxTokens,
                             temperature: temperature
                         )
-                        for try await chunk in stream {
-                            try Task.checkCancellation()
-                            continuation.yield(chunk)
-                            fullResponse += chunk
-                        }
+                    }
+
+                    // Typewriter animation: drip characters at 15 ms each
+                    let chars = Array(fullResponse)
+                    for char in chars {
+                        try Task.checkCancellation()
+                        continuation.yield(String(char))
+                        try await Task.sleep(nanoseconds: UInt64(self.typewriterIntervalMs) * 1_000_000)
                     }
 
                     if conversationHistory.isEmpty, !fullResponse.isEmpty {
@@ -378,7 +354,6 @@ class OpenAIService: ObservableObject {
         conversationHistory: [OpenAIChatMessage] = [],
         mode: BereanMode = .shepherd
     ) async throws -> String {
-        guard !apiKey.isEmpty else { throw OpenAIServiceError.missingAPIKey }
         try validateOutgoingMessage(message)
 
         isProcessing = true
@@ -392,7 +367,7 @@ class OpenAIService: ObservableObject {
         )
 
         return try await withRetry {
-            try await self.chatCompletion(messages: messages)
+            try await self.callOpenAIProxy(messages: messages, maxTokens: 2000, temperature: 0.7)
         }
     }
 
@@ -603,141 +578,47 @@ class OpenAIService: ObservableObject {
         throw lastError ?? OpenAIServiceError.unknown
     }
 
-    // MARK: - Low-Level Streaming Request
+    // MARK: - Cloud Function Proxy
 
-    // Maximum seconds allowed between consecutive SSE chunks before the stream
-    // is treated as stalled and aborted with a timeout error.
-    private let streamChunkTimeoutSeconds: TimeInterval = 20
-
-    private func streamChatCompletion(
+    /// Calls the "openAIProxy" Firebase callable. The API key never touches the device.
+    private func callOpenAIProxy(
         messages: [ChatCompletionRequest.Message],
         maxTokens: Int,
         temperature: Double
-    ) -> AsyncThrowingStream<String, Error> {
-        return AsyncThrowingStream { continuation in
-            Task {
-                do {
-                    guard let url = URL(string: "\(baseURL)/chat/completions") else {
-                        throw OpenAIServiceError.invalidResponse
-                    }
+    ) async throws -> String {
+        let messageDicts = messages.map { ["role": $0.role, "content": $0.content] }
+        let payload: [String: Any] = [
+            "model": modelID,
+            "messages": messageDicts,
+            "maxTokens": maxTokens,
+            "temperature": temperature,
+        ]
 
-                    let body = ChatCompletionRequest(
-                        model: modelID,
-                        messages: messages,
-                        temperature: temperature,
-                        max_tokens: maxTokens,
-                        stream: true
-                    )
-
-                    var request = URLRequest(url: url)
-                    request.httpMethod = "POST"
-                    request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-                    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-                    request.httpBody = try JSONEncoder().encode(body)
-
-                    let (bytes, response) = try await session.bytes(for: request)
-
-                    guard let httpResponse = response as? HTTPURLResponse else {
-                        throw OpenAIServiceError.invalidResponse
-                    }
-
-                    guard httpResponse.statusCode == 200 else {
-                        throw OpenAIError.httpError(statusCode: httpResponse.statusCode)
-                    }
-
-                    // Inactivity watchdog: fires if no chunk arrives within the window.
-                    // Replaced on every received chunk to reset the deadline.
-                    var watchdog: Task<Void, Never>? = nil
-
-                    func resetWatchdog() {
-                        watchdog?.cancel()
-                        watchdog = Task {
-                            try? await Task.sleep(nanoseconds: UInt64(streamChunkTimeoutSeconds * 1_000_000_000))
-                            guard !Task.isCancelled else { return }
-                            continuation.finish(throwing: OpenAIServiceError.timeout)
-                        }
-                    }
-
-                    resetWatchdog()
-
-                    for try await line in bytes.lines {
-                        try Task.checkCancellation()
-                        guard !line.isEmpty, !line.hasPrefix(":") else { continue }
-
-                        if line.hasPrefix("data: ") {
-                            let data = String(line.dropFirst(6))
-                            if data == "[DONE]" { break }
-
-                            guard let jsonData = data.data(using: .utf8) else { continue }
-
-                            // Decode streaming delta
-                            struct StreamChunk: Decodable {
-                                struct Choice: Decodable {
-                                    struct Delta: Decodable {
-                                        let content: String?
-                                    }
-                                    let delta: Delta
-                                }
-                                let choices: [Choice]
-                            }
-
-                            guard let chunk = try? JSONDecoder().decode(StreamChunk.self, from: jsonData),
-                                  let content = chunk.choices.first?.delta.content else {
-                                continue
-                            }
-
-                            resetWatchdog()
-                            continuation.yield(content)
-                        }
-                    }
-
-                    watchdog?.cancel()
-                    continuation.finish()
-
-                } catch {
-                    continuation.finish(throwing: error)
+        do {
+            let result = try await functions.httpsCallable("openAIProxy").call(payload)
+            guard let data = result.data as? [String: Any],
+                  let text = data["text"] as? String else {
+                throw OpenAIServiceError.invalidResponse
+            }
+            return text
+        } catch let error as NSError {
+            // Map Firebase Functions error codes back to OpenAIServiceError
+            switch FunctionsErrorCode(rawValue: error.code) {
+            case .unauthenticated:
+                throw OpenAIServiceError.unauthorized
+            case .resourceExhausted:
+                throw OpenAIServiceError.rateLimited
+            case .deadlineExceeded:
+                throw OpenAIServiceError.timeout
+            case .unavailable, .internal:
+                throw OpenAIServiceError.serverError
+            default:
+                if error.domain == NSURLErrorDomain {
+                    throw OpenAIServiceError.from(error)
                 }
+                throw OpenAIServiceError.serverError
             }
         }
-    }
-
-    // MARK: - Low-Level Non-Streaming Request
-
-    private func chatCompletion(messages: [ChatCompletionRequest.Message]) async throws -> String {
-        guard let url = URL(string: "\(baseURL)/chat/completions") else {
-            throw OpenAIServiceError.invalidResponse
-        }
-
-        let body = ChatCompletionRequest(
-            model: modelID,
-            messages: messages,
-            temperature: 0.7,
-            max_tokens: 2000,
-            stream: nil
-        )
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONEncoder().encode(body)
-
-        let (data, response) = try await session.data(for: request)
-
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw OpenAIServiceError.invalidResponse
-        }
-
-        guard httpResponse.statusCode == 200 else {
-            throw OpenAIError.httpError(statusCode: httpResponse.statusCode)
-        }
-
-        let decoded = try JSONDecoder().decode(ChatCompletionResponse.self, from: data)
-        guard let content = decoded.choices.first?.message.content else {
-            throw OpenAIServiceError.invalidResponse
-        }
-
-        return content
     }
 
     // MARK: - Cache Management

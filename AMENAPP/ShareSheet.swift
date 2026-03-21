@@ -185,7 +185,7 @@ struct AmenShareSheet: View {
                 linkURL: nil,
                 churchNoteId: note.id
             )
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
             shareSuccessMessage = "Your note has been shared to OpenTable."
             showShareSuccess = true
             dismiss()
@@ -212,7 +212,7 @@ struct AmenShareSheet: View {
                 linkURL: nil,
                 churchNoteId: note.id
             )
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
             shareSuccessMessage = "Your note has been shared as a Testimony."
             showShareSuccess = true
             dismiss()
@@ -239,7 +239,7 @@ struct AmenShareSheet: View {
                 linkURL: nil,
                 churchNoteId: note.id
             )
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
             shareSuccessMessage = "Your note has been shared as a Prayer Request."
             showShareSuccess = true
             dismiss()

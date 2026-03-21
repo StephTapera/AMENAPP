@@ -462,7 +462,7 @@ struct AIBibleStudyView: View {
     // MARK: - Voice Input
 
     private func handleMicTap() {
-        HapticManager.impact(style: .medium)
+        HapticManager.impact(style: .light)
         isInputFocused = false
         if speechService.isRecording {
             speechService.stopRecording()
@@ -965,7 +965,7 @@ struct LightGlassmorphicChatInput: View {
                             .submitLabel(.send)
                             .onSubmit {
                                 if !userInput.isEmpty && !isProcessing {
-                                    HapticManager.impact(style: .medium)
+                                    HapticManager.impact(style: .light)
                                     onSend()
                                     isInputFocused = false
                                 }
@@ -1011,7 +1011,7 @@ struct LightGlassmorphicChatInput: View {
                 // Send button
                 Button {
                     if !userInput.isEmpty && !isProcessing {
-                        HapticManager.impact(style: .medium)
+                        HapticManager.impact(style: .light)
                         onSend()
                         isInputFocused = false
                     }

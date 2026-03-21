@@ -430,98 +430,8 @@ struct CreatePostView: View {
                 }
 
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    HStack(spacing: 8) {
-                        // Ambient progress ring — fades in once user starts typing
-                        if !postText.isEmpty {
-                            ZStack {
-                                Circle()
-                                    .stroke(Color.primary.opacity(0.08), lineWidth: 2)
-                                    .frame(width: 22, height: 22)
-                                Circle()
-                                    .trim(from: 0, to: min(1.0, Double(postText.count) / 500.0))
-                                    .stroke(
-                                        postText.count > 480 ? Color.red :
-                                            postText.count > 450 ? Color.orange :
-                                            Color.primary.opacity(0.3),
-                                        style: StrokeStyle(lineWidth: 2, lineCap: .round)
-                                    )
-                                    .frame(width: 22, height: 22)
-                                    .rotationEffect(.degrees(-90))
-
-                                // Show count inside ring only when close to limit
-                                if postText.count > 450 {
-                                    Text("\(500 - postText.count)")
-                                        .font(.system(size: 8, weight: .bold))
-                                        .foregroundStyle(postText.count > 480 ? .red : .orange)
-                                }
-                            }
-                            .animation(.easeOut(duration: 0.2), value: postText.count)
-                            .transition(.opacity.animation(.easeIn(duration: 0.3)))
-                        }
-
-                        Button {
-                            publishPost()
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.65)) {
-                                postBtnState = .sending
-                            }
-                        } label: {
-                            ZStack {
-                                // Idle: paperplane
-                                Image(systemName: "paperplane.fill")
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundStyle(.white)
-                                    .opacity(postBtnState == .idle ? 1 : 0)
-                                    .scaleEffect(postBtnState == .idle ? 1 : 0.5)
-
-                                // Sending: spinner
-                                ProgressView()
-                                    .tint(Color(red: 0.10, green: 0.06, blue: 0.02))
-                                    .scaleEffect(0.8)
-                                    .opacity(postBtnState == .sending ? 1 : 0)
-                                    .scaleEffect(postBtnState == .sending ? 1 : 0.5)
-
-                                // Sent: checkmark
-                                Image(systemName: "checkmark")
-                                    .font(.system(size: 14, weight: .bold))
-                                    .foregroundStyle(.white)
-                                    .opacity(postBtnState == .sent ? 1 : 0)
-                                    .scaleEffect(postBtnState == .sent ? 1 : 0.5)
-                            }
-                            .animation(.spring(response: 0.35, dampingFraction: 0.65), value: postBtnState)
-                            .frame(width: 24, height: 24)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 7)
-                            .background(
-                                Capsule()
-                                    .fill(
-                                        postBtnState == .sent
-                                            ? Color(red: 0.165, green: 0.431, blue: 0.227)
-                                            : (canPublish ? Color.black : Color.black.opacity(0.3))
-                                    )
-                                    .animation(.easeOut(duration: 0.3), value: postBtnState)
-                            )
-                        }
-                        .disabled(!canPublish || isPublishing)
-                        .onChange(of: showingSuccessNotice) { _, isSuccess in
-                            if isSuccess {
-                                withAnimation(.spring(response: 0.35, dampingFraction: 0.65)) {
-                                    postBtnState = .sent
-                                }
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.65)) {
-                                        postBtnState = .idle
-                                    }
-                                }
-                            }
-                        }
-                        .onChange(of: isPublishing) { _, publishing in
-                            if !publishing && !showingSuccessNotice && postBtnState == .sending {
-                                // Error path — revert to idle
-                                withAnimation(.spring(response: 0.35, dampingFraction: 0.65)) {
-                                    postBtnState = .idle
-                                }
-                            }
-                        }
+                    CirclePostButton(postText: $postText) {
+                        await publishPostAsync()
                     }
                 }
             }
@@ -3186,6 +3096,13 @@ struct CreatePostView: View {
         }
     }
     
+    /// Async wrapper for publishPost() - called by CirclePostButton
+    private func publishPostAsync() async {
+        await MainActor.run {
+            publishPost()
+        }
+    }
+    
     /// Sync post to Algolia for instant search (non-blocking)
     private func syncPostToAlgolia(_ post: Post) {
         // Run in background - don't block UI or show errors
@@ -3690,6 +3607,274 @@ struct CreatePostView: View {
                         .allowsHitTesting(false)
                 }
             }
+        }
+    }
+}
+
+// MARK: - Circle Post Button
+
+enum PostButtonState {
+    case idle
+    case ready
+    case posting
+    case sent
+}
+
+struct CirclePostButton: View {
+    @Binding var postText: String
+    let onPost: () async -> Void
+    
+    @State private var buttonState: PostButtonState = .idle
+    @State private var isPressed = false
+    @State private var iconScale: CGFloat = 1
+    @State private var iconOpacity: Double = 1
+    @State private var iconRotation: Double = 0
+    @State private var showSpinner = false
+    @State private var showCheck = false
+    @State private var pulseScale: CGFloat = 1
+    @State private var pulseOpacity: Double = 0
+    @State private var ringProgress: CGFloat = 0
+    
+    var body: some View {
+        ZStack {
+            // 1. Pulse ring (bottom layer, behind everything)
+            if buttonState == .ready {
+                Circle()
+                    .stroke(Color.white.opacity(0.3), lineWidth: 1.5)
+                    .frame(width: 42, height: 42)
+                    .scaleEffect(pulseScale)
+                    .opacity(pulseOpacity)
+                    .onAppear {
+                        withAnimation(.easeOut(duration: 2).repeatForever(autoreverses: false)) {
+                            pulseScale = 1.3
+                            pulseOpacity = 0
+                        }
+                        // Reset pulse for continuous animation
+                        Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { _ in
+                            pulseScale = 1
+                            pulseOpacity = 0.3
+                            withAnimation(.easeOut(duration: 2)) {
+                                pulseScale = 1.3
+                                pulseOpacity = 0
+                            }
+                        }
+                    }
+            }
+            
+            // 2. Solid fill circle (button background)
+            Circle()
+                .fill(circleBackgroundColor)
+                .frame(width: 42, height: 42)
+                .shadow(
+                    color: buttonState == .ready ? Color.white.opacity(0.15) : .clear,
+                    radius: 10
+                )
+            
+            // 3. Border ring overlay (with animated stroke for READY state)
+            if buttonState == .ready {
+                Circle()
+                    .trim(from: 0, to: ringProgress)
+                    .stroke(
+                        Color.white.opacity(0.35),
+                        style: StrokeStyle(lineWidth: 1.5, lineCap: .round)
+                    )
+                    .frame(width: 42, height: 42)
+                    .rotationEffect(.degrees(-90))
+                    .onAppear {
+                        withAnimation(.easeInOut(duration: 0.45)) {
+                            ringProgress = 1.0
+                        }
+                    }
+            } else if buttonState == .idle {
+                Circle()
+                    .stroke(Color.white.opacity(0.08), lineWidth: 1.5)
+                    .frame(width: 42, height: 42)
+            }
+            
+            // 4. Icons ZStack (send / spinner / check) on top
+            ZStack {
+                // Send icon (paperplane)
+                Image(systemName: "paperplane.fill")
+                    .font(.system(size: 17, weight: .medium))
+                    .foregroundStyle(iconColor)
+                    .opacity(iconOpacity)
+                    .scaleEffect(iconScale)
+                    .rotationEffect(.degrees(iconRotation))
+                
+                // Spinner (posting state)
+                if showSpinner {
+                    SpinnerRing()
+                        .transition(.scale.combined(with: .opacity))
+                }
+                
+                // Checkmark (sent state)
+                if showCheck {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(.black)
+                        .transition(.scale.combined(with: .opacity))
+                }
+            }
+            .frame(width: 18, height: 18)
+        }
+        .scaleEffect(isPressed ? 0.86 : 1.0)
+        .animation(.spring(response: 0.22, dampingFraction: 0.6), value: isPressed)
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in
+                    if !isPressed && buttonState == .ready {
+                        isPressed = true
+                        HapticManager.impact(style: .light)
+                    }
+                }
+                .onEnded { _ in
+                    if isPressed && buttonState == .ready {
+                        isPressed = false
+                        triggerPost()
+                    }
+                }
+        )
+        .onChange(of: postText) { oldValue, newValue in
+            updateButtonState(for: newValue)
+        }
+    }
+    
+    // MARK: - Computed Properties
+    
+    private var circleBackgroundColor: Color {
+        switch buttonState {
+        case .idle:
+            return Color.white.opacity(0.05)
+        case .ready:
+            return Color.white
+        case .posting:
+            return Color.white.opacity(0.1)
+        case .sent:
+            return Color.white
+        }
+    }
+    
+    private var iconColor: Color {
+        switch buttonState {
+        case .idle:
+            return Color.white.opacity(0.3)
+        case .ready, .sent:
+            return Color.black
+        case .posting:
+            return Color.white
+        }
+    }
+    
+    // MARK: - State Management
+    
+    private func updateButtonState(for text: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        if !trimmed.isEmpty && buttonState == .idle {
+            withAnimation(.easeOut(duration: 0.35)) {
+                buttonState = .ready
+                ringProgress = 0
+            }
+        } else if trimmed.isEmpty && buttonState == .ready {
+            withAnimation(.easeOut(duration: 0.25)) {
+                buttonState = .idle
+                ringProgress = 0
+            }
+        }
+    }
+    
+    private func triggerPost() {
+        guard buttonState == .ready else { return }
+        
+        // Transition to posting state
+        buttonState = .posting
+        
+        // Icon launch animation
+        withAnimation(.easeIn(duration: 0.28)) {
+            iconRotation = 35
+            iconScale = 0.15
+            iconOpacity = 0
+        }
+        
+        // Show spinner after 220ms
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.65)) {
+                showSpinner = true
+            }
+            
+            // Execute post action
+            Task {
+                await onPost()
+                
+                // Transition to sent state after posting completes
+                await MainActor.run {
+                    transitionToSent()
+                }
+            }
+        }
+    }
+    
+    private func transitionToSent() {
+        buttonState = .sent
+        
+        // Collapse spinner
+        withAnimation(.easeOut(duration: 0.2)) {
+            showSpinner = false
+        }
+        
+        // Show checkmark after 150ms
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.55)) {
+                showCheck = true
+            }
+            
+            // Reset to idle after 1.2s
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                withAnimation(.easeOut(duration: 0.3)) {
+                    resetToIdle()
+                }
+            }
+        }
+    }
+    
+    private func resetToIdle() {
+        buttonState = .idle
+        showCheck = false
+        iconScale = 1
+        iconOpacity = 1
+        iconRotation = 0
+        ringProgress = 0
+        pulseScale = 1
+        pulseOpacity = 0
+    }
+}
+
+// MARK: - Spinner Ring
+
+struct SpinnerRing: View {
+    @State private var rotation: Double = 0
+    
+    var body: some View {
+        ZStack {
+            // Outer track circle
+            Circle()
+                .stroke(Color.white.opacity(0.15), lineWidth: 2.5)
+                .frame(width: 20, height: 20)
+            
+            // Spinning arc
+            Circle()
+                .trim(from: 0, to: 0.7)
+                .stroke(
+                    Color.white.opacity(0.8),
+                    style: StrokeStyle(lineWidth: 2.5, lineCap: .round)
+                )
+                .frame(width: 20, height: 20)
+                .rotationEffect(.degrees(rotation))
+                .onAppear {
+                    withAnimation(.linear(duration: 0.9).repeatForever(autoreverses: false)) {
+                        rotation = 360
+                    }
+                }
         }
     }
 }

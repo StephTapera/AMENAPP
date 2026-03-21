@@ -15,11 +15,62 @@
 
 import Foundation
 
+// MARK: - Universal search results bundle (8 collections)
+
+/// All search results returned from the 8-collection parallel Firestore search,
+/// each section pre-ranked by SearchRankingService.
+struct UniversalSearchResults {
+    var people: [DiscoveryPerson]
+    var posts: [DiscoveryPost]
+    var churches: [DiscoveryChurch]
+    var topics: [DiscoveryTopic]
+    var prayers: [SearchSimpleItem]
+    var testimonies: [SearchSimpleItem]
+    var books: [SearchSimpleItem]
+    var events: [SearchSimpleItem]
+
+    var isEmpty: Bool {
+        people.isEmpty && posts.isEmpty && churches.isEmpty &&
+        topics.isEmpty && prayers.isEmpty && testimonies.isEmpty &&
+        books.isEmpty && events.isEmpty
+    }
+}
+
+/// Lightweight model for prayers / testimonies / books / events result rows.
+struct SearchSimpleItem: Identifiable, Equatable {
+    let id: String
+    let title: String
+    let subtitle: String?           // author, location, date string, etc.
+    let iconName: String            // SF Symbol
+    var relevanceScore: Double
+}
+
+// MARK: - Ranking engine
+
 enum SearchRankingService {
+
+    // MARK: - Core text-match scorer
+    //
+    // Scoring rubric (additive, per field):
+    //   Exact (case-insensitive) match  → +3 pts
+    //   Prefix match                    → +2 pts
+    //   Contains                        → +1 pt
+    //   Has profileImageURL/cover       → +0.5 pts  (caller adds)
+    //   followerCount or likeCount >100 → +0.5 pts  (caller adds)
+
+    static func textScore(candidate: String, query: String) -> Double {
+        guard !query.isEmpty else { return 0 }
+        let c = candidate.lowercased()
+        let q = query.lowercased()
+        if c == q           { return 3 }
+        if c.hasPrefix(q)   { return 2 }
+        if c.contains(q)    { return 1 }
+        return 0
+    }
 
     // MARK: - People Ranking
 
-    /// Ranks people by: follower count (log-scaled) + isFollowing boost + query name match.
+    /// Ranks people by: query relevance + engagement signals.
     static func rankPeople(_ people: [DiscoveryPerson], query: String) -> [DiscoveryPerson] {
         let q = query.lowercased()
         return people.sorted { a, b in
@@ -27,26 +78,30 @@ enum SearchRankingService {
         }
     }
 
-    private static func scoreForPerson(_ person: DiscoveryPerson, query: String) -> Double {
+    static func scoreForPerson(_ person: DiscoveryPerson, query: String) -> Double {
         var score: Double = 0
 
-        // Name / username match boost (0–40)
-        if person.displayName.lowercased().hasPrefix(query)   { score += 40 }
-        else if person.username.lowercased().hasPrefix(query)  { score += 35 }
-        else if person.displayName.lowercased().contains(query) { score += 20 }
-        else if person.username.lowercased().contains(query)    { score += 15 }
+        // Text matching across display name and username
+        score += textScore(candidate: person.displayName, query: query) * 3
+        score += textScore(candidate: person.username,    query: query) * 2
 
-        // Quality score from profile completeness signals (0–30)
-        score += min(30, person.qualityScore * 0.3)
+        // Image presence bonus
+        if let url = person.avatarURL, !url.isEmpty { score += 0.5 }
 
-        // Follower count — log scale so mega-accounts don't dominate (0–20)
-        score += min(20, log10(Double(max(1, person.followerCount))) * 5)
+        // Follower/engagement signal
+        if person.followerCount > 100 { score += 0.5 }
 
-        // Already following — surface people the current user knows (10)
-        if person.isFollowing { score += 10 }
+        // Quality score from profile completeness (0–30, scaled down)
+        score += min(3, person.qualityScore * 0.03)
 
-        // Verified badge (5)
-        if person.isVerified { score += 5 }
+        // Follower count — log scale
+        score += min(2, log10(Double(max(1, person.followerCount))) * 0.5)
+
+        // Already following
+        if person.isFollowing { score += 1 }
+
+        // Verified badge
+        if person.isVerified { score += 0.5 }
 
         return score
     }
@@ -61,28 +116,82 @@ enum SearchRankingService {
         }
     }
 
-    private static func scoreForPost(_ post: DiscoveryPost, query: String) -> Double {
+    static func scoreForPost(_ post: DiscoveryPost, query: String) -> Double {
         var score: Double = 0
 
-        let excerpt = post.excerpt.lowercased()
+        score += textScore(candidate: post.excerpt, query: query)
+        if let tag = post.topicTag {
+            score += textScore(candidate: tag, query: query) * 0.5
+        }
 
-        // Query match in excerpt (0–35)
-        if excerpt.hasPrefix(query)     { score += 35 }
-        else if excerpt.contains(query) { score += 20 }
+        // Image presence
+        if post.imageURL != nil { score += 0.5 }
 
-        // Recency — decays over 7 days (0–30)
+        // Engagement
+        if post.amenCount > 100 { score += 0.5 }
+
+        // Recency — decays over 7 days
         let ageHours = Date().timeIntervalSince(post.createdAt) / 3600
-        let recency = max(0, 30 - ageHours / 5.6)   // ~30 at 0h, 0 at 168h (7d)
+        let recency = max(0, 1.0 - ageHours / 168.0)
         score += recency
 
-        // Engagement quality: log-scaled amen + comment counts (0–20)
-        let engagement = log1p(Double(post.amenCount)) * 4 + log1p(Double(post.commentCount)) * 3
-        score += min(20, engagement)
-
-        // Has image (slight boost for richer content) (5)
-        if post.imageURL != nil { score += 5 }
-
         return score
+    }
+
+    // MARK: - Church Ranking
+
+    static func rankChurches(_ churches: [DiscoveryChurch], query: String) -> [DiscoveryChurch] {
+        let q = query.lowercased()
+        return churches.sorted { a, b in
+            scoreForChurch(a, query: q) > scoreForChurch(b, query: q)
+        }
+    }
+
+    private static func scoreForChurch(_ church: DiscoveryChurch, query: String) -> Double {
+        var score: Double = 0
+        score += textScore(candidate: church.name, query: query) * 3
+        score += textScore(candidate: church.city, query: query)
+        if let img = church.imageURL, !img.isEmpty { score += 0.5 }
+        if church.isVerified { score += 0.5 }
+        return score
+    }
+
+    // MARK: - Topic Ranking
+
+    static func rankTopics(_ topics: [DiscoveryTopic], query: String) -> [DiscoveryTopic] {
+        let q = query.lowercased()
+        return topics.sorted { a, b in
+            scoreForTopic(a, query: q) > scoreForTopic(b, query: q)
+        }
+    }
+
+    private static func scoreForTopic(_ topic: DiscoveryTopic, query: String) -> Double {
+        var score = textScore(candidate: topic.title, query: query) * 3
+        score += textScore(candidate: topic.description, query: query)
+        if topic.postCount > 100 { score += 0.5 }
+        score += min(1, topic.trendScore / 100.0)
+        return score
+    }
+
+    // MARK: - Simple Item Ranking (prayers, testimonies, books, events)
+
+    static func rankSimpleItems(_ items: [SearchSimpleItem], query: String) -> [SearchSimpleItem] {
+        let q = query.lowercased()
+        return items
+            .map { item in
+                var s = textScore(candidate: item.title, query: q) * 3
+                if let sub = item.subtitle {
+                    s += textScore(candidate: sub, query: q)
+                }
+                return SearchSimpleItem(
+                    id: item.id,
+                    title: item.title,
+                    subtitle: item.subtitle,
+                    iconName: item.iconName,
+                    relevanceScore: s
+                )
+            }
+            .sorted { $0.relevanceScore > $1.relevanceScore }
     }
 
     // MARK: - Top Results Blending
@@ -109,31 +218,35 @@ enum SearchRankingService {
         let prayersCap     = 1
         let testimoniesCap = 1
 
+        let q = query.lowercased()
+
         for p in people.prefix(peopleCap) {
-            let score = scoreForPerson(p, query: query.lowercased())
+            let score = scoreForPerson(p, query: q)
             results.append(DiscoveryResult(id: "p-\(p.id)", type: .person(p),
                                            relevanceScore: score, safetyScore: 100))
         }
         for t in topics.prefix(topicsCap) {
+            let score = scoreForTopic(t, query: q)
             results.append(DiscoveryResult(id: "t-\(t.id)", type: .topic(t),
-                                           relevanceScore: t.trendScore + 40, safetyScore: 100))
+                                           relevanceScore: score + t.trendScore * 0.1, safetyScore: 100))
         }
         for p in posts.prefix(postsCap) {
-            let score = scoreForPost(p, query: query.lowercased())
+            let score = scoreForPost(p, query: q)
             results.append(DiscoveryResult(id: "po-\(p.id)", type: .post(p),
                                            relevanceScore: score, safetyScore: 100))
         }
         for c in churches.prefix(churchesCap) {
+            let score = scoreForChurch(c, query: q)
             results.append(DiscoveryResult(id: "c-\(c.id)", type: .church(c),
-                                           relevanceScore: 75, safetyScore: 100))
+                                           relevanceScore: score, safetyScore: 100))
         }
         for pr in prayers.prefix(prayersCap) {
-            let score = scoreForPost(pr, query: query.lowercased()) + 5 // prayer affinity boost
+            let score = scoreForPost(pr, query: q) + 0.5 // prayer affinity boost
             results.append(DiscoveryResult(id: "pray-\(pr.id)", type: .post(pr),
                                            relevanceScore: score, safetyScore: 100))
         }
         for te in testimonies.prefix(testimoniesCap) {
-            let score = scoreForPost(te, query: query.lowercased()) + 5
+            let score = scoreForPost(te, query: q) + 0.5
             results.append(DiscoveryResult(id: "test-\(te.id)", type: .post(te),
                                            relevanceScore: score, safetyScore: 100))
         }

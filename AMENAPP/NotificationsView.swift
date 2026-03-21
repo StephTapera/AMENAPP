@@ -535,7 +535,7 @@ struct NotificationsView: View {
             markAsRead(notification)
         }
         
-        HapticManager.impact(style: .medium)
+        HapticManager.impact(style: .light)
 
         // Navigate to relevant content (Threads-style: tap row → content, tap avatar → profile)
         if let firstNotification = group.notifications.first {
@@ -575,7 +575,7 @@ struct NotificationsView: View {
         guard let first = group.notifications.first else { return }
         quickActionNotification = first
         showQuickActions = true
-        HapticManager.impact(style: .medium)
+        HapticManager.impact(style: .light)
     }
     
     private func handleQuickReply(_ notification: AppNotification) {

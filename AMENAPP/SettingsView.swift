@@ -110,7 +110,7 @@ struct SettingsView: View {
                             SDActionRow(icon: "rectangle.portrait.and.arrow.right",
                                         label: "Sign Out",
                                         style: .danger) {
-                                HapticManager.impact(style: .medium)
+                                HapticManager.impact(style: .light)
                                 showSignOutConfirmation = true
                             }
                             SDDivider()

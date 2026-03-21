@@ -18,6 +18,9 @@ struct AMENDiscoveryView: View {
     @StateObject private var service = DiscoveryService.shared
     @ObservedObject private var followService = FollowService.shared
 
+    // Universal search view-model — owns 8-collection Firestore search + ranking
+    @StateObject private var searchVM = UniversalSearchViewModel()
+
     @State private var searchText = ""
     @FocusState private var isSearchFocused: Bool
     @State private var scrollOffset: CGFloat = 0
@@ -99,15 +102,24 @@ struct AMENDiscoveryView: View {
                     .submitLabel(.search)
                     .onSubmit {
                         Task { await service.submitSearch(searchText) }
+                        searchVM.scheduleSearch(query: searchText)
                     }
                     .onChange(of: searchText) { _, newValue in
                         service.setQuery(newValue)
+                        // 350ms debounce for 8-collection universal search
+                        searchVM.scheduleSearch(query: newValue)
+                    }
+                    .onChange(of: isSearchFocused) { _, focused in
+                        if focused {
+                            HapticManager.impact(style: .light)
+                        }
                     }
 
                 if !searchText.isEmpty {
                     Button {
                         searchText = ""
                         service.clearSearch()
+                        searchVM.scheduleSearch(query: "")
                         isSearchFocused = false
                     } label: {
                         Image(systemName: "xmark.circle.fill")
@@ -127,7 +139,7 @@ struct AMENDiscoveryView: View {
             // Berean AI button — labeled capsule so users know what it does
             if !isSearchFocused && searchText.isEmpty {
                 Button {
-                    HapticManager.impact(style: .medium)
+                    HapticManager.impact(style: .light)
                     showBereanAI = true
                 } label: {
                     HStack(spacing: 4) {
@@ -178,6 +190,7 @@ struct AMENDiscoveryView: View {
                 Button("Cancel") {
                     searchText = ""
                     service.clearSearch()
+                    searchVM.scheduleSearch(query: "")
                     isSearchFocused = false
                 }
                 .font(.custom("OpenSans-Regular", size: 15))
@@ -201,14 +214,46 @@ struct AMENDiscoveryView: View {
     private var contentArea: some View {
         switch service.searchState {
         case .landing:
-            landingView
+            // When focused + empty → show recent searches overlay on top of landing
+            if isSearchFocused && searchText.isEmpty {
+                searchFocusedEmptyView
+            } else {
+                landingView
+            }
         case .typing:
-            typeaheadView
+            // Show recent searches if query is empty, typeahead otherwise
+            if searchText.isEmpty && isSearchFocused {
+                searchFocusedEmptyView
+            } else {
+                typeaheadView
+            }
         case .results(let query):
-            DiscoverySearchResultsView(query: query)
+            // Show new UniversalSearchResultsView alongside existing tabbed view
+            UniversalSearchResultsView(
+                query: query,
+                viewModel: searchVM,
+                searchText: $searchText
+            )
         case .topicPage(let topic):
             DiscoveryTopicPageView(topic: topic)
         }
+    }
+
+    /// Shown when search bar is focused and query is empty — recent searches list.
+    private var searchFocusedEmptyView: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                SearchRecentListView(viewModel: searchVM) { term in
+                    searchText = term
+                    isSearchFocused = false
+                    service.setQuery(term)
+                    searchVM.scheduleSearch(query: term)
+                    Task { await service.submitSearch(term) }
+                }
+                Spacer().frame(height: 100)
+            }
+        }
+        .scrollDismissesKeyboard(.interactively)
     }
 
     // MARK: - Landing View
@@ -218,6 +263,14 @@ struct AMENDiscoveryView: View {
             LazyVStack(alignment: .leading, spacing: 28) {
                 // Topic chips
                 topicChipsSection
+
+                // Trending topics from Firestore (horizontal pills)
+                TrendingTopicsPillsView(viewModel: searchVM) { topic in
+                    searchText = topic.title
+                    service.setQuery(topic.title)
+                    searchVM.scheduleSearch(query: topic.title)
+                    Task { await service.submitSearch(topic.title) }
+                }
 
                 // Recent searches
                 if !service.recentSearches.isEmpty {
@@ -414,7 +467,7 @@ struct AMENDiscoveryView: View {
 
     private var bereanAIBannerSection: some View {
         Button {
-            HapticManager.impact(style: .medium)
+            HapticManager.impact(style: .light)
             showBereanAI = true
         } label: {
             HStack(spacing: 14) {
@@ -536,7 +589,7 @@ struct AMENDiscoveryView: View {
                 // Berean AI shortcut — ask a faith question instead of searching
                 Button {
                     isSearchFocused = false
-                    HapticManager.impact(style: .medium)
+                    HapticManager.impact(style: .light)
                     showBereanAI = true
                 } label: {
                     HStack(spacing: 12) {

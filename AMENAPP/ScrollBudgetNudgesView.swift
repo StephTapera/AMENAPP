@@ -156,7 +156,7 @@ struct ScrollBudgetSoftStopView: View {
             // Extension button
             Button {
                 if budgetManager.requestExtension() {
-                    HapticManager.impact(style: .medium)
+                    HapticManager.impact(style: .light)
                     dismiss()
                 }
             } label: {

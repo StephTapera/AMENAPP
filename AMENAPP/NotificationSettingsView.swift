@@ -55,7 +55,7 @@ struct NotificationSettingsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .alert("Enable Notifications", isPresented: $showPermissionAlert) {
             Button("Open Settings") {
-                HapticManager.impact(style: .medium)
+                HapticManager.impact(style: .light)
                 openAppSettings()
             }
             Button("Cancel", role: .cancel) {
@@ -324,7 +324,7 @@ struct NotificationSettingsView: View {
                 .padding(.horizontal, 16)
             
             Button {
-                HapticManager.impact(style: .medium)
+                HapticManager.impact(style: .light)
                 testNotification()
             } label: {
                 HStack(spacing: 12) {

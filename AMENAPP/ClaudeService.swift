@@ -2,79 +2,27 @@
 //  ClaudeService.swift
 //  AMENAPP
 //
-//  Anthropic Claude API client for Berean AI.
-//  Drop-in replacement for OpenAIService: same public interface, same error types,
-//  same streaming API, same cache structure — routes to Anthropic Messages API
-//  with BereanMode-driven model tiering (Haiku for real-time, Sonnet for deep work).
+//  Anthropic Claude client for Berean AI — routes through the bereanChatProxy
+//  Cloud Function instead of calling api.anthropic.com directly.
+//  The API key lives in Firebase Secret Manager; it is never stored on device.
 //
-//  Model tiering:
-//    • Haiku  (claude-haiku-4-5)  — every real-time user interaction
-//    • Sonnet (claude-sonnet-4-5) — multi-chapter study, devotional, enforcement drafts
+//  Streaming UX is preserved via local typewriter animation (15 ms/character).
 //
-//  BereanMode → tier:
-//    scholar   → Sonnet  (precise theological analysis, cross-references, multi-step study)
-//    debater   → Sonnet  (steelmanning arguments requires deeper reasoning)
-//    strategist→ Haiku   (fast business/ops answers)
-//    shepherd  → Haiku   (pastoral warmth, light-weight)
-//    builder   → Haiku   (code/systems, concise)
-//    creator   → Haiku   (generative, fast)
-//    coach     → Haiku   (action-oriented, concise)
+//  Model tiering (communicated to the proxy via systemPrompt prefix):
+//    • Haiku  — all real-time user interactions
+//    • Sonnet — scholar/debater modes, async deep-work helpers
 //
-//  Async Genkit helpers (generateDevotional, generateStudyPlan, analyzeScripture):
-//    These are called with mode: .scholar and will automatically route to Sonnet.
+//  Public interface is identical to the previous direct-API version so all
+//  callers compile without changes.
 
 import Foundation
 import SwiftUI
 import Combine
-
-// MARK: - Model Constants
-
-private enum ClaudeModel {
-    /// Fast, cost-efficient — used for all real-time Berean interactions.
-    static let haiku  = "claude-haiku-4-5"
-    /// Higher quality — used for scholar/debater modes and async deep-work helpers.
-    static let sonnet = "claude-sonnet-4-5"
-
-    /// Map a BereanMode to the appropriate Claude model.
-    static func forMode(_ mode: BereanMode) -> String {
-        switch mode {
-        case .scholar, .debater:
-            return sonnet
-        case .shepherd, .builder, .strategist, .creator, .coach:
-            return haiku
-        }
-    }
-}
-
-// MARK: - Codable Request / Response Models (Anthropic Messages API)
-
-private struct AnthropicMessage: Encodable {
-    let role: String    // "user" or "assistant"
-    let content: String
-}
-
-private struct AnthropicRequest: Encodable {
-    let model: String
-    let max_tokens: Int
-    let temperature: Double
-    let system: String
-    let messages: [AnthropicMessage]
-    let stream: Bool
-}
-
-private struct AnthropicNonStreamResponse: Decodable {
-    struct Content: Decodable {
-        let type: String
-        let text: String?
-    }
-    let content: [Content]
-}
+import FirebaseFunctions
 
 // MARK: - Service
 
-/// Drop-in Claude replacement for OpenAIService, used by Berean AI and Church Notes.
-/// Uses the same public interface (sendMessage/sendMessageSync/reset/cancelCurrentRequest)
-/// and the same error types (OpenAIServiceError) so callers require no changes.
+/// Drop-in Berean AI client that routes all LLM calls through bereanChatProxy.
 @MainActor
 final class ClaudeService: ObservableObject {
     static let shared = ClaudeService()
@@ -84,52 +32,37 @@ final class ClaudeService: ObservableObject {
 
     // MARK: - Configuration
 
-    private let apiKey: String
-    private let baseURL = "https://api.anthropic.com/v1"
-    private let anthropicVersion = "2023-06-01"
-
+    private let functions = Functions.functions()
     private var currentTask: Task<Void, Never>?
 
-    // Ephemeral session: no accidental persistence of sensitive request data.
-    private let session: URLSession = {
-        let config = URLSessionConfiguration.ephemeral
-        config.timeoutIntervalForRequest  = 30
-        config.timeoutIntervalForResource = 60
-        config.waitsForConnectivity = true
-        return URLSession(configuration: config)
-    }()
-
-    // 15-minute TTL, 50-entry LRU (history-free queries only — same as OpenAIService).
+    // 15-minute TTL, 50-entry LRU (history-free queries only).
     private var responseCache: [String: CachedResponse] = [:]
     private let cacheTTL: TimeInterval = 900
     private let maxCacheEntries = 50
     private let maxHistoryMessages = 12
     private let maxMessageLength = 12_000
 
-    init() {
-        self.apiKey = BundleConfig.string(forKey: "ANTHROPIC_API_KEY") ?? ""
-    }
+    // Typewriter speed for local streaming simulation.
+    private let typewriterDelayNs: UInt64 = 15_000_000 // 15 ms
 
     // MARK: - Public Control
 
-    /// Cancel any in-flight streaming request immediately.
     func cancelCurrentRequest() {
         currentTask?.cancel()
         currentTask = nil
         isProcessing = false
     }
 
-    /// Full reset — call on logout or auth switch.
     func reset() {
         cancelCurrentRequest()
         responseCache.removeAll()
         lastError = nil
     }
 
-    // MARK: - Chat Completion (Streaming)
+    // MARK: - Chat Completion (Typewriter Streaming)
 
-    /// Send a message to Berean and receive a streaming response.
-    /// Automatically cancels any previously running request.
+    /// Send a message to Berean and receive a streaming response via local
+    /// typewriter animation on top of a full response from the Cloud Function.
     func sendMessage(
         _ message: String,
         conversationHistory: [OpenAIChatMessage] = [],
@@ -141,12 +74,6 @@ final class ClaudeService: ObservableObject {
 
         cancelCurrentRequest()
 
-        guard !apiKey.isEmpty else {
-            return AsyncThrowingStream { continuation in
-                continuation.finish(throwing: OpenAIServiceError.missingAPIKey)
-            }
-        }
-
         // Preflight validation before touching the network.
         do {
             try validateOutgoingMessage(message)
@@ -157,20 +84,9 @@ final class ClaudeService: ObservableObject {
         }
 
         // Cache hit (history-free queries only).
-        let modelID = ClaudeModel.forMode(mode)
-        let cacheKey = makeCacheKey(message: message, model: modelID, mode: mode, suffix: systemPromptSuffix)
+        let cacheKey = makeCacheKey(message: message, mode: mode, suffix: systemPromptSuffix)
         if conversationHistory.isEmpty, let cached = getCachedResponse(for: cacheKey) {
-            return AsyncThrowingStream { continuation in
-                Task {
-                    let words = cached.split(separator: " ")
-                    for word in words {
-                        if Task.isCancelled { break }
-                        continuation.yield(String(word) + " ")
-                        try? await Task.sleep(nanoseconds: 8_000_000)
-                    }
-                    continuation.finish()
-                }
-            }
+            return typewriterStream(text: cached)
         }
 
         return AsyncThrowingStream { continuation in
@@ -184,30 +100,26 @@ final class ClaudeService: ObservableObject {
                     }
 
                     let systemPrompt = buildSystemPrompt(mode: mode, suffix: systemPromptSuffix)
-                    let messages = buildMessages(
+                    let userMessage = buildUserMessage(
                         userMessage: message,
                         history: trimmedHistory(conversationHistory)
                     )
 
-                    var fullResponse = ""
+                    let result = try await self.callProxy(
+                        systemPrompt: systemPrompt,
+                        userMessage: userMessage,
+                        maxTokens: min(maxTokens, 2000)
+                    )
 
-                    try await self.withRetry {
-                        let stream = self.streamCompletion(
-                            model: modelID,
-                            systemPrompt: systemPrompt,
-                            messages: messages,
-                            maxTokens: maxTokens,
-                            temperature: temperature
-                        )
-                        for try await chunk in stream {
-                            try Task.checkCancellation()
-                            continuation.yield(chunk)
-                            fullResponse += chunk
-                        }
+                    if conversationHistory.isEmpty, !result.isEmpty {
+                        self.cacheResponse(result, for: cacheKey)
                     }
 
-                    if conversationHistory.isEmpty, !fullResponse.isEmpty {
-                        self.cacheResponse(fullResponse, for: cacheKey)
+                    // Typewriter playback
+                    for char in result {
+                        try Task.checkCancellation()
+                        continuation.yield(String(char))
+                        try? await Task.sleep(nanoseconds: self.typewriterDelayNs)
                     }
 
                     continuation.finish()
@@ -230,7 +142,6 @@ final class ClaudeService: ObservableObject {
 
     // MARK: - Highlighted Text / Selection API
 
-    /// Ask Berean about selected text from anywhere in the app.
     func askBereanAboutSelection(
         selectedText: String,
         source: BereanSource,
@@ -243,49 +154,82 @@ final class ClaudeService: ObservableObject {
 
     // MARK: - Sync Completion
 
-    /// Non-streaming completion (for summarisation, moderation helpers, etc.).
     func sendMessageSync(
         _ message: String,
         conversationHistory: [OpenAIChatMessage] = [],
         mode: BereanMode = .shepherd
     ) async throws -> String {
-        guard !apiKey.isEmpty else { throw OpenAIServiceError.missingAPIKey }
         try validateOutgoingMessage(message)
 
         isProcessing = true
         defer { isProcessing = false }
 
-        let modelID = ClaudeModel.forMode(mode)
         let systemPrompt = buildSystemPrompt(mode: mode, suffix: nil)
-        let messages = buildMessages(
+        let userMessage = buildUserMessage(
             userMessage: message,
             history: trimmedHistory(conversationHistory)
         )
 
         return try await withRetry {
-            try await self.nonStreamingCompletion(
-                model: modelID,
+            try await self.callProxy(
                 systemPrompt: systemPrompt,
-                messages: messages
+                userMessage: userMessage,
+                maxTokens: 2000
             )
+        }
+    }
+
+    // MARK: - Cloud Function Call
+
+    private func callProxy(
+        systemPrompt: String,
+        userMessage: String,
+        maxTokens: Int
+    ) async throws -> String {
+        let callable = functions.httpsCallable("bereanChatProxy")
+        let params: [String: Any] = [
+            "systemPrompt": systemPrompt,
+            "userMessage": userMessage,
+            "maxTokens": maxTokens,
+        ]
+        let result = try await callable.call(params)
+        guard let data = result.data as? [String: Any],
+              let text = data["text"] as? String else {
+            throw OpenAIServiceError.invalidResponse
+        }
+        return text
+    }
+
+    // MARK: - Typewriter stream helper
+
+    private func typewriterStream(text: String) -> AsyncThrowingStream<String, Error> {
+        AsyncThrowingStream { continuation in
+            Task {
+                for char in text {
+                    if Task.isCancelled { break }
+                    continuation.yield(String(char))
+                    try? await Task.sleep(nanoseconds: self.typewriterDelayNs)
+                }
+                continuation.finish()
+            }
         }
     }
 
     // MARK: - Prompt Construction
 
-    private func buildMessages(
+    private func buildUserMessage(
         userMessage: String,
         history: [OpenAIChatMessage]
-    ) -> [AnthropicMessage] {
-        var messages: [AnthropicMessage] = []
-        for msg in history {
-            messages.append(.init(role: msg.isFromUser ? "user" : "assistant", content: msg.content))
-        }
-        messages.append(.init(role: "user", content: userMessage))
-        return messages
+    ) -> String {
+        // Flatten conversation history into the user message for the proxy.
+        // The proxy accepts a single userMessage string; history is prepended.
+        guard !history.isEmpty else { return userMessage }
+        let historyText = history.map { msg in
+            "\(msg.isFromUser ? "User" : "Berean"): \(msg.content)"
+        }.joined(separator: "\n")
+        return "\(historyText)\nUser: \(userMessage)"
     }
 
-    /// Identical system prompt to OpenAIService — content, mode shaping, and safety guardrails preserved.
     private func buildSystemPrompt(mode: BereanMode, suffix: String?) -> String {
         var prompt = """
             You are Berean, the AI assistant inside the AMEN app. You are an elite, helpful assistant for Bible study, life decisions, tech, business, and creativity — while staying Christ-centered, safe, and wise. Be practical, intelligent, and calm.
@@ -383,7 +327,6 @@ final class ClaudeService: ObservableObject {
         guard !trimmed.isEmpty else { throw OpenAIServiceError.emptyMessage }
         guard trimmed.count <= maxMessageLength else { throw OpenAIServiceError.messageTooLong }
 
-        // Jailbreak detection (client-side, before any API call).
         let lower = trimmed.lowercased()
         for pattern in BereanSafetyPolicy.jailbreakPatterns {
             if lower.contains(pattern) {
@@ -392,7 +335,6 @@ final class ClaudeService: ObservableObject {
             }
         }
 
-        // PII detection: don't send personal data to the API.
         for (pattern, label) in BereanSafetyPolicy.piiPatterns {
             guard let re = try? NSRegularExpression(pattern: pattern) else { continue }
             let range = NSRange(trimmed.startIndex..., in: trimmed)
@@ -411,10 +353,6 @@ final class ClaudeService: ObservableObject {
 
     // MARK: - Retry Logic
 
-    private func shouldRetry(for error: Error) -> Bool {
-        OpenAIServiceError.from(error).isRetryable
-    }
-
     @discardableResult
     private func withRetry<T>(
         maxAttempts: Int = 3,
@@ -429,12 +367,7 @@ final class ClaudeService: ObservableObject {
             } catch {
                 lastError = error
                 attempt += 1
-
-                guard attempt < maxAttempts, shouldRetry(for: error) else {
-                    throw error
-                }
-
-                // Exponential backoff: 500ms, 1s, 2s.
+                guard attempt < maxAttempts else { throw error }
                 let delay = UInt64(pow(2.0, Double(attempt - 1)) * 500_000_000)
                 try await Task.sleep(nanoseconds: delay)
             }
@@ -443,138 +376,10 @@ final class ClaudeService: ObservableObject {
         throw lastError ?? OpenAIServiceError.unknown
     }
 
-    // MARK: - Low-Level Streaming Request (Anthropic SSE)
-
-    private func streamCompletion(
-        model: String,
-        systemPrompt: String,
-        messages: [AnthropicMessage],
-        maxTokens: Int,
-        temperature: Double
-    ) -> AsyncThrowingStream<String, Error> {
-        return AsyncThrowingStream { continuation in
-            Task {
-                do {
-                    guard let url = URL(string: "\(baseURL)/messages") else {
-                        throw OpenAIServiceError.invalidResponse
-                    }
-
-                    let body = AnthropicRequest(
-                        model: model,
-                        max_tokens: maxTokens,
-                        temperature: temperature,
-                        system: systemPrompt,
-                        messages: messages,
-                        stream: true
-                    )
-
-                    var request = URLRequest(url: url)
-                    request.httpMethod = "POST"
-                    request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
-                    request.setValue(anthropicVersion, forHTTPHeaderField: "anthropic-version")
-                    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-                    request.httpBody = try JSONEncoder().encode(body)
-
-                    let (bytes, response) = try await session.bytes(for: request)
-
-                    guard let httpResponse = response as? HTTPURLResponse else {
-                        throw OpenAIServiceError.invalidResponse
-                    }
-
-                    guard httpResponse.statusCode == 200 else {
-                        throw OpenAIError.httpError(statusCode: httpResponse.statusCode)
-                    }
-
-                    // Anthropic SSE format:
-                    //   event: content_block_delta
-                    //   data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"…"}}
-                    for try await line in bytes.lines {
-                        try Task.checkCancellation()
-                        guard !line.isEmpty, !line.hasPrefix(":") else { continue }
-
-                        if line.hasPrefix("data: ") {
-                            let jsonString = String(line.dropFirst(6))
-                            guard jsonString != "[DONE]",
-                                  let jsonData = jsonString.data(using: .utf8) else { continue }
-
-                            struct StreamDelta: Decodable {
-                                struct Delta: Decodable {
-                                    let type: String?
-                                    let text: String?
-                                }
-                                let type: String
-                                let delta: Delta?
-                            }
-
-                            guard let event = try? JSONDecoder().decode(StreamDelta.self, from: jsonData),
-                                  event.type == "content_block_delta",
-                                  event.delta?.type == "text_delta",
-                                  let text = event.delta?.text else {
-                                continue
-                            }
-
-                            continuation.yield(text)
-                        }
-                    }
-
-                    continuation.finish()
-
-                } catch {
-                    continuation.finish(throwing: error)
-                }
-            }
-        }
-    }
-
-    // MARK: - Low-Level Non-Streaming Request (Anthropic Messages)
-
-    private func nonStreamingCompletion(
-        model: String,
-        systemPrompt: String,
-        messages: [AnthropicMessage]
-    ) async throws -> String {
-        guard let url = URL(string: "\(baseURL)/messages") else {
-            throw OpenAIServiceError.invalidResponse
-        }
-
-        let body = AnthropicRequest(
-            model: model,
-            max_tokens: 2000,
-            temperature: 0.7,
-            system: systemPrompt,
-            messages: messages,
-            stream: false
-        )
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
-        request.setValue(anthropicVersion, forHTTPHeaderField: "anthropic-version")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONEncoder().encode(body)
-
-        let (data, response) = try await session.data(for: request)
-
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw OpenAIServiceError.invalidResponse
-        }
-
-        guard httpResponse.statusCode == 200 else {
-            throw OpenAIError.httpError(statusCode: httpResponse.statusCode)
-        }
-
-        let decoded = try JSONDecoder().decode(AnthropicNonStreamResponse.self, from: data)
-        guard let text = decoded.content.first(where: { $0.type == "text" })?.text else {
-            throw OpenAIServiceError.invalidResponse
-        }
-
-        return text
-    }
-
     // MARK: - Cache Management
 
-    private func makeCacheKey(message: String, model: String, mode: BereanMode, suffix: String?) -> String {
-        "\(model)|\(mode.rawValue)|\(suffix ?? "")|\(message.trimmingCharacters(in: .whitespacesAndNewlines).lowercased())"
+    private func makeCacheKey(message: String, mode: BereanMode, suffix: String?) -> String {
+        "\(mode.rawValue)|\(suffix ?? "")|\(message.trimmingCharacters(in: .whitespacesAndNewlines).lowercased())"
     }
 
     private func getCachedResponse(for key: String) -> String? {
@@ -590,8 +395,6 @@ final class ClaudeService: ObservableObject {
     private func cacheResponse(_ response: String, for key: String) {
         pruneExpiredCache()
         responseCache[key] = CachedResponse(response: response, timestamp: Date())
-
-        // Evict oldest entry if over limit.
         if responseCache.count > maxCacheEntries {
             if let oldestKey = responseCache.min(by: { $0.value.timestamp < $1.value.timestamp })?.key {
                 responseCache.removeValue(forKey: oldestKey)

@@ -588,3 +588,135 @@ Rules:
       throw new HttpsError("invalid-argument", `Unknown mode: ${mode}. Use smart_reply or tone_rewrite.`);
     },
 );
+
+// ============================================================================
+// BEREAN CHAT PROXY — routes Berean AI chat through Cloud Functions.
+// SETUP: firebase functions:secrets:set ANTHROPIC_API_KEY
+// The iOS client (ClaudeService) calls this instead of api.anthropic.com directly.
+// ============================================================================
+
+const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY");
+
+exports.bereanChatProxy = onCall(
+    {
+      region: REGION,
+      secrets: [ANTHROPIC_API_KEY],
+    },
+    async (request) => {
+      if (!request.auth) {
+        throw new HttpsError("unauthenticated", "Authentication required.");
+      }
+
+      // Rate limit: 10 Berean calls per user per hour
+      const uid = request.auth.uid;
+      const hourKey = new Date().toISOString().slice(0, 13); // e.g. "2026-03-21T14"
+      const usageRef = admin.firestore().doc(`users/${uid}/bereanUsage/${hourKey}`);
+      const usageSnap = await usageRef.get();
+      const count = usageSnap.exists ? usageSnap.data().count : 0;
+      if (count >= 10) {
+        throw new HttpsError("resource-exhausted", "Berean usage limit reached. Try again later.");
+      }
+      await usageRef.set({count: count + 1}, {merge: true});
+
+      const {systemPrompt, userMessage, maxTokens} = request.data;
+
+      if (!userMessage || typeof userMessage !== "string") {
+        throw new HttpsError("invalid-argument", "userMessage is required.");
+      }
+
+      const apiKey = ANTHROPIC_API_KEY.value();
+      if (!apiKey) {
+        throw new HttpsError("internal", "ANTHROPIC_API_KEY secret not configured.");
+      }
+
+      const fetch = require("node-fetch");
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: "claude-haiku-4-5-20251001",
+          max_tokens: maxTokens ?? 600,
+          system: systemPrompt ?? "",
+          messages: [{role: "user", content: userMessage}],
+        }),
+      });
+
+      const json = await response.json();
+      if (!response.ok) {
+        throw new HttpsError("internal", json.error?.message ?? "Anthropic API error");
+      }
+      return {text: json.content?.[0]?.text ?? ""};
+    },
+);
+
+// ============================================================================
+// DELETE ACCOUNT — server-side cascade deletion callable.
+// Called by AccountDeletionService when the user confirms account deletion.
+// Covers: Auth + Firestore + RTDB + Storage.
+// ============================================================================
+
+exports.deleteAccount = onCall(
+    {
+      region: REGION,
+    },
+    async (request) => {
+      if (!request.auth) {
+        throw new HttpsError("unauthenticated", "Authentication required.");
+      }
+
+      const uid = request.auth.uid;
+      const db = admin.firestore();
+      const rtdb = admin.database();
+      const storage = admin.storage();
+      const bucket = storage.bucket();
+
+      // 1. Delete Firestore user document
+      await db.doc(`users/${uid}`).delete();
+
+      // 2. Delete subcollections
+      const subcollections = [
+        "followers", "following", "notifications", "prayerRequests",
+        "berean_feedback", "compose_suggestion_feedback", "bereanUsage",
+        "bookmarkedMedia", "mediaHistory", "readingProgress",
+        "completedReflections", "fcmTokens", "blockedUsers",
+      ];
+      for (const sub of subcollections) {
+        const snap = await db.collection(`users/${uid}/${sub}`).get();
+        if (snap.docs.length > 0) {
+          const batch = db.batch();
+          snap.docs.forEach((doc) => batch.delete(doc.ref));
+          await batch.commit();
+        }
+      }
+
+      // 3. Delete user's posts
+      const postsSnap = await db.collection("posts").where("authorId", "==", uid).get();
+      if (postsSnap.docs.length > 0) {
+        const postBatch = db.batch();
+        postsSnap.docs.forEach((doc) => postBatch.delete(doc.ref));
+        await postBatch.commit();
+      }
+
+      // 4. Delete keyBundle
+      await db.doc(`keyBundles/${uid}`).delete().catch(() => {});
+
+      // 5. Delete RTDB presence
+      await rtdb.ref(`users/${uid}`).remove();
+
+      // 6. Delete Storage files
+      try {
+        await bucket.deleteFiles({prefix: `users/${uid}/`});
+        await bucket.deleteFiles({prefix: `posts/${uid}/`});
+      } catch (e) {
+        console.warn("Storage cleanup partial:", e);
+      }
+
+      // 7. Delete Auth user (must be last)
+      await admin.auth().deleteUser(uid);
+      return {success: true};
+    },
+);

@@ -31,6 +31,7 @@ import AVFoundation
 import Speech
 import FirebaseAuth
 import FirebaseFirestore
+import FirebaseFunctions
 import UIKit
 
 // MARK: - Error Types
@@ -101,10 +102,7 @@ actor WhisperVoiceService {
     private var isCurrentlyRecording = false
     private var recordingStartTime: Date?
 
-    private var apiKey: String {
-        BundleConfig.string(forKey: "OPENAI_API_KEY") ?? ""
-    }
-
+    private let functions = Functions.functions()
     private let db = Firestore.firestore()
 
     private init() {}
@@ -219,11 +217,8 @@ actor WhisperVoiceService {
             audioFile = nil
         }
 
-        // Try Whisper API first, fall back to Apple on-device
+        // Try Whisper proxy first, fall back to Apple on-device
         do {
-            guard !apiKey.isEmpty else {
-                throw WhisperError.apiKeyMissing
-            }
             guard await hasRemainingQuota() else {
                 throw WhisperError.dailyLimitReached
             }
@@ -280,74 +275,50 @@ actor WhisperVoiceService {
 
     var isRecording: Bool { isCurrentlyRecording }
 
-    // MARK: - Whisper API
+    // MARK: - Whisper via Cloud Function Proxy
 
+    /// Converts audio file to base64 and calls the "whisperProxy" Firebase callable.
+    /// The OPENAI_API_KEY never leaves the server.
     private func callWhisperAPI(audioFileURL: URL, durationSeconds: Double) async throws -> WhisperTranscriptionResult {
-        let url = URL(string: "https://api.openai.com/v1/audio/transcriptions")!
-        let boundary = UUID().uuidString
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
-        request.timeoutInterval = 30
-
         let audioData = try Data(contentsOf: audioFileURL)
-        var body = Data()
+        let base64Audio = audioData.base64EncodedString()
 
-        func field(_ name: String, _ value: String) {
-            body.append("--\(boundary)\r\n".data(using: .utf8)!)
-            body.append("Content-Disposition: form-data; name=\"\(name)\"\r\n\r\n".data(using: .utf8)!)
-            body.append("\(value)\r\n".data(using: .utf8)!)
+        let payload: [String: Any] = [
+            "audioBase64": base64Audio,
+            "language": languageCode,
+            "mimeType": "audio/wav",
+        ]
+
+        do {
+            let result = try await functions.httpsCallable("whisperProxy").call(payload)
+            guard let data = result.data as? [String: Any],
+                  let text = data["text"] as? String else {
+                throw WhisperError.whisperFailed("Failed to parse proxy response")
+            }
+            let confidence = data["confidence"] as? Double ?? 0.7
+            let detectedLang = data["language"] as? String ?? languageCode
+
+            return WhisperTranscriptionResult(
+                text: text.trimmingCharacters(in: .whitespacesAndNewlines),
+                confidence: confidence,
+                language: detectedLang,
+                durationSeconds: durationSeconds,
+                engine: .whisper
+            )
+        } catch let error as NSError {
+            // Propagate rate-limit / auth errors so the fallback path can decide
+            if let code = FunctionsErrorCode(rawValue: error.code) {
+                switch code {
+                case .resourceExhausted:
+                    throw WhisperError.dailyLimitReached
+                case .unauthenticated:
+                    throw WhisperError.apiKeyMissing
+                default:
+                    throw WhisperError.whisperFailed(error.localizedDescription)
+                }
+            }
+            throw WhisperError.whisperFailed(error.localizedDescription)
         }
-
-        field("model", "whisper-1")
-        field("language", languageCode)
-        field("response_format", "verbose_json") // Get confidence scores
-
-        // AMEN domain prompt
-        let prompt = "business, entrepreneurship, innovation, technology, leadership, " +
-            "Scripture, stewardship, calling, purpose, kingdom, biblical worldview, prayer, testimony. " +
-            "AMEN is a faith-based social platform for Christians in business, tech, and culture. " +
-            "Users discuss startups, career, leadership, and current events through a biblical lens. " +
-            "Users may quote Scripture mid-sentence while discussing a business problem."
-        field("prompt", prompt)
-
-        // Audio file
-        body.append("--\(boundary)\r\n".data(using: .utf8)!)
-        body.append("Content-Disposition: form-data; name=\"file\"; filename=\"recording.wav\"\r\nContent-Type: audio/wav\r\n\r\n".data(using: .utf8)!)
-        body.append(audioData)
-        body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
-
-        request.httpBody = body
-
-        let (data, response) = try await URLSession.shared.data(for: request)
-
-        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-            let errorBody = String(data: data, encoding: .utf8) ?? "Unknown error"
-            throw WhisperError.whisperFailed(errorBody)
-        }
-
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let text = json["text"] as? String else {
-            throw WhisperError.whisperFailed("Failed to parse response")
-        }
-
-        // Extract confidence from verbose_json (avg_logprob → approximate confidence)
-        let segments = json["segments"] as? [[String: Any]] ?? []
-        let logprobs = segments.compactMap { $0["avg_logprob"] as? Double }
-        let avgLogprob: Double = logprobs.isEmpty ? -0.5 : logprobs.reduce(0, +) / Double(logprobs.count)
-        let confidence = max(0, min(1, 1.0 + avgLogprob)) // logprob is negative; -0 = perfect
-
-        let detectedLang = json["language"] as? String ?? languageCode
-
-        return WhisperTranscriptionResult(
-            text: text.trimmingCharacters(in: .whitespacesAndNewlines),
-            confidence: confidence,
-            language: detectedLang,
-            durationSeconds: durationSeconds,
-            engine: .whisper
-        )
     }
 
     // MARK: - Apple SFSpeechRecognizer Fallback (Offline)
@@ -487,7 +458,7 @@ class WhisperVoiceViewModel: ObservableObject {
         isRecording = false
         isTranscribing = true
         // Haptic: heavy impact on stop
-        UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
 
         do {
             let result = try await service.stopAndTranscribe()

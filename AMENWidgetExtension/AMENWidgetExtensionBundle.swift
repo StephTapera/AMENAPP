@@ -20,11 +20,15 @@ struct AMENWidgetExtensionBundle: WidgetBundle {
         PrayerCountWidget()
         QuickActionsWidget()
         AMENStatsWidget()
+        CommunityPulseWidget()
+        UpcomingEventWidget()
         // Lock screen widgets (iOS 16+)
         if #available(iOSApplicationExtension 16.0, *) {
             AMENLockScreenWidget()
         }
         // Dynamic Island — Berean AI Live Activity
         BereanLiveActivityWidget()
+        // Dynamic Island — Prayer Chain Live Activity
+        PrayerChainLiveActivityWidget()
     }
 }

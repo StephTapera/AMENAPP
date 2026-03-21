@@ -12,6 +12,7 @@ import SwiftUI
 import PhotosUI
 import FirebaseAuth
 import FirebaseFirestore
+import FirebaseFunctions
 import Combine
 
 // MARK: - Unified Chat View
@@ -105,6 +106,13 @@ struct UnifiedChatView: View {
     @State private var showReportConfirmation = false
     @State private var showBlockConfirmation = false
     @State private var userIdToBlock: String?
+
+    // MARK: — Berean AI Streaming state
+    @State private var isBereanStreaming = false
+    @State private var bereanStreamingText = ""
+    @State private var bereanStreamingTokenCount = 0
+    @State private var bereanStreamTask: Task<Void, Never>?
+    @State private var bereanTriggeredByMessageId = ""
 
     // MARK: — Safety Gateway state
     @State private var safetyStrikeCount = 0
@@ -786,7 +794,22 @@ struct UnifiedChatView: View {
                                 .padding(.horizontal, 16)
                                 .transition(.scale(scale: 0.8, anchor: .leading).combined(with: .opacity))
                         }
-                        
+
+                        // Berean AI: typing indicator (before first token) or streaming bubble
+                        if isBereanStreaming {
+                            if bereanStreamingText.isEmpty {
+                                BereanTypingIndicatorBubble()
+                                    .padding(.horizontal, 16)
+                                    .transition(.scale(scale: 0.8, anchor: .leading).combined(with: .opacity))
+                                    .id("berean-typing")
+                            } else {
+                                BereanStreamingBubble(text: bereanStreamingText)
+                                    .padding(.horizontal, 16)
+                                    .transition(.opacity)
+                                    .id("berean-streaming")
+                            }
+                        }
+
                         // P1-2 FIX: Bottom anchor for scroll tracking
                         Color.clear
                             .frame(height: 1)
@@ -806,6 +829,20 @@ struct UnifiedChatView: View {
                     // Refresh smart reply chips when a new incoming message arrives
                     if newCount > oldCount {
                         refreshSmartReplies()
+                    }
+                }
+                // Berean: scroll to bottom when typing indicator appears
+                .onChange(of: isBereanStreaming) { _, isStreaming in
+                    if isStreaming {
+                        withAnimation(.easeOut(duration: 0.3)) {
+                            proxy.scrollTo(bottomID, anchor: .bottom)
+                        }
+                    }
+                }
+                // Berean: throttled scroll-to-bottom every 5 tokens
+                .onChange(of: bereanStreamingTokenCount) { _, count in
+                    if isNearBottom && count % 5 == 0 {
+                        proxy.scrollTo(bottomID, anchor: .bottom)
                     }
                 }
                 .onAppear {
@@ -1101,7 +1138,7 @@ struct UnifiedChatView: View {
                     }
                 }
                 .buttonStyle(SpringButtonStyle())
-                .disabled(isSendingMessage)
+                .disabled(isSendingMessage || isBereanStreaming)
             }
             .padding(.leading, 16)
             .padding(.trailing, 6)
@@ -1109,7 +1146,7 @@ struct UnifiedChatView: View {
             .frame(minHeight: 50)
             .background(inputBackground)
             .overlay(inputBorder)
-            .opacity(isSendingMessage ? 0.5 : 1.0) // Visual feedback while sending
+            .opacity((isSendingMessage || isBereanStreaming) ? 0.5 : 1.0) // Visual feedback while sending / Berean streaming
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
@@ -1380,6 +1417,18 @@ struct UnifiedChatView: View {
             dlog("⚠️ Send blocked: already sending")
             return
         }
+
+        // ── BEREAN AI ROUTING ─────────────────────────────────────────────────
+        // Intercept any message containing "@Berean" and route to Claude streaming.
+        // The message is still written to Firestore (both sides) after streaming.
+        if messageText.range(of: "@berean", options: [.caseInsensitive]) != nil {
+            let userText = messageText
+            messageText = ""
+            isInputFocused = false
+            sendBereanMessage(userText: userText)
+            return
+        }
+        // ── END BEREAN ROUTING ────────────────────────────────────────────────
 
         isSendingMessage = true
 
@@ -2128,6 +2177,138 @@ struct UnifiedChatView: View {
             } catch {
                 await MainActor.run {
                     toastManager.showError("Could not restrict user")
+                }
+            }
+        }
+    }
+
+    // MARK: - Berean AI Send
+
+    /// Routes an @Berean message through the Claude streaming API instead of normal Firestore send.
+    /// The user's message and Berean's final response are both persisted to Firestore on completion.
+    private func sendBereanMessage(userText: String) {
+        // Cancel any in-progress Berean stream
+        bereanStreamTask?.cancel()
+
+        let userMessageId = UUID().uuidString
+        let bereanResponseId = UUID().uuidString
+        let prompt = userText
+            .replacingOccurrences(of: "@berean", with: "", options: .caseInsensitive)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // Optimistic: show the user's @Berean message in the chat immediately
+        let currentUID = Auth.auth().currentUser?.uid ?? ""
+        let optimisticUserMessage = AppMessage(
+            id: userMessageId,
+            text: userText,
+            isFromCurrentUser: true,
+            timestamp: Date(),
+            senderId: currentUID,
+            senderName: messagingService.currentUserName,
+            isSent: false,
+            isDelivered: false,
+            isSendFailed: false
+        )
+        pendingMessages[userMessageId] = optimisticUserMessage
+        if !messages.contains(where: { $0.id == userMessageId }) {
+            messages.append(optimisticUserMessage)
+        }
+
+        // Start streaming state
+        bereanStreamingText = ""
+        bereanStreamingTokenCount = 0
+        bereanTriggeredByMessageId = userMessageId
+        withAnimation(.easeInOut(duration: 0.2)) { isBereanStreaming = true }
+
+        HapticManager.impact(style: .light)
+
+        bereanStreamTask = Task {
+            // Write the user's @Berean message to Firestore
+            let conversationId = conversation.id
+            Task.detached(priority: .background) {
+                try? await Firestore.firestore()
+                    .collection("conversations").document(conversationId)
+                    .collection("messages").document(userMessageId)
+                    .setData([
+                        "id": userMessageId,
+                        "text": userText,
+                        "senderId": currentUID,
+                        "timestamp": FieldValue.serverTimestamp(),
+                        "isSent": true,
+                        "isDelivered": true
+                    ])
+            }
+
+            // Stream from Claude
+            let finalText = await BereanStreamingService.stream(
+                prompt: prompt,
+                onToken: { token in
+                    Task { @MainActor in
+                        bereanStreamingText += token
+                        bereanStreamingTokenCount += 1
+                    }
+                }
+            )
+
+            await MainActor.run {
+                // Mark user message as sent
+                pendingMessages.removeValue(forKey: userMessageId)
+                if let idx = messages.firstIndex(where: { $0.id == userMessageId }) {
+                    messages[idx].isSent = true
+                }
+
+                guard !Task.isCancelled else {
+                    isBereanStreaming = false
+                    bereanStreamingText = ""
+                    return
+                }
+
+                // Determine final display text
+                let displayText: String
+                if finalText.hasPrefix("__error__") {
+                    displayText = "I wasn't able to reach my source of wisdom right now. Try again in a moment. 🙏"
+                    HapticManager.notification(type: .error)
+                } else {
+                    displayText = finalText
+                    HapticManager.notification(type: .success)
+                }
+
+                // Inject the Berean response as a real message in the local list
+                let bereanMessage = AppMessage(
+                    id: bereanResponseId,
+                    text: displayText,
+                    isFromCurrentUser: false,
+                    timestamp: Date(),
+                    senderId: "berean_ai",
+                    senderName: "Berean",
+                    isSent: true,
+                    isDelivered: true
+                )
+                messages.append(bereanMessage)
+
+                // End streaming state
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    isBereanStreaming = false
+                    bereanStreamingText = ""
+                }
+
+                messageText = ""
+            }
+
+            // Persist Berean response to Firestore
+            if !finalText.hasPrefix("__error__") {
+                Task.detached(priority: .background) {
+                    try? await Firestore.firestore()
+                        .collection("conversations").document(conversationId)
+                        .collection("messages").document(bereanResponseId)
+                        .setData([
+                            "id": bereanResponseId,
+                            "text": finalText,
+                            "senderId": "berean_ai",
+                            "timestamp": FieldValue.serverTimestamp(),
+                            "isBereanResponse": true,
+                            "triggeredBy": userMessageId
+                        ])
                 }
             }
         }
@@ -3230,6 +3411,102 @@ struct MediaButton: View {
 // Note: ScaleButtonStyle is defined in SharedUIComponents.swift
 // Note: placeholder(when:alignment:placeholder:) extension is defined in SharedUIComponents.swift
 
+// MARK: - Berean AI Typing Indicator Bubble
+
+/// Three pulsing dots with the gold BEREAN AI header — shown before the first token arrives.
+struct BereanTypingIndicatorBubble: View {
+    @State private var animate = false
+
+    var body: some View {
+        HStack(alignment: .bottom, spacing: 8) {
+            // Gold left accent bar
+            RoundedRectangle(cornerRadius: 2)
+                .fill(Color(red: 0.85, green: 0.70, blue: 0.30))
+                .frame(width: 3, height: 44)
+
+            VStack(alignment: .leading, spacing: 6) {
+                // Header label
+                Text("BEREAN AI")
+                    .font(.system(size: 10, weight: .bold))
+                    .tracking(1.2)
+                    .foregroundStyle(Color(red: 0.75, green: 0.60, blue: 0.20))
+
+                // Pulsing dots
+                HStack(spacing: 5) {
+                    ForEach(0..<3, id: \.self) { index in
+                        Circle()
+                            .fill(Color(red: 0.75, green: 0.60, blue: 0.20))
+                            .frame(width: 7, height: 7)
+                            .scaleEffect(animate ? 1.0 : 0.5)
+                            .animation(
+                                .easeInOut(duration: 0.55)
+                                    .repeatForever(autoreverses: true)
+                                    .delay(Double(index) * 0.15),
+                                value: animate
+                            )
+                    }
+                }
+                .padding(.bottom, 4)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .strokeBorder(
+                        Color(red: 0.85, green: 0.70, blue: 0.30).opacity(0.5),
+                        lineWidth: 1
+                    )
+            )
+
+            Spacer()
+        }
+        .onAppear { animate = true }
+    }
+}
+
+// MARK: - Berean AI Streaming Bubble
+
+/// Live-updating bubble that shows Berean's response as tokens arrive.
+struct BereanStreamingBubble: View {
+    let text: String
+
+    var body: some View {
+        HStack(alignment: .bottom, spacing: 8) {
+            // Gold left accent bar
+            RoundedRectangle(cornerRadius: 2)
+                .fill(Color(red: 0.85, green: 0.70, blue: 0.30))
+                .frame(width: 3)
+
+            VStack(alignment: .leading, spacing: 4) {
+                // Header label
+                Text("BEREAN AI")
+                    .font(.system(size: 10, weight: .bold))
+                    .tracking(1.2)
+                    .foregroundStyle(Color(red: 0.75, green: 0.60, blue: 0.20))
+
+                Text(text)
+                    .font(.system(size: 15, weight: .regular))
+                    .foregroundStyle(Color.primary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .strokeBorder(
+                        Color(red: 0.85, green: 0.70, blue: 0.30).opacity(0.5),
+                        lineWidth: 1
+                    )
+            )
+            .frame(maxWidth: UIScreen.main.bounds.width * 0.75, alignment: .leading)
+
+            Spacer()
+        }
+    }
+}
+
 // MARK: - Reaction Picker Overlay (long-press, centered above screen midpoint)
 
 // ReactionPickerOverlay replaced by AMENReactionSystem.ReactionTrayOverlay.
@@ -3239,6 +3516,60 @@ struct ReactionPickerOverlay: View {
     @Binding var isShowing: Bool
     var onReaction: (String) -> Void
     var body: some View { EmptyView() }
+}
+
+// MARK: - Berean Streaming Service
+
+/// Routes Berean chat through the bereanChatProxy Cloud Function.
+/// Simulates streaming via local typewriter animation (15 ms/character) so the
+/// UX is identical to the previous SSE implementation — no call-site changes needed.
+enum BereanStreamingService {
+
+    private static let systemPrompt = """
+    You are Berean, a Spirit-filled AI Bible assistant inside the AMEN church community app. \
+    Respond with wisdom, scripture, and grace. Keep responses concise and conversational. \
+    Always ground answers in Scripture.
+    """
+
+    /// Fetches a full response from bereanChatProxy, then plays it back character-by-character
+    /// at 15 ms/char via `onToken`. Returns the accumulated full text on success,
+    /// or a string prefixed with "__error__" on failure.
+    static func stream(
+        prompt: String,
+        onToken: @escaping @Sendable (String) -> Void
+    ) async -> String {
+        do {
+            let functions = Functions.functions()
+            let callable = functions.httpsCallable("bereanChatProxy")
+            let result = try await callable.call([
+                "systemPrompt": systemPrompt,
+                "userMessage": prompt,
+                "maxTokens": 600,
+            ] as [String: Any])
+
+            guard let data = result.data as? [String: Any],
+                  let text = data["text"] as? String else {
+                print("❌ BereanStreamingService: unexpected proxy response")
+                return "__error__: invalid proxy response"
+            }
+
+            // Typewriter playback — 15 ms per character
+            for char in text {
+                if Task.isCancelled { break }
+                onToken(String(char))
+                try? await Task.sleep(nanoseconds: 15_000_000)
+            }
+
+            return text
+
+        } catch is CancellationError {
+            print("ℹ️ BereanStreamingService: task cancelled")
+            return "__error__: cancelled"
+        } catch {
+            print("❌ BereanStreamingService: \(error)")
+            return "__error__: \(error.localizedDescription)"
+        }
+    }
 }
 
 // MARK: - Preview

@@ -9,6 +9,7 @@
 import Foundation
 import FirebaseFirestore
 import FirebaseAuth
+import FirebaseFunctions
 
 // MARK: - Smart Suggestion Model
 
@@ -33,14 +34,10 @@ class SmartSuggestionsService {
     static let shared = SmartSuggestionsService()
     
     private let db = Firestore.firestore()
-    private let openAIKey: String
+    private let functions = Functions.functions()
     private let cacheExpiryDays = 7 // Refresh suggestions weekly
-    
-    private init() {
-        // Read OpenAI key from build configuration (xcconfig → Info.plist).
-        // Never hardcode API keys in source files.
-        self.openAIKey = BundleConfig.string(forKey: "OPENAI_API_KEY") ?? ""
-    }
+
+    private init() {}
     
     // MARK: - Main Suggestion Function
     
@@ -89,96 +86,54 @@ class SmartSuggestionsService {
         return suggestion
     }
     
-    // MARK: - OpenAI Integration
-    
+    // MARK: - Cloud Function Proxy
+
+    /// Calls the "smartSuggestionsProxy" Firebase callable.
+    /// The OPENAI_API_KEY never touches the device.
     private func generateInsight(
         currentUser: SuggestionUserProfile,
         targetUser: SuggestionUserProfile,
         mutualFollows: Int
     ) async throws -> String {
-        let endpoint = "https://api.openai.com/v1/chat/completions"
-        
-        guard let url = URL(string: endpoint) else {
-            throw SuggestionError.invalidURL
-        }
-        
-        // Build prompt
         let prompt = """
         You are a Christian social network assistant. Generate a single, concise reason (max 8 words) why these two believers might connect. Be warm and faith-focused.
-        
+
         User 1: \(currentUser.name)
         - Location: \(currentUser.location ?? "Unknown")
         - Interests: \(currentUser.interests.joined(separator: ", "))
         - Bio: \(currentUser.bio ?? "")
-        
+
         User 2: \(targetUser.name)
         - Location: \(targetUser.location ?? "Unknown")
         - Interests: \(targetUser.interests.joined(separator: ", "))
         - Bio: \(targetUser.bio ?? "")
-        
+
         Mutual follows: \(mutualFollows)
-        
+
         Generate ONE reason starting with a verb or descriptor. Examples:
         - "Shares your love for worship music"
         - "Also from Brooklyn"
         - "Follows 5 of your friends"
         - "Fellow youth group leader"
         - "Both love hiking and nature"
-        
+
         Reason (max 8 words):
         """
-        
-        let requestBody: [String: Any] = [
-            "model": "gpt-4o-mini", // Cheapest model: $0.15 per 1M tokens
-            "messages": [
-                [
-                    "role": "system",
-                    "content": "You are a concise, warm Christian community connector. Output ONLY the connection reason, nothing else."
-                ],
-                [
-                    "role": "user",
-                    "content": prompt
-                ]
-            ],
-            "max_tokens": 20,
-            "temperature": 0.7
-        ]
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("Bearer \(openAIKey)", forHTTPHeaderField: "Authorization")
-        request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
-        
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw SuggestionError.networkError
-        }
-        
-        guard httpResponse.statusCode == 200 else {
-            dlog("❌ OpenAI API error: \(httpResponse.statusCode)")
-            if let errorString = String(data: data, encoding: .utf8) {
-                dlog("   Response: \(errorString)")
-            }
-            throw SuggestionError.apiError(httpResponse.statusCode)
-        }
-        
-        // Parse response
-        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-        guard let choices = json?["choices"] as? [[String: Any]],
-              let firstChoice = choices.first,
-              let message = firstChoice["message"] as? [String: Any],
-              let content = message["content"] as? String else {
+
+        let payload: [String: Any] = ["prompt": prompt, "maxTokens": 20]
+
+        let result = try await functions.httpsCallable("smartSuggestionsProxy").call(payload)
+        guard let data = result.data as? [String: Any],
+              let content = data["text"] as? String else {
             return ""
         }
-        
+
         // Clean up response
         let reason = content
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .replacingOccurrences(of: "\"", with: "")
             .replacingOccurrences(of: "- ", with: "")
-        
+
         return reason
     }
     

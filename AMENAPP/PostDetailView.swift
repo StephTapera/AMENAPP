@@ -8,6 +8,8 @@
 
 import SwiftUI
 import FirebaseAuth
+import FirebaseDatabase
+import FirebaseFirestore
 
 struct PostDetailView: View {
     let post: Post
@@ -38,9 +40,17 @@ struct PostDetailView: View {
         }
     }
 
+    // Engagement avatar strip
+    @State private var recentReactors: [ReactorUser] = []
+    @State private var reactorCount: Int = 0
+    @State private var reactorFetchTask: Task<Void, Never>? = nil
+    @State private var reactorsVisible: Bool = false
+
     @State private var isListening = false
     @State private var pollingTask: Task<Void, Never>?
     @State private var isGuardrailBlocked = false
+    // Track 4 — BereanInsightCard tap press animation
+    @State private var isInsightCardPressed = false
     @State private var isSubmittingComment = false  // debounce: prevent double-submit
     @State private var isPostExpanded = true         // Default expanded in detail view
     @State private var replyingToUsername: String? = nil  // Set when Reply is tapped
@@ -173,6 +183,58 @@ struct PostDetailView: View {
 
                     Divider()
 
+                    // ── Berean Insight Card ─────────────────────────────────
+                    // Tap to open Berean AI pre-seeded with the post content.
+                    let insightText = "Help me reflect on: \(post.content.prefix(200))"
+                    Button {
+                        activeDetailSheet = .berean(insightText)
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image("amen-logo")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 22, height: 22)
+                                .blendMode(.multiply)
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Reflect with Berean")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(.primary)
+                                Text("Tap to explore this post's deeper meaning")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            Spacer()
+
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(.ultraThinMaterial)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                        .strokeBorder(Color(.separator).opacity(0.4), lineWidth: 1)
+                                )
+                        )
+                        .scaleEffect(isInsightCardPressed ? 0.97 : 1.0)
+                        .animation(.spring(response: 0.2), value: isInsightCardPressed)
+                    }
+                    .buttonStyle(.plain)
+                    .simultaneousGesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { _ in isInsightCardPressed = true }
+                            .onEnded { _ in isInsightCardPressed = false }
+                    )
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+
+                    Divider()
+
                     // ── Conversation Thread (Threads-style wisdom UI) ────────
                     if showCommentsLoadError {
                         commentsErrorView
@@ -251,6 +313,7 @@ struct PostDetailView: View {
                 commentService.startListening(to: postId)
                 isListening = true
             }
+            reactorFetchTask = Task { await loadRecentReactors() }
         }
         .onDisappear {
             if isListening {
@@ -259,6 +322,8 @@ struct PostDetailView: View {
                 pollingTask = nil
                 isListening = false
             }
+            reactorFetchTask?.cancel()
+            reactorFetchTask = nil
         }
         // commentsWithReplies is now a computed property derived from @Published
         // CommentService state, so no notification handlers are needed here.
@@ -377,6 +442,16 @@ struct PostDetailView: View {
                     .background(
                         Capsule().fill(.ultraThinMaterial.opacity(0.6))
                     )
+            }
+
+            // Engagement avatar strip — shown above BereanInsightCard when reactors have photos
+            if !recentReactors.filter({ $0.profileImageURL != nil }).isEmpty {
+                PostEngagementAvatarStrip(
+                    reactors: recentReactors,
+                    reactorCount: reactorCount,
+                    isVisible: reactorsVisible
+                )
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
         .padding(.horizontal, 16)
@@ -713,6 +788,191 @@ struct PostDetailView: View {
             }
             isFollowInFlight = false
         }
+    }
+
+    // MARK: - Reactor Fetch
+
+    @MainActor
+    private func loadRecentReactors() async {
+        guard let currentUid = Auth.auth().currentUser?.uid else { return }
+        let stablePostId = post.firestoreId
+        let db = Firestore.firestore()
+        let rtdb = Database.database().reference()
+
+        // 1. Fetch top 8 reactor user IDs from RTDB amens node, ordered by timestamp desc
+        guard !Task.isCancelled else { return }
+        let amensSnap: DataSnapshot
+        do {
+            amensSnap = try await rtdb
+                .child("postInteractions")
+                .child(stablePostId)
+                .child("amens")
+                .getData()
+        } catch {
+            return
+        }
+
+        guard !Task.isCancelled else { return }
+        guard amensSnap.exists(), let dict = amensSnap.value as? [String: Any] else { return }
+
+        // Sort by timestamp descending, take top 8
+        let sortedUids: [String] = dict
+            .compactMap { key, value -> (String, Double)? in
+                let ts = (value as? [String: Any])?["timestamp"] as? Double ?? 0
+                return (key, ts)
+            }
+            .sorted { $0.1 > $1.1 }
+            .prefix(8)
+            .map(\.0)
+
+        guard !sortedUids.isEmpty else { return }
+
+        let totalCount = dict.count
+
+        // 2. Batch-fetch Firestore user docs
+        guard !Task.isCancelled else { return }
+        let userSnap: QuerySnapshot
+        do {
+            userSnap = try await db
+                .collection("users")
+                .whereField(FieldPath.documentID(), in: Array(sortedUids.prefix(10)))
+                .getDocuments()
+        } catch {
+            return
+        }
+
+        guard !Task.isCancelled else { return }
+
+        // 3. For each reactor, check if current user follows them
+        var reactors: [ReactorUser] = []
+        for doc in userSnap.documents {
+            guard !Task.isCancelled else { return }
+            let data = doc.data()
+            let imageURL = (data["profileImageURL"] as? String) ?? (data["profilePhotoURL"] as? String)
+            guard let imageURL, !imageURL.isEmpty else { continue }
+
+            // Check following status: users/{currentUid}/following/{reactorUid}
+            var isFollowed = false
+            let followSnap = try? await db
+                .collection("users")
+                .document(currentUid)
+                .collection("following")
+                .document(doc.documentID)
+                .getDocument()
+            isFollowed = followSnap?.exists ?? false
+
+            guard !Task.isCancelled else { return }
+            reactors.append(ReactorUser(
+                id: doc.documentID,
+                profileImageURL: imageURL,
+                isFollowedByCurrentUser: isFollowed
+            ))
+        }
+
+        guard !Task.isCancelled else { return }
+
+        // 4. Update state
+        recentReactors = reactors
+        reactorCount = totalCount
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+            reactorsVisible = true
+        }
+    }
+}
+
+// MARK: - ReactorUser
+
+private struct ReactorUser: Identifiable {
+    let id: String
+    let profileImageURL: String?
+    let isFollowedByCurrentUser: Bool
+}
+
+// MARK: - PostEngagementAvatarStrip
+
+private struct PostEngagementAvatarStrip: View {
+    let reactors: [ReactorUser]
+    let reactorCount: Int
+    let isVisible: Bool
+
+    private let avatarSize: CGFloat = 26
+    private let overlap: CGFloat = 8
+    private let borderColor = Color(red: 0.05, green: 0.05, blue: 0.07)
+    private let maxVisible = 4
+
+    private var photoReactors: [ReactorUser] {
+        reactors
+            .filter { $0.profileImageURL != nil && !($0.profileImageURL!.isEmpty) }
+            .prefix(maxVisible)
+            .map { $0 }
+    }
+
+    private var hasFollowedReactor: Bool {
+        reactors.contains { $0.isFollowedByCurrentUser }
+    }
+
+    var body: some View {
+        HStack(spacing: 10) {
+            // Left: stacked avatars
+            avatarStack
+
+            // Right: labels
+            VStack(alignment: .leading, spacing: 2) {
+                Text("\(reactorCount) people reacted")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.55))
+
+                if hasFollowedReactor {
+                    Text("Including your followers")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.white.opacity(0.3))
+                }
+            }
+
+            Spacer()
+        }
+    }
+
+    private var avatarStack: some View {
+        let count = photoReactors.count
+        let totalWidth = avatarSize + CGFloat(max(count - 1, 0)) * (avatarSize - overlap)
+
+        return ZStack(alignment: .leading) {
+            ForEach(Array(photoReactors.enumerated().reversed()), id: \.element.id) { index, reactor in
+                avatarCircle(for: reactor, index: index)
+                    .offset(x: CGFloat(index) * (avatarSize - overlap))
+            }
+        }
+        .frame(width: totalWidth, height: avatarSize)
+    }
+
+    @ViewBuilder
+    private func avatarCircle(for reactor: ReactorUser, index: Int) -> some View {
+        let url = reactor.profileImageURL.flatMap { URL(string: $0) }
+
+        CachedAsyncImage(url: url) { image in
+            image
+                .resizable()
+                .scaledToFill()
+                .frame(width: avatarSize, height: avatarSize)
+                .clipShape(Circle())
+        } placeholder: {
+            Circle()
+                .fill(Color.white.opacity(0.15))
+                .frame(width: avatarSize, height: avatarSize)
+        }
+        .overlay(
+            Circle()
+                .strokeBorder(borderColor, lineWidth: 1.5)
+        )
+        .frame(width: avatarSize, height: avatarSize)
+        .opacity(isVisible ? 1 : 0)
+        .offset(x: isVisible ? 0 : -8)
+        .animation(
+            .spring(response: 0.4, dampingFraction: 0.7)
+                .delay(0.1 + Double(index) * 0.08),
+            value: isVisible
+        )
     }
 }
 

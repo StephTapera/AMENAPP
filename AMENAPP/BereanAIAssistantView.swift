@@ -14,6 +14,9 @@ import FirebaseAuth
 struct BereanAIAssistantView: View {
     /// Optional initial query — when set, sent automatically on appear (e.g. from testimony sparkle button)
     var initialQuery: String? = nil
+    /// Optional seed message — when set, pre-populates the input field on appear without auto-sending.
+    /// Used by BereanInsightCard tap in PostDetailView.
+    var seedMessage: String? = nil
     
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase  // FIX 4: Detect background/foreground
@@ -671,10 +674,16 @@ struct BereanAIAssistantView: View {
             // Initialize speech recognizer
             speechRecognizer = SpeechRecognitionService()
 
-            // Restore composer draft (only when no initialQuery is provided)
-            if initialQuery == nil, messageText.isEmpty, !composerDraft.isEmpty {
+            // Restore composer draft (only when no initialQuery or seedMessage is provided)
+            if initialQuery == nil, seedMessage == nil, messageText.isEmpty, !composerDraft.isEmpty {
                 messageText = composerDraft
                 composerDraft = ""  // clear stored draft once restored
+            }
+
+            // Pre-populate input field from seedMessage (does NOT auto-send).
+            if let seed = seedMessage, !seed.isEmpty, messageText.isEmpty {
+                messageText = seed
+                isInputFocused = true
             }
 
             // Auto-send initial query (e.g. testimony reflection from PostCard).
@@ -2079,7 +2088,7 @@ struct BereanAIAssistantView: View {
         case .saveToNotes:
             // Save to BereanDataManager saved messages with a "notes" tag
             dataManager.saveMessage(message, tags: ["notes"])
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
 
         case .shareAsPost:
             messageToShare = message
@@ -2962,7 +2971,7 @@ struct MessageBubbleView: View {
 
                         Button {
                             dataManager.saveMessage(message)
-                            UINotificationFeedbackGenerator().notificationOccurred(.success)
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
                         } label: {
                             Label("Save for Later", systemImage: "bookmark")
                         }
