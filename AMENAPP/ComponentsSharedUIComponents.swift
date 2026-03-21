@@ -188,51 +188,6 @@ struct CompactSkeletonView: View {
 
 // MARK: - Empty State Views
 
-/// Generic empty state view with icon, title, and message
-struct EmptyStateView: View {
-    let icon: String
-    let title: String
-    let message: String
-    var buttonTitle: String? = nil
-    var buttonAction: (() -> Void)? = nil
-    
-    var body: some View {
-        VStack(spacing: 20) {
-            Image(systemName: icon)
-                .font(.system(size: 64, weight: .light))
-                .foregroundColor(.gray.opacity(0.4))
-                .padding(.bottom, 8)
-            
-            VStack(spacing: 8) {
-                Text(title)
-                    .font(.custom("OpenSans-Bold", size: 20))
-                    .foregroundColor(.black)
-                
-                Text(message)
-                    .font(.custom("OpenSans-Regular", size: 14))
-                    .foregroundColor(.gray)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 40)
-            }
-            
-            if let buttonTitle = buttonTitle, let buttonAction = buttonAction {
-                Button(action: buttonAction) {
-                    Text(buttonTitle)
-                        .font(.custom("OpenSans-SemiBold", size: 15))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 24)
-                        .padding(.vertical, 12)
-                        .background(Color.black)
-                        .cornerRadius(25)
-                }
-                .padding(.top, 8)
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(.vertical, 60)
-    }
-}
-
 /// Empty state for posts feed
 struct EmptyPostsView: View {
     var category: String = "posts"
@@ -241,7 +196,7 @@ struct EmptyPostsView: View {
         EmptyStateView(
             icon: "doc.text",
             title: "No \(category.capitalized) Yet",
-            message: "Be the first to share and inspire the community!"
+            subtitle: "Be the first to share and inspire the community!"
         )
     }
 }
@@ -252,7 +207,7 @@ struct EmptyMessagesView: View {
         EmptyStateView(
             icon: "bubble.left.and.bubble.right",
             title: "No Messages",
-            message: "Start a conversation with someone you follow"
+            subtitle: "Start a conversation with someone you follow"
         )
     }
 }
@@ -263,7 +218,7 @@ struct EmptyNotificationsView: View {
         EmptyStateView(
             icon: "bell",
             title: "No Notifications",
-            message: "When someone interacts with your posts, you'll see it here"
+            subtitle: "When someone interacts with your posts, you'll see it here"
         )
     }
 }
@@ -276,7 +231,7 @@ struct EmptySearchView: View {
         EmptyStateView(
             icon: "magnifyingglass",
             title: "No Results",
-            message: "We couldn't find anything matching '\(searchQuery)'"
+            subtitle: "We couldn't find anything matching '\(searchQuery)'"
         )
     }
 }

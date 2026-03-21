@@ -1123,3 +1123,42 @@ struct CaptionsAltTextSettingsView: View {
         .navigationBarTitleDisplayMode(.inline)
     }
 }
+
+// MARK: - Profile Visibility
+
+struct ProfileVisibilitySettingsView: View {
+    @AppStorage("showProfileInSearch") private var showProfileInSearch: Bool = true
+    @AppStorage("showProfileInSuggestions") private var showProfileInSuggestions: Bool = true
+
+    var body: some View {
+        List {
+            Section {
+                Toggle(isOn: $showProfileInSearch) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Searchable profile")
+                            .font(.custom("OpenSans-SemiBold", size: 15))
+                        Text("Allow others to find your profile in search")
+                            .font(.custom("OpenSans-Regular", size: 13))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .tint(.blue)
+
+                Toggle(isOn: $showProfileInSuggestions) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Suggested profiles")
+                            .font(.custom("OpenSans-SemiBold", size: 15))
+                        Text("Allow your profile to appear in suggestions")
+                            .font(.custom("OpenSans-Regular", size: 13))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .tint(.blue)
+            } header: { Text("Discoverability") } footer: {
+                Text("Control how others can discover your profile on AMEN.")
+            }
+        }
+        .navigationTitle("Profile Visibility")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}

@@ -43,7 +43,7 @@ struct TwoFactorAuthView: View {
                 if !twoFactorService.is2FAEnabled {
                     Section {
                         VStack(alignment: .leading, spacing: 16) {
-                            FeatureRow(
+                            TwoFAFeatureRow(
                                 icon: "lock.shield.fill",
                                 title: "Enhanced Security",
                                 description: "Protects your account even if your password is compromised"
@@ -51,7 +51,7 @@ struct TwoFactorAuthView: View {
                             
                             Divider()
                             
-                            FeatureRow(
+                            TwoFAFeatureRow(
                                 icon: "bell.badge.fill",
                                 title: "Login Alerts",
                                 description: "Get notified of sign-in attempts on new devices"
@@ -59,7 +59,7 @@ struct TwoFactorAuthView: View {
                             
                             Divider()
                             
-                            FeatureRow(
+                            TwoFAFeatureRow(
                                 icon: "checkmark.shield.fill",
                                 title: "Verified Access",
                                 description: "Only you can access your account with your phone"
@@ -351,7 +351,7 @@ struct TwoFactorAuthView: View {
 
 // MARK: - Feature Row
 
-struct FeatureRow: View {
+private struct TwoFAFeatureRow: View {
     let icon: String
     let title: String
     let description: String

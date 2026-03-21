@@ -8,8 +8,9 @@
 //
 
 import Foundation
+import ActivityKit
 
-struct BereanActivityAttributes: Codable, Hashable {
+struct BereanActivityAttributes: ActivityAttributes, Codable, Hashable {
     let postID: String
     let postAuthor: String
     let postPreview: String

@@ -207,6 +207,7 @@ final class AMENMediaService: @unchecked Sendable {
         }
     }
 
+
     // MARK: - Spotify Token (Client Credentials)
 
     private func fetchSpotifyToken(clientID: String, secret: String) async -> String? {

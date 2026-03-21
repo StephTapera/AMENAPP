@@ -9,10 +9,8 @@
 
 import Foundation
 import SwiftUI
-
-#if canImport(ActivityKit)
 import ActivityKit
-#endif
+import Combine
 
 @MainActor
 final class BereanActivityManager: ObservableObject {
@@ -21,9 +19,7 @@ final class BereanActivityManager: ObservableObject {
     @Published private(set) var isActive = false
     @Published private(set) var currentSessionID: String?
 
-    #if canImport(ActivityKit)
-    private var currentActivity: Activity<BereanActivityAttributes>?
-    #endif
+    private var currentActivity: ActivityKit.Activity<BereanActivityAttributes>?
 
     private init() {}
 
@@ -31,7 +27,6 @@ final class BereanActivityManager: ObservableObject {
 
     /// Starts a new Live Activity when the user submits a Berean question.
     func startSession(question: String) {
-        #if canImport(ActivityKit)
         guard ActivityAuthorizationInfo().areActivitiesEnabled else {
             dlog("⚠️ BereanActivityManager: Live Activities not enabled")
             return
@@ -43,11 +38,20 @@ final class BereanActivityManager: ObservableObject {
         }
 
         let sessionID = UUID().uuidString
-        let attributes = BereanActivityAttributes(sessionID: sessionID)
-        let initialState = BereanActivityAttributes.ContentState.thinking(question: question)
+        let attributes = BereanActivityAttributes(
+            postID: sessionID,
+            postAuthor: "",
+            postPreview: String(question.prefix(100))
+        )
+        let initialState = BereanActivityAttributes.ContentState(
+            phase: .loading,
+            responseText: "",
+            sourceCount: 0,
+            scriptures: []
+        )
 
         do {
-            let activity = try Activity<BereanActivityAttributes>.request(
+            let activity = try ActivityKit.Activity<BereanActivityAttributes>.request(
                 attributes: attributes,
                 content: ActivityContent(
                     state: initialState,
@@ -61,22 +65,24 @@ final class BereanActivityManager: ObservableObject {
         } catch {
             dlog("⚠️ BereanActivityManager: failed to start — \(error.localizedDescription)")
         }
-        #endif
     }
 
     // MARK: - Update: Thinking
 
     /// Updates the activity to show thinking state with the user's question.
     func updateThinking(question: String) {
-        #if canImport(ActivityKit)
         guard let activity = currentActivity else { return }
-        let state = BereanActivityAttributes.ContentState.thinking(question: question)
+        let state = BereanActivityAttributes.ContentState(
+            phase: .loading,
+            responseText: "",
+            sourceCount: 0,
+            scriptures: []
+        )
         Task {
             await activity.update(
                 ActivityContent(state: state, staleDate: Date(timeIntervalSinceNow: 120))
             )
         }
-        #endif
     }
 
     // MARK: - Update: Streaming
@@ -84,31 +90,30 @@ final class BereanActivityManager: ObservableObject {
     /// Updates the activity as response tokens stream in.
     /// Call this periodically (e.g. every 5 words) to stay within ActivityKit update budget.
     func updateStreaming(question: String, snippet: String) {
-        #if canImport(ActivityKit)
         guard let activity = currentActivity else { return }
-        let state = BereanActivityAttributes.ContentState.responding(
-            question: question,
-            snippet: snippet
+        let state = BereanActivityAttributes.ContentState(
+            phase: .responding,
+            responseText: String(snippet.prefix(200)),
+            sourceCount: 0,
+            scriptures: []
         )
         Task {
             await activity.update(
                 ActivityContent(state: state, staleDate: Date(timeIntervalSinceNow: 120))
             )
         }
-        #endif
     }
 
     // MARK: - Update: Complete
 
     /// Transitions to the complete state with final response and optional scripture.
     func updateComplete(question: String, snippet: String, scriptureRef: String?, scriptureText: String?) {
-        #if canImport(ActivityKit)
         guard let activity = currentActivity else { return }
-        let state = BereanActivityAttributes.ContentState.complete(
-            question: question,
-            snippet: snippet,
-            ref: scriptureRef,
-            refText: scriptureText
+        let state = BereanActivityAttributes.ContentState(
+            phase: .complete,
+            responseText: String(snippet.prefix(200)),
+            sourceCount: scriptureRef != nil ? 1 : 0,
+            scriptures: [scriptureRef].compactMap { $0 }
         )
         Task {
             await activity.update(
@@ -120,25 +125,22 @@ final class BereanActivityManager: ObservableObject {
             try? await Task.sleep(nanoseconds: 30_000_000_000)
             await endSession()
         }
-        #endif
     }
 
     // MARK: - End Session
 
     /// Ends the current Live Activity immediately.
     func endSession() async {
-        #if canImport(ActivityKit)
         guard let activity = currentActivity else { return }
         let finalState = BereanActivityAttributes.ContentState(
-            phase: .complete, question: "", responseSnippet: ""
+            phase: .complete, responseText: "", sourceCount: 0, scriptures: []
         )
         await activity.end(
             ActivityContent(state: finalState, staleDate: nil),
-            dismissalPolicy: .immediate
+            dismissalPolicy: .default
         )
         dlog("✚ BereanActivityManager: ended session \(currentSessionID ?? "?")")
         currentActivity = nil
-        #endif
         currentSessionID = nil
         isActive = false
     }

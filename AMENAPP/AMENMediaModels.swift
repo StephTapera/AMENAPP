@@ -361,6 +361,7 @@ struct SpotifyAlbumItem: Codable {
     let images: [SpotifyImage]
 }
 
+
 // MARK: - Static Curated Content
 
 extension AMENSermon {

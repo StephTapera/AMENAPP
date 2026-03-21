@@ -716,7 +716,7 @@ struct AMENEasyApplyForm: View {
                     .font(.custom("OpenSans-Regular", size: 12))
                     .foregroundStyle(.secondary)
             }
-            .toggleStyle(CheckboxToggleStyle())
+            .toggleStyle(.switch)
 
             // Error
             if let err = errorMessage {
@@ -909,7 +909,7 @@ struct ExpressInterestForm: View {
                                 .font(.custom("OpenSans-Regular", size: 12))
                                 .foregroundStyle(.secondary)
                         }
-                        .toggleStyle(CheckboxToggleStyle())
+                        .toggleStyle(.switch)
 
                         Button {
                             Task { await submit() }

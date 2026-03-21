@@ -233,7 +233,7 @@ struct SubtleSupportLink: View {
 
 // MARK: - Grounding Exercise View
 
-struct GroundingExerciseView: View {
+struct CrisisGroundingExerciseView: View {
     let exercise: GroundingExercise
     @Environment(\.dismiss) private var dismiss
     @State private var currentStep = 0
@@ -382,5 +382,5 @@ struct GroundingExerciseView: View {
 }
 
 #Preview("Grounding Exercise") {
-    GroundingExerciseView(exercise: GroundingExercise.exercises[0])
+    CrisisGroundingExerciseView(exercise: GroundingExercise.exercises[0])
 }

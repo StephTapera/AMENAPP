@@ -118,6 +118,7 @@ const {
   onNewPrayerFellowshipCheck,
 } = require("./fellowshipMatcher");
 
+
 // Export all functions
 exports.sendPushNotification = sendPushNotification;
 exports.onUserFollow = onUserFollow;
@@ -926,9 +927,12 @@ exports.communityDigest    = communityDigest;
 exports.bereanDailyInsight = bereanDailyInsight;
 
 // Algolia sync handled by installed Firestore extension (ext-firestore-algolia-search)
+<<<<<<< HEAD
 
 // ============================================================================
 // FELLOWSHIP MATCHER — Claude-powered spiritual theme matching
 // ============================================================================
 exports.fellowshipMatcher           = fellowshipMatcher;
 exports.onNewPrayerFellowshipCheck  = onNewPrayerFellowshipCheck;
+=======
+>>>>>>> recover/user-work
