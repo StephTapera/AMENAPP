@@ -565,6 +565,58 @@ struct ResourcesView: View {
                             )
                         }
                         .buttonStyle(ResourceCardPressStyle())
+
+                        NavigationLink(destination: StudioHubView()) {
+                            FolderSquareCard(
+                                icon: "sparkles.rectangle.stack.fill",
+                                title: "Studio",
+                                accentColor: Color(red: 0.60, green: 0.18, blue: 0.82),
+                                folderColor: Color(red: 0.46, green: 0.12, blue: 0.66),
+                                paperColor: Color(red: 0.96, green: 0.91, blue: 1.0)
+                            )
+                        }
+                        .buttonStyle(ResourceCardPressStyle())
+
+                        NavigationLink(destination: TwoFourTwoHub()) {
+                            FolderSquareCard(
+                                icon: "book.closed.fill",
+                                title: "242 Hub",
+                                accentColor: Color(red: 0.12, green: 0.52, blue: 0.82),
+                                folderColor: Color(red: 0.08, green: 0.38, blue: 0.66),
+                                paperColor: Color(red: 0.90, green: 0.95, blue: 1.0)
+                            )
+                        }
+                        .buttonStyle(ResourceCardPressStyle())
+                    }
+                    .padding(.horizontal, 20)
+                }
+            }
+
+            // ── Studio ── AMEN Studio + 242 Hub ──────────────────────────
+            if selectedCategory == .all || selectedCategory == .tools || selectedCategory == .learning {
+                resourceSection(title: "Create", subtitle: "Studio & 242 Hub") {
+                    HStack(spacing: 12) {
+                        NavigationLink(destination: StudioHubView()) {
+                            ResourceHubCard(
+                                icon: "sparkles.rectangle.stack.fill",
+                                title: "AMEN Studio",
+                                subtitle: "Write · Voice · AI",
+                                accentColor: Color(red: 0.60, green: 0.18, blue: 0.82),
+                                bgColor: Color(red: 0.96, green: 0.91, blue: 1.0)
+                            )
+                        }
+                        .buttonStyle(ResourceCardPressStyle())
+
+                        NavigationLink(destination: TwoFourTwoHub()) {
+                            ResourceHubCard(
+                                icon: "book.closed.fill",
+                                title: "242 Hub",
+                                subtitle: "Disciple · Grow",
+                                accentColor: Color(red: 0.12, green: 0.52, blue: 0.82),
+                                bgColor: Color(red: 0.90, green: 0.95, blue: 1.0)
+                            )
+                        }
+                        .buttonStyle(ResourceCardPressStyle())
                     }
                     .padding(.horizontal, 20)
                 }
