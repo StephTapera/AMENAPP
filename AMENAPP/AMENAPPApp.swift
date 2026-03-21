@@ -236,6 +236,8 @@ struct AMENAPPApp: App {
                     let utilityTask = Task(priority: .utility) {
                         await cacheCurrentUserProfile()
                         await Self.runAutomaticMigration()
+                        // Warm up safety and notification services so first-use has no cold-start latency
+                        await Self.warmUpServices()
                     }
                     startupTasks.append(utilityTask)
                 }
@@ -664,6 +666,27 @@ struct AMENAPPApp: App {
                 "destination": draft.destination
             ]
         )
+    }
+
+    // MARK: - Service Warm-Up
+
+    /// Pre-initialize safety and notification services in the background so their
+    /// first real use has zero cold-start latency. Each service uses a lazy singleton
+    /// pattern — touching `.shared` is enough to trigger initialization.
+    private static func warmUpServices() async {
+        guard Auth.auth().currentUser != nil else { return }
+        await withTaskGroup(of: Void.self) { group in
+            // Safety services
+            group.addTask { _ = CrisisDetectionService.shared }
+            group.addTask { _ = EnhancedCrisisSupportService.shared }
+            group.addTask { _ = BereanShieldService.shared }
+            group.addTask { _ = ContentSafetyShieldService.shared }
+            group.addTask { _ = MinorSafetyService.shared }
+            // Notification services
+            group.addTask { _ = SmartNotificationService.shared }
+            group.addTask { _ = NotificationAggregationService.shared }
+        }
+        dlog("✅ Safety and notification services warmed up")
     }
 
     // MARK: - Background Feed Refresh

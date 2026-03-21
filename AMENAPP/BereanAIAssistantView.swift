@@ -19,6 +19,7 @@ struct BereanAIAssistantView: View {
     @Environment(\.scenePhase) private var scenePhase  // FIX 4: Detect background/foreground
     @StateObject private var viewModel = BereanViewModel()
     @State private var messageText = ""
+    @State private var selectedQuickActionCardType: BereanCardType = .generic
     @State private var showSuggestions = true
     @State private var isThinking = false
     @FocusState private var isInputFocused: Bool
@@ -1322,6 +1323,18 @@ struct BereanAIAssistantView: View {
             // Memory status banner — shown when there are messages and input is empty
             if !viewModel.messages.isEmpty && messageText.isEmpty {
                 memoryStatusBanner
+            }
+
+            // Quick Action chips — shown above composer when no conversation is active
+            if viewModel.messages.isEmpty && messageText.isEmpty {
+                BereanQuickActionsView(
+                    inputText: $messageText,
+                    selectedCardType: $selectedQuickActionCardType
+                ) { chip in
+                    messageText = chip.prompt
+                    isInputFocused = true
+                }
+                .transition(.move(edge: .bottom).combined(with: .opacity))
             }
 
             // Smart Contextual Suggestions — rises from input when typing
