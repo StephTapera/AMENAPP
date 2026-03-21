@@ -532,10 +532,26 @@ struct PostCard: View {
     
     @ViewBuilder
     private var commonMenuOptions: some View {
+        // Inspire (lightbulb) - only show for non-user posts and OpenTable category
+        if !isUserPost && category == .openTable {
+            Button {
+                toggleLightbulb()
+            } label: {
+                Label(hasLitLightbulb ? "Remove Inspiration" : "Inspire", systemImage: hasLitLightbulb ? "lightbulb.fill" : "lightbulb")
+            }
+        }
+        
         Button {
             sharePost()
         } label: {
             Label("Share", systemImage: "square.and.arrow.up")
+        }
+        
+        // Save to Library
+        Button {
+            toggleSave()
+        } label: {
+            Label(isSaved ? "Remove from Library" : "Save to Library", systemImage: isSaved ? "bookmark.fill" : "bookmark")
         }
         
         Button {
