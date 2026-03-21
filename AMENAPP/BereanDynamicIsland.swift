@@ -49,6 +49,29 @@ final class BereanIslandViewModel: ObservableObject {
         fetchResponse(query: query)
     }
 
+    /// Extended trigger used by BereanIslandButton — forwards to base trigger.
+    func trigger(query: String, postId: String, postContent: String) {
+        trigger(query: query)
+    }
+
+    /// Instant display from a cached result — skips the API call entirely.
+    func triggerWithCachedResult(
+        _ cached: BereanCachedResult,
+        postId: String,
+        query: String,
+        postContent: String
+    ) {
+        thinkingTask?.cancel()
+        typingTask?.cancel()
+        thinkingSeconds = 0
+        let snippet = Self.snippet(from: cached.responseText)
+        responseText = snippet
+        withAnimation(.spring(response: 0.45, dampingFraction: 0.78)) {
+            state = .responded
+        }
+        typeText(snippet)
+    }
+
     func dismiss() {
         thinkingTask?.cancel()
         typingTask?.cancel()

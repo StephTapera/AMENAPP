@@ -10,9 +10,6 @@ import SwiftUI
 import WidgetKit
 import ActivityKit
 
-// ActivityAttributes conformance for the widget extension target
-extension BereanActivityAttributes: ActivityAttributes {}
-
 struct BereanLiveActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: BereanActivityAttributes.self) { context in

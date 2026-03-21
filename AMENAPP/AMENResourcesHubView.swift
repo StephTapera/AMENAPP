@@ -139,7 +139,7 @@ private struct MediaCardItem: Identifiable {
 
 // MARK: - Scroll Offset Preference Key
 
-private struct MediaScrollOffsetKey: PreferenceKey {
+private struct ResourcesHubScrollOffsetKey: PreferenceKey {
     static var defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         value = nextValue()

@@ -5852,7 +5852,7 @@ private struct BereanToneButton: View {
 // MARK: - Algolia Mention Suggestion Row
 
 /// Mention row for CreatePostView's inline @-trigger, which uses AlgoliaUser.
-private struct AlgoliaMentionSuggestionRow: View {
+struct AlgoliaMentionSuggestionRow: View {
     let user: AlgoliaUser
     let onTap: () -> Void
 

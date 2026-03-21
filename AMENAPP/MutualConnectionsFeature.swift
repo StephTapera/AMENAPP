@@ -10,16 +10,6 @@ import SwiftUI
 import FirebaseFirestore
 import FirebaseAuth
 
-// MARK: - Mutual Connections Data Model
-
-struct MutualConnection: Identifiable {
-    let id: String
-    let displayName: String
-    let username: String
-    let profileImageURL: String?
-    let initials: String
-}
-
 // MARK: - Mutual Connections Service
 
 @MainActor
@@ -81,8 +71,7 @@ class MutualConnectionsService {
                         id: mutualId,
                         displayName: data["displayName"] as? String ?? "Unknown",
                         username: data["username"] as? String ?? "",
-                        profileImageURL: data["profileImageURL"] as? String,
-                        initials: data["initials"] as? String ?? "?"
+                        profileImageURL: data["profileImageURL"] as? String
                     )
                     mutualConnections.append(connection)
                 }
@@ -338,13 +327,13 @@ struct MutualConnectionsListView: View {
 
 // MARK: - Shimmer Effect Extension
 
-extension View {
+private extension View {
     func shimmer() -> some View {
-        self.modifier(ShimmerModifier())
+        self.modifier(MutualConnectionsShimmerModifier())
     }
 }
 
-struct ShimmerModifier: ViewModifier {
+private struct MutualConnectionsShimmerModifier: ViewModifier {
     @State private var phase: CGFloat = 0
 
     func body(content: Content) -> some View {
