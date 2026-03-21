@@ -47,6 +47,7 @@ struct BereanAIAssistantView: View {
     @State private var showHistoryView = false
     @State private var showClearAllAlert = false
     @State private var showNewConversationAlert = false
+    @State private var showBereanChatsView = false
     
     // ✅ P0: Production readiness state
     @State private var lastSentMessageText = ""  // For duplicate prevention
@@ -524,6 +525,9 @@ struct BereanAIAssistantView: View {
             )
         }
         // ✅ Conversation History Sheet
+        .sheet(isPresented: $showBereanChatsView) {
+            BereanChatsView()
+        }
         .sheet(isPresented: $showHistoryView) {
             BereanConversationManagementView(
                 conversations: $viewModel.savedConversations,
@@ -1138,7 +1142,23 @@ struct BereanAIAssistantView: View {
     // MARK: - Folder Nav Button (replaces 3-dot menu)
 
     private var settingsMenuButton: some View {
-        folderNavButton
+        HStack(spacing: 8) {
+            // Chats history — opens BereanChatsView
+            Button {
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                showBereanChatsView = true
+            } label: {
+                Image(systemName: "clock")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(Color(white: 0.26))
+                    .frame(width: 36, height: 36)
+                    .background(Circle().fill(Color.white).shadow(color: .black.opacity(0.07), radius: 5, y: 2))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Open chat history")
+
+            folderNavButton
+        }
     }
 
     private var folderNavButton: some View {

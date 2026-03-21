@@ -374,39 +374,14 @@ struct PostCard: View {
     }
     
     private var followButton: some View {
-        Button {
-            handleFollowButtonTap()
-        } label: {
-            followButtonIcon
-        }
-        .buttonStyle(.instantFeedback)  // ✅ P0 FIX: INSTANT touch-down feedback
-        .symbolEffect(.bounce, value: isFollowing)
-        .offset(x: 2, y: 2)
-        // P0 FIX: Removed .task - no longer needed since isFollowing is computed from FollowService
-    }
-    
-    private var followButtonIcon: some View {
-        ZStack {
-            // Tap target — invisible, keeps hit area generous
-            Circle()
-                .fill(Color.clear)
-                .frame(width: 30, height: 30)
-
-            // Visual circle — smaller
-            Circle()
-                .fill(isFollowing ? Color.black : Color.white)
-                .frame(width: 16, height: 16)
-                .overlay(
-                    Circle()
-                        .strokeBorder(Color.black.opacity(0.2), lineWidth: 0.5)
-                )
-                .shadow(color: .black.opacity(0.2), radius: 2, y: 1)
-            
-            // Icon
-            Image(systemName: isFollowing ? "checkmark" : "plus")
-                .font(.system(size: 7, weight: .bold))
-                .foregroundStyle(isFollowing ? .white : .black)
-        }
+        FollowBadgeView(
+            isFollowed: Binding(
+                get: { isFollowing },
+                set: { _ in } // mutations handled via onToggle → handleFollowButtonTap
+            ),
+            onToggle: { handleFollowButtonTap() }
+        )
+        .offset(x: 3, y: 3)
     }
     
     // MARK: - Follow Actions
@@ -1791,24 +1766,8 @@ struct PostCard: View {
                     }
                 }
             }
-
-            // 4. Bookmark (next to repost)
-            circularInteractionButton(
-                icon: isSaved ? "bookmark.fill" : "bookmark",
-                count: nil,
-                isActive: isSaved,
-                activeColor: .black,
-                disabled: false,  // in-flight guard is inside toggleSave; always show press feedback
-                enableBounce: false,
-                accessibilityLabel: isSaved ? "Remove bookmark" : "Bookmark post"
-            ) {
-                toggleSave()
-            }
-            .shakeOnError(saveShakeError)
-
-            Spacer()
-
-            // 5. Berean AI sparkle (far right, testimonies + OpenTable + prayer)
+            
+            // 4. Berean AI sparkle (next to repost, testimonies + OpenTable + prayer)
             if category == .testimonies || category == .openTable || category == .prayer {
                 AISparkleSearchButton {
                     HapticManager.impact(style: .light)
@@ -1821,6 +1780,8 @@ struct PostCard: View {
                 }
                 .frame(width: 20, height: 20)
             }
+            
+            Spacer()
         }
     }
     

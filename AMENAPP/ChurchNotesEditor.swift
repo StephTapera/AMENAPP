@@ -76,7 +76,37 @@ struct EnhancedChurchNoteEditor: View {
     @State private var verseText: String? = nil
     @State private var isLookingUpVerse = false
     @State private var showVersePreview = false
-    
+
+    // Animation 1: Ghost Title Autocomplete
+    @State private var ghostSuggestion = ""
+    @State private var titleColor: Color = .primary
+    @State private var showAcceptHint = false
+    @State private var titleDebounceTask: Task<Void, Never>?
+    private let titleSuggestions = [
+        "Walking in Faith", "The Promise of God", "Renewed by Grace",
+        "Trust in the Lord", "God is Our Refuge", "Faith That Moves Mountains",
+        "Led by the Spirit", "A Heart After God", "Grace Upon Grace",
+        "The Power of Prayer"
+    ]
+
+    // Animation 2: Context Completion Ring
+    private var contextFilledCount: Int {
+        [!sermonTitle.isEmpty, !churchName.isEmpty, !pastor.isEmpty, true].filter { $0 }.count
+    }
+    private var contextAllFilled: Bool { contextFilledCount == 4 }
+    private var contextCompletionFraction: Double { Double(contextFilledCount) / 4.0 }
+
+    // Animation 3: Focus Mode + Word Momentum
+    @State private var focusMode = false
+    @State private var wordCount = 0
+    @State private var lastMilestone = 0
+    @State private var milestoneRingScale: CGFloat = 0.3
+    @State private var milestoneRingOpacity: Double = 0
+    @State private var milestoneLabelOpacity: Double = 0
+    @State private var milestoneLabelOffset: CGFloat = 0
+    @State private var milestoneLabel = ""
+    private let milestones = [10, 25, 50, 100]
+
     var canSave: Bool {
         !title.isEmpty && !content.isEmpty
     }
@@ -136,15 +166,16 @@ struct EnhancedChurchNoteEditor: View {
                 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 24) {
-                        // Title field
-                        titleField
-                        
-                        // Sermon context section
-                        sermonContextSection
-                        
-                        // Scripture section with detection
-                        scriptureSection
-                        
+                        // Focus-mode dimmable: title, context, scripture
+                        VStack(alignment: .leading, spacing: 24) {
+                            titleField
+                            sermonContextSection
+                            scriptureSection
+                        }
+                        .opacity(focusMode ? 0.2 : 1.0)
+                        .allowsHitTesting(!focusMode)
+                        .animation(.easeInOut(duration: 0.35), value: focusMode)
+
                         // Main content editor
                         contentEditorSection
                         
@@ -240,32 +271,65 @@ struct EnhancedChurchNoteEditor: View {
             } label: {
                 if isSaving {
                     ProgressView()
-                        .tint(.black)
+                        .tint(contextAllFilled ? Color.purple : .black)
                 } else {
                     Text("Save")
                         .font(.system(size: 17, weight: .medium))
-                        .foregroundStyle(canSave ? .black : .black.opacity(0.3))
+                        .foregroundStyle(contextAllFilled ? Color.purple : (canSave ? .black : .black.opacity(0.3)))
                 }
             }
             .disabled(!canSave || isSaving)
+            .opacity(contextAllFilled ? 1.0 : (canSave ? 0.7 : 0.35))
+            .animation(.easeInOut(duration: 0.3), value: contextAllFilled)
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 16)
         .background(Color(red: 0.96, green: 0.96, blue: 0.96))
     }
     
-    // MARK: - Title Field
-    
+    // MARK: - Title Field (with Ghost Autocomplete)
+
     private var titleField: some View {
-        TextField("Note Title", text: $title)
-            .font(.system(size: 32, weight: .medium))
-            .foregroundStyle(.black)
-            .tint(.black)
-            .padding(.horizontal, 20)
-            .padding(.top, 20)
-            .onChange(of: title) { _, _ in
-                trackUnsavedChanges()
+        ZStack(alignment: .topLeading) {
+            // Ghost text overlay — drawn behind, non-interactive
+            if !ghostSuggestion.isEmpty {
+                (Text(title).foregroundColor(.clear) +
+                 Text(ghostSuggestion).foregroundColor(Color(.tertiaryLabel)))
+                    .font(.system(size: 32, weight: .medium))
+                    .padding(.horizontal, 20)
+                    .padding(.top, 20)
+                    .allowsHitTesting(false)
             }
+
+            VStack(alignment: .leading, spacing: 6) {
+                TextField("Note Title", text: $title)
+                    .font(.system(size: 32, weight: .medium))
+                    .foregroundStyle(titleColor)
+                    .tint(.black)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 20)
+                    .onChange(of: title) { _, newVal in
+                        trackUnsavedChanges()
+                        updateGhostSuggestion(for: newVal)
+                    }
+
+                // "tab to accept →" badge
+                if showAcceptHint {
+                    Button { acceptSuggestion() } label: {
+                        Text("tab to accept →")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(.ultraThinMaterial, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.leading, 20)
+                    .transition(.opacity.combined(with: .scale(scale: 0.9, anchor: .leading)))
+                }
+            }
+        }
+        .animation(.easeOut(duration: 0.2), value: showAcceptHint)
     }
     
     // MARK: - Sermon Context Section (collapsible)
@@ -312,6 +376,11 @@ struct EnhancedChurchNoteEditor: View {
                             .foregroundStyle(.black.opacity(0.5))
                             .textCase(.uppercase)
                             .tracking(1)
+
+                        // Animation 2: Completion ring
+                        contextCompletionRing
+                            .padding(.leading, 6)
+
                         Spacer()
                         // Only show collapse button when there is summary data
                         if !metaSummary.isEmpty {
@@ -338,12 +407,15 @@ struct EnhancedChurchNoteEditor: View {
 
                     VStack(spacing: 12) {
                         EditorMinimalTextField(icon: "mic", placeholder: "Sermon title", text: $sermonTitle)
+                            .overlay(alignment: .trailing) { contextDot(filled: !sermonTitle.isEmpty).padding(.trailing, 6) }
                             .onChange(of: sermonTitle) { _, _ in trackUnsavedChanges() }
 
                         EditorMinimalTextField(icon: "building.2", placeholder: "Church name", text: $churchName)
+                            .overlay(alignment: .trailing) { contextDot(filled: !churchName.isEmpty).padding(.trailing, 6) }
                             .onChange(of: churchName) { _, _ in trackUnsavedChanges() }
 
                         EditorMinimalTextField(icon: "person", placeholder: "Pastor", text: $pastor)
+                            .overlay(alignment: .trailing) { contextDot(filled: !pastor.isEmpty).padding(.trailing, 6) }
                             .onChange(of: pastor) { _, _ in trackUnsavedChanges() }
 
                         HStack {
@@ -355,6 +427,10 @@ struct EnhancedChurchNoteEditor: View {
                                 .datePickerStyle(.compact)
                                 .labelsHidden()
                                 .tint(.black)
+                            Spacer()
+                            // Date always counts as filled (always has a value)
+                            contextDot(filled: true)
+                                .padding(.trailing, 4)
                         }
                         .padding(.horizontal, 16)
                         .padding(.vertical, 14)
@@ -489,8 +565,8 @@ struct EnhancedChurchNoteEditor: View {
         }
     }
     
-    // MARK: - Content Editor Section
-    
+    // MARK: - Content Editor Section (with Focus Mode + Word Momentum)
+
     private var contentEditorSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
@@ -499,14 +575,20 @@ struct EnhancedChurchNoteEditor: View {
                     .foregroundStyle(.black.opacity(0.5))
                     .textCase(.uppercase)
                     .tracking(1)
-                
+
                 Spacer()
-                
+
+                // Animation 3: Word counter
+                Text("\(wordCount) words")
+                    .font(.caption)
+                    .foregroundStyle(wordCount > 0 ? Color.purple : Color.secondary)
+                    .animation(.easeInOut(duration: 0.2), value: wordCount > 0)
+
                 // Character count (debounced)
                 Text("\(characterCount) characters")
                     .font(.system(size: 12))
                     .foregroundStyle(.black.opacity(0.4))
-                
+
                 // Formatting toolbar toggle
                 Button {
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
@@ -527,23 +609,66 @@ struct EnhancedChurchNoteEditor: View {
                     .foregroundStyle(.black.opacity(0.7))
                     .cornerRadius(6)
                 }
+
+                // Animation 3: Focus toggle
+                Button {
+                    withAnimation(.easeInOut(duration: 0.35)) {
+                        focusMode.toggle()
+                    }
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                } label: {
+                    Text(focusMode ? "Exit Focus" : "Focus")
+                        .font(.caption)
+                        .foregroundStyle(.purple)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Capsule().fill(Color.purple.opacity(focusMode ? 0.12 : 0.06)))
+                }
+                .buttonStyle(.plain)
             }
             .padding(.horizontal, 20)
-            
-            // Text editor with focused state
-            TextEditor(text: $content)
-                .font(.system(size: 16))
-                .foregroundStyle(.black)
-                .frame(minHeight: 300)
-                .padding(16)
-                .background(Color.white)
-                .cornerRadius(8)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(isContentFocused ? Color.black.opacity(0.2) : Color.black.opacity(0.1), lineWidth: 1)
-                )
-                .padding(.horizontal, 20)
-                .focused($isContentFocused)
+
+            // Text editor with focus glow + milestone ring overlay
+            ZStack {
+                TextEditor(text: $content)
+                    .font(.system(size: 16))
+                    .foregroundStyle(.black)
+                    .frame(minHeight: 300)
+                    .padding(16)
+                    .background(Color.white)
+                    .cornerRadius(8)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(
+                                focusMode
+                                    ? Color.purple.opacity(0.45)
+                                    : (isContentFocused ? Color.black.opacity(0.2) : Color.black.opacity(0.1)),
+                                lineWidth: focusMode ? 1.5 : 1
+                            )
+                            .animation(.easeInOut(duration: 0.3), value: focusMode)
+                    )
+                    .focused($isContentFocused)
+
+                // Animation 3: Milestone ring + floating label
+                if milestoneRingOpacity > 0 {
+                    Circle()
+                        .stroke(Color.purple, lineWidth: 1.5)
+                        .frame(width: 40 * milestoneRingScale * 3, height: 40 * milestoneRingScale * 3)
+                        .opacity(milestoneRingOpacity)
+                        .allowsHitTesting(false)
+
+                    Text(milestoneLabel)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.purple)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(.ultraThinMaterial, in: Capsule())
+                        .offset(y: milestoneLabelOffset - 80)
+                        .opacity(milestoneLabelOpacity)
+                        .allowsHitTesting(false)
+                }
+            }
+            .padding(.horizontal, 20)
         }
     }
     
@@ -692,6 +817,14 @@ struct EnhancedChurchNoteEditor: View {
             await MainActor.run {
                 characterCount = newValue.count
             }
+        }
+
+        // Animation 3: Word count + milestone detection
+        let newWordCount = newValue.split(whereSeparator: \.isWhitespace).count
+        wordCount = newWordCount
+        if let milestone = milestones.first(where: { newWordCount >= $0 && $0 > lastMilestone }) {
+            lastMilestone = milestone
+            fireMilestoneEffect(words: milestone)
         }
         
         // UX-3: Detect scripture references
@@ -890,13 +1023,135 @@ struct EnhancedChurchNoteEditor: View {
         guard let regex = try? NSRegularExpression(pattern: pattern) else {
             return []
         }
-        
+
         let range = NSRange(text.startIndex..., in: text)
         let matches = regex.matches(in: text, range: range)
-        
+
         return matches.compactMap { match in
             guard let range = Range(match.range, in: text) else { return nil }
             return String(text[range])
+        }
+    }
+
+    // MARK: - Animation 1 Helpers: Ghost Title Autocomplete
+
+    private func updateGhostSuggestion(for input: String) {
+        titleDebounceTask?.cancel()
+        guard !input.isEmpty else {
+            ghostSuggestion = ""
+            withAnimation { showAcceptHint = false }
+            return
+        }
+        titleDebounceTask = Task {
+            try? await Task.sleep(for: .milliseconds(150))
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                if let match = titleSuggestions.first(where: {
+                    $0.lowercased().hasPrefix(input.lowercased()) && input.count < $0.count
+                }) {
+                    ghostSuggestion = String(match.dropFirst(input.count))
+                    withAnimation(.easeOut(duration: 0.2)) { showAcceptHint = true }
+                } else {
+                    ghostSuggestion = ""
+                    withAnimation(.easeOut(duration: 0.15)) { showAcceptHint = false }
+                }
+            }
+        }
+    }
+
+    private func acceptSuggestion() {
+        guard !ghostSuggestion.isEmpty else { return }
+        title = title + ghostSuggestion
+        ghostSuggestion = ""
+        showAcceptHint = false
+        titleColor = .purple
+        withAnimation(.easeOut(duration: 0.45)) { titleColor = .primary }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
+    // MARK: - Animation 2 Helpers: Context Completion Ring
+
+    private var contextCompletionRing: some View {
+        ZStack {
+            Circle()
+                .stroke(Color(.quaternaryLabel), lineWidth: 3)
+            Circle()
+                .trim(from: 0, to: contextCompletionFraction)
+                .stroke(
+                    contextAllFilled ? Color.green : Color.purple,
+                    style: StrokeStyle(lineWidth: 3, lineCap: .round)
+                )
+                .rotationEffect(.degrees(-90))
+                .animation(.spring(response: 0.5, dampingFraction: 0.7), value: contextCompletionFraction)
+                .animation(.easeInOut(duration: 0.4), value: contextAllFilled)
+
+            if contextAllFilled {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(.green)
+                    .scaleEffect(contextAllFilled ? 1 : 0)
+                    .animation(.spring(response: 0.4, dampingFraction: 0.6), value: contextAllFilled)
+            } else {
+                Text("\(contextFilledCount)/4")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(.purple)
+                    .opacity(contextAllFilled ? 0 : 1)
+            }
+        }
+        .frame(width: 28, height: 28)
+    }
+
+    private func contextDot(filled: Bool) -> some View {
+        ZStack {
+            Circle()
+                .fill(filled ? Color.purple : Color(.systemBackground))
+                .frame(width: 16, height: 16)
+                .overlay(
+                    Circle().stroke(filled ? Color.clear : Color(.separator), lineWidth: 1)
+                )
+            if filled {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 7, weight: .bold))
+                    .foregroundStyle(.white)
+            }
+        }
+        .animation(.spring(response: 0.35, dampingFraction: 0.65), value: filled)
+    }
+
+    // MARK: - Animation 3 Helpers: Focus Mode + Word Momentum
+
+    private func fireMilestoneEffect(words: Int) {
+        milestoneLabel = "\(words) words ✦"
+        milestoneRingScale = 0.3
+        milestoneRingOpacity = 0
+        milestoneLabelOffset = 0
+        milestoneLabelOpacity = 0
+
+        // Ring expands and fades
+        withAnimation(.easeOut(duration: 0.7)) {
+            milestoneRingScale = 1.8
+            milestoneRingOpacity = 0
+        }
+        withAnimation(.easeIn(duration: 0.1)) {
+            milestoneRingOpacity = 0.8
+        }
+
+        // Label floats up and fades
+        withAnimation(.easeOut(duration: 0.4)) {
+            milestoneLabelOpacity = 1.0
+        }
+        withAnimation(.easeOut(duration: 1.2).delay(0.15)) {
+            milestoneLabelOffset = -24
+        }
+        withAnimation(.easeIn(duration: 0.5).delay(0.7)) {
+            milestoneLabelOpacity = 0
+        }
+
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+
+        // Clean up after animation completes
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
+            milestoneRingOpacity = 0
         }
     }
 }

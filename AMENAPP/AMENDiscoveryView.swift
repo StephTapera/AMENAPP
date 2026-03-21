@@ -17,6 +17,7 @@ struct AMENDiscoveryView: View {
 
     @StateObject private var service = DiscoveryService.shared
     @ObservedObject private var followService = FollowService.shared
+    @StateObject private var trendingService = TrendingService.shared
 
     // Universal search view-model — owns 8-collection Firestore search + ranking
     @StateObject private var searchVM = UniversalSearchViewModel()
@@ -279,6 +280,9 @@ struct AMENDiscoveryView: View {
 
                 // What people are discussing (Trends)
                 trendsSection
+                
+                // Top Ideas - Trending posts from TrendingService
+                topIdeasSection
 
                 // Berean AI — Ask scripture-grounded questions about anything you find
                 bereanAIBannerSection
@@ -417,6 +421,71 @@ struct AMENDiscoveryView: View {
                     }
                 }
                 .padding(.horizontal, 16)
+            }
+        }
+    }
+    
+    // MARK: - Top Ideas Section
+    
+    private var topIdeasSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Trending in AMEN")
+                        .font(.custom("OpenSans-SemiBold", size: 17))
+                        .foregroundStyle(.primary)
+                    Text("Most engaged posts right now")
+                        .font(.custom("OpenSans-Regular", size: 12))
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+            }
+            .padding(.horizontal, 16)
+            
+            if trendingService.isLoading {
+                // Loading indicator
+                HStack {
+                    Spacer()
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle())
+                    Spacer()
+                }
+                .padding(.vertical, 32)
+                .padding(.horizontal, 16)
+            } else if trendingService.topIdeas.isEmpty {
+                // Empty state
+                VStack(spacing: 8) {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 32))
+                        .foregroundStyle(.secondary.opacity(0.5))
+                    Text("No trending posts yet")
+                        .font(.custom("OpenSans-Medium", size: 14))
+                        .foregroundStyle(.secondary)
+                    Text("Check back soon for top ideas from the community")
+                        .font(.custom("OpenSans-Regular", size: 12))
+                        .foregroundStyle(.secondary.opacity(0.7))
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 32)
+                .padding(.horizontal, 16)
+            } else {
+                // Show top 5 ideas in horizontal scroll
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        ForEach(Array(trendingService.topIdeas.prefix(5))) { idea in
+                            TopIdeaCard(idea: idea)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                }
+            }
+        }
+        .onAppear {
+            if trendingService.topIdeas.isEmpty && !trendingService.isLoading {
+                Task {
+                    try? await trendingService.fetchTopIdeas()
+                }
             }
         }
     }
