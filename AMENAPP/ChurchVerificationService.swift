@@ -48,9 +48,8 @@ enum ChurchVerificationService {
     }()
 
     /// Categories that are unambiguously a house of worship.
-    private static let acceptCategories: Set<MKPointOfInterestCategory> = [
-        .religiousCenter
-    ]
+    /// Note: MapKit has no built-in religious category, so we rely on name-based keyword matching instead.
+    private static let acceptCategories: Set<MKPointOfInterestCategory> = []
 
     // MARK: - Name keywords
 
