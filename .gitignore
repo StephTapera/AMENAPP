@@ -85,3 +85,4 @@ DerivedData/
 extensions/*.env
 extensions/*.env
 *.pbxproj.bak*
+.claude/
