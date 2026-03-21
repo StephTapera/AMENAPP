@@ -4674,6 +4674,7 @@ struct ProfilePhotoEditView: View {
     @State private var isUploading = false
     @State private var errorMessage: String?
     @State private var showDeleteConfirmation = false
+    @State private var photoLibraryStatus: AMENPermissionStatus = .notDetermined
     
     var body: some View {
         NavigationStack {
@@ -4704,9 +4705,20 @@ struct ProfilePhotoEditView: View {
                         .padding(.horizontal)
                         .onChange(of: selectedItem) { _, newItem in
                             Task {
-                                if let data = try? await newItem?.loadTransferable(type: Data.self),
-                                   let uiImage = UIImage(data: data) {
-                                    selectedImage = uiImage
+                                do {
+                                    if let newItem = newItem {
+                                        if let data = try await newItem.loadTransferable(type: Data.self),
+                                           let uiImage = UIImage(data: data) {
+                                            selectedImage = uiImage
+                                            errorMessage = nil
+                                        } else {
+                                            errorMessage = "Unable to load the selected image. Please try another photo."
+                                        }
+                                    }
+                                } catch {
+                                    dlog("❌ Error loading photo: \(error.localizedDescription)")
+                                    errorMessage = "Failed to access photo. Please check photo library permissions in Settings."
+                                    selectedItem = nil
                                 }
                             }
                         }
@@ -4797,6 +4809,17 @@ struct ProfilePhotoEditView: View {
             } message: {
                 Text("Your profile will show your initials instead.")
             }
+            .onAppear {
+                checkPhotoLibraryPermission()
+            }
+        }
+    }
+    
+    private func checkPhotoLibraryPermission() {
+        photoLibraryStatus = AMENPermissionsManager.shared.photoLibraryStatus
+        
+        if photoLibraryStatus == .denied || photoLibraryStatus == .restricted {
+            errorMessage = "Photo library access is turned off. Please enable it in Settings → AMEN → Photos to select a profile photo."
         }
     }
     
