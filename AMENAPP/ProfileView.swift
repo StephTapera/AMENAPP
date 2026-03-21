@@ -168,6 +168,10 @@ struct ProfileView: View {
                             }
                         )
                     
+                    // Living Memory — preserved life stories section
+                    LivingMemorySection()
+                        .padding(.top, 8)
+
                     // 🎯 TAB BAR - Right under action buttons (like Threads)
                     stickyTabBar
                         .padding(.top, 0)

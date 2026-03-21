@@ -20,6 +20,31 @@ struct ConnectNetworkView: View {
             VStack(spacing: 0) {
                 heroHeader
 
+                // My Circles quick entry — routes to MentorshipView which embeds MyCirclesView
+                NavigationLink(destination: MentorshipView()) {
+                    HStack(spacing: 12) {
+                        Image(systemName: "person.3.sequence.fill")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundStyle(accentColor)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("My Circles")
+                                .font(.system(size: 15, weight: .semibold))
+                            Text("Your close faith community")
+                                .font(.system(size: 12))
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.tertiary)
+                    }
+                    .padding(14)
+                    .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color(.secondarySystemBackground)))
+                    .padding(.horizontal, 16)
+                    .padding(.top, 12)
+                }
+                .buttonStyle(.plain)
+
                 // Search bar
                 HStack(spacing: 10) {
                     Image(systemName: "magnifyingglass")

@@ -489,7 +489,7 @@ struct ResourcesView: View {
             // ── Christian Media ── Premium layered discovery banner ────────
             if selectedCategory == .all || selectedCategory == .listening || selectedCategory == .learning {
                 resourceSection(title: "Media") {
-                    NavigationLink(destination: AMENResourcesHubView()) {
+                    NavigationLink(destination: ChristianMediaView()) {
                         ChristianMediaBannerView()
                     }
                     .buttonStyle(MediaBannerPressStyle())
