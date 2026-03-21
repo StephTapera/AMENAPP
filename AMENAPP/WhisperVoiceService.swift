@@ -487,7 +487,7 @@ class WhisperVoiceViewModel: ObservableObject {
         isRecording = false
         isTranscribing = true
         // Haptic: heavy impact on stop
-        UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
 
         do {
             let result = try await service.stopAndTranscribe()

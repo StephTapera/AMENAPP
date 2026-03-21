@@ -414,7 +414,7 @@ struct ProfileView: View {
                     isToolbarExpanded.toggle()
                 }
                 
-                HapticManager.impact(style: .medium)
+                HapticManager.impact(style: .light)
             } label: {
                 // Icon morphs between ellipsis ↔ xmark with liquid dissolve-reform
                 Image(systemName: isToolbarExpanded ? "xmark" : "ellipsis")
@@ -852,7 +852,7 @@ struct ProfileView: View {
     private func fastRefreshProfile() async {
         // Trigger haptic at start
         // haptic
-        HapticManager.impact(style: .medium)
+        HapticManager.impact(style: .light)
         
         dlog("⚡ Fast real-time refresh starting...")
         let previousPostsCount = userPosts.count

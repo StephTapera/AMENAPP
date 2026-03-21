@@ -2056,7 +2056,7 @@ struct BereanAIAssistantView: View {
         case .saveToNotes:
             // Save to BereanDataManager saved messages with a "notes" tag
             dataManager.saveMessage(message, tags: ["notes"])
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
 
         case .shareAsPost:
             messageToShare = message
@@ -2939,7 +2939,7 @@ struct MessageBubbleView: View {
 
                         Button {
                             dataManager.saveMessage(message)
-                            UINotificationFeedbackGenerator().notificationOccurred(.success)
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
                         } label: {
                             Label("Save for Later", systemImage: "bookmark")
                         }

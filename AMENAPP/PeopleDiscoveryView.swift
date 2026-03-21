@@ -1247,7 +1247,7 @@ struct DiscoveryPersonRow: View {
 
             // Follow button — uses localIsFollowing for instant feedback
             Button {
-                HapticManager.impact(style: .medium)
+                HapticManager.impact(style: .light)
                 // Toggle local state immediately so button reflects new state
                 // even before the parent ForEach re-renders via FollowService.
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.65)) {

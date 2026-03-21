@@ -1934,7 +1934,7 @@ struct PostCard: View {
         isLightbulbToggleInFlight = true
 
         // Haptic + optimistic update fire immediately — before the network round-trip
-        HapticManager.impact(style: .medium)
+        HapticManager.impact(style: .light)
         withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
             hasLitLightbulb.toggle()
             isLightbulbAnimating = true
@@ -2378,7 +2378,7 @@ struct PostCard: View {
         logDebug("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", category: "SAVE")
 
         // Haptic + optimistic update fire immediately — before the network round-trip
-        HapticManager.impact(style: .medium)
+        HapticManager.impact(style: .light)
         logDebug("  📤 Performing OPTIMISTIC UI update...", category: "SAVE")
         withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
             isSaved.toggle()
@@ -2498,7 +2498,7 @@ struct PostCard: View {
         let previousState = isPraying
         
         // Haptic + optimistic update fire immediately — before the network round-trip
-        HapticManager.impact(style: .medium)
+        HapticManager.impact(style: .light)
         withAnimation(.spring(response: springResponse, dampingFraction: springDamping)) {
             isPraying.toggle()
         }

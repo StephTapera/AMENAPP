@@ -127,7 +127,7 @@ struct AMENDiscoveryView: View {
             // Berean AI button — labeled capsule so users know what it does
             if !isSearchFocused && searchText.isEmpty {
                 Button {
-                    HapticManager.impact(style: .medium)
+                    HapticManager.impact(style: .light)
                     showBereanAI = true
                 } label: {
                     HStack(spacing: 4) {
@@ -414,7 +414,7 @@ struct AMENDiscoveryView: View {
 
     private var bereanAIBannerSection: some View {
         Button {
-            HapticManager.impact(style: .medium)
+            HapticManager.impact(style: .light)
             showBereanAI = true
         } label: {
             HStack(spacing: 14) {
@@ -536,7 +536,7 @@ struct AMENDiscoveryView: View {
                 // Berean AI shortcut — ask a faith question instead of searching
                 Button {
                     isSearchFocused = false
-                    HapticManager.impact(style: .medium)
+                    HapticManager.impact(style: .light)
                     showBereanAI = true
                 } label: {
                     HStack(spacing: 12) {

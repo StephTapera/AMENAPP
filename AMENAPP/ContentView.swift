@@ -794,7 +794,7 @@ struct ContentView: View {
                 viewModel.selectedTab = 1
 
                 // Haptic feedback
-                HapticManager.impact(style: .medium)
+                HapticManager.impact(style: .light)
             }
         }
     }
@@ -1070,7 +1070,7 @@ struct ContentView: View {
                                 title: "OpenTable",
                                 delay: 0.0,
                                 action: {
-                                    HapticManager.impact(style: .medium)
+                                    HapticManager.impact(style: .light)
                                     withAnimation(.spring(response: 0.2, dampingFraction: 0.85)) {
                                         showCreateQuickActions = false
                                     }
@@ -1089,7 +1089,7 @@ struct ContentView: View {
                                 title: "Prayer",
                                 delay: 0.05,
                                 action: {
-                                    HapticManager.impact(style: .medium)
+                                    HapticManager.impact(style: .light)
                                     withAnimation(.spring(response: 0.2, dampingFraction: 0.85)) {
                                         showCreateQuickActions = false
                                     }
@@ -1108,7 +1108,7 @@ struct ContentView: View {
                                 title: "Testimony",
                                 delay: 0.1,
                                 action: {
-                                    HapticManager.impact(style: .medium)
+                                    HapticManager.impact(style: .light)
                                     withAnimation(.spring(response: 0.2, dampingFraction: 0.85)) {
                                         showCreateQuickActions = false
                                     }
@@ -1191,7 +1191,7 @@ struct ContentView: View {
                                 title: "Ask Berean",
                                 delay: 0.0,
                                 action: {
-                                    HapticManager.impact(style: .medium)
+                                    HapticManager.impact(style: .light)
                                     withAnimation(.spring(response: 0.2, dampingFraction: 0.85)) {
                                         showBereanQuickActions = false
                                     }
@@ -1209,7 +1209,7 @@ struct ContentView: View {
                                 title: "Scripture Study",
                                 delay: 0.05,
                                 action: {
-                                    HapticManager.impact(style: .medium)
+                                    HapticManager.impact(style: .light)
                                     withAnimation(.spring(response: 0.2, dampingFraction: 0.85)) {
                                         showBereanQuickActions = false
                                     }
@@ -1227,7 +1227,7 @@ struct ContentView: View {
                                 title: "Daily Devotion",
                                 delay: 0.1,
                                 action: {
-                                    HapticManager.impact(style: .medium)
+                                    HapticManager.impact(style: .light)
                                     withAnimation(.spring(response: 0.2, dampingFraction: 0.85)) {
                                         showBereanQuickActions = false
                                     }
@@ -1826,7 +1826,7 @@ struct CompactTabBar: View {
                 .onChanged { _ in
                     if !isLongPressing {
                         isLongPressing = true
-                        HapticManager.impact(style: .medium)
+                        HapticManager.impact(style: .light)
                         
                         withAnimation(.spring(response: 0.15, dampingFraction: 0.8)) {
                             createButtonScale = 0.9
@@ -2339,7 +2339,7 @@ struct SearchButton: View {
             .animation(.spring(response: 0.3, dampingFraction: 0.6), value: quickActionButtonScale)
             .onTapGesture {
                 // Regular tap - open Berean AI immediately
-                HapticManager.impact(style: .medium)
+                HapticManager.impact(style: .light)
                 action()
             }
             .simultaneousGesture(
@@ -2348,7 +2348,7 @@ struct SearchButton: View {
                     .onChanged { _ in
                         if !isLongPressing {
                             isLongPressing = true
-                            HapticManager.impact(style: .medium)
+                            HapticManager.impact(style: .light)
                             
                             withAnimation(.spring(response: 0.15, dampingFraction: 0.8)) {
                                 quickActionButtonScale = 0.9
@@ -2652,7 +2652,7 @@ struct CategoryPill: View {
     
     var body: some View {
         Button(action: {
-            HapticManager.impact(style: .medium)
+            HapticManager.impact(style: .light)
             action()
         }) {
             Text(title)
@@ -5288,7 +5288,7 @@ struct DailyVerseBanner: View {
         }
         // Long-press opens color picker (only for current user's own feed)
         .onLongPressGesture(minimumDuration: 0.4) {
-            HapticManager.impact(style: .medium)
+            HapticManager.impact(style: .light)
             showColorPicker = true
         }
         .sheet(isPresented: $showVerseDetail) {

@@ -383,7 +383,7 @@ struct FeedUtilityDrawerView: View {
             Spacer()
 
             Button {
-                HapticManager.impact(style: .medium)
+                HapticManager.impact(style: .light)
                 // TODO: Join community
             } label: {
                 Text("Join")

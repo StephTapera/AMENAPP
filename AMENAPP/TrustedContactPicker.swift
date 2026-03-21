@@ -196,7 +196,7 @@ struct TrustedContactsSection: View {
 
             // One-tap call
             Button {
-                UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                 let clean = contact.phone.replacingOccurrences(of: "[^0-9+]", with: "", options: .regularExpression)
                 if let url = URL(string: "tel:\(clean)") {
                     UIApplication.shared.open(url)

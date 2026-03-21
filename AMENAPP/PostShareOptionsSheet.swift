@@ -548,7 +548,7 @@ struct MessageComposeView: View {
                 await MainActor.run {
                     sentIds.insert(conversation.id)
                     sendingId = nil
-                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
                 }
             } catch {
                 await MainActor.run {
@@ -588,7 +588,7 @@ struct MessageComposeView: View {
                 await MainActor.run {
                     sentIds.insert(user.id)
                     sendingId = nil
-                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
                 }
             } catch {
                 await MainActor.run {
