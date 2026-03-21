@@ -19,6 +19,22 @@ struct PinnedPostCard: View {
     @State private var timeRemaining: String = ""
     
     var body: some View {
+        pinnedCardContent
+            .onAppear {
+                startPinAnimation()
+                updateTimeRemaining()
+            }
+            .confirmationDialog("Unpin Post", isPresented: $showUnpinConfirmation) {
+                Button("Unpin Post", role: .destructive) {
+                    onUnpin()
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("Remove this post from your pinned section?")
+            }
+    }
+    
+    private var pinnedCardContent: some View {
         VStack(spacing: 0) {
             // Pin header
             HStack(spacing: 6) {
@@ -100,18 +116,6 @@ struct PinnedPostCard: View {
                 .stroke(Color.purple.opacity(0.3), lineWidth: 1.5)
         )
         .shadow(color: Color.purple.opacity(0.2), radius: 8, x: 0, y: 4)
-        .onAppear {
-            startPinAnimation()
-            updateTimeRemaining()
-        }
-        .confirmationDialog("Unpin Post", isPresented: $showUnpinConfirmation) {
-            Button("Unpin Post", role: .destructive) {
-                onUnpin()
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Remove this post from your pinned section?")
-        }
     }
     
     private func startPinAnimation() {

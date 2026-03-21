@@ -675,7 +675,7 @@ struct USSPersonRow: View {
                 } label: {
                     Text(person.isFollowing ? "Following" : "Follow")
                         .font(.custom("OpenSans-SemiBold", size: 13))
-                        .foregroundStyle(person.isFollowing ? .secondary : .white)
+                        .foregroundStyle(person.isFollowing ? Color.secondary : Color.white)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 6)
                         .background(
