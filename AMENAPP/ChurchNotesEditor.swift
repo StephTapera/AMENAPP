@@ -62,6 +62,20 @@ struct EnhancedChurchNoteEditor: View {
     // Music: worship songs attached to this note
     @State private var worshipSongs: [WorshipSongReference] = []
     @State private var showSongSearch = false
+
+    // Feature 1: Claude auto-tagging
+    @State private var detectedTags: [String] = []
+    @State private var visibleTagCount: Int = 0
+    @State private var isAnalyzing = false
+    @State private var tagDebounceTask: Task<Void, Never>?
+
+    // Feature 2: Metadata collapse
+    @State private var metaExpanded: Bool = true
+
+    // Feature 2: Verse lookup
+    @State private var verseText: String? = nil
+    @State private var isLookingUpVerse = false
+    @State private var showVersePreview = false
     
     var canSave: Bool {
         !title.isEmpty && !content.isEmpty
@@ -87,7 +101,25 @@ struct EnhancedChurchNoteEditor: View {
             _tags = State(initialValue: note.tags)
             _initialContent = State(initialValue: note.content)
             _worshipSongs = State(initialValue: note.worshipSongs)
+            _detectedTags = State(initialValue: note.claudeTags)
+            _visibleTagCount = State(initialValue: note.claudeTags.count)
+            // Editing an existing note: start collapsed since metadata is already filled
+            _metaExpanded = State(initialValue: false)
         }
+    }
+
+    // MARK: - Computed helpers
+
+    private var metaSummary: String {
+        let date = selectedDate.formatted(.dateTime.month(.abbreviated).day())
+        let parts: [String] = [date,
+                               churchName.isEmpty ? nil : churchName,
+                               pastor.isEmpty ? nil : "Pastor \(pastor)"].compactMap { $0 }
+        return parts.joined(separator: " · ")
+    }
+
+    private var anyMetaEmpty: Bool {
+        sermonTitle.isEmpty || churchName.isEmpty || pastor.isEmpty
     }
     
     var body: some View {
@@ -152,6 +184,13 @@ struct EnhancedChurchNoteEditor: View {
         }
         .onChange(of: content) { oldValue, newValue in
             handleContentChange(newValue)
+        }
+        .onChange(of: isContentFocused) { _, focused in
+            guard focused else { return }
+            withAnimation(.spring(response: 0.45, dampingFraction: 0.75)) {
+                // Auto-expand if any metadata is missing; collapse if all filled
+                metaExpanded = anyMetaEmpty
+            }
         }
         .sheet(isPresented: $showSongSearch) {
             SongSearchSheet { song in
@@ -229,54 +268,109 @@ struct EnhancedChurchNoteEditor: View {
             }
     }
     
-    // MARK: - Sermon Context Section
-    
+    // MARK: - Sermon Context Section (collapsible)
+
     private var sermonContextSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Sermon Context")
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(.black.opacity(0.5))
-                .textCase(.uppercase)
-                .tracking(1)
-                .padding(.horizontal, 20)
-            
-            VStack(spacing: 12) {
-                EditorMinimalTextField(icon: "mic", placeholder: "Sermon title", text: $sermonTitle)
-                    .onChange(of: sermonTitle) { _, _ in trackUnsavedChanges() }
-                
-                EditorMinimalTextField(icon: "building.2", placeholder: "Church name", text: $churchName)
-                    .onChange(of: churchName) { _, _ in trackUnsavedChanges() }
-                
-                EditorMinimalTextField(icon: "person", placeholder: "Pastor", text: $pastor)
-                    .onChange(of: pastor) { _, _ in trackUnsavedChanges() }
-                
-                // Date picker
-                HStack {
-                    Image(systemName: "calendar")
-                        .font(.system(size: 16))
-                        .foregroundStyle(.black.opacity(0.4))
-                        .frame(width: 24)
-                    
-                    DatePicker("", selection: $selectedDate, displayedComponents: .date)
-                        .datePickerStyle(.compact)
-                        .labelsHidden()
-                        .tint(.black)
+        VStack(alignment: .leading, spacing: 0) {
+
+            // ── Collapsed pill summary ──────────────────────────────────
+            if !metaExpanded {
+                Button {
+                    withAnimation(.spring(response: 0.45, dampingFraction: 0.75)) {
+                        metaExpanded = true
+                    }
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(.black.opacity(0.35))
+                        if metaSummary.isEmpty {
+                            Text("Add sermon details…")
+                                .font(.system(size: 14))
+                                .foregroundStyle(.black.opacity(0.35))
+                        } else {
+                            Text(metaSummary)
+                                .font(.system(size: 14))
+                                .foregroundStyle(.black.opacity(0.65))
+                                .lineLimit(1)
+                        }
+                        Spacer()
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 10)
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 14)
-                .background(Color.white)
-                .cornerRadius(8)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color.black.opacity(0.1), lineWidth: 1)
-                )
-                .padding(.horizontal, 20)
+                .buttonStyle(.plain)
+                .transition(.opacity)
+            }
+
+            // ── Expanded fields ─────────────────────────────────────────
+            if metaExpanded {
+                VStack(alignment: .leading, spacing: 16) {
+                    HStack {
+                        Text("Sermon Context")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(.black.opacity(0.5))
+                            .textCase(.uppercase)
+                            .tracking(1)
+                        Spacer()
+                        // Only show collapse button when there is summary data
+                        if !metaSummary.isEmpty {
+                            Button {
+                                withAnimation(.spring(response: 0.45, dampingFraction: 0.75)) {
+                                    metaExpanded = false
+                                }
+                            } label: {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "chevron.up")
+                                        .font(.system(size: 11, weight: .medium))
+                                    Text("Collapse")
+                                        .font(.system(size: 12, weight: .medium))
+                                }
+                                .foregroundStyle(.black.opacity(0.4))
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Capsule().fill(Color.black.opacity(0.05)))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal, 20)
+
+                    VStack(spacing: 12) {
+                        EditorMinimalTextField(icon: "mic", placeholder: "Sermon title", text: $sermonTitle)
+                            .onChange(of: sermonTitle) { _, _ in trackUnsavedChanges() }
+
+                        EditorMinimalTextField(icon: "building.2", placeholder: "Church name", text: $churchName)
+                            .onChange(of: churchName) { _, _ in trackUnsavedChanges() }
+
+                        EditorMinimalTextField(icon: "person", placeholder: "Pastor", text: $pastor)
+                            .onChange(of: pastor) { _, _ in trackUnsavedChanges() }
+
+                        HStack {
+                            Image(systemName: "calendar")
+                                .font(.system(size: 16))
+                                .foregroundStyle(.black.opacity(0.4))
+                                .frame(width: 24)
+                            DatePicker("", selection: $selectedDate, displayedComponents: .date)
+                                .datePickerStyle(.compact)
+                                .labelsHidden()
+                                .tint(.black)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+                        .background(Color.white)
+                        .cornerRadius(8)
+                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.black.opacity(0.1), lineWidth: 1))
+                        .padding(.horizontal, 20)
+                    }
+                }
+                .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
     }
     
-    // MARK: - Scripture Section with Detection
-    
+    // MARK: - Scripture Section with Detection + Inline Lookup
+
     private var scriptureSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Scripture Reference")
@@ -285,10 +379,82 @@ struct EnhancedChurchNoteEditor: View {
                 .textCase(.uppercase)
                 .tracking(1)
                 .padding(.horizontal, 20)
-            
-            EditorMinimalTextField(icon: "book", placeholder: "e.g., John 3:16", text: $scripture)
-                .onChange(of: scripture) { _, _ in trackUnsavedChanges() }
-            
+
+            // Scripture field with inline "Look up" button
+            HStack {
+                Image(systemName: "book")
+                    .font(.system(size: 16))
+                    .foregroundStyle(.black.opacity(0.4))
+                    .frame(width: 24)
+
+                TextField("e.g., John 3:16", text: $scripture)
+                    .font(.system(size: 16))
+                    .foregroundStyle(.black)
+                    .tint(.black)
+                    .onChange(of: scripture) { _, _ in
+                        trackUnsavedChanges()
+                        // Clear old verse preview when the reference changes
+                        if showVersePreview {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                showVersePreview = false
+                                verseText = nil
+                            }
+                        }
+                    }
+
+                Spacer()
+
+                Button { triggerVerseLookup() } label: {
+                    if isLookingUpVerse {
+                        ProgressView().scaleEffect(0.7).tint(.black)
+                            .frame(width: 52, height: 20)
+                    } else {
+                        Text("Look up")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(
+                                scripture.trimmingCharacters(in: .whitespaces).isEmpty
+                                    ? Color.black.opacity(0.3)
+                                    : Color(red: 0.498, green: 0.467, blue: 0.867)
+                            )
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(scripture.trimmingCharacters(in: .whitespaces).isEmpty
+                                          ? Color.clear
+                                          : Color(red: 0.498, green: 0.467, blue: 0.867).opacity(0.10))
+                            )
+                    }
+                }
+                .buttonStyle(.plain)
+                .disabled(scripture.trimmingCharacters(in: .whitespaces).isEmpty || isLookingUpVerse)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .background(Color.white)
+            .cornerRadius(8)
+            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.black.opacity(0.1), lineWidth: 1))
+            .padding(.horizontal, 20)
+
+            // Verse preview — slides in below the field
+            if showVersePreview, let verse = verseText {
+                Text(verse)
+                    .font(.system(size: 12, design: .serif).italic())
+                    .foregroundStyle(.black.opacity(0.75))
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(Color(red: 0.498, green: 0.467, blue: 0.867).opacity(0.08))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .strokeBorder(Color(red: 0.498, green: 0.467, blue: 0.867).opacity(0.2), lineWidth: 1)
+                            )
+                    )
+                    .padding(.horizontal, 20)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+
             // UX-3: Show detected scriptures from content
             if !detectedScriptures.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
@@ -296,20 +462,17 @@ struct EnhancedChurchNoteEditor: View {
                         .font(.system(size: 12))
                         .foregroundStyle(.black.opacity(0.5))
                         .padding(.horizontal, 20)
-                    
+
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
                             ForEach(detectedScriptures, id: \.self) { ref in
                                 Button {
                                     scripture = ref
-                                    let haptic = UIImpactFeedbackGenerator(style: .light)
-                                    haptic.impactOccurred()
+                                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
                                 } label: {
                                     HStack(spacing: 4) {
-                                        Image(systemName: "book.fill")
-                                            .font(.system(size: 10))
-                                        Text(ref)
-                                            .font(.system(size: 13))
+                                        Image(systemName: "book.fill").font(.system(size: 10))
+                                        Text(ref).font(.system(size: 13))
                                     }
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 6)
@@ -492,19 +655,30 @@ struct EnhancedChurchNoteEditor: View {
         }
     }
 
-    // MARK: - Tags Section
+    // MARK: - AI Tags Section
 
     private var tagsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Tags (Optional)")
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(.black.opacity(0.5))
-                .textCase(.uppercase)
-                .tracking(1)
-                .padding(.horizontal, 20)
-            
-            // Tag input and display would go here
-            // Simplified for now
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Text("AI Tags")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.black.opacity(0.5))
+                    .textCase(.uppercase)
+                    .tracking(1)
+                if isAnalyzing {
+                    AnalyzingPulsingDot()
+                }
+            }
+            .padding(.horizontal, 20)
+
+            if !detectedTags.isEmpty {
+                NoteTagFlowLayout(tags: detectedTags, visibleCount: visibleTagCount)
+            } else if !isAnalyzing && content.count > 50 {
+                Text("Tags appear after you write a few sentences")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.black.opacity(0.35))
+                    .padding(.horizontal, 20)
+            }
         }
     }
     
@@ -531,6 +705,15 @@ struct EnhancedChurchNoteEditor: View {
         autoSaveTask = Task {
             try? await Task.sleep(for: .seconds(3))
             await autoSave()
+        }
+
+        // Feature 1: Claude auto-tagging — 800ms debounce, min 50 chars
+        tagDebounceTask?.cancel()
+        guard newValue.count > 50 else { return }
+        tagDebounceTask = Task {
+            try? await Task.sleep(for: .milliseconds(800))
+            guard !Task.isCancelled else { return }
+            await triggerTagAnalysis(content: newValue)
         }
     }
     
@@ -631,6 +814,7 @@ struct EnhancedChurchNoteEditor: View {
             updatedNote.scriptureReferences = detectedScriptures
             updatedNote.tags = tags
             updatedNote.worshipSongs = worshipSongs
+            updatedNote.claudeTags = detectedTags
 
             try await notesService.updateNote(updatedNote)
         } else {
@@ -646,13 +830,60 @@ struct EnhancedChurchNoteEditor: View {
                 scripture: scripture.isEmpty ? nil : scripture,
                 tags: tags,
                 scriptureReferences: detectedScriptures,
-                worshipSongs: worshipSongs
+                worshipSongs: worshipSongs,
+                claudeTags: detectedTags
             )
 
             try await notesService.createNote(newNote)
         }
     }
     
+    // MARK: - Feature 1: Tag analysis
+
+    @MainActor
+    private func triggerTagAnalysis(content: String) async {
+        isAnalyzing = true
+        defer { isAnalyzing = false }
+        do {
+            let tags = try await NoteTagService.analyzeTags(content: content)
+            guard !tags.isEmpty else { return }
+            detectedTags = tags
+            visibleTagCount = 0
+            for i in 0..<tags.count {
+                DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * 0.15) {
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
+                        self.visibleTagCount = i + 1
+                    }
+                }
+            }
+        } catch {
+            dlog("NoteTagService tag analysis error: \(error)")
+        }
+    }
+
+    // MARK: - Feature 2: Verse lookup
+
+    private func triggerVerseLookup() {
+        let ref = scripture.trimmingCharacters(in: .whitespaces)
+        guard !ref.isEmpty else { return }
+        isLookingUpVerse = true
+        Task {
+            do {
+                let text = try await NoteTagService.lookupVerse(reference: ref)
+                await MainActor.run {
+                    verseText = text.isEmpty ? nil : text
+                    withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                        showVersePreview = verseText != nil
+                    }
+                    isLookingUpVerse = false
+                }
+            } catch {
+                await MainActor.run { isLookingUpVerse = false }
+                dlog("NoteTagService verse lookup error: \(error)")
+            }
+        }
+    }
+
     // UX-3: Scripture detection
     private func detectScriptureReferences(in text: String) -> [String] {
         let pattern = #"(\d?\s?[A-Z][a-z]+\s\d+:\d+(-\d+)?)"#
@@ -920,3 +1151,99 @@ private struct EditorMinimalTextField: View {
     }
 }
 
+
+// MARK: - Analyzing Pulsing Dot
+
+private struct AnalyzingPulsingDot: View {
+    @State private var scale: CGFloat = 1.0
+
+    var body: some View {
+        Circle()
+            .fill(Color(red: 0.498, green: 0.467, blue: 0.867).opacity(0.7))
+            .frame(width: 7, height: 7)
+            .scaleEffect(scale)
+            .onAppear {
+                withAnimation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true)) {
+                    scale = 1.6
+                }
+            }
+    }
+}
+
+// MARK: - Tag Flow Layout
+
+/// Wrapping horizontal flow for AI-detected tag pills.
+struct NoteTagFlowLayout: View {
+    let tags: [String]
+    let visibleCount: Int
+
+    private let tagColors: [Color] = [
+        Color(red: 0.498, green: 0.467, blue: 0.867), // purple
+        Color(red: 0.20,  green: 0.60,  blue: 0.60),  // teal
+        Color(red: 0.85,  green: 0.60,  blue: 0.15),  // amber
+    ]
+
+    var body: some View {
+        TagWrapLayout(spacing: 8) {
+            ForEach(Array(tags.prefix(visibleCount).enumerated()), id: \.element) { idx, tag in
+                Text(tag)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.9))
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 4)
+                    .background(
+                        Capsule()
+                            .fill(tagColors[idx % tagColors.count].opacity(0.25))
+                            .overlay(Capsule().strokeBorder(tagColors[idx % tagColors.count].opacity(0.45), lineWidth: 0.75))
+                    )
+                    .transition(.scale.combined(with: .opacity))
+            }
+        }
+        .padding(.horizontal, 20)
+    }
+}
+
+// MARK: - Tag Wrap Layout (iOS 16+ Layout protocol)
+
+struct TagWrapLayout: Layout {
+    var spacing: CGFloat = 8
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let result = flow(in: proposal.replacingUnspecifiedDimensions().width, subviews: subviews)
+        return result.size
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let result = flow(in: bounds.width, subviews: subviews)
+        for (index, subview) in subviews.enumerated() {
+            let pos = result.positions[index]
+            subview.place(at: CGPoint(x: bounds.minX + pos.x, y: bounds.minY + pos.y), proposal: .unspecified)
+        }
+    }
+
+    private struct FlowResult {
+        var size: CGSize = .zero
+        var positions: [CGPoint] = []
+    }
+
+    private func flow(in maxWidth: CGFloat, subviews: Subviews) -> FlowResult {
+        var result = FlowResult()
+        var x: CGFloat = 0
+        var y: CGFloat = 0
+        var rowHeight: CGFloat = 0
+
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x + size.width > maxWidth && x > 0 {
+                x = 0
+                y += rowHeight + spacing
+                rowHeight = 0
+            }
+            result.positions.append(CGPoint(x: x, y: y))
+            x += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
+        }
+        result.size = CGSize(width: maxWidth, height: y + rowHeight)
+        return result
+    }
+}

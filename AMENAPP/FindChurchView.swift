@@ -1959,9 +1959,10 @@ struct FindChurchView: View {
         request.region = MKCoordinateRegion(center: loc, latitudinalMeters: 16093, longitudinalMeters: 16093)
         let search = MKLocalSearch(request: request)
         Task {
-            if let response = try? await search.start() {
-                await MainActor.run { appleMapResults = response.mapItems }
-            }
+            guard let response = try? await search.start() else { return }
+            // Filter results: hard-reject non-churches by category/name, Claude for ambiguous cases
+            let verified = await ChurchVerificationService.filter(mapItems: response.mapItems)
+            await MainActor.run { appleMapResults = verified }
         }
     }
     

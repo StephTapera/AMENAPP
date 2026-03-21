@@ -80,6 +80,7 @@ struct ChurchNote: Identifiable, Codable, Hashable {
     var shareLinkId: String? // Unique ID for deep linking and sharing
     var worshipSongs: [WorshipSongReference] // Songs linked to this note
     var visitPlanId: String? // Link back to visit plan (bidirectional)
+    var claudeTags: [String] // AI-detected spiritual theme tags
 
     // Coding keys for Firestore
     enum CodingKeys: String, CodingKey {
@@ -106,6 +107,7 @@ struct ChurchNote: Identifiable, Codable, Hashable {
         case shareLinkId
         case worshipSongs
         case visitPlanId
+        case claudeTags
     }
     
     // Initializer with defaults
@@ -132,7 +134,8 @@ struct ChurchNote: Identifiable, Codable, Hashable {
         scriptureReferences: [String] = [],
         shareLinkId: String? = nil,
         worshipSongs: [WorshipSongReference] = [],
-        visitPlanId: String? = nil
+        visitPlanId: String? = nil,
+        claudeTags: [String] = []
     ) {
         self.id = id
         self.userId = userId
@@ -158,6 +161,7 @@ struct ChurchNote: Identifiable, Codable, Hashable {
         self.shareLinkId = shareLinkId ?? UUID().uuidString
         self.worshipSongs = worshipSongs
         self.visitPlanId = visitPlanId
+        self.claudeTags = claudeTags
     }
     
     // Custom Decodable init to handle older Firestore documents that were created
@@ -188,6 +192,7 @@ struct ChurchNote: Identifiable, Codable, Hashable {
         shareLinkId        = try c.decodeIfPresent(String.self, forKey: .shareLinkId) ?? UUID().uuidString
         worshipSongs       = try c.decodeIfPresent([WorshipSongReference].self, forKey: .worshipSongs) ?? []
         visitPlanId        = try c.decodeIfPresent(String.self, forKey: .visitPlanId)
+        claudeTags         = try c.decodeIfPresent([String].self, forKey: .claudeTags) ?? []
     }
 
     // Hashable conformance
