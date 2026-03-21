@@ -36,6 +36,8 @@ struct PostCard: View {
     @State private var showingEditSheet = false
     @State private var showingDeleteAlert = false
     @State private var showingRepostConfirmation = false
+    @State private var showRepostActionSheet = false
+    @State private var showQuoteComposer = false
     @State private var hasLitLightbulb = false
 
     // Staggered entrance animation
@@ -1730,18 +1732,49 @@ struct PostCard: View {
                 showCommentsSheet = true
             }
 
-            // 3. Repost (repeat — illuminates when active)
+            // 3. Repost (repeat — illuminates when active; tap opens Repost/Quote sheet)
             circularInteractionButton(
                 icon: "repeat",
                 count: nil,
                 isActive: hasReposted,
                 activeColor: .black,
-                disabled: isUserPost,  // only disable for own posts; in-flight guard is inside toggleRepost
+                disabled: isUserPost,
                 accessibilityLabel: hasReposted ? "Remove repost" : "Repost"
             ) {
-                if !isUserPost { toggleRepost() }
+                if !isUserPost {
+                    if hasReposted {
+                        // Already reposted — undo directly
+                        toggleRepost()
+                    } else {
+                        // Not yet reposted — show Repost / Quote choice
+                        HapticManager.impact(style: .light)
+                        showRepostActionSheet = true
+                    }
+                }
             }
             .shakeOnError(repostShakeError)
+            .sheet(isPresented: $showRepostActionSheet) {
+                if let post {
+                    RepostActionSheet(
+                        post: post,
+                        onRepost: { toggleRepost() },
+                        onQuote: { showQuoteComposer = true }
+                    )
+                    .presentationDetents([.height(160)])
+                    .presentationDragIndicator(.visible)
+                }
+            }
+            .fullScreenCover(isPresented: $showQuoteComposer) {
+                if let post {
+                    QuotePostComposerView(originalPost: post) { quoteText, original in
+                        Task {
+                            await PostsManager.shared.publishQuotePost(text: quoteText, originalPost: original)
+                        }
+                        hasReposted = true
+                        repostCount += 1
+                    }
+                }
+            }
 
             // 4. Bookmark (next to repost)
             circularInteractionButton(

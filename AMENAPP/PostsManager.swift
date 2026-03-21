@@ -1051,6 +1051,35 @@ class PostsManager: ObservableObject {
             dlog("✅ Profile picture sync complete! Updated \(updatedAllPosts.count) posts")
         }
     }
+
+    // MARK: - Quote Post
+
+    /// Writes a quote post to Firestore. Called from QuotePostComposerView via PostCard.
+    func publishQuotePost(text: String, originalPost: Post) async {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        let db = Firestore.firestore()
+        let ref = db.collection("posts").document()
+        let data: [String: Any] = [
+            "id": ref.documentID,
+            "content": text,
+            "authorId": uid,
+            "category": originalPost.category.rawValue,
+            "isQuotePost": true,
+            "quotedPostId": originalPost.firebaseId ?? originalPost.id.uuidString,
+            "quotedAuthorId": originalPost.authorId,
+            "quotedAuthorName": originalPost.authorName,
+            "quotedContent": originalPost.content,
+            "createdAt": FieldValue.serverTimestamp(),
+            "visibility": Post.PostVisibility.everyone.rawValue,
+            "allowComments": true
+        ]
+        do {
+            try await ref.setData(data)
+            dlog("✅ Quote post published: \(ref.documentID)")
+        } catch {
+            dlog("❌ Quote post failed: \(error)")
+        }
+    }
 }
 
 
