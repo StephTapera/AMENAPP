@@ -328,6 +328,39 @@ struct SpotifyTokenResponse: Codable {
     let expires_in: Int
 }
 
+// MARK: - Spotify Track Search Models
+
+struct SpotifyTrackSearchResponse: Codable {
+    let tracks: SpotifyTrackPage?
+}
+
+struct SpotifyTrackPage: Codable {
+    let items: [SpotifyTrackItem]
+}
+
+struct SpotifyTrackItem: Codable {
+    let id: String
+    let name: String
+    let artists: [SpotifyArtistItem]
+    let album: SpotifyAlbumItem
+    let external_urls: SpotifyExternalURLs
+    let preview_url: String?
+
+    var primaryArtist: String { artists.first?.name ?? "" }
+    var albumArtURL: String? { album.images.first?.url }
+    var spotifyURL: String? { external_urls.spotify }
+    var deepLink: String { "spotify:track:\(id)" }
+}
+
+struct SpotifyArtistItem: Codable {
+    let name: String
+}
+
+struct SpotifyAlbumItem: Codable {
+    let name: String
+    let images: [SpotifyImage]
+}
+
 // MARK: - Static Curated Content
 
 extension AMENSermon {

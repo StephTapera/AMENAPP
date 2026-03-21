@@ -173,6 +173,40 @@ final class AMENMediaService: @unchecked Sendable {
         return result
     }
 
+    // MARK: - Spotify Track Search (for WorshipSongPickerSheet)
+
+    /// Search Spotify for tracks by name/artist. Returns up to `maxResults` results.
+    /// Used by the worship song picker to let users attach Spotify tracks to Church Notes.
+    func searchSpotifyTracks(query: String, maxResults: Int = 15) async -> [SpotifyTrackItem] {
+        let clientID = MediaAPIConfig.spotifyClientID
+        let clientSecret = MediaAPIConfig.spotifyClientSecret
+        guard !clientID.isEmpty, !clientSecret.isEmpty else { return [] }
+
+        guard let token = await fetchSpotifyToken(clientID: clientID, secret: clientSecret) else {
+            return []
+        }
+
+        var components = URLComponents(string: "https://api.spotify.com/v1/search")!
+        components.queryItems = [
+            .init(name: "q",      value: query),
+            .init(name: "type",   value: "track"),
+            .init(name: "market", value: "US"),
+            .init(name: "limit",  value: "\(maxResults)")
+        ]
+
+        guard let url = components.url else { return [] }
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        do {
+            let (data, _) = try await session.data(for: request)
+            let response = try JSONDecoder().decode(SpotifyTrackSearchResponse.self, from: data)
+            return response.tracks?.items ?? []
+        } catch {
+            return []
+        }
+    }
+
     // MARK: - Spotify Token (Client Credentials)
 
     private func fetchSpotifyToken(clientID: String, secret: String) async -> String? {

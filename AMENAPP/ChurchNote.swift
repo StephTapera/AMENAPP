@@ -19,16 +19,21 @@ struct WorshipSongReference: Codable, Identifiable, Hashable {
     var musicKitID: String?  // MusicKit catalog ID for direct playback
     var appleMusicURL: String?
     var albumArtURL: String?
+    var spotifyTrackID: String?   // Spotify track ID
+    var spotifyTrackURL: String?  // spotify:track:ID deep link
     var addedAt: Date
 
     init(title: String, artist: String, musicKitID: String? = nil,
-         appleMusicURL: String? = nil, albumArtURL: String? = nil) {
+         appleMusicURL: String? = nil, albumArtURL: String? = nil,
+         spotifyTrackID: String? = nil, spotifyTrackURL: String? = nil) {
         self.id = UUID().uuidString
         self.title = title
         self.artist = artist
         self.musicKitID = musicKitID
         self.appleMusicURL = appleMusicURL
         self.albumArtURL = albumArtURL
+        self.spotifyTrackID = spotifyTrackID
+        self.spotifyTrackURL = spotifyTrackURL
         self.addedAt = Date()
     }
 }

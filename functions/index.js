@@ -112,6 +112,12 @@ const {
   sendPostEventFollowUp,
 } = require("./eventFunctions");
 
+// Fellowship Matcher: Claude-powered spiritual theme matching
+const {
+  fellowshipMatcher,
+  onNewPrayerFellowshipCheck,
+} = require("./fellowshipMatcher");
+
 // Export all functions
 exports.sendPushNotification = sendPushNotification;
 exports.onUserFollow = onUserFollow;
@@ -920,3 +926,9 @@ exports.communityDigest    = communityDigest;
 exports.bereanDailyInsight = bereanDailyInsight;
 
 // Algolia sync handled by installed Firestore extension (ext-firestore-algolia-search)
+
+// ============================================================================
+// FELLOWSHIP MATCHER — Claude-powered spiritual theme matching
+// ============================================================================
+exports.fellowshipMatcher           = fellowshipMatcher;
+exports.onNewPrayerFellowshipCheck  = onNewPrayerFellowshipCheck;

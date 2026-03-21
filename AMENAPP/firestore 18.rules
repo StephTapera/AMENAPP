@@ -3605,6 +3605,23 @@ service cloud.firestore {
     }
 
     // ============================================================================
+    // FELLOWSHIP SUGGESTIONS (written by Cloud Function, read by recipient)
+    // ============================================================================
+
+    match /fellowshipSuggestions/{docId} {
+      // Only the recipient can read their own suggestion
+      allow read: if isAuthenticated()
+                  && resource.data.get('recipientUserId', '') == request.auth.uid;
+      // Users can only update the status field (viewed / dismissed)
+      allow update: if isAuthenticated()
+                    && resource.data.get('recipientUserId', '') == request.auth.uid
+                    && isOnlyUpdating(['status'])
+                    && request.resource.data.status in ['viewed', 'dismissed'];
+      // Cloud Function writes — no client create/delete
+      allow create, delete: if false;
+    }
+
+    // ============================================================================
     // DEFAULT DENY ALL OTHER COLLECTIONS
     // ============================================================================
 

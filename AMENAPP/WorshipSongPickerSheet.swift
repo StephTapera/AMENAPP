@@ -2,7 +2,7 @@
 //  WorshipSongPickerSheet.swift
 //  AMENAPP
 //
-//  Sheet that lets users search Apple Music, pick a worship song,
+//  Sheet that lets users search Apple Music or Spotify, pick a worship song,
 //  and attach it to a Church Note. The song is saved persistently
 //  into ChurchNote.worshipSongs (Firestore) and can be played
 //  any time from the note detail.
@@ -10,6 +10,13 @@
 
 import SwiftUI
 import AVFoundation
+
+// MARK: - SongSource
+
+enum SongSource: String, CaseIterable {
+    case appleMusic = "Apple Music"
+    case spotify    = "Spotify"
+}
 
 // MARK: - WorshipSongPickerSheet
 
@@ -22,8 +29,9 @@ struct WorshipSongPickerSheet: View {
     @State private var query = ""
     @State private var results: [WorshipSongResult] = []
     @State private var isSearching = false
-    @State private var addedIDs: Set<String> = []  // musicKitID or title+artist key
+    @State private var addedIDs: Set<String> = []  // musicKitID / spotifyTrackID / title+artist key
     @State private var errorMessage: String?
+    @State private var source: SongSource = .appleMusic
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -38,10 +46,25 @@ struct WorshipSongPickerSheet: View {
                 .ignoresSafeArea()
 
                 VStack(spacing: 0) {
+                    // Source picker
+                    Picker("Source", selection: $source) {
+                        ForEach(SongSource.allCases, id: \.self) { s in
+                            Text(s.rawValue).tag(s)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 12)
+                    .onChange(of: source) { _, _ in
+                        results = []
+                        errorMessage = nil
+                        if !query.isEmpty { performSearch() }
+                    }
+
                     // Search bar
                     searchBar
                         .padding(.horizontal, 16)
-                        .padding(.top, 8)
+                        .padding(.top, 10)
                         .padding(.bottom, 12)
 
                     Divider().opacity(0.2)
@@ -49,7 +72,7 @@ struct WorshipSongPickerSheet: View {
                     if isSearching {
                         Spacer()
                         ProgressView()
-                            .tint(.purple)
+                            .tint(source == .spotify ? .green : .purple)
                             .scaleEffect(1.3)
                         Spacer()
                     } else if let err = errorMessage {
@@ -71,9 +94,7 @@ struct WorshipSongPickerSheet: View {
                                     SongResultRow(
                                         song: song,
                                         isAdded: addedIDs.contains(song.uniqueKey),
-                                        onAdd: {
-                                            addSong(song)
-                                        }
+                                        onAdd: { addSong(song) }
                                     )
                                 }
                             }
@@ -98,7 +119,7 @@ struct WorshipSongPickerSheet: View {
     private var searchBar: some View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
-                .foregroundStyle(.purple.opacity(0.8))
+                .foregroundStyle(source == .spotify ? Color.green.opacity(0.8) : Color.purple.opacity(0.8))
                 .font(.system(size: 16))
 
             TextField("", text: $query, prompt:
@@ -130,7 +151,10 @@ struct WorshipSongPickerSheet: View {
                 .fill(.ultraThinMaterial)
                 .overlay(
                     RoundedRectangle(cornerRadius: 14)
-                        .strokeBorder(Color.purple.opacity(0.3), lineWidth: 1)
+                        .strokeBorder(
+                            source == .spotify ? Color.green.opacity(0.35) : Color.purple.opacity(0.3),
+                            lineWidth: 1
+                        )
                 )
         )
     }
@@ -141,7 +165,7 @@ struct WorshipSongPickerSheet: View {
         VStack(spacing: 16) {
             Image(systemName: "music.note.list")
                 .font(.system(size: 48))
-                .foregroundStyle(.purple.opacity(0.6))
+                .foregroundStyle(source == .spotify ? Color.green.opacity(0.6) : Color.purple.opacity(0.6))
             Text("Search for a worship song")
                 .font(.system(size: 17, weight: .semibold, design: .rounded))
                 .foregroundStyle(.white.opacity(0.8))
@@ -185,9 +209,16 @@ struct WorshipSongPickerSheet: View {
         isSearching = true
         errorMessage = nil
         results = []
+        let currentSource = source
+        let currentQuery = query
         Task {
             do {
-                let found = try await WorshipSongSearchService.search(query: query)
+                let found: [WorshipSongResult]
+                if currentSource == .spotify {
+                    found = try await WorshipSongSearchService.searchSpotify(query: currentQuery)
+                } else {
+                    found = try await WorshipSongSearchService.search(query: currentQuery)
+                }
                 await MainActor.run {
                     results = found
                     isSearching = false
@@ -208,16 +239,20 @@ struct WorshipSongPickerSheet: View {
             artist: song.artist,
             musicKitID: song.musicKitID,
             appleMusicURL: song.appleMusicURL,
-            albumArtURL: song.albumArtURL
+            albumArtURL: song.albumArtURL,
+            spotifyTrackID: song.spotifyTrackID,
+            spotifyTrackURL: song.spotifyTrackURL
         )
         onAdd(ref)
-        // Also start playback immediately so the user hears the song
-        Task {
-            await WorshipMusicService.shared.playSong(
-                title: song.title,
-                artist: song.artist,
-                churchNoteId: noteId
-            )
+        // For Apple Music songs, start playback so the user can preview
+        if song.source == .appleMusic {
+            Task {
+                await WorshipMusicService.shared.playSong(
+                    title: song.title,
+                    artist: song.artist,
+                    churchNoteId: noteId
+                )
+            }
         }
     }
 }
@@ -232,9 +267,9 @@ private struct SongResultRow: View {
     var body: some View {
         HStack(spacing: 14) {
             // Album art placeholder / thumbnail
-            ZStack {
+            ZStack(alignment: .bottomTrailing) {
                 RoundedRectangle(cornerRadius: 10)
-                    .fill(Color.purple.opacity(0.25))
+                    .fill(song.source == .spotify ? Color.green.opacity(0.2) : Color.purple.opacity(0.25))
                     .frame(width: 52, height: 52)
                 if let urlStr = song.albumArtURL, let url = URL(string: urlStr) {
                     AsyncImage(url: url) { phase in
@@ -246,14 +281,17 @@ private struct SongResultRow: View {
                         default:
                             Image(systemName: "music.note")
                                 .font(.system(size: 22))
-                                .foregroundStyle(.purple.opacity(0.7))
+                                .foregroundStyle(song.source == .spotify ? Color.green.opacity(0.7) : Color.purple.opacity(0.7))
                         }
                     }
                 } else {
                     Image(systemName: "music.note")
                         .font(.system(size: 22))
-                        .foregroundStyle(.purple.opacity(0.7))
+                        .foregroundStyle(song.source == .spotify ? Color.green.opacity(0.7) : Color.purple.opacity(0.7))
                 }
+                // Source badge
+                SourceBadge(source: song.source)
+                    .offset(x: 4, y: 4)
             }
 
             VStack(alignment: .leading, spacing: 3) {
@@ -278,7 +316,7 @@ private struct SongResultRow: View {
                 } else {
                     Image(systemName: "plus.circle.fill")
                         .font(.system(size: 28))
-                        .foregroundStyle(.purple)
+                        .foregroundStyle(song.source == .spotify ? Color.green : Color.purple)
                 }
             }
             .buttonStyle(.plain)
@@ -301,6 +339,29 @@ private struct SongResultRow: View {
     }
 }
 
+// MARK: - SourceBadge
+
+private struct SourceBadge: View {
+    let source: SongSource
+
+    var body: some View {
+        Group {
+            if source == .spotify {
+                Image(systemName: "s.circle.fill")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(Color.green)
+                    .background(Circle().fill(Color.black).padding(-1))
+            } else {
+                Image(systemName: "music.note.list")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(.white)
+                    .padding(3)
+                    .background(Circle().fill(Color(red: 0.98, green: 0.26, blue: 0.45)))
+            }
+        }
+    }
+}
+
 // MARK: - WorshipSongResult (search result model)
 
 struct WorshipSongResult: Identifiable {
@@ -310,14 +371,33 @@ struct WorshipSongResult: Identifiable {
     let musicKitID: String?
     let appleMusicURL: String?
     let albumArtURL: String?
+    let spotifyTrackID: String?
+    let spotifyTrackURL: String?
+    let source: SongSource
+
+    init(title: String, artist: String, musicKitID: String? = nil,
+         appleMusicURL: String? = nil, albumArtURL: String? = nil,
+         spotifyTrackID: String? = nil, spotifyTrackURL: String? = nil,
+         source: SongSource = .appleMusic) {
+        self.title = title
+        self.artist = artist
+        self.musicKitID = musicKitID
+        self.appleMusicURL = appleMusicURL
+        self.albumArtURL = albumArtURL
+        self.spotifyTrackID = spotifyTrackID
+        self.spotifyTrackURL = spotifyTrackURL
+        self.source = source
+    }
 
     /// Key for deduplication in the added-IDs set.
-    var uniqueKey: String { musicKitID ?? "\(title)|\(artist)" }
+    var uniqueKey: String {
+        spotifyTrackID ?? musicKitID ?? "\(title)|\(artist)"
+    }
 }
 
 // MARK: - WorshipSongSearchService
 
-/// Thin wrapper around MusicKit catalog search.
+/// Thin wrapper around MusicKit catalog search (Apple Music) and Spotify Web API.
 /// Falls back to a fixed list of popular worship songs when MusicKit is unavailable.
 enum WorshipSongSearchService {
 
@@ -329,7 +409,29 @@ enum WorshipSongSearchService {
         #endif
     }
 
-    // MARK: Fallback (no MusicKit)
+    // MARK: - Spotify track search
+
+    static func searchSpotify(query: String) async throws -> [WorshipSongResult] {
+        let tracks = await AMENMediaService.shared.searchSpotifyTracks(query: query)
+        if tracks.isEmpty {
+            // Spotify not configured or no results — return fallback catalog
+            return fallbackSearch(query: query).map {
+                WorshipSongResult(title: $0.title, artist: $0.artist, source: .spotify)
+            }
+        }
+        return tracks.map { track in
+            WorshipSongResult(
+                title: track.name,
+                artist: track.primaryArtist,
+                albumArtURL: track.albumArtURL,
+                spotifyTrackID: track.id,
+                spotifyTrackURL: track.deepLink,
+                source: .spotify
+            )
+        }
+    }
+
+    // MARK: Fallback (no MusicKit / no Spotify credentials)
 
     static func fallbackSearch(query: String) -> [WorshipSongResult] {
         let catalog: [(String, String)] = [
@@ -352,8 +454,7 @@ enum WorshipSongSearchService {
         let q = query.lowercased()
         return catalog
             .filter { $0.0.lowercased().contains(q) || $0.1.lowercased().contains(q) }
-            .map { WorshipSongResult(title: $0.0, artist: $0.1, musicKitID: nil,
-                                     appleMusicURL: nil, albumArtURL: nil) }
+            .map { WorshipSongResult(title: $0.0, artist: $0.1) }
     }
 }
 
@@ -381,7 +482,8 @@ extension WorshipSongSearchService {
                 artist: song.artistName,
                 musicKitID: song.id.rawValue,
                 appleMusicURL: song.url?.absoluteString,
-                albumArtURL: song.artwork?.url(width: 300, height: 300)?.absoluteString
+                albumArtURL: song.artwork?.url(width: 300, height: 300)?.absoluteString,
+                source: .appleMusic
             )
         }
     }
@@ -395,8 +497,6 @@ struct SavedWorshipSongsSection: View {
     let songs: [WorshipSongReference]
     let noteId: String?
     var onRemove: ((WorshipSongReference) -> Void)? = nil
-
-    @State private var playingID: String? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -425,6 +525,7 @@ private struct WorshipSongRow: View {
     @ObservedObject private var vm = WorshipNowPlayingViewModel.shared
     @State private var isLoading = false
 
+    private var isSpotify: Bool { song.spotifyTrackID != nil }
     private var isCurrentSong: Bool {
         vm.currentSong?.title == song.title && vm.currentSong?.artist == song.artist
     }
@@ -433,9 +534,9 @@ private struct WorshipSongRow: View {
     var body: some View {
         HStack(spacing: 12) {
             // Album art
-            ZStack {
+            ZStack(alignment: .bottomTrailing) {
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(Color.purple.opacity(0.25))
+                    .fill(isSpotify ? Color.green.opacity(0.2) : Color.purple.opacity(0.25))
                     .frame(width: 44, height: 44)
                 if let urlStr = song.albumArtURL, let url = URL(string: urlStr) {
                     AsyncImage(url: url) { phase in
@@ -446,15 +547,23 @@ private struct WorshipSongRow: View {
                         } else {
                             Image(systemName: isPlaying ? "waveform" : "music.note")
                                 .font(.system(size: 18))
-                                .foregroundStyle(.purple)
+                                .foregroundStyle(isSpotify ? Color.green : Color.purple)
                                 .symbolEffect(.variableColor.iterative, isActive: isPlaying)
                         }
                     }
                 } else {
                     Image(systemName: isPlaying ? "waveform" : "music.note")
                         .font(.system(size: 18))
-                        .foregroundStyle(.purple)
+                        .foregroundStyle(isSpotify ? Color.green : Color.purple)
                         .symbolEffect(.variableColor.iterative, isActive: isPlaying)
+                }
+                // Source badge overlay
+                if isSpotify {
+                    Image(systemName: "s.circle.fill")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(Color.green)
+                        .background(Circle().fill(Color.black).padding(-1))
+                        .offset(x: 4, y: 4)
                 }
             }
 
@@ -471,13 +580,17 @@ private struct WorshipSongRow: View {
 
             Spacer()
 
-            // Play/pause button
+            // Play/open button
             Button {
                 handlePlayTap()
             } label: {
                 ZStack {
                     if isLoading {
                         ProgressView().scaleEffect(0.75).tint(.white)
+                    } else if isSpotify {
+                        Image(systemName: "arrow.up.forward.app.fill")
+                            .font(.system(size: 26))
+                            .foregroundStyle(Color.green.opacity(0.85))
                     } else {
                         Image(systemName: isPlaying ? "pause.circle.fill" : "play.circle.fill")
                             .font(.system(size: 30))
@@ -517,14 +630,25 @@ private struct WorshipSongRow: View {
     }
 
     private func handlePlayTap() {
-        let svc = WorshipMusicService.shared
-        if isCurrentSong {
-            svc.pauseResume()
+        if isSpotify {
+            // Open Spotify app (or web fallback)
+            let deepLink = song.spotifyTrackURL ?? (song.spotifyTrackID.map { "spotify:track:\($0)" } ?? "")
+            let webFallback = song.spotifyTrackID.map { "https://open.spotify.com/track/\($0)" } ?? ""
+            if let url = URL(string: deepLink), UIApplication.shared.canOpenURL(url) {
+                UIApplication.shared.open(url)
+            } else if let url = URL(string: webFallback), !webFallback.isEmpty {
+                UIApplication.shared.open(url)
+            }
         } else {
-            isLoading = true
-            Task {
-                await svc.playSong(title: song.title, artist: song.artist, churchNoteId: noteId)
-                await MainActor.run { isLoading = false }
+            let svc = WorshipMusicService.shared
+            if isCurrentSong {
+                svc.pauseResume()
+            } else {
+                isLoading = true
+                Task {
+                    await svc.playSong(title: song.title, artist: song.artist, churchNoteId: noteId)
+                    await MainActor.run { isLoading = false }
+                }
             }
         }
     }
