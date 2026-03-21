@@ -642,6 +642,13 @@ class FirebasePostService: ObservableObject {
                 // P0 IDEMPOTENCY: Embed the key so Cloud Functions / security rules can
                 // detect and reject replayed writes server-side.
                 postData["idempotencyKey"] = _idempotencyKey
+                // Search tokens — lowercase unique words for contentTokens array-contains-any queries
+                let tokens = Set(content.lowercased()
+                    .components(separatedBy: .whitespacesAndNewlines)
+                    .map { $0.trimmingCharacters(in: .punctuationCharacters) }
+                    .filter { $0.count >= 3 }
+                ).sorted()
+                postData["contentTokens"] = tokens
                 let _writeToken = PerfBegin("createPost_write")
                 let _traceToken = WriteOpTracer.begin("createPost", key: _idempotencyKey)
                 Breadcrumb.record("createPost_write_start")
