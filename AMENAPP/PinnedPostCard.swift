@@ -92,18 +92,22 @@ struct PinnedPostCard: View {
                 )
                 .frame(height: 2)
             
-            // Post content (use regular PostCard but with enhanced styling)
-            PostCard(
-                post: post,
-                onAmenTap: {},
-                onCommentTap: {},
-                onRepostTap: {},
-                onLightbulbTap: {},
-                onSaveTap: {},
-                onDelete: {},
-                onEdit: {},
-                currentUserID: Auth.auth().currentUser?.uid ?? ""
-            )
+            // Post content placeholder - integrate PostCard here based on your PostCard implementation
+            VStack(alignment: .leading, spacing: 8) {
+                Text(post.authorName)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.white)
+                
+                Text(post.content)
+                    .font(.system(size: 15))
+                    .foregroundStyle(.white.opacity(0.9))
+                    .lineSpacing(4)
+                
+                Text(post.timeAgo)
+                    .font(.system(size: 12))
+                    .foregroundStyle(.white.opacity(0.5))
+            }
+            .padding(16)
             .overlay(
                 RoundedRectangle(cornerRadius: 0)
                     .stroke(Color.purple.opacity(0.15), lineWidth: 1)
@@ -197,43 +201,71 @@ struct PinDurationPicker: View {
                 .foregroundStyle(.white)
             
             ForEach(PinDuration.allCases, id: \.self) { duration in
-                Button {
-                    selectedDuration = duration
-                } label: {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(duration.displayName)
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundStyle(.white)
-                            Text(duration.description)
-                                .font(.system(size: 12))
-                                .foregroundStyle(.white.opacity(0.6))
-                        }
-                        
-                        Spacer()
-                        
-                        if selectedDuration == duration {
-                            Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 18))
-                                .foregroundStyle(.purple)
-                        } else {
-                            Circle()
-                                .stroke(Color.white.opacity(0.2), lineWidth: 1.5)
-                                .frame(width: 18, height: 18)
-                        }
-                    }
-                    .padding(12)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10)
-                            .fill(selectedDuration == duration ? Color.purple.opacity(0.15) : Color.white.opacity(0.05))
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10)
-                            .stroke(selectedDuration == duration ? Color.purple.opacity(0.4) : Color.white.opacity(0.08), lineWidth: 1)
-                    )
-                }
+                DurationOptionButton(
+                    duration: duration,
+                    isSelected: selectedDuration == duration,
+                    action: { selectedDuration = duration }
+                )
             }
         }
         .padding(16)
+    }
+}
+
+// MARK: - Helper Views
+
+private struct DurationOptionButton: View {
+    let duration: PinDuration
+    let isSelected: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(duration.label)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(.white)
+                    Text(durationDescription(for: duration))
+                        .font(.system(size: 12))
+                        .foregroundStyle(.white.opacity(0.6))
+                }
+                
+                Spacer()
+                
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 18))
+                        .foregroundStyle(.purple)
+                } else {
+                    Circle()
+                        .stroke(Color.white.opacity(0.2), lineWidth: 1.5)
+                        .frame(width: 18, height: 18)
+                }
+            }
+            .padding(12)
+            .background(backgroundForSelection)
+            .overlay(overlayForSelection)
+        }
+    }
+    
+    private var backgroundForSelection: some View {
+        RoundedRectangle(cornerRadius: 10)
+            .fill(isSelected ? Color.purple.opacity(0.15) : Color.white.opacity(0.05))
+    }
+    
+    private var overlayForSelection: some View {
+        RoundedRectangle(cornerRadius: 10)
+            .stroke(isSelected ? Color.purple.opacity(0.4) : Color.white.opacity(0.08), lineWidth: 1)
+    }
+    
+    private func durationDescription(for duration: PinDuration) -> String {
+        switch duration {
+        case .h24: return "Pin will expire in 24 hours"
+        case .h48: return "Pin will expire in 48 hours"
+        case .week: return "Pin will expire in 7 days"
+        case .sunday: return "Pin expires on Sunday"
+        case .indefinite: return "Pin won't expire automatically"
+        }
     }
 }
