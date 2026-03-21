@@ -385,6 +385,12 @@ struct ResourcesView: View {
     private var contentView: some View {
         VStack(alignment: .leading, spacing: 28) {
             
+            // ── Living Memory — Soul Engine resonant content ──
+            if selectedCategory == .all || selectedCategory == .community {
+                LivingMemorySection()
+                    .padding(.top, 8)
+            }
+            
             // ── AMEN | Connect — Find Church + Church Notes + AMEN Connect ──
             if selectedCategory == .all || selectedCategory == .community || selectedCategory == .opportunities {
                 resourceSection(title: "Connect", subtitle: "Acts 2:42") {

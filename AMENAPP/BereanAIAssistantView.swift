@@ -84,6 +84,8 @@ struct BereanAIAssistantView: View {
     @State private var showStudyPlanner = false
     @State private var showScriptureAnalyzer = false
     
+
+    
     // Selah reading view
     @State private var selahMessage: BereanMessage?
     @State private var showSelahView = false
@@ -884,6 +886,14 @@ struct BereanAIAssistantView: View {
                 sendMessage("Explain theological themes in Scripture")
             case .verseOfDay:
                 sendMessage("Give me an encouraging verse for today")
+            case .goals:
+                sendMessage("Help me set spiritual growth goals")
+            case .shield:
+                sendMessage("Show me how to guard my heart spiritually")
+            case .tabSwitcher:
+                sendMessage("Help me organize my Bible study tabs")
+            case .compassAlert:
+                sendMessage("Guide me in my spiritual direction")
             }
         }
     }
@@ -3570,6 +3580,10 @@ enum SmartFeature: String, CaseIterable {
     case characterStudy = "Character Study"
     case theologicalThemes = "Themes"
     case verseOfDay = "Verse of Day"
+    case goals = "Goals"
+    case shield = "Shield"
+    case tabSwitcher = "Tab Switcher"
+    case compassAlert = "Compass"
     
     var icon: String {
         switch self {
@@ -3579,6 +3593,10 @@ enum SmartFeature: String, CaseIterable {
         case .characterStudy: return "person.crop.circle.fill"
         case .theologicalThemes: return "books.vertical.circle.fill"
         case .verseOfDay: return "sun.horizon.circle.fill"
+        case .goals: return "target"
+        case .shield: return "shield.fill"
+        case .tabSwitcher: return "square.grid.2x2.fill"
+        case .compassAlert: return "location.circle.fill"
         }
     }
     
@@ -3590,6 +3608,10 @@ enum SmartFeature: String, CaseIterable {
         case .characterStudy: return Color(red: 0.95, green: 0.7, blue: 0.6) // Soft peach
         case .theologicalThemes: return Color(red: 0.85, green: 0.6, blue: 0.7) // Soft rose
         case .verseOfDay: return Color(red: 1.0, green: 0.85, blue: 0.5) // Soft yellow
+        case .goals: return Color(red: 0.4, green: 0.8, blue: 0.6) // Soft green
+        case .shield: return Color(red: 0.3, green: 0.5, blue: 0.9) // Deep blue
+        case .tabSwitcher: return Color(red: 0.7, green: 0.5, blue: 0.9) // Purple
+        case .compassAlert: return Color(red: 0.9, green: 0.5, blue: 0.5) // Soft red
         }
     }
 }

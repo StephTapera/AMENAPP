@@ -36,33 +36,53 @@ struct AMENConnectView: View {
     @State private var orb4Scale: CGFloat = 1.0
 
     var body: some View {
-        ZStack {
-            // ── Fixed background with animated orbs ──────────────────────
-            Color(hex: "1a0a0a").ignoresSafeArea()
-
-            orbBackground
-
-            // ── Scrollable content ────────────────────────────────────────
-            ScrollView(.vertical, showsIndicators: false) {
-                VStack(spacing: 20) {
-                    heroBanner
-                    filterChips
-                    categoryGrid
-                    upcomingEventsSection
-                    mentorBanner
-                    Spacer(minLength: 60)
+        TabView(selection: $selectedTab) {
+            // For You tab
+            ConnectForYouView()
+                .tag(AMENConnectTab.forYou)
+                .tabItem {
+                    Label("For You", systemImage: "star.fill")
                 }
-                .padding(.top, 8)
-            }
-            .scrollContentBackground(.hidden)
+            
+            // Marketplace tab
+            ConnectMarketplaceView()
+                .tag(AMENConnectTab.marketplace)
+                .tabItem {
+                    Label("Marketplace", systemImage: "cart.fill")
+                }
+            
+            // Conversations tab
+            ConnectConverseView()
+                .tag(AMENConnectTab.converse)
+                .tabItem {
+                    Label("Conversations", systemImage: "bubble.left.and.bubble.right.fill")
+                }
+            
+            // Serve tab
+            ConnectServeView()
+                .tag(AMENConnectTab.serve)
+                .tabItem {
+                    Label("Serve", systemImage: "hands.sparkles.fill")
+                }
+            
+            // Ministries tab
+            ConnectMinistriesView()
+                .tag(AMENConnectTab.ministries)
+                .tabItem {
+                    Label("Ministries", systemImage: "building.2.fill")
+                }
+            
+            // Network tab (existing)
+            ConnectNetworkView()
+                .tag(AMENConnectTab.network)
+                .tabItem {
+                    Label("Network", systemImage: "person.2.fill")
+                }
         }
         .navigationTitle("AMEN Connect")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(.hidden, for: .navigationBar)
-        .toolbarColorScheme(.dark, for: .navigationBar)
         .onAppear {
             selectedTab = initialTab
-            startOrbAnimations()
         }
     }
 

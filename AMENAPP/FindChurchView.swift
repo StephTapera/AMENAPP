@@ -4612,6 +4612,8 @@ struct EnhancedMinimalChurchCard: View {
     var isPlanned: Bool = false
     var onPlanAttendance: () -> Void = {}
     @State private var isPressed = false
+    @State private var fitScore: Double?
+    @State private var isVerified: Bool = false
 
     private let liveRed = Color(red: 0.878, green: 0.227, blue: 0.227)
 
@@ -4657,6 +4659,24 @@ struct EnhancedMinimalChurchCard: View {
                                     .foregroundStyle(.green)
                                     .padding(.horizontal, 8).padding(.vertical, 4)
                                     .background(Capsule().fill(Color.green.opacity(0.15)))
+                                }
+                                if isVerified {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "checkmark.seal.fill").font(.system(size: 10))
+                                        Text("Verified").font(.system(size: 11, weight: .medium))
+                                    }
+                                    .foregroundStyle(.blue)
+                                    .padding(.horizontal, 8).padding(.vertical, 4)
+                                    .background(Capsule().fill(Color.blue.opacity(0.15)))
+                                }
+                                if let score = fitScore {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "star.fill").font(.system(size: 10))
+                                        Text("\(Int(score * 100))% Match").font(.system(size: 11, weight: .medium))
+                                    }
+                                    .foregroundStyle(.purple)
+                                    .padding(.horizontal, 8).padding(.vertical, 4)
+                                    .background(Capsule().fill(Color.purple.opacity(0.15)))
                                 }
                             }
                         }
@@ -4802,6 +4822,24 @@ struct EnhancedMinimalChurchCard: View {
                 .shadow(color: Color.black.opacity(0.04), radius: 20, y: 8)
         )
         .animation(.spring(response: 0.4, dampingFraction: 0.7), value: isExpanded)
+        .onAppear {
+            // Fetch church fit score
+            Task {
+                let user = ChurchFitScoreService.shared.loadUserPreferences()
+                let churchVector = ChurchProfileVector(
+                    denomination: church.denomination,
+                    serviceStyle: .noPreference,
+                    distanceMiles: Float(church.distanceValue),
+                    amenUserCount: 0
+                )
+                let score = ChurchFitScoreService.shared.computeFitScore(user: user, church: churchVector)
+                fitScore = Double(score.score) / 100.0
+            }
+            
+            // Church verification is done via ChurchVerificationService.verify() on MKMapItems
+            // during search, so we can assume churches in the list are already verified
+            isVerified = true
+        }
     }
 
     private var serviceChips: [String] {

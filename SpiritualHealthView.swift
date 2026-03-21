@@ -530,6 +530,94 @@ struct SpiritualHealthView: View {
                 }
             }
             .padding(.horizontal, 20)
+
+            // Wellness Exercises
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Wellness Exercises")
+                    .font(.system(size: 18, weight: .bold))
+                    .padding(.horizontal, 20)
+                
+                VStack(spacing: 10) {
+                    NavigationLink(destination: BreathingExerciseView()) {
+                        HStack(spacing: 12) {
+                            Image(systemName: "wind")
+                                .font(.system(size: 20))
+                                .foregroundStyle(.white)
+                                .frame(width: 44, height: 44)
+                                .background(Color.blue, in: RoundedRectangle(cornerRadius: 12))
+                            
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Breathing Exercise")
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundStyle(.primary)
+                                Text("Calm your mind and center yourself")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(12)
+                        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14))
+                    }
+                    .buttonStyle(.plain)
+                    
+                    NavigationLink(destination: MovementWellnessView()) {
+                        HStack(spacing: 12) {
+                            Image(systemName: "figure.walk")
+                                .font(.system(size: 20))
+                                .foregroundStyle(.white)
+                                .frame(width: 44, height: 44)
+                                .background(Color.green, in: RoundedRectangle(cornerRadius: 12))
+                            
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Movement Wellness")
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundStyle(.primary)
+                                Text("Gentle movements for body and soul")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(12)
+                        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14))
+                    }
+                    .buttonStyle(.plain)
+                    
+                    NavigationLink(destination: SleepHygieneView()) {
+                        HStack(spacing: 12) {
+                            Image(systemName: "moon.stars.fill")
+                                .font(.system(size: 20))
+                                .foregroundStyle(.white)
+                                .frame(width: 44, height: 44)
+                                .background(Color.purple, in: RoundedRectangle(cornerRadius: 12))
+                            
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Sleep Hygiene")
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundStyle(.primary)
+                                Text("Rest well and restore your spirit")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(12)
+                        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14))
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, 20)
+            }
         }
     }
 
