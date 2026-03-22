@@ -611,7 +611,7 @@ struct BereanAIAssistantView: View {
         }
         // ✅ Conversation History Sheet
         .sheet(isPresented: $showBereanChatsView) {
-            BereanChatsView()
+            BereanChatsListView()
         }
         .sheet(isPresented: $showHistoryView) {
             BereanConversationManagementView(
