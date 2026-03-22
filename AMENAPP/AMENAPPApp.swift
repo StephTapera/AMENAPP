@@ -132,9 +132,17 @@ struct AMENAPPApp: App {
     
     /// Automatically migrate users to add search keywords (runs once)
     private static func runAutomaticMigration() async {
+        // Requires an authenticated user — Firestore rules block unauthenticated reads/writes.
+        // Skip silently if no user is signed in; the flag stays unset so it retries
+        // on the next launch once the user has logged in.
+        guard Auth.auth().currentUser != nil else {
+            dlog("⏭️ Skipping migration — no authenticated user (will retry after login)")
+            return
+        }
+
         // Check if migration has already been run
         let hasRunMigration = UserDefaults.standard.bool(forKey: "hasRunUserKeywordsMigration")
-        
+
         if hasRunMigration {
             dlog("✅ User keywords migration already completed")
             return
