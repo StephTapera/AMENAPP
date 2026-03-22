@@ -284,12 +284,25 @@ struct EnhancedChurchNoteEditor: View {
             .disabled(!canSave || isSaving)
             .opacity(contextAllFilled ? 1.0 : (canSave ? 0.7 : 0.35))
             .animation(.easeInOut(duration: 0.3), value: contextAllFilled)
+
+            // Doctrine Check + Study Guide (shown when note has content)
+            if !content.isEmpty {
+                HStack(spacing: 12) {
+                    DoctrineCheckButton(text: [title, content, keyPoints.joined(separator: " ")].joined(separator: " "))
+                    Spacer()
+                    if let note = existingNote {
+                        StudyGuideButton(note: note)
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 8)
+            }
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 16)
         .background(Color(red: 0.96, green: 0.96, blue: 0.96))
     }
-    
+
     // MARK: - Title Field (with Ghost Autocomplete)
 
     private var titleField: some View {

@@ -481,6 +481,14 @@ struct ResourcesView: View {
                 }
             }
 
+            // ── Spiritual Journey — AI-powered personal timeline ──────────
+            if selectedCategory == .all || selectedCategory == .learning || selectedCategory == .community {
+                resourceSection(title: "Your Journey") {
+                    SpiritualTimelineEntry()
+                        .padding(.horizontal, 20)
+                }
+            }
+
             // ── Wisdom Library ── Hero banner · Book discovery with Amazon + Apple Books ──
             if selectedCategory == .all || selectedCategory == .reading || selectedCategory == .learning {
                 resourceSection(title: "Wisdom Library") {

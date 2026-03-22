@@ -4690,13 +4690,7 @@ struct EnhancedMinimalChurchCard: View {
                                     .background(Capsule().fill(Color.blue.opacity(0.15)))
                                 }
                                 if let score = fitScore {
-                                    HStack(spacing: 4) {
-                                        Image(systemName: "star.fill").font(.system(size: 10))
-                                        Text("\(Int(score * 100))% Match").font(.system(size: 11, weight: .medium))
-                                    }
-                                    .foregroundStyle(.purple)
-                                    .padding(.horizontal, 8).padding(.vertical, 4)
-                                    .background(Capsule().fill(Color.purple.opacity(0.15)))
+                                    ChurchMatchBadge(score: score * 100)
                                 }
                             }
                         }

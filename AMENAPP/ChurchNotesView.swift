@@ -185,6 +185,12 @@ struct ChurchNotesView: View {
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
         }
+        // Semantic search overlay button (top-right alongside existing icons)
+        .overlay(alignment: .topTrailing) {
+            SemanticSearchButton(notes: notesService.notes)
+                .padding(.top, 60)
+                .padding(.trailing, 56) // offset left of existing + button
+        }
         .sheet(isPresented: $showOnboarding) {
             ChurchNotesOnboardingView()
         }
