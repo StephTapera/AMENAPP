@@ -55,7 +55,8 @@ struct CreatePostView: View {
     @State private var errorMessage = ""
     @State private var errorTitle = "Error"
     @State private var showingSuccessNotice = false
-    
+    @State private var showCancelConfirmation = false
+
     // P1-6 FIX: Better error recovery
     @State private var isRetryableError = false
     @State private var retryAction: (() -> Void)?
@@ -405,6 +406,34 @@ struct CreatePostView: View {
                                 }
                             }
                             .padding(.horizontal, 16)
+
+                        // ── Add to thread row (Threads-style) ───────────────
+                        if !postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            HStack(spacing: 12) {
+                                // Small avatar echo
+                                Circle()
+                                    .fill(Color(.tertiarySystemFill))
+                                    .frame(width: 24, height: 24)
+                                    .padding(.leading, 16)
+
+                                Button {
+                                    // Append a new empty thread segment
+                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                                        isThreadMode = true
+                                        threadPosts.append("")
+                                    }
+                                } label: {
+                                    Text("Add to thread…")
+                                        .font(.system(size: 15))
+                                        .foregroundStyle(Color(.tertiaryLabel))
+                                }
+                                .buttonStyle(.plain)
+
+                                Spacer()
+                            }
+                            .padding(.vertical, 10)
+                            .transition(.opacity.combined(with: .move(edge: .bottom)))
+                        }
                         }
                     }
                 }
@@ -452,11 +481,28 @@ struct CreatePostView: View {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") {
                         isTextFieldFocused = false
-                        if !postText.isEmpty { saveDraft() }
-                        dismiss()
+                        let hasContent = !postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                            || !selectedImageData.isEmpty
+                            || cameraImage != nil
+                            || showingPoll
+                        if hasContent {
+                            showCancelConfirmation = true
+                        } else {
+                            dismiss()
+                        }
                     }
                     .font(.system(size: 16, weight: .regular))
                     .foregroundStyle(.primary)
+                    .confirmationDialog("", isPresented: $showCancelConfirmation, titleVisibility: .hidden) {
+                        Button("Save Draft") {
+                            saveDraft()
+                            dismiss()
+                        }
+                        Button("Discard Post", role: .destructive) {
+                            dismiss()
+                        }
+                        Button("Cancel", role: .cancel) { }
+                    }
                 }
 
                 ToolbarItem(placement: .principal) {
@@ -465,9 +511,26 @@ struct CreatePostView: View {
                 }
 
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    CirclePostButton(postText: $postText) {
-                        await publishPostAsync()
+                    ZStack {
+                        // Character count arc — appears when approaching limit
+                        let fraction = min(Double(postText.count) / 500.0, 1.0)
+                        if postText.count > 400 {
+                            Circle()
+                                .trim(from: 0, to: fraction)
+                                .stroke(
+                                    postText.count > 500 ? Color.red :
+                                    postText.count > 480 ? Color.orange : Color(.systemGray3),
+                                    style: StrokeStyle(lineWidth: 2, lineCap: .round)
+                                )
+                                .frame(width: 50, height: 50)
+                                .rotationEffect(.degrees(-90))
+                                .animation(.easeOut(duration: 0.15), value: fraction)
+                        }
+                        CirclePostButton(postText: $postText) {
+                            await publishPostAsync()
+                        }
                     }
+                    .frame(width: 50, height: 50)
                 }
             }
             .safeAreaInset(edge: .bottom) {
@@ -3779,24 +3842,24 @@ struct CirclePostButton: View {
     private var circleBackgroundColor: Color {
         switch buttonState {
         case .idle:
-            return Color.white.opacity(0.15)  // Increased from 0.05 to make more visible
+            return Color(.tertiarySystemFill)   // adaptive gray, visible on light & dark nav bar
         case .ready:
-            return Color.white
+            return Color(.label)                // black in light mode, white in dark mode
         case .posting:
-            return Color.white.opacity(0.1)
+            return Color(.tertiarySystemFill)
         case .sent:
-            return Color.white
+            return Color(.label)
         }
     }
-    
+
     private var iconColor: Color {
         switch buttonState {
         case .idle:
-            return Color.white.opacity(0.5)  // Increased from 0.3 to make more visible
+            return Color(.secondaryLabel)       // medium gray, clearly visible on any bg
         case .ready, .sent:
-            return Color.black
+            return Color(.systemBackground)     // white on black / black on white
         case .posting:
-            return Color.white
+            return Color(.systemBackground)
         }
     }
     
