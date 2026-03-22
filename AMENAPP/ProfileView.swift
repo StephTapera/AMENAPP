@@ -373,6 +373,9 @@ struct ProfileView: View {
     @ViewBuilder
     private var toolbarTrailingButtons: some View {
         HStack(spacing: 10) {
+            // Notification Bell Button (always visible)
+            NotificationBellButton()
+            
             // Conditionally show the 4 buttons when expanded
             if isToolbarExpanded {
                 Button {
@@ -2104,9 +2107,9 @@ struct ProfilePostCard: View {
                     }
                 }
                 
-                // Clean white background like Threads
+                // Clean adaptive background like Threads
                 RoundedRectangle(cornerRadius: 0, style: .continuous)
-                    .fill(Color.white)
+                    .fill(Color(.systemBackground))
             }
         )
         .overlay(

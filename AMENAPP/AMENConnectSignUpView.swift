@@ -495,7 +495,7 @@ struct AMENConnectSignUpView: View {
 
 // MARK: - Tier Card
 
-struct TierCard: View {
+private struct TierCard: View {
     let tier: AMENConnectTier
     let isSelected: Bool
     let billingAnnual: Bool

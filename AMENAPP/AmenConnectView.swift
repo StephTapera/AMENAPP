@@ -9,6 +9,7 @@
 import SwiftUI
 
 enum AMENConnectTab: String, CaseIterable, Codable {
+    case all = "All"
     case forYou = "For You"
     case jobs = "Jobs"
     case network = "Network"

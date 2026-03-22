@@ -569,6 +569,9 @@ struct InboxHeroHeader: View {
 
                 Spacer()
 
+                // Notification Bell Button
+                NotificationBellButton()
+                
                 // Compose new message
                 Button(action: onCompose) {
                     Image(systemName: "square.and.pencil")

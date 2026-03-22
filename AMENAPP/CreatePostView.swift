@@ -142,6 +142,7 @@ struct CreatePostView: View {
     @State private var showModerationBlockingModal = false
     @State private var blockingModerationDecision: ModerationDecision?
     @State private var shakePublishButton = false
+    @State private var shakeTopicTag = false  // P1 FIX: Shake topic tag when validation fails
     
     // AI CONTENT DETECTION
     @State private var showAIContentAlert = false
@@ -333,6 +334,10 @@ struct CreatePostView: View {
                                     }
 
                                     textEditorView
+                                    
+                                    versePreviewBadge
+                                    
+                                    taggedUsersChips
 
                                     // Topic tag selector (required for OpenTable/Prayer)
                                     if selectedCategory == .openTable || selectedCategory == .prayer || selectedCategory == .testimonies {
@@ -364,6 +369,7 @@ struct CreatePostView: View {
                                             )
                                         }
                                         .buttonStyle(.plain)
+                                        .modifier(ShakeEffect(shakes: shakeTopicTag ? 3 : 0))
                                     }
 
                                     // Camera photo preview
@@ -408,7 +414,7 @@ struct CreatePostView: View {
                             .padding(.horizontal, 16)
 
                         // ── Add to thread row (Threads-style) ───────────────
-                        if !postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        if !postText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isThreadMode {
                             HStack(spacing: 12) {
                                 // Small avatar echo
                                 Circle()
@@ -420,7 +426,8 @@ struct CreatePostView: View {
                                     // Append a new empty thread segment
                                     withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
                                         isThreadMode = true
-                                        threadPosts.append("")
+                                        threadPosts = [postText, ""]  // Move main text to thread array
+                                        currentThreadIndex = 1
                                     }
                                 } label: {
                                     Text("Add to thread…")
@@ -433,6 +440,84 @@ struct CreatePostView: View {
                             }
                             .padding(.vertical, 10)
                             .transition(.opacity.combined(with: .move(edge: .bottom)))
+                        }
+                        
+                        // ── Thread posts (when in thread mode) ───────────────
+                        if isThreadMode && threadPosts.count > 1 {
+                            ForEach(1..<threadPosts.count, id: \.self) { index in
+                                HStack(alignment: .top, spacing: 12) {
+                                    // Thread connector line
+                                    VStack(spacing: 0) {
+                                        Rectangle()
+                                            .fill(Color.primary.opacity(0.1))
+                                            .frame(width: 1)
+                                    }
+                                    .frame(width: 44)
+                                    .padding(.top, 4)
+                                    
+                                    // Thread post text field
+                                    VStack(alignment: .leading, spacing: 8) {
+                                        TextField("Continue thread…", text: Binding(
+                                            get: { threadPosts[index] },
+                                            set: { threadPosts[index] = $0 }
+                                        ), axis: .vertical)
+                                        .font(.system(size: 16))
+                                        .lineLimit(10...20)
+                                        .textFieldStyle(.plain)
+                                        
+                                        // Remove thread post button
+                                        if threadPosts.count > 2 || !threadPosts[index].isEmpty {
+                                            Button {
+                                                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                                                    threadPosts.remove(at: index)
+                                                    if threadPosts.count == 1 {
+                                                        isThreadMode = false
+                                                        postText = threadPosts[0]
+                                                        threadPosts = [""]
+                                                    }
+                                                }
+                                            } label: {
+                                                HStack(spacing: 6) {
+                                                    Image(systemName: "xmark.circle.fill")
+                                                        .font(.system(size: 14))
+                                                    Text("Remove")
+                                                        .font(.system(size: 13))
+                                                }
+                                                .foregroundStyle(.secondary)
+                                            }
+                                            .buttonStyle(.plain)
+                                        }
+                                    }
+                                }
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 8)
+                                .transition(.opacity.combined(with: .move(edge: .bottom)))
+                            }
+                            
+                            // Add another thread post button
+                            if threadPosts.count < 10 {
+                                HStack(spacing: 12) {
+                                    Circle()
+                                        .fill(Color(.tertiarySystemFill))
+                                        .frame(width: 24, height: 24)
+                                        .padding(.leading, 16)
+                                    
+                                    Button {
+                                        withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                                            threadPosts.append("")
+                                        }
+                                    } label: {
+                                        Text("Add another post…")
+                                            .font(.system(size: 15))
+                                            .foregroundStyle(Color(.tertiaryLabel))
+                                    }
+                                    .buttonStyle(.plain)
+                                    
+                                    Spacer()
+                                }
+                                .padding(.vertical, 10)
+                                .transition(.opacity.combined(with: .move(edge: .bottom)))
+                            }
                         }
                         }
                     }
@@ -788,6 +873,35 @@ struct CreatePostView: View {
     private var pollHasValidOptions: Bool {
         let filled = pollOptions.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
         return filled.count >= 2
+    }
+    
+    // P2 FIX: Verse attachment preview badge
+    @ViewBuilder
+    private var versePreviewBadge: some View {
+        if !attachedVerseReference.isEmpty {
+            VerseBadgeView(
+                reference: attachedVerseReference,
+                text: attachedVerseText,
+                onRemove: {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                        attachedVerseReference = ""
+                        attachedVerseText = ""
+                    }
+                }
+            )
+            .transition(.opacity.combined(with: .move(edge: .top)))
+        }
+    }
+    
+    // P2 FIX: Tagged users chips
+    @ViewBuilder
+    private var taggedUsersChips: some View {
+        if !taggedUsers.isEmpty {
+            TaggedUsersView(
+                users: $taggedUsers
+            )
+            .transition(.opacity.combined(with: .move(edge: .top)))
+        }
     }
     
     private var characterCountText: String {
@@ -2378,6 +2492,15 @@ struct CreatePostView: View {
         if (selectedCategory == .openTable || selectedCategory == .prayer) && selectedTopicTag.isEmpty {
             dlog("❌ Topic tag required but missing")
             inFlightPostId = nil  // P1 FIX: Allow retry after fixing validation error
+            
+            // P1 FIX: Shake topic tag button and show inline error
+            withAnimation(.default) {
+                shakeTopicTag = true
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                shakeTopicTag = false
+            }
+            
             showError(
                 title: "Topic Tag Required",
                 message: selectedCategory == .openTable ? 
@@ -4913,59 +5036,118 @@ struct EnhancedCategoryChip: View {
 struct ImagePreviewGrid: View {
     @Binding var images: [Data]
     var onAddMore: (() -> Void)? = nil
+    @State private var draggingItem: Data?
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 12) {
-                ForEach(images.indices, id: \.self) { index in
-                    if let uiImage = UIImage(data: images[index]) {
-                        ZStack(alignment: .topTrailing) {
-                            Image(uiImage: uiImage)
-                                .resizable()
-                                .scaledToFill()
-                                .frame(width: 120, height: 120)
-                                .clipShape(RoundedRectangle(cornerRadius: 12))
-                                .transition(.scale.combined(with: .opacity))
-
-                            Button {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                    _ = images.remove(at: index)
-                                }
-                            } label: {
-                                ZStack {
-                                    Circle()
-                                        .fill(Color.black.opacity(0.7))
-                                        .frame(width: 28, height: 28)
-
-                                    Image(systemName: "xmark")
-                                        .font(.system(size: 12, weight: .bold))
-                                        .foregroundStyle(.white)
-                                }
-                            }
-                            .padding(8)
-                        }
-                        .transition(.scale.combined(with: .opacity))
-                    }
+                ForEach(images, id: \.self) { imageData in
+                    DraggableImageCell(
+                        imageData: imageData,
+                        images: $images,
+                        draggingItem: $draggingItem
+                    )
                 }
 
                 // "+" add more cell (up to 4 images)
                 if images.count < 4, let onAddMore {
-                    Button(action: onAddMore) {
-                        RoundedRectangle(cornerRadius: 12)
-                            .strokeBorder(Color.primary.opacity(0.15), style: StrokeStyle(lineWidth: 1.5, dash: [6]))
-                            .frame(width: 120, height: 120)
-                            .overlay(
-                                Image(systemName: "plus")
-                                    .font(.system(size: 24, weight: .light))
-                                    .foregroundStyle(.secondary)
-                            )
-                    }
-                    .buttonStyle(.plain)
-                    .transition(.scale.combined(with: .opacity))
+                    AddImageButton(onAddMore: onAddMore)
                 }
             }
         }
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: images.count)
+    }
+}
+
+// MARK: - Draggable Image Cell
+
+private struct DraggableImageCell: View {
+    let imageData: Data
+    @Binding var images: [Data]
+    @Binding var draggingItem: Data?
+    
+    var body: some View {
+        if let uiImage = UIImage(data: imageData) {
+            ZStack(alignment: .topTrailing) {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 120, height: 120)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .opacity(draggingItem == imageData ? 0.5 : 1.0)
+
+                Button {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        images.removeAll { $0 == imageData }
+                    }
+                } label: {
+                    ZStack {
+                        Circle()
+                            .fill(Color.black.opacity(0.7))
+                            .frame(width: 28, height: 28)
+
+                        Image(systemName: "xmark")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(.white)
+                    }
+                }
+                .padding(8)
+            }
+            .transition(.scale.combined(with: .opacity))
+            .onDrag {
+                draggingItem = imageData
+                let provider = NSItemProvider()
+                provider.suggestedName = UUID().uuidString
+                return provider
+            }
+            .onDrop(of: [.data], delegate: ImageDropDelegate(
+                item: imageData,
+                items: $images,
+                draggingItem: $draggingItem
+            ))
+        }
+    }
+}
+
+private struct AddImageButton: View {
+    let onAddMore: () -> Void
+    
+    var body: some View {
+        Button(action: onAddMore) {
+            RoundedRectangle(cornerRadius: 12)
+                .strokeBorder(Color.primary.opacity(0.15), style: StrokeStyle(lineWidth: 1.5, dash: [6]))
+                .frame(width: 120, height: 120)
+                .overlay(
+                    Image(systemName: "plus")
+                        .font(.system(size: 24, weight: .light))
+                        .foregroundStyle(.secondary)
+                )
+        }
+        .buttonStyle(.plain)
+        .transition(.scale.combined(with: .opacity))
+    }
+}
+
+// Drag and drop delegate for image reordering
+struct ImageDropDelegate: DropDelegate {
+    let item: Data
+    @Binding var items: [Data]
+    @Binding var draggingItem: Data?
+    
+    func performDrop(info: DropInfo) -> Bool {
+        draggingItem = nil
+        return true
+    }
+    
+    func dropEntered(info: DropInfo) {
+        guard let draggingItem = draggingItem,
+              draggingItem != item,
+              let fromIndex = items.firstIndex(of: draggingItem),
+              let toIndex = items.firstIndex(of: item) else { return }
+        
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            items.move(fromOffsets: IndexSet(integer: fromIndex), toOffset: toIndex > fromIndex ? toIndex + 1 : toIndex)
+        }
     }
 }
 
@@ -5975,6 +6157,91 @@ struct AuthenticityPromptSheet: View {
         }
     }
 }
+// MARK: - Verse Badge View
+
+private struct VerseBadgeView: View {
+    let reference: String
+    let text: String
+    let onRemove: () -> Void
+    
+    var body: some View {
+        HStack(spacing: 8) {
+            HStack(spacing: 6) {
+                Image(systemName: "text.book.closed.fill")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.blue)
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(reference)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.primary)
+                    
+                    if !text.isEmpty {
+                        Text(text.prefix(50) + (text.count > 50 ? "..." : ""))
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                }
+                
+                Spacer()
+                
+                Button(action: onRemove) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 16))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.blue.opacity(0.08))
+            )
+        }
+    }
+}
+
+// MARK: - Tagged Users View
+
+private struct TaggedUsersView: View {
+    @Binding var users: [MentionedUser]
+    
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(users, id: \.userId) { user in
+                    HStack(spacing: 6) {
+                        Image(systemName: "person.crop.circle.fill")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.purple)
+                        
+                        Text("@\(user.username)")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(.primary)
+                        
+                        Button {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                                users.removeAll { $0.userId == user.userId }
+                            }
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 14))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(
+                        Capsule()
+                            .fill(Color.purple.opacity(0.08))
+                    )
+                }
+            }
+        }
+    }
+}
+
 // MARK: - Dynamic Island–style "Posted" pill
 
 private struct PostedPill: View {

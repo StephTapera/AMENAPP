@@ -13,7 +13,7 @@ struct ShareToMessagesSheet: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var followService = FollowService.shared
     @ObservedObject private var userService = UserService.shared
-    @ObservedObject private var messageService = MessageService.shared
+    @ObservedObject private var messageService = FirebaseMessagingService.shared
     
     @State private var searchText = ""
     @State private var selectedUserIds: Set<String> = []
@@ -50,9 +50,11 @@ struct ShareToMessagesSheet: View {
                                 userRow(user)
                                     .contentShape(Rectangle())
                                     .onTapGesture {
-                                        toggleUser(user.id)
-                                        let haptic = UIImpactFeedbackGenerator(style: .light)
-                                        haptic.impactOccurred()
+                                        if let userId = user.id {
+                                            toggleUser(userId)
+                                            let haptic = UIImpactFeedbackGenerator(style: .light)
+                                            haptic.impactOccurred()
+                                        }
                                     }
                                 
                                 Divider()
@@ -147,9 +149,11 @@ struct ShareToMessagesSheet: View {
                 .font(.custom("OpenSans-SemiBold", size: 14))
             
             Button {
-                toggleUser(user.id)
-                let haptic = UIImpactFeedbackGenerator(style: .light)
-                haptic.impactOccurred()
+                if let userId = user.id {
+                    toggleUser(userId)
+                    let haptic = UIImpactFeedbackGenerator(style: .light)
+                    haptic.impactOccurred()
+                }
             } label: {
                 Image(systemName: "xmark.circle.fill")
                     .font(.system(size: 16))
@@ -195,9 +199,9 @@ struct ShareToMessagesSheet: View {
             Spacer()
             
             // Checkbox
-            Image(systemName: selectedUserIds.contains(user.id) ? "checkmark.circle.fill" : "circle")
+            Image(systemName: (user.id.map { selectedUserIds.contains($0) } ?? false) ? "checkmark.circle.fill" : "circle")
                 .font(.system(size: 24))
-                .foregroundStyle(selectedUserIds.contains(user.id) ? .black : .secondary)
+                .foregroundStyle((user.id.map { selectedUserIds.contains($0) } ?? false) ? .black : .secondary)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -271,9 +275,8 @@ struct ShareToMessagesSheet: View {
         var users: [UserModel] = []
         for userId in followingIds {
             do {
-                if let user = try await userService.fetchUserProfile(userId: userId) {
-                    users.append(user)
-                }
+                let user = try await userService.fetchUserProfile(userId: userId)
+                users.append(user)
             } catch {
                 dlog("⚠️ Failed to fetch user \(userId): \(error)")
             }
@@ -306,10 +309,19 @@ struct ShareToMessagesSheet: View {
             var successCount = 0
             for recipientId in selectedUserIds {
                 do {
+                    // Get recipient info
+                    guard let recipient = followingUsers.first(where: { $0.id == recipientId }) else { continue }
+                    
+                    // Get or create conversation
+                    let conversationId = try await messageService.getOrCreateDirectConversation(
+                        withUserId: recipientId,
+                        userName: recipient.displayName
+                    )
+                    
+                    // Send message
                     try await messageService.sendMessage(
-                        recipientId: recipientId,
-                        content: shareMessage,
-                        images: nil
+                        conversationId: conversationId,
+                        text: shareMessage
                     )
                     successCount += 1
                 } catch {
@@ -349,13 +361,33 @@ struct ShareToMessagesSheet: View {
 
 #Preview {
     ShareToMessagesSheet(post: Post(
+        id: UUID(),
+        firebaseId: nil,
         authorId: "test",
         authorName: "John Doe",
         authorUsername: "johndoe",
         authorInitials: "JD",
+        authorProfileImageURL: nil,
+        timeAgo: "1m",
         content: "This is a test post",
         category: .openTable,
-        timestamp: Date(),
-        commentPermissions: .everyone
+        topicTag: nil,
+        visibility: .everyone,
+        allowComments: true,
+        commentPermissions: .everyone,
+        imageURLs: nil,
+        linkURL: nil,
+        linkPreviewTitle: nil,
+        linkPreviewDescription: nil,
+        linkPreviewImageURL: nil,
+        linkPreviewSiteName: nil,
+        linkPreviewType: nil,
+        verseReference: nil,
+        verseText: nil,
+        createdAt: Date(),
+        amenCount: 0,
+        lightbulbCount: 0,
+        commentCount: 0,
+        repostCount: 0
     ))
 }

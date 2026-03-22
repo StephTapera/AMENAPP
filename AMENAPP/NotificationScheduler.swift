@@ -10,6 +10,7 @@ import UserNotifications
 import FirebaseFirestore
 import FirebaseAuth
 import CoreLocation
+import Combine
 
 /// Schedules personalized, context-aware notifications
 @MainActor
@@ -74,8 +75,9 @@ class NotificationScheduler: ObservableObject {
         content.categoryIdentifier = "MORNING_DEVOTIONAL"
         
         // Schedule for the time specified in preferences
-        let calendar = Calendar.current
-        let components = calendar.dateComponents([.hour, .minute], from: preferences.morningDevotionalTime)
+        var components = DateComponents()
+        components.hour = preferences.morningDevotionalHour
+        components.minute = preferences.morningDevotionalMinute
         
         let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: true)
         let request = UNNotificationRequest(
