@@ -15,6 +15,14 @@ import AuthenticationServices
 import CryptoKit
 import GoogleSignIn
 
+// MARK: - Shared Email Validation
+
+private func isValidEmailFormat(_ email: String) -> Bool {
+    let emailRegex = "[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,64}"
+    let predicate = NSPredicate(format: "SELF MATCHES %@", emailRegex)
+    return predicate.evaluate(with: email)
+}
+
 struct SignInView: View {
     @EnvironmentObject var viewModel: AuthenticationViewModel
     @Environment(\.scenePhase) private var scenePhase
@@ -254,7 +262,8 @@ struct SignInView: View {
                     keyboardType: .phonePad
                 )
                 .onChange(of: phoneNumber) { _, newValue in
-                    phoneNumber = formatPhoneNumberInput(newValue)
+                    let formatted = formatPhoneNumberInput(newValue)
+                    if formatted != newValue { phoneNumber = formatted }
                 }
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
@@ -281,7 +290,8 @@ struct SignInView: View {
                 DarkGlassmorphicPasswordField(
                     placeholder: "Password",
                     text: $password,
-                    showPassword: $showPassword
+                    showPassword: $showPassword,
+                    onSubmit: { if isFormValid { handleAuth() } }
                 )
                 .onChange(of: password) { _, _ in
                     if viewModel.showError {
@@ -300,7 +310,6 @@ struct SignInView: View {
                         Toggle("", isOn: $rememberMe)
                             .labelsHidden()
                             .toggleStyle(SwitchToggleStyle(tint: .blue))
-                            .scaleEffect(0.8)
 
                         Text("Remember Me")
                             .font(.custom("OpenSans-Regular", size: 12))
@@ -332,13 +341,35 @@ struct SignInView: View {
     @ViewBuilder
     private var errorMessageView: some View {
         if let errorMessage = viewModel.errorMessage, viewModel.showError {
-            HStack(spacing: 8) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 12))
-                Text(errorMessage)
-                    .font(.custom("OpenSans-Regular", size: 12))
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 12))
+                        .padding(.top, 1)
+                    Text(errorMessage)
+                        .font(.custom("OpenSans-Regular", size: 12))
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 0)
+                }
+                .foregroundStyle(.red.opacity(0.9))
+
+                if isFormValid && !viewModel.isLoading {
+                    Button {
+                        handleAuth()
+                    } label: {
+                        Text("Try Again")
+                            .font(.custom("OpenSans-SemiBold", size: 12))
+                            .foregroundStyle(.white.opacity(0.9))
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(.white.opacity(0.15))
+                            )
+                    }
+                    .accessibilityLabel("Try signing in again")
+                }
             }
-            .foregroundStyle(.red.opacity(0.9))
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
@@ -405,7 +436,7 @@ struct SignInView: View {
             .animation(.easeInOut(duration: 0.2), value: viewModel.isLoading)
         }
         .disabled(viewModel.isLoading || !isFormValid)
-        .opacity(isFormValid ? 1.0 : 0.5)
+        .opacity(isFormValid ? 1.0 : 0.65)
         .padding(.horizontal, 32)
         .padding(.top, 12)
     }
@@ -432,6 +463,7 @@ struct SignInView: View {
                     )
             )
         }
+        .buttonStyle(SubtlePressButtonStyle())
         .padding(.horizontal, 32)
     }
     
@@ -457,6 +489,7 @@ struct SignInView: View {
                     )
             )
         }
+        .buttonStyle(SubtlePressButtonStyle())
         .padding(.horizontal, 32)
     }
     
@@ -492,6 +525,7 @@ struct SignInView: View {
                             )
                     )
                 }
+                .buttonStyle(SubtlePressButtonStyle())
                 .padding(.horizontal, 32)
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
@@ -522,6 +556,7 @@ struct SignInView: View {
                         )
                 )
             }
+            .buttonStyle(SubtlePressButtonStyle())
             .padding(.horizontal, 32)
             .transition(.opacity.combined(with: .move(edge: .top)))
         }
@@ -630,12 +665,6 @@ struct SignInView: View {
         }
     }
     
-    private func isValidEmailFormat(_ email: String) -> Bool {
-        let emailRegex = "[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,64}"
-        let predicate = NSPredicate(format: "SELF MATCHES %@", emailRegex)
-        return predicate.evaluate(with: email)
-    }
-    
     private func handleAuth() {
         // Dismiss keyboard
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
@@ -724,87 +753,6 @@ struct SignInView: View {
                         username: username
                     )
                 }
-            }
-        }
-    }
-    
-    private func handleAuthOld() {
-        // Dismiss keyboard
-        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-
-        // ── Device integrity: check for login lockout before attempting auth ──
-        if isLogin {
-            if let lockMessage = DeviceIntegrityService.shared.checkLoginAllowed() {
-                viewModel.errorMessage = lockMessage
-                return
-            }
-        }
-        // ──────────────────────────────────────────────────────────────────────
-        
-        // Cancel any existing auth request to prevent duplicates
-        authTask?.cancel()
-        
-        // Create new auth task
-        authTask = Task {
-            // Early exit if already cancelled
-            guard !Task.isCancelled else {
-                dlog("⚠️ Auth request cancelled before starting")
-                return
-            }
-            if isLogin {
-                // Check if user entered @username instead of email
-                let loginIdentifier = email.trimmingCharacters(in: .whitespaces).lowercased()
-                
-                dlog("📧 Sign-in attempt with: \(loginIdentifier.contains("@") && !loginIdentifier.hasPrefix("@") ? "email" : "username")")
-                
-                if loginIdentifier.hasPrefix("@") {
-                    // User entered @username - need to look up email
-                    dlog("🔍 Looking up email for username: \(loginIdentifier)")
-                    await signInWithUsername(loginIdentifier)
-                } else if loginIdentifier.contains("@") {
-                    // Regular email sign-in
-                    dlog("📧 Email sign-in")
-                    await viewModel.signIn(email: loginIdentifier, password: password)
-                } else {
-                    // Assume it's username without @ prefix
-                    dlog("🔍 Looking up email for username: @\(loginIdentifier)")
-                    await signInWithUsername("@\(loginIdentifier)")
-                }
-
-                // ── Device integrity: record success or failure ──────────────
-                if viewModel.isAuthenticated {
-                    DeviceIntegrityService.shared.recordLoginSuccess()
-                } else {
-                    DeviceIntegrityService.shared.recordLoginFailure()
-                }
-                // ────────────────────────────────────────────────────────────
-                
-                // ✅ Cache user name for messaging after successful login
-                if viewModel.isAuthenticated {
-                    await FirebaseMessagingService.shared.fetchAndCacheCurrentUserName()
-                    dlog("✅ User name cached for messaging")
-                }
-            } else {
-                dlog("📝 Sign-up attempt")
-                
-                // Lowercase email for sign up
-                await viewModel.signUp(
-                    email: email.lowercased().trimmingCharacters(in: .whitespaces),
-                    password: password,
-                    displayName: displayName,
-                    username: username
-                )
-                
-                // ✅ Cache user name after successful signup
-                if viewModel.isAuthenticated {
-                    await FirebaseMessagingService.shared.fetchAndCacheCurrentUserName()
-                    dlog("✅ User name cached for messaging")
-                }
-            }
-            
-            // Clear task reference when complete
-            await MainActor.run {
-                authTask = nil
             }
         }
     }
@@ -1819,7 +1767,7 @@ struct PasswordResetSheet: View {
                 } label: {
                     ZStack {
                         RoundedRectangle(cornerRadius: 26)
-                            .fill(canSend ? Color.black : Color.black.opacity(0.45))
+                            .fill(canSend ? Color.black : Color.black.opacity(0.6))
                             .frame(height: 52)
 
                         if isSending {
@@ -1852,6 +1800,7 @@ struct PasswordResetSheet: View {
                             .font(.system(size: 24))
                             .foregroundStyle(.secondary)
                     }
+                    .accessibilityLabel("Close")
                 }
             }
             .onDisappear {
@@ -1879,12 +1828,6 @@ struct PasswordResetSheet: View {
                 }
             }
         }
-    }
-
-    private func isValidEmailFormat(_ email: String) -> Bool {
-        let emailRegex = "[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,64}"
-        let predicate = NSPredicate(format: "SELF MATCHES %@", emailRegex)
-        return predicate.evaluate(with: email)
     }
 }
 
@@ -1971,7 +1914,7 @@ struct PasswordlessSignInSheet: View {
                         )
                 }
                 .disabled(!isValidEmail)
-                .opacity(isValidEmail ? 1.0 : 0.5)
+                .opacity(isValidEmail ? 1.0 : 0.65)
                 .padding(.horizontal, 32)
                 .padding(.top, 8)
                 
@@ -1986,15 +1929,10 @@ struct PasswordlessSignInSheet: View {
                             .font(.system(size: 24))
                             .foregroundStyle(.secondary)
                     }
+                    .accessibilityLabel("Close")
                 }
             }
         }
-    }
-    
-    private func isValidEmailFormat(_ email: String) -> Bool {
-        let emailRegex = "[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,64}"
-        let predicate = NSPredicate(format: "SELF MATCHES %@", emailRegex)
-        return predicate.evaluate(with: email)
     }
 }
 
@@ -2038,6 +1976,7 @@ private struct DarkGlassmorphicPasswordField: View {
     let placeholder: String
     @Binding var text: String
     @Binding var showPassword: Bool
+    var onSubmit: (() -> Void)? = nil
 
     @FocusState private var isFocused: Bool
 
@@ -2051,6 +1990,8 @@ private struct DarkGlassmorphicPasswordField: View {
                     .textInputAutocapitalization(.never)
                     .focused($isFocused)
                     .tint(.white)
+                    .submitLabel(.go)
+                    .onSubmit { onSubmit?() }
             } else {
                 SecureField(placeholder, text: $text)
                     .font(.custom("OpenSans-Regular", size: 14))
@@ -2059,6 +2000,8 @@ private struct DarkGlassmorphicPasswordField: View {
                     .textInputAutocapitalization(.never)
                     .focused($isFocused)
                     .tint(.white)
+                    .submitLabel(.go)
+                    .onSubmit { onSubmit?() }
             }
 
             Button {
@@ -2070,6 +2013,7 @@ private struct DarkGlassmorphicPasswordField: View {
                     .font(.system(size: 14))
                     .foregroundStyle(.white.opacity(0.5))
             }
+            .accessibilityLabel(showPassword ? "Hide password" : "Show password")
         }
         .padding(.vertical, 14)
         .padding(.horizontal, 18)
@@ -2177,6 +2121,16 @@ private struct DarkPasswordStrengthIndicator: View {
             .frame(height: 3)
         }
         .padding(.horizontal, 4)
+    }
+}
+
+// MARK: - Press Button Style
+
+private struct SubtlePressButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
+            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
     }
 }
 
