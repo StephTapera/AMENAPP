@@ -2989,9 +2989,15 @@ struct ReadOnlyProfilePostCard: View {
             .padding(.bottom, 14)
         }
         .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)  // ✅ Matches PostCard
-                .fill(Color(.systemBackground))  // ✅ Matches PostCard
-                .shadow(color: .black.opacity(0.04), radius: 4, y: 2)  // ✅ Matches PostCard
+            RoundedRectangle(cornerRadius: 0, style: .continuous)  // ✅ Matches ProfileView - flat design
+                .fill(Color(.systemBackground))  // ✅ Adaptive background
+        )
+        .overlay(
+            // Minimal bottom separator like ProfileView
+            Rectangle()
+                .fill(Color.black.opacity(0.08))
+                .frame(height: 0.5),
+            alignment: .bottom
         )
         .pressableCard(scale: 0.985)  // ✅ Matches PostCard press animation
         .padding(.horizontal, 16)
