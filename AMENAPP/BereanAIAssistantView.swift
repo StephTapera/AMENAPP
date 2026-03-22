@@ -21,6 +21,7 @@ struct BereanAIAssistantView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase  // FIX 4: Detect background/foreground
     @StateObject private var viewModel = BereanViewModel()
+    @StateObject private var notesService = ChurchNotesService()
     @State private var messageText = ""
     @State private var selectedQuickActionCardType: BereanCardType = .generic
     @State private var showSuggestions = true
@@ -102,7 +103,17 @@ struct BereanAIAssistantView: View {
     @State private var showPlusMenu = false
     @State private var showImagePicker = false
     @State private var selectedImage: UIImage?
-    
+
+    // Sermon Snap
+    @State private var snapDraft: ChurchNote?
+    @State private var showSnapPreview = false
+    @State private var showSnapError = false
+    @State private var snapErrorMessage = ""
+    @StateObject private var snapService = BereanSnapService.shared
+
+    // Sermon Recorder
+    @State private var showSermonRecorder = false
+
     // ✅ Voice input
     @State private var speechRecognizer: SpeechRecognitionService?
 
@@ -694,8 +705,10 @@ struct BereanAIAssistantView: View {
                         showSmartFeatures = true
                     },
                     onSavedPrompts: {
-                        // Show saved prompts
                         dlog("Saved prompts tapped")
+                    },
+                    onSermonRecord: {
+                        showSermonRecorder = true
                     }
                 )
                 .transition(.asymmetric(
@@ -739,6 +752,37 @@ struct BereanAIAssistantView: View {
             if let image = newImage {
                 handleImageUpload(image)
             }
+        }
+        // Sermon Snap preview
+        .sheet(isPresented: $showSnapPreview) {
+            if let draft = snapDraft {
+                SermonNotePreviewSheet(
+                    draft: draft,
+                    source: .snap,
+                    onSave: { savedNote in
+                        Task { try? await notesService.createNote(savedNote) }
+                        showSnapPreview = false
+                    },
+                    onDiscard: { showSnapPreview = false }
+                )
+            }
+        }
+        .alert("Sermon Snap Error", isPresented: $showSnapError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(snapErrorMessage)
+        }
+        // Sermon Recorder
+        .sheet(isPresented: $showSermonRecorder) {
+            SermonRecordingSheet(
+                onSave: { draft in
+                    guard let uid = Auth.auth().currentUser?.uid else { return }
+                    let note = draft.toChurchNote(userId: uid)
+                    Task { try? await notesService.createNote(note) }
+                    showSermonRecorder = false
+                },
+                onDismiss: { showSermonRecorder = false }
+            )
         }
         // ✅ Verse Detail
         .sheet(isPresented: $showVerseDetail) {
@@ -2220,17 +2264,24 @@ struct BereanAIAssistantView: View {
         }
     }
 
-    /// Handle image upload for OCR/analysis
+    /// Handle image upload via Sermon Snap: uploads to Storage → Claude vision → preview sheet
     private func handleImageUpload(_ image: UIImage) {
-        // In production: Use Vision API for OCR
-        // For now, prompt user to describe the image
-        messageText = "I've uploaded an image. "
-        isInputFocused = true
-        
         let haptic = UINotificationFeedbackGenerator()
         haptic.notificationOccurred(.success)
-        
-        dlog("📸 Image uploaded - ready for analysis")
+        Task {
+            do {
+                let draft = try await BereanSnapService.shared.processSermonImage(image)
+                await MainActor.run {
+                    snapDraft = draft
+                    showSnapPreview = true
+                }
+            } catch {
+                await MainActor.run {
+                    snapErrorMessage = error.localizedDescription
+                    showSnapError = true
+                }
+            }
+        }
     }
     
     /// Handle verse reference tap to show full verse

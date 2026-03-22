@@ -947,3 +947,15 @@ exports.openAIProxy           = openAIFunctions.openAIProxy;
 exports.whisperProxy          = openAIFunctions.whisperProxy;
 exports.transcribeAudio       = openAIFunctions.transcribeAudio;
 exports.smartSuggestionsProxy = openAIFunctions.smartSuggestionsProxy;
+
+
+// ============================================================================
+// CHURCH ENHANCEMENTS — Sunday vibe, DNA scores, prayer momentum, visit guide
+// ============================================================================
+const churchEnhancements = require("./churchEnhancementFunctions");
+exports.generateChurchVibe        = churchEnhancements.generateChurchVibe;
+exports.computeChurchDNA          = churchEnhancements.computeChurchDNA;
+exports.computePrayerMomentum     = churchEnhancements.computePrayerMomentum;
+exports.generateFirstVisitGuide   = churchEnhancements.generateFirstVisitGuide;
+exports.inferUserLearningStyle    = churchEnhancements.inferUserLearningStyle;
+exports.inferPastorStyle          = churchEnhancements.inferPastorStyle;

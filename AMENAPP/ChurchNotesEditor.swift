@@ -58,6 +58,9 @@ struct EnhancedChurchNoteEditor: View {
     
     // UX-3: Scripture detection
     @State private var detectedScriptures: [String] = []
+    @StateObject private var scriptureEngine = BereanScriptureEngine.shared
+    @State private var scriptureInsights: [ScriptureInsight] = []
+    @State private var scriptureEnrichTask: Task<Void, Never>?
 
     // Music: worship songs attached to this note
     @State private var worshipSongs: [WorshipSongReference] = []
@@ -561,10 +564,13 @@ struct EnhancedChurchNoteEditor: View {
                         .padding(.horizontal, 20)
                     }
                 }
+
+                // Scripture Enrichment Strip (cross-refs + verse text from BereanScriptureEngine)
+                ScriptureEnrichmentStrip(insights: scriptureInsights)
             }
         }
     }
-    
+
     // MARK: - Content Editor Section (with Focus Mode + Word Momentum)
 
     private var contentEditorSection: some View {
@@ -827,9 +833,10 @@ struct EnhancedChurchNoteEditor: View {
             fireMilestoneEffect(words: milestone)
         }
         
-        // UX-3: Detect scripture references
+        // UX-3: Detect scripture references + enrich via BereanScriptureEngine
         detectedScriptures = detectScriptureReferences(in: newValue)
-        
+        scheduleScriptureEnrichment(for: newValue)
+
         // Track unsaved changes
         trackUnsavedChanges()
         
@@ -1030,6 +1037,21 @@ struct EnhancedChurchNoteEditor: View {
         return matches.compactMap { match in
             guard let range = Range(match.range, in: text) else { return nil }
             return String(text[range])
+        }
+    }
+
+    private func scheduleScriptureEnrichment(for text: String) {
+        scriptureEnrichTask?.cancel()
+        guard !detectedScriptures.isEmpty else {
+            scriptureInsights = []
+            return
+        }
+        scriptureEnrichTask = Task {
+            // Debounce 2s to avoid hammering Claude on every keystroke
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            guard !Task.isCancelled else { return }
+            let results = await BereanScriptureEngine.shared.enrich(text: text)
+            await MainActor.run { scriptureInsights = results }
         }
     }
 

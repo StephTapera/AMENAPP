@@ -469,6 +469,79 @@ addictionRisk > 0.7 should be downranked. isRagebait = true should be heavily do
     },
 );
 
+// ─── SERMON SNAP PROXY ────────────────────────────────────────────────────────
+// Accepts: { base64Image: string, prompt: string }
+// Returns: { text: string }   (raw JSON text — parsed on device by BereanSnapService)
+//
+// Setup: firebase functions:secrets:set ANTHROPIC_API_KEY
+// Claude claude-sonnet-4-6 is used for multimodal vision (claude-haiku-4-5 does not support images).
+
+exports.sermonSnapProxy = onCall(
+    {
+      region: REGION,
+      secrets: [ANTHROPIC_API_KEY],
+      // Allow larger payloads for base64 images (~1MB compressed JPEG → ~1.3MB base64)
+      memory: "512MiB",
+      timeoutSeconds: 60,
+    },
+    async (request) => {
+      if (!request.auth) {
+        throw new HttpsError("unauthenticated", "Authentication required.");
+      }
+
+      const {base64Image, prompt} = request.data;
+
+      if (!base64Image || typeof base64Image !== "string") {
+        throw new HttpsError("invalid-argument", "base64Image is required.");
+      }
+
+      const apiKey = ANTHROPIC_API_KEY.value();
+      if (!apiKey) {
+        throw new HttpsError("internal", "ANTHROPIC_API_KEY secret not configured.");
+      }
+
+      const fetch = require("node-fetch");
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-6",
+          max_tokens: 1024,
+          messages: [
+            {
+              role: "user",
+              content: [
+                {
+                  type: "image",
+                  source: {
+                    type: "base64",
+                    media_type: "image/jpeg",
+                    data: base64Image,
+                  },
+                },
+                {
+                  type: "text",
+                  text: prompt ?? "Extract sermon notes from this image. Return JSON only.",
+                },
+              ],
+            },
+          ],
+        }),
+      });
+
+      const json = await response.json();
+      if (!response.ok) {
+        throw new HttpsError("internal", json.error?.message ?? "Anthropic API error");
+      }
+
+      return {text: json.content?.[0]?.text ?? ""};
+    },
+);
+
 // ─── GENERIC PROXY ────────────────────────────────────────────────────────────
 // Catch-all for routes that specify vertex/openai/claude directly
 // (those providers are proxied through here rather than called on-device)

@@ -1402,6 +1402,8 @@ struct FindChurchView: View {
         .onAppear {
             locationManager.checkLocationAuthorization()
             loadUserPreferences()
+            // Detect spiritual season (cached 7 days, runs silently)
+            Task { await SpiritualSeasonService.shared.detectIfNeeded() }
             
             // Update map to user location if available
             if let userLoc = userLocation {
@@ -3125,34 +3127,49 @@ struct ChurchCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 12) {
-                ZStack {
+                ZStack(alignment: .topLeading) {
                     Circle()
                         .fill(Color.blue.opacity(0.15))
                         .frame(width: 56, height: 56)
-                    
+
                     Image(systemName: "building.2.fill")
                         .font(.system(size: 24))
                         .foregroundStyle(.blue)
+                        .frame(width: 56, height: 56)
+
+                    // Live pulse dot (Sundays only)
+                    SundayPulseDot(churchId: church.id.uuidString)
+                        .padding(4)
                 }
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(church.name)
                         .font(.custom("OpenSans-Bold", size: 16))
                         .foregroundStyle(.primary)
-                    
-                    Text(church.denomination)
-                        .font(.custom("OpenSans-SemiBold", size: 12))
-                        .foregroundStyle(.blue)
-                    
+
+                    // Denomination + vibe pill on same line
+                    HStack(spacing: 6) {
+                        Text(church.denomination)
+                            .font(.custom("OpenSans-SemiBold", size: 12))
+                            .foregroundStyle(.blue)
+                        SundayVibePill(churchId: church.id.uuidString)
+                    }
+
                     HStack(spacing: 4) {
                         Image(systemName: "mappin.circle.fill")
                             .font(.system(size: 10))
                             .foregroundStyle(.secondary)
-                        
+
                         Text(church.distance)
                             .font(.custom("OpenSans-Regular", size: 12))
                             .foregroundStyle(.secondary)
+
+                        // Prayer momentum badge (e.g. "· rising")
+                        PrayerMomentumBadge(churchId: church.id.uuidString)
                     }
+
+                    // Season recommendation (only for boosted churches)
+                    SeasonRecommendationText(churchId: church.id.uuidString)
                 }
                 
                 Spacer()
@@ -3279,6 +3296,9 @@ struct ChurchCard: View {
                 .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
         )
         .padding(.horizontal)
+        .onAppear {
+            ChurchEnhancementStore.shared.observe(churchId: church.id.uuidString)
+        }
     }
 }
 

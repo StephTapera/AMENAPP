@@ -103,6 +103,10 @@ struct ChurchProfileView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
 
+            // Brand color tint + DNA bar overlay (additive, non-blocking)
+            ChurchBannerOverlay(churchId: church.id)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
             // Bottom gradient so hero blends into the sheet
             LinearGradient(
                 colors: [.clear, .black.opacity(0.45)],
@@ -129,6 +133,18 @@ struct ChurchProfileView: View {
             .padding(.horizontal, 24)
             .padding(.bottom, 270) // leave space for the min-height sheet
         }
+        // Logo overlay: top-right corner
+        .overlay(alignment: .topTrailing) {
+            ChurchLogoOverlay(churchId: church.id, churchName: church.name)
+                .padding(.top, 60)
+                .padding(.trailing, 16)
+        }
+        // Pulse dot: top-left corner
+        .overlay(alignment: .topLeading) {
+            SundayPulseDot(churchId: church.id)
+                .padding(.top, 64)
+                .padding(.leading, 16)
+        }
     }
 
     // MARK: - Sheet content (quick actions + info + services + tips)
@@ -147,15 +163,42 @@ struct ChurchProfileView: View {
             // Church info
             churchInfoSection(profileData.church)
 
+            // DNA theological profile link
+            ChurchDNALink(churchId: profileData.church.id)
+                .padding(.horizontal, 20)
+                .padding(.top, 4)
+
+            Divider()
+                .padding(.vertical, 12)
+                .padding(.horizontal, 20)
+
+            // Chemistry score
+            ChurchChemistryView(churchId: profileData.church.id)
+                .padding(.horizontal, 20)
+
+            // Teaching style compatibility
+            TeachingCompatibilityView(churchId: profileData.church.id)
+                .padding(.horizontal, 20)
+                .padding(.top, 4)
+
             // Service times
             if !profileData.upcomingServices.isEmpty {
                 serviceTimesSection(profileData.upcomingServices)
             }
 
+            // Neighborhood density map
+            ChurchNeighborhoodMapView(church: profileData.church)
+                .padding(.top, 8)
+
             // Recent tips
             if !profileData.recentTips.isEmpty {
                 tipsSection(profileData.recentTips)
             }
+
+            // First visit guide button
+            FirstVisitGuideButton(church: profileData.church)
+                .padding(.top, 8)
+                .padding(.bottom, 16)
         }
     }
     

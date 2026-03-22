@@ -68,6 +68,7 @@ struct BereanPlusMenu: View {
     let onBibleSearch: () -> Void
     let onSmartFeatures: () -> Void
     let onSavedPrompts: () -> Void
+    var onSermonRecord: (() -> Void)? = nil
     
     var body: some View {
         ZStack {
@@ -164,6 +165,23 @@ struct BereanPlusMenu: View {
                                 isShowing = false
                                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                                     onSavedPrompts()
+                                }
+                            }
+
+                            if onSermonRecord != nil {
+                                Divider()
+                                    .padding(.leading, 60)
+
+                                PlusMenuButton(
+                                    icon: "mic.circle.fill",
+                                    title: "Record Sermon",
+                                    subtitle: "Auto-structured audio notes",
+                                    color: .red
+                                ) {
+                                    isShowing = false
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                        onSermonRecord?()
+                                    }
                                 }
                             }
                         }
