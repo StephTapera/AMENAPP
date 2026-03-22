@@ -224,6 +224,24 @@ exports.onRealtimeCommentCreate = onValueCreated(
           return null;
         }
 
+        // ── #8 First Response Only ────────────────────────────────────────
+        // Only fire this notification for the very first top-level comment so
+        // the author gets a single "first response" moment, not a flood.
+        // Count existing top-level comments (no parentId / parentCommentId) in RTDB.
+        const allCommentsSnap = await admin.database()
+            .ref(`postInteractions/${postId}/comments`)
+            .once("value");
+        let topLevelCount = 0;
+        allCommentsSnap.forEach((child) => {
+          const d = child.val();
+          if (!d.parentId && !d.parentCommentId) topLevelCount++;
+        });
+        if (topLevelCount > 1) {
+          console.log(`⏭️ Skipping first-response notification — ${topLevelCount} top-level comments already`);
+          return null;
+        }
+        // ─────────────────────────────────────────────────────────────────
+
         // Get post to find the author
         const postDoc = await admin.firestore()
             .collection("posts")
@@ -952,6 +970,18 @@ exports.weeklyCheckin      = weeklyCheckin;
 exports.communityDigest    = communityDigest;
 exports.bereanDailyInsight = bereanDailyInsight;
 
+// ============================================================================
+// MESSAGES FEATURES — Prayer Chain, Time Capsule, Accountability, Grace Drop,
+//                     Cold Thread Revival, Prayer Room
+// ============================================================================
+const msgFeatures = require('./messages_features');
+exports.onPrayerChainUpdated              = msgFeatures.onPrayerChainUpdated;
+exports.processTimeCapsules               = msgFeatures.processTimeCapsules;
+exports.sendWeeklyAccountabilityCheckIn   = msgFeatures.sendWeeklyAccountabilityCheckIn;
+exports.revealGraceDropIdentity           = msgFeatures.revealGraceDropIdentity;
+exports.analyzeThreadsForRevival          = msgFeatures.analyzeThreadsForRevival;
+exports.notifyPrayerRoomAnswered          = msgFeatures.notifyPrayerRoomAnswered;
+
 // Algolia sync handled by installed Firestore extension (ext-firestore-algolia-search)
 
 // ============================================================================
@@ -991,3 +1021,18 @@ const bereanFeatures = require("./bereanFeatureFunctions");
 exports.bereanEmbedProxy          = bereanFeatures.bereanEmbedProxy;
 exports.generateSpiritualTimeline = bereanFeatures.generateSpiritualTimeline;
 exports.generateStudyGuide        = bereanFeatures.generateStudyGuide;
+
+// ============================================================================
+// ENGAGEMENT NOTIFICATIONS
+//   #3  Testimony Anniversary   — daily, 1-year anniversary
+//   #4  Friend Returned         — daily, 14-day gap detection, 30-day cap
+//   #6  Gentle Re-engagement    — Sunday-only, 7-day dormancy, 14-day cap
+//   #7  New Church Member       — Firestore trigger on churchId transition
+//   #10 Prayer Check-in         — Wednesday, 7-day-old prayers, 14-day cap
+// ============================================================================
+const engagementNotifs = require("./engagementNotifications");
+exports.testimonyAnniversary = engagementNotifs.testimonyAnniversary;
+exports.friendReturned       = engagementNotifs.friendReturned;
+exports.gentleReengagement   = engagementNotifs.gentleReengagement;
+exports.onNewChurchMember    = engagementNotifs.onNewChurchMember;
+exports.prayerCheckin        = engagementNotifs.prayerCheckin;

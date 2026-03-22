@@ -494,8 +494,24 @@ class PrayerFollowThroughService: ObservableObject {
     }
     
     private func notifyIntercessors(card: AnsweredPrayerCard, intercessorIds: [String]) async {
-        // Send "answered" reminders to all who prayed
+        // Fetch the requester's display info for the notification body
+        let requesterName: String
+        let requesterUsername: String
+        let requesterPhotoURL: String
+        do {
+            let requesterDoc = try await db.collection("users").document(card.authorId).getDocument()
+            let data = requesterDoc.data() ?? [:]
+            requesterName     = data["displayName"]      as? String ?? "Someone"
+            requesterUsername = data["username"]          as? String ?? ""
+            requesterPhotoURL = data["profileImageURL"]   as? String ?? ""
+        } catch {
+            requesterName     = "Someone"
+            requesterUsername = ""
+            requesterPhotoURL = ""
+        }
+
         for intercessorId in intercessorIds {
+            // 1. Legacy prayer_reminders doc (kept for existing consumers)
             let reminder = PrayerFollowUpReminder(
                 id: UUID().uuidString,
                 prayerId: card.prayerId,
@@ -505,16 +521,34 @@ class PrayerFollowThroughService: ObservableObject {
                 sent: false,
                 sentAt: nil
             )
-            
             do {
                 try await db.collection("prayer_reminders")
                     .document(reminder.id)
                     .setData(try Firestore.Encoder().encode(reminder))
             } catch {
-                dlog("⚠️ Failed to notify intercessor: \(error.localizedDescription)")
+                dlog("⚠️ Failed to write prayer_reminder doc for \(intercessorId): \(error.localizedDescription)")
+            }
+
+            // 2. #1 Fix: Write in-app notification so intercessors see it in Notifications tab
+            do {
+                try await db.collection("users")
+                    .document(intercessorId)
+                    .collection("notifications")
+                    .addDocument(data: [
+                        "type":                "prayer_answered",
+                        "actorId":             card.authorId,
+                        "actorName":           requesterName,
+                        "actorUsername":       requesterUsername,
+                        "actorProfileImageURL": requesterPhotoURL,
+                        "postId":              card.prayerId,
+                        "read":                false,
+                        "createdAt":           FieldValue.serverTimestamp(),
+                    ])
+            } catch {
+                dlog("⚠️ Failed to write prayerAnswered notification for \(intercessorId): \(error.localizedDescription)")
             }
         }
-        
+
         dlog("✅ Notified \(intercessorIds.count) intercessors of answered prayer")
     }
 }

@@ -285,6 +285,79 @@ exports.toggleReaction = onCall({ region: REGION }, async (request) => {
     await postRef.update({
       [countField]: admin.firestore.FieldValue.increment(1),
     });
+
+    // ── #9 Testimony Impact Badge + #5 Prayer Milestone ───────────────────
+    // After incrementing, check if new count hits a milestone and notify author.
+    const updatedSnap = await postRef.get();
+    const postData    = updatedSnap.data() || {};
+    const newCount    = postData[countField] ?? 0;
+    const authorId    = postData.authorId || postData.userId;
+
+    const AMEN_MILESTONES       = [10, 25, 50, 100, 500];  // Testimony Impact Badge (#9)
+    const PRAYER_MILESTONES     = [5, 10, 25, 50, 100];    // Prayer Milestone (#5)
+    const postType              = postData.type || '';      // 'testimony', 'prayer', etc.
+
+    const isMilestone = postType === 'testimony'
+      ? AMEN_MILESTONES.includes(newCount)
+      : postType === 'prayer' || postType === 'prayer_request'
+        ? PRAYER_MILESTONES.includes(newCount)
+        : false;
+
+    if (isMilestone && authorId && authorId !== auth.uid) {
+      // Idempotency: only notify once per milestone per post
+      const milestoneDocId = `${postId}_${countField}_${newCount}`;
+      const milestoneRef   = db.collection('sentMilestoneNotifications').doc(milestoneDocId);
+      const milestoneSnap  = await milestoneRef.get();
+
+      if (!milestoneSnap.exists) {
+        await milestoneRef.set({ sentAt: admin.firestore.FieldValue.serverTimestamp() });
+
+        const notifType = postType === 'testimony' ? 'testimony_impact' : 'prayer_milestone';
+        const title     = postType === 'testimony'
+          ? `${newCount} people were moved by your testimony 🙏`
+          : `${newCount} people are praying for you 🙏`;
+        const body      = postType === 'testimony'
+          ? `Your testimony has touched ${newCount} hearts. God is using your story.`
+          : `Your prayer request is being carried by ${newCount} people in the community.`;
+
+        // In-app notification
+        await db.collection('users').doc(authorId).collection('notifications').add({
+          type: notifType,
+          postId,
+          milestone: newCount,
+          read: false,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+
+        // Push notification
+        const authorDoc = await db.collection('users').doc(authorId).get();
+        const fcmToken  = authorDoc.data()?.fcmToken;
+        if (fcmToken) {
+          try {
+            await admin.messaging().send({
+              notification: { title, body },
+              data: {
+                type: notifType,
+                postId,
+                milestone: String(newCount),
+                deepLink: `amen://post/${postId}`,
+              },
+              token: fcmToken,
+            });
+          } catch (err) {
+            if (
+              err.code === 'messaging/registration-token-not-registered' ||
+              err.code === 'messaging/invalid-registration-token'
+            ) {
+              await db.collection('users').doc(authorId).update({
+                fcmToken: admin.firestore.FieldValue.delete(),
+              });
+            }
+          }
+        }
+      }
+    }
+    // ──────────────────────────────────────────────────────────────────────
   } else {
     // Safe decrement with floor at 0
     await db.runTransaction(async (tx) => {

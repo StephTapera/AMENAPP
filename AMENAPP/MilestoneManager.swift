@@ -52,7 +52,7 @@ class MilestoneManager: ObservableObject {
         }
         
         // Prayer response milestones
-        if [25, 50, 100].contains(stats.prayerResponses) {
+        if [5, 10, 25, 50, 100].contains(stats.prayerResponses) {
             candidates.append(prayerMilestone(count: stats.prayerResponses))
         }
         
@@ -71,6 +71,13 @@ class MilestoneManager: ObservableObject {
                     showSheet = true
                 }
                 await markMilestoneSeen(userId: userId, milestoneId: milestone.id)
+
+                // #5 Fix: For prayer milestones also write a Firestore notification
+                // so the milestone appears in the notifications feed + drives badge.
+                if milestone.id.hasPrefix("prayer_") {
+                    await writePrayerMilestoneNotification(userId: userId, milestone: milestone)
+                }
+
                 break
             }
         }
@@ -96,6 +103,29 @@ class MilestoneManager: ObservableObject {
         } catch {
             dlog("⚠️ Error checking milestone seen status: \(error)")
             return false
+        }
+    }
+
+    // #5: Write prayer_milestone notification to Firestore so it surfaces in
+    // the Notifications feed and increments the badge counter.
+    private func writePrayerMilestoneNotification(userId: String, milestone: AMENMilestone) async {
+        do {
+            let countString = milestone.id.replacingOccurrences(of: "prayer_", with: "")
+            let count = Int(countString) ?? 0
+            try await db
+                .collection("users").document(userId)
+                .collection("notifications")
+                .addDocument(data: [
+                    "type":      "prayer_milestone",
+                    "milestone": count,
+                    "badgeLabel": milestone.badgeLabel,
+                    "title":     milestone.title,
+                    "read":      false,
+                    "createdAt": FieldValue.serverTimestamp(),
+                ])
+            dlog("✅ Prayer milestone notification written: \(milestone.id)")
+        } catch {
+            dlog("⚠️ Failed to write prayer milestone notification: \(error)")
         }
     }
 
