@@ -382,6 +382,7 @@
 		EFAE0A7E2F4E6E7E009D7209 /* SafetyUIComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafetyUIComponents.swift; sourceTree = "<group>"; };
 		EFAE0A802F4E87B0009D7209 /* NetworkTimeoutHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkTimeoutHandler.swift; sourceTree = "<group>"; };
 		EFBA28C02F6F429600B54517 /* NotificationScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationScheduler.swift; sourceTree = "<group>"; };
+		EFD493CE2F6FB78A003E5833 /* BereanChatsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BereanChatsListView.swift; sourceTree = "<group>"; };
 		EFD4FEA12F5E278500672160 /* ScrollReactiveGlass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrollReactiveGlass.swift; sourceTree = "<group>"; };
 		EFD4FEA32F5E28A200672160 /* AmenRefreshIndicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmenRefreshIndicator.swift; sourceTree = "<group>"; };
 		EFD4FEA92F5E702200672160 /* AMENConnectView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AMENConnectView.swift; sourceTree = "<group>"; };
@@ -789,6 +790,7 @@
 				EF8C4C712F664FDF0003AE65 /* BereanLandingView.swift */,
 				EF8C4C732F6657E50003AE65 /* AMENSuggestionsSection.swift */,
 				EFBA28C02F6F429600B54517 /* NotificationScheduler.swift */,
+				EFD493CE2F6FB78A003E5833 /* BereanChatsListView.swift */,
 			);
 			sourceTree = "<group>";
 		};
