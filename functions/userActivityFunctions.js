@@ -78,9 +78,7 @@ exports.onFcmTokenRefresh = onCall(
     const snap     = await userRef.get();
     if (!snap.exists) return { saved: false };
 
-    const existing = (snap.data()?.fcmTokens ?? []) as {
-      token: string; updatedAt: admin.firestore.Timestamp; timezoneOffset: number;
-    }[];
+    const existing = snap.data()?.fcmTokens ?? [];
 
     // De-dup: remove any old entry for the same token, then prepend the new entry.
     const filtered = existing.filter((t) => t.token !== token);

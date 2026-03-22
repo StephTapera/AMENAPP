@@ -36,6 +36,7 @@ const admin = require("firebase-admin");
 const OPENAI_API_KEY = defineSecret("OPENAI_API_KEY");
 const GOOGLE_VISION_API_KEY = defineSecret("GOOGLE_VISION_API_KEY");
 const CLAUDE_API_KEY = defineSecret("CLAUDE_API_KEY");
+const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY");
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
@@ -667,8 +668,6 @@ Rules:
 // SETUP: firebase functions:secrets:set ANTHROPIC_API_KEY
 // The iOS client (ClaudeService) calls this instead of api.anthropic.com directly.
 // ============================================================================
-
-const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY");
 
 exports.bereanChatProxy = onCall(
     {
