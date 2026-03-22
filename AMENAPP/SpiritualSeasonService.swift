@@ -10,6 +10,7 @@
 
 import Foundation
 import SwiftUI
+import Combine
 import FirebaseAuth
 import FirebaseFirestore
 
@@ -111,12 +112,12 @@ final class SpiritualSeasonService: ObservableObject {
 
         \(context.prefix(2000))
         """
-        guard let result = try? await ClaudeService.shared.sendMessageSync(prompt, mode: .chat) else {
+        guard let result = try? await ClaudeService.shared.sendMessageSync(prompt, mode: .scholar) else {
             return .unknown
         }
-        let word = result.trimmingCharacters(in: .whitespacesAndNewlines)
+        let word = result.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
             .lowercased()
-            .components(separatedBy: .whitespaces)
+            .components(separatedBy: CharacterSet.whitespaces)
             .first ?? ""
         return SpiritualSeason(rawValue: word) ?? .unknown
     }

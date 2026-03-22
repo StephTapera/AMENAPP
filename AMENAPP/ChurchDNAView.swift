@@ -8,6 +8,7 @@
 //   - Cloud Function: computeChurchDNA (called on-demand, cached in Firestore)
 
 import SwiftUI
+import Combine
 import FirebaseFirestore
 import FirebaseFunctions
 

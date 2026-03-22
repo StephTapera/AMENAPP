@@ -10,6 +10,7 @@
 
 import SwiftUI
 import PhotosUI
+import Combine
 
 // MARK: - Phase 3: Image Crop Editor (Basic)
 
@@ -174,7 +175,7 @@ struct SaveTemplateSheet: View {
 
 // MARK: - Phase 3: Thread Composer
 
-struct ThreadComposerView: View {
+struct PostThreadComposerView: View {
     @Binding var threadPosts: [String]
     @Binding var currentIndex: Int
     @State private var showAddPostPrompt = false

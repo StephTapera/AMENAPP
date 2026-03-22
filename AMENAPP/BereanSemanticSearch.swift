@@ -12,6 +12,7 @@
 //   BereanSemanticSearchView(notes:) — full search UI
 
 import SwiftUI
+import Combine
 import FirebaseAuth
 import FirebaseFirestore
 import FirebaseFunctions
@@ -225,7 +226,7 @@ struct BereanSemanticSearchView: View {
                     }
                 }
             } else if !query.isEmpty && !service.isSearching {
-                Text("No notes matched "\(query)"")
+                Text("No notes matched \"\(query)\"")
                     .font(.system(size: 14))
                     .foregroundStyle(Color(.tertiaryLabel))
                     .padding(.top, 32)

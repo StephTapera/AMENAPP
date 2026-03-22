@@ -9,6 +9,7 @@
 import SwiftUI
 import FirebaseFirestore
 import FirebaseAuth
+import Combine
 
 // MARK: - UserStats (wire to your existing model)
 struct UserStats {

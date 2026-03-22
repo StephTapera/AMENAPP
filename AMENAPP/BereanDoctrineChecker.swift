@@ -13,6 +13,7 @@
 //   DoctrineCheckButton(text:) — tap-to-analyze trigger
 
 import SwiftUI
+import Combine
 import Foundation
 
 // MARK: - Models
@@ -206,7 +207,7 @@ struct DoctrineCheckCard: View {
                                     .clipShape(Capsule())
 
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text(""\(ann.claim)"")
+                                    Text("\(ann.claim)")
                                         .font(.system(size: 12, weight: .medium))
                                         .foregroundStyle(Color(.label))
                                         .lineLimit(2)

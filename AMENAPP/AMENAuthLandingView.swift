@@ -261,13 +261,13 @@ private struct GoogleGLogo: View {
             let r  = size.width / 2
 
             // Blue arc (right)
-            drawArc(ctx: &ctx, cx: cx, cy: cy, r: r, start: -30, end: 90,  color: .init(Color(red: 0.259, green: 0.522, blue: 0.957)))
+            drawArc(ctx: &ctx, cx: cx, cy: cy, r: r, start: -30, end: 90,  color: .color(Color(red: 0.259, green: 0.522, blue: 0.957)))
             // Red arc (top-left)
-            drawArc(ctx: &ctx, cx: cx, cy: cy, r: r, start: 90,  end: 200, color: .init(Color(red: 0.918, green: 0.263, blue: 0.208)))
+            drawArc(ctx: &ctx, cx: cx, cy: cy, r: r, start: 90,  end: 200, color: .color(Color(red: 0.918, green: 0.263, blue: 0.208)))
             // Yellow arc (bottom-left)
-            drawArc(ctx: &ctx, cx: cx, cy: cy, r: r, start: 200, end: 330, color: .init(Color(red: 0.988, green: 0.729, blue: 0.012)))
+            drawArc(ctx: &ctx, cx: cx, cy: cy, r: r, start: 200, end: 330, color: .color(Color(red: 0.988, green: 0.729, blue: 0.012)))
             // Green arc (bottom-right)
-            drawArc(ctx: &ctx, cx: cx, cy: cy, r: r, start: 330, end: 360-30, color: .init(Color(red: 0.204, green: 0.659, blue: 0.325)))
+            drawArc(ctx: &ctx, cx: cx, cy: cy, r: r, start: 330, end: 360-30, color: .color(Color(red: 0.204, green: 0.659, blue: 0.325)))
 
             // White cutout center
             var inner = Path()
@@ -299,14 +299,7 @@ private struct GoogleGLogo: View {
 }
 
 // MARK: - Button styles
-
-private struct ScaleButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
-            .animation(.spring(response: 0.2, dampingFraction: 0.7), value: configuration.isPressed)
-    }
-}
+// (ScaleButtonStyle is defined in SharedUIComponents.swift)
 
 private struct EmailButtonStyle: ButtonStyle {
     @Binding var bg: Color

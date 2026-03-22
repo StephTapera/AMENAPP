@@ -14,6 +14,7 @@
 //   ChurchMatchExplainer(match:) — detail breakdown sheet
 
 import SwiftUI
+import Combine
 import CoreLocation
 import FirebaseAuth
 import FirebaseFirestore

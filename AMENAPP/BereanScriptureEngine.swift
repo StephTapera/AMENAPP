@@ -13,6 +13,7 @@
 //   BereanScriptureEngine.shared.crossRefs(for:) async -> [String]
 
 import Foundation
+import SwiftUI
 import Combine
 
 // MARK: - Models
@@ -235,7 +236,9 @@ private struct CrossRefJSON: Codable {
 
 // MARK: - ScriptureEnrichmentCard (inline preview in ChurchNotesEditor)
 
-struct ScriptureEnrichmentCard: View {
+struct ScriptureEnrichmentCard:
+
+    View {
     let insight: ScriptureInsight
     @State private var expanded = false
 

@@ -288,7 +288,7 @@ struct EnhancedChurchNoteEditor: View {
             // Doctrine Check + Study Guide (shown when note has content)
             if !content.isEmpty {
                 HStack(spacing: 12) {
-                    DoctrineCheckButton(text: [title, content, keyPoints.joined(separator: " ")].joined(separator: " "))
+                    DoctrineCheckButton(text: [title, content].joined(separator: " "))
                     Spacer()
                     if let note = existingNote {
                         StudyGuideButton(note: note)

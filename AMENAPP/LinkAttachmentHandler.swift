@@ -79,7 +79,7 @@ struct LinkAttachSheet: View {
 
                         // Link preview card
                         if let meta = fetchedMeta {
-                            LinkPreviewCard(metadata: meta)
+                            LinkAttachSheetPreviewCard(metadata: meta)
                                 .transition(.opacity.combined(with: .move(edge: .bottom)))
                         } else if let err = fetchError {
                             Text(err)
@@ -225,7 +225,7 @@ struct LinkAttachSheet: View {
 
 // MARK: - Link Preview Card (used inside the sheet)
 
-private struct LinkPreviewCard: View {
+private struct LinkAttachSheetPreviewCard: View {
     let metadata: LPLinkMetadata
 
     var body: some View {

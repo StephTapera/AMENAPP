@@ -8,6 +8,7 @@
 //   - Accessible from Profile or Resources
 
 import SwiftUI
+import Combine
 import FirebaseAuth
 import FirebaseFirestore
 import FirebaseFunctions

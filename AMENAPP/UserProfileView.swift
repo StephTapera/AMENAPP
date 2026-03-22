@@ -2848,33 +2848,28 @@ struct ReadOnlyProfilePostCard: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Post content - Expandable
+            // Post content - Expandable (matches OpenTable PostCard design)
             Text(post.content)
-                .font(.custom("OpenSans-Regular", size: 14))
-                .foregroundStyle(.black)
-                .lineSpacing(4)
+                .font(.custom("OpenSans-Regular", size: 16))  // ✅ Increased from 14 to 16 to match PostCard
+                .foregroundStyle(.primary)  // ✅ Changed from .black to .primary for consistency
+                .lineSpacing(6)  // ✅ Increased from 4 to 6 to match PostCard
                 .padding(.horizontal, 16)
                 .padding(.top, 14)
-                .lineLimit(isExpanded ? nil : 4)  // ✅ UPDATED: Conditional line limit
+                .lineLimit(isExpanded ? nil : 10)  // ✅ Changed from 4 to 10 lines to match PostCard
                 .animation(.easeInOut(duration: 0.3), value: isExpanded)  // ✅ NEW: Smooth expansion
             
-            // ✅ NEW: "See More" / "See Less" button
-            if needsExpansion {
+            // "Show more" button (matches OpenTable PostCard design)
+            if needsExpansion && !isExpanded {
                 Button {
                     onToggleExpand()
                 } label: {
-                    HStack(spacing: 4) {
-                        Text(isExpanded ? "See Less" : "See More")
-                            .font(.custom("OpenSans-SemiBold", size: 12))
-                        Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                            .font(.system(size: 10, weight: .semibold))
-                    }
-                    .foregroundStyle(.black.opacity(0.5))
-                    .padding(.horizontal, 16)
-                    .padding(.top, 6)
+                    Text("Show more")
+                        .font(.custom("OpenSans-SemiBold", size: 14))  // ✅ Matches PostCard
+                        .foregroundStyle(.black)  // ✅ Matches PostCard
                 }
                 .buttonStyle(PlainButtonStyle())
-                .transition(.opacity.combined(with: .scale))
+                .padding(.horizontal, 16)
+                .padding(.top, 6)
             }
             
             // Time stamp with post type indicator - Smaller
@@ -2990,17 +2985,15 @@ struct ReadOnlyProfilePostCard: View {
                 }
             }
             .padding(.horizontal, 16)
-            .padding(.top, 10)
+            .padding(.top, 12)  // ✅ Matches PostCard spacing
             .padding(.bottom, 14)
         }
         .background(
-            RoundedRectangle(cornerRadius: 18)
-                .fill(Color.white)
-                .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
+            RoundedRectangle(cornerRadius: 20, style: .continuous)  // ✅ Matches PostCard
+                .fill(Color(.systemBackground))  // ✅ Matches PostCard
+                .shadow(color: .black.opacity(0.04), radius: 4, y: 2)  // ✅ Matches PostCard
         )
-        .shadow(color: .black.opacity(isPressed ? 0.15 : 0.06), radius: isPressed ? 6 : 12, x: 0, y: isPressed ? 2 : 4)
-        .scaleEffect(isPressed ? 0.97 : 1.0)
-        .animation(.spring(response: 0.25, dampingFraction: 0.7), value: isPressed)
+        .pressableCard(scale: 0.985)  // ✅ Matches PostCard press animation
         .padding(.horizontal, 16)
         .padding(.top, 8)
         .padding(.bottom, 4)

@@ -10,6 +10,7 @@
 //   - Entry point: StudyGuideButton (added to ChurchNotesEditor toolbar / note detail)
 
 import SwiftUI
+import Combine
 import FirebaseAuth
 import FirebaseFirestore
 import FirebaseFunctions

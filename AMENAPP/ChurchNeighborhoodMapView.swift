@@ -8,15 +8,32 @@
 //   - Privacy info button: no individual locations tracked
 
 import SwiftUI
+import Combine
 import MapKit
 import FirebaseAuth
 import FirebaseFirestore
+
+// MARK: - Models
+
+struct ZipData: Identifiable {
+    let id: String  // zip code as ID
+    let zip: String
+    let count: Int
+    let coordinate: CLLocationCoordinate2D
+    
+    init(zip: String, count: Int, coordinate: CLLocationCoordinate2D) {
+        self.id = zip
+        self.zip = zip
+        self.count = count
+        self.coordinate = coordinate
+    }
+}
 
 // MARK: - ChurchNeighborhoodService
 
 @MainActor
 final class ChurchNeighborhoodService: ObservableObject {
-    @Published var zipData: [(zip: String, count: Int, coordinate: CLLocationCoordinate2D)] = []
+    @Published var zipData: [ZipData] = []
     @Published var isLoading = false
     @Published var topNeighborhoodName: String?
 
@@ -35,10 +52,10 @@ final class ChurchNeighborhoodService: ObservableObject {
             }
             guard entries.reduce(0, { $0 + $1.count }) >= 10 else { return }
             // Geocode zip codes to coordinates
-            var results: [(zip: String, count: Int, coordinate: CLLocationCoordinate2D)] = []
+            var results: [ZipData] = []
             for entry in entries.prefix(20) {
                 if let coord = await geocodeZip(entry.zip) {
-                    results.append((zip: entry.zip, count: entry.count, coordinate: coord))
+                    results.append(ZipData(zip: entry.zip, count: entry.count, coordinate: coord))
                 }
             }
             zipData = results

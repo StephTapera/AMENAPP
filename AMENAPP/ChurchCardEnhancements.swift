@@ -98,9 +98,8 @@ struct ChurchBannerOverlay: View {
         GeometryReader { geo in
             ZStack(alignment: .bottom) {
                 // Brand tint at 60% opacity
-                if let hex = store.data(for: churchId)?.brandColor,
-                   let color = Color(hex: hex) {
-                    color.opacity(0.6)
+                if let hex = store.data(for: churchId)?.brandColor {
+                    Color(hex: hex).opacity(0.6)
                         .allowsHitTesting(false)
                 }
 
@@ -403,16 +402,3 @@ struct FirstVisitGuideData {
     }
 }
 
-// MARK: - Color(hex:) extension
-
-extension Color {
-    init?(hex: String) {
-        let h = hex.trimmingCharacters(in: .init(charactersIn: "#"))
-        guard h.count == 6, let val = UInt64(h, radix: 16) else { return nil }
-        self.init(
-            red:   Double((val >> 16) & 0xFF) / 255,
-            green: Double((val >>  8) & 0xFF) / 255,
-            blue:  Double( val        & 0xFF) / 255
-        )
-    }
-}

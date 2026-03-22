@@ -13,6 +13,7 @@
 // Design: white neumorphic card, navy/gold AMEN palette, quiet and smart.
 
 import SwiftUI
+import Combine
 import FirebaseAuth
 import FirebaseFirestore
 import FirebaseFunctions

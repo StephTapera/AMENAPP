@@ -10,6 +10,7 @@
 
 import Foundation
 import SwiftUI
+import Combine
 import Contacts
 import CryptoKit
 import FirebaseAuth
@@ -54,9 +55,7 @@ final class ChurchChemistryService: ObservableObject {
         guard CNContactStore.authorizationStatus(for: .contacts) == .authorized else { return }
         let store  = CNContactStore()
         let keys   = [CNContactPhoneNumbersKey as CNKeyDescriptor]
-        let request = CNFetchRequest(entityType: .contacts)
-        request.keysToFetch = keys
-        guard let result = try? store.unifiedContacts(matching: .init(value: true), keysToFetch: keys) else { return }
+        guard let result = try? store.unifiedContacts(matching: NSPredicate(value: true), keysToFetch: keys) else { return }
         hashedContactNumbers = Set(
             result.flatMap { $0.phoneNumbers }
                   .map { normalize($0.value.stringValue) }

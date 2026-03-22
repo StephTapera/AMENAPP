@@ -175,8 +175,8 @@ final class SermonRecorder: ObservableObject {
         """
 
         if let result = try? await ClaudeService.shared.sendMessageSync(prompt, mode: .scholar),
-           let data = result.data(using: .utf8),
-           let json = try? JSONDecoder().decode(SermonDraftJSON.self, from: cleanJSON(result)) {
+           let data = cleanJSON(result).data(using: .utf8),
+           let json = try? JSONDecoder().decode(SermonDraftJSON.self, from: data) {
             liveNote.merge(SermonDraft(from: json, transcript: fullTranscript))
         }
         liveNote.rawTranscript  = fullTranscript
@@ -334,12 +334,14 @@ struct SermonRecordingSheet: View {
                         }
                     }
                     if !recorder.liveNote.scriptures.isEmpty {
-                        FlowLayout(items: recorder.liveNote.scriptures) { ref in
-                            Text(ref)
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundStyle(.purple)
-                                .padding(.horizontal, 8).padding(.vertical, 4)
-                                .background(Color.purple.opacity(0.08), in: Capsule())
+                        FlowLayout(spacing: 6) {
+                            ForEach(recorder.liveNote.scriptures, id: \.self) { ref in
+                                Text(ref)
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundStyle(.purple)
+                                    .padding(.horizontal, 8).padding(.vertical, 4)
+                                    .background(Color.purple.opacity(0.08), in: Capsule())
+                            }
                         }
                     }
                     if !recorder.transcriptBuffer.isEmpty {
@@ -412,21 +414,4 @@ struct SermonRecordingSheet: View {
     }
 }
 
-// MARK: - FlowLayout (simple horizontal-wrapping layout for scripture chips)
 
-private struct FlowLayout<T: Hashable, Content: View>: View {
-    let items: [T]
-    let content: (T) -> Content
-
-    var body: some View {
-        // Simplified: horizontal scroll for chips
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
-                ForEach(items, id: \.self) { item in
-                    content(item)
-                }
-            }
-            .padding(.vertical, 2)
-        }
-    }
-}

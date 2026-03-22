@@ -167,6 +167,41 @@ struct CreatePostView: View {
     @State private var isLoadingBereanTone = false
     @State private var showBereanToneSheet = false
     
+    // MARK: - New Features (Phase 1-3)
+    
+    // Phase 1: Alt text for images
+    @State private var imageAltTexts: [String] = []  // Alt text for each image (accessibility)
+    @State private var editingAltTextIndex: Int? = nil
+    @State private var showAltTextSheet = false
+    
+    // Phase 1: Hide engagement counts
+    @State private var hideEngagementCounts = false  // Privacy: hide likes/interactions from others
+    
+    // Phase 1: Content warning
+    @State private var hasSensitiveContent = false  // Mark post as sensitive
+    @State private var sensitiveContentReason: String = ""  // Optional reason (grief, trauma, etc.)
+    
+    // Phase 2: Voice-to-text
+    @State private var isRecording = false
+    @State private var showVoicePermissionAlert = false
+    
+    // Phase 2: AI verse suggestions
+    @State private var showVerseSuggestions = false
+    @State private var suggestedVerses: [ScripturePassage] = []
+    @State private var isLoadingVerseSuggestions = false
+    
+    // Phase 2: Post preview
+    @State private var showPreview = false
+    
+    // Phase 3: Save as template
+    @State private var showSaveTemplateSheet = false
+    @State private var templateName = ""
+    
+    // Phase 3: Thread creation
+    @State private var isThreadMode = false
+    @State private var threadPosts: [String] = [""]  // Array of thread post texts
+    @State private var currentThreadIndex = 0
+    
     // MARK: - Initializer
     
     init(initialCategory: PostCategory? = nil) {
@@ -3744,7 +3779,7 @@ struct CirclePostButton: View {
     private var circleBackgroundColor: Color {
         switch buttonState {
         case .idle:
-            return Color.white.opacity(0.05)
+            return Color.white.opacity(0.15)  // Increased from 0.05 to make more visible
         case .ready:
             return Color.white
         case .posting:
@@ -3757,7 +3792,7 @@ struct CirclePostButton: View {
     private var iconColor: Color {
         switch buttonState {
         case .idle:
-            return Color.white.opacity(0.3)
+            return Color.white.opacity(0.5)  // Increased from 0.3 to make more visible
         case .ready, .sent:
             return Color.black
         case .posting:
@@ -4083,6 +4118,7 @@ struct TopicTagSheet: View {
     @Binding var selectedTag: String
     @Binding var isPresented: Bool
     @Binding var selectedCategory: CreatePostView.PostCategory
+    @State private var searchText = ""
     
     // OpenTable topic tags
     var openTableTags: [(String, String, Color)] {
@@ -4105,7 +4141,16 @@ struct TopicTagSheet: View {
         tags.append(("Quantum Computing", "atom", .cyan))
         tags.append(("Biotechnology", "cross.vial.fill", .green))
         
-        // Non-technical topics
+        // Business & Career topics
+        tags.append(("Entrepreneurship", "briefcase.circle.fill", .blue))
+        tags.append(("Business Ethics", "building.2.fill", .green))
+        tags.append(("Workplace Faith", "desktopcomputer", .purple))
+        tags.append(("Career Development", "chart.line.uptrend.xyaxis", .orange))
+        tags.append(("Leadership & Management", "person.crop.circle.badge.checkmark", .indigo))
+        tags.append(("Marketing & Media", "megaphone.fill", .pink))
+        tags.append(("Startups & Innovation", "rocket.fill", .orange))
+        
+        // Faith & Life topics
         tags.append(("Faith & Culture", "globe.americas.fill", .blue))
         tags.append(("Relationships", "heart.circle.fill", .pink))
         tags.append(("Family Life", "house.fill", .orange))
@@ -4126,6 +4171,9 @@ struct TopicTagSheet: View {
         tags.append(("Creativity & Arts", "paintpalette.fill", .pink))
         tags.append(("Health & Wellness", "heart.text.square.fill", .red))
         tags.append(("Finance & Stewardship", "dollarsign.circle.fill", .green))
+        tags.append(("Education & Learning", "book.fill", .blue))
+        tags.append(("Science & Faith", "flask.fill", .cyan))
+        tags.append(("Parenting", "figure.2.and.child.holdinghands", .orange))
         return tags
     }
     
@@ -4154,6 +4202,15 @@ struct TopicTagSheet: View {
         }
     }
     
+    var filteredTags: [(String, String, Color)] {
+        if searchText.isEmpty {
+            return displayTags
+        }
+        return displayTags.filter { tag in
+            tag.0.localizedCaseInsensitiveContains(searchText)
+        }
+    }
+    
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -4174,8 +4231,58 @@ struct TopicTagSheet: View {
                     .padding(.horizontal)
                     .padding(.top, 8)
                     
+                    // Search box - Liquid Glass design
+                    HStack(spacing: 8) {
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(.black.opacity(0.4))
+                        
+                        TextField("Search topics...", text: $searchText)
+                            .font(.custom("OpenSans-Regular", size: 15))
+                            .autocorrectionDisabled()
+                        
+                        if !searchText.isEmpty {
+                            Button {
+                                withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+                                    searchText = ""
+                                }
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .font(.system(size: 16))
+                                    .foregroundStyle(.black.opacity(0.3))
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(.ultraThinMaterial)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(.black.opacity(0.1), lineWidth: 0.5)
+                            )
+                    )
+                    .padding(.horizontal)
+                    
+                    if filteredTags.isEmpty {
+                        VStack(spacing: 12) {
+                            Image(systemName: "magnifyingglass")
+                                .font(.system(size: 40))
+                                .foregroundStyle(.secondary.opacity(0.5))
+                            Text("No topics found")
+                                .font(.custom("OpenSans-SemiBold", size: 16))
+                                .foregroundStyle(.secondary)
+                            Text("Try a different search term")
+                                .font(.custom("OpenSans-Regular", size: 14))
+                                .foregroundStyle(.secondary.opacity(0.7))
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 60)
+                    }
+                    
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                        ForEach(displayTags, id: \.0) { tag in
+                        ForEach(filteredTags, id: \.0) { tag in
                             TopicTagCard(
                                 title: tag.0,
                                 icon: tag.1,

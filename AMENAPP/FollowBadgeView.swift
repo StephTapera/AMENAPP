@@ -18,7 +18,7 @@ struct FollowBadgeView: View {
         ZStack {
             // Ripple ring
             Circle()
-                .stroke(Color.purple.opacity(0.35), lineWidth: 1.5)
+                .stroke(Color.black.opacity(0.35), lineWidth: 1.5)
                 .frame(width: 20, height: 20)
                 .scaleEffect(showRipple ? 3.2 : 1.0)
                 .opacity(showRipple ? 0 : 0.8)
@@ -29,7 +29,7 @@ struct FollowBadgeView: View {
 
             // Badge circle
             Circle()
-                .fill(isFollowed ? Color.purple : Color(uiColor: .label))
+                .fill(isFollowed ? Color.black : Color(uiColor: .label))
                 .frame(width: 20, height: 20)
                 .overlay(
                     Circle()
@@ -65,7 +65,7 @@ struct FollowBadgeView: View {
                     .foregroundStyle(.white)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 3)
-                    .background(Color.purple, in: Capsule())
+                    .background(Color.black, in: Capsule())
                     .fixedSize()
                     .offset(y: -28)
                     .transition(

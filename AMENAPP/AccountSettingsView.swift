@@ -1000,6 +1000,7 @@ struct ChangeUsernameView: View {
                                 
                                 VStack(alignment: .leading, spacing: 8) {
                                     InfoRow(icon: "textformat", text: "3-20 characters, lowercase letters, numbers, and underscores only")
+                                    InfoRow(icon: "sparkles", text: "Example: sarah2025, john_smith, user123")
                                     InfoRow(icon: "clock", text: "Changes can be made once every 30 days")
                                     InfoRow(icon: "hourglass", text: "Review process takes 24-48 hours")
                                     InfoRow(icon: "checkmark.circle", text: "You'll be notified when approved")

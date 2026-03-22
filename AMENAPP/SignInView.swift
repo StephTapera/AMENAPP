@@ -379,12 +379,16 @@ struct SignInView: View {
     
     private var primaryActionButton: some View {
         Button {
+            // Immediate haptic feedback for responsiveness
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
             handleAuth()
         } label: {
             HStack(spacing: 12) {
                 if viewModel.isLoading {
                     ProgressView()
                         .progressViewStyle(CircularProgressViewStyle(tint: .black))
+                    Text("Signing in...")
+                        .font(.custom("OpenSans-SemiBold", size: 15))
                 } else {
                     Text(isLogin ? "Sign In" : "Sign Up")
                         .font(.custom("OpenSans-SemiBold", size: 15))
@@ -398,6 +402,7 @@ struct SignInView: View {
                     .fill(.white)
                     .shadow(color: .white.opacity(0.2), radius: 8, y: 4)
             )
+            .animation(.easeInOut(duration: 0.2), value: viewModel.isLoading)
         }
         .disabled(viewModel.isLoading || !isFormValid)
         .opacity(isFormValid ? 1.0 : 0.5)

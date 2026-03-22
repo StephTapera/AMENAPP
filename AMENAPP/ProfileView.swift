@@ -2518,7 +2518,7 @@ struct PostsContentView: View {
                 // ✅ Posts RIGHT under tabs - zero spacing
                 LazyVStack(spacing: 0) {
                     ForEach(posts) { post in
-                        ProfilePostCard(post: post)
+                        PostCard(post: post)
                             .padding(.bottom, 10)  // Spacing between cards only
                     }
                 }
@@ -3010,14 +3010,10 @@ struct EditProfileView: View {
                 dlog("      Bio URL: \(bioURLChanged)")
                 dlog("      Profile Image: \(imageChanged)")
                 
-                // Show confirmation for name/bio changes (sensitive)
-                if nameChanged || bioChanged {
-                    dlog("   -> Showing confirmation (name/bio changed)")
+                // Show confirmation for any profile changes
+                if nameChanged || bioChanged || imageChanged || bioURLChanged || hasChanges {
+                    dlog("   -> Showing confirmation (profile changes detected)")
                     showSaveConfirmation()
-                } else if hasChanges || imageChanged || bioURLChanged {
-                    dlog("   -> Saving directly (profile photo/URL or other changes)")
-                    // Profile photo, URL, or other changes - save directly
-                    saveProfile()
                 } else {
                     dlog("   -> No changes to save, just dismissing")
                     // No changes - just dismiss
@@ -3141,7 +3137,7 @@ struct EditProfileView: View {
                     .stroke(Color.black.opacity(0.1), lineWidth: 1)
             )
             
-            Text("Username cannot be changed")
+            Text("To change your username, go to Account Settings")
                 .font(.custom("OpenSans-Regular", size: 12))
                 .foregroundStyle(.secondary)
         }
@@ -3160,10 +3156,17 @@ struct EditProfileView: View {
                     
                     Spacer()
                     
-                    // Character counter
-                    Text("\(bio.count)/\(bioCharacterLimit)")
-                        .font(.custom("OpenSans-Regular", size: 12))
-                        .foregroundStyle(bio.count > bioCharacterLimit ? .red : .secondary)
+                    // Character counter with warning
+                    HStack(spacing: 4) {
+                        if bio.count > bioCharacterLimit {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.red)
+                        }
+                        Text("\(bio.count)/\(bioCharacterLimit)")
+                            .font(.custom("OpenSans-SemiBold", size: 12))
+                            .foregroundStyle(bio.count > bioCharacterLimit ? .red : (bio.count > bioCharacterLimit - 10 ? .orange : .secondary))
+                    }
                 }
                 
                 ZStack(alignment: .topLeading) {
@@ -3291,7 +3294,7 @@ struct EditProfileView: View {
                         .font(.system(size: 12))
                         .foregroundStyle(.green)
                     
-                    Text("Auto-formatted: \(bioURL)")
+                    Text("Will be saved as: \(bioURL)")
                         .font(.custom("OpenSans-Regular", size: 12))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)

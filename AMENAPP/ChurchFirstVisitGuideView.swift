@@ -9,6 +9,7 @@
 //   - "Save to notes" button creates a ChurchNote with the guide
 
 import SwiftUI
+import Combine
 import FirebaseAuth
 import FirebaseFirestore
 import FirebaseFunctions
@@ -127,7 +128,7 @@ struct FirstVisitGuideView: View {
             if !g.conversationStarters.isEmpty {
                 Section(header: Text("Conversation Starters").font(.system(size: 13, weight: .semibold)).foregroundStyle(Color(.secondaryLabel))) {
                     ForEach(g.conversationStarters, id: \.self) { starter in
-                        Text(""\(starter)"")
+                        Text("\"\(starter)\"")
                             .font(.system(size: 15))
                             .foregroundStyle(Color(.secondaryLabel))
                             .italic()

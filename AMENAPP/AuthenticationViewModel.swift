@@ -83,6 +83,10 @@ class AuthenticationViewModel: ObservableObject {
     // is verified on the server — bypassing the 2FA gate.
     private var is2FAInProgress = false
     
+    // PERFORMANCE: Cache user document to avoid duplicate Firestore reads
+    private var cachedUserData: (userId: String, data: [String: Any], timestamp: Date)?
+    private let userDataCacheDuration: TimeInterval = 5.0  // Cache for 5 seconds
+    
     // MARK: - Initialization
     
     init() {
@@ -207,6 +211,7 @@ class AuthenticationViewModel: ObservableObject {
         }
         isCheckingOnboarding = true
         defer { isCheckingOnboarding = false }
+        
         // Check local cache first for immediate response
         let cachedCompleted = UserDefaults.standard.bool(forKey: "hasCompletedOnboarding_\(userId)")
         dlog("🚦 [LAUNCH] checkOnboardingStatus: cache=\(cachedCompleted) for user \(userId)")
@@ -218,7 +223,22 @@ class AuthenticationViewModel: ObservableObject {
             dlog("🚦 [LAUNCH] checkOnboardingStatus: cache hit → needsOnboarding=false (fast path)")
         }
 
-        // Always verify against Firestore (source of truth)
+        // PERFORMANCE: Check if we have a recent cached user document from sign-in
+        if let cached = cachedUserData,
+           cached.userId == userId,
+           Date().timeIntervalSince(cached.timestamp) < userDataCacheDuration {
+            dlog("🚦 [LAUNCH] checkOnboardingStatus: using cached userData from sign-in (fast path)")
+            let hasCompletedOnboarding = cached.data["hasCompletedOnboarding"] as? Bool ?? false
+            UserDefaults.standard.set(hasCompletedOnboarding, forKey: "hasCompletedOnboarding_\(userId)")
+            await MainActor.run {
+                self.needsOnboarding = !hasCompletedOnboarding
+                self.needsUsernameSelection = false
+            }
+            dlog("🚦 [LAUNCH] checkOnboardingStatus: cached data says hasCompleted=\(hasCompletedOnboarding)")
+            return
+        }
+
+        // No cache hit - fetch from Firestore
         dlog("🚦 [LAUNCH] checkOnboardingStatus: fetching Firestore to verify...")
         do {
             let userData = try await firebaseManager.fetchUserDocument(userId: userId)
@@ -279,8 +299,15 @@ class AuthenticationViewModel: ObservableObject {
             let user = try await firebaseManager.signIn(email: email, password: password)
             dlog("✅ Sign in successful")
             
-            // P0 SECURITY: Check if user has 2FA enabled BEFORE allowing full authentication
-            let has2FA = await TwoFactorAuthService.shared.check2FAStatus(userId: user.uid)
+            // PERFORMANCE: Fetch user document once and extract both 2FA + onboarding status
+            // This combines what used to be 2 sequential Firestore reads into 1
+            let userData = try await firebaseManager.fetchUserDocument(userId: user.uid)
+            
+            // Cache the user data for the auth state listener (avoids 3rd Firestore read)
+            cachedUserData = (userId: user.uid, data: userData, timestamp: Date())
+            
+            // Extract 2FA status from the single read
+            let has2FA = userData["twoFactorEnabled"] as? Bool ?? false
             
             if has2FA {
                 dlog("🔐 User has 2FA enabled - requiring verification")
@@ -312,6 +339,7 @@ class AuthenticationViewModel: ObservableObject {
             haptic.notificationOccurred(.success)
             
             // isAuthenticated and needsOnboarding are handled by auth state listener
+            // (which will use the cached userData to avoid another Firestore read)
             
         } catch {
             dlog("❌ Sign in failed: \(error.localizedDescription)")
@@ -507,6 +535,7 @@ class AuthenticationViewModel: ObservableObject {
         onboardingJustCompleted = false
         showEmailVerificationBanner = false
         needsUsernameSelection = false
+        cachedUserData = nil              // Clear performance cache on sign-out
 
         // ── Firebase sign-out ────────────────────────────────────────────────
         do {
