@@ -46,6 +46,14 @@ struct AMENDiscoveryView: View {
                         .background(.ultraThinMaterial)
                         .zIndex(10)
 
+                    // Scope filter tab bar — shown when search is active or results visible
+                    if isSearchFocused || !searchText.isEmpty {
+                        SearchScopeTabBar(selected: $searchVM.searchScope)
+                            .background(.ultraThinMaterial)
+                            .zIndex(9)
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                    }
+
                     // Content area driven by state machine
                     contentArea
                 }
@@ -203,6 +211,10 @@ struct AMENDiscoveryView: View {
         .padding(.vertical, 12)
         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isSearchFocused)
         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isShowingSubpage)
+        .onChange(of: searchVM.searchScope) { _, _ in
+            guard !searchText.isEmpty else { return }
+            searchVM.scheduleSearch(query: searchText)
+        }
     }
 
     private var searchPlaceholder: String {

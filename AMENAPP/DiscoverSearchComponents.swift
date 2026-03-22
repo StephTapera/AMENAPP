@@ -35,6 +35,12 @@ final class UniversalSearchViewModel: ObservableObject {
     @Published private(set) var isLoading = false
     @Published private(set) var trendingTopics: [DiscoveryTopic] = []
     @Published private(set) var isTrendingLoading = false
+    // MARK: - Smart Search additions
+    @Published var searchScope: SearchScope = .forYou
+    @Published var bereanAnswer = ""
+    @Published var bereanAnswerLoading = false
+    private var bereanTask: Task<Void, Never>?
+    private let questionPrefixes = ["what", "who", "how", "why", "tell me", "explain", "is ", "are ", "does ", "can "]
 
     // MARK: Private
 
@@ -67,6 +73,72 @@ final class UniversalSearchViewModel: ObservableObject {
     func clearAllRecentSearches() {
         UserDefaults.standard.removeObject(forKey: recentKey)
         objectWillChange.send()
+    }
+
+    // MARK: - Scope-filtered results
+
+    var scopedPeople: [DiscoveryPerson] {
+        switch searchScope {
+        case .forYou, .people: return results.people
+        default: return []
+        }
+    }
+
+    var scopedPosts: [DiscoveryPost] {
+        switch searchScope {
+        case .forYou, .posts: return results.posts.filter { $0.imageURL == nil }
+        case .photos: return results.posts.filter { $0.imageURL != nil }
+        default: return []
+        }
+    }
+
+    var scopedPhotoPosts: [DiscoveryPost] {
+        switch searchScope {
+        case .forYou, .photos: return results.posts.filter { $0.imageURL != nil }
+        default: return []
+        }
+    }
+
+    var scopedTopics: [DiscoveryTopic] {
+        switch searchScope {
+        case .forYou, .tags: return results.topics
+        default: return []
+        }
+    }
+
+    // MARK: - Berean AI for search
+
+    func shouldQueryBerean(for text: String) -> Bool {
+        let lower = text.lowercased().trimmingCharacters(in: .whitespaces)
+        return lower.contains("?") ||
+               questionPrefixes.contains(where: { lower.hasPrefix($0) }) ||
+               lower.count > 30
+    }
+
+    func triggerBereanSearch(for text: String) {
+        guard shouldQueryBerean(for: text) else {
+            bereanAnswer = ""; bereanAnswerLoading = false; return
+        }
+        bereanTask?.cancel()
+        bereanAnswer = ""
+        bereanAnswerLoading = true
+        bereanTask = Task {
+            let prompt = """
+            The user searched for "\(text)" in AMEN, a faith-centered Christian community app. \
+            Give a concise 2–3 sentence answer that is helpful, Scripture-grounded where relevant, \
+            and warm. Be direct.
+            """
+            var response = ""
+            do {
+                let stream = OpenAIService.shared.sendMessage(prompt, maxTokens: 200, temperature: 0.6)
+                for try await chunk in stream {
+                    guard !Task.isCancelled else { break }
+                    response += chunk
+                    bereanAnswer = response
+                }
+            } catch {}
+            if !Task.isCancelled { bereanAnswerLoading = false }
+        }
     }
 
     // MARK: Trending Topics
@@ -125,10 +197,15 @@ final class UniversalSearchViewModel: ObservableObject {
             isLoading = false
             return
         }
+        // Also clear stale Berean answer when query changes
+        bereanAnswer = ""
+        bereanAnswerLoading = false
+        bereanTask?.cancel()
         debounceTask = Task {
             try? await Task.sleep(nanoseconds: 350_000_000)
             guard !Task.isCancelled else { return }
             await executeSearch(query: query)
+            triggerBereanSearch(for: query)
         }
     }
 
@@ -458,9 +535,48 @@ struct UniversalSearchResultsView: View {
     @State private var selectedTopic: DiscoveryTopic? = nil
     @State private var navigateToTopic = false
 
+    // Navigation state for full screen Berean
+    @State private var showBereanAI = false
+    @State private var bereanSeedQuery = ""
+
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
+                // PART 4: Berean AI answer card — shown for question-style queries
+                if viewModel.bereanAnswerLoading || !viewModel.bereanAnswer.isEmpty {
+                    BereanSearchAnswerCard(
+                        query: query,
+                        answer: viewModel.bereanAnswer,
+                        isLoading: viewModel.bereanAnswerLoading,
+                        onAskMore: {
+                            bereanSeedQuery = query
+                            showBereanAI = true
+                        }
+                    )
+                    .padding(.bottom, 8)
+                    .padding(.top, 8)
+                }
+
+                // PART 3: Top profile card — shown when people results exist
+                if let topPerson = viewModel.scopedPeople.first,
+                   viewModel.searchScope == .forYou || viewModel.searchScope == .people {
+                    SearchTopProfileCard(
+                        person: topPerson,
+                        previewPosts: viewModel.results.posts,
+                        onFollow: {
+                            Task {
+                                if topPerson.isFollowing {
+                                    await DiscoveryService.shared.unfollowUser(userId: topPerson.id)
+                                } else {
+                                    await DiscoveryService.shared.followUser(userId: topPerson.id)
+                                }
+                            }
+                        },
+                        onTapProfile: { /* navigation handled by USSPersonRow below */ }
+                    )
+                    .padding(.bottom, 8)
+                }
+
                 if viewModel.isLoading {
                     shimmerSections
                 } else if viewModel.results.isEmpty {
@@ -473,6 +589,9 @@ struct UniversalSearchResultsView: View {
             .padding(.top, 8)
         }
         .scrollDismissesKeyboard(.interactively)
+        .fullScreenCover(isPresented: $showBereanAI) {
+            BereanAIAssistantView(seedMessage: bereanSeedQuery)
+        }
         .navigationDestination(isPresented: $navigateToTopic) {
             if let topic = selectedTopic {
                 DiscoveryTopicPageView(topic: topic)
