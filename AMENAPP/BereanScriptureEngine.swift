@@ -243,6 +243,8 @@ struct ScriptureEnrichmentCard:
     @State private var expanded = false
 
     var body: some View {
+        
+        
         VStack(alignment: .leading, spacing: 0) {
             // Header row
             Button {

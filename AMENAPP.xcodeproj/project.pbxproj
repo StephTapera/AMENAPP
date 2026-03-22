@@ -106,28 +106,7 @@
 		EFAE0A712F4D680A009D7209 /* PRODUCTION_AUDIT_COMPLETE_FEB_23_2026.md in Resources */ = {isa = PBXBuildFile; fileRef = EFAE0A702F4D680A009D7209 /* PRODUCTION_AUDIT_COMPLETE_FEB_23_2026.md */; };
 		EFAE0A732F4DDCFF009D7209 /* P0_FIXES_STATUS.md in Resources */ = {isa = PBXBuildFile; fileRef = EFAE0A722F4DDCFF009D7209 /* P0_FIXES_STATUS.md */; };
 		EFAE0A752F4DE71D009D7209 /* ALL_P0_FIXES_COMPLETE.md in Resources */ = {isa = PBXBuildFile; fileRef = EFAE0A742F4DE71D009D7209 /* ALL_P0_FIXES_COMPLETE.md */; };
-		28E8137E3C5C5881B070BC13 /* SplashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 796DED58FF2CFD84720600AD /* SplashView.swift */; };
-		83BE7CF1109A84620ACBD327 /* AMENAuthLandingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38D79A0A29F2FAA015F889A7 /* AMENAuthLandingView.swift */; };
-		0B650457F7F1764DFDC8D2CF /* PrayerArcCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E5310CB854637BB4F88EB6D /* PrayerArcCard.swift */; };
-		1C0ABFD0C0DFAE14DFBF475E /* NotificationBellButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BBBD446E01168032C43E6BD /* NotificationBellButton.swift */; };
-		62FF520478DA6C95124C2012 /* NotificationPermissionOnboarding.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5873B7E879D0BC2C3FF471D /* NotificationPermissionOnboarding.swift */; };
-		EF66EADB1C7460BF49A2E367 /* BereanDoctrineChecker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73982D082EB451CC2B905F73 /* BereanDoctrineChecker.swift */; };
-		9A1B9FD438F294FC6FB79C81 /* BereanSemanticSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD8343BA356810F064294203 /* BereanSemanticSearch.swift */; };
-		FB3ACD04FF6774CFB3BA9E6B /* SpiritualTimelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DD3E04A227978149E0F7651 /* SpiritualTimelineView.swift */; };
-		8D8510C8499C233CD9005AF5 /* ChurchMatcherService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6857B4FEE59811AD99E6CEFC /* ChurchMatcherService.swift */; };
-		968938E9BF68ED4AB6075A5A /* StudyGuideGeneratorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EF08FFDD5EE9088FA9BD8FC /* StudyGuideGeneratorView.swift */; };
-		F7A37AA5C713BF0558CE882B /* SermonRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66CF74CB0308F73D4F6BE54D /* SermonRecorder.swift */; };
-		4BC351EBD6BD0E93C22FDD27 /* BereanSnapService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CA195D5A68572343B01B2A3 /* BereanSnapService.swift */; };
-		2C597C1BA3F1221C56CCC5B1 /* SermonNotePreviewSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE2D0225EEF3A5F64BC1FE9A /* SermonNotePreviewSheet.swift */; };
-		19EDB81C9E9579314CC905E5 /* BereanScriptureEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DE0313E36ADF0403FC563C3 /* BereanScriptureEngine.swift */; };
-		B6697DD8467F73DEC588AC69 /* ChurchCardEnhancements.swift in Sources */ = {isa = PBXBuildFile; fileRef = B21C8D9A995DF11FF65F9035 /* ChurchCardEnhancements.swift */; };
-		0F9123E617D3C3AE73F4324D /* ChurchDNAView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 442EBC551D687CF3788E4266 /* ChurchDNAView.swift */; };
-		FC8BA7B566AA3E31E2CC79B1 /* ChurchFirstVisitGuideView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88ABEF1461C92776754EC8C5 /* ChurchFirstVisitGuideView.swift */; };
-		3D6E30D4C399D0CFF09CB2CC /* ChurchChemistryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 721B9DFA00E96CA6267E9027 /* ChurchChemistryService.swift */; };
-		CEA5D3755C14622BBEA235AE /* SpiritualSeasonService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E7A780D3EB966F5C6B1B5DD /* SpiritualSeasonService.swift */; };
-		2B34C5B6CE75199FB583C38B /* ChurchNeighborhoodMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3FA9F1EEAA248D971B5FF055 /* ChurchNeighborhoodMapView.swift */; };
-		336DFFB4E9D2232E606E0807 /* ChurchTeachingStyleService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23D46EF9514B694A04381729 /* ChurchTeachingStyleService.swift */; };
-		/* End PBXBuildFile section */
+/* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
 		EF56F7452F2881A40019B94A /* PBXContainerItemProxy */ = {
@@ -420,28 +399,7 @@
 		EFD4FEC72F5F2B1400672160 /* TestimonyContextDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestimonyContextDetector.swift; sourceTree = "<group>"; };
 		EFD4FEC92F5F2B5900672160 /* PoliticalDiscussionGuard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoliticalDiscussionGuard.swift; sourceTree = "<group>"; };
 		EFD4FECB2F5F2BB800672160 /* HumorToneClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HumorToneClassifier.swift; sourceTree = "<group>"; };
-		796DED58FF2CFD84720600AD /* SplashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplashView.swift; sourceTree = "<group>"; };
-		38D79A0A29F2FAA015F889A7 /* AMENAuthLandingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AMENAuthLandingView.swift; sourceTree = "<group>"; };
-		7E5310CB854637BB4F88EB6D /* PrayerArcCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrayerArcCard.swift; sourceTree = "<group>"; };
-		0BBBD446E01168032C43E6BD /* NotificationBellButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationBellButton.swift; sourceTree = "<group>"; };
-		C5873B7E879D0BC2C3FF471D /* NotificationPermissionOnboarding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationPermissionOnboarding.swift; sourceTree = "<group>"; };
-		73982D082EB451CC2B905F73 /* BereanDoctrineChecker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BereanDoctrineChecker.swift; sourceTree = "<group>"; };
-		DD8343BA356810F064294203 /* BereanSemanticSearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BereanSemanticSearch.swift; sourceTree = "<group>"; };
-		7DD3E04A227978149E0F7651 /* SpiritualTimelineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpiritualTimelineView.swift; sourceTree = "<group>"; };
-		6857B4FEE59811AD99E6CEFC /* ChurchMatcherService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChurchMatcherService.swift; sourceTree = "<group>"; };
-		2EF08FFDD5EE9088FA9BD8FC /* StudyGuideGeneratorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudyGuideGeneratorView.swift; sourceTree = "<group>"; };
-		66CF74CB0308F73D4F6BE54D /* SermonRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SermonRecorder.swift; sourceTree = "<group>"; };
-		2CA195D5A68572343B01B2A3 /* BereanSnapService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BereanSnapService.swift; sourceTree = "<group>"; };
-		EE2D0225EEF3A5F64BC1FE9A /* SermonNotePreviewSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SermonNotePreviewSheet.swift; sourceTree = "<group>"; };
-		8DE0313E36ADF0403FC563C3 /* BereanScriptureEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BereanScriptureEngine.swift; sourceTree = "<group>"; };
-		B21C8D9A995DF11FF65F9035 /* ChurchCardEnhancements.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChurchCardEnhancements.swift; sourceTree = "<group>"; };
-		442EBC551D687CF3788E4266 /* ChurchDNAView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChurchDNAView.swift; sourceTree = "<group>"; };
-		88ABEF1461C92776754EC8C5 /* ChurchFirstVisitGuideView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChurchFirstVisitGuideView.swift; sourceTree = "<group>"; };
-		721B9DFA00E96CA6267E9027 /* ChurchChemistryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChurchChemistryService.swift; sourceTree = "<group>"; };
-		5E7A780D3EB966F5C6B1B5DD /* SpiritualSeasonService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpiritualSeasonService.swift; sourceTree = "<group>"; };
-		3FA9F1EEAA248D971B5FF055 /* ChurchNeighborhoodMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChurchNeighborhoodMapView.swift; sourceTree = "<group>"; };
-		23D46EF9514B694A04381729 /* ChurchTeachingStyleService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChurchTeachingStyleService.swift; sourceTree = "<group>"; };
-		/* End PBXFileReference section */
+/* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
 		EF5B391A2F5BAEEF00152D09 /* Exceptions for "AMENWidgetExtension" folder in "AMENWidgetExtensionExtension" target */ = {

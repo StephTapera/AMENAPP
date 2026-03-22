@@ -72,8 +72,8 @@ struct BereanAIAssistantView: View {
         var lastRequestStartTime: Date?
     }
     
-    // ✅ New state variables for new features
-    @State private var showOnboarding = false
+    // ✅ New state variables for new features  
+    @State private var showOnboarding = !UserDefaults.standard.bool(forKey: "bereanOnboardingComplete")
     @State private var showSavedMessages = false
     @State private var showReportIssue = false
     @State private var messageToReport: BereanMessage?
@@ -653,7 +653,9 @@ struct BereanAIAssistantView: View {
         }
         // ✅ Onboarding
         .fullScreenCover(isPresented: $showOnboarding) {
-            BereanOnboardingView(isPresented: $showOnboarding)
+            BereanOnboardingView {
+                showOnboarding = false
+            }
         }
         // Selah reading view
         .fullScreenCover(item: $selahMessage) { msg in
