@@ -704,7 +704,7 @@ class AppReadyStateManager: ObservableObject {
             return
         }
         dlog("🚦 [LAUNCH] signalReady() → isShowingLoadingScreen = false (animating out)")
-        withAnimation(.easeInOut(duration: 0.6)) {
+        withAnimation(.easeOut(duration: 0.2)) {
             isShowingLoadingScreen = false
         }
     }

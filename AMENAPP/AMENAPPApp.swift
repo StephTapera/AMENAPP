@@ -334,22 +334,26 @@ struct AMENAPPApp: App {
 
     // MARK: - Auth Token Validity
 
-    /// Called on every foreground transition. Forces a token refresh and signs out
-    /// if the token can no longer be refreshed (revoked session, banned account, etc.).
+    /// Called on foreground transitions, but throttled to once every 4 hours.
+    /// Forcing a token refresh on every foreground hits Firebase Auth servers and adds
+    /// 200-500ms to perceived cold-start latency. Firebase already auto-refreshes tokens
+    /// before they expire (1-hour window) — the force-refresh here only needs to catch
+    /// revoked/deleted accounts, which happen rarely.
     private func checkAuthTokenValidity() {
         guard Auth.auth().currentUser != nil else { return }
+        let key = "lastAuthTokenCheckDate"
+        let lastCheck = UserDefaults.standard.double(forKey: key)
+        let now = Date().timeIntervalSince1970
+        let fourHours: TimeInterval = 4 * 60 * 60
+        guard now - lastCheck > fourHours else { return }
+        UserDefaults.standard.set(now, forKey: key)
         Task {
             do {
-                // forceRefresh: true — contacts Firebase Auth servers to verify the token.
-                // Will throw if the refresh token has been revoked or the account deleted.
                 _ = try await Auth.auth().currentUser?.getIDToken(forcingRefresh: true)
             } catch let error as NSError {
-                // FIRAuthErrorCodeUserNotFound, FIRAuthErrorCodeUserDisabled,
-                // FIRAuthErrorCodeTokenExpired all land here.
                 dlog("⚠️ Auth token invalid on foreground: \(error.localizedDescription)")
                 await MainActor.run {
                     try? Auth.auth().signOut()
-                    // ContentView observes Auth.auth().currentUser and will redirect to sign-in
                 }
             }
         }

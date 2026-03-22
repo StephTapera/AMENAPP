@@ -66,20 +66,20 @@ struct SplashView: View {
         }
 
         // Step 3 — wordmark fade up
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.85) {
-            withAnimation(.easeOut(duration: 0.4)) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
+            withAnimation(.easeOut(duration: 0.3)) {
                 wordmarkOpacity = 1
                 wordmarkOffset  = 0
             }
         }
 
-        // Step 4 — exit
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-            withAnimation(.easeIn(duration: 0.45)) {
+        // Step 4 — exit (Threads-paced: hold just long enough to read, then cut)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.1) {
+            withAnimation(.easeIn(duration: 0.25)) {
                 exitOpacity = 0
                 exitScale   = 1.04
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
                 onComplete()
             }
         }

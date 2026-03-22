@@ -234,11 +234,11 @@ struct ContentView: View {
                     }
             }
         }
-        .animation(.easeInOut(duration: 0.3), value: authViewModel.needs2FAVerification)
-        .animation(.easeInOut(duration: 0.3), value: authViewModel.isAuthenticated)
-        .animation(.easeInOut(duration: 0.3), value: authViewModel.needsUsernameSelection)
-        .animation(.easeInOut(duration: 0.3), value: authViewModel.needsOnboarding)
-        .animation(.easeInOut(duration: 0.3), value: authViewModel.needsEmailVerification)
+        .animation(.easeOut(duration: 0.2), value: authViewModel.needs2FAVerification)
+        .animation(.easeOut(duration: 0.2), value: authViewModel.isAuthenticated)
+        .animation(.easeOut(duration: 0.2), value: authViewModel.needsUsernameSelection)
+        .animation(.easeOut(duration: 0.2), value: authViewModel.needsOnboarding)
+        .animation(.easeOut(duration: 0.2), value: authViewModel.needsEmailVerification)
         .fullScreenCover(isPresented: $authViewModel.showAuthSuccess) {
             AuthSuccessCheckmarkView(isPresented: $authViewModel.showAuthSuccess)
         }
@@ -337,7 +337,7 @@ struct ContentView: View {
                     .zIndex(10)
             }
         }
-        .animation(.easeInOut(duration: 0.5), value: isShowingLoadingScreen)
+        .animation(.easeOut(duration: 0.2), value: isShowingLoadingScreen)
     }
     
     @ViewBuilder
@@ -885,11 +885,11 @@ struct ContentView: View {
     /// Minimum: 2.5 s (lets the orbital discs complete ~1 full rotation visible).
     /// Maximum: 5 s (graceful timeout on very slow connections).
     private func waitForFeedReady() async {
-        // Short minimum so the logo doesn't flash — long enough for the animation to feel
-        // intentional. Posts are usually pre-warmed from cache so we exit at minimumDisplay.
-        let minimumDisplay: TimeInterval = 0.8
-        let maxWait: TimeInterval = 5.0
-        let pollInterval: TimeInterval = 0.15
+        // Minimum just long enough for the logo entrance to complete (~1 frame at 60fps).
+        // Posts are pre-warmed from Firestore local cache — exit as soon as they're ready.
+        let minimumDisplay: TimeInterval = 0.2
+        let maxWait: TimeInterval = 3.0
+        let pollInterval: TimeInterval = 0.1
         let start = Date()
 
         // Wait until BOTH conditions are met: posts loaded AND minimum time elapsed
