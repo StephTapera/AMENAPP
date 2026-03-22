@@ -44,6 +44,11 @@ bower_components
 # Compiled binary addons (http://nodejs.org/api/addons.html)
 build/Release
 
+# Xcode SPM build artifacts (SourcePackages, DerivedData, binary frameworks)
+# These are resolved automatically by Xcode and must not be committed.
+build/
+*.xcworkspace/xcshareddata/swiftpm/
+
 # Dependency directories
 node_modules/
 
