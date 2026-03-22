@@ -4318,6 +4318,7 @@ struct OpenTableView: View {
     @ObservedObject private var feedSession = FeedSessionManager.shared
     @ObservedObject private var caughtUpService = CaughtUpService.shared
     @ObservedObject private var firebasePostService = FirebasePostService.shared
+    @ObservedObject private var prefsService = AMENUserPreferencesService.shared
     @State private var showingOlderPosts = false   // true after user taps "View older posts"
     @State private var isRefreshing = false
     @State private var personalizedPosts: [Post] = []
@@ -4334,6 +4335,9 @@ struct OpenTableView: View {
     @State private var userHasScrolled = false  // True after user scrolls past initial batch
     @State private var initialScrollY: CGFloat? = nil  // Y position captured at session start for scroll detection
     @State private var isInitialLoad = true  // shows skeleton until first posts arrive
+
+    // MARK: - Composer
+    @State private var showCreatePost = false
 
     // MARK: - Pagination State
     @State private var visiblePostCount = 20 // Start with 20 posts
@@ -4384,10 +4388,17 @@ struct OpenTableView: View {
                     .transition(.move(edge: .top).combined(with: .opacity))
                 }
                 
-                // Daily Verse Banner
-                DailyVerseBanner()
+                // Daily Verse Banner (hidden if user disabled it in Settings)
+                if prefsService.preferences.dailyVerseWidgetEnabled {
+                    DailyVerseBanner()
+                        .padding(.horizontal)
+                }
+
+                // Feed Composer Row
+                FeedComposerRow { showCreatePost = true }
                     .padding(.horizontal)
-                
+                    .padding(.top, 4)
+
                 // Feed Section - Dynamic posts from PostsManager (Trending section removed)
                 LazyVStack(spacing: 16) {
                     let allPosts = hasPersonalized && !personalizedPosts.isEmpty ? personalizedPosts : postsManager.openTablePosts
@@ -4627,8 +4638,11 @@ struct OpenTableView: View {
         .fullScreenCover(isPresented: $showLocked) {
             ScrollBudgetLockedView()
         }
+        .sheet(isPresented: $showCreatePost) {
+            CreatePostView(initialCategory: .openTable)
+        }
     }
-    
+
     // MARK: - Helper to check if post belongs to current user
     
     private func isCurrentUserPost(_ post: Post) -> Bool {
