@@ -18,6 +18,7 @@ struct ContentView: View {
     
     // ⚡️ PERFORMANCE OPTIMIZED: Extract specific state instead of observing entire singletons
     // This prevents ContentView from redrawing on every singleton @Published change
+    @State private var showSplash: Bool = true     // Splash shown on first unauthenticated load
     @State private var totalBadgeCount: Int = 0
     @State private var showSundayPrompt: Bool = false
     @State private var showTimeoutWarning: Bool = false
@@ -117,21 +118,28 @@ struct ContentView: View {
                         AppReadyStateManager.shared.signalReady()
                     }
             } else if !authViewModel.isAuthenticated {
-                // Show sign-in view - pass the authViewModel so it's shared!
-                SignInView()
-                    .environmentObject(authViewModel)
-                    .transition(.opacity)
-                    .onAppear {
-                        dlog("🚦 [LAUNCH] ContentView → SignInView appeared (isAuthenticated=false)")
-                        // Only drop the loading overlay if there is no cached Firebase user.
-                        // When a cached user exists, AuthenticationViewModel is still resolving
-                        // auth state asynchronously — the overlay must stay up until mainContent
-                        // signals ready. Dropping it here (while isAuthenticated is transiently
-                        // false) causes the SignInView flash.
-                        if Auth.auth().currentUser == nil {
-                            AppReadyStateManager.shared.signalReady()
+                // Splash → auth landing → sign-in flow
+                ZStack {
+                    // Landing (underneath)
+                    AMENAuthLandingView()
+                        .environmentObject(authViewModel)
+                        .transition(.opacity)
+
+                    // Splash (on top, fades out after animation completes)
+                    if showSplash {
+                        SplashView {
+                            withAnimation(.easeIn(duration: 0.2)) { showSplash = false }
                         }
+                        .zIndex(1)
+                        .transition(.opacity)
                     }
+                }
+                .onAppear {
+                    dlog("🚦 [LAUNCH] ContentView → auth landing appeared (isAuthenticated=false)")
+                    if Auth.auth().currentUser == nil {
+                        AppReadyStateManager.shared.signalReady()
+                    }
+                }
             } else if authViewModel.needsUsernameSelection {
                 // Show username selection for social sign-in users (before onboarding)
                 UsernameSelectionView()
