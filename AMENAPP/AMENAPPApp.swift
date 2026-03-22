@@ -23,6 +23,7 @@ struct AMENAPPApp: App {
     
     @State private var currentUser: UserModel? = nil  // Store user for personalized welcome
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
+    @State private var showNotifOnboarding = false
 
     // PERFORMANCE: Store auth listener handle for cleanup
     @State private var authStateHandle: AuthStateDidChangeListenerHandle?
@@ -170,6 +171,7 @@ struct AMENAPPApp: App {
             ZStack {
                 ContentView()
                     .handleChurchDeepLinks()  // ✅ Handle church deep links
+                    .notificationOnboarding(isPresented: $showNotifOnboarding)
 
                 // ✅ P0-1: Under-13 hard block — full-screen gate when ageTier is "blocked".
                 // Overlays all app content and prevents any interaction. The only available
@@ -194,6 +196,15 @@ struct AMENAPPApp: App {
 
                     // ⚡️ PERFORMANCE OPTIMIZED: Parallel startup with instant UI
                     ScrollBudgetManager.shared.trackAppReopen()
+
+                    // Show notification permission onboarding once after first login.
+                    // Guard: only show when user is signed in and hasn't seen it yet.
+                    if Auth.auth().currentUser != nil,
+                       !UserDefaults.standard.bool(forKey: "notifOnboardingShown") {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                            showNotifOnboarding = true
+                        }
+                    }
 
                     // PARALLEL: All startup tasks run simultaneously.
                     // P0-C FIX: Use withTaskGroup so child tasks are properly cancelled

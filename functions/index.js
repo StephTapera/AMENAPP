@@ -627,6 +627,21 @@ const { processAccountDeletion } = require("./accountDeletion");
 exports.processAccountDeletion = processAccountDeletion;
 
 // ============================================================================
+// USER ACTIVITY & FCM TOKEN LIFECYCLE
+// onUserActivity     — callable: rate-limited lastActiveAt stamp (skip if <5 min)
+// onFcmTokenRefresh  — callable: saves token + timezoneOffset, keeps 5 most recent
+// onPostActivity     — trigger: stamp lastActiveAt on post creation
+// onPrayerActivity   — trigger: stamp lastActiveAt on prayer creation
+// onTestimonyActivity— trigger: stamp lastActiveAt + prayer arc hook on testimony link
+// ============================================================================
+const userActivity = require("./userActivityFunctions");
+exports.onUserActivity      = userActivity.onUserActivity;
+exports.onFcmTokenRefresh   = userActivity.onFcmTokenRefresh;
+exports.onPostActivity      = userActivity.onPostActivity;
+exports.onPrayerActivity    = userActivity.onPrayerActivity;
+exports.onTestimonyActivity = userActivity.onTestimonyActivity;
+
+// ============================================================================
 // BEREAN AI — All LLM calls go through these Cloud Functions.
 // Credentials (OPENAI_API_KEY, GOOGLE_VISION_API_KEY) are stored in
 // Firebase Secret Manager, never on device.
@@ -959,3 +974,11 @@ exports.computePrayerMomentum     = churchEnhancements.computePrayerMomentum;
 exports.generateFirstVisitGuide   = churchEnhancements.generateFirstVisitGuide;
 exports.inferUserLearningStyle    = churchEnhancements.inferUserLearningStyle;
 exports.inferPastorStyle          = churchEnhancements.inferPastorStyle;
+
+// ============================================================================
+// BEREAN FEATURE FUNCTIONS — semantic search, spiritual timeline, study guide
+// ============================================================================
+const bereanFeatures = require("./bereanFeatureFunctions");
+exports.bereanEmbedProxy          = bereanFeatures.bereanEmbedProxy;
+exports.generateSpiritualTimeline = bereanFeatures.generateSpiritualTimeline;
+exports.generateStudyGuide        = bereanFeatures.generateStudyGuide;
