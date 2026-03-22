@@ -59,6 +59,13 @@ struct FirestorePost: Codable, Identifiable {
     
     // Content source label — set when user acknowledges pasted/AI content
     var contentSource: String?
+
+    // Prayer Arc — testimony ↔ prayer link
+    var linkedPrayerRequestId: String?  // Set on testimony posts to link to originating prayer
+    var journeyDays: Int?               // Days from prayer creation to testimony date
+    var stoneCount: Int?                // Total stones laid on the prayer post
+    var intercessorUids: [String]?      // UIDs of users who prayed (stone layers)
+    var bereanArcInsight: String?       // Cached Claude phrase ("God answered in 42 days…")
     
     // Computed property for "time ago" display
     var timeAgo: String {
@@ -95,6 +102,11 @@ struct FirestorePost: Codable, Identifiable {
         case lightbulbUserIds
         case churchNoteId
         case contentSource
+        case linkedPrayerRequestId
+        case journeyDays
+        case stoneCount
+        case intercessorUids
+        case bereanArcInsight
     }
     
     init(from decoder: Decoder) throws {
@@ -134,6 +146,11 @@ struct FirestorePost: Codable, Identifiable {
         lightbulbUserIds = try container.decodeIfPresent([String].self, forKey: .lightbulbUserIds) ?? []
         churchNoteId = try container.decodeIfPresent(String.self, forKey: .churchNoteId)
         contentSource = try container.decodeIfPresent(String.self, forKey: .contentSource)
+        linkedPrayerRequestId = try container.decodeIfPresent(String.self, forKey: .linkedPrayerRequestId)
+        journeyDays = try container.decodeIfPresent(Int.self, forKey: .journeyDays)
+        stoneCount = try container.decodeIfPresent(Int.self, forKey: .stoneCount)
+        intercessorUids = try container.decodeIfPresent([String].self, forKey: .intercessorUids)
+        bereanArcInsight = try container.decodeIfPresent(String.self, forKey: .bereanArcInsight)
     }
     
     init(
@@ -258,6 +275,12 @@ struct FirestorePost: Codable, Identifiable {
             originalAuthorId: originalAuthorId,
             churchNoteId: churchNoteId,
             contentSource: contentSource
+        ).withPrayerArc(
+            linkedPrayerRequestId: linkedPrayerRequestId,
+            journeyDays: journeyDays,
+            stoneCount: stoneCount,
+            intercessorUids: intercessorUids,
+            bereanArcInsight: bereanArcInsight
         )
     }
     

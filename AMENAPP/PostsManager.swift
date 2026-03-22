@@ -65,6 +65,13 @@ struct Post: Identifiable, Codable, Equatable {
     // e.g. "ChatGPT", "External" — nil means organic/original
     var contentSource: String? = nil
 
+    // Prayer Arc — testimony ↔ prayer link
+    var linkedPrayerRequestId: String? = nil  // Set on testimony posts
+    var journeyDays: Int? = nil               // Days from prayer to testimony
+    var stoneCount: Int? = nil                // Total stones laid
+    var intercessorUids: [String]? = nil      // UIDs of stone layers
+    var bereanArcInsight: String? = nil       // Cached Claude insight phrase
+
     // Church tag — optional church the post is associated with
     var taggedChurchId: String? = nil
     var taggedChurchName: String? = nil
@@ -179,6 +186,7 @@ struct Post: Identifiable, Codable, Equatable {
         case taggedUserIds, tagStatusByUid
         case originalContent, detectedLanguage, isTranslated
         case contentSource
+        case linkedPrayerRequestId, journeyDays, stoneCount, intercessorUids, bereanArcInsight
     }
     
     init(from decoder: Decoder) throws {
@@ -229,8 +237,13 @@ struct Post: Identifiable, Codable, Equatable {
         detectedLanguage = try container.decodeIfPresent(String.self, forKey: .detectedLanguage)
         isTranslated = try container.decodeIfPresent(Bool.self, forKey: .isTranslated) ?? false
         contentSource = try container.decodeIfPresent(String.self, forKey: .contentSource)
+        linkedPrayerRequestId = try container.decodeIfPresent(String.self, forKey: .linkedPrayerRequestId)
+        journeyDays = try container.decodeIfPresent(Int.self, forKey: .journeyDays)
+        stoneCount = try container.decodeIfPresent(Int.self, forKey: .stoneCount)
+        intercessorUids = try container.decodeIfPresent([String].self, forKey: .intercessorUids)
+        bereanArcInsight = try container.decodeIfPresent(String.self, forKey: .bereanArcInsight)
     }
-    
+
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         

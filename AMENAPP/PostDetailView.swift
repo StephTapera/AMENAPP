@@ -233,6 +233,12 @@ struct PostDetailView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10)
 
+                    // ── Prayer Arc — testimony ↔ prayer link ─────────────────
+                    // Only shown on testimony posts with linkedPrayerRequestId set.
+                    if post.category == .testimonies {
+                        PrayerArcCard(testimonyPost: post)
+                    }
+
                     Divider()
 
                     // ── Conversation Thread (Threads-style wisdom UI) ────────

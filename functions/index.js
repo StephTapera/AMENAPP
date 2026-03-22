@@ -642,6 +642,15 @@ exports.onPrayerActivity    = userActivity.onPrayerActivity;
 exports.onTestimonyActivity = userActivity.onTestimonyActivity;
 
 // ============================================================================
+// PRAYER ARC — testimony ↔ prayer link notifications + Berean insight pill
+// onTestimonyLinked: FCM to intercessors when testimony links a prayer (once, idempotent)
+// generateArcInsight: Claude haiku phrase cached in posts/{id}.bereanArcInsight
+// ============================================================================
+const prayerArc = require("./prayerArcFunctions");
+exports.onTestimonyLinked  = prayerArc.onTestimonyLinked;
+exports.generateArcInsight = prayerArc.generateArcInsight;
+
+// ============================================================================
 // BEREAN AI — All LLM calls go through these Cloud Functions.
 // Credentials (OPENAI_API_KEY, GOOGLE_VISION_API_KEY) are stored in
 // Firebase Secret Manager, never on device.
