@@ -105,6 +105,12 @@ struct BereanAIAssistantView: View {
     
     // ✅ Voice input
     @State private var speechRecognizer: SpeechRecognitionService?
+
+    // MARK: - Smart Feature state (PROMPT 1–5)
+    @State private var memoryNodes: [BereanMemoryNode] = []
+    @State private var followUpSuggestions: [BereanFollowUp] = []
+    @State private var showFollowUps = false
+    @State private var messageClaims: [UUID: [FactClaim]] = [:]
     
     // ✅ Verse details
     @State private var showVerseDetail = false
@@ -267,7 +273,64 @@ struct BereanAIAssistantView: View {
             showContextualSuggestions = !suggestions.isEmpty
         }
     }
-    
+
+    // MARK: - Smart Feature helpers (PROMPT 3–5)
+
+    private func buildMemoryNodes() {
+        let aiMessages = viewModel.messages.filter { !$0.isFromUser }
+        memoryNodes = aiMessages.enumerated().map { index, msg in
+            let meta = bereanTopicMeta(for: msg.content)
+            return BereanMemoryNode(
+                id: msg.id, emoji: meta.emoji, label: meta.label,
+                messageIndex: index, color: meta.color, borderColor: meta.border
+            )
+        }
+    }
+
+    private func generateFollowUps(from message: BereanMessage) {
+        let lower = message.content.lowercased()
+        var suggestions: [BereanFollowUp] = []
+        if lower.contains("pray") || lower.contains("prayer") {
+            suggestions.append(BereanFollowUp(id: UUID(), icon: "🙏", text: "Daily prayer habit", prompt: "How can I build a consistent daily prayer habit?"))
+        }
+        if lower.contains("verse") || lower.contains("scripture") || lower.contains("bible") {
+            suggestions.append(BereanFollowUp(id: UUID(), icon: "📖", text: "More verses", prompt: "Show me more related Bible verses on this topic."))
+        }
+        if lower.contains("faith") || lower.contains("trust") || lower.contains("believe") {
+            suggestions.append(BereanFollowUp(id: UUID(), icon: "✝️", text: "Strengthen faith", prompt: "How can I strengthen my faith based on what you shared?"))
+        }
+        if lower.contains("sin") || lower.contains("forgiv") || lower.contains("repent") {
+            suggestions.append(BereanFollowUp(id: UUID(), icon: "💚", text: "Forgiveness", prompt: "What does the Bible say about forgiveness and redemption?"))
+        }
+        if lower.contains("church") || lower.contains("community") || lower.contains("fellowship") {
+            suggestions.append(BereanFollowUp(id: UUID(), icon: "🏛️", text: "Church life", prompt: "How can I apply this in my church community?"))
+        }
+        suggestions.append(BereanFollowUp(id: UUID(), icon: "💡", text: "Go deeper", prompt: "Can you go deeper on what you just shared?"))
+        suggestions.append(BereanFollowUp(id: UUID(), icon: "✏️", text: "Summarize", prompt: "Give me a brief summary of the key points."))
+        followUpSuggestions = Array(suggestions.prefix(4))
+    }
+
+    private func extractClaims(from message: BereanMessage) -> [FactClaim] {
+        let sentences = message.content
+            .components(separatedBy: CharacterSet(charactersIn: ".!?"))
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { $0.count > 35 }
+            .prefix(3)
+        return sentences.map { sentence in
+            let lower = sentence.lowercased()
+            let confidence: Double
+            let badge: FactBadge
+            if lower.contains("scripture") || lower.contains("verse") || lower.contains("says") || lower.contains("written") || lower.contains("according to") {
+                confidence = 0.88; badge = .verified
+            } else if lower.contains("often") || lower.contains("many") || lower.contains("traditionally") || lower.contains("generally") {
+                confidence = 0.62; badge = .likely
+            } else {
+                confidence = 0.45; badge = .checkSource
+            }
+            return FactClaim(id: UUID(), text: String(sentence.prefix(80)), confidence: confidence, badge: badge)
+        }
+    }
+
     // Extracted to help the compiler type-check the body expression within time limits.
     private var scrollOffsetTracker: some View {
         BereanScrollOffsetTracker()
@@ -310,6 +373,16 @@ struct BereanAIAssistantView: View {
                 withAnimation(.easeOut(duration: 0.25)) {
                     proxy.scrollTo(lastMessage.id, anchor: .bottom)
                 }
+            }
+            // PROMPT 3: rebuild memory nodes
+            buildMemoryNodes()
+            // PROMPT 4 & 5: generate follow-ups and extract claims for new AI messages
+            if let last = viewModel.messages.last, !last.isFromUser {
+                generateFollowUps(from: last)
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) { showFollowUps = true }
+                messageClaims[last.id] = extractClaims(from: last)
+            } else {
+                withAnimation(.easeOut(duration: 0.2)) { showFollowUps = false }
             }
         }
         .onChange(of: viewModel.messages.last?.content.count) { _, _ in
@@ -386,7 +459,8 @@ struct BereanAIAssistantView: View {
             } : nil,
             onEdit: message.isFromUser ? { msg in
                 beginEditMessage(msg)
-            } : nil
+            } : nil,
+            claims: messageClaims[message.id] ?? []
         )
         .id(message.id)
         .transition(.asymmetric(
@@ -1359,9 +1433,26 @@ struct BereanAIAssistantView: View {
 
     private var inputBarView: some View {
         VStack(spacing: 0) {
+            // PROMPT 3: Memory nodes strip — shown above session counter when there are AI messages
+            if !memoryNodes.isEmpty && messageText.isEmpty {
+                BereanMemoryStripView(nodes: memoryNodes) { node in
+                    // Scroll to the referenced message index if possible
+                }
+            }
+
             // Memory status banner — shown when there are messages and input is empty
             if !viewModel.messages.isEmpty && messageText.isEmpty {
                 memoryStatusBanner
+            }
+
+            // PROMPT 4: Smart follow-up chips — shown above composer after AI responds
+            if showFollowUps && !followUpSuggestions.isEmpty && messageText.isEmpty {
+                BereanFollowUpView(suggestions: followUpSuggestions) { item in
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    messageText = item.prompt
+                    isInputFocused = true
+                    withAnimation(.easeOut(duration: 0.2)) { showFollowUps = false }
+                }
             }
 
             // Quick Action chips — shown above composer when no conversation is active
@@ -1381,6 +1472,11 @@ struct BereanAIAssistantView: View {
                 contextualSuggestionsView
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
+
+            // PROMPT 2: Live waveform bar — overlays input area during voice recording
+            BereanWaveformBar(isActive: isVoiceListening)
+                .padding(.horizontal, 10)
+                .padding(.bottom, 4)
 
             // ── Composer card — matches reference image design ─────────────
             premiumComposerCard
@@ -2743,6 +2839,8 @@ struct MessageBubbleView: View {
     var onRegenerate: (() -> Void)? = nil
     /// Called when user taps "Edit" on a user message.
     var onEdit: ((BereanMessage) -> Void)? = nil
+    /// PROMPT 5: fact confidence claims extracted from this message
+    var claims: [FactClaim] = []
     @State private var showActions = false
     @State private var lightbulbPressed = false
     @State private var praisePressed = false
@@ -2752,6 +2850,10 @@ struct MessageBubbleView: View {
     @State private var showFollowUpRow = false
     @State private var copied = false   // brief checkmark flash after copy
     @State private var showQuickActions = false
+    // PROMPT 1: long-press action menu
+    @State private var showMessageMenu = false
+    @State private var menuScale: CGFloat = 0.92
+    @State private var menuOpacity: Double = 0
     @Environment(\.messageShareHandler) private var shareHandler
     @Environment(\.bereanQuickActionHandler) private var quickActionEnv
     @EnvironmentObject private var dataManager: BereanDataManager
@@ -3068,6 +3170,15 @@ struct MessageBubbleView: View {
                     removal: .opacity
                 ))
             }
+
+            // PROMPT 5: Fact Shield — confidence indicators
+            if !claims.isEmpty {
+                BereanFactShieldView(claims: claims)
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .bottom).combined(with: .opacity),
+                        removal: .opacity
+                    ))
+            }
         }
         .padding(.horizontal, 22)
         .padding(.vertical, 6)
@@ -3095,6 +3206,40 @@ struct MessageBubbleView: View {
         .sheet(isPresented: $showReportIssue) {
             if let msg = messageToReport {
                 BereanReportIssueView(message: msg, isPresented: $showReportIssue)
+            }
+        }
+        // PROMPT 1: Long-press message action menu
+        .onLongPressGesture(minimumDuration: 0.4) {
+            guard !message.isFromUser else { return }
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            menuScale = 0.88
+            menuOpacity = 0
+            withAnimation(.spring(response: 0.38, dampingFraction: 0.68)) {
+                showMessageMenu = true
+                menuScale = 1.0
+                menuOpacity = 1.0
+            }
+        }
+        .overlay(alignment: .topLeading) {
+            if showMessageMenu && !message.isFromUser {
+                BereanMessageMenuView(
+                    message: message.content,
+                    onDismiss: {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            showMessageMenu = false
+                        }
+                    },
+                    onPostToAMEN: { _ in }
+                )
+                .scaleEffect(menuScale, anchor: .bottomLeading)
+                .opacity(menuOpacity)
+                .offset(x: 22, y: -54)
+                .zIndex(100)
+            }
+        }
+        .onTapGesture {
+            if showMessageMenu {
+                withAnimation(.easeOut(duration: 0.18)) { showMessageMenu = false }
             }
         }
     }

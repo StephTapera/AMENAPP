@@ -2120,7 +2120,12 @@ struct UserProfileView: View {
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    
+
+                    // Mutual followers row — "Followed by name1, name2 and N others"
+                    if !mutualsVM.mutuals.isEmpty {
+                        MutualFollowersView(mutuals: mutualsVM.mutuals)
+                    }
+
                     // Action Buttons - P0-4: Hide when blocked or blockedBy
                     if !isBlocked && !isBlockedBy {
                         HStack(spacing: 12) {
