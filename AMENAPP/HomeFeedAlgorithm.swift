@@ -198,6 +198,13 @@ class HomeFeedAlgorithm: ObservableObject {
         if boostedPosts.contains(postId)          { score += 20 }
         if boostedAuthors.contains(post.authorId) { score += 15 }
 
+        // 13. Living Wall spiritual momentum (prayer/testimony posts only)
+        if post.category == .prayer || post.category == .testimonies {
+            let livingWallScore = LivingWallRanker.shared.score(post)
+            // Normalize to 0-10 contribution to avoid overpowering other signals
+            score += min(10, livingWallScore * 0.05)
+        }
+
         return min(100, max(0, score))
     }
     

@@ -11,6 +11,7 @@
 //
 
 import SwiftUI
+import Combine
 import FirebaseAuth
 import AVFoundation
 import Speech
@@ -1897,7 +1898,7 @@ struct BibleVerseChip: View {
                 if manager.loading.contains(reference) {
                     ProgressView().scaleEffect(0.7).padding(.leading, 8)
                 } else if let text = manager.verses[reference] {
-                    Text(""\(text)"")
+                    Text("\"\(text)\"")
                         .font(.system(size: 12, design: .serif).italic())
                         .foregroundStyle(.primary.opacity(0.8))
                         .padding(8)
@@ -1918,6 +1919,7 @@ struct HighlightableModifier: ViewModifier {
     let text: String
     let verse: String
     let church: String
+    var noteId: String = ""
     @State private var showSheet = false
 
     func body(content: Content) -> some View {
@@ -1936,14 +1938,24 @@ struct HighlightableModifier: ViewModifier {
                         "prayers": 0
                     ])
                 }
+                // Notes-to-Prayer Bridge: pre-seed a new prayer request from this verse/highlight
+                if !verse.isEmpty {
+                    Button("Turn into Prayer Request") {
+                        PrayerPreSeedState.shared.seed(
+                            verseReference: verse,
+                            verseText: text,
+                            noteId: noteId
+                        )
+                    }
+                }
                 Button("Cancel", role: .cancel) {}
             }
     }
 }
 
 extension View {
-    func highlightable(text: String, verse: String = "", church: String = "") -> some View {
-        modifier(HighlightableModifier(text: text, verse: verse, church: church))
+    func highlightable(text: String, verse: String = "", church: String = "", noteId: String = "") -> some View {
+        modifier(HighlightableModifier(text: text, verse: verse, church: church, noteId: noteId))
     }
 }
 
@@ -1953,8 +1965,8 @@ extension View {
 
 class ScriptureReminderManager: ObservableObject {
     @Published var isScheduled = false
-    private let intervals = [(label: "Tomorrow", days: 1), ("In 3 days", 3),
-                              ("In 1 week", 7), ("In 30 days", 30)]
+    private let intervals = [(label: "Tomorrow", days: 1), (label: "In 3 days", days: 3),
+                              (label: "In 1 week", days: 7), (label: "In 30 days", days: 30)]
 
     func schedule(verse: String, reference: String) {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { [weak self] granted, _ in
@@ -1970,7 +1982,7 @@ class ScriptureReminderManager: ObservableObject {
         for (label, days) in intervals {
             let content = UNMutableNotificationContent()
             content.title = "📖 Scripture Review"
-            content.body = "\(reference): "\(preview)""
+            content.body = "\(reference): \"\(preview)\""
             content.subtitle = label
             content.sound = .default
             var comps = Calendar.current.dateComponents([.year, .month, .day], from: Date())

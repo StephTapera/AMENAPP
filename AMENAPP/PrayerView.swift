@@ -129,6 +129,10 @@ struct PrayerView: View {
                 // MARK: Fruit of the Spirit Banner
                 FruitOfSpiritBannerView()
 
+                // MARK: Prayer Rooms
+                PrayerRoomsSection()
+                    .onAppear { PrayerRoomService.shared.loadUpcoming() }
+
                 // MARK: Posts Feed
                 LazyVStack(spacing: 16) {
                     // Snapshot once — avoids triple filter+sort on every body re-evaluation.
@@ -167,6 +171,11 @@ struct PrayerView: View {
                 }
                 .padding(.horizontal)
         }
+        .overlay(alignment: .bottom) {
+            BurdenMatchPrompt()
+                .padding(.bottom, 16)
+                .animation(.spring(response: 0.4, dampingFraction: 0.7), value: BurdenMatchService.shared.showMatchPrompt)
+        }
         .task {
             // Keep listener alive across tab switches — only start if not already active
             FirebasePostService.shared.startListening(category: .prayer)
@@ -175,6 +184,8 @@ struct PrayerView: View {
                 rankPrayerRequests()
                 hasRanked = true
             }
+            // Check for burden matches in background
+            BurdenMatchService.shared.checkForMatches()
         }
         .onAppear {
             tabHaptic.prepare()

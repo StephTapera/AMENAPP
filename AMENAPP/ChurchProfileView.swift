@@ -215,6 +215,11 @@ struct ChurchProfileView: View {
                 .padding(.horizontal, 20)
                 .padding(.top, 16)
 
+            // Church Pulse — active prayers + recent testimonies for this church
+            ChurchPulseSection(churchId: profileData.church.id)
+                .padding(.horizontal, 20)
+                .padding(.top, 16)
+
             // Plan My Visit (Feature 05)
             Button {
                 showPlanVisit = true
