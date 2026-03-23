@@ -12,6 +12,11 @@
 
 import SwiftUI
 import FirebaseAuth
+import AVFoundation
+import Speech
+import Vision
+import UserNotifications
+import FirebaseFirestore
 #if canImport(MusicKit)
 import MusicKit
 #endif
@@ -65,6 +70,18 @@ struct EnhancedChurchNoteEditor: View {
     // Music: worship songs attached to this note
     @State private var worshipSongs: [WorshipSongReference] = []
     @State private var showSongSearch = false
+
+    // Feature 01: Live Sermon Transcription
+    @State private var showTranscription = false
+
+    // Feature 02: Photo → Structured Notes
+    @State private var showPhotoScan = false
+
+    // Feature 03: Bible Verse Linking
+    @StateObject private var verseManager = BibleVerseManager()
+
+    // Feature 08: Scripture Reminders
+    @StateObject private var reminderManager = ScriptureReminderManager()
 
     // Feature 1: Claude auto-tagging
     @State private var detectedTags: [String] = []
@@ -232,6 +249,15 @@ struct EnhancedChurchNoteEditor: View {
                     worshipSongs.append(song)
                     trackUnsavedChanges()
                 }
+            }
+        }
+        .sheet(isPresented: $showTranscription) {
+            SermonTranscriptionView(noteId: existingNote?.id ?? UUID().uuidString)
+        }
+        .sheet(isPresented: $showPhotoScan) {
+            PhotoNotesScanSheet { extracted in
+                content += (content.isEmpty ? "" : "\n\n") + extracted
+                trackUnsavedChanges()
             }
         }
     }
@@ -530,21 +556,27 @@ struct EnhancedChurchNoteEditor: View {
 
             // Verse preview — slides in below the field
             if showVersePreview, let verse = verseText {
-                Text(verse)
-                    .font(.system(size: 12, design: .serif).italic())
-                    .foregroundStyle(.black.opacity(0.75))
-                    .padding(12)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10)
-                            .fill(Color(red: 0.498, green: 0.467, blue: 0.867).opacity(0.08))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 10)
-                                    .strokeBorder(Color(red: 0.498, green: 0.467, blue: 0.867).opacity(0.2), lineWidth: 1)
-                            )
-                    )
-                    .padding(.horizontal, 20)
-                    .transition(.move(edge: .top).combined(with: .opacity))
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(verse)
+                        .font(.system(size: 12, design: .serif).italic())
+                        .foregroundStyle(.black.opacity(0.75))
+                        .padding(12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(Color(red: 0.498, green: 0.467, blue: 0.867).opacity(0.08))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .strokeBorder(Color(red: 0.498, green: 0.467, blue: 0.867).opacity(0.2), lineWidth: 1)
+                                )
+                        )
+                        .highlightable(text: verse, verse: scripture, church: churchName)
+
+                    // Feature 08: Scripture reminder cadence
+                    ScriptureReminderView(verse: verse, reference: scripture)
+                }
+                .padding(.horizontal, 20)
+                .transition(.move(edge: .top).combined(with: .opacity))
             }
 
             // UX-3: Show detected scriptures from content
@@ -558,20 +590,7 @@ struct EnhancedChurchNoteEditor: View {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
                             ForEach(detectedScriptures, id: \.self) { ref in
-                                Button {
-                                    scripture = ref
-                                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                                } label: {
-                                    HStack(spacing: 4) {
-                                        Image(systemName: "book.fill").font(.system(size: 10))
-                                        Text(ref).font(.system(size: 13))
-                                    }
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 6)
-                                    .background(Color.blue.opacity(0.1))
-                                    .foregroundStyle(.blue)
-                                    .cornerRadius(12)
-                                }
+                                BibleVerseChip(reference: ref, manager: verseManager)
                             }
                         }
                         .padding(.horizontal, 20)
@@ -730,6 +749,14 @@ struct EnhancedChurchNoteEditor: View {
 
                     QuickInsertButton(icon: "music.note", label: "Add Song") {
                         showSongSearch = true
+                    }
+
+                    QuickInsertButton(icon: "mic.fill", label: "Record") {
+                        showTranscription = true
+                    }
+
+                    QuickInsertButton(icon: "camera.viewfinder", label: "Scan") {
+                        showPhotoScan = true
                     }
                 }
                 .padding(.horizontal, 20)
@@ -1535,5 +1562,452 @@ struct TagWrapLayout: Layout {
         }
         result.size = CGSize(width: maxWidth, height: y + rowHeight)
         return result
+    }
+}
+
+// ================================================================
+// FEATURE 01 — LIVE SERMON TRANSCRIPTION
+// ================================================================
+
+class SermonTranscriptionManager: NSObject, ObservableObject {
+    private let speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
+    private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
+    private var recognitionTask: SFSpeechRecognitionTask?
+    private let audioEngine = AVAudioEngine()
+
+    @Published var transcript = ""
+    @Published var isRecording = false
+    @Published var elapsed: TimeInterval = 0
+    @Published var errorMessage: String?
+
+    private var startTime: Date?
+    private var timer: Timer?
+
+    func requestPermissions() {
+        SFSpeechRecognizer.requestAuthorization { _ in }
+        AVAudioSession.sharedInstance().requestRecordPermission { _ in }
+    }
+
+    func start() {
+        guard !(speechRecognizer?.isAvailable ?? false) == false, !audioEngine.isRunning else { return }
+        do {
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.record, mode: .measurement, options: .duckOthers)
+            try session.setActive(true, options: .notifyOthersOnDeactivation)
+        } catch {
+            errorMessage = "Audio session error: \(error.localizedDescription)"
+            return
+        }
+
+        recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
+        guard let req = recognitionRequest, let recognizer = speechRecognizer else { return }
+        req.shouldReportPartialResults = true
+
+        startTime = Date()
+        isRecording = true
+        timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+            guard let self, let s = self.startTime else { return }
+            DispatchQueue.main.async { self.elapsed = Date().timeIntervalSince(s) }
+        }
+
+        recognitionTask = recognizer.recognitionTask(with: req) { [weak self] result, error in
+            if let result {
+                DispatchQueue.main.async {
+                    self?.transcript = result.bestTranscription.formattedString
+                }
+            }
+            if error != nil || (result?.isFinal ?? false) {
+                self?.stop()
+            }
+        }
+
+        let node = audioEngine.inputNode
+        let fmt = node.outputFormat(forBus: 0)
+        node.installTap(onBus: 0, bufferSize: 1024, format: fmt) { buf, _ in req.append(buf) }
+        audioEngine.prepare()
+        try? audioEngine.start()
+    }
+
+    func stop() {
+        audioEngine.stop()
+        audioEngine.inputNode.removeTap(onBus: 0)
+        recognitionRequest?.endAudio()
+        recognitionTask?.cancel()
+        timer?.invalidate()
+        DispatchQueue.main.async { self.isRecording = false }
+    }
+
+    func timeString(_ t: TimeInterval) -> String {
+        String(format: "%02d:%02d", Int(t) / 60, Int(t) % 60)
+    }
+
+    func save(noteId: String) {
+        guard let uid = Auth.auth().currentUser?.uid, !transcript.isEmpty else { return }
+        Firestore.firestore()
+            .collection("users").document(uid)
+            .collection("notes").document(noteId)
+            .updateData([
+                "transcript": transcript,
+                "audioDuration": elapsed,
+                "updatedAt": FieldValue.serverTimestamp()
+            ])
+    }
+}
+
+struct SermonTranscriptionView: View {
+    @StateObject private var mgr = SermonTranscriptionManager()
+    let noteId: String
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 0) {
+                // Control bar
+                HStack(spacing: 14) {
+                    Circle()
+                        .fill(mgr.isRecording ? Color.red : Color.gray.opacity(0.4))
+                        .frame(width: 10, height: 10)
+                        .animation(.easeInOut(duration: 0.5).repeatForever(autoreverses: true), value: mgr.isRecording)
+
+                    Text(mgr.isRecording ? mgr.timeString(mgr.elapsed) : "00:00")
+                        .font(.system(.footnote, design: .monospaced))
+                        .foregroundStyle(.secondary)
+
+                    Spacer()
+
+                    if let err = mgr.errorMessage {
+                        Text(err).font(.caption).foregroundStyle(.red).lineLimit(1)
+                    }
+
+                    Button(mgr.isRecording ? "Stop" : "Record") {
+                        if mgr.isRecording {
+                            mgr.stop()
+                            mgr.save(noteId: noteId)
+                        } else {
+                            mgr.start()
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(mgr.isRecording ? .red : .accentColor)
+                }
+                .padding()
+                .background(Color(.systemGray6))
+
+                ScrollView {
+                    if mgr.transcript.isEmpty {
+                        Text("Tap Record to start transcribing your sermon in real time.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(40)
+                    } else {
+                        Text(mgr.transcript)
+                            .font(.body)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding()
+                    }
+                }
+            }
+            .navigationTitle("Live Transcription")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Done") {
+                        if mgr.isRecording { mgr.stop() }
+                        dismiss()
+                    }
+                }
+            }
+            .onAppear { mgr.requestPermissions() }
+            .onDisappear {
+                if mgr.isRecording { mgr.stop(); mgr.save(noteId: noteId) }
+            }
+        }
+    }
+}
+
+// ================================================================
+// FEATURE 02 — PHOTO → STRUCTURED NOTES
+// ================================================================
+
+class PhotoNotesManager: ObservableObject {
+    @Published var isProcessing = false
+    @Published var error: String?
+
+    func process(image: UIImage, completion: @escaping (String) -> Void) {
+        isProcessing = true
+        guard let cg = image.cgImage else { isProcessing = false; return }
+        let req = VNRecognizeTextRequest { [weak self] req, _ in
+            let raw = (req.results as? [VNRecognizedTextObservation])?
+                .compactMap { $0.topCandidates(1).first?.string }
+                .joined(separator: "\n") ?? ""
+            DispatchQueue.main.async {
+                self?.isProcessing = false
+                completion(raw)
+            }
+        }
+        req.recognitionLevel = .accurate
+        req.usesLanguageCorrection = true
+        DispatchQueue.global(qos: .userInitiated).async {
+            try? VNImageRequestHandler(cgImage: cg, options: [:]).perform([req])
+        }
+    }
+}
+
+struct PhotoNotesScanSheet: View {
+    let onExtracted: (String) -> Void
+    @StateObject private var mgr = PhotoNotesManager()
+    @State private var showPicker = false
+    @State private var extractedText = ""
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 20) {
+                if mgr.isProcessing {
+                    ProgressView("Reading content…").padding(40)
+                } else if !extractedText.isEmpty {
+                    ScrollView {
+                        Text(extractedText)
+                            .font(.body)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding()
+                    }
+                    Button("Insert into Note") {
+                        onExtracted(extractedText)
+                        dismiss()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal)
+                } else {
+                    VStack(spacing: 16) {
+                        Image(systemName: "camera.viewfinder")
+                            .font(.system(size: 64))
+                            .foregroundStyle(.secondary)
+                        Text("Scan a bulletin, slide, or whiteboard\nto extract text into your notes.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                        Button { showPicker = true } label: {
+                            Label("Open Camera", systemImage: "camera.fill")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .padding(.horizontal)
+                    }
+                    .padding(40)
+                }
+            }
+            .navigationTitle("Scan Bulletin")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") { dismiss() }
+                }
+                if !extractedText.isEmpty {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button("Scan Again") { extractedText = ""; showPicker = true }
+                    }
+                }
+            }
+            .sheet(isPresented: $showPicker) {
+                NotesCameraPickerView { image in
+                    mgr.process(image: image) { text in
+                        extractedText = text
+                    }
+                }
+            }
+        }
+    }
+}
+
+struct NotesCameraPickerView: UIViewControllerRepresentable {
+    let onCapture: (UIImage) -> Void
+    @Environment(\.dismiss) var dismiss
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+    func makeUIViewController(context: Context) -> UIImagePickerController {
+        let p = UIImagePickerController()
+        p.sourceType = UIImagePickerController.isSourceTypeAvailable(.camera) ? .camera : .photoLibrary
+        p.delegate = context.coordinator
+        return p
+    }
+    func updateUIViewController(_ vc: UIImagePickerController, context: Context) {}
+
+    class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+        let parent: NotesCameraPickerView
+        init(_ p: NotesCameraPickerView) { parent = p }
+        func imagePickerController(_ p: UIImagePickerController,
+                                   didFinishPickingMediaWithInfo i: [UIImagePickerController.InfoKey: Any]) {
+            if let img = i[.originalImage] as? UIImage { parent.onCapture(img) }
+            parent.dismiss()
+        }
+        func imagePickerControllerDidCancel(_ p: UIImagePickerController) { parent.dismiss() }
+    }
+}
+
+// ================================================================
+// FEATURE 03 — LIVE BIBLE VERSE LINKING
+// ================================================================
+
+class BibleVerseManager: ObservableObject {
+    @Published var verses: [String: String] = [:]
+    @Published var loading: Set<String> = []
+
+    func fetchVerse(_ ref: String) {
+        guard !loading.contains(ref), verses[ref] == nil else { return }
+        loading.insert(ref)
+        Task {
+            let text = try? await NoteTagService.lookupVerse(reference: ref)
+            await MainActor.run {
+                loading.remove(ref)
+                if let text { verses[ref] = text }
+            }
+        }
+    }
+}
+
+struct BibleVerseChip: View {
+    let reference: String
+    @ObservedObject var manager: BibleVerseManager
+    @State private var expanded = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Button {
+                expanded.toggle()
+                if expanded { manager.fetchVerse(reference) }
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: "book.closed")
+                    Text(reference)
+                    Image(systemName: expanded ? "chevron.up" : "chevron.down")
+                }
+                .font(.system(size: 12, design: .serif))
+                .foregroundStyle(.orange)
+                .padding(.horizontal, 10).padding(.vertical, 5)
+                .background(Color.orange.opacity(0.1))
+                .cornerRadius(20)
+            }
+            .buttonStyle(.plain)
+
+            if expanded {
+                if manager.loading.contains(reference) {
+                    ProgressView().scaleEffect(0.7).padding(.leading, 8)
+                } else if let text = manager.verses[reference] {
+                    Text(""\(text)"")
+                        .font(.system(size: 12, design: .serif).italic())
+                        .foregroundStyle(.primary.opacity(0.8))
+                        .padding(8)
+                        .background(Color.orange.opacity(0.06))
+                        .cornerRadius(8)
+                        .highlightable(text: text, verse: reference, church: "")
+                }
+            }
+        }
+    }
+}
+
+// ================================================================
+// FEATURE 07 — SHARE HIGHLIGHTS TO FEED
+// ================================================================
+
+struct HighlightableModifier: ViewModifier {
+    let text: String
+    let verse: String
+    let church: String
+    @State private var showSheet = false
+
+    func body(content: Content) -> some View {
+        content.onLongPressGesture { showSheet = true }
+            .confirmationDialog("Share highlight", isPresented: $showSheet) {
+                Button("Post to AMEN Feed") {
+                    guard let uid = Auth.auth().currentUser?.uid else { return }
+                    Firestore.firestore().collection("communityFeed").addDocument(data: [
+                        "type": "highlight",
+                        "quote": text,
+                        "verseRef": verse,
+                        "churchName": church,
+                        "authorId": uid,
+                        "createdAt": FieldValue.serverTimestamp(),
+                        "likes": 0,
+                        "prayers": 0
+                    ])
+                }
+                Button("Cancel", role: .cancel) {}
+            }
+    }
+}
+
+extension View {
+    func highlightable(text: String, verse: String = "", church: String = "") -> some View {
+        modifier(HighlightableModifier(text: text, verse: verse, church: church))
+    }
+}
+
+// ================================================================
+// FEATURE 08 — SCRIPTURE REMINDER CADENCE
+// ================================================================
+
+class ScriptureReminderManager: ObservableObject {
+    @Published var isScheduled = false
+    private let intervals = [(label: "Tomorrow", days: 1), ("In 3 days", 3),
+                              ("In 1 week", 7), ("In 30 days", 30)]
+
+    func schedule(verse: String, reference: String) {
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { [weak self] granted, _ in
+            guard granted else { return }
+            self?.createNotifications(verse: verse, reference: reference)
+            DispatchQueue.main.async { self?.isScheduled = true }
+        }
+    }
+
+    private func createNotifications(verse: String, reference: String) {
+        let center = UNUserNotificationCenter.current()
+        let preview = verse.count > 80 ? String(verse.prefix(80)) + "…" : verse
+        for (label, days) in intervals {
+            let content = UNMutableNotificationContent()
+            content.title = "📖 Scripture Review"
+            content.body = "\(reference): "\(preview)""
+            content.subtitle = label
+            content.sound = .default
+            var comps = Calendar.current.dateComponents([.year, .month, .day], from: Date())
+            comps.day = (comps.day ?? 0) + days
+            comps.hour = 8; comps.minute = 0
+            let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: false)
+            let id = "sr_\(reference.filter { $0.isLetter || $0.isNumber })_\(days)"
+            center.add(UNNotificationRequest(identifier: id, content: content, trigger: trigger))
+        }
+    }
+
+    func cancel(reference: String) {
+        let ids = intervals.map { "sr_\(reference.filter { $0.isLetter || $0.isNumber })_\($0.days)" }
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ids)
+        isScheduled = false
+    }
+}
+
+struct ScriptureReminderView: View {
+    let verse: String
+    let reference: String
+    @StateObject private var mgr = ScriptureReminderManager()
+
+    var body: some View {
+        Button {
+            if mgr.isScheduled { mgr.cancel(reference: reference) }
+            else { mgr.schedule(verse: verse, reference: reference) }
+        } label: {
+            Label(
+                mgr.isScheduled ? "Reminders On ✓" : "Memorize This Verse",
+                systemImage: mgr.isScheduled ? "bell.fill" : "bell.badge"
+            )
+            .font(.system(size: 12, weight: .medium))
+            .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.bordered)
+        .tint(mgr.isScheduled ? .green : .orange)
+        .controlSize(.small)
     }
 }
