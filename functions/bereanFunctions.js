@@ -792,3 +792,127 @@ exports.deleteAccount = onCall(
       return {success: true};
     },
 );
+
+// ─── Sermon Week Plan Generator ───────────────────────────────────────────────
+// Called by SermonWeekTransformationService.swift
+// Input:  { title, topic, keyVerses, keyPoints, pastorName, date }
+// Output: { days: [{ title, prompt, scriptureReference, actionStep, reflectionQuestion }] }
+exports.bereanSermonWeekPlan = onCall(
+    {region: REGION, secrets: [OPENAI_API_KEY], enforceAppCheck: false},
+    async (request) => {
+      if (!request.auth) throw new HttpsError("unauthenticated", "Sign in required.");
+
+      const {title, topic, keyVerses, keyPoints, pastorName} = request.data;
+      if (!topic || !keyVerses || !keyPoints) {
+        throw new HttpsError("invalid-argument", "topic, keyVerses, and keyPoints are required.");
+      }
+
+      const dayFocuses = [
+        {name: "Identify", desc: "Recognize how this truth applies to your life"},
+        {name: "Meditate", desc: "Go deeper into the scripture"},
+        {name: "Pray", desc: "Bring this area to God specifically"},
+        {name: "Act", desc: "Take a concrete step of obedience"},
+        {name: "Share", desc: "Encourage someone with what you've learned"},
+        {name: "Reflect", desc: "Evaluate the week's impact on your life"},
+      ];
+
+      const systemPrompt = `You are a discipleship content generator for the AMEN app.
+Given a Sunday sermon's topic, key verses, and key points, generate a 6-day growth plan (Monday through Saturday).
+Each day has a specific focus: ${dayFocuses.map((d) => d.name).join(", ")}.
+
+Return ONLY valid JSON with this structure:
+{
+  "days": [
+    {
+      "title": "Day title (focus: topic)",
+      "prompt": "The main reflection prompt for the day",
+      "scriptureReference": "A relevant verse reference",
+      "actionStep": "A concrete action to take",
+      "reflectionQuestion": "A journaling question"
+    }
+  ]
+}
+
+Guidelines:
+- Each day should build on the previous
+- Use actual scripture references (Book Chapter:Verse)
+- Action steps should be specific and doable
+- Questions should be personal and introspective
+- Tone: warm, challenging, pastoral
+- Day 1 (Identify): help them see the truth in their life
+- Day 2 (Meditate): go deeper into a specific verse
+- Day 3 (Pray): guide focused prayer
+- Day 4 (Act): give a concrete obedience step
+- Day 5 (Share): encourage sharing with others
+- Day 6 (Reflect): evaluate the week's growth`;
+
+      const userPrompt = `Sermon: "${title || topic}"
+Topic: ${topic}
+Key Verses: ${keyVerses.join(", ")}
+Key Points: ${keyPoints.join("; ")}
+${pastorName ? `Pastor: ${pastorName}` : ""}
+
+Generate the 6-day plan as JSON.`;
+
+      try {
+        const content = await callOpenAI(OPENAI_API_KEY.value(), systemPrompt, userPrompt, 1500, 0.6);
+        const parsed = JSON.parse(content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim());
+        return parsed;
+      } catch (e) {
+        console.error("bereanSermonWeekPlan error:", e);
+        throw new HttpsError("internal", "Failed to generate sermon week plan.");
+      }
+    },
+);
+
+// ─── Spiritual Graph Analysis ─────────────────────────────────────────────────
+// Called by PersonalSpiritualGraphService for deeper pattern analysis.
+// Input:  { patterns: [{ category, count, avgIntensity, isRecurring }], rhythms: [{ rhythm, engagements, isConsistent }] }
+// Output: { insight, suggestedFocus, suggestedVerse, encouragement }
+exports.bereanSpiritualGraphAnalysis = onCall(
+    {region: REGION, secrets: [OPENAI_API_KEY], enforceAppCheck: false},
+    async (request) => {
+      if (!request.auth) throw new HttpsError("unauthenticated", "Sign in required.");
+
+      const {patterns, rhythms} = request.data;
+      if (!patterns) {
+        throw new HttpsError("invalid-argument", "patterns array is required.");
+      }
+
+      const systemPrompt = `You are a pastoral AI assistant analyzing anonymized spiritual growth patterns.
+Given a user's struggle patterns and spiritual rhythm data, provide a brief, personalized insight.
+
+Return ONLY valid JSON:
+{
+  "insight": "A 1-2 sentence personalized observation about their spiritual state",
+  "suggestedFocus": "The one area they should focus on this week",
+  "suggestedVerse": "One scripture reference that speaks to their situation (Book Chapter:Verse)",
+  "encouragement": "A brief word of encouragement grounded in Scripture"
+}
+
+Guidelines:
+- Be pastoral and warm, never clinical
+- Focus on growth, not shame
+- If recurring struggles are present, acknowledge them with hope
+- If rhythms are consistent, celebrate them
+- Always ground suggestions in Scripture
+- Never diagnose or label the person`;
+
+      const userPrompt = `Patterns (struggles):
+${(patterns || []).map((p) => `- ${p.category}: ${p.count} times, intensity ${p.avgIntensity}, recurring: ${p.isRecurring}`).join("\n")}
+
+Rhythms (positive disciplines):
+${(rhythms || []).map((r) => `- ${r.rhythm}: ${r.engagements} engagements, consistent: ${r.isConsistent}`).join("\n")}
+
+Provide pastoral insight as JSON.`;
+
+      try {
+        const content = await callOpenAI(OPENAI_API_KEY.value(), systemPrompt, userPrompt, 500, 0.5);
+        const parsed = JSON.parse(content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim());
+        return parsed;
+      } catch (e) {
+        console.error("bereanSpiritualGraphAnalysis error:", e);
+        throw new HttpsError("internal", "Failed to analyze spiritual graph.");
+      }
+    },
+);
