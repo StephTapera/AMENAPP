@@ -916,3 +916,60 @@ Provide pastoral insight as JSON.`;
       }
     },
 );
+
+// ─── Seasonal Prompt Generator ────────────────────────────────────────────────
+// Called by SeasonalPromptService / HolidayReflectionJourneyService
+// for AI-generated seasonal reflection content.
+// Input:  { season, holiday, userContext, promptType }
+// Output: { reflection, scripture, actionStep, prayer, followUpQuestion }
+exports.bereanSeasonalPrompt = onCall(
+    {region: REGION, secrets: [OPENAI_API_KEY], enforceAppCheck: false},
+    async (request) => {
+      if (!request.auth) throw new HttpsError("unauthenticated", "Sign in required.");
+
+      const {season, holiday, userContext, promptType} = request.data;
+      if (!season) {
+        throw new HttpsError("invalid-argument", "season is required.");
+      }
+
+      const systemPrompt = `You are a pastoral AI assistant generating seasonal spiritual content for the AMEN app.
+The current Christian season is: ${season}${holiday ? ` (specifically: ${holiday})` : ""}.
+
+Generate a personalized seasonal reflection appropriate for this time in the Christian calendar.
+
+Return ONLY valid JSON:
+{
+  "reflection": "A 2-3 sentence seasonal reflection connecting the user's situation to the current season",
+  "scripture": "A relevant scripture reference (Book Chapter:Verse)",
+  "actionStep": "A concrete action the user can take today that connects to the season",
+  "prayer": "A short prayer (2-3 sentences) appropriate for the season",
+  "followUpQuestion": "A thought-provoking question for further reflection"
+}
+
+Guidelines:
+- Be warm, pastoral, and seasonally appropriate
+- Match the tone to the season (contemplative for Advent, reflective for Lent, joyful for Easter, bold for Pentecost)
+- Ground everything in Scripture
+- Never be manipulative, guilt-driven, or performance-focused
+- Always preserve dignity and grace
+- If the user seems isolated, gently encourage real community
+- Never replace church or pastoral care with app content
+- Keep it reverent, not commercial or gimmicky`;
+
+      const userPrompt = `Season: ${season}
+${holiday ? `Holiday: ${holiday}` : ""}
+${userContext ? `User context: ${userContext}` : ""}
+Prompt type: ${promptType || "reflection"}
+
+Generate a seasonal reflection as JSON.`;
+
+      try {
+        const content = await callOpenAI(OPENAI_API_KEY.value(), systemPrompt, userPrompt, 600, 0.6);
+        const parsed = JSON.parse(content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim());
+        return parsed;
+      } catch (e) {
+        console.error("bereanSeasonalPrompt error:", e);
+        throw new HttpsError("internal", "Failed to generate seasonal prompt.");
+      }
+    },
+);
